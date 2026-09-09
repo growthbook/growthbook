@@ -43,6 +43,7 @@ type Props = {
   step: number;
   setStep: (step: number) => void;
   secondaryCTA?: ReactElement;
+  aboveFooterContent?: ReactNode;
   className?: string;
   bodyClassName?: string;
   stickyFooter?: boolean;
@@ -80,6 +81,7 @@ const PagedModal: FC<Props> = (props) => {
     forceCtaText,
     inline,
     secondaryCTA,
+    aboveFooterContent,
     size,
     className,
     bodyClassName,
@@ -348,6 +350,7 @@ const PagedModal: FC<Props> = (props) => {
         )
       }
       ctaEnabled={ctaEnabled}
+      aboveFooterContent={aboveFooterContent}
       trackingEventModalType={trackingEventModalType}
       trackingEventModalSource={trackingEventModalSource}
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}

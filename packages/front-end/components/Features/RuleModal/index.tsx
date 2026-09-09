@@ -19,7 +19,12 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretRight,
+  PiCheckBold,
+  PiWarningFill,
+} from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
@@ -71,8 +76,14 @@ import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewE
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
+import {
+  countRampFallthroughRules,
+  getRampStartImpact,
+  type RampStartImpact,
+} from "@/components/Features/RuleModal/rampStartImpact";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
 import {
@@ -193,6 +204,100 @@ export const RAMP_TO_NEW_VALUE_CARRIED_FIELDS = [
 export interface RampToNewValueSeed {
   rule: Record<(typeof RAMP_TO_NEW_VALUE_CARRIED_FIELDS)[number], unknown>;
   ramp: RampSectionState;
+}
+
+// Full-bleed amber strip above the modal CTAs: warns that saving this ramp
+// takes traffic away from an already-published rule, and gates Save behind an
+// explicit acknowledgment.
+function RampImpactBanner({
+  impact,
+  fallthroughPhrase,
+  acknowledged,
+  onToggleAcknowledged,
+  onRampToNewValue,
+}: {
+  impact: NonNullable<RampStartImpact>;
+  fallthroughPhrase: string;
+  acknowledged: boolean;
+  onToggleAcknowledged: () => void;
+  onRampToNewValue?: () => void;
+}) {
+  return (
+    <Flex
+      align="center"
+      justify="between"
+      gap="4"
+      px="4"
+      py="2"
+      style={{
+        background: "var(--amber-a3)",
+        borderTop: "1px solid var(--amber-a5)",
+        color: "var(--amber-11)",
+      }}
+    >
+      <Flex align="center" gap="2">
+        <PiWarningFill size={15} style={{ flexShrink: 0 }} />
+        <Text as="div">
+          This ramp-up will override an already-published rule.{" "}
+          {impact.kind === "coverage-drop" ? (
+            <>
+              Unenrolled users ({100 - impact.toPct}%) will fall through to{" "}
+              {fallthroughPhrase}.
+            </>
+          ) : (
+            <>
+              This rule will be disabled until the ramp-up starts; until then,
+              all traffic will fall through to {fallthroughPhrase}.
+            </>
+          )}
+        </Text>
+      </Flex>
+      <Flex align="center" gap="3" flexShrink="0">
+        {onRampToNewValue && (
+          <Tooltip
+            body="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
+            tipPosition="top"
+          >
+            <Button variant="outline" size="md" onClick={onRampToNewValue}>
+              Ramp to new value
+            </Button>
+          </Tooltip>
+        )}
+        <Button
+          variant="ghost"
+          size="md"
+          color="inherit"
+          aria-pressed={acknowledged}
+          onClick={onToggleAcknowledged}
+        >
+          <Flex align="center" gap="2">
+            {/* Checkbox lookalike (a real one nests a button inside this
+                button); the button is the control. */}
+            <Flex
+              align="center"
+              justify="center"
+              flexShrink="0"
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: "var(--radius-1)",
+                boxShadow: acknowledged
+                  ? "none"
+                  : "inset 0 0 0 1px var(--gray-a7)",
+                background: acknowledged
+                  ? "var(--violet-9)"
+                  : "var(--color-surface)",
+                color: "var(--white-a12)",
+              }}
+            >
+              {acknowledged && <PiCheckBold size={12} />}
+            </Flex>
+            {acknowledged ? "Acknowledged" : "Acknowledge"}
+          </Flex>
+        </Button>
+      </Flex>
+    </Flex>
+  );
 }
 
 export interface Props {
@@ -872,8 +977,61 @@ export default function RuleModal({
   const isRampType = scheduleType === "ramp";
   const hasRampPage =
     isRampType && (ruleType === "force" || ruleType === "rollout");
+  const onRampPage = hasRampPage && step === 1;
   const rampIsEditable =
     !ruleRampSchedule || ruleRampSchedule.status !== "running";
+
+  // Ramping an already-live rule takes traffic away from it: block the ramp
+  // page's submit until that's acknowledged. Moot once the ramp has started.
+  const rampNotYetStarted =
+    !ruleRampSchedule || ["pending", "ready"].includes(ruleRampSchedule.status);
+  const rampStartImpact =
+    hasRampPage && rampNotYetStarted && rampSectionState.mode !== "off"
+      ? getRampStartImpact({
+          liveRule,
+          firstStepCoveragePct: rampSectionState.steps.find(
+            (s) => s.patch.coverage !== undefined,
+          )?.patch.coverage,
+          hasDelayedStart:
+            (!!rampSectionState.startDate &&
+              new Date(rampSectionState.startDate) > new Date()) ||
+            rampSectionState.requiresStartApproval,
+        })
+      : null;
+  // Acknowledgment binds to the impact's signature, so editing the ramp into
+  // a different impact re-arms the gate. A ramp that arrived already saved
+  // (pending schedule or draft action) starts acknowledged — its impact was
+  // accepted when it was first saved.
+  const rampImpactKey = rampStartImpact
+    ? rampStartImpact.kind === "coverage-drop"
+      ? `drop:${rampStartImpact.fromPct}:${rampStartImpact.toPct}`
+      : `delayed:${rampStartImpact.liveCoveragePct}`
+    : "";
+  const [rampAcknowledgedKey, setRampAcknowledgedKey] = useState(() =>
+    ruleRampSchedule || pendingCreateActionTyped ? rampImpactKey : "",
+  );
+  const rampImpactAcknowledged =
+    rampImpactKey !== "" && rampAcknowledgedKey === rampImpactKey;
+  const rampImpactBlocksSubmit = !!rampStartImpact && !rampImpactAcknowledged;
+  const rampFallthroughPhrase =
+    rampStartImpact && countRampFallthroughRules(feature, ruleId) > 0
+      ? "the next matching rule, or the default value"
+      : "the default value";
+  // Hidden when the draft already has a pending ramp — publish would ramp
+  // both the source and the clone.
+  const switchToRampToNewValue =
+    mode === "edit" &&
+    isLiveRule &&
+    !ruleRampSchedule &&
+    !pendingCreateActionTyped &&
+    ruleId &&
+    onSwitchToRampToNewValue
+      ? () =>
+          onSwitchToRampToNewValue(ruleId, {
+            rule: pick(formValues(), RAMP_TO_NEW_VALUE_CARRIED_FIELDS),
+            ramp: rampSectionState,
+          })
+      : undefined;
 
   // Reset to page 1 when the ramp page disappears (user switched away from ramp).
   // Only applies to rollout/force rules — experiment rules have their own valid pages.
@@ -2299,14 +2457,33 @@ export default function RuleModal({
             ? ruleType !== undefined
             : hasRampPage && step === 0
               ? !isCyclic && !prerequisiteTargetingSdkIssues
-              : canSubmit && conflictResolved
+              : canSubmit && conflictResolved && !rampImpactBlocksSubmit
         }
         disabledMessage={
           hasRampPage && step === 0
             ? undefined
             : !conflictResolved
               ? "Resolve the conflicting edits above, or save to a new draft."
-              : (monitoringError ?? undefined)
+              : !canSubmit
+                ? (monitoringError ?? undefined)
+                : rampImpactBlocksSubmit
+                  ? "Acknowledge the traffic warning to save"
+                  : undefined
+        }
+        aboveFooterContent={
+          onRampPage && rampStartImpact ? (
+            <RampImpactBanner
+              impact={rampStartImpact}
+              fallthroughPhrase={rampFallthroughPhrase}
+              acknowledged={rampImpactAcknowledged}
+              onToggleAcknowledged={() =>
+                setRampAcknowledgedKey(
+                  rampImpactAcknowledged ? "" : rampImpactKey,
+                )
+              }
+              onRampToNewValue={switchToRampToNewValue}
+            />
+          ) : undefined
         }
         header={headerText}
         docSection={
@@ -2401,26 +2578,6 @@ export default function RuleModal({
               ruleId={form.watch("id") as string}
               featureId={feature.id}
               sparse={!!form.watch("sparse")}
-              liveRule={liveRule}
-              onRampToNewValue={
-                // Hidden when the draft already has a pending ramp —
-                // publish would ramp both the source and the clone.
-                mode === "edit" &&
-                isLiveRule &&
-                !ruleRampSchedule &&
-                !pendingCreateActionTyped &&
-                ruleId &&
-                onSwitchToRampToNewValue
-                  ? () =>
-                      onSwitchToRampToNewValue(ruleId, {
-                        rule: pick(
-                          formValues(),
-                          RAMP_TO_NEW_VALUE_CARRIED_FIELDS,
-                        ),
-                        ramp: rampSectionState,
-                      })
-                  : undefined
-              }
             />
           </Page>
         )}

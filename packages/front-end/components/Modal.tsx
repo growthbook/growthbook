@@ -71,6 +71,9 @@ type ModalProps = {
   increasedElevation?: boolean;
   stickyFooter?: boolean;
   aboveBodyContent?: ReactNode;
+  // Full-bleed row rendered between the body and the footer CTA buttons.
+  // Not positioned for stickyFooter modals (the fixed footer would cover it).
+  aboveFooterContent?: ReactNode;
   useRadixButton?: boolean;
   borderlessHeader?: boolean;
   backgroundlessHeader?: boolean;
@@ -125,6 +128,7 @@ const Modal: FC<ModalProps> = ({
   trackOnSubmit = true,
   useRadixButton = true,
   aboveBodyContent = null,
+  aboveFooterContent = null,
   borderlessHeader = false,
   backgroundlessHeader = false,
   borderlessFooter = false,
@@ -292,86 +296,89 @@ const Modal: FC<ModalProps> = ({
         tertiaryCTA ||
         backCTA ||
         (close && includeCloseCta)) ? (
-        <div
-          className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
-        >
-          {backCTA ? (
-            <>
-              {backCTA}
-              <div className="flex-1" />
-            </>
-          ) : null}
-          <ConditionalWrapper
-            condition={stickyFooter}
-            wrapper={
-              <div
-                className="container pagecontents mx-auto text-right"
-                style={{ maxWidth: 1100 }}
-              />
-            }
+        <>
+          {aboveFooterContent && !isSuccess ? aboveFooterContent : null}
+          <div
+            className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
           >
-            {close && includeCloseCta ? (
+            {backCTA ? (
               <>
-                {useRadixButton ? (
-                  <div className="mr-1">
-                    <Button
-                      variant="ghost"
-                      onClick={async () => {
+                {backCTA}
+                <div className="flex-1" />
+              </>
+            ) : null}
+            <ConditionalWrapper
+              condition={stickyFooter}
+              wrapper={
+                <div
+                  className="container pagecontents mx-auto text-right"
+                  style={{ maxWidth: 1100 }}
+                />
+              }
+            >
+              {close && includeCloseCta ? (
+                <>
+                  {useRadixButton ? (
+                    <div className="mr-1">
+                      <Button
+                        variant="ghost"
+                        onClick={async () => {
+                          await onClickCloseCta?.();
+                          close();
+                        }}
+                      >
+                        {isSuccess && successMessage ? "Close" : closeCta}
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className={closeCtaClassName}
+                      onClick={async (e) => {
+                        e.preventDefault();
                         await onClickCloseCta?.();
                         close();
                       }}
                     >
                       {isSuccess && successMessage ? "Close" : closeCta}
+                    </button>
+                  )}
+                </>
+              ) : null}
+              {secondaryCTA}
+              {submit && !isSuccess ? (
+                <Tooltip
+                  body={disabledMessage || ""}
+                  shouldDisplay={!ctaEnabled && !!disabledMessage}
+                  tipPosition="top"
+                  className={fullWidthSubmit ? "w-100" : ""}
+                >
+                  {useRadixButton ? (
+                    <Button
+                      type="submit"
+                      disabled={!ctaEnabled}
+                      ml="3"
+                      color={submitColor === "danger" ? "red" : undefined}
+                    >
+                      {cta}
                     </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className={closeCtaClassName}
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      await onClickCloseCta?.();
-                      close();
-                    }}
-                  >
-                    {isSuccess && successMessage ? "Close" : closeCta}
-                  </button>
-                )}
-              </>
-            ) : null}
-            {secondaryCTA}
-            {submit && !isSuccess ? (
-              <Tooltip
-                body={disabledMessage || ""}
-                shouldDisplay={!ctaEnabled && !!disabledMessage}
-                tipPosition="top"
-                className={fullWidthSubmit ? "w-100" : ""}
-              >
-                {useRadixButton ? (
-                  <Button
-                    type="submit"
-                    disabled={!ctaEnabled}
-                    ml="3"
-                    color={submitColor === "danger" ? "red" : undefined}
-                  >
-                    {cta}
-                  </Button>
-                ) : (
-                  <button
-                    className={`btn btn-${submitColor} ${
-                      fullWidthSubmit ? "w-100" : ""
-                    } ${stickyFooter ? "ml-auto mr-5" : ""}`}
-                    type="submit"
-                    disabled={!ctaEnabled}
-                  >
-                    {cta}
-                  </button>
-                )}
-              </Tooltip>
-            ) : null}
-            {tertiaryCTA}
-          </ConditionalWrapper>
-        </div>
+                  ) : (
+                    <button
+                      className={`btn btn-${submitColor} ${
+                        fullWidthSubmit ? "w-100" : ""
+                      } ${stickyFooter ? "ml-auto mr-5" : ""}`}
+                      type="submit"
+                      disabled={!ctaEnabled}
+                    >
+                      {cta}
+                    </button>
+                  )}
+                </Tooltip>
+              ) : null}
+              {tertiaryCTA}
+            </ConditionalWrapper>
+          </div>
+        </>
       ) : null}
     </div>
   );
