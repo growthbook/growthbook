@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import useAgentOnboarding from "@/hooks/useAgentOnboarding";
 import useFeaturesSettled from "@/hooks/useFeaturesSettled";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -18,7 +18,7 @@ export default function Home(): React.ReactElement {
   const router = useRouter();
   const { apiCall } = useAuth();
   const { organization } = useUser();
-  const aiOnboarding = useFeatureIsOn("ai-assisted-onboarding");
+  const agentOnboarding = useAgentOnboarding();
   // The redirect below fires once, so it waits for the feature payload.
   const flagsSettled = useFeaturesSettled();
 
@@ -59,13 +59,9 @@ export default function Home(): React.ReactElement {
 
     const demographics = organization.demographicData;
 
-    // Whoever chose "engineer" at signup gets the agent-driven setup, when it is
-    // on — once. After that this page is theirs, so skipping it actually sticks.
-    if (
-      aiOnboarding &&
-      !organization.isVercelIntegration &&
-      demographics?.ownerJobTitle === "engineer"
-    ) {
+    // The agent-driven setup is offered once. After that this page is theirs, so
+    // skipping it actually sticks.
+    if (agentOnboarding) {
       const key = `onboarding:connect-offered:${organization.id}`;
       let offered = false;
       try {
@@ -92,7 +88,7 @@ export default function Home(): React.ReactElement {
     } else {
       router.replace("/getstarted");
     }
-  }, [organization, willRedirect, router, flagsSettled, aiOnboarding]);
+  }, [organization, willRedirect, router, flagsSettled, agentOnboarding]);
 
   if (error) {
     return (

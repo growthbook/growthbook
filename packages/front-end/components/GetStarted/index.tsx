@@ -43,6 +43,7 @@ import { isCloud } from "@/services/env";
 import { isExperimentationLeaning } from "@/services/onboarding";
 import { DocSection } from "@/components/DocLink";
 import useApi from "@/hooks/useApi";
+import useAgentOnboarding from "@/hooks/useAgentOnboarding";
 
 type AdvancedFeature = (
   | { docSection: DocSection; href?: never }
@@ -178,6 +179,7 @@ const GetStartedAndHomePage = ({
   const orgHasConnectedSDK =
     sdkConnectionData && sdkConnectionData.connections.some((c) => c.connected);
   const showSetUpFlow = canUseSetupFlow && !orgHasConnectedSDK;
+  const agentOnboarding = useAgentOnboarding();
 
   // If they view the guide, clear the current step
   useEffect(() => {
@@ -377,7 +379,7 @@ const GetStartedAndHomePage = ({
                     <Callout status="wizard" size="md" mb="6">
                       Connect to your SDK to get started.{" "}
                       <Link
-                        href="/setup"
+                        href={agentOnboarding ? "/connect" : "/setup"}
                         className="font-weight-bold"
                         style={{ color: "inherit" }}
                       >
