@@ -1,5 +1,4 @@
 import React, { useMemo } from "react";
-import { FeatureValueType } from "shared/types/feature";
 import { FaExclamationCircle, FaRecycle } from "react-icons/fa";
 import {
   FaRegCircleQuestion,
@@ -14,12 +13,14 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
-import { FeatureOptionWithTooltip } from "@/components/Features/FeatureOptionTooltip";
+import {
+  FeatureOptionForTooltip,
+  FeatureOptionWithTooltip,
+} from "@/components/Features/FeatureOptionTooltip";
 import {
   OptionLabel,
   OptionProjectsLabel,
 } from "@/components/Features/OptionTooltipShell";
-import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 import Text from "@/ui/Text";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 
@@ -33,19 +34,9 @@ export interface FeatureOptionMeta {
   deterministicFalse: boolean;
 }
 
-interface FeatureOption {
-  label: string;
-  value: string;
+interface FeatureOption extends FeatureOptionForTooltip {
   meta: FeatureOptionMeta;
   project: string;
-  projectName: string | null | undefined;
-  targetingProjectNames?: string[];
-  targetingAllProjects?: boolean;
-  valueType?: FeatureValueType;
-  configBackingKey?: string | null;
-  tags?: string[];
-  description?: string;
-  states?: Record<string, PrerequisiteStateResult>;
 }
 
 interface Props {

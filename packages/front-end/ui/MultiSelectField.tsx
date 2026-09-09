@@ -286,7 +286,6 @@ export type MultiSelectFieldProps = Omit<
   size?: MultiSelectFieldSize;
   /** Preserve the pre-design-system 36px control height. */
   legacyHeight?: boolean;
-  /** Set false when selected values carry their own hover popover. */
   valueTitles?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;

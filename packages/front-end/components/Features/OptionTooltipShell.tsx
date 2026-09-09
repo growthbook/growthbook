@@ -172,23 +172,13 @@ export function OptionLabel({
 export function OptionMenuRow({
   label,
   right,
-  truncate = false,
-  labelStyle,
 }: {
   label: string;
   right?: React.ReactNode;
-  truncate?: boolean;
-  labelStyle?: React.CSSProperties;
 }) {
   return (
     <Flex align="center" gap="3">
-      {truncate ? (
-        <OptionLabel label={label} style={labelStyle} />
-      ) : (
-        <Text size="md">
-          <span style={labelStyle}>{label}</span>
-        </Text>
-      )}
+      <Text size="md">{label}</Text>
       {right}
     </Flex>
   );
