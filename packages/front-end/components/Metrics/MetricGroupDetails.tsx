@@ -73,7 +73,7 @@ export default function MetricGroupDetails({
     }
     return -1;
   }
-  const canEdit = permissionsUtil.canCreateMetricGroup();
+  const canEdit = permissionsUtil.canUpdateMetricGroup(metricGroup);
   const activeMetric = activeId ? items[getMetricIndex(activeId)] : null;
 
   return (
@@ -137,6 +137,7 @@ export default function MetricGroupDetails({
                 key={m.id}
                 i={i}
                 metricGroupId={metricGroup.id}
+                canEdit={canEdit}
                 metric={m}
                 mutate={mutate}
                 factMetricsInList={factMetricsInList}
@@ -162,6 +163,7 @@ export default function MetricGroupDetails({
                   i={getMetricIndex(activeId as string)}
                   metric={activeMetric}
                   metricGroupId={metricGroup.id}
+                  canEdit={canEdit}
                   factMetricsInList={factMetricsInList}
                 />
               </tr>
@@ -215,6 +217,7 @@ function SortableMetricRow(props) {
 interface SortableProps {
   metric: ExperimentMetricDefinition;
   metricGroupId: string;
+  canEdit: boolean;
   i: number;
   mutate?: () => void;
 }
@@ -234,6 +237,7 @@ function MetricRow({
   isDragging,
   mutate,
   factMetricsInList,
+  canEdit,
 }: MetricRowProps) {
   const { getDatasourceById } = useDefinitions();
   const { apiCall } = useAuth();
@@ -243,17 +247,19 @@ function MetricRow({
   return (
     <>
       <td className="p-0" style={{ width: "3%" }}>
-        <div
-          {...handle}
-          title="Drag and drop to re-order metric"
-          className="d-flex justify-content-end"
-          style={{
-            cursor: isDragging ? "grabbing" : "grab",
-            padding: "0.7rem",
-          }}
-        >
-          <GrDrag />
-        </div>
+        {canEdit && (
+          <div
+            {...handle}
+            title="Drag and drop to re-order metric"
+            className="d-flex justify-content-end"
+            style={{
+              cursor: isDragging ? "grabbing" : "grab",
+              padding: "0.7rem",
+            }}
+          >
+            <GrDrag />
+          </div>
+        )}
       </td>
       <td className="text-center" style={{ width: "3%" }}>
         {i + 1}
@@ -272,25 +278,27 @@ function MetricRow({
         {metric.datasource ? getDatasourceById(metric.datasource)?.name : ""}
       </td>
       <td style={{ width: "3%" }}>
-        <DeleteButton
-          useRadix={false}
-          className="dropdown-item text-danger"
-          displayName="Metric from Group"
-          deleteMessage="Remove this metric from the group?"
-          useIcon={true}
-          onClick={async () => {
-            await apiCall<{ version: number }>(
-              `/metric-group/${metricGroupId}/remove/${metric.id}`,
-              {
-                method: "DELETE",
-              },
-            ).then(async () => {
-              if (mutate) {
-                await mutate();
-              }
-            });
-          }}
-        />
+        {canEdit && (
+          <DeleteButton
+            useRadix={false}
+            className="dropdown-item text-danger"
+            displayName="Metric from Group"
+            deleteMessage="Remove this metric from the group?"
+            useIcon={true}
+            onClick={async () => {
+              await apiCall<{ version: number }>(
+                `/metric-group/${metricGroupId}/remove/${metric.id}`,
+                {
+                  method: "DELETE",
+                },
+              ).then(async () => {
+                if (mutate) {
+                  await mutate();
+                }
+              });
+            }}
+          />
+        )}
       </td>
     </>
   );

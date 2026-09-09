@@ -1,8 +1,7 @@
-import React, { FC, useCallback } from "react";
+import React, { FC } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { isProjectListValidForProjects } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -19,7 +18,7 @@ const MetricGroupModal: FC<{
   close: () => void;
   mutate: () => void;
 }> = ({ existingMetricGroup = null, close, mutate }) => {
-  const { projects, datasources, getDatasourceById, metrics, factMetrics } =
+  const { projects, project, datasources, getDatasourceById } =
     useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
@@ -31,43 +30,23 @@ const MetricGroupModal: FC<{
       name: existingMetricGroup?.name || "",
       description: existingMetricGroup?.description || "",
       datasource: existingMetricGroup?.datasource || "",
-      projects: existingMetricGroup?.projects || [],
+      projects: existingMetricGroup?.projects || (project ? [project] : []),
       metrics: existingMetricGroup?.metrics || [],
     },
   });
   const datasource = getDatasourceById(form.watch("datasource"));
 
   const projectOptions = useProjectOptions(
-    () => permissionsUtil.canCreateMetricGroup(),
+    (project) => permissionsUtil.canCreateMetricGroup({ projects: [project] }),
     form.watch("projects") || [],
   );
 
-  const filterMetricsByProjects = useCallback(
-    (newProjects: string[]) => {
-      const currentMetrics = form.getValues("metrics");
-      if (!newProjects.length || !currentMetrics.length) return;
-
-      const validMetrics = currentMetrics.filter((metricId) => {
-        const metric = metrics.find((m) => m.id === metricId);
-        if (metric) {
-          return isProjectListValidForProjects(metric.projects, newProjects);
-        }
-        const factMetric = factMetrics.find((m) => m.id === metricId);
-        if (factMetric) {
-          return isProjectListValidForProjects(
-            factMetric.projects,
-            newProjects,
-          );
-        }
-        return false;
-      });
-
-      if (validMetrics.length !== currentMetrics.length) {
-        form.setValue("metrics", validMetrics);
-      }
-    },
-    [form, metrics, factMetrics],
-  );
+  const selectedProjects = form.watch("projects");
+  const canSave = existingMetricGroup
+    ? permissionsUtil.canUpdateMetricGroup(existingMetricGroup, {
+        projects: selectedProjects,
+      })
+    : permissionsUtil.canCreateMetricGroup({ projects: selectedProjects });
 
   return (
     <ModalStandard
@@ -119,6 +98,7 @@ const MetricGroupModal: FC<{
 
         await mutate();
       })}
+      ctaEnabled={canSave}
       cta="Save"
       close={close}
     >
@@ -150,10 +130,7 @@ const MetricGroupModal: FC<{
             placeholder="All Projects"
             value={form.watch("projects") || []}
             options={projectOptions}
-            onChange={(v) => {
-              form.setValue("projects", v);
-              filterMetricsByProjects(v);
-            }}
+            onChange={(v) => form.setValue("projects", v)}
             customClassName="label-overflow-ellipsis"
           />
         </div>
@@ -185,9 +162,10 @@ const MetricGroupModal: FC<{
             projects={form.watch("projects")}
             includeFacts={true}
             includeGroups={false}
+            preserveSelectedMetrics={true}
             selected={form.watch("metrics")}
             onChange={(value) => {
-              form.setValue("metrics", value || "");
+              form.setValue("metrics", value);
             }}
           />
         </div>

@@ -467,6 +467,13 @@ export class FactMetricModel extends BaseClass {
     data: FactMetricInterface,
     previousData?: FactMetricInterface,
   ): Promise<void> {
+    if (previousData) {
+      await this.context.models.metricGroups.validateMetricProjectChange(
+        data.id,
+        data.projects,
+        previousData.projects,
+      );
+    }
     await FactMetricModel.validateFactMetric(
       data,
       previousData ?? null,

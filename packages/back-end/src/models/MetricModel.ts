@@ -662,6 +662,14 @@ export async function updateMetric(
 
   validatePriorSettings(updates.priorSettings);
 
+  if (updates.projects) {
+    await context.models.metricGroups.validateMetricProjectChange(
+      metric.id,
+      updates.projects,
+      metric.projects,
+    );
+  }
+
   // Compare submitted values against the caller's snapshot (read fresh in the
   // same request) rather than checking which keys were submitted — the
   // front-end resubmits the whole form on every save. Bailing before the write

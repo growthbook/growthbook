@@ -1942,11 +1942,6 @@
       "count": 1
     }
   },
-  "packages/front-end/enterprise/components/MetricGroupInlineForm.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/enterprise/components/ProductAnalytics/SaveToDashboardModal.tsx": {
     "no-restricted-syntax": {
       "count": 5

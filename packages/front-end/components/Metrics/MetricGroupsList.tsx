@@ -5,6 +5,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isProjectListValidForProject } from "shared/util";
+import { canCreateInSelectedScope } from "shared/permissions";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -37,6 +38,7 @@ const MetricGroupsList: FC = () => {
     getDatasourceById,
     getProjectById,
     project,
+    projects,
   } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const hasGroupsFeature = hasCommercialFeature("metric-groups");
@@ -52,9 +54,12 @@ const MetricGroupsList: FC = () => {
   );
 
   const permissionsUtil = usePermissionsUtil();
-  const canEdit = permissionsUtil.canUpdateMetricGroup();
-  const canCreate = permissionsUtil.canCreateMetricGroup();
-  const canDelete = permissionsUtil.canDeleteMetricGroup();
+  const canCreate = canCreateInSelectedScope({
+    project,
+    projectIds: projects.map((p) => p.id),
+    canCreateIn: (p) =>
+      permissionsUtil.canCreateMetricGroup({ projects: p ? [p] : [] }),
+  });
   const { apiCall } = useAuth();
 
   const updateArchiveState = async (
@@ -86,7 +91,7 @@ const MetricGroupsList: FC = () => {
     );
   }
 
-  if (!metricGroups.length) {
+  if (!filteredMetricGroups.length) {
     return (
       <Box className="appbox" p="5" style={{ textAlign: "center" }}>
         {openModal && (
@@ -141,6 +146,8 @@ const MetricGroupsList: FC = () => {
         </TableHeader>
         <TableBody>
           {filteredMetricGroups.map((mg) => {
+            const canEdit = permissionsUtil.canUpdateMetricGroup(mg);
+            const canDelete = permissionsUtil.canDeleteMetricGroup(mg);
             const dsName = getDatasourceById(mg.datasource)?.name || "-";
             return (
               <TableRow
@@ -166,7 +173,7 @@ const MetricGroupsList: FC = () => {
                 <TableCell>{dsName}</TableCell>
                 <TableCell>
                   {mg.projects.length === 0
-                    ? null
+                    ? "All Projects"
                     : mg.projects
                         .map((p) => getProjectById(p)?.name || p)
                         .join(", ")}

@@ -12,7 +12,6 @@ export default function MetricGroupDetailPage() {
   const { mgid } = router.query;
   const { getMetricGroupById, mutateDefinitions } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canCreateMetricGroup();
   const group = getMetricGroupById(mgid as string);
   const [openEditModal, setOpenEditModal] = useState(false);
 
@@ -42,7 +41,7 @@ export default function MetricGroupDetailPage() {
           </div>
           <div style={{ flex: 1 }} />
           <div className="">
-            {canCreate && (
+            {permissionsUtil.canUpdateMetricGroup(group) && (
               <Button
                 variant="outline"
                 onClick={() => {
