@@ -24,7 +24,7 @@ export type AutoEventsSettings = {
     maxHeartbeats?: number;
     trackScrollDepth?: boolean;
   }>;
-  // browser-error events from window.onerror / unhandledrejection
+  // browser_error events from window.onerror / unhandledrejection
   errors?: Toggle<{
     samplingRate?: number;
     debounceTimeout?: number;

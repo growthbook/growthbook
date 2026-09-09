@@ -174,7 +174,7 @@ describe("CWV reporter", () => {
 
     setVisibilityState("hidden");
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:LCP",
+      "cwv_lcp",
       { value: 1200 },
       { url: expect.any(String) },
     );
@@ -204,7 +204,7 @@ describe("CWV reporter", () => {
 
     setVisibilityState("hidden");
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:INP",
+      "cwv_inp",
       { value: 200 },
       { url: expect.any(String) },
     );
@@ -243,7 +243,7 @@ describe("CWV reporter", () => {
     // 120 interactions → skip 2 candidates → third-worst
     setVisibilityState("hidden");
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:INP",
+      "cwv_inp",
       { value: 300 },
       { url: expect.any(String) },
     );
@@ -275,7 +275,7 @@ describe("CWV reporter", () => {
 
     setVisibilityState("hidden");
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:CLS",
+      "cwv_cls",
       { value: 0.35 },
       { url: expect.any(String) },
     );
@@ -296,7 +296,7 @@ describe("CWV reporter", () => {
 
     window.dispatchEvent(new Event("pagehide"));
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:CLS",
+      "cwv_cls",
       { value: 0 },
       { url: expect.any(String) },
     );
@@ -336,7 +336,7 @@ describe("CWV reporter", () => {
 
     setVisibilityState("hidden");
 
-    const clsCall = logEvent.mock.calls.find((c) => c[0] === "CWV:CLS");
+    const clsCall = logEvent.mock.calls.find((c) => c[0] === "cwv_cls");
     expect(clsCall).toBeTruthy();
     expect((clsCall![1] as { value: number }).value).toBeCloseTo(0.5, 5);
     gb.destroy();
@@ -374,7 +374,7 @@ describe("CWV reporter", () => {
 
     setVisibilityState("hidden");
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:TBT",
+      "cwv_tbt",
       { value: 70 },
       { url: expect.any(String) },
     );
@@ -409,7 +409,7 @@ describe("CWV reporter", () => {
 
     setVisibilityState("hidden");
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:TBT",
+      "cwv_tbt",
       { value: 70 },
       { url: expect.any(String) },
     );
@@ -464,17 +464,17 @@ describe("CWV reporter", () => {
 
     setVisibilityState("hidden");
     expect(logEvent).not.toHaveBeenCalledWith(
-      "CWV:FCP",
+      "cwv_fcp",
       expect.anything(),
       expect.anything(),
     );
     expect(logEvent).not.toHaveBeenCalledWith(
-      "CWV:LCP",
+      "cwv_lcp",
       expect.anything(),
       expect.anything(),
     );
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:CLS",
+      "cwv_cls",
       { value: 0.2 },
       { url: expect.any(String) },
     );
@@ -512,7 +512,7 @@ describe("CWV reporter", () => {
 
     setVisibilityState("hidden");
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:CLS",
+      "cwv_cls",
       { value: 0 },
       { url: expect.any(String) },
     );
@@ -542,7 +542,7 @@ describe("CWV reporter", () => {
     // its URL explicitly, and the GrowthBook URL is not synced beforehand
     expect(window.location.href).not.toBe(pageUrl);
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:CLS",
+      "cwv_cls",
       { value: 0 },
       { url: pageUrl },
     );
@@ -565,7 +565,7 @@ describe("CWV reporter", () => {
     setVisibilityState("hidden");
 
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:CLS",
+      "cwv_cls",
       { value: 0 },
       { url: expect.any(String) },
     );
@@ -587,7 +587,7 @@ describe("CWV reporter", () => {
     setVisibilityState("hidden");
 
     expect(logEvent).toHaveBeenCalledWith(
-      "CWV:TBT",
+      "cwv_tbt",
       { value: 0 },
       { url: expect.any(String) },
     );
@@ -613,7 +613,7 @@ describe("CWV reporter", () => {
     expect(logEvent).not.toHaveBeenCalled();
 
     setVisibilityState("hidden");
-    expect(logEvent).toHaveBeenCalledWith("CWV:CLS", expect.any(Object), {
+    expect(logEvent).toHaveBeenCalledWith("cwv_cls", expect.any(Object), {
       url: expect.any(String),
     });
     gb.destroy();
@@ -646,7 +646,7 @@ describe("Error reporter", () => {
     };
     window.dispatchEvent(new ErrorEvent("error", errorInit));
     expect(logEvent).toHaveBeenCalledWith(
-      "browser-error",
+      "browser_error",
       expect.objectContaining({
         message: "boom",
         source: "x.js",
@@ -699,21 +699,21 @@ describe("Error reporter", () => {
     // string rejection — Promise.reject("auth failed")
     dispatch("auth failed");
     expect(logEvent).toHaveBeenLastCalledWith(
-      "browser-error",
+      "browser_error",
       expect.objectContaining({ message: "auth failed", stack: "" }),
     );
 
     // number rejection
     dispatch(42);
     expect(logEvent).toHaveBeenLastCalledWith(
-      "browser-error",
+      "browser_error",
       expect.objectContaining({ message: "42" }),
     );
 
     // plain object without `.message` — described by shape, never serialized
     dispatch({ code: 500, error: "internal" });
     expect(logEvent).toHaveBeenLastCalledWith(
-      "browser-error",
+      "browser_error",
       expect.objectContaining({
         message: "Non-Error promise rejection captured with keys: code, error",
       }),
@@ -722,7 +722,7 @@ describe("Error reporter", () => {
     // plain object with `.message` and `.stack`
     dispatch({ message: "fetch failed", stack: "at line 1" });
     expect(logEvent).toHaveBeenLastCalledWith(
-      "browser-error",
+      "browser_error",
       expect.objectContaining({
         message: "fetch failed",
         stack: "at line 1",
@@ -733,14 +733,14 @@ describe("Error reporter", () => {
     const err = new Error("boom");
     dispatch(err);
     expect(logEvent).toHaveBeenLastCalledWith(
-      "browser-error",
+      "browser_error",
       expect.objectContaining({ message: "boom", stack: err.stack }),
     );
 
     // null / undefined rejection — falls back to generic message
     dispatch(null);
     expect(logEvent).toHaveBeenLastCalledWith(
-      "browser-error",
+      "browser_error",
       expect.objectContaining({ message: "Unhandled Promise rejection" }),
     );
 
@@ -889,7 +889,7 @@ describe("subscribeToUrlChanges", () => {
 
     // engagement fires page_leave + page_view; CWV does not finalize
     const cwvCalls = logEvent.mock.calls.filter((c) =>
-      String(c[0]).startsWith("CWV:"),
+      String(c[0]).startsWith("cwv_"),
     );
     expect(cwvCalls.length).toBe(0);
     expect(logEvent).toHaveBeenCalledWith(

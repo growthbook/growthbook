@@ -35,13 +35,13 @@ function logError(
   // GrowthBookClient needs an explicit userContext on logEvent
   if (isGrowthBookClient(growthbook)) {
     growthbook.logEvent(
-      "browser-error",
+      "browser_error",
       properties,
       userContext || ({} as UserContext),
     );
   } else {
     (growthbook as GrowthBook | UserScopedGrowthBook).logEvent(
-      "browser-error",
+      "browser_error",
       properties,
     );
   }

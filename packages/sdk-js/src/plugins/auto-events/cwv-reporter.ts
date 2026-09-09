@@ -148,10 +148,10 @@ export function createCWVReporter({
         // null checks, not truthiness — 0 is a valid (and good) measurement
         trackLCP &&
           lcpTime !== null &&
-          log("CWV:LCP", Math.max(0, lcpTime - activationStart));
-        trackCLS && clsValue !== null && log("CWV:CLS", clsValue);
-        trackTBT && tbtValue !== null && log("CWV:TBT", tbtValue);
-        trackINP && inpValue !== null && log("CWV:INP", inpValue);
+          log("cwv_lcp", Math.max(0, lcpTime - activationStart));
+        trackCLS && clsValue !== null && log("cwv_cls", clsValue);
+        trackTBT && tbtValue !== null && log("cwv_tbt", tbtValue);
+        trackINP && inpValue !== null && log("cwv_inp", inpValue);
       };
 
       // Prerendered pages measure from activation, matching web-vitals
@@ -193,7 +193,7 @@ export function createCWVReporter({
           fcpTime = entry.startTime;
           fcpObserver && fcpObserver.disconnect();
           trackFCP &&
-            log("CWV:FCP", Math.max(0, entry.startTime - activationStart));
+            log("cwv_fcp", Math.max(0, entry.startTime - activationStart));
         });
       }
 
@@ -291,7 +291,7 @@ export function createCWVReporter({
 
       // responseStart is 0 for some cross-origin redirect chains
       if (trackTTFB && navEntry && navEntry.responseStart > 0) {
-        log("CWV:TTFB", Math.max(0, navEntry.responseStart - activationStart));
+        log("cwv_ttfb", Math.max(0, navEntry.responseStart - activationStart));
       }
 
       // TBT — post-FCP portion of each long task beyond the 50ms threshold

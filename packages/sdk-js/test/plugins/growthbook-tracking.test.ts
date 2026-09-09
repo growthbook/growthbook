@@ -428,8 +428,8 @@ describe("growthbookTrackingPlugin", () => {
       get: () => "hidden",
     });
     document.dispatchEvent(new Event("visibilitychange"));
-    gb.logEvent("CWV:LCP", { value: 1 });
-    gb.logEvent("CWV:CLS", { value: 0 });
+    gb.logEvent("cwv_lcp", { value: 1 });
+    gb.logEvent("cwv_cls", { value: 0 });
     gb.logEvent("page_leave");
     await sleep(0);
 
@@ -437,7 +437,7 @@ describe("growthbookTrackingPlugin", () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
       body.events.map((e: { event_name: string }) => e.event_name),
-    ).toEqual(["CWV:LCP", "CWV:CLS", "page_leave"]);
+    ).toEqual(["cwv_lcp", "cwv_cls", "page_leave"]);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ keepalive: true });
 
     // Back to visible: batching resumes
