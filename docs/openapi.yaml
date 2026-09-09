@@ -36540,6 +36540,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -36912,6 +36913,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -37293,6 +37295,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -37691,6 +37694,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -37831,6 +37835,10 @@ paths:
                                             - valueColumn
                                             - unit
                                           additionalProperties: false
+                                      hiddenColumns:
+                                        type: array
+                                        items:
+                                          type: string
                                     required:
                                       - type
                                       - sql
@@ -39504,6 +39512,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -39885,6 +39894,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -40275,6 +40285,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -40682,6 +40693,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -40822,6 +40834,10 @@ paths:
                                             - valueColumn
                                             - unit
                                           additionalProperties: false
+                                      hiddenColumns:
+                                        type: array
+                                        items:
+                                          type: string
                                     required:
                                       - type
                                       - sql
@@ -41088,6 +41104,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -42948,6 +42965,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -43320,6 +43338,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -43701,6 +43720,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -44099,6 +44119,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -44239,6 +44260,10 @@ paths:
                                         - valueColumn
                                         - unit
                                       additionalProperties: false
+                                  hiddenColumns:
+                                    type: array
+                                    items:
+                                      type: string
                                 required:
                                   - type
                                   - sql
@@ -46778,6 +46803,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -47001,6 +47027,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -47138,6 +47173,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -47452,6 +47488,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -47684,6 +47721,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -47821,6 +47867,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -48144,6 +48191,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -48393,6 +48441,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -48530,6 +48587,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -48870,6 +48928,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -49010,6 +49069,10 @@ paths:
                           - valueColumn
                           - unit
                         additionalProperties: false
+                    hiddenColumns:
+                      type: array
+                      items:
+                        type: string
                   required:
                     - type
                     - sql
@@ -49118,6 +49181,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -49255,6 +49327,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -49395,6 +49468,10 @@ paths:
                                         - valueColumn
                                         - unit
                                       additionalProperties: false
+                                  hiddenColumns:
+                                    type: array
+                                    items:
+                                      type: string
                                 required:
                                   - type
                                   - sql
@@ -49594,6 +49671,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -49839,6 +49917,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -49976,6 +50063,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -65667,6 +65755,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -66048,6 +66137,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -66438,6 +66528,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -66845,6 +66936,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -66985,6 +67077,10 @@ components:
                                 - valueColumn
                                 - unit
                               additionalProperties: false
+                          hiddenColumns:
+                            type: array
+                            items:
+                              type: string
                         required:
                           - type
                           - sql
@@ -67251,6 +67347,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -69425,6 +69522,15 @@ components:
                 required:
                   - dimensions
                 additionalProperties: false
+            rawRows:
+              type: array
+              items:
+                type: object
+                propertyNames:
+                  type: string
+                additionalProperties: {}
+            truncated:
+              type: boolean
           required:
             - rows
           additionalProperties: false
@@ -69563,6 +69669,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -69826,6 +69933,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -70098,6 +70206,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -70387,6 +70496,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -70527,6 +70637,10 @@ components:
                           - valueColumn
                           - unit
                         additionalProperties: false
+                    hiddenColumns:
+                      type: array
+                      items:
+                        type: string
                   required:
                     - type
                     - sql
@@ -70675,6 +70789,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
