@@ -130,7 +130,7 @@ export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
             </Callout>
           )}
           {sql ? (
-            <Code language="sql" code={sql} expandable />
+            <Code language="sql" code={sql} maxHeight="400px" />
           ) : (
             <Text color="text-mid" as="div">
               {sqlLoading ? "Generating SQL…" : "Waiting for the SQL…"}
