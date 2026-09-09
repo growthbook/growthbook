@@ -146,7 +146,14 @@ export default function RetentionFields({
           onThresholdChange(
             checked
               ? { aggregateFilterColumn: "$$count", aggregateFilter: "" }
-              : {},
+              : // Explicit undefined, not {} - onThresholdChange merges this
+                // into the existing numerator (MetricEditor.tsx), so an empty
+                // object would leave both fields exactly as they were and
+                // hasThreshold would immediately read true again next render.
+                {
+                  aggregateFilterColumn: undefined,
+                  aggregateFilter: undefined,
+                },
           )
         }
       />
