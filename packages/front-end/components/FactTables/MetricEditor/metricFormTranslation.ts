@@ -215,10 +215,65 @@ export function retentionModeFromWindow(
   return windowSettings.windowValue > 0 ? "between" : "starting";
 }
 
+const HOURS_PER_UNIT: Record<MetricWindowSettings["delayUnit"], number> = {
+  minutes: 1 / 60,
+  hours: 1,
+  days: 24,
+  weeks: 24 * 7,
+};
+
+function convertDuration(
+  value: number,
+  fromUnit: MetricWindowSettings["delayUnit"],
+  toUnit: MetricWindowSettings["delayUnit"],
+): number {
+  if (fromUnit === toUnit) return value;
+  return (value * HOURS_PER_UNIT[fromUnit]) / HOURS_PER_UNIT[toUnit];
+}
+
+// Retention's Window row reads as one sentence with one shared unit (spec) -
+// delayUnit/windowUnit can still drift apart (the org-wide default seeds
+// them differently, hours vs. days, and non-retention types manage each via
+// separate, independent controls before a metric ever becomes retention).
+// The displayed "end" (delay + window) has to convert window into delay's
+// unit first, or a real 7-day delay plus a real 24-hour window silently
+// becomes "31 days" - correct-looking, wrong by a factor of 24.
+export function retentionEnd(
+  windowSettings: Pick<
+    MetricWindowSettings,
+    "delayValue" | "delayUnit" | "windowValue" | "windowUnit"
+  >,
+): number {
+  return (
+    windowSettings.delayValue +
+    convertDuration(
+      windowSettings.windowValue,
+      windowSettings.windowUnit,
+      windowSettings.delayUnit,
+    )
+  );
+}
+
 export function onRetentionDelayOrModeChange(
   windowSettings: MetricWindowSettings,
   change: RetentionWindowChange,
 ): MetricWindowSettings {
+  // Normalize windowUnit into delayUnit's scale before any arithmetic below
+  // combines the two (self-healing: whatever drift existed before this call,
+  // every value this function writes back is consistent from here on).
+  const ws: MetricWindowSettings =
+    windowSettings.windowUnit === windowSettings.delayUnit
+      ? windowSettings
+      : {
+          ...windowSettings,
+          windowUnit: windowSettings.delayUnit,
+          windowValue: convertDuration(
+            windowSettings.windowValue,
+            windowSettings.windowUnit,
+            windowSettings.delayUnit,
+          ),
+        };
+
   if (change.type === "mode") {
     // windowValue alone decides "starting" vs "between" in storage, but the
     // query only enforces an upper bound when type === "conversion" - that
@@ -227,27 +282,27 @@ export function onRetentionDelayOrModeChange(
     // forced to 0) with a stale "conversion" type produces a zero-width upper
     // bound (an impossible, always-false interval against its own lower bound).
     if (change.value === "starting") {
-      return { ...windowSettings, windowValue: 0, type: "" };
+      return { ...ws, windowValue: 0, type: "" };
     }
-    if (windowSettings.windowValue > 0) {
-      return { ...windowSettings, type: "conversion" };
+    if (ws.windowValue > 0) {
+      return { ...ws, type: "conversion" };
     }
-    return { ...windowSettings, windowValue: 1, type: "conversion" };
+    return { ...ws, windowValue: 1, type: "conversion" };
   }
 
   if (change.type === "end") {
-    const windowValue = Math.max(1, change.value - windowSettings.delayValue);
-    return { ...windowSettings, windowValue };
+    const windowValue = Math.max(1, change.value - ws.delayValue);
+    return { ...ws, windowValue };
   }
 
   const newDelay = change.value;
-  if (retentionModeFromWindow(windowSettings) !== "between") {
-    return { ...windowSettings, delayValue: newDelay };
+  if (retentionModeFromWindow(ws) !== "between") {
+    return { ...ws, delayValue: newDelay };
   }
-  const currentEnd = windowSettings.delayValue + windowSettings.windowValue;
+  const currentEnd = retentionEnd(ws);
   const end = currentEnd <= newDelay ? newDelay + 1 : currentEnd;
   return {
-    ...windowSettings,
+    ...ws,
     delayValue: newDelay,
     windowValue: end - newDelay,
   };
@@ -550,12 +605,24 @@ function resetWindowForTypeSwitch(
   if (currentMetricType === "retention" && newFormType !== "retention") {
     return { ...windowSettings, delayValue: 0, delayUnit: "hours" };
   }
-  if (
-    currentMetricType !== "retention" &&
-    newFormType === "retention" &&
-    windowSettings.delayValue === 0
-  ) {
-    return { ...windowSettings, delayValue: 7, delayUnit: "days" };
+  if (currentMetricType !== "retention" && newFormType === "retention") {
+    const withDelay =
+      windowSettings.delayValue === 0
+        ? { ...windowSettings, delayValue: 7, delayUnit: "days" as const }
+        : windowSettings;
+    // The query only enforces an upper bound when type === "conversion"
+    // (onRetentionDelayOrModeChange's own comment) - a metric switching
+    // into retention from some other type carries over whatever type that
+    // other type left behind, which has nothing to do with what windowValue
+    // implies here. Without this, a fresh metric can display "Between X and
+    // Y days" (windowValue > 0 from the incoming type's own default) while
+    // still querying unbounded, the same initialization gap already fixed
+    // for the mode toggle itself.
+    return {
+      ...withDelay,
+      type:
+        retentionModeFromWindow(withDelay) === "between" ? "conversion" : "",
+    };
   }
   return windowSettings;
 }
