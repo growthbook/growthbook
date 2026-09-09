@@ -265,10 +265,13 @@ export function classifyStalledSnapshot({
   snapshotDateCreated: Date;
   now: number;
 }): StalledSnapshotVerdict {
-  const running = queryStatuses.filter((q) => q.status === "running");
+  if (queryStatuses.some((q) => q.status === "running")) {
+    return "active";
+  }
+
   const queued = queryStatuses.filter((q) => q.status === "queued");
 
-  const age = now - snapshotDateCreated.getTime();
+  const snapshotAge = now - snapshotDateCreated.getTime();
   const latestFinishedAt = Math.max(
     0,
     ...queryStatuses.map((s) => s.finishedAt?.getTime() ?? 0),
@@ -276,13 +279,14 @@ export function classifyStalledSnapshot({
   // Orphaned DAGs may have no finished queries, so fall back to snapshot age.
   const lastActivityAt =
     latestFinishedAt > 0 ? latestFinishedAt : snapshotDateCreated.getTime();
-  const withinLegacyRule =
-    age >= STALLED_SNAPSHOT_THRESHOLD_MS &&
+  // Before heartbeats for queued queries, snapshots were considered stalled if they
+  // were at least 60 minutes old, with no running queries and none finishing in the last 10 minutes.
+  const meetsFallbackLegacyCriteria =
+    snapshotAge >= STALLED_SNAPSHOT_THRESHOLD_MS &&
     now - lastActivityAt >= STALLED_FINALIZE_GRACE_MS;
 
-  if (running.length > 0) return "active";
   if (queued.length === 0) {
-    return withinLegacyRule ? "stalled-terminal" : "active";
+    return meetsFallbackLegacyCriteria ? "stalled-terminal" : "active";
   }
 
   const heartbeated = queued.filter(
@@ -292,7 +296,7 @@ export function classifyStalledSnapshot({
       q.heartbeat.getTime() - q.createdAt.getTime() >= HEARTBEAT_MIN_GAP_MS,
   );
   if (heartbeated.length === 0) {
-    return withinLegacyRule ? "orphaned-unknown" : "active";
+    return meetsFallbackLegacyCriteria ? "orphaned-unknown" : "active";
   }
 
   // The newest beat decides: a runner beats all of its queued docs in one
