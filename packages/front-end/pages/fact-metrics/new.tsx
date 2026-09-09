@@ -1,6 +1,5 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
-import { isProjectListValidForProject } from "shared/util";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { CommercialFeature } from "shared/enterprise";
 import Callout from "@/ui/Callout";
@@ -14,22 +13,19 @@ import { useUser } from "@/services/UserContext";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspace";
-import TemplateFieldMapping, {
-  MappedTemplateMetric,
+import {
   parseMetricTemplate,
   TemplateMetric,
-} from "@/components/FactTables/MetricEditor/TemplateFieldMapping";
+} from "@/components/FactTables/MetricEditor/templateMetric";
 
 export default function NewFactMetricPage() {
   const router = useRouter();
   const {
-    datasources,
     project,
     ready,
     mutateDefinitions,
     getFactMetricById,
     getFactTableById,
-    factTables,
     factMetrics,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -39,10 +35,6 @@ export default function NewFactMetricPage() {
     source: string;
     commercialFeature: CommercialFeature;
   }>(null);
-  // "Create Anyway" past the name-collision warning below.
-  const [confirmedTemplate, setConfirmedTemplate] = useState(false);
-  const [mappedTemplate, setMappedTemplate] =
-    useState<MappedTemplateMetric | null>(null);
 
   const returnUrl =
     typeof router.query.returnUrl === "string"
@@ -60,36 +52,12 @@ export default function NewFactMetricPage() {
   };
 
   const initialFactTable = fromQuery("factTable", getFactTableById);
-  const duplicateSource = fromQuery("duplicate", getFactMetricById);
-  // Matches the old modal's duplicate normalization (FactMetricList.tsx,
-  // pre-migration): only "admin" managedBy carries over, and only if this
-  // user could create it themselves - otherwise a copy of an API-managed or
-  // admin-managed metric would be rejected outright by the backend instead
-  // of saving as an ordinary metric.
-  const duplicatedManagedBy: "" | "admin" =
-    duplicateSource?.managedBy === "admin" &&
-    permissionsUtil.canCreateOfficialResources(duplicateSource)
-      ? "admin"
-      : "";
-  const duplicateFrom = duplicateSource
-    ? {
-        ...duplicateSource,
-        name: duplicateSource.name + " (copy)",
-        managedBy: duplicatedManagedBy,
-      }
-    : null;
 
-  const canCreate = permissionsUtil.canCreateFactMetric({
-    projects: project ? [project] : [],
-    managedBy: "",
-  });
-
-  // Landing here with ?addMetric=<json> (crafted externally - docs, support,
-  // onboarding - nothing in this repo generates the link) pre-fills a
-  // metric from a template. Mirrors CreateMetricFromTemplate.tsx's own
-  // parse/gate order exactly: parse error, then premium gate, then name
-  // collision, then (only for this flow) the datasource/fact-table checks a
-  // template can't proceed without - a plain new metric has no such gate.
+  // ?addMetric=<json> (crafted externally - docs, support, onboarding,
+  // nothing in this repo generates the link) pre-fills a metric from a
+  // template; MetricWorkspace completes the mapping itself (its numerator
+  // has no factTableId yet). A template is the more deliberate of the two
+  // seed sources, so it wins if a URL somehow carries both.
   const rawTemplate =
     typeof router.query.addMetric === "string" ? router.query.addMetric : null;
   let template: TemplateMetric | null = null;
@@ -102,6 +70,37 @@ export default function NewFactMetricPage() {
     }
   }
 
+  const duplicateSource = template
+    ? null
+    : fromQuery("duplicate", getFactMetricById);
+  // Matches the old modal's duplicate normalization (FactMetricList.tsx,
+  // pre-migration): only "admin" managedBy carries over, and only if this
+  // user could create it themselves - otherwise a copy of an API-managed or
+  // admin-managed metric would be rejected outright by the backend instead
+  // of saving as an ordinary metric.
+  const duplicatedManagedBy: "" | "admin" =
+    duplicateSource?.managedBy === "admin" &&
+    permissionsUtil.canCreateOfficialResources(duplicateSource)
+      ? "admin"
+      : "";
+  const duplicateFrom = template
+    ? template
+    : duplicateSource
+      ? {
+          ...duplicateSource,
+          name: duplicateSource.name + " (copy)",
+          managedBy: duplicatedManagedBy,
+        }
+      : null;
+
+  const canCreate = permissionsUtil.canCreateFactMetric({
+    projects: project ? [project] : [],
+    managedBy: "",
+  });
+
+  // MetricEditor's MetricTypeSelect only disables a commercial-gated option
+  // for a fresh choice - it doesn't stop a pre-seeded quantile/retention
+  // template from saving, so this stays a page-level gate.
   const missingCommercialFeature:
     | "quantile-metrics"
     | "retention-metrics"
@@ -115,16 +114,7 @@ export default function NewFactMetricPage() {
         : null;
 
   const nameCollision =
-    !!template &&
-    !confirmedTemplate &&
-    factMetrics.some((f) => f.name === template.name);
-
-  const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project),
-  );
-  const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project),
-  );
+    !!template && factMetrics.some((f) => f.name === template.name);
 
   return (
     <div className="pagecontents container-fluid">
@@ -168,45 +158,25 @@ export default function NewFactMetricPage() {
             })
           }
         />
-      ) : nameCollision && template ? (
-        <Callout status="warning" mb="3">
-          A metric with the name &quot;{template.name}&quot; already exists.{" "}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setConfirmedTemplate(true);
-            }}
-          >
-            Create Anyway
-          </a>
-        </Callout>
-      ) : template && !hasDatasource ? (
-        <Callout status="info" mb="3">
-          You must connect a SQL data source first before adding a metric.
-        </Callout>
-      ) : template && !hasFactTables ? (
-        <Callout status="info" mb="3">
-          You must create a fact table first before adding a metric.{" "}
-          <Link href="/fact-tables">Manage Fact Tables</Link>
-        </Callout>
-      ) : template && !mappedTemplate ? (
-        <TemplateFieldMapping
-          template={template}
-          onMapped={setMappedTemplate}
-        />
       ) : (
-        <MetricWorkspace
-          existing={null}
-          duplicateFrom={mappedTemplate ?? duplicateFrom}
-          initialFactTable={initialFactTable}
-          isEditing={true}
-          mutate={mutateDefinitions}
-          onSaved={(metric: FactMetricInterface) =>
-            router.replace(`/fact-metrics/${metric.id}`)
-          }
-          onCancel={() => router.push(returnUrl)}
-        />
+        <>
+          {nameCollision && template && (
+            <Callout status="warning" mb="3">
+              A metric with the name &quot;{template.name}&quot; already exists.
+            </Callout>
+          )}
+          <MetricWorkspace
+            existing={null}
+            duplicateFrom={duplicateFrom}
+            initialFactTable={initialFactTable}
+            isEditing={true}
+            mutate={mutateDefinitions}
+            onSaved={(metric: FactMetricInterface) =>
+              router.replace(`/fact-metrics/${metric.id}`)
+            }
+            onCancel={() => router.push(returnUrl)}
+          />
+        </>
       )}
     </div>
   );
