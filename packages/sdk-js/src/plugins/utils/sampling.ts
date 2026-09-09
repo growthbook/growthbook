@@ -62,6 +62,8 @@ export function _resetSampleDecisionsForTests(): void {
 // clicks for the same user arrive together
 export const DEFAULT_SAMPLING_SEED = "gb-events";
 
+const warnedMissing = new Set<string>();
+
 // Deterministic hash-based sampling: a stable cohort per attribute value
 export function shouldSample({
   rate,
@@ -94,8 +96,6 @@ export function shouldSample({
   }
   return Math.random() < rate;
 }
-
-const warnedMissing = new Set<string>();
 
 // Bad rates warn and fall back rather than throw — an observability typo
 // must never take the SDK down with it

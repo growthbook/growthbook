@@ -74,8 +74,7 @@ const DEFAULT_SAMPLING_RATE = 0.1;
 
 type Resolved<T> = T & { enabled: boolean; samplingRate: number };
 
-// Every category is off until local settings or remote sdkSettings turn it
-// on. Remote overrides local, except a local `false`, which is definitive.
+// Remote overrides local, except a local `false`, which is definitive
 function resolveCategory<T extends { samplingRate?: number }>(
   name: AutoEventCategory,
   local: Toggle<T> | undefined,

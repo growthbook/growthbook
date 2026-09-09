@@ -166,12 +166,9 @@ export function buildCore(defaults: WrapperDefaults = {}) {
     }),
   ];
 
-  // Script-tag surface for auto-events, mirroring data-tracking:
-  //   data-auto-events="pageEvents,errors,cwv,clickstream" (or "all")
-  // Everything else (sampling rates, privacy, per-category options) goes
-  // through window.growthbook_config.autoEvents, which mirrors the plugin's
-  // own settings type and wins outright when present. Unlisted categories
-  // stay undefined so remote sdkSettings can still turn them on.
+  // data-auto-events="pageEvents,errors,cwv" (or "all") turns categories on;
+  // everything else goes through window.growthbook_config.autoEvents, which
+  // wins outright. Unlisted categories stay undefined so remote can enable them.
   function readAutoEventsSettings(): AutoEventsSettings {
     if (windowContext.autoEvents) return windowContext.autoEvents;
     const settings: AutoEventsSettings = {};
@@ -203,9 +200,9 @@ export function buildCore(defaults: WrapperDefaults = {}) {
           .map((t) => t.trim())
       : [];
 
-  // Always installed: remote sdkSettings can turn auto-events on at any time,
-  // so the logger must exist. Without the "growthbook" tracker only custom
-  // events ship, not exposures and feature evaluations.
+  // Installed whenever events can be sent: remote sdkSettings can turn
+  // auto-events on at any time, so the logger must exist. Without the
+  // "growthbook" tracker only custom events ship, not exposures.
   const growthbookTracking = trackers.includes("growthbook");
   if (dataContext.clientKey || windowContext.clientKey) {
     const eventTransport =
