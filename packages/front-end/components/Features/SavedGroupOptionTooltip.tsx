@@ -124,28 +124,17 @@ function SavedGroupOptionLabel({
 
   return (
     <SavedGroupOptionWithTooltip groupId={group.id} context="value">
-      <Link
-        href={`/saved-groups/${group.id}`}
-        target="_blank"
+      <span
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "4px",
+          display: "block",
           overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          maxWidth: "200px",
         }}
       >
-        <span
-          style={{
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            maxWidth: "200px",
-          }}
-        >
-          {option.label}
-        </span>
-        <PiArrowSquareOut style={{ flexShrink: 0 }} />
-      </Link>
+        {option.label}
+      </span>
     </SavedGroupOptionWithTooltip>
   );
 }
