@@ -52,9 +52,11 @@ const QUEUED_HEARTBEAT_STALE_MS = 5 * 60 * 1000;
 // This ensures we don't consider just created docs as stalled.
 const HEARTBEAT_MIN_GAP_MS = 1000;
 // With a 5 minute candidate window every long-running live snapshot is a
-// candidate on every tick. If the page ever fills with live waiters, newer
-// dead ones wait until older candidates resolve; the warn below surfaces it.
+// candidate on every tick, so the snapshot reaper pages past live waiters
+// instead of stopping at the first page. This caps the work one tick can do;
+// the warn below surfaces it.
 const STALLED_SNAPSHOT_REAP_LIMIT = 50;
+const STALLED_SNAPSHOT_REAP_MAX_PER_TICK = 500;
 
 // Accessed via raw collections (not context-scoped BaseModel) so this cross-org reaper needs no per-run org context.
 const AGGREGATED_FACT_TABLE_RUN_COLLECTION = "aggregatedfacttableruns";
@@ -301,19 +303,36 @@ export function classifyStalledSnapshot({
     : "active";
 }
 
+// Oldest-first pages of running snapshots older than the heartbeat window,
+// excluding ids already yielded so a page of live waiters can't hide newer
+// dead snapshots behind it.
+async function* stalledSnapshotCandidates(stalledBefore: Date) {
+  const seen: string[] = [];
+  while (seen.length < STALLED_SNAPSHOT_REAP_MAX_PER_TICK) {
+    const page = await dangerousFindStalledRunningSnapshotsFromAllOrgs(
+      stalledBefore,
+      Math.min(
+        STALLED_SNAPSHOT_REAP_LIMIT,
+        STALLED_SNAPSHOT_REAP_MAX_PER_TICK - seen.length,
+      ),
+      seen,
+    );
+    if (!page.length) return;
+    for (const snapshot of page) {
+      seen.push(snapshot.id);
+      yield snapshot;
+    }
+  }
+  logger.warn(
+    `Stalled-snapshot reaper examined ${STALLED_SNAPSHOT_REAP_MAX_PER_TICK} candidates this tick; newer stalled snapshots may be delayed`,
+  );
+}
+
 async function reapStalledSnapshots() {
   const now = Date.now();
-  const candidates = await dangerousFindStalledRunningSnapshotsFromAllOrgs(
-    new Date(now - QUEUED_HEARTBEAT_STALE_MS),
-    STALLED_SNAPSHOT_REAP_LIMIT,
-  );
-  if (candidates.length >= STALLED_SNAPSHOT_REAP_LIMIT) {
-    logger.warn(
-      `Stalled-snapshot reaper candidate page is full (${STALLED_SNAPSHOT_REAP_LIMIT}); newer stalled snapshots may be delayed`,
-    );
-  }
+  const stalledBefore = new Date(now - QUEUED_HEARTBEAT_STALE_MS);
 
-  for (const snapshot of candidates) {
+  for await (const snapshot of stalledSnapshotCandidates(stalledBefore)) {
     const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
     if (!queryIds.length) continue;
 

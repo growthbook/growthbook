@@ -1033,6 +1033,7 @@ export async function errorSnapshotIfStillRunning(
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
+  excludeIds: string[] = [],
 ) {
   // Only look back 24 hours to keep the scan bounded
   const earliestDate = new Date();
@@ -1041,6 +1042,7 @@ export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   const docs = await ExperimentSnapshotModel.find({
     status: "running",
     dateCreated: { $gt: earliestDate, $lt: stalledBefore },
+    ...(excludeIds.length ? { id: { $nin: excludeIds } } : {}),
   })
     .sort({ dateCreated: 1 })
     .limit(limit);

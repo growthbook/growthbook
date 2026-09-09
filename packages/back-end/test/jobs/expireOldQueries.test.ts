@@ -1,5 +1,6 @@
 import type Agenda from "agenda";
 import type {
+  ExperimentSnapshotInterface,
   SnapshotTriggeredBy,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
@@ -314,12 +315,21 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     },
   };
 
+  // Serve pages from a fixed candidate list the way the real query does:
+  // oldest-first, honoring the caller's limit and exclusion list.
+  function mockCandidates(candidates: ExperimentSnapshotInterface[]) {
+    (
+      dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
+    ).mockImplementation(
+      async (_stalledBefore: Date, limit: number, excludeIds: string[] = []) =>
+        candidates.filter((c) => !excludeIds.includes(c.id)).slice(0, limit),
+    );
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
     (getStaleQueries as jest.Mock).mockResolvedValue([]);
-    (
-      dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
-    ).mockResolvedValue([]);
+    mockCandidates([]);
     (getQueryStatusesByIds as jest.Mock).mockResolvedValue([]);
     (errorSnapshotIfStillRunning as jest.Mock).mockResolvedValue(true);
     (markPendingQueriesAsFailed as jest.Mock).mockResolvedValue(1);
@@ -348,6 +358,38 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     await definitions.expireOldQueries();
   }
 
+  function runningSnapshot(
+    id: string,
+    snapshot: {
+      type?: SnapshotType;
+      triggeredBy?: SnapshotTriggeredBy;
+      report?: string;
+      ageMs?: number;
+    },
+  ): ExperimentSnapshotInterface {
+    const dateCreated = new Date(
+      Date.now() - (snapshot.ageMs ?? 2 * 60 * 60 * 1000),
+    );
+    return {
+      id,
+      organization: "org_1",
+      experiment: "exp_1",
+      phase: 0,
+      dimension: null,
+      type: snapshot.type,
+      triggeredBy: snapshot.triggeredBy,
+      report: snapshot.report,
+      dateCreated,
+      runStarted: dateCreated,
+      status: "running",
+      settings: {},
+      queries: [{ name: "main", query: `qry_${id}`, status: "queued" }],
+      unknownVariations: [],
+      multipleExposures: 0,
+      analyses: [],
+    } as unknown as ExperimentSnapshotInterface;
+  }
+
   function mockOrphanedSnapshot(snapshot: {
     type?: SnapshotType;
     triggeredBy?: SnapshotTriggeredBy;
@@ -355,31 +397,9 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     ageMs?: number;
     statuses?: StalledQueryStatus[];
   }) {
-    const dateCreated = new Date(
-      Date.now() - (snapshot.ageMs ?? 2 * 60 * 60 * 1000),
-    );
-    (
-      dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
-    ).mockResolvedValue([
-      {
-        id: "snp_1",
-        organization: "org_1",
-        experiment: "exp_1",
-        phase: 0,
-        dimension: null,
-        type: snapshot.type,
-        triggeredBy: snapshot.triggeredBy,
-        report: snapshot.report,
-        dateCreated,
-        runStarted: dateCreated,
-        status: "running",
-        settings: {},
-        queries: [{ name: "main", query: "qry_1", status: "queued" }],
-        unknownVariations: [],
-        multipleExposures: 0,
-        analyses: [],
-      },
-    ]);
+    const candidate = runningSnapshot("snp_1", snapshot);
+    candidate.queries = [{ name: "main", query: "qry_1", status: "queued" }];
+    mockCandidates([candidate]);
     (getQueryStatusesByIds as jest.Mock).mockResolvedValue(
       snapshot.statuses ?? [{ id: "qry_1", status: "queued" }],
     );
@@ -462,6 +482,46 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.any(String),
     );
     expect(updateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("pages past a full page of live snapshots to reach a newer dead one", async () => {
+    const now = Date.now();
+    // 50 healthy long-running snapshots fill the first page; the orphaned
+    // one is newer and only reachable on the second page.
+    const live = Array.from({ length: 50 }, (_, i) =>
+      runningSnapshot(`live_${i}`, { ageMs: (60 + i) * 60 * 1000 }),
+    );
+    const dead = runningSnapshot("dead", {
+      type: "standard",
+      triggeredBy: "manual",
+      ageMs: 12 * 60 * 1000,
+    });
+    mockCandidates([...live, dead]);
+    (getQueryStatusesByIds as jest.Mock).mockImplementation(
+      async (_org: string, ids: string[]) =>
+        ids.map((id) => ({
+          id,
+          status: "queued",
+          createdAt: new Date(now - 60 * 60 * 1000),
+          heartbeat: new Date(
+            now - (id === "qry_dead" ? 6 * 60 * 1000 : 30 * 1000),
+          ),
+        })),
+    );
+
+    await runJob();
+
+    expect(
+      dangerousFindStalledRunningSnapshotsFromAllOrgs,
+    ).toHaveBeenCalledTimes(3);
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledTimes(1);
+    expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
+      context,
+      "dead",
+      expect.objectContaining({
+        error: expect.stringContaining("queries were never started"),
+      }),
+    );
   });
 
   it("leaves an orphaned DAG alone while its queued heartbeats are fresh, however old the snapshot is", async () => {
