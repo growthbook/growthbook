@@ -141,6 +141,15 @@ export default [
         babelHelpers: "bundled",
         extensions,
       }),
+      // rrweb is inlined from node_modules, where the package .babelrc doesn't
+      // apply; downlevel it to the same browserslist as our own code
+      babel({
+        include: /node_modules[\\/]+(rrweb|@rrweb)[\\/]/,
+        babelHelpers: "bundled",
+        babelrc: false,
+        configFile: false,
+        presets: ["@babel/preset-env"],
+      }),
     ],
   },
 ];
