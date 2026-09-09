@@ -26,11 +26,22 @@ export default function NewFactMetricPage() {
     typeof router.query.duplicate === "string"
       ? getFactMetricById(router.query.duplicate)
       : null;
-  // Matches MetricsList.tsx's existing duplicate-name convention exactly -
-  // including not resetting managedBy, a pre-existing quirk this migration
-  // preserves rather than fixes.
+  // Matches the old modal's duplicate normalization (FactMetricList.tsx,
+  // pre-migration): only "admin" managedBy carries over, and only if this
+  // user could create it themselves - otherwise a copy of an API-managed or
+  // admin-managed metric would be rejected outright by the backend instead
+  // of saving as an ordinary metric.
+  const duplicatedManagedBy: "" | "admin" =
+    duplicateSource?.managedBy === "admin" &&
+    permissionsUtil.canCreateOfficialResources(duplicateSource)
+      ? "admin"
+      : "";
   const duplicateFrom = duplicateSource
-    ? { ...duplicateSource, name: duplicateSource.name + " (copy)" }
+    ? {
+        ...duplicateSource,
+        name: duplicateSource.name + " (copy)",
+        managedBy: duplicatedManagedBy,
+      }
     : null;
 
   const canCreate = permissionsUtil.canCreateFactMetric({
