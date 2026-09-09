@@ -248,6 +248,11 @@ experimentSnapshotSchema.index({
   status: 1,
   dateCreated: -1,
 });
+// Backs the cross-org stalled-snapshot reaper scan, which runs every minute.
+experimentSnapshotSchema.index({
+  status: 1,
+  dateCreated: -1,
+});
 
 export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
@@ -1028,6 +1033,7 @@ export async function errorSnapshotIfStillRunning(
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
+  excludeIds: string[] = [],
 ) {
   // Only look back 24 hours to keep the scan bounded
   const earliestDate = new Date();
@@ -1036,7 +1042,10 @@ export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   const docs = await ExperimentSnapshotModel.find({
     status: "running",
     dateCreated: { $gt: earliestDate, $lt: stalledBefore },
-  }).limit(limit);
+    ...(excludeIds.length ? { id: { $nin: excludeIds } } : {}),
+  })
+    .sort({ dateCreated: 1 })
+    .limit(limit);
 
   return docs.map((doc) => toInterface(doc));
 }
