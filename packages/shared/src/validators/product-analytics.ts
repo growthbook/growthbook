@@ -99,6 +99,7 @@ const sqlDatasetValidator = z
     ),
     columnTypes: sqlDatasetColumnTypeValidator,
     values: z.array(sqlValueValidator),
+    hiddenColumns: z.array(z.string()).optional(),
   })
   .strict();
 // Funnels
@@ -198,6 +199,7 @@ export const chartTypes = [
   "horizontalBar",
   "stackedHorizontalBar",
   "bigNumber",
+  "rawTable",
 ] as const;
 
 export const dateRangePredefined = [
@@ -321,6 +323,8 @@ export const productAnalyticsResultRowValidator = z.object({
 });
 export const productAnalyticsResultValidator = z.object({
   rows: z.array(productAnalyticsResultRowValidator),
+  rawRows: z.array(z.record(z.string(), z.unknown())).optional(),
+  truncated: z.boolean().optional(),
 });
 
 export const productAnalyticsExplorationValidator = z.object({
