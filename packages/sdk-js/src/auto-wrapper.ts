@@ -180,8 +180,18 @@ function readAutoEventsSettings(): AutoEventsSettings {
   return settings;
 }
 
+// Replaced per bundle by rollup: "auto" or "plus"
+declare const __GB_BUNDLE__: string;
+
+// The plus bundle is a fresh opt-in, so page events, errors, and CWV are on
+// by default there (10% sample, hashed on the auto-attributes id).
+// Clickstream stays opt-in because it captures element text.
+const autoEventsDefaults: AutoEventsSettings =
+  __GB_BUNDLE__ === "plus" ? { pageEvents: true, errors: true, cwv: true } : {};
+
 const autoEventsSettings: AutoEventsSettings = {
   privacy: windowContext.privacy,
+  ...autoEventsDefaults,
   ...readAutoEventsSettings(),
 };
 

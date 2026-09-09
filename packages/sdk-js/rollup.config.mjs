@@ -101,6 +101,7 @@ export default [
       }),
       replace({
         __SDK_VERSION__: JSON.stringify(version),
+        __GB_BUNDLE__: JSON.stringify("auto"),
         preventAssignment: true,
       }),
       babel({
@@ -135,6 +136,7 @@ export default [
       }),
       replace({
         __SDK_VERSION__: JSON.stringify(version),
+        __GB_BUNDLE__: JSON.stringify("plus"),
         preventAssignment: true,
       }),
       babel({

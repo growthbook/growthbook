@@ -1,4 +1,5 @@
-// core+sessions bundle: everything in auto-wrapper.ts plus session replay.
+// core+sessions bundle: everything in auto-wrapper.ts plus session replay,
+// with page events, errors, and CWV on by default (see autoEventsDefaults).
 // rrweb is inlined (rollup external: () => false), so this stays a single
 // self-contained script.
 import gb, {
