@@ -10,6 +10,7 @@ import {
   getQueryFailureError,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { logger } from "back-end/src/util/logger";
 import {
   countRunningQueries,
   getQueriesByIds,
@@ -842,6 +843,56 @@ describe("QueryRunner", () => {
         }
       },
     );
+
+    it("continues collecting results when the cancellation status lookup fails", async () => {
+      jest.useFakeTimers();
+      const query = createMockQuery("qry_status_lookup", "running");
+      const runner = new CascadeFailureQueryRunner(
+        mockContext,
+        {
+          id: "test-model",
+          organization: "test-org",
+          queries: [{ name: "a", query: query.id, status: "running" }],
+          runStarted: new Date(),
+        },
+        mockIntegration,
+      );
+      const lookupError = new Error("MongoDB temporarily unavailable");
+      const warn = jest.spyOn(logger, "warn").mockImplementation(() => {});
+      const onSuccess = jest.fn();
+      const onFailure = jest.fn();
+      mockIntegration.cancelQuery = jest.fn().mockResolvedValue(undefined);
+      jest.mocked(updateQueryIfPending).mockResolvedValue(true);
+      jest.mocked(updateQuery).mockResolvedValue(query);
+      jest.mocked(getQueryStatusesByIds).mockRejectedValue(lookupError);
+
+      try {
+        await runner.executeQuery(query, {
+          run: async (sql, setExternalId) => {
+            expect(sql).toBe(query.query);
+            await setExternalId("job_status_lookup", { location: "EU" });
+            return { rows: [] };
+          },
+          onSuccess,
+          onFailure,
+        });
+        await jest.advanceTimersByTimeAsync(0);
+
+        expect(onSuccess).toHaveBeenCalledWith([]);
+        expect(onFailure).not.toHaveBeenCalled();
+        expect(mockIntegration.cancelQuery).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledWith(
+          expect.objectContaining({ err: lookupError, queryId: query.id }),
+          expect.any(String),
+        );
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        warn.mockRestore();
+        jest.mocked(updateQuery).mockReset();
+        jest.mocked(getQueryStatusesByIds).mockReset();
+      }
+    });
 
     // Reproduces the swallowed-error bug in the aggregated fact table pipeline.
     // A multi-query DAG (insert + a dependent coverage query) fails when the

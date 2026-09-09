@@ -1138,9 +1138,18 @@ export abstract class QueryRunner<
 
       // In case the query was cancelled before externalId was set, detect that and cancel
       // the external job here
-      const [current] = await getQueryStatusesByIds(this.context.org.id, [
+      const statuses = await getQueryStatusesByIds(this.context.org.id, [
         doc.id,
-      ]);
+      ]).catch((err: unknown) => {
+        logger.warn(
+          { err, queryId: doc.id, externalId: id },
+          "Could not check query status after storing external ID; continuing to collect results",
+        );
+        return null;
+      });
+      if (statuses === null) return;
+
+      const [current] = statuses;
       if (!current || current.status === "failed") {
         await cancelQueryAndConfirm(
           this.integration,
