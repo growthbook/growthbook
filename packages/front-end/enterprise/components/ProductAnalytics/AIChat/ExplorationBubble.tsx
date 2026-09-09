@@ -115,6 +115,7 @@ export default function ExplorationBubble({
         <SimpleExplorationTable
           exploration={chartData.exploration}
           config={chartData.config}
+          maxHeight={compact ? 240 : 360}
         />
       ) : (
         <Flex
