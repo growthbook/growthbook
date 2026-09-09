@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
   FactFilterTestResults,
@@ -32,19 +32,52 @@ export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
   const { apiCall } = useAuth();
   const [partKey, setPartKey] = useState(parts[0]?.key);
   const [view, setView] = useState<"preview" | "sql">("preview");
-  const [results, setResults] = useState<
+  const [sqlByPart, setSqlByPart] = useState<Record<string, string>>({});
+  const [sqlLoading, setSqlLoading] = useState(false);
+  const [sqlError, setSqlError] = useState<string | null>(null);
+  const [rowsByPart, setRowsByPart] = useState<
     Record<string, FactFilterTestResults | undefined>
   >({});
-  const [error, setError] = useState<string | null>(null);
-
-  if (!parts.length) return null;
+  const [rowsError, setRowsError] = useState<string | null>(null);
 
   const active = parts.find((p) => p.key === partKey) ?? parts[0];
-  const result = results[active.key];
+  const factTableId = active?.factTable?.id;
+  const rowFiltersKey = JSON.stringify(active?.rowFilters ?? []);
+
+  // Building the SQL text is free - no warehouse round trip - so it updates
+  // automatically as the definition changes, the same way other generated-
+  // config previews in the app work. Only fetching sample rows (below) is a
+  // deliberate action, since that runs a real query against the warehouse.
+  useEffect(() => {
+    if (!active || !factTableId) return;
+    const key = active.key;
+    const rowFilters = active.rowFilters;
+    setSqlError(null);
+    const timer = setTimeout(async () => {
+      setSqlLoading(true);
+      try {
+        const res = await apiCall<{ sql: string }>(
+          `/fact-tables/${factTableId}/preview-metric-sql`,
+          { method: "POST", body: JSON.stringify({ rowFilters }) },
+        );
+        setSqlByPart((prev) => ({ ...prev, [key]: res.sql }));
+      } catch (e) {
+        setSqlError(e.message);
+      }
+      setSqlLoading(false);
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [factTableId, rowFiltersKey]);
+
+  if (!active) return null;
+
+  const sql = sqlByPart[active.key];
+  const rows = rowsByPart[active.key];
 
   async function runPreview() {
     if (!active.factTable) return;
-    setError(null);
+    setRowsError(null);
     const res = await apiCall<{ result: FactFilterTestResults }>(
       `/fact-tables/${active.factTable.id}/preview-metric-rows`,
       {
@@ -52,7 +85,7 @@ export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
         body: JSON.stringify({ rowFilters: active.rowFilters }),
       },
     );
-    setResults((prev) => ({ ...prev, [active.key]: res.result }));
+    setRowsByPart((prev) => ({ ...prev, [active.key]: res.result }));
   }
 
   return (
@@ -81,38 +114,56 @@ export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
             ))}
           </Select>
         )}
-        <Button
-          onClick={runPreview}
-          setError={setError}
-          disabled={!active.factTable}
-        >
-          Run Preview
-        </Button>
       </Flex>
-      {error && (
-        <Callout status="error" mb="3">
-          {error}
-        </Callout>
-      )}
-      {!result && !error && (
+
+      {!active.factTable && (
         <Text color="text-mid" as="div">
-          {active.factTable
-            ? "Run the preview to see sample rows and the SQL that selects them."
-            : "Select a fact table to preview this metric's data."}
+          Select a fact table to preview this metric&apos;s data.
         </Text>
       )}
-      {result &&
-        (view === "sql" ? (
-          <Code language="sql" code={result.sql || ""} expandable />
-        ) : (
-          <DisplayTestQueryResults
-            duration={result.duration || 0}
-            results={result.results || []}
-            sql={result.sql || ""}
-            error={result.error || ""}
-            expandable
-          />
-        ))}
+
+      {active.factTable && view === "sql" && (
+        <>
+          {sqlError && (
+            <Callout status="error" mb="3">
+              {sqlError}
+            </Callout>
+          )}
+          {sql ? (
+            <Code language="sql" code={sql} expandable />
+          ) : (
+            <Text color="text-mid" as="div">
+              {sqlLoading ? "Generating SQL…" : "Waiting for the SQL…"}
+            </Text>
+          )}
+        </>
+      )}
+
+      {active.factTable && view === "preview" && (
+        <Flex direction="column" gap="3">
+          {rowsError && <Callout status="error">{rowsError}</Callout>}
+          {rows ? (
+            <DisplayTestQueryResults
+              duration={rows.duration || 0}
+              results={rows.results || []}
+              sql={rows.sql || ""}
+              error={rows.error || ""}
+              expandable
+            />
+          ) : (
+            <>
+              <Text color="text-mid" as="div">
+                Run the preview to see a sample of the rows this metric selects.
+              </Text>
+              <Flex>
+                <Button onClick={runPreview} setError={setRowsError}>
+                  Run Preview
+                </Button>
+              </Flex>
+            </>
+          )}
+        </Flex>
+      )}
     </Frame>
   );
 }
