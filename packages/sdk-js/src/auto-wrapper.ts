@@ -22,9 +22,9 @@ import {
 import { autoEventsPlugin } from "./plugins/auto-events/index";
 import type { AutoEventsSettings } from "./plugins/auto-events/index";
 import type { PrivacySettings } from "./plugins/utils/privacy";
-import type { SessionReplayPrivacySettings } from "./plugins/session-replay/index";
 
-type WindowContext = Context & {
+// auto-wrapper-plus extends this with its own plugin settings
+export type WindowContext = Context & {
   uuidCookieName?: string;
   uuidCookieDomain?: string;
   eventTransport?: string;
@@ -43,11 +43,6 @@ type WindowContext = Context & {
   eventIngestorHost?: string;
   // Shared by every content-capturing plugin unless it sets its own
   privacy?: PrivacySettings;
-  // Consumed by auto-wrapper-plus
-  sessionReplay?: {
-    enabled?: boolean;
-    privacy?: SessionReplayPrivacySettings;
-  };
 };
 declare global {
   interface Window {
@@ -161,9 +156,9 @@ const plugins: Plugin[] = [
 
 // Script-tag surface for auto-events, mirroring data-tracking:
 //   data-auto-events="pageEvents,errors,cwv,clickstream" (or "all")
-// plus optional data-<category>-sampling-rate. Anything else goes through
-// window.growthbook_config.autoEvents. Categories are opt-in here; a
-// sampling rate never decides whether one is on.
+// Everything else (sampling rates, privacy, per-category options) goes
+// through window.growthbook_config.autoEvents, which mirrors the plugin's
+// own settings type and wins outright when present.
 const AUTO_EVENT_CATEGORIES = [
   "pageEvents",
   "errors",
@@ -173,7 +168,6 @@ const AUTO_EVENT_CATEGORIES = [
 type AutoEventCategory = (typeof AUTO_EVENT_CATEGORIES)[number];
 
 function readAutoEventsSettings(): AutoEventsSettings {
-  // window config wins outright, matching every other wrapper setting
   if (windowContext.autoEvents) return windowContext.autoEvents;
   const settings: AutoEventsSettings = {};
   const list = dataContext.autoEvents;
@@ -186,18 +180,7 @@ function readAutoEventsSettings(): AutoEventsSettings {
             : list.split(",").map((s) => s.trim()),
         );
   for (const category of AUTO_EVENT_CATEGORIES) {
-    if (listed !== null) {
-      settings[category] = listed.has(category);
-    }
-    settings[category] ??= false;
-    const rate = dataContext[`${category}SamplingRate`];
-    if (rate !== undefined && settings[category] !== false) {
-      const current = settings[category];
-      settings[category] = {
-        ...(typeof current === "object" ? current : {}),
-        samplingRate: parseFloat(rate),
-      };
-    }
+    settings[category] = listed !== null && listed.has(category);
   }
   return settings;
 }
