@@ -66,7 +66,8 @@ export function FeatureOptionTooltipContent({
               <PrerequisiteStatesCols
                 prereqStates={option.states}
                 envs={[env]}
-                colWidth={28}
+                colWidth={20}
+                compact
               />
               <Text size="sm" overflowWrap="anywhere">
                 {env}
