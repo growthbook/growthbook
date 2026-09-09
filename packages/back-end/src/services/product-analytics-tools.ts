@@ -480,16 +480,5 @@ export async function getProductAnalyticsColumnValues(
       searchTerm: input.searchTerm,
     },
   );
-  const searchTerm = input.searchTerm?.toLowerCase();
-  const values = Object.fromEntries(
-    Object.entries(rawValues).map(([column, rawColumnValues]) => [
-      column,
-      rawColumnValues
-        .filter(
-          (value) => !searchTerm || value.toLowerCase().includes(searchTerm),
-        )
-        .slice(0, input.limit),
-    ]),
-  );
-  return { values, ...(warnings.length ? { warnings } : {}) };
+  return { values: rawValues, ...(warnings.length ? { warnings } : {}) };
 }
