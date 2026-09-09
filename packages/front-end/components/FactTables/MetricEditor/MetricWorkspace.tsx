@@ -22,7 +22,6 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
-import { formTypeFromStored } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 
 type DefaultsContext = Pick<
   Parameters<typeof getDefaultFactMetricProps>[0],
@@ -82,6 +81,11 @@ export default function MetricWorkspace({
     existing?.funnelSettings ?? null,
   );
   const [error, setError] = useState<string | null>(null);
+  // Definition-can't-be-represented is a rare edge case (existing metrics
+  // with a legacy sketch aggregation, mostly) - true is the correct default
+  // for the overwhelmingly common case (a fresh create, or an ordinary
+  // existing metric) while MetricEditor's own effect reports the real value.
+  const [representable, setRepresentable] = useState(true);
 
   function resync(source: FactMetricInterface | null) {
     form.reset(buildFormDefaults(source, defaultsCtx));
@@ -100,23 +104,6 @@ export default function MetricWorkspace({
     resync(existing);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existing, isEditing]);
-
-  // Mirrors MetricEditor's own check - the Save button must stay disabled for
-  // a definition the editor can't represent (and thus can't render any field
-  // to correct), the same way MetricEditor refuses to render an edit control
-  // for it.
-  const metricType = form.watch("metricType");
-  const numerator = form.watch("numerator");
-  const denominator = form.watch("denominator");
-  const quantileSettings = form.watch("quantileSettings");
-  const primaryFactTableId =
-    metricType === "funnel"
-      ? (funnelSettings?.steps[0]?.factTableId ?? "")
-      : numerator.factTableId;
-  const representable = formTypeFromStored(
-    { metricType, numerator, denominator, quantileSettings },
-    getFactTableById(primaryFactTableId),
-  ).representable;
 
   async function handleSave() {
     const values = fromFactMetricFormValues(form.getValues());
@@ -216,6 +203,7 @@ export default function MetricWorkspace({
         canEdit={isEditing}
         funnelSettings={funnelSettings}
         onFunnelSettingsChange={setFunnelSettings}
+        onRepresentableChange={setRepresentable}
       />
       {/* Editing a metric definition is a long form (type, definition,
           basics, advanced settings) - repeat just the buttons at the bottom
