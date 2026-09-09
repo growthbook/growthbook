@@ -1,8 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { Box, Container, Flex, Separator } from "@radix-ui/themes";
-import { SDKLanguage } from "shared/types/sdk-connection";
+import {
+  CreateSDKConnectionParams,
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
+import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
 import {
   PiCaretLeftBold,
   PiCaretRightBold,
@@ -12,11 +17,18 @@ import {
 import Code from "@/components/SyntaxHighlighting/Code";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
+import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
+import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
-import { LanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import {
+  LanguageFilter,
+  languageMapping,
+} from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useFeaturesSettled from "@/hooks/useFeaturesSettled";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
@@ -27,6 +39,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAttributeSchema, useEnvironments } from "@/services/features";
+import track from "@/services/track";
 
 const PACKAGE = "@growthbook/wizard";
 
@@ -68,19 +84,106 @@ export default function ConnectPage() {
   const [eventTracker, setEventTracker] = useState("");
   const [agent, setAgent] = useState<AgentId>("claude");
 
+  const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
+  const { mutateDefinitions, eventIngestorRegion } = useDefinitions();
+  const { data: sdkData, mutate: mutateSdkConnections } = useSDKConnections();
+  const environments = useEnvironments();
+  const settings = useOrgSettings();
+  const attributeSchema = useAttributeSchema();
+
+  const connection: SDKConnectionInterface | null =
+    sdkData?.connections.find((c) => c.languages.includes(language)) ?? null;
+  const [creatingConnection, setCreatingConnection] = useState(false);
+  const createdFor = useRef<string | null>(null);
+
+  // The manual instructions are only real with a client key in them, so the
+  // connection is created on the way to step 2 — the same point the setup wizard
+  // creates its own. gb-connect reuses this one, so the agent path is unaffected.
+  useEffect(() => {
+    if (step !== 2 || !sdkData || connection) return;
+    if (createdFor.current === language) return;
+    createdFor.current = language;
+
+    const capabilities = getSDKCapabilities(language);
+    const canUseSecureConnection =
+      hasCommercialFeature("hash-secure-attributes") &&
+      capabilities.includes("encryption");
+
+    const body: Omit<CreateSDKConnectionParams, "organization"> = {
+      name: `${languageMapping[language].label} SDK Connection`,
+      languages: [language],
+      sdkVersion: getLatestSDKVersion(language),
+      environment: environments[0]?.id || "production",
+      projects: [],
+      encryptPayload: canUseSecureConnection,
+      hashSecureAttributes: canUseSecureConnection,
+      includeExperimentNames: !canUseSecureConnection,
+      includeDraftExperiments: true,
+      includeVisualExperiments: capabilities.includes("visualEditorJS"),
+      includeRedirectExperiments: capabilities.includes("redirects"),
+      includeRuleIds: true,
+      includeProjectIdInMetadata: false,
+      includeCustomFieldsInMetadata: false,
+      allowedCustomFieldsInMetadata: [],
+      includeTagsInMetadata: false,
+    };
+
+    setCreatingConnection(true);
+    apiCall<{ connection: SDKConnectionInterface }>("/sdk-connections", {
+      method: "POST",
+      body: JSON.stringify(body),
+    })
+      .then(async () => {
+        track("Create SDK Connection", {
+          source: "connect",
+          languages: [language],
+          ciphered: canUseSecureConnection,
+          environment: body.environment,
+        });
+        await mutateSdkConnections();
+        await mutateDefinitions();
+      })
+      .catch(() => {
+        // Let them create it by hand instead; nothing else on the page needs it.
+        createdFor.current = null;
+      })
+      .finally(() => setCreatingConnection(false));
+  }, [
+    step,
+    sdkData,
+    connection,
+    language,
+    environments,
+    hasCommercialFeature,
+    apiCall,
+    mutateSdkConnections,
+    mutateDefinitions,
+  ]);
+
   // Off by default: without the flag this page does not exist, and the existing
   // setup wizard takes over.
   useEffect(() => {
     if (flagsSettled && !aiOnboarding) router.replace("/setup");
   }, [flagsSettled, aiOnboarding, router]);
 
-  const apiHost = getApiBaseUrl();
+  const apiHost = getApiBaseUrl(connection ?? undefined);
   const wizardable = !NO_WIZARD.has(language);
   const command = `npx ${PACKAGE} --language ${language} --${agent}${organization.id ? ` --org ${organization.id}` : ""}`;
   const agentLabel = AGENTS.find((a) => a.id === agent)?.label ?? "your agent";
 
   if (!flagsSettled) return <LoadingOverlay />;
   if (!aiOnboarding) return null;
+
+  const encryptionKey = connection?.encryptPayload
+    ? connection.encryptionKey
+    : undefined;
+  const remoteEvalEnabled = connection?.remoteEvalEnabled || false;
+  const hashSecureAttributes = !!connection?.hashSecureAttributes;
+  const secureAttributeSalt = settings.secureAttributeSalt ?? "";
+  const secureAttributes = attributeSchema.filter((a) =>
+    ["secureString", "secureString[]"].includes(a.datatype),
+  );
 
   const manual = (
     <>
@@ -91,29 +194,87 @@ export default function ConnectPage() {
           </Callout>
         </Box>
       )}
-      <Frame p="4" mb="0">
-        {/* apiKey is read only by this component's script-tag branch. Where it
-                matters the key is public by design; elsewhere it is unused, so an
-                empty value invents nothing. The snippets that embed a real key
-                live on the SDK connection itself. */}
-        <InstallationCodeSnippet
-          language={language}
-          apiKey=""
-          apiHost={apiHost}
-          remoteEvalEnabled={false}
-          eventTracker={eventTracker}
-          setEventTracker={setEventTracker}
-        />
-      </Frame>
-      <Box mt="3">
-        <Text as="p" color="text-mid" mb="3">
-          Create an SDK Connection to get your client key and configuration
-          instructions.
-        </Text>
-        <LinkButton href="/sdks" variant="outline">
-          Create an SDK Connection
-        </LinkButton>
-      </Box>
+      {!connection ? (
+        <Frame p="4" mb="0">
+          <Text as="p" color="text-mid" mb="0">
+            {creatingConnection
+              ? "Setting up your SDK Connection…"
+              : "An SDK Connection is needed for these instructions."}
+          </Text>
+          {!creatingConnection && (
+            <Box mt="3">
+              <LinkButton href="/sdks" variant="outline">
+                Create an SDK Connection
+              </LinkButton>
+            </Box>
+          )}
+        </Frame>
+      ) : (
+        <>
+          <Heading as="h3" size="md" weight="semibold" mb="2">
+            Installation
+          </Heading>
+          <Frame p="4" mb="5">
+            <InstallationCodeSnippet
+              language={language}
+              eventTracker={eventTracker}
+              setEventTracker={setEventTracker}
+              apiHost={apiHost}
+              apiKey={connection.key}
+              encryptionKey={encryptionKey}
+              remoteEvalEnabled={remoteEvalEnabled}
+              eventIngestorRegion={eventIngestorRegion}
+            />
+          </Frame>
+
+          {language !== "other" && (
+            <>
+              <Heading as="h3" size="md" weight="semibold" mb="2">
+                Setup
+              </Heading>
+              <Frame p="4" mb="5">
+                <GrowthBookSetupCodeSnippet
+                  language={language}
+                  version={connection.sdkVersion}
+                  apiHost={apiHost}
+                  apiKey={connection.key}
+                  encryptionKey={encryptionKey}
+                  remoteEvalEnabled={remoteEvalEnabled}
+                  eventTracker={eventTracker}
+                  setEventTracker={setEventTracker}
+                  eventIngestorRegion={eventIngestorRegion}
+                />
+              </Frame>
+            </>
+          )}
+
+          {!(language.match(/^edge-/) || language === "other") && (
+            <>
+              <Heading as="h3" size="md" weight="semibold" mb="2">
+                Targeting Attributes (Optional)
+              </Heading>
+              <Frame p="4" mb="0">
+                <TargetingAttributeCodeSnippet
+                  language={language}
+                  hashSecureAttributes={hashSecureAttributes}
+                  secureAttributeSalt={secureAttributeSalt}
+                  version={connection.sdkVersion}
+                  eventTracker={eventTracker}
+                />
+                {hashSecureAttributes && secureAttributes.length > 0 && (
+                  <Callout status="info" mt="4" mb="0">
+                    This connection has{" "}
+                    <strong>secure attribute hashing</strong> enabled. You must
+                    manually hash all attributes with datatype{" "}
+                    <code>secureString</code> or <code>secureString[]</code> in
+                    your SDK implementation code.
+                  </Callout>
+                )}
+              </Frame>
+            </>
+          )}
+        </>
+      )}
     </>
   );
 
