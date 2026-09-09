@@ -117,7 +117,7 @@ export function ExplorerContent({
   const {
     managedWarehouseUnavailable,
     draftExploreState,
-    ensureDefaultSqlValue,
+    ensureDefaultSqlExploreConfig,
   } = useExplorerContext();
   const sqlEditorContext = useOptionalSqlEditorContext();
   const isSql = draftExploreState.type === "sql";
@@ -206,7 +206,7 @@ export function ExplorerContent({
             onValueChange={(value) => {
               if (value === "dataset" || value === "explore") {
                 if (value === "explore") {
-                  ensureDefaultSqlValue();
+                  ensureDefaultSqlExploreConfig();
                   sqlEditorContext.markExploreSeen();
                 }
                 sqlEditorContext.setViewMode(value);
@@ -424,10 +424,9 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     // Funnels don't render time-series charts, so the default date dimension
     // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
     // let the user add one explicitly via "Group By".
-    // SQL starts as a table exploration with no dimensions until the user
-    // configures them after testing their query.
+    // SQL starts in the unaggregated result view after the query is tested.
     ...(type === "funnel" || type === "sql" ? { dimensions: [] } : {}),
-    ...(type === "sql" ? { chartType: "table" as const } : {}),
+    ...(type === "sql" ? { chartType: "rawTable" as const } : {}),
   } as ExplorerDraftConfig;
 
   let seedError: string | null = null;
