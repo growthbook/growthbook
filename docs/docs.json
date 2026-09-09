@@ -1200,6 +1200,11 @@
       "href": "https://app.growthbook.io/"
     }
   },
+  "integrations": {
+    "gtm": {
+      "tagId": "GTM-MF7GKV4V"
+    }
+  },
   "footer": {
     "socials": {
       "x": "https://twitter.com/growth_book",

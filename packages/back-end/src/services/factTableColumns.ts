@@ -1,4 +1,5 @@
 import chunk from "lodash/chunk";
+import cloneDeep from "lodash/cloneDeep";
 import {
   canInlineFilterColumn,
   getFactTableTimestampColumn,
@@ -300,7 +301,7 @@ export async function runColumnDetectionQuery(
     }
   });
 
-  const columns = factTable.columns || [];
+  const columns = cloneDeep(factTable.columns || []);
 
   // Update existing column
   columns.forEach((col) => {
