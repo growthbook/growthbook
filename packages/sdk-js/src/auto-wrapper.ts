@@ -25,6 +25,7 @@ import {
   type AutoEventsSettings,
 } from "./plugins/auto-events/index";
 import { persistRedirectExposures } from "./redirect-exposure";
+import { wrapperDefaults } from "./auto-wrapper-defaults";
 import type { PrivacySettings } from "./plugins/utils/privacy";
 
 // auto-wrapper-plus extends this with its own plugin settings
@@ -180,18 +181,9 @@ function readAutoEventsSettings(): AutoEventsSettings {
   return settings;
 }
 
-// Replaced per bundle by rollup: "auto" or "plus"
-declare const __GB_BUNDLE__: string;
-
-// The plus bundle is a fresh opt-in, so page events, errors, and CWV are on
-// by default there (10% sample, hashed on the auto-attributes id).
-// Clickstream stays opt-in because it captures element text.
-const autoEventsDefaults: AutoEventsSettings =
-  __GB_BUNDLE__ === "plus" ? { pageEvents: true, errors: true, cwv: true } : {};
-
 const autoEventsSettings: AutoEventsSettings = {
   privacy: windowContext.privacy,
-  ...autoEventsDefaults,
+  ...wrapperDefaults.autoEvents,
   ...readAutoEventsSettings(),
 };
 

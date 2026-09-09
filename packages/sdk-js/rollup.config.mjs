@@ -94,14 +94,15 @@ export default [
       },
     ],
     plugins: [
-      resolve({ extensions, jsnext: true }),
+      // package.json declares sideEffects: false for consumers' bundlers; the
+      // wrapper entrypoints rely on import-order side effects
+      resolve({ extensions, jsnext: true, ignoreSideEffectsForRoot: true }),
       replace({
         "process.env.NODE_ENV": JSON.stringify("production"),
         preventAssignment: true,
       }),
       replace({
         __SDK_VERSION__: JSON.stringify(version),
-        __GB_BUNDLE__: JSON.stringify("auto"),
         preventAssignment: true,
       }),
       babel({
@@ -129,14 +130,15 @@ export default [
       },
     ],
     plugins: [
-      resolve({ extensions, jsnext: true }),
+      // package.json declares sideEffects: false for consumers' bundlers; the
+      // wrapper entrypoints rely on import-order side effects
+      resolve({ extensions, jsnext: true, ignoreSideEffectsForRoot: true }),
       replace({
         "process.env.NODE_ENV": JSON.stringify("production"),
         preventAssignment: true,
       }),
       replace({
         __SDK_VERSION__: JSON.stringify(version),
-        __GB_BUNDLE__: JSON.stringify("plus"),
         preventAssignment: true,
       }),
       babel({

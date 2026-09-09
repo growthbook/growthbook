@@ -28,12 +28,20 @@ module.exports = {
   env: {
     esmUnbundled: {
       ...esm,
-      ignore: ["./src/auto-wrapper.ts", "./src/auto-wrapper-plus.ts"],
+      ignore: [
+        "./src/auto-wrapper.ts",
+        "./src/auto-wrapper-plus.ts",
+        "./src/auto-wrapper-plus-defaults.ts",
+      ],
       plugins: [["replace-import-extension", { extMapping: { "": ".mjs" } }]],
     },
     cjs: {
       ...cjs,
-      ignore: ["./src/auto-wrapper.ts", "./src/auto-wrapper-plus.ts"],
+      ignore: [
+        "./src/auto-wrapper.ts",
+        "./src/auto-wrapper-plus.ts",
+        "./src/auto-wrapper-plus-defaults.ts",
+      ],
     },
   },
   plugins: [
