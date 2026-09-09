@@ -4,6 +4,7 @@ import { ColumnRef, FunnelSettings } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -77,7 +78,12 @@ export default function MetricEditor({
     metricType === "funnel"
       ? (funnelSettings?.steps[0]?.factTableId ?? "")
       : numerator.factTableId;
-  const factTable = getFactTableById(primaryFactTableId) ?? null;
+  // useDefinitions()'s own factTables/getFactTableById return the slimmed
+  // definitions-endpoint shape (no jsonFields per column) - fine for the
+  // Fact Table select's own options list, but every column/filter picker
+  // rendered below needs the full fact table, or JSON sub-field columns are
+  // simply missing and an existing filter referencing one reads as invalid.
+  const { factTable } = useFullFactTable(primaryFactTableId || null);
   // The primary Fact Table select is what DERIVES datasource (spec, see
   // changeFactTable below) - filtering its own options by a datasource that
   // hasn't actually been chosen yet would make some or all fact tables
@@ -285,7 +291,20 @@ export default function MetricEditor({
             {isFunnel && (
               <FunnelStepsInput
                 value={funnelSettings ?? { steps: [] }}
-                setValue={onFunnelSettingsChange}
+                setValue={(v) => {
+                  onFunnelSettingsChange(v);
+                  // Datasource is derived from the fact table, not selected
+                  // directly (spec) - same as changeFactTable does for every
+                  // other type, just off step 1's fact table instead of the
+                  // numerator's, since that's what primaryFactTableId already
+                  // treats as the authoritative one for funnel.
+                  const stepFactTable = getFactTableById(
+                    v.steps[0]?.factTableId ?? "",
+                  );
+                  if (stepFactTable) {
+                    form.setValue("datasource", stepFactTable.datasource);
+                  }
+                }}
                 datasource={datasourceId}
                 project={project}
                 initialFactTable={primaryFactTableId || undefined}
