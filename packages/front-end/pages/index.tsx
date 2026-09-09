@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import useFeaturesSettled from "@/hooks/useFeaturesSettled";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import GetStartedAndHomePage from "@/components/GetStarted";
@@ -18,21 +18,9 @@ export default function Home(): React.ReactElement {
   const router = useRouter();
   const { apiCall } = useAuth();
   const { organization } = useUser();
-  const gb = useGrowthBook<AppFeatures>();
   const aiOnboarding = useFeatureIsOn("ai-assisted-onboarding");
-
-  // The redirect below fires once, so it must not run before the feature payload
-  // is in; wait for the SDK, but never forever, since a failed fetch leaves it
-  // unready and the old paths must still work.
-  const [flagsSettled, setFlagsSettled] = useState(false);
-  useEffect(() => {
-    if (gb?.ready) {
-      setFlagsSettled(true);
-      return;
-    }
-    const timer = setTimeout(() => setFlagsSettled(true), 1500);
-    return () => clearTimeout(timer);
-  }, [gb, gb?.ready]);
+  // The redirect below fires once, so it waits for the feature payload.
+  const flagsSettled = useFeaturesSettled();
 
   // Fetch fresh on mount — we don't want a cached "no features yet" result
   // bouncing the user back to /setup right after they create their first one.

@@ -186,9 +186,9 @@ export default function AutoRunPage() {
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
         <Callout status="error">
-          Couldn&apos;t load this run: {error.message}
+          Couldn&apos;t load this setup report: {error.message}
           {/not found/i.test(error.message)
-            ? ". If the setup ran in another of your organizations, switch to it and reload."
+            ? ". If this setup belongs to another organization, switch to it and reload."
             : ""}
         </Callout>
       </Container>
@@ -203,8 +203,8 @@ export default function AutoRunPage() {
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
         <Callout status="warning">
-          No run with id <code>{String(id)}</code>. It may belong to another
-          organization.
+          No setup run found with ID <code>{String(id)}</code>. It may belong to
+          another organization.
         </Callout>
       </Container>
     );
@@ -227,7 +227,7 @@ export default function AutoRunPage() {
 
       <Box mt="4" mb="5">
         <Heading as="h1" size="2xl" mb="0">
-          {completed ? "Setup Complete!" : "Almost There"}
+          {completed ? "Setup Complete" : "Setup Report"}
         </Heading>
       </Box>
 
@@ -235,8 +235,8 @@ export default function AutoRunPage() {
         <Callout status="warning" size="md" mb="5">
           <Text weight="medium" as="div">
             {failing.length === 1
-              ? "1 step still to finish"
-              : `${failing.length} steps still to finish`}
+              ? "1 required check failed"
+              : `${failing.length} required checks failed`}
           </Text>
           <Box mt="1">
             {failing.map((c) => (
@@ -250,8 +250,8 @@ export default function AutoRunPage() {
 
       {byDeveloper.length > 0 && (
         <Section
-          title="What You Created"
-          description="The SDK Connection and Feature Flag created during setup."
+          title="Created During Setup"
+          description="Open an item to review its settings."
         >
           <CreatedTable artifacts={byDeveloper} environment={environment} />
         </Section>
@@ -259,15 +259,15 @@ export default function AutoRunPage() {
 
       {byGrowthBook.length > 0 && (
         <Section
-          title="What We Set Up for You"
-          description="A quick preview of what the AI agent found and configured. Take a look and confirm everything looks right."
+          title="Configured by Your Agent"
+          description="Review the attributes and other settings your coding agent configured."
         >
           <SetUpTable artifacts={byGrowthBook} />
         </Section>
       )}
 
       <Heading as="h2" mt="5" mb="2">
-        What Do You Want to Do Next?
+        Next Steps
       </Heading>
       {/* Both cards hang a decorative image off their right edge with mr="-9".
           Clipped here so that negative margin cannot widen the page and push

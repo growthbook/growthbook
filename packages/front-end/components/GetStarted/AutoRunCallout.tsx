@@ -1,3 +1,4 @@
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ApiAutoRun, autoRunMetaString } from "shared/validators";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -9,7 +10,11 @@ import { useUser } from "@/services/UserContext";
 // up where the wizard left off instead of starting from an empty Get Started page.
 export default function AutoRunCallout() {
   const { userId } = useUser();
-  const { data } = useApi<{ autoRuns: ApiAutoRun[] }>("/auto-runs");
+  const aiOnboarding = useFeatureIsOn("ai-assisted-onboarding");
+  const { data } = useApi<{ autoRuns: ApiAutoRun[] }>("/auto-runs", {
+    shouldRun: () => aiOnboarding,
+  });
+  if (!aiOnboarding) return null;
 
   const mine = (data?.autoRuns || [])
     .filter((r) => r.createdBy === userId)
@@ -25,11 +30,11 @@ export default function AutoRunCallout() {
   const body = (
     <Text size="md">
       {unfinished
-        ? `Your GrowthBook setup${where} has ${unfinished} step${
+        ? `Your GrowthBook setup${where} has ${unfinished} required check${
             unfinished === 1 ? "" : "s"
-          } left to finish.`
-        : `You set up GrowthBook${where}. Here's everything it created.`}{" "}
-      <Link href={`/auto-runs/${run.id}`}>View setup</Link>
+          } to review.`
+        : `Review the results of your GrowthBook setup${where}.`}{" "}
+      <Link href={`/auto-runs/${run.id}`}>View report</Link>
     </Text>
   );
 

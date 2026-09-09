@@ -119,7 +119,9 @@ function NoOrganization({ onCreated }: { onCreated: () => void }) {
       });
       onCreated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create it");
+      setError(
+        e instanceof Error ? e.message : "Could not create the organization.",
+      );
     } finally {
       setCreating(false);
     }
@@ -444,11 +446,12 @@ export default function OAuthAuthorizePage() {
               {ssoLogoutUrl ? (
                 <Box mt="3">
                   <Callout status="info">
-                    Your organization signs in through an identity provider, so
-                    switching accounts means signing out there too.{" "}
-                    <Link href={ssoLogoutUrl}>Sign out of your provider</Link>,
-                    then start the connection again from your terminal — this
-                    approval link can&apos;t survive the round trip.
+                    To switch accounts,{" "}
+                    <Link href={ssoLogoutUrl}>
+                      sign out of your identity provider
+                    </Link>
+                    , then restart the connection from the app or terminal that
+                    opened this page.
                   </Callout>
                 </Box>
               ) : null}

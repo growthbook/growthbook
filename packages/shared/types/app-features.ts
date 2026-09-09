@@ -11,8 +11,10 @@
  * Record<string, unknown> here; the pricing config is schema-validated with
  * zod at the read site (back-end services/plan-limits.ts).
  *
- * "ai-assisted-onboarding" is added the same way: it gates sending engineers
- * from the initial onboarding to the agent-driven setup at /connect.
+ * "ai-assisted-onboarding" is added the same way: it gates the agent-driven
+ * onboarding, meaning the /connect page, its Get Started callout, and the engineer
+ * redirect from the initial onboarding. Off by default, so the existing setup
+ * wizard is what everyone gets until it is turned on.
  */
 export type AppFeatures = {
   "papercups-config": Record<string, unknown>;

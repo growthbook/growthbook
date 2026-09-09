@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { Box, Container, Flex, Separator } from "@radix-ui/themes";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import {
@@ -13,6 +15,8 @@ import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/In
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import { LanguageFilter } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import PageHead from "@/components/Layout/PageHead";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import useFeaturesSettled from "@/hooks/useFeaturesSettled";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
@@ -24,7 +28,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 
-const PACKAGE = "growthbook-install";
+const PACKAGE = "@growthbook/wizard";
 
 // Ids match the launcher's --agent values; the flag on the command is `--${id}`.
 const AGENTS = [
@@ -52,6 +56,9 @@ const NO_WIZARD: ReadonlySet<string> = new Set([
 
 export default function ConnectPage() {
   const { organization } = useUser();
+  const router = useRouter();
+  const aiOnboarding = useFeatureIsOn("ai-assisted-onboarding");
+  const flagsSettled = useFeaturesSettled();
   const [step, setStep] = useState<1 | 2>(1);
   const [language, setLanguage] = useState<SDKLanguage>("react");
   const [languageFilter, setLanguageFilter] =
@@ -61,18 +68,26 @@ export default function ConnectPage() {
   const [eventTracker, setEventTracker] = useState("");
   const [agent, setAgent] = useState<AgentId>("claude");
 
+  // Off by default: without the flag this page does not exist, and the existing
+  // setup wizard takes over.
+  useEffect(() => {
+    if (flagsSettled && !aiOnboarding) router.replace("/setup");
+  }, [flagsSettled, aiOnboarding, router]);
+
   const apiHost = getApiBaseUrl();
   const wizardable = !NO_WIZARD.has(language);
   const command = `npx ${PACKAGE} --language ${language} --${agent}${organization.id ? ` --org ${organization.id}` : ""}`;
   const agentLabel = AGENTS.find((a) => a.id === agent)?.label ?? "your agent";
+
+  if (!flagsSettled) return <LoadingOverlay />;
+  if (!aiOnboarding) return null;
 
   const manual = (
     <>
       {!wizardable && (
         <Box mb="3">
           <Callout status="info">
-            This one is set up by hand — there is no package to install, so the
-            AI-assisted path does not apply.
+            Follow the manual setup instructions for this SDK.
           </Callout>
         </Box>
       )}
@@ -92,9 +107,8 @@ export default function ConnectPage() {
       </Frame>
       <Box mt="3">
         <Text as="p" color="text-mid" mb="3">
-          That installs the SDK. Initializing it needs your client key, which
-          belongs to an SDK connection — create one and its setup snippets
-          arrive with the key already filled in.
+          Create an SDK Connection to get your client key and configuration
+          instructions.
         </Text>
         <LinkButton href="/sdks" variant="outline">
           Create an SDK Connection
@@ -121,7 +135,7 @@ export default function ConnectPage() {
           <Text as="p" color="text-mid">
             {step === 1
               ? "Select your SDK language."
-              : "Install the GrowthBook SDK in your app to start running feature flags and experiments."}
+              : "Install the GrowthBook SDK to use Feature Flags and experiments in your app."}
           </Text>
         </Box>
         {step === 2 && (
@@ -157,9 +171,9 @@ export default function ConnectPage() {
           <TabsContent value="ai-assisted">
             <Flex align="center" gap="2" mb="3">
               <Heading as="h2" size="md" weight="semibold" mb="0">
-                AI-Assisted Setup
+                Wizard
               </Heading>
-              <Tooltip content="It signs you in, creates an SDK Connection and installs the SDK, then hands over to your coding agent to wire it up, find targeting attributes in your code, and put something behind a first Feature Flag.">
+              <Tooltip content="The wizard installs the SDK and creates an SDK Connection. Your coding agent completes the integration and helps you add targeting attributes and a Feature Flag.">
                 <Box style={{ color: "var(--slate-9)", display: "flex" }}>
                   <PiInfo size={16} />
                 </Box>
@@ -185,13 +199,13 @@ export default function ConnectPage() {
                 </Select>
               </Box>
               <Text as="p" color="text-mid" mb="3">
-                Run this in a terminal in your project. It signs you in,
+                Run this command from your project directory. It signs you in,
                 installs the SDK, and{" "}
                 {agent === "gemini"
                   ? "prints the prompt for Gemini CLI."
                   : agent === "antigravity"
                     ? "opens Antigravity with the prompt on your clipboard."
-                    : `opens ${agentLabel} with the rest.`}
+                    : `opens ${agentLabel} to complete the integration.`}
               </Text>
               <Code
                 language="bash"
