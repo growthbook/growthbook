@@ -1,20 +1,19 @@
 import { useState } from "react";
-import { z } from "zod";
-import dJSON from "dirty-json";
-import {
-  columnRefValidator,
-  metricTypeValidator,
-  quantileSettingsValidator,
-  windowSettingsValidator,
-} from "shared/validators";
-import { RowFilter } from "shared/types/fact-table";
-import { canInlineFilterColumn } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
+import { canInlineFilterColumn } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   columnsForShape,
   columnValueLabel,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
+import {
+  autoFillsColumn,
+  FactMetricSeed,
+  IncompleteFactMetricSeed,
+  mappedColumn,
+  mappedRowFilters,
+  placeholderColumns,
+} from "@/components/FactTables/MetricEditor/templateMetric";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -22,96 +21,12 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { Select, SelectItem } from "@/ui/Select";
 
-export const templateMetricValidator = z.object({
-  metricType: metricTypeValidator.exclude(["funnel"]),
-  name: z.string(),
-  numerator: columnRefValidator,
-  denominator: columnRefValidator.optional(),
-  inverse: z.boolean().optional(),
-  description: z.string().optional(),
-  quantileSettings: quantileSettingsValidator.optional(),
-  windowSettings: windowSettingsValidator.optional(),
-});
-export type TemplateMetric = z.infer<typeof templateMetricValidator>;
-export type MappedTemplateMetric = TemplateMetric & { datasource: string };
-
-// A template's numerator/denominator arrive with placeholder column names
-// and no fact table - blank those fields (they get filled in by
-// TemplateFieldMapping) before validating. Throws on malformed JSON or a
-// shape templateMetricValidator rejects.
-export function parseMetricTemplate(raw: string): TemplateMetric {
-  const json = dJSON.parse(raw);
-  if (json.numerator) {
-    json.numerator.factTableId = "";
-    json.numerator.rowFilters = json.numerator.rowFilters || [];
-    json.numerator.column =
-      json.metricType === "proportion" || json.metricType === "retention"
-        ? "$$distinctUsers"
-        : json.numerator.column || "";
-  }
-  if (json.denominator) {
-    json.denominator.factTableId = "";
-    json.denominator.rowFilters = json.denominator.rowFilters || [];
-    json.denominator.column = json.denominator.column || "";
-  }
-  return templateMetricValidator.parse(json);
-}
-
-// A template's numerator/denominator carry placeholder column names, not
-// real ones - collect them split by which kind of real column can fill each
-// slot (matches FactMetricModal's own FieldMappingModal exactly: a count-
-// distinct aggregation column and a row-filter column both resolve against
-// the same inline-filterable string-column list, not two different ones).
-function placeholderColumns(template: TemplateMetric) {
-  const numeric = new Set<string>();
-  const string = new Set<string>();
-  const add = (set: Set<string>, column?: string) => {
-    if (column && !column.startsWith("$$")) set.add(column);
-  };
-  const { numerator, denominator } = template;
-  add(
-    numerator.aggregation === "count distinct" ? string : numeric,
-    numerator.column,
-  );
-  if (denominator) {
-    add(
-      denominator.aggregation === "count distinct" ? string : numeric,
-      denominator.column,
-    );
-  }
-  add(numeric, numerator.aggregateFilterColumn);
-  numerator.rowFilters?.forEach((f) => add(string, f.column));
-  denominator?.rowFilters?.forEach((f) => add(string, f.column));
-  return { numeric, string };
-}
-
-// numericPlaceholders/stringPlaceholders are disjoint by construction
-// (placeholderColumns puts each name in exactly one), so a single map
-// covers both - only the Select options offered for each name differ.
-function mappedColumn(
-  column: string | undefined,
-  columnMap: Record<string, string>,
-): string | undefined {
-  if (!column) return column;
-  return column in columnMap ? columnMap[column] || column : column;
-}
-
-function mappedRowFilters(
-  filters: RowFilter[] | undefined,
-  columnMap: Record<string, string>,
-): RowFilter[] | undefined {
-  return filters?.map((f) => ({
-    ...f,
-    column: (f.column && columnMap[f.column]) || f.column,
-  }));
-}
-
 export default function TemplateFieldMapping({
   template,
   onMapped,
 }: {
-  template: TemplateMetric;
-  onMapped: (mapped: MappedTemplateMetric) => void;
+  template: IncompleteFactMetricSeed;
+  onMapped: (mapped: FactMetricSeed) => void;
 }) {
   const { factTables, getFactTableById } = useDefinitions();
   const { numeric: numericPlaceholders, string: stringPlaceholders } =
@@ -140,19 +55,18 @@ export default function TemplateFieldMapping({
   function changeFactTable(newFactTableId: string) {
     setFactTableId(newFactTableId);
     const newFactTable = getFactTableById(newFactTableId);
-    if (!newFactTable) return;
-    // Auto-fill any mapping whose placeholder name exactly matches a real
-    // column of the right kind, same convenience FieldMappingModal has.
+    // Rebuild every mapping from scratch against the new fact table - never
+    // carry forward a value picked against a different table, which could
+    // silently reference a column that doesn't exist here.
     setColumnMap((prev) =>
       Object.fromEntries(
-        Object.keys(prev).map((k) => {
-          const matches = numericPlaceholders.has(k)
-            ? newFactTable.columns.some(
-                (c) => c.column === k && !c.deleted && c.datatype === "number",
-              )
-            : canInlineFilterColumn(newFactTable, k);
-          return [k, matches ? k : prev[k]];
-        }),
+        Object.keys(prev).map((k) => [
+          k,
+          newFactTable &&
+          autoFillsColumn(k, numericPlaceholders.has(k), newFactTable)
+            ? k
+            : "",
+        ]),
       ),
     );
   }
@@ -179,6 +93,7 @@ export default function TemplateFieldMapping({
   }
 
   function handleContinue() {
+    if (!canContinue) return;
     const { numerator, denominator } = template;
     onMapped({
       ...template,
@@ -211,7 +126,7 @@ export default function TemplateFieldMapping({
         Map template fields to your fact table
       </Heading>
       <Text color="text-mid" as="div" mb="3">
-        <strong>{template.name}</strong>
+        <strong>{template.name || "New metric"}</strong>
         {template.description ? ` — ${template.description}` : ""}
       </Text>
       <Flex direction="column" gap="3">
