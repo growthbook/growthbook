@@ -1,6 +1,11 @@
 import { randomUUID } from "crypto";
 import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
+import type { AIChatMessage } from "shared/ai-chat";
+import {
+  dashboardIdFromPagePath,
+  parseDashboardApiPath,
+} from "shared/enterprise";
 import type { AIAgentPendingAction } from "shared/validators";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
@@ -44,12 +49,21 @@ How to use the \`callApi\` tool:
 - When a write is the right next step, just issue the call. You do NOT need to
   ask the user to confirm writes before making them — issuing the call is how
   you propose the change.
+- On any write, pass \`summary\`: what changes, in the user's terms rather than
+  the API's. It is the only thing they read before approving — the request body
+  is collapsed — so it has to stand alone. One line for a small change; for a
+  write with several parts, a lead line then a markdown bullet per part. On an
+  update, describe the delta rather than the end state: what is added, removed,
+  or changed. "Create dashboard 'Growth KPIs' with 6 blocks: revenue KPI,
+  signup trend, …" is useful and "Create a dashboard" is not.
 
 How to use the \`askUser\` tool:
 - Use it ONLY when the request is genuinely ambiguous and you can't pick a
   sensible default — e.g. several plausible datasources/projects/environments
   match and guessing wrong would waste a query. Don't use it for write
-  confirmations or ordinary yes/no follow-ups.
+  confirmations or ordinary yes/no follow-ups, and never to offer an option you
+  would then refuse — if you already know one branch is not allowed, say so now
+  instead of spending the user's turn to arrive there.
 - After calling it, stop and emit no further tool calls or text; the reply
   arrives as the next chat message.
 
@@ -84,8 +98,9 @@ How to use skills:
 - The turn may already **open** with one or more completed \`loadSkill\` calls you
   did not make. Those are skills the user picked explicitly from the composer's
   slash-command menu, so treat them as their stated intent: follow them rather
-  than routing to a different skill, and don't re-load them. If one is a domain
-  router, still \`loadSkill\` the leaf it points you to.
+  than routing to a different skill, and don't re-load them. Each leaf arrives
+  with its domain router alongside it, for the shared conventions — that router
+  is context, not a prompt to load anything further.
 - When several arrive together, the user is chaining a multi-step request (e.g.
   \`feature-flags/references/flag-create\` then
   \`feature-flags/references/flag-targeting\`). Work through them in the order given,
@@ -103,9 +118,28 @@ NOT something the user typed — do not echo it back. Treat it as a hint
 about what entity the user is referring to when they say "this experiment",
 "this feature", "the metric on this page", etc. Map \`/features/<key>\` to that
 feature, \`/experiment/<id>\` to that experiment, \`/metric/<id>\` or
-\`/fact-metrics/<id>\` to that metric, and collection pages to browsing that
-resource. Load the matching skill before acting. If page context is irrelevant
-to the request, ignore it.
+\`/fact-metrics/<id>\` to that metric,
+\`/product-analytics/dashboards/<id>\` to that dashboard, and collection pages
+to browsing that resource. Load the matching skill before acting. If page
+context is irrelevant to the request, ignore it.
+
+An Analytics dashboard the user is looking at is the one they mean by "this
+dashboard", "the dashboard", or an unqualified "add a chart" — take the id from
+the path and edit that dashboard rather than asking which one or building a
+second one.
+
+**That is the only dashboard you can change.** Updating one is allowed only
+while the user is viewing it, so a request naming a different dashboard is
+refused whatever the title resolves to — including from the dashboard list.
+
+Refuse it in your first reply. Name the dashboard they are on, say that is the
+only one you can change, and ask them to open the one they meant and tell you
+when they are there. Do not look the other one up, and do not \`askUser\` to
+offer it as a choice: a name that does not match the page is not ambiguity,
+it is a refusal you already know the answer to, and asking spends the user's
+turn to reach the same place. Creating a new dashboard has no such
+restriction — end that reply with a link to the new dashboard, and say that
+changing it means opening that link first.
 
 A user message may carry other auto-injected lines of the same
 \`[Label: value]\` shape — e.g. \`[Active product-analytics datasource: <id>]\`,
@@ -122,7 +156,7 @@ renders the chart automatically from the tool result. Use
 
 One of these lines is authoritative rather than a hint:
 
-  [Referenced by the user: Revenue (metric: met_abc123), Signups (factMetric: fact__xyz)]
+  [Referenced by the user: Revenue (metric: met_abc123)]
 
 It appears when the user @-mentioned entities in the composer, and it maps each
 \`@Name\` already present in their text to the exact id they picked. Use those
@@ -161,6 +195,7 @@ Path patterns (the same URL ↔ entity mappings the skills document):
 - Experiment: \`/experiment/<id>\`; experiments list: \`/experiments\`
 - Metric: \`/metric/<id>\`; fact metric: \`/fact-metrics/<id>\`
 - Project: \`/projects/<id>\`; environments: \`/environments\`
+- Analytics dashboard: \`/product-analytics/dashboards/<id>\`
 - Product-analytics charts: use the exact \`explorationUrl\` returned by the
   exploration response.
 
@@ -267,14 +302,42 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
   return true;
 }
 
-/**
- * Models occasionally serialize `body` as a JSON-encoded string ("the JSON")
- * instead of an object even when told not to. Detect that and parse it back
- * to an object so the underlying handler's schema validates cleanly.
- *
- * This is intentionally permissive — only triggers when the string starts
- * with `{` or `[` after trim. Anything else is passed through unchanged.
- */
+/** The page the user was on for the newest message that carried one. */
+function latestPageContext(messages: AIChatMessage[]): string | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role === "user" && message.currentPage) {
+      return message.currentPage;
+    }
+  }
+  return undefined;
+}
+
+/** Only the dashboard on screen may be updated: an update replaces its block list outright. */
+function offScreenDashboardUpdate(
+  input: DispatchInput,
+  messages: AIChatMessage[],
+): { status: "rejected"; message: string } | undefined {
+  if (input.method !== "PUT") return undefined;
+  const target = parseDashboardApiPath(normalizePath(input.path))?.id;
+  if (!target) return undefined;
+
+  const page = latestPageContext(messages);
+  const onScreen = page ? dashboardIdFromPagePath(page) : null;
+  if (onScreen === target) return undefined;
+
+  return {
+    status: "rejected",
+    message:
+      (onScreen
+        ? `You can only update the dashboard the user is viewing, which is "${onScreen}", not "${target}".`
+        : `You can only update a dashboard while the user is viewing it, and they are not on a dashboard page.`) +
+      " Do not retry this call and do not look for another way to make the change." +
+      " Tell them to open the dashboard they want changed and ask again there.",
+  };
+}
+
+/** Models sometimes JSON-encode `body` as a string; parse it back. */
 function coerceBody(body: unknown): unknown {
   if (typeof body !== "string") return body;
   const trimmed = body.trim();
@@ -350,6 +413,22 @@ const callApiInputSchema = z.object({
         "directly — do NOT wrap it in a JSON-encoded string. Example: " +
         '`{"foo": "bar"}`, not `"{\\"foo\\":\\"bar\\"}"`.',
     ),
+  summary: z
+    .string()
+    .min(1)
+    .max(1200)
+    .optional()
+    .describe(
+      "What this call changes, in the user's terms. Markdown; rendered on the " +
+        "confirmation prompt for a mutating call, where the request body is " +
+        "collapsed behind a disclosure — this is the only description they " +
+        "read before approving. One line for a small change. For a write with " +
+        "several parts, a short lead line then one bullet per part, and on an " +
+        "update describe the delta (added / removed / changed), not the whole " +
+        "resulting object. Name things the way the UI does, not the API: " +
+        '"Adds a bar chart of Revenue per User over the last 12 months", not ' +
+        '"appends blocks[5]". Ignored for reads.',
+    ),
 });
 
 const CALL_API_DESCRIPTION =
@@ -374,13 +453,10 @@ const LOAD_SKILL_DESCRIPTION =
   "you've decided which skill applies to the user's request — its return value " +
   "contains the detailed REST API workflow (endpoints, request bodies, " +
   "examples) for that capability area. Returns { status, name, description, " +
-  "body } on a hit, or { status: 'not_found' } if the name doesn't match.";
+  "body } on a hit, or { status: 'not_found', availableSkills } if the " +
+  "name doesn't match — in which case retry with a valid name.";
 
-/**
- * The `loadSkill` hit result, built in one place so a call the model makes and
- * one seeded from a slash command are byte-identical — the model reads both in
- * the same transcript, and the shape is what `LOAD_SKILL_DESCRIPTION` promises.
- */
+/** Built here so a model-issued load and a slash-command-seeded one are identical. */
 function loadSkillResult(name: string): SkillLoadResult | undefined {
   const skill = readSkill(name);
   if (!skill) return undefined;
@@ -457,6 +533,18 @@ const WAIT_DESCRIPTION =
   "when a loaded workflow explicitly instructs you to poll, and obey that " +
   "workflow's attempt limit.";
 
+/** Query values arrive loosely typed from the model; the dispatcher wants strings. */
+function stripQueryStrings(
+  query: Record<string, string | number | boolean> | undefined,
+): Record<string, string> | undefined {
+  if (!query) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(query)) {
+    out[k] = String(v);
+  }
+  return out;
+}
+
 // =============================================================================
 // AgentConfig
 // =============================================================================
@@ -477,128 +565,121 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
 
   buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
 
+  // No skill restriction, and needed for a `/` menu pick to survive.
   resolveSkill: loadSkillResult,
 
-  buildTools: (ctx, buffer, _params, emit) => {
-    const stripQueryStrings = (
-      query: Record<string, string | number | boolean> | undefined,
-    ): Record<string, string> | undefined => {
-      if (!query) return undefined;
-      const out: Record<string, string> = {};
-      for (const [k, v] of Object.entries(query)) {
-        out[k] = String(v);
-      }
-      return out;
-    };
-
-    return {
-      loadSkill: aiTool({
-        description: LOAD_SKILL_DESCRIPTION,
-        inputSchema: loadSkillInputSchema,
-        execute: async (input) => {
-          const result = loadSkillResult(input.name);
-          if (!result) {
-            return {
-              status: "not_found" as const,
-              message: `No skill named "${input.name}". Use an exact name from the system prompt or domain router.`,
-            };
-          }
-          return result;
-        },
-      }),
-
-      callApi: aiTool({
-        description: CALL_API_DESCRIPTION,
-        inputSchema: callApiInputSchema,
-        execute: async (input) => {
-          const query = stripQueryStrings(input.query);
-          const dispatchInput: DispatchInput = {
-            method: input.method,
-            path: input.path,
-            query,
-            body: coerceBody(input.body),
-          };
-
-          // Deterministic mutation gate: never execute a mutating call here.
-          // Park it on the conversation, surface a confirmation prompt, and
-          // return the awaiting-confirmation sentinel. The StreamProcessor
-          // drops this tool-call from the transcript and the handler ends the
-          // turn; the user's decision is replayed as a real call/result pair
-          // next turn, so the model never sees the gate.
-          if (requiresMutationConfirmation(dispatchInput)) {
-            const pendingAction: AIAgentPendingAction = {
-              id: randomUUID(),
-              method: dispatchInput.method,
-              path: dispatchInput.path,
-              ...(query ? { query } : {}),
-              ...(dispatchInput.body !== undefined
-                ? { body: dispatchInput.body }
-                : {}),
-              summary: `${dispatchInput.method} ${dispatchInput.path.split("?")[0]}`,
-              createdAt: Date.now(),
-            };
-            buffer.setPendingAction(pendingAction);
-            if (emit) {
-              emit("confirm-action", {
-                actionId: pendingAction.id,
-                method: pendingAction.method,
-                path: pendingAction.path,
-                summary: pendingAction.summary,
-                ...(pendingAction.query ? { query: pendingAction.query } : {}),
-                ...(pendingAction.body !== undefined
-                  ? { body: pendingAction.body }
-                  : {}),
-              });
-            }
-            return AWAITING_CONFIRMATION_RESULT;
-          }
-
-          const result = await dispatchInternal(ctx, dispatchInput);
-          return shapeCallApiResult(result);
-        },
-      }),
-
-      wait: aiTool({
-        description: WAIT_DESCRIPTION,
-        inputSchema: waitInputSchema,
-        execute: async (input, { abortSignal }) => {
-          await delay(input.seconds * 1000, undefined, {
-            signal: abortSignal,
-            ref: false,
-          });
+  buildTools: (ctx, buffer, _params, emit) => ({
+    loadSkill: aiTool({
+      description: LOAD_SKILL_DESCRIPTION,
+      inputSchema: loadSkillInputSchema,
+      execute: async (input) => {
+        const result = loadSkillResult(input.name);
+        if (!result) {
           return {
-            status: "completed",
-            waitedSeconds: input.seconds,
+            status: "not_found" as const,
+            message: `No skill named "${input.name}". Pick one from availableSkills and retry.`,
+            availableSkills: listDomainSkills().map((s) => s.name),
           };
-        },
-      }),
+        }
+        return result;
+      },
+    }),
 
-      askUser: aiTool({
-        description: ASK_USER_DESCRIPTION,
-        inputSchema: askUserInputSchema,
-        execute: async (input) => {
-          // Surface the question to the chat UI. The frontend renders the
-          // options as buttons; clicking one triggers a regular user message
-          // (the option's label) on the next turn.
+    callApi: aiTool({
+      description: CALL_API_DESCRIPTION,
+      inputSchema: callApiInputSchema,
+      execute: async (input) => {
+        const query = stripQueryStrings(input.query);
+        const dispatchInput: DispatchInput = {
+          method: input.method,
+          path: input.path,
+          query,
+          body: coerceBody(input.body),
+        };
+
+        // Before the card, which only shows a summary the model wrote.
+        const offScreen = offScreenDashboardUpdate(
+          dispatchInput,
+          buffer.getMessages(),
+        );
+        if (offScreen) return offScreen;
+
+        // Park the call and end the turn; the handler replays the stored call
+        // verbatim once the user decides, so the model never sees the gate.
+        if (requiresMutationConfirmation(dispatchInput)) {
+          const pendingAction: AIAgentPendingAction = {
+            id: randomUUID(),
+            method: dispatchInput.method,
+            path: dispatchInput.path,
+            ...(query ? { query } : {}),
+            ...(dispatchInput.body !== undefined
+              ? { body: dispatchInput.body }
+              : {}),
+            // The model's own summary when it supplied one — the confirmation
+            // card hides a summary equal to `method path`, so without this a
+            // multi-block write shows nothing but the endpoint.
+            summary:
+              input.summary?.trim() ||
+              `${dispatchInput.method} ${dispatchInput.path.split("?")[0]}`,
+            createdAt: Date.now(),
+          };
+          buffer.setPendingAction(pendingAction);
           if (emit) {
-            emit("ask-user", {
-              question: input.question,
-              options: input.options,
-              allowMultiple: input.allowMultiple ?? false,
+            emit("confirm-action", {
+              actionId: pendingAction.id,
+              method: pendingAction.method,
+              path: pendingAction.path,
+              summary: pendingAction.summary,
+              ...(pendingAction.query ? { query: pendingAction.query } : {}),
+              ...(pendingAction.body !== undefined
+                ? { body: pendingAction.body }
+                : {}),
             });
           }
-          // The tool result is mostly a marker for the agent that the
-          // question was delivered. We deliberately don't include the
-          // options here — the agent already knows them from the input.
-          return {
-            status: "asked",
-            message:
-              "Question shown to the user. Stop now — wait for their reply on the next turn.",
-          };
-        },
-      }),
-    };
-  },
+          return AWAITING_CONFIRMATION_RESULT;
+        }
+
+        const result = await dispatchInternal(ctx, dispatchInput);
+        return shapeCallApiResult(result);
+      },
+    }),
+
+    wait: aiTool({
+      description: WAIT_DESCRIPTION,
+      inputSchema: waitInputSchema,
+      execute: async (input, { abortSignal }) => {
+        await delay(input.seconds * 1000, undefined, {
+          signal: abortSignal,
+          ref: false,
+        });
+        return {
+          status: "completed",
+          waitedSeconds: input.seconds,
+        };
+      },
+    }),
+
+    askUser: aiTool({
+      description: ASK_USER_DESCRIPTION,
+      inputSchema: askUserInputSchema,
+      execute: async (input) => {
+        // The UI renders the options as buttons; a click sends the label as
+        // the next user message.
+        if (emit) {
+          emit("ask-user", {
+            question: input.question,
+            options: input.options,
+            allowMultiple: input.allowMultiple ?? false,
+          });
+        }
+        return {
+          status: "asked",
+          message:
+            "Question shown to the user. Stop now — wait for their reply on the next turn.",
+        };
+      },
+    }),
+  }),
 
   temperature: 0.1,
   maxSteps: 30,
@@ -614,5 +695,6 @@ export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
 // Exposed for unit tests — see test/agent/general-agent.test.ts
 export const _buildGeneralAgentSystemPrompt = buildGeneralAgentSystemPrompt;
 export const _coerceBody = coerceBody;
+export const _offScreenDashboardUpdate = offScreenDashboardUpdate;
 export const _requiresMutationConfirmation = requiresMutationConfirmation;
 export const _shapeCallApiResult = shapeCallApiResult;

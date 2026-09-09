@@ -78,7 +78,8 @@
                       "features/targeting",
                       "features/safe-rollouts",
                       "features/ramp-schedules",
-                      "features/prerequisites"
+                      "features/prerequisites",
+                      "features/feature-flag-experiments"
                     ]
                   },
                   {
@@ -162,55 +163,54 @@
                 "group": "Experimentation",
                 "root": "experiments",
                 "pages": [
-                  "feature-flag-experiments",
                   {
-                    "group": "Visual Editor",
-                    "root": "app/visual",
+                    "group": "Creating Experiments",
+                    "expanded": true,
                     "pages": [
-                      "app/visual/install-and-connect",
-                      "app/visual/ai-mode",
-                      "app/visual/manual-mode",
-                      "app/visual/images",
-                      "app/visual/design-import",
-                      "app/visual/running-on-your-site",
-                      "app/visual/preview-and-qa",
-                      "app/visual/troubleshooting",
-                      "app/visual/legacy"
+                      "app/experiment-configuration",
+                      "running-experiments/experiment-templates",
+                      "app/pre-launch-checklist",
+                      "statistics/power",
+                      "app/importing-experiments"
                     ]
                   },
-                  "app/url-redirects",
-                  "app/experiment-configuration",
-                  "running-experiments/experiment-templates",
-                  "app/experiment-results",
-                  "app/experiment-time-series",
-                  "app/experiment-decisions",
-                  "app/making-experiment-changes",
                   {
-                    "group": "Bandits",
+                    "group": "Delivery Methods",
+                    "expanded": true,
                     "pages": [
-                      "bandits/overview",
-                      "bandits/config",
-                      "bandits/results",
+                      "features/feature-flag-experiments",
                       {
-                        "group": "Contextual Bandits",
-                        "tag": "BETA",
+                        "group": "Visual Editor",
+                        "root": "app/visual",
                         "pages": [
-                          "bandits/contextual",
-                          "bandits/contextual-config",
-                          "bandits/contextual-via-api"
+                          "app/visual/install-and-connect",
+                          "app/visual/ai-mode",
+                          "app/visual/manual-mode",
+                          "app/visual/images",
+                          "app/visual/design-import",
+                          "app/visual/running-on-your-site",
+                          "app/visual/preview-and-qa",
+                          "app/visual/troubleshooting",
+                          "app/visual/legacy"
                         ]
-                      }
+                      },
+                      "app/url-redirects"
                     ]
                   },
-                  "app/holdouts",
-                  "app/sticky-bucketing",
-                  "experimentation-analysis/cluster-experiments",
-                  "app/dimensions",
-                  "app/pre-launch-checklist",
-                  "app/experiment-dashboards",
-                  "app/importing-experiments",
                   {
-                    "group": "Statistics",
+                    "group": "Analysis & Decisions",
+                    "expanded": true,
+                    "pages": [
+                      "app/making-experiment-changes",
+                      "app/experiment-results",
+                      "app/experiment-time-series",
+                      "app/experiment-decisions",
+                      "app/experiment-dashboards",
+                      "app/dimensions"
+                    ]
+                  },
+                  {
+                    "group": "Advanced & Statistics",
                     "pages": [
                       "statistics/overview",
                       "statistics/details",
@@ -219,10 +219,29 @@
                       "statistics/sequential",
                       "statistics/multiple-corrections",
                       "statistics/aggregation",
-                      "statistics/power",
-                      "statistics/contextual-bandit-technical"
+                      "statistics/contextual-bandit-technical",
+                      "app/sticky-bucketing",
+                      "experimentation-analysis/cluster-experiments"
                     ]
-                  }
+                  },
+                  {
+                    "group": "Bandits",
+                    "pages": [
+                      "bandits/overview",
+                      "bandits/config",
+                      "bandits/results"
+                    ]
+                  },
+                  {
+                    "group": "Contextual Bandits",
+                    "tag": "BETA",
+                    "pages": [
+                      "bandits/contextual",
+                      "bandits/contextual-config",
+                      "bandits/contextual-via-api"
+                    ]
+                  },
+                  "app/holdouts"
                 ]
               },
               "insights",
@@ -1029,6 +1048,7 @@
                   "api/AnalyticsExplorations/operation/postMetricExploration",
                   "api/AnalyticsExplorations/operation/postFactTableExploration",
                   "api/AnalyticsExplorations/operation/postDataSourceExploration",
+                  "api/AnalyticsExplorations/operation/postSqlExploration",
                   "api/AnalyticsExplorations/operation/postFunnelExploration"
                 ]
               },
@@ -1198,6 +1218,11 @@
       "href": "https://app.growthbook.io/"
     }
   },
+  "integrations": {
+    "gtm": {
+      "tagId": "GTM-MF7GKV4V"
+    }
+  },
   "footer": {
     "socials": {
       "x": "https://twitter.com/growth_book",
@@ -1251,8 +1276,8 @@
       "destination": "/static/open-guide-to-ab-testing.v1.0.pdf"
     },
     {
-      "source": "/features/feature-flag-experiments",
-      "destination": "/feature-flag-experiments"
+      "source": "/feature-flag-experiments",
+      "destination": "/features/feature-flag-experiments"
     },
     {
       "source": "/app/experiments",

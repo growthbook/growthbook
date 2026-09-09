@@ -1675,21 +1675,93 @@ function StandardFactMetricModal({
       header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}
       bodyClassName="p-0"
       close={close}
-      submit={form.handleSubmit(async (values) => {
-        if (values.metricType === "funnel") {
-          const fs = funnelSettings;
-          if (!fs || fs.steps.length < 2) {
-            throw new Error("Funnel metrics require at least 2 steps");
-          }
-          for (const step of fs.steps) {
-            if (!step.name.trim()) {
-              throw new Error("Every funnel step needs a name");
+      submit={form.handleSubmit(
+        async (values) => {
+          if (values.metricType === "funnel") {
+            const fs = funnelSettings;
+            if (!fs || fs.steps.length < 2) {
+              throw new Error("Funnel metrics require at least 2 steps");
             }
-            if (!step.factTableId) {
-              throw new Error("Every funnel step needs a Fact Table");
+            for (const step of fs.steps) {
+              if (!step.name.trim()) {
+                throw new Error("Every funnel step needs a name");
+              }
+              if (!step.factTableId) {
+                throw new Error("Every funnel step needs a Fact Table");
+              }
             }
+            if (!selectedDataSource) {
+              throw new Error("Must select a Data Source");
+            }
+
+            if (values.priorSettings === undefined) {
+              values.priorSettings = {
+                override: false,
+                proper: false,
+                mean: 0,
+                stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+              };
+            }
+
+            // Correct percent values shown as whole numbers in the UI
+            values.winRisk = values.winRisk / 100;
+            values.loseRisk = values.loseRisk / 100;
+            values.minPercentChange = values.minPercentChange / 100;
+            values.maxPercentChange = values.maxPercentChange / 100;
+            if (values.targetMDE) {
+              values.targetMDE = values.targetMDE / 100;
+            }
+
+            // Funnel events are described by funnelSettings.steps, so numerator /
+            // denominator are null and the capping/quantile/slice settings the
+            // backend forbids for funnels are reset.
+            const funnelBody = {
+              ...values,
+              numerator: null,
+              denominator: null,
+              funnelSettings: fs,
+              quantileSettings: null,
+              cappingSettings: { type: "" as const, value: 0 },
+              metricAutoSlices: [],
+            };
+
+            const trackProps = { type: "funnel", source };
+
+            if (!isNew) {
+              const updatePayload = omit(funnelBody, [
+                "datasource",
+              ]) as UpdateFactMetricProps;
+              await apiCall(`/fact-metrics/${existing.id}`, {
+                method: "PUT",
+                body: JSON.stringify(updatePayload),
+              });
+              track("Edit Fact Metric", trackProps);
+              await mutateDefinitions();
+            } else {
+              const createPayload: CreateFactMetricProps = {
+                ...funnelBody,
+                projects:
+                  getFactTableById(fs.steps[0].factTableId)?.projects ||
+                  selectedDataSource.projects ||
+                  [],
+              };
+              await apiCall<{ factMetric: FactMetricInterface }>(
+                `/fact-metrics`,
+                {
+                  method: "POST",
+                  body: JSON.stringify(createPayload),
+                },
+              );
+              track("Create Fact Metric", trackProps);
+              await mutateDefinitions();
+              onSave && onSave();
+            }
+            return;
           }
-          if (!selectedDataSource) throw new Error("Must select a Data Source");
+
+          if (values.denominator && !values.denominator.factTableId) {
+            values.denominator = null;
+          }
 
           if (values.priorSettings === undefined) {
             values.priorSettings = {
@@ -1700,7 +1772,104 @@ function StandardFactMetricModal({
             };
           }
 
-          // Correct percent values shown as whole numbers in the UI
+          if (values.metricType === "ratio" && !values.denominator)
+            throw new Error("Must select a denominator for ratio metrics");
+
+          // reset denominator for non-ratio metrics
+          if (values.metricType !== "ratio" && values.denominator) {
+            values.denominator = null;
+          }
+
+          // if denominator is undefined, set to null instead
+          if (values.denominator === undefined) {
+            values.denominator = null;
+          }
+
+          // reset displayAsPercentage for non-ratio metrics
+          if (
+            values.metricType !== "ratio" &&
+            values.metricType !== "dailyParticipation" &&
+            values.displayAsPercentage
+          ) {
+            values.displayAsPercentage = undefined;
+          }
+
+          // If unset, set displayAsPercentage to true for daily participation metrics
+          if (
+            values.metricType === "dailyParticipation" &&
+            values.displayAsPercentage === undefined
+          ) {
+            values.displayAsPercentage = true;
+          }
+
+          // reset numerator for proportion/retention metrics
+          if (
+            (values.metricType === "proportion" ||
+              values.metricType === "retention") &&
+            values.numerator.column !== "$$distinctUsers"
+          ) {
+            values.numerator.column = "$$distinctUsers";
+            values.numerator.aggregation = undefined;
+          }
+
+          // reset numerator for daily participation metrics
+          if (values.metricType === "dailyParticipation") {
+            values.numerator.column = "$$distinctDates";
+            values.numerator.aggregation = undefined;
+          }
+
+          // reset aggregate filter for certain metrics
+          if (
+            values.metricType !== "proportion" &&
+            values.metricType !== "retention" &&
+            values.metricType !== "ratio"
+          ) {
+            values.numerator.aggregateFilterColumn = undefined;
+            values.numerator.aggregateFilter = undefined;
+          }
+
+          if (!values.numerator.aggregateFilterColumn) {
+            values.numerator.aggregateFilter = undefined;
+          }
+
+          if (values.cappingSettings?.type) {
+            if (!values.cappingSettings.value) {
+              throw new Error("Capped Value cannot be 0");
+            }
+          }
+
+          // reset capping that may be carried over to uncappable metrics
+          if (
+            values.metricType === "quantile" ||
+            values.metricType === "proportion" ||
+            values.metricType === "retention" ||
+            values.metricType === "dailyParticipation"
+          ) {
+            values.cappingSettings = {
+              type: "",
+              value: 0,
+            };
+          }
+
+          if (
+            values.numerator.aggregateFilterColumn &&
+            values.metricType === "ratio"
+          ) {
+            if (values.numerator.column !== "$$distinctUsers") {
+              values.numerator.aggregateFilterColumn = "";
+              values.numerator.aggregateFilter = undefined;
+            } else {
+              if (values.cappingSettings?.type) {
+                throw new Error(
+                  "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
+                );
+              }
+            }
+          }
+
+          if (!selectedDataSource) throw new Error("Must select a data source");
+
+          // Correct percent values
           values.winRisk = values.winRisk / 100;
           values.loseRisk = values.loseRisk / 100;
           values.minPercentChange = values.minPercentChange / 100;
@@ -1709,23 +1878,54 @@ function StandardFactMetricModal({
             values.targetMDE = values.targetMDE / 100;
           }
 
-          // Funnel events are described by funnelSettings.steps, so numerator /
-          // denominator are null and the capping/quantile/slice settings the
-          // backend forbids for funnels are reset.
-          const funnelBody = {
-            ...values,
-            numerator: null,
-            denominator: null,
-            funnelSettings: fs,
-            quantileSettings: null,
-            cappingSettings: { type: "" as const, value: 0 },
-            metricAutoSlices: [],
+          // Anonymized telemetry props
+          // Will help us measure which settings are being used so we can optimize the UI
+          const trackProps = {
+            type: values.metricType,
+            source,
+            capping: values.cappingSettings.type,
+            conversion_window: values.windowSettings.type
+              ? `${values.windowSettings.windowValue} ${values.windowSettings.windowUnit}`
+              : "none",
+            numerator_agg:
+              values.numerator.column === "$$count"
+                ? "count"
+                : values.numerator.column === "$$distinctUsers"
+                  ? "distinct_users"
+                  : values.numerator.column === "$$distinctDates"
+                    ? "distinct_dates"
+                    : values.numerator.aggregation || "sum",
+            numerator_filters: values.numerator.rowFilters?.length || 0,
+            denominator_agg:
+              values.denominator?.column === "$$count"
+                ? "count"
+                : values.denominator?.column === "$$distinctUsers"
+                  ? "distinct_users"
+                  : values.denominator?.column === "$$distinctDates"
+                    ? "distinct_dates"
+                    : values.denominator?.column
+                      ? values.denominator?.aggregation || "sum"
+                      : "none",
+            denominator_filters: values.denominator?.rowFilters?.length || 0,
+            ratio_same_fact_table:
+              values.metricType === "ratio" &&
+              values.numerator.factTableId === values.denominator?.factTableId,
           };
 
-          const trackProps = { type: "funnel", source };
-
           if (!isNew) {
-            const updatePayload = omit(funnelBody, [
+            // Track auto slices changes
+            const previousSlices = existing.metricAutoSlices || [];
+            const newSlices = values.metricAutoSlices || [];
+            if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
+              track("metric-auto-slices-updated", {
+                metricId: existing.id,
+                previousSlices: previousSlices,
+                newSlices: newSlices,
+                sliceCount: newSlices.length,
+              });
+            }
+
+            const updatePayload = omit(values, [
               "datasource",
             ]) as UpdateFactMetricProps;
             await apiCall(`/fact-metrics/${existing.id}`, {
@@ -1735,231 +1935,42 @@ function StandardFactMetricModal({
             track("Edit Fact Metric", trackProps);
             await mutateDefinitions();
           } else {
+            // Track auto slices for new metrics
+            const newSlices = values.metricAutoSlices || [];
+            if (newSlices.length > 0) {
+              track("metric-auto-slices-updated", {
+                newSlices: newSlices,
+                sliceCount: newSlices.length,
+              });
+            }
+
             const createPayload: CreateFactMetricProps = {
-              ...funnelBody,
+              ...values,
+              funnelSettings: null,
               projects:
-                getFactTableById(fs.steps[0].factTableId)?.projects ||
+                numeratorFactTable?.projects ||
                 selectedDataSource.projects ||
                 [],
             };
-            await apiCall<{ factMetric: FactMetricInterface }>(
-              `/fact-metrics`,
-              {
-                method: "POST",
-                body: JSON.stringify(createPayload),
-              },
-            );
+
+            await apiCall<{
+              factMetric: FactMetricInterface;
+            }>(`/fact-metrics`, {
+              method: "POST",
+              body: JSON.stringify(createPayload),
+            });
             track("Create Fact Metric", trackProps);
             await mutateDefinitions();
+
             onSave && onSave();
           }
-          return;
-        }
-
-        if (values.denominator && !values.denominator.factTableId) {
-          values.denominator = null;
-        }
-
-        if (values.priorSettings === undefined) {
-          values.priorSettings = {
-            override: false,
-            proper: false,
-            mean: 0,
-            stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-          };
-        }
-
-        if (values.metricType === "ratio" && !values.denominator)
-          throw new Error("Must select a denominator for ratio metrics");
-
-        // reset denominator for non-ratio metrics
-        if (values.metricType !== "ratio" && values.denominator) {
-          values.denominator = null;
-        }
-
-        // if denominator is undefined, set to null instead
-        if (values.denominator === undefined) {
-          values.denominator = null;
-        }
-
-        // reset displayAsPercentage for non-ratio metrics
-        if (
-          values.metricType !== "ratio" &&
-          values.metricType !== "dailyParticipation" &&
-          values.displayAsPercentage
-        ) {
-          values.displayAsPercentage = undefined;
-        }
-
-        // If unset, set displayAsPercentage to true for daily participation metrics
-        if (
-          values.metricType === "dailyParticipation" &&
-          values.displayAsPercentage === undefined
-        ) {
-          values.displayAsPercentage = true;
-        }
-
-        // reset numerator for proportion/retention metrics
-        if (
-          (values.metricType === "proportion" ||
-            values.metricType === "retention") &&
-          values.numerator.column !== "$$distinctUsers"
-        ) {
-          values.numerator.column = "$$distinctUsers";
-          values.numerator.aggregation = undefined;
-        }
-
-        // reset numerator for daily participation metrics
-        if (values.metricType === "dailyParticipation") {
-          values.numerator.column = "$$distinctDates";
-          values.numerator.aggregation = undefined;
-        }
-
-        // reset aggregate filter for certain metrics
-        if (
-          values.metricType !== "proportion" &&
-          values.metricType !== "retention" &&
-          values.metricType !== "ratio"
-        ) {
-          values.numerator.aggregateFilterColumn = undefined;
-          values.numerator.aggregateFilter = undefined;
-        }
-
-        if (!values.numerator.aggregateFilterColumn) {
-          values.numerator.aggregateFilter = undefined;
-        }
-
-        if (values.cappingSettings?.type) {
-          if (!values.cappingSettings.value) {
-            throw new Error("Capped Value cannot be 0");
-          }
-        }
-
-        // reset capping that may be carried over to uncappable metrics
-        if (
-          values.metricType === "quantile" ||
-          values.metricType === "proportion" ||
-          values.metricType === "retention" ||
-          values.metricType === "dailyParticipation"
-        ) {
-          values.cappingSettings = {
-            type: "",
-            value: 0,
-          };
-        }
-
-        if (
-          values.numerator.aggregateFilterColumn &&
-          values.metricType === "ratio"
-        ) {
-          if (values.numerator.column !== "$$distinctUsers") {
-            values.numerator.aggregateFilterColumn = "";
-            values.numerator.aggregateFilter = undefined;
-          } else {
-            if (values.cappingSettings?.type) {
-              throw new Error(
-                "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
-              );
-            }
-          }
-        }
-
-        if (!selectedDataSource) throw new Error("Must select a data source");
-
-        // Correct percent values
-        values.winRisk = values.winRisk / 100;
-        values.loseRisk = values.loseRisk / 100;
-        values.minPercentChange = values.minPercentChange / 100;
-        values.maxPercentChange = values.maxPercentChange / 100;
-        if (values.targetMDE) {
-          values.targetMDE = values.targetMDE / 100;
-        }
-
-        // Anonymized telemetry props
-        // Will help us measure which settings are being used so we can optimize the UI
-        const trackProps = {
-          type: values.metricType,
-          source,
-          capping: values.cappingSettings.type,
-          conversion_window: values.windowSettings.type
-            ? `${values.windowSettings.windowValue} ${values.windowSettings.windowUnit}`
-            : "none",
-          numerator_agg:
-            values.numerator.column === "$$count"
-              ? "count"
-              : values.numerator.column === "$$distinctUsers"
-                ? "distinct_users"
-                : values.numerator.column === "$$distinctDates"
-                  ? "distinct_dates"
-                  : values.numerator.aggregation || "sum",
-          numerator_filters: values.numerator.rowFilters?.length || 0,
-          denominator_agg:
-            values.denominator?.column === "$$count"
-              ? "count"
-              : values.denominator?.column === "$$distinctUsers"
-                ? "distinct_users"
-                : values.denominator?.column === "$$distinctDates"
-                  ? "distinct_dates"
-                  : values.denominator?.column
-                    ? values.denominator?.aggregation || "sum"
-                    : "none",
-          denominator_filters: values.denominator?.rowFilters?.length || 0,
-          ratio_same_fact_table:
-            values.metricType === "ratio" &&
-            values.numerator.factTableId === values.denominator?.factTableId,
-        };
-
-        if (!isNew) {
-          // Track auto slices changes
-          const previousSlices = existing.metricAutoSlices || [];
-          const newSlices = values.metricAutoSlices || [];
-          if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
-            track("metric-auto-slices-updated", {
-              metricId: existing.id,
-              previousSlices: previousSlices,
-              newSlices: newSlices,
-              sliceCount: newSlices.length,
-            });
-          }
-
-          const updatePayload = omit(values, [
-            "datasource",
-          ]) as UpdateFactMetricProps;
-          await apiCall(`/fact-metrics/${existing.id}`, {
-            method: "PUT",
-            body: JSON.stringify(updatePayload),
-          });
-          track("Edit Fact Metric", trackProps);
-          await mutateDefinitions();
-        } else {
-          // Track auto slices for new metrics
-          const newSlices = values.metricAutoSlices || [];
-          if (newSlices.length > 0) {
-            track("metric-auto-slices-updated", {
-              newSlices: newSlices,
-              sliceCount: newSlices.length,
-            });
-          }
-
-          const createPayload: CreateFactMetricProps = {
-            ...values,
-            funnelSettings: null,
-            projects:
-              numeratorFactTable?.projects || selectedDataSource.projects || [],
-          };
-
-          await apiCall<{
-            factMetric: FactMetricInterface;
-          }>(`/fact-metrics`, {
-            method: "POST",
-            body: JSON.stringify(createPayload),
-          });
-          track("Create Fact Metric", trackProps);
-          await mutateDefinitions();
-
-          onSave && onSave();
-        }
-      })}
+        },
+        (errors) => {
+          throw new Error(
+            `The following fields are invalid: ${Object.keys(errors).join(", ")}`,
+          );
+        },
+      )}
       size={showSQLPreview ? "max" : "lg"}
     >
       <div className="d-flex">
@@ -2755,6 +2766,13 @@ function StandardFactMetricModal({
                                       {
                                         valueAsNumber: true,
                                         validate: (v) => {
+                                          if (
+                                            !form.watch(
+                                              "regressionAdjustmentOverride",
+                                            )
+                                          ) {
+                                            return true;
+                                          }
                                           return v === undefined || v > 0;
                                         },
                                       },
