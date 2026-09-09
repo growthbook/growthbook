@@ -33,7 +33,7 @@ import {
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { healPriorSettings } from "back-end/src/util/priors";
-import { Context, MakeModelClass } from "./BaseModel";
+import { CasConflictError, Context, MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
 
@@ -163,7 +163,12 @@ function validateSavedFilterIds({
   }
 }
 
-export class FactMetricModel extends BaseClass {
+type WriteOptions = {
+  // Set by fact-table column cascades; see removeAutoSlices.
+  autoSliceCascade?: boolean;
+};
+
+export class FactMetricModel extends BaseClass<WriteOptions> {
   protected canRead(doc: FactMetricInterface): boolean {
     return this.context.hasPermission("readData", doc.projects || []);
   }
@@ -190,6 +195,40 @@ export class FactMetricModel extends BaseClass {
     FactMetricInterface[]
   > {
     return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
+  // Cascade from a fact-table column change. Authority is the fact-table write,
+  // so this bypasses canUpdate; the guarded write plus re-read means a
+  // concurrent edit to the metric is retried against, never clobbered.
+  public async removeAutoSlices(
+    metricId: string,
+    removedColumns: string[],
+  ): Promise<void> {
+    const maxAttempts = 3;
+    for (let attempt = 1; ; attempt++) {
+      const [metric] = await this._find(
+        { id: metricId },
+        { bypassReadPermissionChecks: true },
+      );
+      if (!metric?.metricAutoSlices?.length) return;
+      const metricAutoSlices = metric.metricAutoSlices.filter(
+        (c) => !removedColumns.includes(c),
+      );
+      if (metricAutoSlices.length === metric.metricAutoSlices.length) return;
+      try {
+        await this.updateIfUnchanged(
+          metric,
+          { metricAutoSlices },
+          { autoSliceCascade: true },
+          { dangerouslyBypassCanUpdate: true },
+        );
+        return;
+      } catch (e) {
+        if (!(e instanceof CasConflictError) || attempt >= maxAttempts) {
+          throw e;
+        }
+      }
+    }
   }
 
   /**
@@ -369,9 +408,18 @@ export class FactMetricModel extends BaseClass {
     }
   }
 
-  protected async beforeUpdate(existing: FactMetricInterface) {
+  protected async beforeUpdate(
+    existing: FactMetricInterface,
+    updates: UpdateProps<FactMetricInterface>,
+    newDoc: FactMetricInterface,
+    writeOptions?: WriteOptions,
+  ) {
     // Check the admin permission here?
-    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+    if (
+      existing.managedBy === "api" &&
+      !this.context.isApiRequest &&
+      !writeOptions?.autoSliceCascade
+    ) {
       throw new Error(
         "Cannot update fact metric managed by API if the request isn't from the API.",
       );

@@ -2,6 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import {
   getFactMetricColumnRefs,
+  getFactMetricPrimaryFactTableId,
   sqlReferencesColumn,
 } from "shared/experiments";
 import { explorationConfigReferencesColumn } from "shared/enterprise";
@@ -40,6 +41,7 @@ import {
   normalizeJSONFieldsInput,
   normalizePersistedColumn,
 } from "back-end/src/util/factTable";
+import { logger } from "back-end/src/util/logger";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -398,22 +400,6 @@ export async function updateFactTable(
   );
   if (!changed) return;
 
-  // Clean up auto slices from metrics if columns were deleted or modified
-  if (changes.columns) {
-    const removedColumns = detectRemovedColumns(
-      factTable.columns || [],
-      changes.columns,
-    );
-
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
-  }
-
   await FactTableModel.updateOne(
     {
       id: factTable.id,
@@ -436,6 +422,17 @@ export async function updateFactTable(
       changes.projects ?? factTable.projects,
     ),
   );
+
+  if (changes.columns) {
+    await cleanupMetricAutoSlices({
+      context,
+      factTableId: factTable.id,
+      removedColumns: detectRemovedColumns(
+        factTable.columns || [],
+        changes.columns,
+      ),
+    });
+  }
 }
 
 const ALLOWED_COLUMN_UPDATE_FIELDS = [
@@ -521,20 +518,6 @@ export async function dangerouslySyncManagedWarehouseFactTable(
     return;
   }
 
-  if (changes.columns) {
-    const removedColumns = detectRemovedColumns(
-      factTable.columns || [],
-      changes.columns,
-    );
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
-  }
-
   await FactTableModel.updateOne(
     {
       id: factTable.id,
@@ -551,6 +534,17 @@ export async function dangerouslySyncManagedWarehouseFactTable(
     factTable.organization,
     definitionsScope(factTable.projects),
   );
+
+  if (changes.columns) {
+    await cleanupMetricAutoSlices({
+      context,
+      factTableId: factTable.id,
+      removedColumns: detectRemovedColumns(
+        factTable.columns || [],
+        changes.columns,
+      ),
+    });
+  }
 }
 
 // Detect columns that were removed or had auto slice disabled
@@ -589,7 +583,10 @@ export function detectRemovedColumns(
   return [...deletedColumns, ...disabledAutoSliceColumns];
 }
 
-// Clean up auto slices from fact metrics when columns are "deleted" or dropped
+// Cascade from a fact-table column change: drop metric auto slices that
+// reference removed or disabled columns. The fact table is the source of truth
+// and every reader intersects against it, so this is best-effort — it spans
+// metrics the caller can't read and never fails the fact-table write.
 export async function cleanupMetricAutoSlices({
   context,
   factTableId,
@@ -599,26 +596,25 @@ export async function cleanupMetricAutoSlices({
   factTableId: string;
   removedColumns: string[];
 }) {
-  // Get all fact metrics that use this fact table
-  const allFactMetrics = await context.models.factMetrics.getAll();
-  const affectedMetrics = allFactMetrics.filter(
-    (metric) => metric.numerator?.factTableId === factTableId,
-  );
+  if (!removedColumns.length) return;
 
-  // For each affected metric, remove auto slices that reference removed columns
-  for (const metric of affectedMetrics) {
-    if (!metric.metricAutoSlices?.length) continue;
-
-    const originalAutoSlices = [...metric.metricAutoSlices];
-    const cleanedAutoSlices = metric.metricAutoSlices.filter(
-      (sliceColumn) => !removedColumns.includes(sliceColumn),
-    );
-
-    // Only update if there were changes
-    if (cleanedAutoSlices.length !== originalAutoSlices.length) {
-      await context.models.factMetrics.update(metric, {
-        metricAutoSlices: cleanedAutoSlices,
-      });
+  const allFactMetrics =
+    await context.models.factMetrics.dangerousGetAllForDependencyScan();
+  for (const metric of allFactMetrics) {
+    if (getFactMetricPrimaryFactTableId(metric) !== factTableId) continue;
+    if (!metric.metricAutoSlices?.some((c) => removedColumns.includes(c))) {
+      continue;
+    }
+    try {
+      await context.models.factMetrics.removeAutoSlices(
+        metric.id,
+        removedColumns,
+      );
+    } catch (e) {
+      logger.error(
+        e,
+        `Failed to remove auto slices from fact metric ${metric.id}`,
+      );
     }
   }
 }
