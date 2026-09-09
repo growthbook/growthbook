@@ -7,7 +7,10 @@ import {
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { parseEnvInt, parseOptionalInt } from "shared/util";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { getFactTableTypeFromTrinoType } from "back-end/src/util/warehouseColumnTypes";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 async function assumeRole(params: AthenaConnectionParams) {
@@ -64,6 +67,50 @@ export async function cancelAthenaQuery(
   await athena.stopQueryExecution({
     QueryExecutionId: id,
   });
+}
+
+export function athenaStateToStatus(
+  state: string | undefined,
+  stateChangeReason: string | undefined,
+): ExternalQueryStatus {
+  switch (state) {
+    case "QUEUED":
+    case "RUNNING":
+      return { state: "running" };
+    case "SUCCEEDED":
+      return { state: "succeeded" };
+    case "FAILED":
+      return { state: "failed", error: stateChangeReason || "Query failed" };
+    case "CANCELLED":
+      return {
+        state: "failed",
+        error: stateChangeReason || "Query was cancelled",
+      };
+    case undefined:
+    default:
+      return { state: "unknown", reason: "unrecognized" };
+  }
+}
+
+export async function getAthenaQueryStatus(
+  conn: AthenaConnectionParams,
+  id: string,
+): Promise<ExternalQueryStatus> {
+  try {
+    const athena = await getAthenaInstance(conn);
+    const resp = await athena.getQueryExecution({ QueryExecutionId: id });
+    return athenaStateToStatus(
+      resp.QueryExecution?.Status?.State,
+      resp.QueryExecution?.Status?.StateChangeReason,
+    );
+  } catch (e) {
+    // Athena throws InvalidRequestException when the execution id is
+    // unknown/purged.
+    if (/was not found|not found|does not exist/i.test(getErrorMessage(e))) {
+      return { state: "unknown", reason: "expired" };
+    }
+    return { state: "unknown", reason: "unreachable" };
+  }
 }
 
 export async function runAthenaQuery(
@@ -206,7 +253,8 @@ export async function runAthenaQuery(
   for (let i = 0; i < 62; i++) {
     const result = await waitAndCheck(500 * Math.pow(1.1, i));
     if (result && result.Rows && result.ResultSetMetadata?.ColumnInfo) {
-      const keys = result.ResultSetMetadata.ColumnInfo.map((info) => info.Name);
+      const columnInfo = result.ResultSetMetadata.ColumnInfo;
+      const keys = columnInfo.map((info) => info.Name);
       return {
         rows: result.Rows.slice(1).map((row) => {
           // eslint-disable-next-line
@@ -218,6 +266,18 @@ export async function runAthenaQuery(
           }
           return obj;
         }),
+        // Athena returns every value as a string, so use its declared types.
+        columns: columnInfo
+          .filter((info) => info.Name !== undefined)
+          .map((info) => {
+            const dataType = info.Type
+              ? getFactTableTypeFromTrinoType(info.Type)
+              : undefined;
+            return {
+              name: info.Name as string,
+              ...(dataType && { dataType }),
+            };
+          }),
       };
     }
   }

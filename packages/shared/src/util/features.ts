@@ -2758,12 +2758,6 @@ export function getParsedPrereqCondition(condition: string) {
 }
 
 // approval flows
-export type ResetReviewOnChange = {
-  feature: FeatureInterface;
-  changedEnvironments: string[];
-  defaultValueChanged: boolean;
-  settings?: OrganizationSettings;
-};
 // Strict/loose review mode for one targeting project. Most-specific-wins; default strict.
 export function getTargetingReviewMode(
   rules: TargetingReviewRule[] | undefined,
@@ -3154,35 +3148,6 @@ export function constantBlockSelfApproval(
   const requireReviews = settings?.requireReviews;
   if (!Array.isArray(requireReviews)) return false;
   return !!getReviewSetting(requireReviews, constant)?.blockSelfApproval;
-}
-
-export function resetReviewOnChange({
-  feature,
-  changedEnvironments,
-  defaultValueChanged,
-  settings,
-}: ResetReviewOnChange) {
-  const requiresReviewSettings = settings?.requireReviews;
-  //legacy check
-  if (
-    requiresReviewSettings === true ||
-    requiresReviewSettings === false ||
-    requiresReviewSettings === undefined
-  ) {
-    return false;
-  }
-  const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
-  if (
-    !reviewSetting ||
-    !reviewSetting.requireReviewOn ||
-    !reviewSetting.resetReviewOnChange
-  ) {
-    return false;
-  }
-  if (defaultValueChanged) {
-    return true;
-  }
-  return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
 }
 
 // Returns which environments a revision affects relative to its base revision.

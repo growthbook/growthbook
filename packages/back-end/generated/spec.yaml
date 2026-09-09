@@ -18401,6 +18401,13 @@ paths:
                       description: Frequentist p-value threshold (e.g. 0.05).
                       type: number
                   additionalProperties: false
+                restrictAccess:
+                  description: >-
+                    When true, only members with an explicit role on this
+                    Project (directly or via a team) can access it. Members with
+                    the manageTeam permission retain access. Requires a Pro or
+                    Enterprise plan.
+                  type: boolean
               required:
                 - name
               additionalProperties: false
@@ -18492,6 +18499,13 @@ paths:
                       description: Frequentist p-value threshold (e.g. 0.05).
                       type: number
                   additionalProperties: false
+                restrictAccess:
+                  description: >-
+                    When true, only members with an explicit role on this
+                    Project (directly or via a team) can access it. Members with
+                    the manageTeam permission retain access. Requires a Pro or
+                    Enterprise plan.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -19022,6 +19036,12 @@ paths:
                   type: boolean
                 savedGroupReferencesEnabled:
                   type: boolean
+                includeReferencedPrerequisites:
+                  description: >-
+                    Carry prerequisite Feature Flags into this payload even when
+                    they target other Projects. Defaults to true for new
+                    connections.
+                  type: boolean
               required:
                 - name
                 - language
@@ -19136,6 +19156,12 @@ paths:
                 remoteEvalEnabled:
                   type: boolean
                 savedGroupReferencesEnabled:
+                  type: boolean
+                includeReferencedPrerequisites:
+                  description: >-
+                    Carry prerequisite Feature Flags into this payload even when
+                    they target other Projects. Defaults to true for new
+                    connections.
                   type: boolean
               additionalProperties: false
       responses:
@@ -27080,6 +27106,19 @@ paths:
                   type: array
                   items:
                     type: string
+                userIdColumns:
+                  description: >-
+                    Maps an identifier type to the column holding it, for SQL
+                    that does not alias its columns to the identifier type
+                    names, e.g. `{"user_id": "userId"}`. May also be a
+                    single-level field path into a JSON column
+                    (`properties.userId`). Unmapped types use the identifier
+                    type name as the column name.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
                 aggregatedFactTableSettings:
                   description: >-
                     Settings for maintaining shared daily aggregated tables (a
@@ -27117,6 +27156,12 @@ paths:
                   additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
+                  type: string
+                timestampColumn:
+                  description: >-
+                    The column holding the event timestamp. Must be a date
+                    column on this fact table. Defaults to "timestamp" when
+                    unset.
                   type: string
                 eventName:
                   description: The event name used in SQL template variables
@@ -27233,6 +27278,19 @@ paths:
                   type: array
                   items:
                     type: string
+                userIdColumns:
+                  description: >-
+                    Maps an identifier type to the column holding it, for SQL
+                    that does not alias its columns to the identifier type
+                    names, e.g. `{"user_id": "userId"}`. May also be a
+                    single-level field path into a JSON column
+                    (`properties.userId`). Unmapped types use the identifier
+                    type name as the column name.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
                 aggregatedFactTableSettings:
                   description: >-
                     Settings for maintaining shared daily aggregated tables (a
@@ -27270,6 +27328,12 @@ paths:
                   additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
+                  type: string
+                timestampColumn:
+                  description: >-
+                    The column holding the event timestamp. Must be a date
+                    column on this fact table. Defaults to "timestamp" when
+                    unset.
                   type: string
                 eventName:
                   description: The event name used in SQL template variables
@@ -29470,6 +29534,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          userIdColumns:
+                            description: >-
+                              Maps an identifier type to the column holding it,
+                              for SQL that does not alias its columns to the
+                              identifier type names, e.g. `{"user_id":
+                              "userId"}`. May also be a single-level field path
+                              into a JSON column (`properties.userId`). Unmapped
+                              types use the identifier type name as the column
+                              name.
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
                           aggregatedFactTableSettings:
                             description: >-
                               Settings for maintaining shared daily aggregated
@@ -29508,6 +29586,12 @@ paths:
                             additionalProperties: false
                           sql:
                             description: The SQL query for this fact table
+                            type: string
+                          timestampColumn:
+                            description: >-
+                              The column holding the event timestamp. Must be a
+                              date column on this fact table. Defaults to
+                              "timestamp" when unset.
                             type: string
                           eventName:
                             description: The event name used in SQL template variables
@@ -36514,6 +36598,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -36886,6 +36971,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -37267,6 +37353,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -37411,6 +37498,408 @@ paths:
                                       - type
                                       - table
                                       - path
+                                      - timestampColumn
+                                      - columnTypes
+                                      - values
+                                    additionalProperties: false
+                                required:
+                                  - datasource
+                                  - dimensions
+                                  - chartType
+                                  - dateRange
+                                  - type
+                                  - dataset
+                                additionalProperties: false
+                            required:
+                              - type
+                              - title
+                              - description
+                              - explorerAnalysisId
+                              - config
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: sql-exploration
+                              title:
+                                type: string
+                              description:
+                                type: string
+                              snapshotId:
+                                type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
+                              explorerAnalysisId:
+                                type: string
+                              comparison:
+                                type: object
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - yesterday
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                required:
+                                  - enabled
+                                additionalProperties: false
+                              comparisonExplorerAnalysisId:
+                                type: string
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                additionalProperties: false
+                              config:
+                                type: object
+                                properties:
+                                  datasource:
+                                    description: ID of the datasource to query
+                                    type: string
+                                  dimensions:
+                                    type: array
+                                    items:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            dimensionType:
+                                              type: string
+                                              const: date
+                                            column:
+                                              anyOf:
+                                                - type: string
+                                                - type: 'null'
+                                            dateGranularity:
+                                              type: string
+                                              enum:
+                                                - auto
+                                                - hour
+                                                - day
+                                                - week
+                                                - month
+                                                - year
+                                          required:
+                                            - dimensionType
+                                            - column
+                                            - dateGranularity
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            dimensionType:
+                                              type: string
+                                              const: dynamic
+                                            column:
+                                              anyOf:
+                                                - type: string
+                                                - type: 'null'
+                                            maxValues:
+                                              type: number
+                                          required:
+                                            - dimensionType
+                                            - column
+                                            - maxValues
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            dimensionType:
+                                              type: string
+                                              const: static
+                                            column:
+                                              type: string
+                                            values:
+                                              type: array
+                                              items:
+                                                type: string
+                                          required:
+                                            - dimensionType
+                                            - column
+                                            - values
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            dimensionType:
+                                              type: string
+                                              const: slice
+                                            slices:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  name:
+                                                    type: string
+                                                  filters:
+                                                    type: array
+                                                    items:
+                                                      type: object
+                                                      properties:
+                                                        operator:
+                                                          type: string
+                                                          enum:
+                                                            - '='
+                                                            - '!='
+                                                            - <
+                                                            - <=
+                                                            - '>'
+                                                            - '>='
+                                                            - between
+                                                            - not_between
+                                                            - in
+                                                            - not_in
+                                                            - contains
+                                                            - not_contains
+                                                            - starts_with
+                                                            - ends_with
+                                                            - is_null
+                                                            - not_null
+                                                            - is_true
+                                                            - is_false
+                                                            - sql_expr
+                                                            - saved_filter
+                                                        column:
+                                                          type: string
+                                                        values:
+                                                          type: array
+                                                          items:
+                                                            type: string
+                                                      required:
+                                                        - operator
+                                                      additionalProperties: false
+                                                required:
+                                                  - name
+                                                  - filters
+                                                additionalProperties: false
+                                          required:
+                                            - dimensionType
+                                            - slices
+                                          additionalProperties: false
+                                  chartType:
+                                    type: string
+                                    enum:
+                                      - line
+                                      - area
+                                      - timeseries-table
+                                      - table
+                                      - bar
+                                      - stackedBar
+                                      - horizontalBar
+                                      - stackedHorizontalBar
+                                      - bigNumber
+                                      - rawTable
+                                  dateRange:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - yesterday
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                  showAs:
+                                    type: string
+                                    enum:
+                                      - total
+                                      - per_unit
+                                  type:
+                                    type: string
+                                    const: sql
+                                  dataset:
+                                    type: object
+                                    properties:
+                                      type:
+                                        type: string
+                                        const: sql
+                                      sql:
+                                        type: string
+                                      timestampColumn:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      columnTypes:
+                                        type: object
+                                        propertyNames:
+                                          type: string
+                                        additionalProperties:
+                                          type: string
+                                          enum:
+                                            - string
+                                            - number
+                                            - date
+                                            - boolean
+                                            - other
+                                      values:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            name:
+                                              type: string
+                                            rowFilters:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  operator:
+                                                    type: string
+                                                    enum:
+                                                      - '='
+                                                      - '!='
+                                                      - <
+                                                      - <=
+                                                      - '>'
+                                                      - '>='
+                                                      - between
+                                                      - not_between
+                                                      - in
+                                                      - not_in
+                                                      - contains
+                                                      - not_contains
+                                                      - starts_with
+                                                      - ends_with
+                                                      - is_null
+                                                      - not_null
+                                                      - is_true
+                                                      - is_false
+                                                      - sql_expr
+                                                      - saved_filter
+                                                  column:
+                                                    type: string
+                                                  values:
+                                                    type: array
+                                                    items:
+                                                      type: string
+                                                required:
+                                                  - operator
+                                                additionalProperties: false
+                                            type:
+                                              type: string
+                                              const: sql
+                                            valueType:
+                                              type: string
+                                              enum:
+                                                - unit_count
+                                                - count
+                                                - sum
+                                            valueColumn:
+                                              anyOf:
+                                                - type: string
+                                                - type: 'null'
+                                            unit:
+                                              anyOf:
+                                                - type: string
+                                                - type: 'null'
+                                          required:
+                                            - name
+                                            - rowFilters
+                                            - type
+                                            - valueType
+                                            - valueColumn
+                                            - unit
+                                          additionalProperties: false
+                                      hiddenColumns:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - type
+                                      - sql
                                       - timestampColumn
                                       - columnTypes
                                       - values
@@ -39081,6 +39570,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -39462,6 +39952,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -39852,6 +40343,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -39996,6 +40488,417 @@ paths:
                                       - type
                                       - table
                                       - path
+                                      - timestampColumn
+                                      - columnTypes
+                                      - values
+                                    additionalProperties: false
+                                required:
+                                  - datasource
+                                  - dimensions
+                                  - chartType
+                                  - dateRange
+                                  - type
+                                  - dataset
+                                additionalProperties: false
+                            required:
+                              - organization
+                              - id
+                              - uid
+                              - type
+                              - title
+                              - description
+                              - explorerAnalysisId
+                              - config
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              organization:
+                                type: string
+                              id:
+                                type: string
+                              uid:
+                                type: string
+                              type:
+                                type: string
+                                const: sql-exploration
+                              title:
+                                type: string
+                              description:
+                                type: string
+                              snapshotId:
+                                type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
+                              explorerAnalysisId:
+                                type: string
+                              comparison:
+                                type: object
+                                properties:
+                                  enabled:
+                                    type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
+                                  previousTimeFrame:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - yesterday
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                required:
+                                  - enabled
+                                additionalProperties: false
+                              comparisonExplorerAnalysisId:
+                                type: string
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                additionalProperties: false
+                              config:
+                                type: object
+                                properties:
+                                  datasource:
+                                    description: ID of the datasource to query
+                                    type: string
+                                  dimensions:
+                                    type: array
+                                    items:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            dimensionType:
+                                              type: string
+                                              const: date
+                                            column:
+                                              anyOf:
+                                                - type: string
+                                                - type: 'null'
+                                            dateGranularity:
+                                              type: string
+                                              enum:
+                                                - auto
+                                                - hour
+                                                - day
+                                                - week
+                                                - month
+                                                - year
+                                          required:
+                                            - dimensionType
+                                            - column
+                                            - dateGranularity
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            dimensionType:
+                                              type: string
+                                              const: dynamic
+                                            column:
+                                              anyOf:
+                                                - type: string
+                                                - type: 'null'
+                                            maxValues:
+                                              type: number
+                                          required:
+                                            - dimensionType
+                                            - column
+                                            - maxValues
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            dimensionType:
+                                              type: string
+                                              const: static
+                                            column:
+                                              type: string
+                                            values:
+                                              type: array
+                                              items:
+                                                type: string
+                                          required:
+                                            - dimensionType
+                                            - column
+                                            - values
+                                          additionalProperties: false
+                                        - type: object
+                                          properties:
+                                            dimensionType:
+                                              type: string
+                                              const: slice
+                                            slices:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  name:
+                                                    type: string
+                                                  filters:
+                                                    type: array
+                                                    items:
+                                                      type: object
+                                                      properties:
+                                                        operator:
+                                                          type: string
+                                                          enum:
+                                                            - '='
+                                                            - '!='
+                                                            - <
+                                                            - <=
+                                                            - '>'
+                                                            - '>='
+                                                            - between
+                                                            - not_between
+                                                            - in
+                                                            - not_in
+                                                            - contains
+                                                            - not_contains
+                                                            - starts_with
+                                                            - ends_with
+                                                            - is_null
+                                                            - not_null
+                                                            - is_true
+                                                            - is_false
+                                                            - sql_expr
+                                                            - saved_filter
+                                                        column:
+                                                          type: string
+                                                        values:
+                                                          type: array
+                                                          items:
+                                                            type: string
+                                                      required:
+                                                        - operator
+                                                      additionalProperties: false
+                                                required:
+                                                  - name
+                                                  - filters
+                                                additionalProperties: false
+                                          required:
+                                            - dimensionType
+                                            - slices
+                                          additionalProperties: false
+                                  chartType:
+                                    type: string
+                                    enum:
+                                      - line
+                                      - area
+                                      - timeseries-table
+                                      - table
+                                      - bar
+                                      - stackedBar
+                                      - horizontalBar
+                                      - stackedHorizontalBar
+                                      - bigNumber
+                                      - rawTable
+                                  dateRange:
+                                    type: object
+                                    properties:
+                                      predefined:
+                                        type: string
+                                        enum:
+                                          - today
+                                          - yesterday
+                                          - last7Days
+                                          - last30Days
+                                          - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
+                                          - customLookback
+                                          - customDateRange
+                                      lookbackValue:
+                                        anyOf:
+                                          - type: number
+                                          - type: 'null'
+                                      lookbackUnit:
+                                        anyOf:
+                                          - type: string
+                                            enum:
+                                              - hour
+                                              - day
+                                              - week
+                                              - month
+                                          - type: 'null'
+                                      startDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      endDate:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    required:
+                                      - predefined
+                                    additionalProperties: false
+                                  showAs:
+                                    type: string
+                                    enum:
+                                      - total
+                                      - per_unit
+                                  type:
+                                    type: string
+                                    const: sql
+                                  dataset:
+                                    type: object
+                                    properties:
+                                      type:
+                                        type: string
+                                        const: sql
+                                      sql:
+                                        type: string
+                                      timestampColumn:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      columnTypes:
+                                        type: object
+                                        propertyNames:
+                                          type: string
+                                        additionalProperties:
+                                          type: string
+                                          enum:
+                                            - string
+                                            - number
+                                            - date
+                                            - boolean
+                                            - other
+                                      values:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            name:
+                                              type: string
+                                            rowFilters:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  operator:
+                                                    type: string
+                                                    enum:
+                                                      - '='
+                                                      - '!='
+                                                      - <
+                                                      - <=
+                                                      - '>'
+                                                      - '>='
+                                                      - between
+                                                      - not_between
+                                                      - in
+                                                      - not_in
+                                                      - contains
+                                                      - not_contains
+                                                      - starts_with
+                                                      - ends_with
+                                                      - is_null
+                                                      - not_null
+                                                      - is_true
+                                                      - is_false
+                                                      - sql_expr
+                                                      - saved_filter
+                                                  column:
+                                                    type: string
+                                                  values:
+                                                    type: array
+                                                    items:
+                                                      type: string
+                                                required:
+                                                  - operator
+                                                additionalProperties: false
+                                            type:
+                                              type: string
+                                              const: sql
+                                            valueType:
+                                              type: string
+                                              enum:
+                                                - unit_count
+                                                - count
+                                                - sum
+                                            valueColumn:
+                                              anyOf:
+                                                - type: string
+                                                - type: 'null'
+                                            unit:
+                                              anyOf:
+                                                - type: string
+                                                - type: 'null'
+                                          required:
+                                            - name
+                                            - rowFilters
+                                            - type
+                                            - valueType
+                                            - valueColumn
+                                            - unit
+                                          additionalProperties: false
+                                      hiddenColumns:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - type
+                                      - sql
                                       - timestampColumn
                                       - columnTypes
                                       - values
@@ -40259,6 +41162,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -42119,6 +43023,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -42491,6 +43396,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -42872,6 +43778,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -43016,6 +43923,408 @@ paths:
                                   - type
                                   - table
                                   - path
+                                  - timestampColumn
+                                  - columnTypes
+                                  - values
+                                additionalProperties: false
+                            required:
+                              - datasource
+                              - dimensions
+                              - chartType
+                              - dateRange
+                              - type
+                              - dataset
+                            additionalProperties: false
+                        required:
+                          - type
+                          - title
+                          - description
+                          - explorerAnalysisId
+                          - config
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          type:
+                            type: string
+                            const: sql-exploration
+                          title:
+                            type: string
+                          description:
+                            type: string
+                          snapshotId:
+                            type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
+                          explorerAnalysisId:
+                            type: string
+                          comparison:
+                            type: object
+                            properties:
+                              enabled:
+                                type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
+                              previousTimeFrame:
+                                type: object
+                                properties:
+                                  predefined:
+                                    type: string
+                                    enum:
+                                      - today
+                                      - yesterday
+                                      - last7Days
+                                      - last30Days
+                                      - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
+                                      - customLookback
+                                      - customDateRange
+                                  lookbackValue:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  lookbackUnit:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - hour
+                                          - day
+                                          - week
+                                          - month
+                                      - type: 'null'
+                                  startDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  endDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                required:
+                                  - predefined
+                                additionalProperties: false
+                            required:
+                              - enabled
+                            additionalProperties: false
+                          comparisonExplorerAnalysisId:
+                            type: string
+                          globalControlSettings:
+                            type: object
+                            properties:
+                              dateRange:
+                                type: boolean
+                            additionalProperties: false
+                          config:
+                            type: object
+                            properties:
+                              datasource:
+                                description: ID of the datasource to query
+                                type: string
+                              dimensions:
+                                type: array
+                                items:
+                                  anyOf:
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: date
+                                        column:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        dateGranularity:
+                                          type: string
+                                          enum:
+                                            - auto
+                                            - hour
+                                            - day
+                                            - week
+                                            - month
+                                            - year
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - dateGranularity
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: dynamic
+                                        column:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        maxValues:
+                                          type: number
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - maxValues
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: static
+                                        column:
+                                          type: string
+                                        values:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - values
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: slice
+                                        slices:
+                                          type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              name:
+                                                type: string
+                                              filters:
+                                                type: array
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    operator:
+                                                      type: string
+                                                      enum:
+                                                        - '='
+                                                        - '!='
+                                                        - <
+                                                        - <=
+                                                        - '>'
+                                                        - '>='
+                                                        - between
+                                                        - not_between
+                                                        - in
+                                                        - not_in
+                                                        - contains
+                                                        - not_contains
+                                                        - starts_with
+                                                        - ends_with
+                                                        - is_null
+                                                        - not_null
+                                                        - is_true
+                                                        - is_false
+                                                        - sql_expr
+                                                        - saved_filter
+                                                    column:
+                                                      type: string
+                                                    values:
+                                                      type: array
+                                                      items:
+                                                        type: string
+                                                  required:
+                                                    - operator
+                                                  additionalProperties: false
+                                            required:
+                                              - name
+                                              - filters
+                                            additionalProperties: false
+                                      required:
+                                        - dimensionType
+                                        - slices
+                                      additionalProperties: false
+                              chartType:
+                                type: string
+                                enum:
+                                  - line
+                                  - area
+                                  - timeseries-table
+                                  - table
+                                  - bar
+                                  - stackedBar
+                                  - horizontalBar
+                                  - stackedHorizontalBar
+                                  - bigNumber
+                                  - rawTable
+                              dateRange:
+                                type: object
+                                properties:
+                                  predefined:
+                                    type: string
+                                    enum:
+                                      - today
+                                      - yesterday
+                                      - last7Days
+                                      - last30Days
+                                      - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
+                                      - customLookback
+                                      - customDateRange
+                                  lookbackValue:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  lookbackUnit:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - hour
+                                          - day
+                                          - week
+                                          - month
+                                      - type: 'null'
+                                  startDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  endDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                required:
+                                  - predefined
+                                additionalProperties: false
+                              showAs:
+                                type: string
+                                enum:
+                                  - total
+                                  - per_unit
+                              type:
+                                type: string
+                                const: sql
+                              dataset:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: sql
+                                  sql:
+                                    type: string
+                                  timestampColumn:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  columnTypes:
+                                    type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
+                                      type: string
+                                      enum:
+                                        - string
+                                        - number
+                                        - date
+                                        - boolean
+                                        - other
+                                  values:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        name:
+                                          type: string
+                                        rowFilters:
+                                          type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              operator:
+                                                type: string
+                                                enum:
+                                                  - '='
+                                                  - '!='
+                                                  - <
+                                                  - <=
+                                                  - '>'
+                                                  - '>='
+                                                  - between
+                                                  - not_between
+                                                  - in
+                                                  - not_in
+                                                  - contains
+                                                  - not_contains
+                                                  - starts_with
+                                                  - ends_with
+                                                  - is_null
+                                                  - not_null
+                                                  - is_true
+                                                  - is_false
+                                                  - sql_expr
+                                                  - saved_filter
+                                              column:
+                                                type: string
+                                              values:
+                                                type: array
+                                                items:
+                                                  type: string
+                                            required:
+                                              - operator
+                                            additionalProperties: false
+                                        type:
+                                          type: string
+                                          const: sql
+                                        valueType:
+                                          type: string
+                                          enum:
+                                            - unit_count
+                                            - count
+                                            - sum
+                                        valueColumn:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        unit:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                      required:
+                                        - name
+                                        - rowFilters
+                                        - type
+                                        - valueType
+                                        - valueColumn
+                                        - unit
+                                      additionalProperties: false
+                                  hiddenColumns:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - type
+                                  - sql
                                   - timestampColumn
                                   - columnTypes
                                   - values
@@ -45552,6 +46861,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -45775,6 +47085,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -45912,6 +47231,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -46226,6 +47546,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -46458,6 +47779,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -46595,6 +47925,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -46918,6 +48249,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -47167,6 +48499,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -47304,6 +48645,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -47498,6 +48840,749 @@ paths:
             'https://api.growthbook.io/api/v1/product-analytics/data-source-exploration'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/product-analytics/sql-exploration:
+    post:
+      operationId: postSqlExploration
+      summary: Create a SQL based visualization
+      tags:
+        - AnalyticsExplorations
+      parameters:
+        - $ref: '#/components/parameters/cache'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                datasource:
+                  description: ID of the datasource to query
+                  type: string
+                dimensions:
+                  type: array
+                  items:
+                    anyOf:
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: date
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          dateGranularity:
+                            type: string
+                            enum:
+                              - auto
+                              - hour
+                              - day
+                              - week
+                              - month
+                              - year
+                        required:
+                          - dimensionType
+                          - column
+                          - dateGranularity
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: dynamic
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          maxValues:
+                            type: number
+                        required:
+                          - dimensionType
+                          - column
+                          - maxValues
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: static
+                          column:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - dimensionType
+                          - column
+                          - values
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: slice
+                          slices:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                filters:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      operator:
+                                        type: string
+                                        enum:
+                                          - '='
+                                          - '!='
+                                          - <
+                                          - <=
+                                          - '>'
+                                          - '>='
+                                          - between
+                                          - not_between
+                                          - in
+                                          - not_in
+                                          - contains
+                                          - not_contains
+                                          - starts_with
+                                          - ends_with
+                                          - is_null
+                                          - not_null
+                                          - is_true
+                                          - is_false
+                                          - sql_expr
+                                          - saved_filter
+                                      column:
+                                        type: string
+                                      values:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - operator
+                                    additionalProperties: false
+                              required:
+                                - name
+                                - filters
+                              additionalProperties: false
+                        required:
+                          - dimensionType
+                          - slices
+                        additionalProperties: false
+                chartType:
+                  type: string
+                  enum:
+                    - line
+                    - area
+                    - timeseries-table
+                    - table
+                    - bar
+                    - stackedBar
+                    - horizontalBar
+                    - stackedHorizontalBar
+                    - bigNumber
+                    - rawTable
+                dateRange:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - yesterday
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - last12Months
+                        - lastCalendarYear
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
+                type:
+                  type: string
+                  const: sql
+                dataset:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      const: sql
+                    sql:
+                      type: string
+                    timestampColumn:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    columnTypes:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties:
+                        type: string
+                        enum:
+                          - string
+                          - number
+                          - date
+                          - boolean
+                          - other
+                    values:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          rowFilters:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                operator:
+                                  type: string
+                                  enum:
+                                    - '='
+                                    - '!='
+                                    - <
+                                    - <=
+                                    - '>'
+                                    - '>='
+                                    - between
+                                    - not_between
+                                    - in
+                                    - not_in
+                                    - contains
+                                    - not_contains
+                                    - starts_with
+                                    - ends_with
+                                    - is_null
+                                    - not_null
+                                    - is_true
+                                    - is_false
+                                    - sql_expr
+                                    - saved_filter
+                                column:
+                                  type: string
+                                values:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - operator
+                              additionalProperties: false
+                          type:
+                            type: string
+                            const: sql
+                          valueType:
+                            type: string
+                            enum:
+                              - unit_count
+                              - count
+                              - sum
+                          valueColumn:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          unit:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - name
+                          - rowFilters
+                          - type
+                          - valueType
+                          - valueColumn
+                          - unit
+                        additionalProperties: false
+                    hiddenColumns:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - type
+                    - sql
+                    - timestampColumn
+                    - columnTypes
+                    - values
+                  additionalProperties: false
+              required:
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - type
+                - dataset
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exploration:
+                    anyOf:
+                      - type: object
+                        properties:
+                          id:
+                            type: string
+                          dateCreated:
+                            type: string
+                            format: date-time
+                          dateUpdated:
+                            type: string
+                            format: date-time
+                          datasource:
+                            type: string
+                          status:
+                            type: string
+                            enum:
+                              - running
+                              - success
+                              - error
+                          dateStart:
+                            type: string
+                          dateEnd:
+                            type: string
+                          error:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          result:
+                            type: object
+                            properties:
+                              rows:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    dimensions:
+                                      type: array
+                                      items:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                    values:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          metricId:
+                                            type: string
+                                          numerator:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                          denominator:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                        required:
+                                          - metricId
+                                          - numerator
+                                          - denominator
+                                        additionalProperties: false
+                                    steps:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          count:
+                                            type: number
+                                          timeFromPrevSumHrs:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                          timeFromPrevSumSquaresHrs:
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                        required:
+                                          - count
+                                          - timeFromPrevSumHrs
+                                          - timeFromPrevSumSquaresHrs
+                                        additionalProperties: false
+                                  required:
+                                    - dimensions
+                                  additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
+                            required:
+                              - rows
+                            additionalProperties: false
+                          config:
+                            type: object
+                            properties:
+                              datasource:
+                                description: ID of the datasource to query
+                                type: string
+                              dimensions:
+                                type: array
+                                items:
+                                  anyOf:
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: date
+                                        column:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        dateGranularity:
+                                          type: string
+                                          enum:
+                                            - auto
+                                            - hour
+                                            - day
+                                            - week
+                                            - month
+                                            - year
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - dateGranularity
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: dynamic
+                                        column:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        maxValues:
+                                          type: number
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - maxValues
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: static
+                                        column:
+                                          type: string
+                                        values:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - dimensionType
+                                        - column
+                                        - values
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        dimensionType:
+                                          type: string
+                                          const: slice
+                                        slices:
+                                          type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              name:
+                                                type: string
+                                              filters:
+                                                type: array
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    operator:
+                                                      type: string
+                                                      enum:
+                                                        - '='
+                                                        - '!='
+                                                        - <
+                                                        - <=
+                                                        - '>'
+                                                        - '>='
+                                                        - between
+                                                        - not_between
+                                                        - in
+                                                        - not_in
+                                                        - contains
+                                                        - not_contains
+                                                        - starts_with
+                                                        - ends_with
+                                                        - is_null
+                                                        - not_null
+                                                        - is_true
+                                                        - is_false
+                                                        - sql_expr
+                                                        - saved_filter
+                                                    column:
+                                                      type: string
+                                                    values:
+                                                      type: array
+                                                      items:
+                                                        type: string
+                                                  required:
+                                                    - operator
+                                                  additionalProperties: false
+                                            required:
+                                              - name
+                                              - filters
+                                            additionalProperties: false
+                                      required:
+                                        - dimensionType
+                                        - slices
+                                      additionalProperties: false
+                              chartType:
+                                type: string
+                                enum:
+                                  - line
+                                  - area
+                                  - timeseries-table
+                                  - table
+                                  - bar
+                                  - stackedBar
+                                  - horizontalBar
+                                  - stackedHorizontalBar
+                                  - bigNumber
+                                  - rawTable
+                              dateRange:
+                                type: object
+                                properties:
+                                  predefined:
+                                    type: string
+                                    enum:
+                                      - today
+                                      - yesterday
+                                      - last7Days
+                                      - last30Days
+                                      - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
+                                      - customLookback
+                                      - customDateRange
+                                  lookbackValue:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  lookbackUnit:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - hour
+                                          - day
+                                          - week
+                                          - month
+                                      - type: 'null'
+                                  startDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  endDate:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                required:
+                                  - predefined
+                                additionalProperties: false
+                              showAs:
+                                type: string
+                                enum:
+                                  - total
+                                  - per_unit
+                              type:
+                                type: string
+                                const: sql
+                              dataset:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    const: sql
+                                  sql:
+                                    type: string
+                                  timestampColumn:
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
+                                  columnTypes:
+                                    type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
+                                      type: string
+                                      enum:
+                                        - string
+                                        - number
+                                        - date
+                                        - boolean
+                                        - other
+                                  values:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        name:
+                                          type: string
+                                        rowFilters:
+                                          type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              operator:
+                                                type: string
+                                                enum:
+                                                  - '='
+                                                  - '!='
+                                                  - <
+                                                  - <=
+                                                  - '>'
+                                                  - '>='
+                                                  - between
+                                                  - not_between
+                                                  - in
+                                                  - not_in
+                                                  - contains
+                                                  - not_contains
+                                                  - starts_with
+                                                  - ends_with
+                                                  - is_null
+                                                  - not_null
+                                                  - is_true
+                                                  - is_false
+                                                  - sql_expr
+                                                  - saved_filter
+                                              column:
+                                                type: string
+                                              values:
+                                                type: array
+                                                items:
+                                                  type: string
+                                            required:
+                                              - operator
+                                            additionalProperties: false
+                                        type:
+                                          type: string
+                                          const: sql
+                                        valueType:
+                                          type: string
+                                          enum:
+                                            - unit_count
+                                            - count
+                                            - sum
+                                        valueColumn:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        unit:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                      required:
+                                        - name
+                                        - rowFilters
+                                        - type
+                                        - valueType
+                                        - valueColumn
+                                        - unit
+                                      additionalProperties: false
+                                  hiddenColumns:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - type
+                                  - sql
+                                  - timestampColumn
+                                  - columnTypes
+                                  - values
+                                additionalProperties: false
+                            required:
+                              - datasource
+                              - dimensions
+                              - chartType
+                              - dateRange
+                              - type
+                              - dataset
+                            additionalProperties: false
+                        required:
+                          - id
+                          - dateCreated
+                          - dateUpdated
+                          - datasource
+                          - status
+                          - dateStart
+                          - dateEnd
+                          - result
+                          - config
+                        additionalProperties: false
+                      - type: 'null'
+                  query:
+                    anyOf:
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
+                      - type: 'null'
+                  explorationUrl:
+                    description: >-
+                      A direct link to view this exploration in the GrowthBook
+                      Application.
+                    type: string
+                  message:
+                    description: >-
+                      Present when `exploration` is null, explaining why no
+                      result was returned.
+                    type: string
+                required:
+                  - exploration
+                  - query
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/product-analytics/sql-exploration'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/product-analytics/funnel-exploration:
     post:
       operationId: postFunnelExploration
@@ -47644,6 +49729,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -47889,6 +49975,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -48026,6 +50121,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -56804,6 +58900,12 @@ components:
             URL-safe slug used in SDK payload metadata. Auto-generated from name
             if not provided.
           type: string
+        restrictAccess:
+          description: >-
+            When true, only members with an explicit role on this Project
+            (directly or via a team) can access it. Members with the manageTeam
+            permission retain access.
+          type: boolean
         settings:
           type: object
           properties:
@@ -56970,6 +59072,8 @@ components:
         remoteEvalEnabled:
           type: boolean
         savedGroupReferencesEnabled:
+          type: boolean
+        includeReferencedPrerequisites:
           type: boolean
       required:
         - id
@@ -58967,6 +61071,18 @@ components:
           type: array
           items:
             type: string
+        userIdColumns:
+          description: >-
+            Maps an identifier type to the column holding it, for SQL that does
+            not alias its columns to the identifier type names, e.g.
+            `{"user_id": "userId"}`. May also be a single-level field path into
+            a JSON column (`properties.userId`). Unmapped types use the
+            identifier type name as the column name.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         aggregatedFactTableSettings:
           description: >-
             Settings for maintaining shared daily aggregated tables (a subset of
@@ -59003,6 +61119,11 @@ components:
             - lookbackWindow
           additionalProperties: false
         sql:
+          type: string
+        timestampColumn:
+          description: >-
+            The column holding the event timestamp. Must be a date column on
+            this fact table. Defaults to "timestamp" when unset.
           type: string
         eventName:
           description: The event name used in SQL template variables
@@ -63709,6 +65830,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -64090,6 +66212,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -64480,6 +66603,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -64624,6 +66748,417 @@ components:
                           - type
                           - table
                           - path
+                          - timestampColumn
+                          - columnTypes
+                          - values
+                        additionalProperties: false
+                    required:
+                      - datasource
+                      - dimensions
+                      - chartType
+                      - dateRange
+                      - type
+                      - dataset
+                    additionalProperties: false
+                required:
+                  - organization
+                  - id
+                  - uid
+                  - type
+                  - title
+                  - description
+                  - explorerAnalysisId
+                  - config
+                additionalProperties: false
+              - type: object
+                properties:
+                  organization:
+                    type: string
+                  id:
+                    type: string
+                  uid:
+                    type: string
+                  type:
+                    type: string
+                    const: sql-exploration
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  snapshotId:
+                    type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
+                  explorerAnalysisId:
+                    type: string
+                  comparison:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
+                      previousTimeFrame:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - yesterday
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - last12Months
+                              - lastCalendarYear
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                    required:
+                      - enabled
+                    additionalProperties: false
+                  comparisonExplorerAnalysisId:
+                    type: string
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                    additionalProperties: false
+                  config:
+                    type: object
+                    properties:
+                      datasource:
+                        description: ID of the datasource to query
+                        type: string
+                      dimensions:
+                        type: array
+                        items:
+                          anyOf:
+                            - type: object
+                              properties:
+                                dimensionType:
+                                  type: string
+                                  const: date
+                                column:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                dateGranularity:
+                                  type: string
+                                  enum:
+                                    - auto
+                                    - hour
+                                    - day
+                                    - week
+                                    - month
+                                    - year
+                              required:
+                                - dimensionType
+                                - column
+                                - dateGranularity
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                dimensionType:
+                                  type: string
+                                  const: dynamic
+                                column:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                maxValues:
+                                  type: number
+                              required:
+                                - dimensionType
+                                - column
+                                - maxValues
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                dimensionType:
+                                  type: string
+                                  const: static
+                                column:
+                                  type: string
+                                values:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - dimensionType
+                                - column
+                                - values
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                dimensionType:
+                                  type: string
+                                  const: slice
+                                slices:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      name:
+                                        type: string
+                                      filters:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            operator:
+                                              type: string
+                                              enum:
+                                                - '='
+                                                - '!='
+                                                - <
+                                                - <=
+                                                - '>'
+                                                - '>='
+                                                - between
+                                                - not_between
+                                                - in
+                                                - not_in
+                                                - contains
+                                                - not_contains
+                                                - starts_with
+                                                - ends_with
+                                                - is_null
+                                                - not_null
+                                                - is_true
+                                                - is_false
+                                                - sql_expr
+                                                - saved_filter
+                                            column:
+                                              type: string
+                                            values:
+                                              type: array
+                                              items:
+                                                type: string
+                                          required:
+                                            - operator
+                                          additionalProperties: false
+                                    required:
+                                      - name
+                                      - filters
+                                    additionalProperties: false
+                              required:
+                                - dimensionType
+                                - slices
+                              additionalProperties: false
+                      chartType:
+                        type: string
+                        enum:
+                          - line
+                          - area
+                          - timeseries-table
+                          - table
+                          - bar
+                          - stackedBar
+                          - horizontalBar
+                          - stackedHorizontalBar
+                          - bigNumber
+                          - rawTable
+                      dateRange:
+                        type: object
+                        properties:
+                          predefined:
+                            type: string
+                            enum:
+                              - today
+                              - yesterday
+                              - last7Days
+                              - last30Days
+                              - last90Days
+                              - last12Months
+                              - lastCalendarYear
+                              - customLookback
+                              - customDateRange
+                          lookbackValue:
+                            anyOf:
+                              - type: number
+                              - type: 'null'
+                          lookbackUnit:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - hour
+                                  - day
+                                  - week
+                                  - month
+                              - type: 'null'
+                          startDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          endDate:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - predefined
+                        additionalProperties: false
+                      showAs:
+                        type: string
+                        enum:
+                          - total
+                          - per_unit
+                      type:
+                        type: string
+                        const: sql
+                      dataset:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            const: sql
+                          sql:
+                            type: string
+                          timestampColumn:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          columnTypes:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                              enum:
+                                - string
+                                - number
+                                - date
+                                - boolean
+                                - other
+                          values:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                rowFilters:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      operator:
+                                        type: string
+                                        enum:
+                                          - '='
+                                          - '!='
+                                          - <
+                                          - <=
+                                          - '>'
+                                          - '>='
+                                          - between
+                                          - not_between
+                                          - in
+                                          - not_in
+                                          - contains
+                                          - not_contains
+                                          - starts_with
+                                          - ends_with
+                                          - is_null
+                                          - not_null
+                                          - is_true
+                                          - is_false
+                                          - sql_expr
+                                          - saved_filter
+                                      column:
+                                        type: string
+                                      values:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - operator
+                                    additionalProperties: false
+                                type:
+                                  type: string
+                                  const: sql
+                                valueType:
+                                  type: string
+                                  enum:
+                                    - unit_count
+                                    - count
+                                    - sum
+                                valueColumn:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                unit:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                              required:
+                                - name
+                                - rowFilters
+                                - type
+                                - valueType
+                                - valueColumn
+                                - unit
+                              additionalProperties: false
+                          hiddenColumns:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - type
+                          - sql
                           - timestampColumn
                           - columnTypes
                           - values
@@ -64887,6 +67422,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -67061,6 +69597,15 @@ components:
                 required:
                   - dimensions
                 additionalProperties: false
+            rawRows:
+              type: array
+              items:
+                type: object
+                propertyNames:
+                  type: string
+                additionalProperties: {}
+            truncated:
+              type: boolean
           required:
             - rows
           additionalProperties: false
@@ -67199,6 +69744,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -67462,6 +70008,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -67734,6 +70281,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -68023,6 +70571,300 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
+                dateRange:
+                  type: object
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - yesterday
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - last12Months
+                        - lastCalendarYear
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                    lookbackUnit:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - hour
+                            - day
+                            - week
+                            - month
+                        - type: 'null'
+                    startDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    endDate:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                  required:
+                    - predefined
+                  additionalProperties: false
+                showAs:
+                  type: string
+                  enum:
+                    - total
+                    - per_unit
+                type:
+                  type: string
+                  const: sql
+                dataset:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      const: sql
+                    sql:
+                      type: string
+                    timestampColumn:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    columnTypes:
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties:
+                        type: string
+                        enum:
+                          - string
+                          - number
+                          - date
+                          - boolean
+                          - other
+                    values:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          rowFilters:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                operator:
+                                  type: string
+                                  enum:
+                                    - '='
+                                    - '!='
+                                    - <
+                                    - <=
+                                    - '>'
+                                    - '>='
+                                    - between
+                                    - not_between
+                                    - in
+                                    - not_in
+                                    - contains
+                                    - not_contains
+                                    - starts_with
+                                    - ends_with
+                                    - is_null
+                                    - not_null
+                                    - is_true
+                                    - is_false
+                                    - sql_expr
+                                    - saved_filter
+                                column:
+                                  type: string
+                                values:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - operator
+                              additionalProperties: false
+                          type:
+                            type: string
+                            const: sql
+                          valueType:
+                            type: string
+                            enum:
+                              - unit_count
+                              - count
+                              - sum
+                          valueColumn:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          unit:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                        required:
+                          - name
+                          - rowFilters
+                          - type
+                          - valueType
+                          - valueColumn
+                          - unit
+                        additionalProperties: false
+                    hiddenColumns:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - type
+                    - sql
+                    - timestampColumn
+                    - columnTypes
+                    - values
+                  additionalProperties: false
+              required:
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - type
+                - dataset
+              additionalProperties: false
+            - type: object
+              properties:
+                datasource:
+                  description: ID of the datasource to query
+                  type: string
+                dimensions:
+                  type: array
+                  items:
+                    anyOf:
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: date
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          dateGranularity:
+                            type: string
+                            enum:
+                              - auto
+                              - hour
+                              - day
+                              - week
+                              - month
+                              - year
+                        required:
+                          - dimensionType
+                          - column
+                          - dateGranularity
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: dynamic
+                          column:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          maxValues:
+                            type: number
+                        required:
+                          - dimensionType
+                          - column
+                          - maxValues
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: static
+                          column:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - dimensionType
+                          - column
+                          - values
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          dimensionType:
+                            type: string
+                            const: slice
+                          slices:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                filters:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      operator:
+                                        type: string
+                                        enum:
+                                          - '='
+                                          - '!='
+                                          - <
+                                          - <=
+                                          - '>'
+                                          - '>='
+                                          - between
+                                          - not_between
+                                          - in
+                                          - not_in
+                                          - contains
+                                          - not_contains
+                                          - starts_with
+                                          - ends_with
+                                          - is_null
+                                          - not_null
+                                          - is_true
+                                          - is_false
+                                          - sql_expr
+                                          - saved_filter
+                                      column:
+                                        type: string
+                                      values:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - operator
+                                    additionalProperties: false
+                              required:
+                                - name
+                                - filters
+                              additionalProperties: false
+                        required:
+                          - dimensionType
+                          - slices
+                        additionalProperties: false
+                chartType:
+                  type: string
+                  enum:
+                    - line
+                    - area
+                    - timeseries-table
+                    - table
+                    - bar
+                    - stackedBar
+                    - horizontalBar
+                    - stackedHorizontalBar
+                    - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
