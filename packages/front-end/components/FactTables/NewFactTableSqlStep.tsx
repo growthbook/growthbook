@@ -7,6 +7,7 @@ import { isProjectListValidForProject, parseIntWithDefault } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
+import { getColumnMappingError } from "@/services/factTables";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import {
@@ -101,7 +102,9 @@ export default function NewFactTableSqlStep({
           }),
         });
         const results = { ...res, error: res.error || "" };
-        setTestQueryResults(results);
+        // A `LIMIT 0` validation run has no rows to show, and the pane's
+        // contents belong to the SQL the user just edited away from.
+        setTestQueryResults(limit || results.error ? results : null);
         if (!results.error) {
           onColumnsDetected(results.columns || []);
         }
@@ -118,17 +121,25 @@ export default function NewFactTableSqlStep({
   );
 
   const hasFreshResults = detectedSql === sql && !!detected?.length;
+  const columnError = hasFreshResults
+    ? getColumnMappingError(detected || [])
+    : null;
 
   useEffect(() => {
     validateRef.current = async () => {
-      if (hasFreshResults) return;
+      if (hasFreshResults) {
+        if (columnError) throw new Error(columnError);
+        return;
+      }
       const results = await runQuery(0);
       if (results.error || !results.columns?.length) throw new Error("");
+      const error = getColumnMappingError(results.columns);
+      if (error) throw new Error(error);
     };
     return () => {
       validateRef.current = null;
     };
-  }, [validateRef, hasFreshResults, runQuery]);
+  }, [validateRef, hasFreshResults, columnError, runQuery]);
 
   return (
     <PanelGroup direction="horizontal">

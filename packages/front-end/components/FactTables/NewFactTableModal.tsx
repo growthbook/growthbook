@@ -16,7 +16,11 @@ import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getInitialFactTableQuery } from "@/services/datasources";
-import { getNewFactTableProjects } from "@/services/factTables";
+import {
+  getNewFactTableProjects,
+  isIdentifierCandidate,
+  isTimestampCandidate,
+} from "@/services/factTables";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -25,13 +29,7 @@ import TextField from "@/ui/TextField";
 import Callout from "@/ui/Callout";
 import RadioGroup from "@/ui/RadioGroup";
 import { Select, SelectItem } from "@/ui/Select";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
+import Table, { TableBody, TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Link from "@/ui/Link";
@@ -69,7 +67,7 @@ function MappingRow({
 
   return (
     <TableRow align="center">
-      <TableCell>
+      <TableCell style={{ width: "50%" }}>
         <Text size="sm" weight="medium">
           {label}
         </Text>
@@ -92,7 +90,7 @@ function MappingRow({
               ))}
             </Select>
           </TableCell>
-          <TableCell>
+          <TableCell style={{ width: "40px" }}>
             {onRemove ? (
               <Flex align="center">
                 <IconButton
@@ -174,12 +172,8 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
     (t) => t.userIdType,
   );
 
-  const timestampOptions = (detected || []).filter((c) =>
-    ["date", "other", ""].includes(c.datatype),
-  );
-  const identifierOptions = (detected || []).filter((c) =>
-    ["string", "number", "other", ""].includes(c.datatype),
-  );
+  const timestampOptions = (detected || []).filter(isTimestampCandidate);
+  const identifierOptions = (detected || []).filter(isIdentifierCandidate);
   // An event type is a low-cardinality string many rows share. A column named
   // like an id holds a value per row, so offering it would build a metric
   // filter whose dropdown lists every id in the table.
@@ -203,7 +197,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
       setDetectedSql(sql);
       setDetected(columns);
 
-      // Only reset the form when the SQL returns a different set of columns.
+      // Only re-detect when the SQL returns a different set of columns.
       // Better types for the same columns leave the configuration alone.
       if (
         detected &&
@@ -213,16 +207,25 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
         return;
       }
 
+      const exists = (column: string) =>
+        columns.some((c) => c.column === column);
+
       const idTypes = (datasource?.settings?.userIdTypes || []).map(
         (t) => t.userIdType,
       );
 
-      setTimestampColumn(
-        columns.find((c) => c.datatype === "date")?.column || "",
+      // A mapping the user picked survives as long as its column does; only
+      // the ones that no longer resolve are detected again.
+      setTimestampColumn((prev) =>
+        exists(prev)
+          ? prev
+          : columns.find((c) => c.datatype === "date")?.column || "",
       );
-      setUserIdColumns(
+      setUserIdColumns((prev) =>
         Object.fromEntries(
           idTypes.flatMap((idType) => {
+            const current = prev[idType];
+            if (current && exists(current)) return [[idType, current]];
             const match = columns.find(
               (c) =>
                 normalizeIdentifier(c.column) === normalizeIdentifier(idType),
@@ -336,6 +339,12 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
           await validateSql.current?.();
         }}
       >
+        <Box px="2" py="1">
+          <Text>
+            Fact Tables must select a timestamp column and at least one
+            identifier column ({identifierTypes.join(", ")}).
+          </Text>
+        </Box>
         <Box p="2" style={{ height: BODY_HEIGHT }}>
           <NewFactTableSqlStep
             datasourceId={datasourceId}
@@ -378,7 +387,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
               autoFocus
             />
 
-            <Box>
+            <Box pt="2">
               <Text as="div" weight="semibold" mb="2">
                 Table type
               </Text>
@@ -428,50 +437,46 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
               />
             </Box>
 
-            <Table size="sm" variant="surface" layout="fixed" mb="2">
-              <TableHeader>
-                <TableRow>
-                  <TableColumnHeader style={{ width: "50%" }}>
-                    Column mapping
-                  </TableColumnHeader>
-                  <TableColumnHeader />
-                  <TableColumnHeader style={{ width: 40 }} />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <MappingRow
-                  label="timestamp"
-                  value={timestampColumn}
-                  options={timestampOptions}
-                  setValue={setTimestampColumn}
-                />
-                {tableType === "event" ? (
+            <Box>
+              <Text as="div" weight="semibold" mb="2">
+                Column mapping
+              </Text>
+              <Table size="sm" variant="surface" layout="fixed" mb="2">
+                <TableBody>
                   <MappingRow
-                    label="event_name"
-                    value={inlineFilterColumn}
-                    options={inlineFilterOptions}
-                    setValue={setInlineFilterColumn}
-                    onRemove={() => setInlineFilterColumn("")}
+                    label="timestamp"
+                    value={timestampColumn}
+                    options={timestampOptions}
+                    setValue={setTimestampColumn}
                   />
-                ) : null}
-                {identifierTypes.map((idType) => (
-                  <MappingRow
-                    key={idType}
-                    label={idType}
-                    value={userIdColumns[idType] || ""}
-                    options={identifierOptions}
-                    setValue={(v) => {
-                      setUserIdColumns((prev) => ({
-                        ...prev,
-                        [idType]: v,
-                      }));
-                      if (v === inlineFilterColumn) setInlineFilterColumn("");
-                    }}
-                    onRemove={() => removeIdentifier(idType)}
-                  />
-                ))}
-              </TableBody>
-            </Table>
+                  {tableType === "event" ? (
+                    <MappingRow
+                      label="event_name"
+                      value={inlineFilterColumn}
+                      options={inlineFilterOptions}
+                      setValue={setInlineFilterColumn}
+                      onRemove={() => setInlineFilterColumn("")}
+                    />
+                  ) : null}
+                  {identifierTypes.map((idType) => (
+                    <MappingRow
+                      key={idType}
+                      label={idType}
+                      value={userIdColumns[idType] || ""}
+                      options={identifierOptions}
+                      setValue={(v) => {
+                        setUserIdColumns((prev) => ({
+                          ...prev,
+                          [idType]: v,
+                        }));
+                        if (v === inlineFilterColumn) setInlineFilterColumn("");
+                      }}
+                      onRemove={() => removeIdentifier(idType)}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
           </Flex>
         </Box>
       </Page>
