@@ -240,16 +240,10 @@ export type ExplorationDateRange = z.infer<
   typeof explorationDateRangeValidator
 >;
 
-const chartAxisSettingsValidator = z
-  .object({
-    categoryAxisLabel: z.string().nullable().optional(),
-    valueAxisLabel: z.string().nullable().optional(),
-  })
-  .strict();
-
 const chartSettingsValidator = z
   .object({
-    axes: chartAxisSettingsValidator.optional(),
+    categoryAxisLabel: z.string().optional(),
+    valueAxisLabel: z.string().optional(),
   })
   .strict();
 export type ProductAnalyticsChartSettings = z.infer<

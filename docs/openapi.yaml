@@ -36587,18 +36587,10 @@ paths:
                                   chartSettings:
                                     type: object
                                     properties:
-                                      axes:
-                                        type: object
-                                        properties:
-                                          categoryAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                          valueAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                        additionalProperties: false
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -36975,18 +36967,10 @@ paths:
                                   chartSettings:
                                     type: object
                                     properties:
-                                      axes:
-                                        type: object
-                                        properties:
-                                          categoryAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                          valueAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                        additionalProperties: false
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -37372,18 +37356,10 @@ paths:
                                   chartSettings:
                                     type: object
                                     properties:
-                                      axes:
-                                        type: object
-                                        properties:
-                                          categoryAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                          valueAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                        additionalProperties: false
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -37786,18 +37762,10 @@ paths:
                                   chartSettings:
                                     type: object
                                     properties:
-                                      axes:
-                                        type: object
-                                        properties:
-                                          categoryAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                          valueAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                        additionalProperties: false
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -39615,18 +39583,10 @@ paths:
                                   chartSettings:
                                     type: object
                                     properties:
-                                      axes:
-                                        type: object
-                                        properties:
-                                          categoryAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                          valueAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                        additionalProperties: false
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -40012,18 +39972,10 @@ paths:
                                   chartSettings:
                                     type: object
                                     properties:
-                                      axes:
-                                        type: object
-                                        properties:
-                                          categoryAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                          valueAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                        additionalProperties: false
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -40418,18 +40370,10 @@ paths:
                                   chartSettings:
                                     type: object
                                     properties:
-                                      axes:
-                                        type: object
-                                        properties:
-                                          categoryAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                          valueAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                        additionalProperties: false
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -40841,18 +40785,10 @@ paths:
                                   chartSettings:
                                     type: object
                                     properties:
-                                      axes:
-                                        type: object
-                                        properties:
-                                          categoryAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                          valueAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                        additionalProperties: false
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -41263,18 +41199,10 @@ paths:
                                   chartSettings:
                                     type: object
                                     properties:
-                                      axes:
-                                        type: object
-                                        properties:
-                                          categoryAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                          valueAxisLabel:
-                                            anyOf:
-                                              - type: string
-                                              - type: 'null'
-                                        additionalProperties: false
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
                                     additionalProperties: false
                                   type:
                                     type: string
@@ -43139,18 +43067,10 @@ paths:
                               chartSettings:
                                 type: object
                                 properties:
-                                  axes:
-                                    type: object
-                                    properties:
-                                      categoryAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                      valueAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                    additionalProperties: false
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
                                 additionalProperties: false
                               type:
                                 type: string
@@ -43527,18 +43447,10 @@ paths:
                               chartSettings:
                                 type: object
                                 properties:
-                                  axes:
-                                    type: object
-                                    properties:
-                                      categoryAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                      valueAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                    additionalProperties: false
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
                                 additionalProperties: false
                               type:
                                 type: string
@@ -43924,18 +43836,10 @@ paths:
                               chartSettings:
                                 type: object
                                 properties:
-                                  axes:
-                                    type: object
-                                    properties:
-                                      categoryAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                      valueAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                    additionalProperties: false
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
                                 additionalProperties: false
                               type:
                                 type: string
@@ -44338,18 +44242,10 @@ paths:
                               chartSettings:
                                 type: object
                                 properties:
-                                  axes:
-                                    type: object
-                                    properties:
-                                      categoryAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                      valueAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                    additionalProperties: false
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
                                 additionalProperties: false
                               type:
                                 type: string
@@ -47033,18 +46929,10 @@ paths:
                 chartSettings:
                   type: object
                   properties:
-                    axes:
-                      type: object
-                      properties:
-                        categoryAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        valueAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                      additionalProperties: false
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
                   additionalProperties: false
                 type:
                   type: string
@@ -47409,18 +47297,10 @@ paths:
                               chartSettings:
                                 type: object
                                 properties:
-                                  axes:
-                                    type: object
-                                    properties:
-                                      categoryAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                      valueAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                    additionalProperties: false
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
                                 additionalProperties: false
                               type:
                                 type: string
@@ -47739,18 +47619,10 @@ paths:
                 chartSettings:
                   type: object
                   properties:
-                    axes:
-                      type: object
-                      properties:
-                        categoryAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        valueAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                      additionalProperties: false
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
                   additionalProperties: false
                 type:
                   type: string
@@ -48124,18 +47996,10 @@ paths:
                               chartSettings:
                                 type: object
                                 properties:
-                                  axes:
-                                    type: object
-                                    properties:
-                                      categoryAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                      valueAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                    additionalProperties: false
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
                                 additionalProperties: false
                               type:
                                 type: string
@@ -48463,18 +48327,10 @@ paths:
                 chartSettings:
                   type: object
                   properties:
-                    axes:
-                      type: object
-                      properties:
-                        categoryAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        valueAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                      additionalProperties: false
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
                   additionalProperties: false
                 type:
                   type: string
@@ -48865,18 +48721,10 @@ paths:
                               chartSettings:
                                 type: object
                                 properties:
-                                  axes:
-                                    type: object
-                                    properties:
-                                      categoryAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                      valueAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                    additionalProperties: false
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
                                 additionalProperties: false
                               type:
                                 type: string
@@ -49221,18 +49069,10 @@ paths:
                 chartSettings:
                   type: object
                   properties:
-                    axes:
-                      type: object
-                      properties:
-                        categoryAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        valueAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                      additionalProperties: false
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
                   additionalProperties: false
                 type:
                   type: string
@@ -49622,18 +49462,10 @@ paths:
                               chartSettings:
                                 type: object
                                 properties:
-                                  axes:
-                                    type: object
-                                    properties:
-                                      categoryAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                      valueAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                    additionalProperties: false
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
                                 additionalProperties: false
                               type:
                                 type: string
@@ -49977,18 +49809,10 @@ paths:
                 chartSettings:
                   type: object
                   properties:
-                    axes:
-                      type: object
-                      properties:
-                        categoryAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        valueAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                      additionalProperties: false
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
                   additionalProperties: false
                 type:
                   type: string
@@ -50375,18 +50199,10 @@ paths:
                               chartSettings:
                                 type: object
                                 properties:
-                                  axes:
-                                    type: object
-                                    properties:
-                                      categoryAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                      valueAxisLabel:
-                                        anyOf:
-                                          - type: string
-                                          - type: 'null'
-                                    additionalProperties: false
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
                                 additionalProperties: false
                               type:
                                 type: string
@@ -66082,18 +65898,10 @@ components:
                       chartSettings:
                         type: object
                         properties:
-                          axes:
-                            type: object
-                            properties:
-                              categoryAxisLabel:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                              valueAxisLabel:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                            additionalProperties: false
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
                         additionalProperties: false
                       type:
                         type: string
@@ -66479,18 +66287,10 @@ components:
                       chartSettings:
                         type: object
                         properties:
-                          axes:
-                            type: object
-                            properties:
-                              categoryAxisLabel:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                              valueAxisLabel:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                            additionalProperties: false
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
                         additionalProperties: false
                       type:
                         type: string
@@ -66885,18 +66685,10 @@ components:
                       chartSettings:
                         type: object
                         properties:
-                          axes:
-                            type: object
-                            properties:
-                              categoryAxisLabel:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                              valueAxisLabel:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                            additionalProperties: false
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
                         additionalProperties: false
                       type:
                         type: string
@@ -67308,18 +67100,10 @@ components:
                       chartSettings:
                         type: object
                         properties:
-                          axes:
-                            type: object
-                            properties:
-                              categoryAxisLabel:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                              valueAxisLabel:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                            additionalProperties: false
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
                         additionalProperties: false
                       type:
                         type: string
@@ -67730,18 +67514,10 @@ components:
                       chartSettings:
                         type: object
                         properties:
-                          axes:
-                            type: object
-                            properties:
-                              categoryAxisLabel:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                              valueAxisLabel:
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
-                            additionalProperties: false
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
                         additionalProperties: false
                       type:
                         type: string
@@ -70058,18 +69834,10 @@ components:
                 chartSettings:
                   type: object
                   properties:
-                    axes:
-                      type: object
-                      properties:
-                        categoryAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        valueAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                      additionalProperties: false
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
                   additionalProperties: false
                 type:
                   type: string
@@ -70337,18 +70105,10 @@ components:
                 chartSettings:
                   type: object
                   properties:
-                    axes:
-                      type: object
-                      properties:
-                        categoryAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        valueAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                      additionalProperties: false
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
                   additionalProperties: false
                 type:
                   type: string
@@ -70625,18 +70385,10 @@ components:
                 chartSettings:
                   type: object
                   properties:
-                    axes:
-                      type: object
-                      properties:
-                        categoryAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        valueAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                      additionalProperties: false
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
                   additionalProperties: false
                 type:
                   type: string
@@ -70930,18 +70682,10 @@ components:
                 chartSettings:
                   type: object
                   properties:
-                    axes:
-                      type: object
-                      properties:
-                        categoryAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        valueAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                      additionalProperties: false
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
                   additionalProperties: false
                 type:
                   type: string
@@ -71234,18 +70978,10 @@ components:
                 chartSettings:
                   type: object
                   properties:
-                    axes:
-                      type: object
-                      properties:
-                        categoryAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        valueAxisLabel:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                      additionalProperties: false
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
                   additionalProperties: false
                 type:
                   type: string

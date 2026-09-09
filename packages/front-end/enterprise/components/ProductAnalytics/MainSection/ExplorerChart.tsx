@@ -101,10 +101,6 @@ function sortSeriesConfigsForCompareLegendOrder(
   ).map((row) => row.cfg);
 }
 
-function getNonEmptyAxisLabel(label: string | null | undefined): string {
-  return label?.trim() ?? "";
-}
-
 export default function ExplorerChart({
   exploration,
   comparisonExploration = null,
@@ -196,12 +192,10 @@ export default function ExplorerChart({
     return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
   }, [submittedExploreState, getFactMetricById, renderOpts.showAs]);
 
-  const customCategoryAxisName = getNonEmptyAxisLabel(
-    submittedExploreState.chartSettings?.axes?.categoryAxisLabel,
-  );
-  const customValueAxisName = getNonEmptyAxisLabel(
-    submittedExploreState.chartSettings?.axes?.valueAxisLabel,
-  );
+  const customCategoryAxisName =
+    submittedExploreState.chartSettings?.categoryAxisLabel?.trim() ?? "";
+  const customValueAxisName =
+    submittedExploreState.chartSettings?.valueAxisLabel?.trim() ?? "";
   const valueAxisName = customValueAxisName || defaultValueAxisName;
 
   const bigNumberComparisonTrends = useMemo(() => {

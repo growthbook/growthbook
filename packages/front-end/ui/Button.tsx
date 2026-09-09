@@ -39,7 +39,6 @@ export type Props = {
     | "type"
     | "aria-label"
     | "aria-disabled"
-    | "aria-expanded"
     | "aria-pressed"
     | "className"
   >;

@@ -71,20 +71,18 @@ export type ExplorerDraftConfig = ExplorationConfig & {
 export function stripExplorerDraftFields(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const rest = { ...config };
-  delete rest.previousTimeFrame;
-  delete rest.comparisonMode;
-
-  const cleanedChartSettings = cleanChartSettings(rest.chartSettings);
-  if (cleanedChartSettings) {
-    return {
-      ...rest,
-      chartSettings: cleanedChartSettings,
-    } as ExplorationConfig;
-  }
-
-  delete rest.chartSettings;
-  return rest as ExplorationConfig;
+  const {
+    previousTimeFrame: _,
+    comparisonMode: __,
+    chartSettings,
+    ...rest
+  } = config;
+  const cleanedChartSettings = cleanChartSettings(chartSettings);
+  return (
+    cleanedChartSettings
+      ? { ...rest, chartSettings: cleanedChartSettings }
+      : rest
+  ) as ExplorationConfig;
 }
 
 export { mapDatabaseTypeToEnum };
@@ -944,26 +942,13 @@ export function removeIncompleteInputs(
 function cleanChartSettings(
   chartSettings: ProductAnalyticsChartSettings | undefined,
 ): ProductAnalyticsChartSettings | undefined {
-  const categoryAxisLabel =
-    chartSettings?.axes?.categoryAxisLabel?.trim() ?? "";
-  const valueAxisLabel = chartSettings?.axes?.valueAxisLabel?.trim() ?? "";
-
+  const categoryAxisLabel = chartSettings?.categoryAxisLabel?.trim() ?? "";
+  const valueAxisLabel = chartSettings?.valueAxisLabel?.trim() ?? "";
   if (!categoryAxisLabel && !valueAxisLabel) return undefined;
-
   return {
-    axes: {
-      ...(categoryAxisLabel ? { categoryAxisLabel } : {}),
-      ...(valueAxisLabel ? { valueAxisLabel } : {}),
-    },
+    ...(categoryAxisLabel ? { categoryAxisLabel } : {}),
+    ...(valueAxisLabel ? { valueAxisLabel } : {}),
   };
-}
-
-function getValueFetchKey(
-  value: ProductAnalyticsValue,
-): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(value).filter(([key]) => key !== "name"),
-  );
 }
 
 /** Prepares a config for submission by removing incomplete inputs (values, filters) from the dataset. */
@@ -1226,7 +1211,7 @@ export function toFetchKey(
     chartType: getChartCategory(base.chartType),
     dataset: {
       ...base.dataset,
-      values: base.dataset.values.map(getValueFetchKey),
+      values: base.dataset.values.map((value) => omit(value, "name")),
     },
   };
 }
