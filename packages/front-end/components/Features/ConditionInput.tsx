@@ -837,7 +837,10 @@ function ConditionAndGroupInput({
             }
             formatOptionLabel={(o, meta) => {
               const option = o as AttributeOptionForTooltip;
-              if (option.datatype === undefined) {
+              if (
+                option.value === "$savedGroups" ||
+                option.value === "$notSavedGroups"
+              ) {
                 return <Text size="md">{o.label}</Text>;
               }
               return (

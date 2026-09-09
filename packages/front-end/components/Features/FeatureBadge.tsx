@@ -2,20 +2,19 @@ import React from "react";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 
-interface SavedGroupBadgeProps {
-  groupId: string;
-  groupName: string;
+interface FeatureBadgeProps {
+  featureId: string;
 }
 
-export function SavedGroupBadge({ groupId, groupName }: SavedGroupBadgeProps) {
+export function FeatureBadge({ featureId }: FeatureBadgeProps) {
   return (
     <Badge
       color="gray"
       label={
         <Link
-          href={`/saved-groups/${groupId}`}
+          href={`/features/${featureId}`}
           target="_blank"
-          title={`View Saved Group: ${groupName}`}
+          title={`View Feature Flag: ${featureId}`}
           className="hover-underline"
           style={{
             display: "flex",
@@ -33,7 +32,7 @@ export function SavedGroupBadge({ groupId, groupName }: SavedGroupBadgeProps) {
               maxWidth: "400px",
             }}
           >
-            {groupName}
+            {featureId}
           </span>
         </Link>
       }

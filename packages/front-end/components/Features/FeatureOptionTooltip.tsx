@@ -1,16 +1,56 @@
 import React from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { FaExclamationCircle, FaQuestion } from "react-icons/fa";
+import {
+  FaRegCircleCheck,
+  FaRegCircleQuestion,
+  FaRegCircleXmark,
+} from "react-icons/fa6";
 import { OptionTooltipDescription } from "@/components/Features/AttributeOptionTooltip";
+import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import SortedTags from "@/components/Tags/SortedTags";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 
-const ENV_COL_W = 80;
+function getStateDisplay(state?: PrerequisiteStateResult) {
+  if (!state) {
+    return {
+      icon: <FaQuestion style={{ color: featureStatusColors.offMuted }} />,
+      label: "Unknown",
+    };
+  }
+  if (state.state === "cyclic") {
+    return {
+      icon: (
+        <FaExclamationCircle style={{ color: featureStatusColors.danger }} />
+      ),
+      label: "Cyclic dependency",
+    };
+  }
+  if (state.state === "conditional") {
+    return {
+      icon: (
+        <FaRegCircleQuestion style={{ color: featureStatusColors.warning }} />
+      ),
+      label: "Schrödinger state",
+    };
+  }
+  if (state.value === null) {
+    return {
+      icon: (
+        <FaRegCircleXmark style={{ color: featureStatusColors.offMuted }} />
+      ),
+      label: "Not live",
+    };
+  }
+  return {
+    icon: <FaRegCircleCheck style={{ color: featureStatusColors.on }} />,
+    label: "Live",
+  };
+}
 
 export interface FeatureOptionForTooltip {
   label: string;
@@ -26,10 +66,10 @@ export interface FeatureOptionForTooltip {
 
 function getProjectsLabel(option: FeatureOptionForTooltip) {
   const names = [
-    option.projectName || "No project",
+    option.projectName || "No Project",
     ...(option.targetingProjectNames ?? []),
   ];
-  if (option.targetingAllProjects) names.push("all projects");
+  if (option.targetingAllProjects) names.push("All Projects");
   return names.join(", ");
 }
 
@@ -88,33 +128,22 @@ export function FeatureOptionTooltipContent({
           <Text size="sm" as="div" weight="semibold">
             Environments:
           </Text>
-          <Box style={{ overflowX: "auto" }}>
-            <Flex direction="column" style={{ minWidth: "max-content" }}>
-              <Flex align="center">
-                {environments.map((env) => (
-                  <Box
-                    key={env}
-                    style={{
-                      width: ENV_COL_W,
-                      flexShrink: 0,
-                      textAlign: "center",
-                    }}
-                  >
-                    <Text size="sm" color="text-mid">
-                      <OverflowText maxWidth={ENV_COL_W}>{env}</OverflowText>
-                    </Text>
-                  </Box>
-                ))}
-              </Flex>
-              <Flex align="center">
-                <PrerequisiteStatesCols
-                  prereqStates={option.states}
-                  envs={environments}
-                  colWidth={ENV_COL_W}
-                />
-              </Flex>
-            </Flex>
-          </Box>
+          <Flex direction="column" gap="1">
+            {environments.map((env) => {
+              const { icon, label } = getStateDisplay(option.states?.[env]);
+              return (
+                <Flex key={env} align="center" gap="2">
+                  {icon}
+                  <Text size="sm" overflowWrap="anywhere">
+                    {env}
+                  </Text>
+                  <Text size="sm" color="text-low">
+                    {label}
+                  </Text>
+                </Flex>
+              );
+            })}
+          </Flex>
         </div>
       )}
       <OptionTooltipDescription description={option.description} />

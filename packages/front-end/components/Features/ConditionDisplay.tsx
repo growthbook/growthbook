@@ -9,7 +9,7 @@ import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
+import { FeatureBadge } from "@/components/Features/FeatureBadge";
 import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
 import Text from "@/ui/Text";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
@@ -382,7 +382,7 @@ function getConditionParts({
         parentIdEl = (
           <>
             <Text>prerequisite</Text>
-            <ParentIdLink parentId={parentId} />
+            <FeatureBadge featureId={parentId} />
           </>
         );
       }
@@ -486,40 +486,6 @@ function getConditionParts({
   });
 }
 
-function ParentIdLink({ parentId }: { parentId: string }) {
-  return (
-    <Badge
-      color="gray"
-      label={
-        <Link
-          href={`/features/${parentId}`}
-          target="_blank"
-          title={`View feature: ${parentId}`}
-          className="hover-underline"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            overflow: "hidden",
-            color: "var(--accent-11)",
-          }}
-        >
-          <span
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: "400px",
-            }}
-          >
-            {parentId}
-          </span>
-        </Link>
-      }
-    />
-  );
-}
-
 export default function ConditionDisplay({
   condition,
   savedGroups: savedGroupTargeting,
@@ -580,7 +546,7 @@ export default function ConditionDisplay({
               {!prefixUsed && prefix}
               {prefixUsed && <Text weight="medium">AND</Text>}
               <Text>prerequisite</Text>
-              <ParentIdLink parentId={p.id} />
+              <FeatureBadge featureId={p.id} />
               <InlineCode language="json" code={jsonFormattedCondition} />
             </Flex>,
           );
