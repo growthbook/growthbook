@@ -1,5 +1,5 @@
 import { UseFormReturn } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
@@ -30,6 +30,10 @@ import FunnelStepsDisplay from "@/components/FactTables/MetricEditor/FunnelSteps
 import PreviewPanel, {
   PreviewPart,
 } from "@/components/FactTables/MetricEditor/PreviewPanel";
+import {
+  getFunnelPreviewSQL,
+  getPreviewSQL,
+} from "@/components/FactTables/MetricEditor/previewSql";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
 import ThresholdBasisRow, {
   ThresholdBasisValue,
@@ -79,6 +83,7 @@ export default function MetricEditor({
   const numerator = form.watch("numerator");
   const denominator = form.watch("denominator");
   const quantileSettings = form.watch("quantileSettings");
+  const windowSettings = form.watch("windowSettings");
   const funnelSettings = form.watch("funnelSettings");
   const datasourceId = form.watch("datasource");
   const datasource = getDatasourceById(datasourceId);
@@ -108,6 +113,48 @@ export default function MetricEditor({
   const sameDatasourceFactTables = factTables.filter(
     (ft) => !datasourceId || ft.datasource === datasourceId,
   );
+
+  // Illustrative (fact table shown by its display name, never its actual
+  // configured `sql`), computed purely client-side - see previewSql.ts for
+  // why this can't just reuse the real dialect-correct SQL the "Run Preview"
+  // (rows) tab generates server-side. Computed above the unrepresentable-
+  // definition early return below, since hooks can't run conditionally.
+  const previewSql = useMemo(() => {
+    if (metricType === "funnel") {
+      return funnelSettings && funnelSettings.steps.length > 0
+        ? getFunnelPreviewSQL({
+            steps: funnelSettings.steps,
+            factTable:
+              getFactTableById(funnelSettings.steps[0].factTableId) ?? null,
+            windowSettings,
+          })
+        : null;
+    }
+    return getPreviewSQL({
+      type: metricType,
+      // Only meaningful for type === "quantile", where the form always sets
+      // it - this default just satisfies the type for every other metric.
+      quantileSettings: quantileSettings ?? {
+        type: "event",
+        quantile: 0.5,
+        ignoreZeros: false,
+      },
+      windowSettings,
+      numerator,
+      denominator,
+      numeratorFactTable: getFactTableById(numerator.factTableId) ?? null,
+      denominatorFactTable:
+        getFactTableById(denominator?.factTableId || "") ?? null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    metricType,
+    numerator,
+    denominator,
+    quantileSettings,
+    windowSettings,
+    funnelSettings,
+  ]);
 
   const formTypeResult = formTypeFromStored(
     { metricType, numerator, denominator, quantileSettings },
@@ -482,7 +529,7 @@ export default function MetricEditor({
       </Flex>
 
       <Flex direction="column" gap="4">
-        <PreviewPanel parts={previewParts} />
+        <PreviewPanel parts={previewParts} previewSql={previewSql} />
 
         <Frame>
           <Heading as="h4" size="sm" mb="3">
