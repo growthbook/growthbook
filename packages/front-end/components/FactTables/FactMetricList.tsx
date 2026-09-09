@@ -362,7 +362,7 @@ export default function FactMetricList({
               onClick={() => {
                 if (!canCreateMetrics) return;
                 router.push(
-                  `/fact-metrics/new?factTable=${factTable.id}&returnUrl=${encodeURIComponent(returnUrl)}`,
+                  `/fact-metrics/new?${new URLSearchParams({ factTable: factTable.id, returnUrl }).toString()}`,
                 );
               }}
               disabled={!canCreateMetrics}
@@ -499,7 +499,7 @@ export default function FactMetricList({
                       }
                       onDuplicate={() =>
                         router.push(
-                          `/fact-metrics/new?duplicate=${metric.id}&returnUrl=${encodeURIComponent(returnUrl)}`,
+                          `/fact-metrics/new?${new URLSearchParams({ duplicate: metric.id, returnUrl }).toString()}`,
                         )
                       }
                     />
