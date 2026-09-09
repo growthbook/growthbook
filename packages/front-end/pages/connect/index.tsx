@@ -254,3 +254,8 @@ export default function ConnectPage() {
     </Container>
   );
 }
+
+// Onboarding owns the whole window: the lite top bar instead of the sidebar, and
+// "lite" zeroes the padding the sidebar would otherwise need.
+ConnectPage.liteLayout = true;
+ConnectPage.mainClassName = "lite";
