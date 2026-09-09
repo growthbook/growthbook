@@ -1212,3 +1212,37 @@ export function parseDashboardApiPath(
   const match = path.split("?")[0].match(DASHBOARD_API_RE);
   return match ? { id: match[1] ?? null } : null;
 }
+
+// A dashboard write replaces its whole block list (or removes it), so it is
+// only allowed against the dashboard the user is looking at.
+const DASHBOARD_WRITE_METHODS = new Set(["PUT", "PATCH", "DELETE"]);
+
+/**
+ * Why an agent-issued dashboard write must not run, or `undefined` when it may.
+ * Checked twice — when the model proposes the call, and again when the user
+ * confirms it, because they can navigate away in between.
+ */
+export function offScreenDashboardWriteRejection({
+  method,
+  path,
+  currentPage,
+}: {
+  method: string;
+  path: string;
+  currentPage?: string | null;
+}): string | undefined {
+  if (!DASHBOARD_WRITE_METHODS.has(method.toUpperCase())) return undefined;
+  const target = parseDashboardApiPath(path)?.id;
+  if (!target) return undefined;
+
+  const onScreen = currentPage ? dashboardIdFromPagePath(currentPage) : null;
+  if (onScreen === target) return undefined;
+
+  return (
+    (onScreen
+      ? `You can only change the dashboard the user is viewing, which is "${onScreen}", not "${target}".`
+      : "You can only change a dashboard while the user is viewing it, and they are not on a dashboard page.") +
+    " Do not retry this call and do not look for another way to make the change." +
+    " Tell them to open the dashboard they want changed and ask again there."
+  );
+}

@@ -466,10 +466,22 @@ export async function runNewApiExplorationBlocks<
           )
         : null;
 
+      // A failed comparison run is reported, not thrown, so an unchecked id
+      // here would save a broken previous-period series next to a good
+      // primary. Dropping it renders the tile without the comparison instead.
+      const previousId =
+        previous && previous.status !== "error" ? previous.id : undefined;
+      if (previous && !previousId) {
+        logger.warn(
+          { blockTitle: block.title, err: previous.error },
+          "Comparison query failed for a new dashboard block; saving without it",
+        );
+      }
+
       return {
         ...enrolled,
         explorerAnalysisId: exploration.id,
-        ...(previous ? { comparisonExplorerAnalysisId: previous.id } : {}),
+        ...(previousId ? { comparisonExplorerAnalysisId: previousId } : {}),
       } as DashboardBlockWithAnalysisId<T>;
     }),
   );
@@ -535,9 +547,26 @@ export async function updateDashboardExplorations(
       if (!primaryResult.value) {
         throw new Error("Failed run to run product analytics query");
       }
+      // A failed run resolves rather than rejecting, so without this the block
+      // would point at a broken result and the refresh would report success.
+      if (primaryResult.value.status === "error") {
+        throw new Error(
+          primaryResult.value.error || "Product analytics query failed",
+        );
+      }
       block.explorerAnalysisId = primaryResult.value.id;
       if (comparisonResult.status === "fulfilled") {
-        if (comparisonResult.value) {
+        if (comparisonResult.value?.status === "error") {
+          // Keep the previous comparison id rather than pointing at a failure.
+          logger.warn(
+            {
+              err: comparisonResult.value.error,
+              blockId: block.id,
+              blockType: block.type,
+            },
+            "Product analytics comparison query failed; keeping previous comparison",
+          );
+        } else if (comparisonResult.value) {
           block.comparisonExplorerAnalysisId = comparisonResult.value.id;
         } else {
           // Clear a stale comparison id when comparison is off.

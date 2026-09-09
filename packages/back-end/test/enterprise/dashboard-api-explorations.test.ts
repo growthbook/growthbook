@@ -132,4 +132,33 @@ describe("runNewApiExplorationBlocks", () => {
       runNewApiExplorationBlocks(ctx, [chartBlock()], {}),
     ).rejects.toThrow("Metric not found on this datasource");
   });
+
+  it("propagates a reported failure, which resolves rather than rejecting", async () => {
+    mockRunExploration.mockResolvedValueOnce({
+      id: "expl_failed",
+      status: "error",
+      error: "Syntax error near FROM",
+    });
+
+    await expect(
+      runNewApiExplorationBlocks(ctx, [chartBlock()], {}),
+    ).rejects.toThrow("Syntax error near FROM");
+  });
+
+  it("drops a failed comparison id rather than saving a broken series", async () => {
+    mockRunExploration
+      .mockResolvedValueOnce({ id: "expl_primary", status: "success" })
+      .mockResolvedValueOnce({
+        id: "expl_bad",
+        status: "error",
+        error: "boom",
+      });
+
+    const [block] = await runNewApiExplorationBlocks(ctx, [chartBlock()], {
+      comparison: { enabled: true, mode: "previousPeriod" },
+    });
+
+    expect(block).toMatchObject({ explorerAnalysisId: "expl_primary" });
+    expect(block).not.toHaveProperty("comparisonExplorerAnalysisId");
+  });
 });
