@@ -362,6 +362,9 @@ export default function PrerequisiteInput({
         projectName,
         targetingProjectNames,
         targetingAllProjects: !!f.targetingAllProjects,
+        valueType: f.valueType,
+        tags: f.tags,
+        description: f.description,
       };
     });
 

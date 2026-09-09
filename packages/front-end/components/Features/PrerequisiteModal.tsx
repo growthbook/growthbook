@@ -244,6 +244,9 @@ export default function PrerequisiteModal({
         },
         project: projectId,
         projectName,
+        valueType: f.valueType,
+        tags: f.tags,
+        description: f.description,
       };
     });
 

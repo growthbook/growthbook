@@ -5,7 +5,6 @@ import {
   FaRegCircleCheck,
   FaRegCircleXmark,
 } from "react-icons/fa6";
-import { PiArrowSquareOut } from "react-icons/pi";
 import clsx from "clsx";
 import { Box } from "@radix-ui/themes";
 import SelectField, {
@@ -15,7 +14,7 @@ import SelectField, {
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Link from "@/ui/Link";
+import { FeatureOptionWithTooltip } from "@/components/Features/FeatureOptionTooltip";
 import Text from "@/ui/Text";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 
@@ -37,6 +36,9 @@ interface FeatureOption {
   projectName: string | null | undefined;
   targetingProjectNames?: string[];
   targetingAllProjects?: boolean;
+  valueType?: string;
+  tags?: string[];
+  description?: string;
 }
 
 interface Props {
@@ -135,36 +137,17 @@ export default function PrerequisiteFeatureSelector({
               width: "100%",
             }}
           >
-            {isSelectedValue ? (
-              <Link
-                href={`/features/${optionValue}`}
-                target="_blank"
-                style={{
-                  position: "relative",
-                  zIndex: 1000,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                <OverflowText
-                  maxWidth={180}
-                  style={{ opacity: meta?.disabled ? 0.5 : 1 }}
-                  title={label}
-                >
-                  {label}
-                </OverflowText>
-                <PiArrowSquareOut />
-              </Link>
-            ) : (
+            <FeatureOptionWithTooltip
+              option={foundOption ?? { label, value: optionValue }}
+              context={isSelectedValue ? "value" : "menu"}
+            >
               <OverflowText
                 maxWidth={180}
                 style={{ opacity: meta?.disabled ? 0.5 : 1 }}
-                title={label}
               >
                 {label}
               </OverflowText>
-            )}
+            </FeatureOptionWithTooltip>
             <div
               style={{
                 marginLeft: "auto",
