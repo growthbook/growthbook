@@ -139,6 +139,29 @@ export async function countRunningQueries(
   }).count();
 }
 
+export async function setQueryExternalId(
+  context: ReqContext,
+  query: QueryInterface,
+  externalId: string,
+  metadata?: QueryInterface["externalIdMetadata"],
+): Promise<QueryInterface["status"] | null> {
+  if (query.organization !== context.org.id) {
+    throw new Error("Cannot update query from different organization");
+  }
+
+  const doc = await QueryModel.findOneAndUpdate(
+    { organization: context.org.id, id: query.id },
+    {
+      $set: {
+        externalId,
+        ...(metadata ? { externalIdMetadata: metadata } : {}),
+      },
+    },
+    { new: true, projection: { status: 1 } },
+  );
+  return doc?.status ?? null;
+}
+
 export async function updateQuery(
   context: ReqContext,
   query: QueryInterface,
