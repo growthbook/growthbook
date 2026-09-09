@@ -10,12 +10,12 @@ import {
   getQueryFailureError,
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { logger } from "back-end/src/util/logger";
 import {
   countRunningQueries,
   getQueriesByIds,
   getQueryStatusesByIds,
   markPendingQueriesAsFailed,
+  setQueryExternalId,
   updateQuery,
   updateQueryIfPending,
   updateQueryIfRunning,
@@ -789,19 +789,25 @@ describe("QueryRunner", () => {
         mockIntegration.cancelQuery = cancelQuery;
         jest.mocked(updateQueryIfPending).mockResolvedValue(true);
         jest
-          .mocked(updateQuery)
-          .mockImplementation(async (context, doc, changes) => {
+          .mocked(setQueryExternalId)
+          .mockImplementation(async (context, doc, externalId, metadata) => {
             expect(context).toBe(mockContext);
             expect(doc.id).toBe(query.id);
-            storedQuery = { ...storedQuery, ...changes };
-            return storedQuery;
+            storedQuery = {
+              ...storedQuery,
+              externalId,
+              externalIdMetadata: metadata,
+            };
+            return storedQuery.status;
           });
         jest
           .mocked(getQueriesByIds)
           .mockImplementation(async () => [storedQuery]);
         jest
           .mocked(getQueryStatusesByIds)
-          .mockImplementation(async () => [storedQuery]);
+          .mockRejectedValue(
+            new Error("Status lookup temporarily unavailable"),
+          );
         jest.mocked(markPendingQueriesAsFailed).mockImplementation(async () => {
           storedQuery = { ...storedQuery, status: "failed" };
           return 1;
@@ -837,14 +843,14 @@ describe("QueryRunner", () => {
         } finally {
           jest.clearAllTimers();
           jest.useRealTimers();
-          jest.mocked(updateQuery).mockReset();
+          jest.mocked(setQueryExternalId).mockReset();
           jest.mocked(markPendingQueriesAsFailed).mockReset();
           jest.mocked(getQueryStatusesByIds).mockReset();
         }
       },
     );
 
-    it("continues collecting results when the cancellation status lookup fails", async () => {
+    it("collects results while the query remains running", async () => {
       jest.useFakeTimers();
       const query = createMockQuery("qry_status_lookup", "running");
       const runner = new CascadeFailureQueryRunner(
@@ -857,14 +863,12 @@ describe("QueryRunner", () => {
         },
         mockIntegration,
       );
-      const lookupError = new Error("MongoDB temporarily unavailable");
-      const warn = jest.spyOn(logger, "warn").mockImplementation(() => {});
       const onSuccess = jest.fn();
       const onFailure = jest.fn();
       mockIntegration.cancelQuery = jest.fn().mockResolvedValue(undefined);
       jest.mocked(updateQueryIfPending).mockResolvedValue(true);
       jest.mocked(updateQuery).mockResolvedValue(query);
-      jest.mocked(getQueryStatusesByIds).mockRejectedValue(lookupError);
+      jest.mocked(setQueryExternalId).mockResolvedValue("running");
 
       try {
         await runner.executeQuery(query, {
@@ -881,16 +885,11 @@ describe("QueryRunner", () => {
         expect(onSuccess).toHaveBeenCalledWith([]);
         expect(onFailure).not.toHaveBeenCalled();
         expect(mockIntegration.cancelQuery).not.toHaveBeenCalled();
-        expect(warn).toHaveBeenCalledWith(
-          expect.objectContaining({ err: lookupError, queryId: query.id }),
-          expect.any(String),
-        );
       } finally {
         jest.clearAllTimers();
         jest.useRealTimers();
-        warn.mockRestore();
         jest.mocked(updateQuery).mockReset();
-        jest.mocked(getQueryStatusesByIds).mockReset();
+        jest.mocked(setQueryExternalId).mockReset();
       }
     });
 

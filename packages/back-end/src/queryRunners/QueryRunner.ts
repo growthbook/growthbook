@@ -14,9 +14,9 @@ import {
   createNewQuery,
   createNewQueryFromCached,
   getQueriesByIds,
-  getQueryStatusesByIds,
   getRecentQuery,
   markPendingQueriesAsFailed,
+  setQueryExternalId,
   touchQueuedQueriesHeartbeat,
   updateQuery,
   updateQueryIfPending,
@@ -1130,27 +1130,12 @@ export abstract class QueryRunner<
       id: string,
       metadata?: Record<string, string>,
     ) => {
-      await updateQuery(this.context, doc, {
-        externalId: id,
-        ...(metadata ? { externalIdMetadata: metadata } : {}),
-      });
+      const status = await setQueryExternalId(this.context, doc, id, metadata);
       if (!this.integration.cancelQuery) return;
 
       // In case the query was cancelled before externalId was set, detect that and cancel
       // the external job here
-      const statuses = await getQueryStatusesByIds(this.context.org.id, [
-        doc.id,
-      ]).catch((err: unknown) => {
-        logger.warn(
-          { err, queryId: doc.id, externalId: id },
-          "Could not check query status after storing external ID; continuing to collect results",
-        );
-        return null;
-      });
-      if (statuses === null) return;
-
-      const [current] = statuses;
-      if (!current || current.status === "failed") {
+      if (status === null || status === "failed") {
         await cancelQueryAndConfirm(
           this.integration,
           { externalId: id, metadata },
