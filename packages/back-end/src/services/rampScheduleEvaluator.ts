@@ -534,9 +534,12 @@ export async function applyRampEvaluationDecision(
       nextSnapshotAt: schedule.nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     });
-    return ctx.models.rampSchedules.updateById(schedule.id, {
-      nextProcessAt,
-    });
+    // Scheduler bookkeeping, not a user edit: the snapshot that triggered this
+    // may run under a member who cannot edit or publish the feature.
+    return ctx.models.rampSchedules.dangerousUpdateByIdBypassPermission(
+      schedule.id,
+      { nextProcessAt },
+    );
   }
 
   // Fold the verified advance and any due backlog into a single jump publish.

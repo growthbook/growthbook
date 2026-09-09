@@ -1266,6 +1266,7 @@ export abstract class BaseModel<
     );
 
     // Only consider updates that actually change the value
+    const requested = updates;
     const updatedFields = Object.entries(updates)
       .filter(([k, v]) => !isEqual(doc[k as keyof z.infer<T>], v))
       .map(([k]) => k) as (keyof z.infer<T>)[];
@@ -1316,7 +1317,13 @@ export abstract class BaseModel<
 
     await this.populateForeignRefs([newDoc]);
 
-    if (!options?.forceCanUpdate && !this.canUpdate(doc, updates, newDoc)) {
+    // A no-op is gated on the payload as submitted: "may you write what you
+    // asked for", not "may you write nothing" — which key-aware canUpdate
+    // implementations (e.g. ApiKeyModel's `disabled`-only allowlist) reject.
+    if (
+      !options?.forceCanUpdate &&
+      !this.canUpdate(doc, updatedFields.length ? updates : requested, newDoc)
+    ) {
       throw new PermissionError(
         "You do not have access to update this resource",
       );
