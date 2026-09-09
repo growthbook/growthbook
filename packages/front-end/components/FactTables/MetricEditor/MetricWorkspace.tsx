@@ -119,6 +119,10 @@ export default function MetricWorkspace({
 
   async function handleSave() {
     const values = fromFactMetricFormValues(form.getValues());
+    // Save calls form.getValues() directly, not a native form submit, so the
+    // Name field's `required` attribute (HTML5 constraint validation) never
+    // runs - check it explicitly instead.
+    if (!values.name.trim()) throw new Error("Name is required");
     const isFunnel = values.metricType === "funnel";
     if (isFunnel) validateFunnelSteps(values.funnelSettings);
 
