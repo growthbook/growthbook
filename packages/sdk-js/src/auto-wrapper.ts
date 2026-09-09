@@ -291,5 +291,6 @@ window.growthbook_queue = {
 };
 
 // Store a reference in window to enable more advanced use cases
+// Default export only: the IIFE assigns this module's exports to
+// window._growthbook, which must be the instance itself
 export default gb;
-export { dataContext, windowContext };

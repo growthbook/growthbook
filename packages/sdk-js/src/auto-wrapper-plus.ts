@@ -3,11 +3,7 @@
 // external: () => false), so this stays a single self-contained script.
 // The defaults module must be imported before auto-wrapper evaluates.
 import "./auto-wrapper-plus-defaults";
-import gb, {
-  dataContext,
-  windowContext,
-  type WindowContext,
-} from "./auto-wrapper";
+import gb, { type WindowContext } from "./auto-wrapper";
 import {
   sessionReplayPlugin,
   type SessionReplayOptions,
@@ -18,9 +14,15 @@ type PlusWindowContext = WindowContext & {
   sessionReplay?: SessionReplayOptions;
 };
 
+// Same script as auto-wrapper, still evaluating, so currentScript is ours
+const dataContext: DOMStringMap = document.currentScript
+  ? document.currentScript.dataset
+  : {};
+const windowContext: PlusWindowContext = window.growthbook_config || {};
+
 // On by default; data-session-replay-disabled or sessionReplay.enabled = false
 // turns it off
-const replay = (windowContext as PlusWindowContext).sessionReplay || {};
+const replay = windowContext.sessionReplay || {};
 const sessionReplayDisabled =
   replay.enabled === false ||
   dataContext.sessionReplayDisabled === "" ||
