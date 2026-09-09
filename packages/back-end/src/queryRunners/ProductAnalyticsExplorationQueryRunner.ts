@@ -1,4 +1,3 @@
-import { setTimeout as delay } from "timers/promises";
 import { ProductAnalyticsExplorationParams } from "shared/types/integrations";
 import {
   ProductAnalyticsExploration,
@@ -10,9 +9,6 @@ import { transformProductAnalyticsRowsToResult } from "shared/enterprise";
 import { UpdateProps } from "shared/types/base-model";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { QueryRunner, QueryMap } from "./QueryRunner";
-
-// TEMPORARY: Keep completed explorations running long enough to test agent polling.
-const PRODUCT_ANALYTICS_TEST_DELAY_MS = 20_000;
 
 export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
   ProductAnalyticsExploration,
@@ -123,10 +119,6 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
     result?: ProductAnalyticsResult | undefined;
     error?: string | undefined;
   }): Promise<ProductAnalyticsExploration> {
-    if (status === "succeeded") {
-      await delay(PRODUCT_ANALYTICS_TEST_DELAY_MS);
-    }
-
     const updates: UpdateProps<ProductAnalyticsExploration> = {
       queries,
       error,
