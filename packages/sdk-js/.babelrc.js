@@ -31,7 +31,7 @@ module.exports = {
       ignore: [
         "./src/auto-wrapper.ts",
         "./src/auto-wrapper-plus.ts",
-        "./src/auto-wrapper-plus-defaults.ts",
+        "./src/auto-wrapper-core.ts",
       ],
       plugins: [["replace-import-extension", { extMapping: { "": ".mjs" } }]],
     },
@@ -40,7 +40,7 @@ module.exports = {
       ignore: [
         "./src/auto-wrapper.ts",
         "./src/auto-wrapper-plus.ts",
-        "./src/auto-wrapper-plus-defaults.ts",
+        "./src/auto-wrapper-core.ts",
       ],
     },
   },

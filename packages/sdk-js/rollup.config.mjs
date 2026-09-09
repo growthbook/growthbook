@@ -94,9 +94,7 @@ export default [
       },
     ],
     plugins: [
-      // package.json declares sideEffects: false for consumers' bundlers; the
-      // wrapper entrypoints rely on import-order side effects
-      resolve({ extensions, jsnext: true, ignoreSideEffectsForRoot: true }),
+      resolve({ extensions, jsnext: true }),
       replace({
         "process.env.NODE_ENV": JSON.stringify("production"),
         preventAssignment: true,
@@ -130,9 +128,7 @@ export default [
       },
     ],
     plugins: [
-      // package.json declares sideEffects: false for consumers' bundlers; the
-      // wrapper entrypoints rely on import-order side effects
-      resolve({ extensions, jsnext: true, ignoreSideEffectsForRoot: true }),
+      resolve({ extensions, jsnext: true }),
       replace({
         "process.env.NODE_ENV": JSON.stringify("production"),
         preventAssignment: true,

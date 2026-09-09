@@ -1,16 +1,7 @@
-// core+sessions bundle: everything in auto-wrapper.ts plus session replay,
-// with page events, errors, and CWV on by default. rrweb is inlined (rollup
-// external: () => false), so this stays a single self-contained script.
-//
-// How the defaults get in: auto-wrapper.ts constructs the instance in its
-// module body, so nothing here can run first. ES modules evaluate imports
-// in order, so auto-wrapper-plus-defaults.ts is imported before
-// auto-wrapper and fills wrapperDefaults (auto-wrapper-defaults.ts) ahead of
-// time. package.json declares sideEffects: false, which would let rollup
-// drop this import; rollup.config.mjs sets ignoreSideEffectsForRoot for the
-// wrapper bundles so it is kept. Keep this import first.
-import "./auto-wrapper-plus-defaults";
-import gb, { type WindowContext } from "./auto-wrapper";
+// core+sessions bundle: everything in auto.js plus session replay, with page
+// events, errors, and CWV on by default. rrweb is inlined (rollup external:
+// () => false), so this stays a single self-contained script.
+import { bootstrap, type WindowContext } from "./auto-wrapper-core";
 import {
   sessionReplayPlugin,
   type SessionReplayOptions,
@@ -21,15 +12,16 @@ type PlusWindowContext = WindowContext & {
   sessionReplay?: SessionReplayOptions;
 };
 
-// Same script as auto-wrapper, still evaluating, so currentScript is ours
-const dataContext: DOMStringMap = document.currentScript
-  ? document.currentScript.dataset
-  : {};
-const windowContext: PlusWindowContext = window.growthbook_config || {};
+// A fresh opt-in, so the low-risk categories are on out of the box at the
+// plugin defaults (10% sample, hashed on the auto-attributes id).
+// Clickstream stays opt-in because it captures element text.
+const { gb, dataContext, windowContext } = bootstrap({
+  autoEvents: { pageEvents: true, errors: true, cwv: true },
+});
 
 // On by default; data-session-replay-disabled or sessionReplay.enabled = false
 // turns it off
-const replay = windowContext.sessionReplay || {};
+const replay = (windowContext as PlusWindowContext).sessionReplay || {};
 const sessionReplayDisabled =
   replay.enabled === false ||
   dataContext.sessionReplayDisabled === "" ||
@@ -46,4 +38,5 @@ if (!sessionReplayDisabled) {
   })(gb);
 }
 
+// Default export only: the IIFE assigns it to window._growthbook
 export default gb;
