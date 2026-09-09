@@ -44,7 +44,7 @@ const STALLED_SNAPSHOT_THRESHOLD_MS = 60 * 60 * 1000;
 // The allowable time between the last query finishing and the snapshot being finalized
 const STALLED_FINALIZE_GRACE_MS = 10 * 60 * 1000;
 // The runner beats every queued query doc it owns every 30 seconds; 5 minutes
-// without a beat is ten missed beats, enough to conclude consider it stalled
+// without a beat is ten missed beats, enough to consider it stalled
 const QUEUED_HEARTBEAT_STALE_MS = 5 * 60 * 1000;
 // createNewQuery stamps createdAt and heartbeat from two separate `new Date()`
 // calls, so a never-heartbeated doc shows a gap of about a millisecond. A real
