@@ -124,21 +124,21 @@ export async function runDatabricksQuery<T>(
   // So we have a quick boolean check to make sure we only do it the first time
   let finished = false;
 
+  const client = new DBSQLClient({
+    logger: {
+      log(level, message) {
+        if (ENVIRONMENT !== "production") {
+          logger.info({ db: "Databricks", level }, message);
+        }
+      },
+    },
+  });
+
   // Annoyingly, the `client.connect` method is async, but if there's an error,
   // it just hangs and never rejects. Instead, it emits an "error" event.
   // So we have to wrap everything in a `new Promise()` and handle errors manually
-
   try {
     const result = await new Promise<QueryResponse<T[]>>((resolve, reject) => {
-      const client = new DBSQLClient({
-        logger: {
-          log(level, message) {
-            if (ENVIRONMENT !== "production") {
-              logger.info({ db: "Databricks", level }, message);
-            }
-          },
-        },
-      });
       client
         .on("error", (error) => {
           if (!finished) {
@@ -168,16 +168,10 @@ export async function runDatabricksQuery<T>(
             logger.warn(e, "Databricks: failed to read the result schema");
           }
 
-          // As soon as we have the reuslt, return it
           if (!finished) {
             finished = true;
             resolve({ rows, columns });
           }
-
-          // Do cleanup in the background and ignore errors
-          await queryOperation.close();
-          await session.close();
-          await client.close();
         })
         .catch((e) => {
           if (!finished) {
@@ -192,5 +186,11 @@ export async function runDatabricksQuery<T>(
       throw new Error(e.response.displayMessage);
     }
     throw new Error(e.message);
+  } finally {
+    try {
+      await client.close();
+    } catch (e) {
+      logger.warn(e, "Failed to close Databricks connection");
+    }
   }
 }

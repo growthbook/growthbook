@@ -4,6 +4,7 @@ import {
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
   getFactTableTimestampColumn,
+  isFactFunnelMetric,
   isSliceMetric,
 } from "shared/experiments";
 import {
@@ -220,6 +221,9 @@ export function getMetricSettingsHashForIncrementalRefresh({
     denominator: factMetric.denominator,
     cappingSettings: factMetric.cappingSettings,
     quantileSettings: factMetric.quantileSettings,
+    ...(isFactFunnelMetric(factMetric)
+      ? { funnelSettings: factMetric.funnelSettings }
+      : {}),
     numeratorFactTable: {
       sql: numeratorFactTable?.sql,
       eventName: numeratorFactTable?.eventName,
