@@ -1,3 +1,4 @@
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import React, { FC, useCallback, useState } from "react";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import useApi from "@/hooks/useApi";
@@ -5,6 +6,7 @@ import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 import { docUrl, DocLink } from "@/components/DocLink";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
@@ -28,6 +30,11 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
   errorMessage,
   createError,
 }) => {
+  const permissionsUtils = usePermissionsUtil();
+  const workspaceUIEnabled = useFeatureIsOn("slack-workspace-ui");
+  const canManageSlack =
+    workspaceUIEnabled && permissionsUtils.canManageIntegrations();
+
   return (
     <div>
       {isModalOpen ? (
@@ -93,14 +100,27 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
       {eventWebHooks.length > 0 && (
         <div>
           {/* List view */}
-          {eventWebHooks.map((eventWebHook) => (
-            <div key={eventWebHook.id} className="mb-3">
-              <EventWebHookListItem
-                href={`/settings/webhooks/event/${eventWebHook.id}`}
-                eventWebHook={eventWebHook}
-              />
-            </div>
-          ))}
+          {eventWebHooks.map((eventWebHook) => {
+            const managedInSlack =
+              eventWebHook.payloadType === "slack" &&
+              !!eventWebHook.slack?.teamId &&
+              canManageSlack;
+            const href = managedInSlack
+              ? eventWebHook.slack?.channelId
+                ? `/integrations/slack?channel=${encodeURIComponent(
+                    eventWebHook.id,
+                  )}`
+                : `/integrations/slack?workspace=${encodeURIComponent(
+                    eventWebHook.slack?.teamId || "",
+                  )}`
+              : `/settings/webhooks/event/${eventWebHook.id}`;
+
+            return (
+              <div key={eventWebHook.id} className="mb-3">
+                <EventWebHookListItem href={href} eventWebHook={eventWebHook} />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

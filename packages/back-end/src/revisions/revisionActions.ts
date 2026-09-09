@@ -1154,7 +1154,13 @@ export async function maybeAutoPublishRevision(
   // Resolved BEFORE the try: the catch below deliberately swallows publish
   // failures to leave the draft approved for a manual publish, which would also
   // swallow this and let the caller believe the publish ran.
-  const enablerContext = await getContextForUserIdInOrg(context.org, enablerId);
+  const enablerContext = await getContextForUserIdInOrg(
+    context.org,
+    enablerId,
+    {
+      applyProjectRestrictions: false,
+    },
+  );
   if (!enablerContext) {
     logger.warn(
       { revisionId: revision.id, enablerId },
@@ -1309,6 +1315,9 @@ export async function maybePublishScheduledRevision(
     const enablerContext = await getContextForUserIdInOrg(
       context.org,
       enablerId,
+      {
+        applyProjectRestrictions: false,
+      },
     );
     if (!enablerContext) {
       // Transient: the user may resolve on a later tick.

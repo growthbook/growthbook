@@ -4,11 +4,13 @@ import {
   apiMetricExplorationValidator,
   apiFactTableExplorationValidator,
   apiDataSourceExplorationValidator,
-  apiFunnelExplorationValidator,
+  apiSqlExplorationValidator,
   metricExplorationConfigValidator,
+  apiFunnelExplorationValidator,
+  funnelExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
-  funnelExplorationConfigValidator,
+  sqlExplorationConfigValidator,
   explorationCacheQuerySchema,
   apiBaseSchema,
   apiQueryValidator,
@@ -247,6 +249,16 @@ export const postDataSourceExplorationEndpoint = makeExplorationEndpoint(
   },
 );
 
+export const postSqlExplorationEndpoint = makeExplorationEndpoint(
+  apiSqlExplorationValidator,
+  sqlExplorationConfigValidator,
+  {
+    pathFragment: "/sql-exploration",
+    operationId: "postSqlExploration",
+    summary: "Create a SQL based visualization",
+  },
+);
+
 export const postFunnelExplorationEndpoint = makeExplorationEndpoint(
   apiFunnelExplorationValidator,
   funnelExplorationConfigValidator,
@@ -292,6 +304,7 @@ export const analyticsExplorationApiSpec = {
     postMetricExplorationEndpoint,
     postFactTableExplorationEndpoint,
     postDataSourceExplorationEndpoint,
+    postSqlExplorationEndpoint,
     postFunnelExplorationEndpoint,
     searchProductAnalyticsResourcesEndpoint,
     getProductAnalyticsColumnsEndpoint,

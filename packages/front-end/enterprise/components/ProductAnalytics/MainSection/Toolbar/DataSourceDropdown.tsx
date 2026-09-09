@@ -6,11 +6,13 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import { useOptionalSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 
 export default function DataSourceDropdown() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { draftExploreState, clearAllDatasets, isSubmittable } =
     useExplorerContext();
+  const isQueryRunning = useOptionalSqlEditorContext()?.isQueryRunning ?? false;
   const { datasources } = useDefinitions();
 
   const isDataSourceEmpty = datasources.length === 0;
@@ -26,9 +28,13 @@ export default function DataSourceDropdown() {
     <DropdownMenu
       open={dropdownOpen}
       onOpenChange={setDropdownOpen}
-      disabled={isDataSourceEmpty}
+      disabled={isDataSourceEmpty || isQueryRunning}
       trigger={
-        <Button variant="ghost" icon={<PiDatabase />}>
+        <Button
+          variant="ghost"
+          icon={<PiDatabase />}
+          disabled={isDataSourceEmpty || isQueryRunning}
+        >
           <Flex align="center" gap="2">
             <Text weight="medium">{triggerLabel}</Text>
             <ChevronDownIcon />

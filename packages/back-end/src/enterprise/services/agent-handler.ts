@@ -378,8 +378,17 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         skills,
       );
       if (config.resolveSkill) {
+        const seeded = new Set<string>();
         for (const name of skills) {
-          seedSkillLoad(buffer, emit, name, config.resolveSkill);
+          // A leaf picked from the `/` menu arrives without the domain router the
+          // model would have read on its way there, so its shared conventions
+          // would be missing. Seed the router first, as the two-step flow does.
+          const domain = name.split("/")[0];
+          for (const target of domain === name ? [name] : [domain, name]) {
+            if (seeded.has(target)) continue;
+            seeded.add(target);
+            seedSkillLoad(buffer, emit, target, config.resolveSkill);
+          }
         }
       }
     }

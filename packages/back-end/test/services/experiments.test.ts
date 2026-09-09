@@ -11,6 +11,7 @@ import { isFactMetric } from "shared/experiments";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
+import { addTags } from "back-end/src/models/TagModel";
 import { Context } from "back-end/src/models/BaseModel";
 import {
   ScheduleUpdateInput,
@@ -18,6 +19,7 @@ import {
 } from "back-end/src/services/experimentScheduling";
 import {
   applyVariationWeightsToLatestPhase,
+  createMetric,
   fillEmptyVariationKeys,
   getExperimentMetricById,
   normalizeStatusUpdateScheduleChanges,
@@ -30,6 +32,31 @@ import {
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+
+jest.mock("back-end/src/models/TagModel", () => ({ addTags: jest.fn() }));
+
+describe("createMetric", () => {
+  it("does not register tags when metric creation is denied", async () => {
+    const context = {
+      org: { id: "org_metric_create_order" },
+      permissions: {
+        canCreateMetric: () => false,
+        throwPermissionError: () => {
+          throw new Error("Permission denied");
+        },
+      },
+    } as unknown as Context;
+
+    await expect(
+      createMetric(context, {
+        name: "Denied metric",
+        tags: ["must-not-persist"],
+      }),
+    ).rejects.toThrow("Permission denied");
+
+    expect(addTags).not.toHaveBeenCalled();
+  });
+});
 
 describe("experiments utils", () => {
   describe("validateVariationIds", () => {

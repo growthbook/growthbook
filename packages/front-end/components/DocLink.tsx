@@ -22,6 +22,7 @@ const docSections = {
   stickyBucketing: "/app/sticky-bucketing",
   metrics: "/app/metrics",
   factTables: "/app/metrics",
+  preAggregatedTables: "/app/metrics/examples#pre-aggregated-tables",
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
   insights: "/insights",
