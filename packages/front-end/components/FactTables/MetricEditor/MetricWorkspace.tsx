@@ -34,7 +34,16 @@ function buildFormDefaults(
 ): CreateFactMetricFormProps {
   return {
     ...toFactMetricFormValues(
-      getDefaultFactMetricProps({ ...ctx, existing: existing ?? undefined }),
+      getDefaultFactMetricProps({
+        ...ctx,
+        existing: existing ?? undefined,
+        // managedBy is a top-level param, not read from `existing` - unlike
+        // every other field, FactMetricModal always passes it explicitly
+        // (FactMetricModal.tsx: managedBy: existing?.managedBy). Omitting it
+        // defaults to "" regardless of the real value, so editing and saving
+        // an official metric would silently strip its official status.
+        managedBy: existing?.managedBy,
+      }),
     ),
     // getDefaultFactMetricProps always returns null here (shared with
     // FactMetricModal, which tracks funnel steps in its own separate state
