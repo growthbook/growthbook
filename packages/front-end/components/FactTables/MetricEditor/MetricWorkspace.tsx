@@ -32,9 +32,16 @@ function buildFormDefaults(
   existing: FactMetricInterface | null,
   ctx: DefaultsContext,
 ): CreateFactMetricFormProps {
-  return toFactMetricFormValues(
-    getDefaultFactMetricProps({ ...ctx, existing: existing ?? undefined }),
-  );
+  return {
+    ...toFactMetricFormValues(
+      getDefaultFactMetricProps({ ...ctx, existing: existing ?? undefined }),
+    ),
+    // getDefaultFactMetricProps always returns null here (shared with
+    // FactMetricModal, which tracks funnel steps in its own separate state
+    // and never reads this field) - overlay the real value for this stack,
+    // which puts funnelSettings on the form like every other field.
+    funnelSettings: existing?.funnelSettings ?? null,
+  };
 }
 
 // FunnelStepsInput has no equivalent to these - matches FactMetricModal's
@@ -77,9 +84,6 @@ export default function MetricWorkspace({
   const form = useForm<CreateFactMetricFormProps>({
     defaultValues: buildFormDefaults(existing, defaultsCtx),
   });
-  const [funnelSettings, setFunnelSettings] = useState<FunnelSettings | null>(
-    existing?.funnelSettings ?? null,
-  );
   const [error, setError] = useState<string | null>(null);
   // Definition-can't-be-represented is a rare edge case (existing metrics
   // with a legacy sketch aggregation, mostly) - true is the correct default
@@ -89,7 +93,6 @@ export default function MetricWorkspace({
 
   function resync(source: FactMetricInterface | null) {
     form.reset(buildFormDefaults(source, defaultsCtx));
-    setFunnelSettings(source?.funnelSettings ?? null);
   }
 
   // useForm's defaultValues are only read once, at mount - view mode would
@@ -108,14 +111,13 @@ export default function MetricWorkspace({
   async function handleSave() {
     const values = fromFactMetricFormValues(form.getValues());
     const isFunnel = values.metricType === "funnel";
-    if (isFunnel) validateFunnelSteps(funnelSettings);
+    if (isFunnel) validateFunnelSteps(values.funnelSettings);
 
     const payload = isFunnel
       ? {
           ...values,
           numerator: null,
           denominator: null,
-          funnelSettings,
           quantileSettings: null,
           metricAutoSlices: [],
         }
@@ -136,7 +138,7 @@ export default function MetricWorkspace({
       // FactMetricModal's own create payload) - default to the numerator
       // fact table's projects, falling back to the datasource's.
       const primaryFactTable = isFunnel
-        ? getFactTableById(funnelSettings?.steps[0]?.factTableId ?? "")
+        ? getFactTableById(values.funnelSettings?.steps[0]?.factTableId ?? "")
         : getFactTableById(values.numerator.factTableId);
       const datasource = getDatasourceById(values.datasource);
       const createPayload = {
@@ -201,8 +203,6 @@ export default function MetricWorkspace({
       <MetricEditor
         form={form}
         canEdit={isEditing}
-        funnelSettings={funnelSettings}
-        onFunnelSettingsChange={setFunnelSettings}
         onRepresentableChange={setRepresentable}
       />
       {/* Editing a metric definition is a long form (type, definition,
