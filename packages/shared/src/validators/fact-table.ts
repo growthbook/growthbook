@@ -530,11 +530,17 @@ export const testFactFilterPropsValidator = z
   })
   .strict();
 
-export const testRowFiltersPropsValidator = z
+// A metric numerator/denominator's rowFilters, previewed against its fact
+// table before the metric is saved - not a saved filter's own value string
+// (testFactFilterPropsValidator, above), which is why this takes the array
+// shape rather than a single expression.
+export const previewMetricRowsPropsValidator = z
   .object({
     rowFilters: z.array(rowFilterValidator),
   })
   .strict();
+
+export const testRowFiltersPropsValidator = previewMetricRowsPropsValidator;
 
 // ---- API Validators (migrated from openapi.ts) ----
 
