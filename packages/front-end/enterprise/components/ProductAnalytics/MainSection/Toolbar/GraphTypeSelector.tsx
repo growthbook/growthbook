@@ -62,8 +62,8 @@ const chartTypes: {
     ],
   },
   {
-    groupLabel: "Results",
-    items: [{ value: "rawTable", label: "Raw table", icon: PiListBullets }],
+    groupLabel: "No Aggregation",
+    items: [{ value: "rawTable", label: "Table", icon: PiListBullets }],
   },
 ];
 
@@ -73,7 +73,9 @@ export default function GraphTypeSelector() {
   const groups =
     draftExploreState.dataset.type === "sql"
       ? chartTypes
-      : chartTypes.filter((group) => group.groupLabel !== "Results");
+      : chartTypes.filter(
+          (group) => !group.items.some((item) => item.value === "rawTable"),
+        );
 
   return (
     <Select

@@ -332,7 +332,7 @@ export default function ExplorerMainSection({
     draftExploreState.chartType === "table" ||
     draftExploreState.chartType === "timeseries-table"
       ? "Load table"
-      : "Render chart";
+      : "Load chart";
   const sqlEmptyHelper = isRawTable
     ? isTimelessSqlExploration(draftExploreState)
       ? "Configure columns in the sidebar."
