@@ -45,6 +45,7 @@ import {
   HoldoutInterface,
   RevisionRampAction,
   SafeRolloutRule,
+  stripUnknownRuleFields,
 } from "shared/validators";
 import {
   featurePublishFootprint,
@@ -742,7 +743,7 @@ export function validateFeatureRule(
   existingRule?: FeatureRule,
 ): null | FeatureRule {
   let hasChanges = false;
-  const ruleCopy = cloneDeep(rule);
+  const ruleCopy = cloneDeep(stripUnknownRuleFields(rule));
 
   validateSavedGroupTargeting(rule.savedGroups);
 

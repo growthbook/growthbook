@@ -66,6 +66,7 @@ import {
   RevisionRampDetachAction,
   RevisionRampUpdateAction,
   RampStepAction,
+  stripUnknownRuleFields,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -3246,11 +3247,12 @@ export async function postFeatureRule(
   const { id, version } = req.params;
   const {
     environments: selectedEnvironments = [],
-    rule,
+    rule: ruleInput,
     safeRolloutFields,
     rampSchedule: rampSchedulePayload,
     insertBeforeRuleId,
   } = req.body;
+  let rule = ruleInput;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -3344,6 +3346,7 @@ export async function postFeatureRule(
   }
 
   // Stamp id + rollout seed via the shared chokepoint (safe-rollout seed set above).
+  rule = stripUnknownRuleFields(rule);
   addIdsToFlatRules([rule], feature.id);
   let rampActionsUpdate:
     | RevisionRampCreateAction
@@ -4554,7 +4557,7 @@ export async function putFeatureRule(
     }
   }
 
-  let effectiveRule = rule;
+  let effectiveRule = stripUnknownRuleFields(rule);
   let autoMergedTheirFields: string[] = [];
   if (baseline) {
     const liveRule = (feature.rules ?? []).find((r) => r.id === ruleId) ?? null;
