@@ -1,5 +1,4 @@
-import type { eventWithTime } from "@rrweb/types";
-import { record } from "rrweb";
+import { record, type eventWithTime } from "rrweb";
 import { GrowthBook } from "../../src";
 import { sessionReplayPlugin } from "../../src/plugins/session-replay";
 
@@ -137,6 +136,36 @@ describe("sessionReplayPlugin — remote settings and sampling", () => {
     await gb.setPayload({ sdkSettings: { sessionReplay: { enabled: true } } });
     gb.startSessionReplay();
     expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it("a remote samplingRate can lower the constructor rate but not raise it", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(0.5);
+    await gb.setPayload({
+      sdkSettings: { sessionReplay: { samplingRate: 1 } },
+    });
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST, samplingRate: 0.1 })(gb);
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it("an invalid remote samplingRate is ignored with a warning", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    await gb.setPayload({
+      sdkSettings: { sessionReplay: { samplingRate: -1 } },
+    });
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("sdkSettings.sessionReplay.samplingRate"),
+    );
+  });
+
+  it("the hard cap rotates a recording that never saw an interaction", () => {
+    jest.useFakeTimers();
+    sessionReplayPlugin({ ingestorHost: INGESTOR_HOST })(gb);
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(31 * 60 * 1000);
+    expect(mockRecord).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
   });
 
   it("kill switch beats a forced start", () => {

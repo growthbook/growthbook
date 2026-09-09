@@ -1,7 +1,6 @@
 // Maps the shared privacy settings onto rrweb's record options. Deny by
 // default: every input is masked unless maskAllInputs is false.
-import type { recordOptions } from "rrweb";
-import type { eventWithTime } from "@rrweb/types";
+import type { eventWithTime, recordOptions } from "rrweb";
 import {
   composeSelectors,
   DEFAULT_ALLOW_SELECTOR,

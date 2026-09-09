@@ -34,9 +34,11 @@ function cssEscape(v: string): string {
 
 export type ElementPropertyOptions = {
   collectText?: boolean;
+  // Elements reported as a bare tag: no id, classes, selector, href, or text
+  blockSelector?: string;
   // Elements whose text and data-gb-* attributes are redacted
   maskSelector?: string;
-  // Escapes masking for the element and its descendants
+  // Escapes masking (not blocking) for the element and its descendants
   allowSelector?: string;
   url?: UrlScrubSettings;
 };
@@ -44,6 +46,10 @@ export type ElementPropertyOptions = {
 export function isMasked(el: Element, opts: ElementPropertyOptions): boolean {
   if (!opts.maskSelector || !el.closest(opts.maskSelector)) return false;
   return !(opts.allowSelector && el.closest(opts.allowSelector));
+}
+
+function isBlocked(el: Element, opts: ElementPropertyOptions): boolean {
+  return !!opts.blockSelector && !!el.closest(opts.blockSelector);
 }
 
 export type ElementProperties = Record<string, unknown>;
@@ -185,6 +191,7 @@ export function getElementProperties(
   el: Element,
   opts: ElementPropertyOptions = {},
 ): ElementProperties {
+  if (isBlocked(el, opts)) return { element_tag: lower(el.tagName) };
   const masked = isMasked(el, opts);
 
   return cleanProperties({

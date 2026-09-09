@@ -87,7 +87,7 @@ export function normalizeSamplingRate(
   if (rate === undefined) return fallback;
   if (typeof rate !== "number" || !isFinite(rate) || rate < 0 || rate > 1) {
     console.warn(
-      `autoEventsPlugin: ${label} must be between 0 and 1 (got ${rate}); using ${fallback}`,
+      `${label} must be between 0 and 1 (got ${rate}); using ${fallback}`,
     );
     return fallback;
   }

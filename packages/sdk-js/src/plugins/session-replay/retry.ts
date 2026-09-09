@@ -3,7 +3,7 @@ export class RetryExhaustedError extends Error {
     readonly attempts: number,
     readonly cause: unknown,
   ) {
-    super(`Failed after ${attempts} attempt(s)`);
+    super(`Failed after ${attempts} retries`);
     this.name = "RetryExhaustedError";
   }
 }

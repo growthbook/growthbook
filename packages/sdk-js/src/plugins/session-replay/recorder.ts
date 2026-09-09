@@ -1,10 +1,14 @@
 import { record } from "rrweb";
-import type { eventWithTime } from "@rrweb/types";
+import type { eventWithTime } from "rrweb";
 import type { SessionReplaySettings } from "../../types/growthbook";
 import type { GrowthBook } from "../../GrowthBook";
 import { readSessionJSON, writeSessionJSON } from "../utils/storage";
 import { resolveSessionId } from "../utils/session";
-import { shouldSampleScope, persistSampleDecision } from "../utils/sampling";
+import {
+  normalizeSamplingRate,
+  persistSampleDecision,
+  shouldSampleScope,
+} from "../utils/sampling";
 import { mergeSettings } from "../utils/settings";
 import { DEFAULT_INGESTOR_HOST } from "../utils/ingestor";
 import { resolvePrivacySettings } from "../utils/privacy";
@@ -119,7 +123,6 @@ const FLUSH_INTERVAL_MS = 60_000;
 const FLUSH_BYTE_SIZE = 256 * 1024;
 // Backstop when every flush is failing (offline); new events are dropped
 const MAX_BUFFERED_EVENTS = 500;
-const COMPRESS_REQUESTS = true;
 
 export function createReplayRecorder({
   ingestorHost,
@@ -146,6 +149,18 @@ export function createReplayRecorder({
     // Missing on either side means "no opinion", not off
     const remoteEnabled = remote ? remote.enabled : undefined;
     settings.enabled = (enabled ?? true) && (remoteEnabled ?? true);
+    settings.samplingRate = Math.min(
+      normalizeSamplingRate(
+        samplingRate,
+        1,
+        "sessionReplayPlugin: samplingRate",
+      ),
+      normalizeSamplingRate(
+        remote ? remote.samplingRate : undefined,
+        1,
+        "sdkSettings.sessionReplay.samplingRate",
+      ),
+    );
     return settings;
   };
   const host = ingestorHost || DEFAULT_INGESTOR_HOST;
@@ -172,14 +187,14 @@ export function createReplayRecorder({
   const featureEvals: Array<{
     featureKey: string;
     timestamp: number;
-    result: { value: unknown | null; experimentKey?: string };
+    result: { value: unknown; experimentKey?: string };
   }> = [];
   const experimentEvals: Array<{
     key: string;
     timestamp: number;
     name?: string;
     result: {
-      value: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      value: unknown;
       variationId: number;
       featureId: string | null;
     };
@@ -211,12 +226,10 @@ export function createReplayRecorder({
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (COMPRESS_REQUESTS) {
-      const gz = await gzipString(payload);
-      if (gz) {
-        body = gz;
-        headers["Content-Encoding"] = "gzip";
-      }
+    const gz = await gzipString(payload);
+    if (gz) {
+      body = gz;
+      headers["Content-Encoding"] = "gzip";
     }
     const bodySize = body instanceof Blob ? body.size : new Blob([body]).size;
     const useKeepalive = bodySize < 64 * 1024;
@@ -443,7 +456,6 @@ export function createReplayRecorder({
     const persisted = readPersistedReplayState();
     const now = Date.now();
     const nextSessionReplayId = getOrCreateSessionReplayId(forceNew);
-    if (!nextSessionReplayId) return;
 
     if (force) {
       // Sticky, so reloads within a forced session keep recording
@@ -579,9 +591,8 @@ export function createReplayRecorder({
     if (!tooLong && !idle) return;
 
     stopRecording();
-    // Only restart if the previous session was worth recording; forceNew
-    // prevents resuming the just-stopped session's sessionStartedAt
-    if (hasUserInteraction) startRecording(true);
+    // forceNew prevents resuming the just-stopped session's sessionStartedAt
+    startRecording(true);
   };
 
   const onVisibilityChange = () => {

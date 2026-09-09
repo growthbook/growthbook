@@ -10,7 +10,7 @@ const noJitter: Pick<RetryConfig, "random"> = { random: () => 0 };
 
 // Scheduler that fires synchronously — used for tests that care about
 // behavior (success/failure paths) but not about delay timing.
-function immediateScheduler(fn: () => void, _delay: number) {
+function immediateScheduler(fn: () => void) {
   fn();
   return 0 as unknown as ReturnType<typeof setTimeout>;
 }

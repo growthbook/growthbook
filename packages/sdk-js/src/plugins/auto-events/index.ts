@@ -68,7 +68,7 @@ function resolveCategory<T extends { samplingRate?: number }>(
   resolved.samplingRate = normalizeSamplingRate(
     resolved.samplingRate,
     defaults.samplingRate ?? DEFAULT_SAMPLING_RATE,
-    `${name}.samplingRate`,
+    `autoEventsPlugin: ${name}.samplingRate`,
   );
   return resolved;
 }

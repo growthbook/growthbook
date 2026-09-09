@@ -187,9 +187,7 @@ function readAutoEventsSettings(): AutoEventsSettings {
         );
   for (const category of AUTO_EVENT_CATEGORIES) {
     if (listed !== null) {
-      settings[category] = listed.has(category)
-        ? (settings[category] ?? true)
-        : false;
+      settings[category] = listed.has(category);
     }
     settings[category] ??= false;
     const rate = dataContext[`${category}SamplingRate`];

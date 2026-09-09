@@ -483,12 +483,11 @@ export type AutoExperimentVariation = {
 
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
 
+// Remote settings only tighten: they can turn a locally-enabled plugin off
+// or lower its sampling rate, never the reverse
 export type SessionReplaySettings = {
-  // Remote kill switch: false stops in-flight recordings and blocks new ones.
-  // Can only turn a locally-enabled plugin off — a local `enabled: false` wins.
   enabled?: boolean;
-  // Fraction of sessions to record (0-1). True-random, sticky per session.
-  samplingRate?: number;
+  samplingRate?: number; // 0-1
 };
 
 // Remotely-delivered plugin settings. Riding inside the features payload

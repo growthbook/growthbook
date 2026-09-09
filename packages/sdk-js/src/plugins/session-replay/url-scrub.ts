@@ -76,8 +76,8 @@ function scrubTreeUrls(node: unknown, settings: UrlScrubSettings): unknown {
 }
 
 // Meta href (type 4), FullSnapshot tree attributes (type 2), and Mutation
-// attribute changes (type 3, source 0). Returns the original event when
-// nothing changed.
+// attribute changes plus added subtrees (type 3, source 0). Returns the
+// original event when nothing changed.
 export function scrubEventUrls<T extends { type: number; data?: unknown }>(
   event: T,
   settings: UrlScrubSettings = {},
@@ -103,21 +103,34 @@ export function scrubEventUrls<T extends { type: number; data?: unknown }>(
       | {
           source?: number;
           attributes?: Array<{ attributes?: Record<string, unknown> }>;
+          adds?: Array<{ node?: unknown }>;
         }
       | undefined;
-    if (!data || data.source !== 0 || !Array.isArray(data.attributes)) {
-      return event;
+    if (!data || data.source !== 0) return event;
+
+    let changed = false;
+    let attributes = data.attributes;
+    if (Array.isArray(attributes)) {
+      attributes = attributes.map((m) => {
+        if (!m || typeof m !== "object" || !m.attributes) return m;
+        const scrubbed = scrubUrlAttrs(m.attributes, settings);
+        if (scrubbed === m.attributes) return m;
+        changed = true;
+        return { ...m, attributes: scrubbed };
+      });
     }
-    let mutationsChanged = false;
-    const newMutations = data.attributes.map((m) => {
-      if (!m || typeof m !== "object" || !m.attributes) return m;
-      const scrubbed = scrubUrlAttrs(m.attributes, settings);
-      if (scrubbed === m.attributes) return m;
-      mutationsChanged = true;
-      return { ...m, attributes: scrubbed };
-    });
-    if (!mutationsChanged) return event;
-    return { ...event, data: { ...data, attributes: newMutations } };
+    let adds = data.adds;
+    if (Array.isArray(adds)) {
+      adds = adds.map((a) => {
+        if (!a || typeof a !== "object" || !a.node) return a;
+        const scrubbed = scrubTreeUrls(a.node, settings);
+        if (scrubbed === a.node) return a;
+        changed = true;
+        return { ...a, node: scrubbed };
+      });
+    }
+    if (!changed) return event;
+    return { ...event, data: { ...data, attributes, adds } };
   }
 
   return event;

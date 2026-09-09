@@ -973,7 +973,7 @@ describe("Interaction reporter", () => {
         <a id="masked" href="/users/123/orders?token=x" data-gb-cta="buy">Jane Doe</a>
         <span class="gb-allow"><button id="allowed" data-gb-cta="ok">Visible</button></span>
       </div>
-      <button id="blocked" class="gb-block">Card 4242</button>
+      <div class="gb-block"><button id="blocked">Card 4242</button></div>
       <button id="custom" class="pii">SSN</button>
       <button id="plain" data-gb-cta="go">Plain</button>
     `;
@@ -996,12 +996,41 @@ describe("Interaction reporter", () => {
     expect(props("allowed")).toEqual(
       expect.objectContaining({ element_text: "Visible", data_cta: "ok" }),
     );
-    expect(props("blocked")).not.toHaveProperty("element_text");
+    const blocked = logEvent.mock.calls.find(
+      (c) => c[0] === "button_click" && c[1] && !("element_id" in c[1]),
+    );
+    expect(blocked && blocked[1]).toEqual({
+      element_tag: "button",
+      x: 0,
+      y: 0,
+    });
     expect(props("custom")).not.toHaveProperty("element_text");
     expect(props("plain")).toEqual(
       expect.objectContaining({ element_text: "Plain", data_cta: "go" }),
     );
     expect(props("plain")).not.toHaveProperty("data_mask");
+    gb.destroy();
+  });
+
+  it("describes rage clicks on untracked elements without their text", () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+
+    createInteractionReporter({ growthbook: gb, samplingRate: 1 });
+
+    document.body.innerHTML = `<p id="addr">jane.doe@acme.com, 12 Elm St</p>`;
+    const p = document.getElementById("addr")!;
+    for (let i = 0; i < 3; i++) {
+      p.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, clientX: 5, clientY: 5 }),
+      );
+    }
+
+    expect(logEvent).toHaveBeenCalledTimes(1);
+    const [name, props] = logEvent.mock.calls[0];
+    expect(name).toBe("rage_click");
+    expect(props).toEqual(expect.objectContaining({ element_tag: "p" }));
+    expect(props).not.toHaveProperty("element_text");
     gb.destroy();
   });
 

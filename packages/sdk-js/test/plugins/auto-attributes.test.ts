@@ -129,7 +129,7 @@ describe("autoAttributesPlugin", () => {
     localStorage.setItem(
       "gb_session_id",
       JSON.stringify({
-        gb_session_id: "internal-replay-id",
+        gb_session_id: "internal-session-id",
         createdAt: Date.now(),
         lastActiveAt: Date.now(),
       }),
@@ -147,7 +147,7 @@ describe("autoAttributesPlugin", () => {
     expect(gb.getAttributes()).toEqual(
       expect.objectContaining({
         session_id: "customer-session-id",
-        sessionId: "internal-replay-id",
+        sessionId: "internal-session-id",
       }),
     );
 

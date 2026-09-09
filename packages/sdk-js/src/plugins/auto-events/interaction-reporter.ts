@@ -88,11 +88,13 @@ export function createInteractionReporter({
       ),
       elOpts: {
         collectText: collectElementText,
-        maskSelector: composeSelectors(
+        blockSelector: composeSelectors(
           DEFAULT_BLOCK_SELECTOR,
+          p.blockSelector,
+        ),
+        maskSelector: composeSelectors(
           DEFAULT_MASK_SELECTOR,
           PASSWORD_SELECTOR,
-          p.blockSelector,
           p.maskTextSelector,
         ),
         allowSelector: composeSelectors(
@@ -149,9 +151,15 @@ export function createInteractionReporter({
     const { ignoreSelector, elOpts } = currentPrivacy();
     if (shouldIgnore(target, ignoreSelector)) return;
 
-    handleRageClick(event, target, elOpts);
-
+    // A triple-click on arbitrary text (to select it) is also a rage click;
+    // only elements the customer chose to track are described with text
     const tracked = target.closest(clickSelector);
+    handleRageClick(
+      event,
+      tracked ?? target,
+      tracked ? elOpts : { ...elOpts, collectText: false },
+    );
+
     if (!tracked) return;
 
     incrementTrackedClickCount();

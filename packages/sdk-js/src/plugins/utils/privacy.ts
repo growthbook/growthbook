@@ -93,7 +93,7 @@ const ID_REPLACEMENT = "[id]";
 
 // Deny-by-default: strips the query, replaces id-like path segments with
 // [id], drops the fragment. Relative URLs resolve against the document;
-// unparseable ones (e.g. `javascript:`) become "[invalid-url]"
+// unparseable ones become "[invalid-url]"
 export function scrubUrl(url: string, settings: UrlScrubSettings = {}): string {
   if (!url) return url;
 
@@ -115,7 +115,7 @@ export function scrubUrl(url: string, settings: UrlScrubSettings = {}): string {
   parsed.pathname = parsed.pathname
     .split("/")
     .map((segment) =>
-      segment && allPatterns.some((pattern) => pattern.test(segment))
+      segment && allPatterns.some((pattern) => segment.search(pattern) !== -1)
         ? ID_REPLACEMENT
         : segment,
     )

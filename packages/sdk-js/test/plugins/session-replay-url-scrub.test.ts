@@ -204,6 +204,62 @@ describe("session replay URL scrubbing", () => {
     });
   });
 
+  it("scrubs subtrees added by mutation events", () => {
+    const event = {
+      type: 3,
+      timestamp: 1000,
+      data: {
+        source: 0,
+        adds: [
+          {
+            parentId: 1,
+            nextId: null,
+            node: {
+              type: 2,
+              id: 9,
+              tagName: "a",
+              attributes: {
+                href: "https://app.example.com/verify?token=secret&email=a@b.c",
+              },
+              childNodes: [],
+            },
+          },
+        ],
+        removes: [],
+        texts: [],
+        attributes: [],
+      },
+    };
+
+    expect(scrubEventUrls(event)).toEqual({
+      ...event,
+      data: {
+        ...event.data,
+        adds: [
+          {
+            parentId: 1,
+            nextId: null,
+            node: {
+              type: 2,
+              id: 9,
+              tagName: "a",
+              attributes: { href: "https://app.example.com/verify" },
+              childNodes: [],
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it("redacts path segments with a global regex on every segment", () => {
+    expect(
+      scrubUrl("https://app.example.com/acct/abc/team/xyz", {
+        redactPathPatterns: [/^[a-z]{3}$/g],
+      }),
+    ).toBe("https://app.example.com/acct/[id]/team/[id]");
+  });
+
   it("returns the original event when there is nothing to scrub", () => {
     const event = {
       type: 3,
