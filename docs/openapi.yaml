@@ -27106,6 +27106,19 @@ paths:
                   type: array
                   items:
                     type: string
+                userIdColumns:
+                  description: >-
+                    Maps an identifier type to the column holding it, for SQL
+                    that does not alias its columns to the identifier type
+                    names, e.g. `{"user_id": "userId"}`. May also be a
+                    single-level field path into a JSON column
+                    (`properties.userId`). Unmapped types use the identifier
+                    type name as the column name.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
                 aggregatedFactTableSettings:
                   description: >-
                     Settings for maintaining shared daily aggregated tables (a
@@ -27143,6 +27156,12 @@ paths:
                   additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
+                  type: string
+                timestampColumn:
+                  description: >-
+                    The column holding the event timestamp. Must be a date
+                    column on this fact table. Defaults to "timestamp" when
+                    unset.
                   type: string
                 eventName:
                   description: The event name used in SQL template variables
@@ -27259,6 +27278,19 @@ paths:
                   type: array
                   items:
                     type: string
+                userIdColumns:
+                  description: >-
+                    Maps an identifier type to the column holding it, for SQL
+                    that does not alias its columns to the identifier type
+                    names, e.g. `{"user_id": "userId"}`. May also be a
+                    single-level field path into a JSON column
+                    (`properties.userId`). Unmapped types use the identifier
+                    type name as the column name.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
                 aggregatedFactTableSettings:
                   description: >-
                     Settings for maintaining shared daily aggregated tables (a
@@ -27296,6 +27328,12 @@ paths:
                   additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
+                  type: string
+                timestampColumn:
+                  description: >-
+                    The column holding the event timestamp. Must be a date
+                    column on this fact table. Defaults to "timestamp" when
+                    unset.
                   type: string
                 eventName:
                   description: The event name used in SQL template variables
@@ -29496,6 +29534,20 @@ paths:
                             type: array
                             items:
                               type: string
+                          userIdColumns:
+                            description: >-
+                              Maps an identifier type to the column holding it,
+                              for SQL that does not alias its columns to the
+                              identifier type names, e.g. `{"user_id":
+                              "userId"}`. May also be a single-level field path
+                              into a JSON column (`properties.userId`). Unmapped
+                              types use the identifier type name as the column
+                              name.
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
                           aggregatedFactTableSettings:
                             description: >-
                               Settings for maintaining shared daily aggregated
@@ -29534,6 +29586,12 @@ paths:
                             additionalProperties: false
                           sql:
                             description: The SQL query for this fact table
+                            type: string
+                          timestampColumn:
+                            description: >-
+                              The column holding the event timestamp. Must be a
+                              date column on this fact table. Defaults to
+                              "timestamp" when unset.
                             type: string
                           eventName:
                             description: The event name used in SQL template variables
@@ -36540,6 +36598,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -36920,6 +36979,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -37309,6 +37369,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -37715,6 +37776,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -37863,6 +37925,10 @@ paths:
                                             - valueColumn
                                             - unit
                                           additionalProperties: false
+                                      hiddenColumns:
+                                        type: array
+                                        items:
+                                          type: string
                                     required:
                                       - type
                                       - sql
@@ -39536,6 +39602,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -39925,6 +39992,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -40323,6 +40391,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -40738,6 +40807,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -40886,6 +40956,10 @@ paths:
                                             - valueColumn
                                             - unit
                                           additionalProperties: false
+                                      hiddenColumns:
+                                        type: array
+                                        items:
+                                          type: string
                                     required:
                                       - type
                                       - sql
@@ -41152,6 +41226,7 @@ paths:
                                       - horizontalBar
                                       - stackedHorizontalBar
                                       - bigNumber
+                                      - rawTable
                                   dateRange:
                                     type: object
                                     properties:
@@ -43020,6 +43095,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -43400,6 +43476,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -43789,6 +43866,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -44195,6 +44273,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -44343,6 +44422,10 @@ paths:
                                         - valueColumn
                                         - unit
                                       additionalProperties: false
+                                  hiddenColumns:
+                                    type: array
+                                    items:
+                                      type: string
                                 required:
                                   - type
                                   - sql
@@ -46882,6 +46965,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -47113,6 +47197,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -47250,6 +47343,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -47572,6 +47666,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -47812,6 +47907,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -47949,6 +48053,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -48280,6 +48385,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -48537,6 +48643,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -48674,6 +48789,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -49022,6 +49138,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -49170,6 +49287,10 @@ paths:
                           - valueColumn
                           - unit
                         additionalProperties: false
+                    hiddenColumns:
+                      type: array
+                      items:
+                        type: string
                   required:
                     - type
                     - sql
@@ -49278,6 +49399,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -49415,6 +49545,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -49563,6 +49694,10 @@ paths:
                                         - valueColumn
                                         - unit
                                       additionalProperties: false
+                                  hiddenColumns:
+                                    type: array
+                                    items:
+                                      type: string
                                 required:
                                   - type
                                   - sql
@@ -49762,6 +49897,7 @@ paths:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -50015,6 +50151,15 @@ paths:
                                   required:
                                     - dimensions
                                   additionalProperties: false
+                              rawRows:
+                                type: array
+                                items:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                              truncated:
+                                type: boolean
                             required:
                               - rows
                             additionalProperties: false
@@ -50152,6 +50297,7 @@ paths:
                                   - horizontalBar
                                   - stackedHorizontalBar
                                   - bigNumber
+                                  - rawTable
                               dateRange:
                                 type: object
                                 properties:
@@ -61109,6 +61255,18 @@ components:
           type: array
           items:
             type: string
+        userIdColumns:
+          description: >-
+            Maps an identifier type to the column holding it, for SQL that does
+            not alias its columns to the identifier type names, e.g.
+            `{"user_id": "userId"}`. May also be a single-level field path into
+            a JSON column (`properties.userId`). Unmapped types use the
+            identifier type name as the column name.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
         aggregatedFactTableSettings:
           description: >-
             Settings for maintaining shared daily aggregated tables (a subset of
@@ -61145,6 +61303,11 @@ components:
             - lookbackWindow
           additionalProperties: false
         sql:
+          type: string
+        timestampColumn:
+          description: >-
+            The column holding the event timestamp. Must be a date column on
+            this fact table. Defaults to "timestamp" when unset.
           type: string
         eventName:
           description: The event name used in SQL template variables
@@ -65851,6 +66014,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -66240,6 +66404,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -66638,6 +66803,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -67053,6 +67219,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -67201,6 +67368,10 @@ components:
                                 - valueColumn
                                 - unit
                               additionalProperties: false
+                          hiddenColumns:
+                            type: array
+                            items:
+                              type: string
                         required:
                           - type
                           - sql
@@ -67467,6 +67638,7 @@ components:
                           - horizontalBar
                           - stackedHorizontalBar
                           - bigNumber
+                          - rawTable
                       dateRange:
                         type: object
                         properties:
@@ -69649,6 +69821,15 @@ components:
                 required:
                   - dimensions
                 additionalProperties: false
+            rawRows:
+              type: array
+              items:
+                type: object
+                propertyNames:
+                  type: string
+                additionalProperties: {}
+            truncated:
+              type: boolean
           required:
             - rows
           additionalProperties: false
@@ -69787,6 +69968,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -70058,6 +70240,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -70338,6 +70521,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -70635,6 +70819,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:
@@ -70783,6 +70968,10 @@ components:
                           - valueColumn
                           - unit
                         additionalProperties: false
+                    hiddenColumns:
+                      type: array
+                      items:
+                        type: string
                   required:
                     - type
                     - sql
@@ -70931,6 +71120,7 @@ components:
                     - horizontalBar
                     - stackedHorizontalBar
                     - bigNumber
+                    - rawTable
                 dateRange:
                   type: object
                   properties:

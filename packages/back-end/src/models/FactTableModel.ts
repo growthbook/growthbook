@@ -62,9 +62,11 @@ const factTableSchema = new mongoose.Schema({
   tags: [String],
   datasource: String,
   userIdTypes: [String],
+  userIdColumns: {},
   sql: String,
   timestampColumn: String,
   eventName: String,
+  tableType: String,
   columns: [
     {
       _id: false,
@@ -188,8 +190,11 @@ export function createPropsToInterface(
     projects: props.projects,
     tags: props.tags,
     sql: props.sql,
+    timestampColumn: props.timestampColumn,
     userIdTypes: props.userIdTypes,
+    userIdColumns: props.userIdColumns,
     eventName: props.eventName,
+    tableType: props.tableType,
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
@@ -856,9 +861,10 @@ export async function deleteColumn(
 
   // Block deletion if anything still references this column — otherwise
   // generated SQL falls back to a bare, now-undefined identifier and fails
-  // at query time. Scanned on demand (other virtual columns, saved filters,
-  // Fact Metrics, saved explorations, and dashboard blocks); no dependency
-  // state is persisted.
+  // at query time. Scanned on demand; no dependency state is persisted.
+  const dependentIdentifierTypes = Object.entries(factTable.userIdColumns ?? {})
+    .filter(([, mappedColumn]) => mappedColumn.split(".")[0] === columnName)
+    .map(([idType]) => idType);
   const dependentVirtualColumns = factTable.columns.filter(
     (c) =>
       c.isVirtual &&
@@ -909,6 +915,9 @@ export async function deleteColumn(
   );
 
   const lines: string[] = [
+    ...dependentIdentifierTypes.map(
+      (idType) => `\n - Identifier mapping: ${idType}`,
+    ),
     ...dependentVirtualColumns.map(
       (c) => `\n - Virtual column: ${c.name || c.column}`,
     ),
@@ -1282,9 +1291,11 @@ export function toFactTableApiInterface(
       tags: factTable.tags,
       datasource: factTable.datasource,
       userIdTypes: factTable.userIdTypes,
+      userIdColumns: factTable.userIdColumns,
       aggregatedFactTableSettings:
         factTable.aggregatedFactTableSettings ?? undefined,
       sql: factTable.sql,
+      timestampColumn: factTable.timestampColumn,
       eventName: factTable.eventName,
       columns: factTable.columns.map(toFactTableColumnApiInterface),
       columnsError: factTable.columnsError,
