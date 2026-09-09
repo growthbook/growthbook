@@ -14,6 +14,7 @@ import {
   CreateFactTableProps,
   ColumnRef,
   FactFilterInterface,
+  FactMetricInterface,
   FactTableDefinition,
   FactTableInterface,
   UpdateFactFilterProps,
@@ -598,8 +599,17 @@ export async function cleanupMetricAutoSlices({
 }) {
   if (!removedColumns.length) return;
 
-  const allFactMetrics =
-    await context.models.factMetrics.dangerousGetAllForDependencyScan();
+  let allFactMetrics: FactMetricInterface[];
+  try {
+    allFactMetrics =
+      await context.models.factMetrics.dangerousGetAllForDependencyScan();
+  } catch (e) {
+    logger.error(
+      e,
+      `Failed to scan fact metrics for auto-slice cleanup of ${factTableId}`,
+    );
+    return;
+  }
   for (const metric of allFactMetrics) {
     if (getFactMetricPrimaryFactTableId(metric) !== factTableId) continue;
     if (!metric.metricAutoSlices?.some((c) => removedColumns.includes(c))) {
