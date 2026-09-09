@@ -11,6 +11,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
+import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
 import Text from "@/ui/Text";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
@@ -133,34 +134,10 @@ export function MultiValuesDisplay({
             ? displayMap?.[v] || group.groupName
             : displayMap?.[v] || v;
         return isSavedGroup && group ? (
-          <Badge
+          <SavedGroupBadge
             key={i}
-            color="gray"
-            label={
-              <Link
-                href={`/saved-groups/${group.id}`}
-                target="_blank"
-                title={`Manage Saved Group: ${displayValue}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  overflow: "hidden",
-                  color: "var(--accent-11)",
-                }}
-              >
-                <span
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    maxWidth: "400px",
-                  }}
-                >
-                  {displayValue}
-                </span>
-              </Link>
-            }
+            groupId={group.id}
+            groupName={displayValue}
           />
         ) : (
           <Badge
@@ -475,34 +452,7 @@ function getConditionParts({
           (operator === "$inGroup" || operator === "$notInGroup") &&
           savedGroups ? (
             group ? (
-              <Badge
-                color="gray"
-                label={
-                  <Link
-                    href={`/saved-groups/${group.id}`}
-                    target="_blank"
-                    title={`Manage Saved Group: ${group.groupName}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      overflow: "hidden",
-                      color: "var(--accent-11)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: "400px",
-                      }}
-                    >
-                      {group.groupName}
-                    </span>
-                  </Link>
-                }
-              />
+              <SavedGroupBadge groupId={group.id} groupName={group.groupName} />
             ) : (
               <Badge
                 color="gray"
