@@ -11,10 +11,12 @@ import {
   MergeResultChanges,
   getReviewAuthorityFootprint,
   governingReviewProjectsForFeature,
+  type ReviewAuthorityFootprint,
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import {
   assessApprovalCoverage,
+  nonContributingApproverIds,
   assessRequiredApproverTeams,
   bypassApprovalPermission,
 } from "shared/permissions";
@@ -82,7 +84,11 @@ export type FeatureMergePlan = {
 
 export type RevisionApprovalState = {
   requiresReview: boolean;
+  /** What the draft reaches — what an approval has to cover. */
+  footprint: ReviewAuthorityFootprint;
   uncoveredApprovers: string[];
+  /** Approvals that stand but cannot sanction the publish, and why. */
+  insufficientApprovers: { id: string; reason: string }[];
   hasCoveringApproval: boolean;
   requiredApproverTeams: {
     satisfied: boolean;
@@ -199,6 +205,31 @@ export async function assessRevisionApproval({
     teams: context.teams,
   });
 
+  const approvedIds = (revision.reviews ?? [])
+    .filter((r) => r.status === "approved")
+    .map((r) => r.userId)
+    .filter((id): id is string => !!id);
+  const nonContributing = nonContributingApproverIds({
+    approvedIds,
+    enforcedTeamIds: requiredTeams.enforcedTeamIds,
+    requiredTeamsSatisfied: requiredTeams.satisfied,
+    org: context.org,
+    teams: context.teams,
+  });
+  const insufficientApprovers = [
+    ...uncoveredApprovers.map((id) => ({
+      id,
+      reason:
+        "their approval does not cover every environment this draft changes",
+    })),
+    ...nonContributing
+      .filter((id) => !uncoveredApprovers.includes(id))
+      .map((id) => ({
+        id,
+        reason: "the reviewer is not in a required approver team",
+      })),
+  ];
+
   const satisfied =
     !requiresReview ||
     (revision.status === "approved" &&
@@ -207,7 +238,9 @@ export async function assessRevisionApproval({
 
   return {
     requiresReview,
+    footprint: reviewFootprint,
     uncoveredApprovers,
+    insufficientApprovers,
     hasCoveringApproval,
     requiredApproverTeams: requiredTeams,
     satisfied,

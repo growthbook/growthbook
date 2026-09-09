@@ -12,6 +12,7 @@ import {
   getApplicableEnvIds,
   getExperimentIdsFromRules,
   liveRevisionFromFeature,
+  managedByExperimentId,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
   stemRuleId,
@@ -223,11 +224,19 @@ const featureSchema = new mongoose.Schema({
     id: String,
     value: String,
   },
+  // Mixed: the discriminator key is named `type`, which Mongoose would read as
+  // a SchemaType declaration rather than a path.
+  managedBy: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
 featureSchema.index({ organization: 1, targetingProjects: 1 });
+// Partial: managed flags only.
+featureSchema.index(
+  { organization: 1, "managedBy.experimentId": 1 },
+  { partialFilterExpression: { "managedBy.type": "experiment" } },
+);
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -725,6 +734,19 @@ export async function getFeature(
     : null;
 }
 
+// Not permission-filtered: the unique index is org-wide, so a key held by an
+// unreadable feature is still taken.
+export async function featureIdExists(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<boolean> {
+  const count = await FeatureModel.countDocuments({
+    organization: context.org.id,
+    id,
+  });
+  return count > 0;
+}
+
 export async function migrateDraft(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -779,6 +801,23 @@ export async function getFeatureProjectsByIds(
     { id: 1, project: 1, _id: 0 },
   );
   return new Map(features.map((f) => [f.id, f.project || undefined]));
+}
+
+// Raw: a write gate must refuse an unreadable managed flag, not skip it.
+export async function getManagedByExperimentForFeatureIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<Map<string, string>> {
+  if (!ids.length) return new Map();
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      id: { $in: ids },
+      "managedBy.type": "experiment",
+    },
+    { id: 1, "managedBy.experimentId": 1, _id: 0 },
+  );
+  return new Map(features.map((f) => [f.id, f.managedBy?.experimentId ?? ""]));
 }
 
 /**
@@ -1274,6 +1313,9 @@ export async function updateFeature(
     // Remove the holdout pointer in the SAME write: splitting into two writes
     // opens a gap where a rival publish can land and be overwritten.
     unsetHoldout?: boolean;
+    // Needs $unset for the same reason as holdout: `managedBy: undefined` in a
+    // $set is dropped, not applied.
+    unsetManagedBy?: boolean;
     // The stamp this write PUTS on the document — fires only after Mongo
     // confirms the write ("this landed", never "this was attempted").
     // Compensation uses it as the ownership token; the returned doc is a
@@ -1296,6 +1338,7 @@ export async function updateFeature(
     ...allUpdates,
   };
   if (options?.unsetHoldout) delete projected.holdout;
+  if (options?.unsetManagedBy) delete projected.managedBy;
 
   // Refresh linkedExperiments if needed
   const linkedExperiments = getLinkedExperiments(projected);
@@ -1366,7 +1409,14 @@ export async function updateFeature(
     },
     {
       $set: normalizedUpdates,
-      ...(options?.unsetHoldout ? { $unset: { holdout: "" } } : {}),
+      ...(options?.unsetHoldout || options?.unsetManagedBy
+        ? {
+            $unset: {
+              ...(options?.unsetHoldout ? { holdout: "" } : {}),
+              ...(options?.unsetManagedBy ? { managedBy: "" } : {}),
+            },
+          }
+        : {}),
     },
   );
   if (options?.casOnDateUpdated && writeResult.matchedCount === 0) {
@@ -1994,6 +2044,8 @@ export function computeRevisionMergeChanges(
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
     if (m.baseConfig !== undefined) changes.baseConfig = m.baseConfig;
+    // Staged by a revert or a managed flag's type change.
+    if (m.valueType !== undefined) changes.valueType = m.valueType;
     hasChanges = true;
   }
 
@@ -4424,6 +4476,7 @@ export async function getFeatureMetaInfoById(
     valueType: 1,
     version: 1,
     linkedExperiments: 1,
+    managedBy: 1,
     neverStale: 1,
     "jsonSchema.enabled": 1,
     revision: 1,
@@ -4480,6 +4533,7 @@ export async function getFeatureMetaInfoById(
         owner: f.owner,
         valueType: f.valueType,
         version: f.version,
+        managedBy: f.managedBy,
         linkedExperiments: f.linkedExperiments,
         neverStale: f.neverStale,
         hasPrerequisites,
@@ -4513,6 +4567,7 @@ export async function getFeatureMetaInfoByIds(
       valueType: 1,
       version: 1,
       linkedExperiments: 1,
+      managedBy: 1,
       neverStale: 1,
       "jsonSchema.enabled": 1,
       revision: 1,
@@ -4535,9 +4590,58 @@ export async function getFeatureMetaInfoByIds(
       valueType: f.valueType,
       version: f.version,
       linkedExperiments: f.linkedExperiments,
+      managedBy: f.managedBy,
       neverStale: f.neverStale,
       revision: f.revision as FeatureMetaInfo["revision"],
     }));
+}
+
+// Unfiltered: ownership must be answerable for an unreadable flag. Don't leak the ids.
+export async function getManagedFlagIdsUnfiltered(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+): Promise<string[]> {
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      "managedBy.type": "experiment",
+      "managedBy.experimentId": experimentId,
+    },
+    { id: 1 },
+  );
+  return features.map((f) => f.id);
+}
+
+/** Managed flags for the given experiments, via the partial index. */
+export async function getManagedFlagsByExperiment(
+  context: ReqContext | ApiReqContext,
+  experimentIds: string[],
+): Promise<Record<string, string>> {
+  if (!experimentIds.length) return {};
+
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      "managedBy.type": "experiment",
+      "managedBy.experimentId": { $in: experimentIds },
+    },
+    {
+      id: 1,
+      project: 1,
+      targetingAllProjects: 1,
+      targetingProjects: 1,
+      managedBy: 1,
+    },
+  );
+
+  const byExperiment: Record<string, string> = {};
+  features
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
+    .forEach((f) => {
+      const experimentId = managedByExperimentId(f);
+      if (experimentId) byExperiment[experimentId] = f.id;
+    });
+  return byExperiment;
 }
 
 export async function getFeatureEnvStatus(

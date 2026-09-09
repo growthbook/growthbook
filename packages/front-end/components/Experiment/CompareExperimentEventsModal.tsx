@@ -212,6 +212,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   winner: "metadata",
   owner: "metadata",
   type: "metadata",
+  implementationType: "metadata",
   shareLevel: "metadata",
   templateId: "metadata",
   customFields: "metadata",

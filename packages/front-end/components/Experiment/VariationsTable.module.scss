@@ -1,0 +1,18 @@
+// The "no image" placeholder. Translucent so it reads as absent content
+// rather than a filled block.
+.noImageBox {
+  background-color: var(--black-a1);
+}
+
+// Only when it is the upload target — a read-only placeholder is not
+// interactive and shouldn't invite a click.
+.noImageBoxEditable {
+  cursor: pointer;
+  transition: background-color 100ms ease;
+
+  // Between blackA1 and blackA2 — the scale's 5% step is too coarse a jump
+  // for a placeholder this small.
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.07);
+  }
+}

@@ -39,6 +39,7 @@ import {
   getFeatureRuleEnvironmentsByIds,
   getFeature,
   getFeatureProjectsByIds,
+  getManagedByExperimentForFeatureIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
 // NOTE: rampScheduleEvaluator also imports from this module (advanceStep, etc).
@@ -57,6 +58,7 @@ import {
 import { logger } from "back-end/src/util/logger";
 import {
   ConflictError,
+  ManagedFeatureError,
   NotFoundError,
   RampAdvanceLockBusyError,
 } from "back-end/src/util/errors";
@@ -3089,6 +3091,13 @@ export async function assertCanControlRampSchedule(
   context: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<void> {
+  // A managed flag's rules belong to its experiment; no schedule may reach them.
+  const managed = await getManagedByExperimentForFeatureIds(context, [
+    ...new Set((schedule.targets ?? []).map((t) => t.entityId)),
+  ]);
+  for (const [featureId, experimentId] of managed) {
+    throw new ManagedFeatureError({ featureId, experimentId });
+  }
   const scheduleEnvs =
     context.models.rampSchedules.publishEnvironments(schedule);
   // The strictest answer available: every environment the org has.

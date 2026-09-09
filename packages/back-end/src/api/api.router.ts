@@ -22,6 +22,7 @@ import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
+import { guardManagedFeatureRoutes } from "back-end/src/services/managedFeatures";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
@@ -159,8 +160,9 @@ router.get("/", indexHandler);
 router.get("/v1/", indexHandler);
 
 export const allRoutes = [
-  ...featureRoutes,
-  ...featureV2Routes,
+  // Direct writes to a managed flag are refused on both surfaces.
+  ...guardManagedFeatureRoutes(featureRoutes),
+  ...guardManagedFeatureRoutes(featureV2Routes),
   ...archetypesRoutes,
   ...experimentsRoutes,
   ...contextualBanditsRoutes,

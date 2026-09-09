@@ -29,7 +29,9 @@ export function ChangeField({
   oldNode,
   newNode,
 }: {
-  label?: string;
+  // A node, so a caller can label a row with a component (e.g. VariationLabel)
+  // rather than restating the same thing as plain text.
+  label?: ReactNode;
   changed: boolean;
   oldNode: ReactNode;
   newNode: ReactNode;
@@ -138,10 +140,13 @@ export function GenericFieldChange({
   fieldKey,
   preVal,
   postVal,
+  endStateOnly = false,
 }: {
   fieldKey: string;
   preVal: unknown;
   postVal: unknown;
+  // See renderFallback: renders the value alone rather than "unset → value".
+  endStateOnly?: boolean;
 }) {
   if (isEqual(preVal, postVal)) return null;
   // Skip when both would display as "unset" (e.g. undefined vs "" for rule description)
@@ -156,6 +161,19 @@ export function GenericFieldChange({
       </code>
     );
   };
+  if (endStateOnly) {
+    return (
+      <div className="mb-2">
+        <div className="mb-1">
+          <Text size="md" weight="medium" color="text-mid">
+            {camelToLabel(fieldKey)}
+          </Text>
+        </div>
+        {/* The colour the "after" half of a diff carries. */}
+        <div className="font-weight-bold text-success">{fmt(postVal)}</div>
+      </div>
+    );
+  }
   return (
     <ChangeField
       label={camelToLabel(fieldKey)}
@@ -171,6 +189,9 @@ export function renderFallback(
   pre: Record<string, unknown> | null | undefined,
   post: Record<string, unknown>,
   handled: Set<string>,
+  // Nothing preceded these values, so a "Δ unset → x" row would dress up the
+  // content as a change. Renders the value on its own instead.
+  endStateOnly = false,
 ): ReactNode[] {
   return Object.keys(post)
     .filter((k) => !handled.has(k) && !isEqual(pre?.[k], post[k]))
@@ -180,6 +201,7 @@ export function renderFallback(
         fieldKey={k}
         preVal={pre?.[k]}
         postVal={post[k]}
+        endStateOnly={endStateOnly}
       />
     ));
 }

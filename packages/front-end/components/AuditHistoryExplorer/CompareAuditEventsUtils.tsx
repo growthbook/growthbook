@@ -31,6 +31,31 @@ export const COMPACT_DIFF_STYLES = {
   codeFoldGutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
 };
 
+// Tighter still, for a diff sharing a column with other content (the review
+// modal's changes pane). Same size, less leading.
+export const DENSE_DIFF_STYLES = {
+  diffContainer: {
+    fontSize: "11px",
+    lineHeight: "1.35",
+    pre: { lineHeight: "1.35" },
+  },
+  line: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.35" },
+  contentText: {
+    fontSize: "11px",
+    lineHeight: "1.35",
+    wordBreak: "break-all" as const,
+  },
+  gutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.35" },
+  codeFold: {
+    fontSize: "11px",
+    lineHeight: "1.35",
+    height: "auto",
+    padding: "1px 2px",
+    a: { fontSize: "11px" },
+  },
+  codeFoldGutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.35" },
+};
+
 // ---- Types ----
 
 export type NoiseItem = {

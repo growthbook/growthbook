@@ -37,6 +37,7 @@ export * from "./configs";
 export * from "./deep-merge";
 export * from "./config-schema";
 export * from "./managedWarehouse";
+export * from "./managed-experiments";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./ruleId";
@@ -778,3 +779,5 @@ export {
   NON_PRODUCTION_ENV_PATTERNS,
   isEnvironmentDevLike,
 } from "./environments";
+export * from "./implementation-type";
+export * from "./experiment-cleanup";

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
@@ -5,7 +6,25 @@ import {
 } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
+import { getImplementationType, isManagedByExperiment } from "shared/util";
+import {
+  Box,
+  Flex,
+  IconButton,
+  Separator,
+  type AvatarProps,
+} from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiInfo } from "react-icons/pi";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import { ManagedFlagName } from "@/components/Experiment/ManagedFlagName";
+import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { getEnabledEnvironments, useEnvironments } from "@/services/features";
+import ChangeImplementationTypeModal from "@/components/Experiment/ChangeImplementationTypeModal";
+import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
+import Tooltip from "@/ui/Tooltip";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import Avatar from "@/ui/Avatar";
@@ -41,6 +60,9 @@ export default function LinkedChanges({
   canEditExperiment,
   setEditVariationIndex,
   hideVariations,
+  managedMode,
+  valuesShownOnVariations,
+  onAddValues,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -58,10 +80,75 @@ export default function LinkedChanges({
   onAddVariation?: () => void;
   canEditExperiment?: boolean;
   setEditVariationIndex?: (index: number) => void;
+  /** Withholds the add-a-change surfaces. */
+  managedMode?: boolean;
+  /** The variation cards above are already showing the flag's values. */
+  valuesShownOnVariations?: boolean;
   hideVariations?: boolean;
+  /** Creates the managed flag for a "values" experiment that has none yet. */
+  onAddValues?: () => void;
 }) {
+  const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
+
+  const [changingType, setChangingType] = useState(false);
+  const managedFeature =
+    linkedFeatures.find((f) =>
+      isManagedByExperiment(f.feature, experiment.id),
+    ) ?? null;
+  // The change flow handles the managed flag itself; anything else blocks it.
+  const otherLinkages = numLinkedChanges - (managedFeature ? 1 : 0);
+  const changeTypeLockedReason =
+    experiment.status !== "draft"
+      ? "The type can't be changed after the experiment starts."
+      : otherLinkages > 0
+        ? "Remove the linked Feature Flags, Visual Editor changes and URL Redirects first."
+        : null;
+
+  const effectiveType = managedFeature
+    ? "values"
+    : getImplementationType(experiment);
+  const valuesMode = effectiveType === "values";
+  // Titled by kind; "Linked Changes" is reserved for legacy mixes.
+  const boxTitle = valuesMode
+    ? "Managed Feature Flag"
+    : !(isPublic || hideVariations)
+      ? "Variations & Values"
+      : effectiveType === "multi"
+        ? "Linked Changes"
+        : effectiveType && effectiveType !== "none"
+          ? IMPLEMENTATION_TYPE_OPTIONS[effectiveType].header
+          : "Implementation";
+  // The empty state below already offers the type chooser; the kebab is for
+  // once the box has content or the choice is locked.
+  const emptyStateOffersType =
+    numLinkedChanges === 0 &&
+    (!effectiveType || effectiveType === "none") &&
+    !changeTypeLockedReason;
+  const showTypeMenu =
+    !isPublic &&
+    canEditExperiment &&
+    !experiment.archived &&
+    !emptyStateOffersType;
+
+  const canEject =
+    !!managedFeature &&
+    !!canEditExperiment &&
+    permissionsUtil.canPublishFeature(
+      managedFeature.feature,
+      getEnabledEnvironments(managedFeature.feature, allEnvironments),
+    );
+  const [ejectConfirm, setEjectConfirm] = useState(false);
+  const eject = async () => {
+    await apiCall(`/experiment/${experiment.id}/managed-flag/eject`, {
+      method: "POST",
+    });
+    setEjectConfirm(false);
+    mutate?.();
+  };
 
   const publicLinkedChangeSummary: { id: LinkedChange; count: number }[] = [
     { id: "feature-flag", count: linkedFeatures.length },
@@ -72,18 +159,93 @@ export default function LinkedChanges({
   return (
     <Frame>
       <Flex justify="between" align="center" mb="4" gap="3">
-        <Heading color="text-high" as="h4" size="sm">
-          {isPublic || hideVariations
-            ? "Linked Changes"
-            : "Variations & Values"}
-        </Heading>
-        {!isPublic && onAddVariation && !hideVariations ? (
-          <Button variant="ghost" onClick={onAddVariation}>
-            Edit Variations
-          </Button>
-        ) : null}
+        <Flex align="center" gap="1">
+          <Heading color="text-high" as="h4" size="sm" mb="0">
+            {boxTitle}
+          </Heading>
+          {valuesMode && (
+            <Tooltip
+              content="This experiment owns the Feature Flag: it serves the variation values above and is edited from here rather than from its own page."
+              side="top"
+            >
+              <Flex align="center" style={{ color: "var(--color-text-low)" }}>
+                <PiInfo />
+              </Flex>
+            </Tooltip>
+          )}
+        </Flex>
+        <Flex align="center" gap="2">
+          {!isPublic && onAddVariation && !hideVariations ? (
+            <Button variant="ghost" onClick={onAddVariation}>
+              Edit Variations
+            </Button>
+          ) : null}
+          {showTypeMenu && (
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  aria-label={`${boxTitle} actions`}
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
+              }
+              menuPlacement="end"
+              variant="soft"
+            >
+              <DropdownMenuItem
+                disabled={!!changeTypeLockedReason}
+                tooltip={changeTypeLockedReason ?? undefined}
+                onClick={() => setChangingType(true)}
+              >
+                Change implementation type
+              </DropdownMenuItem>
+              {canEject && (
+                <DropdownMenuItem onClick={() => setEjectConfirm(true)}>
+                  Convert to unmanaged Feature Flag
+                </DropdownMenuItem>
+              )}
+            </DropdownMenu>
+          )}
+        </Flex>
       </Flex>
-      {isPublic ? (
+      {ejectConfirm && (
+        <ConfirmDialog
+          title="Convert to unmanaged Feature Flag?"
+          content="This experiment keeps using the linked Feature Flag, but you'll manage and review it directly from its own page instead of from here. This cannot be undone."
+          yesText="Convert"
+          onConfirm={eject}
+          onCancel={() => setEjectConfirm(false)}
+        />
+      )}
+      {changingType && mutate && (
+        <ChangeImplementationTypeModal
+          experiment={experiment}
+          managedFeature={managedFeature}
+          close={() => setChangingType(false)}
+          mutate={mutate}
+        />
+      )}
+      {valuesMode && !isPublic ? (
+        managedFeature ? (
+          <ManagedFlagName featureId={managedFeature.feature.id} />
+        ) : (
+          <Flex justify="between" align="center" gap="4">
+            <Text color="text-mid">
+              No Feature Flag yet. Adding values creates one.
+            </Text>
+            {onAddValues && (
+              <Button variant="ghost" onClick={onAddValues}>
+                Add values
+              </Button>
+            )}
+          </Flex>
+        )
+      ) : isPublic ? (
         <Flex direction="column" gap="3" mx="1" mb="2" mt="4">
           {publicLinkedChangeSummary
             .filter(({ count }) => count > 0)
@@ -142,6 +304,7 @@ export default function LinkedChanges({
               onReAdd={
                 setFeatureModal ? () => setFeatureModal(true) : undefined
               }
+              valuesShownOnVariations={valuesShownOnVariations}
             />
           ))}
           <VisualChangesetTable
@@ -161,7 +324,8 @@ export default function LinkedChanges({
               environmentStates={urlRedirectEnvStates}
             />
           ))}
-          {experiment.status === "draft" &&
+          {!managedMode &&
+            experiment.status === "draft" &&
             !experiment.nextScheduledStatusUpdate &&
             !experiment.archived &&
             numLinkedChanges > 0 &&
@@ -170,10 +334,13 @@ export default function LinkedChanges({
             setUrlRedirectModal && (
               <Flex justify="between" px="1">
                 <Text color="text-high" size="lg" weight="semibold">
-                  Add Feature, URL Redirect or Visual Editor
+                  {!effectiveType || effectiveType === "multi"
+                    ? "Add Feature, URL Redirect or Visual Editor"
+                    : `Add ${IMPLEMENTATION_TYPE_OPTIONS[effectiveType].header}`}
                 </Text>
                 <AddLinkedChangeButton
                   experiment={experiment}
+                  allowOtherKinds={!effectiveType || effectiveType === "multi"}
                   linkedFeatures={linkedFeatures}
                   visualChangesets={visualChangesets}
                   urlRedirects={urlRedirects}
@@ -183,16 +350,24 @@ export default function LinkedChanges({
                 />
               </Flex>
             )}
-          {setFeatureModal && setVisualEditorModal && setUrlRedirectModal && (
-            <AddLinkedChanges
-              experiment={experiment}
-              numLinkedChanges={numLinkedChanges}
-              hasLinkedFeatures={linkedFeatures.length > 0}
-              setFeatureModal={setFeatureModal}
-              setVisualEditorModal={setVisualEditorModal}
-              setUrlRedirectModal={setUrlRedirectModal}
-            />
-          )}
+          {!managedMode &&
+            setFeatureModal &&
+            setVisualEditorModal &&
+            setUrlRedirectModal && (
+              <AddLinkedChanges
+                experiment={experiment}
+                numLinkedChanges={numLinkedChanges}
+                hasLinkedFeatures={linkedFeatures.length > 0}
+                setFeatureModal={setFeatureModal}
+                setVisualEditorModal={setVisualEditorModal}
+                setUrlRedirectModal={setUrlRedirectModal}
+                onChooseType={
+                  changeTypeLockedReason
+                    ? undefined
+                    : () => setChangingType(true)
+                }
+              />
+            )}
         </>
       )}
     </Frame>

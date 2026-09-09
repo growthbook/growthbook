@@ -11,6 +11,7 @@ import {
   paginationQueryFields,
   apiPaginationFieldsValidator,
   ignoreWarningsBodyField,
+  bypassApprovalPublishBodyField,
   booleanQueryField,
   csvQueryField,
 } from "./shared";
@@ -163,11 +164,24 @@ export const attributionModel = [
 ] as const;
 export type AttributionModel = (typeof attributionModel)[number];
 
-export const implementationType = [
+/** @deprecated The old `implementation` field; always "code" today. */
+export const legacyImplementation = [
   "visual",
   "code",
   "configuration",
   "custom",
+] as const;
+export type LegacyImplementation = (typeof legacyImplementation)[number];
+
+// How the experiment reaches users. "multi" is derived for legacy experiments
+// with several kinds; "none" is deliberate; absent means undecided.
+export const implementationType = [
+  "values",
+  "feature",
+  "urlredirect",
+  "visual",
+  "multi",
+  "none",
 ] as const;
 export type ImplementationType = (typeof implementationType)[number];
 
@@ -457,7 +471,7 @@ export const experimentInterface = z
     project: z.string().optional(),
     owner: ownerField,
     /** @deprecated Always set to 'code' */
-    implementation: z.enum(implementationType),
+    implementation: z.enum(legacyImplementation),
     /** @deprecated */
     userIdType: z.enum(["anonymous", "user"]).optional(),
     hashAttribute: z.string(),
@@ -494,6 +508,7 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
+    implementationType: z.enum(implementationType).optional(),
     attributeScopeAllProjects: z.boolean().optional(),
     // Drafts queued for auto-publish on `status -> running`. Each
     // (featureId, revisionVersion) pair is its own row — multiple drafts of
@@ -976,6 +991,7 @@ const apiExperimentShape = z.object({
   attributeScopeAllProjects: z.boolean().optional(),
   hasVisualChangesets: z.boolean().optional(),
   hasURLRedirects: z.boolean().optional(),
+  implementationType: z.enum(implementationType).nullable().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   customMetricSlices: apiCustomMetricSlices.optional(),
   precomputedUnitDimensionIds: z
@@ -1420,6 +1436,12 @@ const postExperimentBody = z
       .optional(),
     name: z.string().describe("Name of the experiment"),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
+    implementationType: z
+      .enum(["values", "feature", "urlredirect", "visual", "none"])
+      .describe(
+        'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked. Changing a Values experiment: "feature" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag, and must be acknowledged with `ignoreWarnings: true` (without it the call returns 422 naming the flag).',
+      )
+      .optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1555,6 +1577,13 @@ const updateExperimentBody = z
       .optional(),
     name: z.string().describe("Name of the experiment").optional(),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
+    implementationType: z
+      .enum(["values", "feature", "urlredirect", "visual", "none"])
+      .describe(
+        'How the experiment reaches users. "values" is a Feature Flag managed by the experiment; "none" is analysis only. Fixed once a Feature Flag, Visual Editor change or URL Redirect is linked. Changing a Values experiment: "feature" detaches the managed flag (it stays linked as an ordinary Feature Flag); any other value deletes the managed flag, which is allowed only while the experiment is a draft and the caller may delete the flag, and must be acknowledged with `ignoreWarnings: true` (without it the call returns 422 naming the flag).',
+      )
+      .optional(),
+    bypassApproval: bypassApprovalPublishBodyField,
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1759,6 +1788,7 @@ const postExperimentStartBody = z
         "If true, skips validating the experiment satisifies all pre-launch checklist items",
       )
       .optional(),
+    bypassApproval: bypassApprovalPublishBodyField,
     ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict()
@@ -1989,6 +2019,61 @@ export const getExperimentNamesValidator = {
   path: "/experiment-names",
 };
 
+const linkedChangesField = z
+  .enum(["materialize", "remove"])
+  .optional()
+  .describe(
+    'Required while the experiment still serves through linked changes. "materialize" keeps a stopped experiment\'s released variation as a permanent force rule on each linked Feature Flag; "remove" acknowledges that the linked changes stop serving.',
+  );
+
+export const postExperimentArchiveValidator = {
+  bodySchema: z.object({ linkedChanges: linkedChangesField }).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({ experiment: apiExperimentWithEnhancedStatus })
+    .strict(),
+  summary: "Archive an experiment",
+  description:
+    "An archived experiment leaves the SDK payload. Refused while a running experiment or a temporary rollout still serves through linked changes unless `linkedChanges` says what happens to them.",
+  operationId: "postExperimentArchive",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/archive",
+};
+
+export const postExperimentUnarchiveValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({ experiment: apiExperimentWithEnhancedStatus })
+    .strict(),
+  summary: "Unarchive an experiment",
+  operationId: "postExperimentUnarchive",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/unarchive",
+};
+
+export const deleteExperimentValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ linkedChanges: linkedChangesField }).strict(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      deletedId: z.string().describe("The ID of the deleted experiment"),
+    })
+    .strict(),
+  summary: "Delete an experiment",
+  description:
+    'Archive first: a live experiment can only be deleted when the organization allows the REST API to bypass approval requirements. Linked Feature Flags lose their experiment rule and a managed flag is archived, unless `linkedChanges` is "materialize".',
+  operationId: "deleteExperiment",
+  tags: ["experiments"],
+  method: "delete" as const,
+  path: "/experiments/:id",
+};
+
 export const getExperimentValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
@@ -2089,7 +2174,7 @@ export const postExperimentStartValidator = {
     .strict(),
   summary: "Start/Stage an experiment",
   description:
-    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment.",
+    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Starting publishes any pending Feature Flag drafts linked to the experiment, including a Values experiment's pending variation values; when those still need approval the start fails with `pending_draft_publish_failed`, unless the caller has Bypass draft approvals access or the organization enables the REST API approval bypass, in which case approval is bypassed automatically.",
   operationId: "postExperimentStart",
   tags: ["experiments"],
   method: "post" as const,
@@ -2511,3 +2596,458 @@ export const getExperimentSnapshotValidator = {
   method: "get" as const,
   path: "/snapshots/:id",
 };
+
+// region Experiment variation values (the automatic implementation)
+//
+// Deliberately flat and unversioned: an experiment manages one Feature Flag with
+// one pending change at a time, so there is nothing to address by version. Kept
+// clear of revision vocabulary so a future experiment revision system can own
+// `/experiments/:id/revisions/...` without colliding with this.
+
+const apiVariationValue = namedSchema(
+  "ExperimentVariationValue",
+  z
+    .object({
+      variationId: z.string(),
+      value: z
+        .string()
+        .describe(
+          "The value as a string. Numbers and booleans are sent as strings; `json` values as a JSON-encoded string.",
+        ),
+    })
+    .strict(),
+);
+
+const apiVariationValueReview = namedSchema(
+  "ExperimentVariationValuesReview",
+  z
+    .object({
+      userId: z.string(),
+      status: z
+        .enum([
+          "approved",
+          "changes-requested",
+          "approved-stale",
+          "changes-requested-stale",
+        ])
+        .describe(
+          "`-stale` variants mean the values changed after this review was given.",
+        ),
+      timestamp: z.string().meta({ format: "date-time" }),
+    })
+    .strict(),
+);
+
+const managedValueType = z.enum(["string", "number", "boolean", "json"]);
+
+const apiPendingVariationValues = namedSchema(
+  "ExperimentPendingVariationValues",
+  z
+    .object({
+      version: z
+        .number()
+        .int()
+        .describe(
+          "The Feature Revision holding these values. Use it with the read-only Feature Revision endpoints (`diff`, `log`, `merge-status`) on the managed flag.",
+        ),
+      values: z.array(apiVariationValue),
+      valueType: managedValueType.describe(
+        "Value type these values will publish as. Differs from the live `valueType` while a type change is pending.",
+      ),
+      sparse: z
+        .boolean()
+        .describe(
+          "`json` only: each value is a partial object merged over the flag's default value.",
+        ),
+      environments: z
+        .array(z.string())
+        .describe(
+          "Environments where the experiment will be active once these values go live.",
+        ),
+      allEnvironments: z
+        .boolean()
+        .describe(
+          "Whether the experiment follows every environment, including ones added later.",
+        ),
+      status: z
+        .enum(["draft", "pending-review", "changes-requested", "approved"])
+        .describe("Where the pending values are in review."),
+      approvalRequired: z.boolean(),
+      canPublish: z
+        .boolean()
+        .describe(
+          "Whether `publish` would succeed right now. `publishBlockers` lists why not.",
+        ),
+      publishBlockers: z
+        .array(
+          z.enum([
+            "experiment-not-started",
+            "approval-required",
+            "stale-base",
+            "merge-conflict",
+            "unrelated-draft-changes",
+          ]),
+        )
+        .describe(
+          "Why `publish` would fail. `experiment-not-started`: pending values go live when the experiment starts. `approval-required`: get the values approved, or publish with Bypass draft approvals access. `stale-base`: call `rebase`. `merge-conflict`: call `discard`, or `detach` and resolve on the flag. `unrelated-draft-changes`: the draft also changes something outside these values; `detach` to publish it from the flag.",
+        ),
+      canBypassApproval: z
+        .boolean()
+        .describe(
+          "Whether this caller has Bypass draft approvals access and may publish before approval is given.",
+        ),
+      reviews: z.array(apiVariationValueReview),
+    })
+    .strict(),
+);
+
+const apiManagedFlagAdoption = namedSchema(
+  "ExperimentManagedFlagAdoption",
+  z
+    .object({
+      blocker: z
+        .string()
+        .nullable()
+        .describe(
+          "Why the experiment cannot create a managed Feature Flag right now, or null when it can.",
+        ),
+      derivedKey: z
+        .string()
+        .describe("The Feature Flag key `POST` would use by default."),
+      derivedKeyAvailable: z.boolean(),
+      suggestedTrackingKey: z
+        .string()
+        .nullable()
+        .describe(
+          "When the derived key is taken: a key that is free for both the experiment and the flag, or null when none was found.",
+        ),
+      suggestedFeatureKey: z.string().nullable(),
+      keyRegexError: z
+        .string()
+        .nullable()
+        .describe(
+          "Set when the derived key fails the organization's Feature Flag key format.",
+        ),
+    })
+    .strict(),
+);
+
+export const apiExperimentVariationValues = namedSchema(
+  "ExperimentVariationValues",
+  z
+    .object({
+      managed: z
+        .boolean()
+        .describe(
+          "Whether the experiment uses the Values implementation. When false, `adoption` says whether it could, and every other field is null or empty.",
+        ),
+      featureKey: z
+        .string()
+        .nullable()
+        .describe("Key of the managed Feature Flag, or null."),
+      valueType: managedValueType
+        .nullable()
+        .describe("Live value type, or null."),
+      sparse: z
+        .boolean()
+        .nullable()
+        .describe(
+          "`json` only: whether live values are partial objects merged over the flag's default value.",
+        ),
+      liveValues: z
+        .array(apiVariationValue)
+        .describe(
+          "The value each variation serves right now. Empty until the first publish.",
+        ),
+      environments: z
+        .array(z.string())
+        .describe("Environments where the experiment is currently active."),
+      allEnvironments: z
+        .boolean()
+        .describe(
+          "Whether the experiment follows every environment, including ones added later.",
+        ),
+      pending: apiPendingVariationValues
+        .nullable()
+        .describe(
+          "Values waiting to go live, or null when nothing is pending.",
+        ),
+      adoption: apiManagedFlagAdoption
+        .nullable()
+        .describe(
+          "Only when `managed` is false: whether `POST` can create the managed Feature Flag and which key it would use.",
+        ),
+    })
+    .strict(),
+);
+
+const variationValuesResponse = z
+  .object({ variationValues: apiExperimentVariationValues })
+  .strict();
+
+const commentBody = z
+  .object({
+    comment: z
+      .string()
+      .optional()
+      .describe("Recorded with the review request."),
+  })
+  .strict();
+
+export const getExperimentVariationValuesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Get variation values",
+  description:
+    "Returns the value each variation serves now (`liveValues`), the environments the experiment is active in, and any change waiting to go live (`pending`, with `publishBlockers` saying what stands between it and publishing). When the experiment does not use the Values implementation, `managed` is false and `adoption` says whether `POST` could create the managed Feature Flag.",
+  operationId: "getExperimentVariationValues",
+  tags: ["experiment-values"],
+  method: "get" as const,
+  path: "/experiments/:id/variation-values",
+};
+
+export const postExperimentVariationValuesValidator = {
+  bodySchema: z
+    .object({
+      valueType: managedValueType,
+      values: z
+        .array(apiVariationValue)
+        .describe("One entry per experiment variation."),
+      sparse: z
+        .boolean()
+        .optional()
+        .describe(
+          "`json` only: treat each value as a partial object merged over the flag's default value.",
+        ),
+      featureKey: z
+        .string()
+        .optional()
+        .describe(
+          "Create the Feature Flag under this key instead of one derived from the experiment key.",
+        ),
+      trackingKey: z
+        .string()
+        .optional()
+        .describe(
+          "Rename the experiment to this key first, so the Feature Flag key can match it.",
+        ),
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Create the managed Feature Flag",
+  description:
+    "Switches the experiment to the Values implementation. GrowthBook creates a Feature Flag keyed from the experiment key (or `featureKey`), links it to the experiment with a single experiment rule, and stages one value per variation as pending values. The experiment must be a draft with no other Feature Flags, Visual Editor changes, or URL Redirects linked. The values go live when the experiment starts.\n\nThe flag key is not adjusted automatically. If the derived key is already a Feature Flag, the call fails with code `feature_key_taken` and `details` naming the taken key plus a key that is free for both the experiment and the flag. Retry with `featureKey` to create the flag under a different key, or `trackingKey` to rename the experiment so the flag can share its key. `GET` reports the same information ahead of time in `adoption`.",
+  operationId: "postExperimentVariationValues",
+  possibleErrors: ["feature_key_taken"] as const,
+  tags: ["experiment-values"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      valueType: "string" as const,
+      values: [
+        { variationId: "var_control", value: "control" },
+        { variationId: "var_treatment", value: "treatment" },
+      ],
+    },
+  },
+};
+
+export const putExperimentVariationValuesValidator = {
+  bodySchema: z
+    .object({
+      values: z
+        .array(apiVariationValue)
+        .optional()
+        .describe(
+          "One entry per experiment variation. Omit to leave the values alone.",
+        ),
+      valueType: managedValueType
+        .optional()
+        .describe(
+          "Changes the flag's value type. Omit to keep the current type. Send `values` that are valid for the new type in the same request.",
+        ),
+      sparse: z
+        .boolean()
+        .optional()
+        .describe(
+          "`json` only: treat each value as a partial object merged over the flag's default value. Applies to the `values` sent with it.",
+        ),
+      environments: z
+        .union([z.literal("all"), z.array(z.string()).min(1)])
+        .optional()
+        .describe(
+          'Environments to run the experiment in: "all" or a list of environment ids. Omit to leave unchanged.',
+        ),
+    })
+    .strict()
+    .refine((b) => b.values !== undefined || b.environments !== undefined, {
+      message: "Send values, environments, or both.",
+    })
+    .refine(
+      (b) =>
+        b.values !== undefined ||
+        (b.valueType === undefined && b.sparse === undefined),
+      { message: "valueType and sparse apply to the values sent with them." },
+    ),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Update pending values",
+  description:
+    "Stages new values, a new value type, or new environments on the managed Feature Flag. If a pending change already exists the edits are added to it; otherwise one is started. Pending values can be revised any number of times before they go live. When the flag requires review, the pending values are sent for review automatically. Publishing is separate: pending values go live when the experiment starts, or through `publish` once it is running.",
+  operationId: "putExperimentVariationValues",
+  tags: ["experiment-values"],
+  method: "put" as const,
+  path: "/experiments/:id/variation-values",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      values: [
+        { variationId: "var_control", value: "control" },
+        { variationId: "var_treatment", value: "treatment-b" },
+      ],
+    },
+  },
+};
+
+export const postExperimentVariationValuesSubmitReviewValidator = {
+  bodySchema: z
+    .object({
+      action: z
+        .enum(["approve", "request-changes", "comment"])
+        .describe("The review to give."),
+      comment: z
+        .string()
+        .optional()
+        .describe("Recorded with the review. Required for `comment`."),
+    })
+    .strict()
+    .refine((b) => b.action !== "comment" || !!b.comment?.trim(), {
+      message: "comment is required when action is comment",
+      path: ["comment"],
+    }),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Submit a review on pending values",
+  description:
+    "Records an `approve`, `request-changes`, or `comment` review on the pending values. When the flag requires review, approval is what allows the pending values to publish. Users who edited the pending values cannot approve them when `blockSelfApproval` is enabled.",
+  operationId: "postExperimentVariationValuesSubmitReview",
+  tags: ["experiment-values"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/submit-review",
+};
+
+export const postExperimentVariationValuesPublishValidator = {
+  bodySchema: z
+    .object({
+      comment: z
+        .string()
+        .optional()
+        .describe("Recorded on the published revision."),
+      bypassApproval: bypassApprovalPublishBodyField,
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Publish pending values",
+  description:
+    'Makes the pending values live on the managed Feature Flag. Use only after the experiment has started; before that, pending values go live automatically when it starts. A blocked publish returns 422 with `gates` listing each blocker (`approval-required`, `stale-base`, `merge-conflict`) and the route that resolves it. Approval is bypassed automatically when the caller has Bypass draft approvals access or the organization enables the REST API approval bypass. A stale base is force-merged only with `ignoreWarnings: true` and that access; otherwise call `rebase`. `GET` reports the blockers ahead of time in `pending.publishBlockers`. To publish together with other changes, use `POST /releases/publish-revisions` with `entityType: "managed-feature"`.',
+  operationId: "postExperimentVariationValuesPublish",
+  tags: ["experiment-values"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/publish",
+};
+
+export const postExperimentVariationValuesDetachValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Detach the managed Feature Flag",
+  description:
+    "Stops managing the Feature Flag from the experiment. The flag keeps its experiment rule and stays linked, but from now on it is edited, reviewed, and published through the Feature Flags and Feature Revisions endpoints, and the experiment's `implementationType` becomes `feature`. Any pending values stay on the flag as an ordinary draft. The other endpoints in this group stop applying to the experiment.",
+  operationId: "postExperimentVariationValuesDetach",
+  tags: ["experiment-values"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/detach",
+};
+
+export const postExperimentVariationValuesRequestReviewValidator = {
+  bodySchema: commentBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Request review for pending values",
+  description:
+    "Saving values already requests review when the flag needs one. Use this after `recall-review`, or after a `request-changes` review, to resubmit the same values without editing them.",
+  operationId: "postExperimentVariationValuesRequestReview",
+  tags: ["experiment-values"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/request-review",
+};
+
+export const postExperimentVariationValuesRecallReviewValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Recall a review request (revert to draft)",
+  description:
+    "Withdraws the review request. The pending values return to `draft` status and any reviews on them stop counting; edit and request review again when ready.",
+  operationId: "postExperimentVariationValuesRecallReview",
+  tags: ["experiment-values"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/recall-review",
+};
+
+export const postExperimentVariationValuesUndoReviewValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Undo a reviewer's own review verdict",
+  description:
+    "Removes the approve or request-changes review the caller gave on the pending values. Other reviewers' reviews are untouched.",
+  operationId: "postExperimentVariationValuesUndoReview",
+  tags: ["experiment-values"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/undo-review",
+};
+
+export const postExperimentVariationValuesRebaseValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Rebase pending values onto the current live version",
+  description:
+    "Re-applies the pending values on top of the Feature Flag as it is live now. Use when `publish` reports `stale-base`, or when `GET` lists it in `pending.publishBlockers`. Reviews given before the rebase no longer count when the flag requires review. Fails with 409 `conflict` when the pending values and the live flag changed the same thing; `discard` is then the way out.",
+  operationId: "postExperimentVariationValuesRebase",
+  tags: ["experiment-values"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/rebase",
+};
+
+export const postExperimentVariationValuesDiscardValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: variationValuesResponse,
+  summary: "Discard pending values",
+  description:
+    "Throws away the pending values. The live values are untouched. Also use this when the pending values conflict with edits made directly on the flag and can no longer be published.",
+  operationId: "postExperimentVariationValuesDiscard",
+  tags: ["experiment-values"],
+  method: "post" as const,
+  path: "/experiments/:id/variation-values/discard",
+};
+// endregion Experiment variation values

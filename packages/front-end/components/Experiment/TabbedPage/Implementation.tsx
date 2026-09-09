@@ -8,10 +8,14 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { experimentHasLiveLinkedChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  getImplementationType,
+} from "shared/util";
 import { getActivePhaseIndex } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
+import { useManagedExperimentFlags } from "@/hooks/useManagedExperimentFlags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
@@ -43,6 +47,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editTraffic?: ((variationId?: string) => void) | null;
   addVariation?: (() => void) | null;
+  addVariationValues?: (() => void) | null;
   editNamespace?: (() => void) | null;
   editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
@@ -65,6 +70,7 @@ export default function Implementation({
   editTargeting,
   editTraffic,
   addVariation,
+  addVariationValues,
   editNamespace,
   editVariations,
   setFeatureModal,
@@ -107,6 +113,41 @@ export default function Implementation({
     experiment.hasVisualChangesets ||
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
+
+  // Keyed on the flag existing, not the org default: an experiment without one
+  // chose manual, and suppressing the chooser would strand it.
+  const { isManaged } = useManagedExperimentFlags({
+    experiment,
+    linkedFeatures,
+  });
+  const managedMode = isManaged;
+  const implementationType = getImplementationType(experiment);
+
+  // Keyed on the resolved implementation count, so a flag deleted out of band
+  // leaves adoption offered rather than stuck.
+  const canAdoptManagedFlag =
+    !isManaged &&
+    implementationType === "values" &&
+    linkedFeatures.length === 0 &&
+    !experiment.hasVisualChangesets &&
+    !experiment.hasURLRedirects &&
+    canEditExperiment &&
+    experiment.status === "draft" &&
+    !experiment.archived &&
+    !experiment.nextScheduledStatusUpdate &&
+    permissionsUtil.canViewFeatureModal(experiment.project);
+
+  // The cards can only name "the" served value with exactly one implementation.
+  const soleLinkedFeature =
+    linkedFeatures.length === 1 &&
+    !experiment.hasVisualChangesets &&
+    !experiment.hasURLRedirects
+      ? linkedFeatures[0]
+      : null;
+
+  // Nothing left for the panel to say: the values are on the variation cards,
+  // the traffic modal owns editing, and managed mode hides the add affordances.
+  const managedSoleImplementation = isManaged && !!soleLinkedFeature;
 
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
@@ -172,11 +213,17 @@ export default function Implementation({
             editTargeting={pendingScheduledStart ? null : editTargeting}
             editNamespace={pendingScheduledStart ? null : editNamespace}
             addVariation={pendingScheduledStart ? null : addVariation}
+            addVariationValues={
+              canAdoptManagedFlag && !pendingScheduledStart
+                ? addVariationValues
+                : null
+            }
             setEditVariationIndex={setEditMetadataIndex}
             canEditExperiment={canEditExperiment}
             safeToEdit={safeToEdit}
             mutate={mutate}
             phaseIndex={phases.length - 1}
+            servedValueFeature={soleLinkedFeature}
           />
         ) : (
           <TrafficAndTargeting
@@ -187,7 +234,11 @@ export default function Implementation({
           />
         )}
         {!isHoldout &&
-        (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
+        (!showTrafficFunnel ||
+          hasLinkedChanges ||
+          canAddLinkedChanges ||
+          managedSoleImplementation ||
+          implementationType === "values") ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -205,6 +256,13 @@ export default function Implementation({
             canEditExperiment={canEditExperiment}
             setEditVariationIndex={setEditMetadataIndex}
             hideVariations={showTrafficFunnel}
+            managedMode={managedMode}
+            valuesShownOnVariations={!!soleLinkedFeature && showTrafficFunnel}
+            onAddValues={
+              canAdoptManagedFlag && !pendingScheduledStart
+                ? (addVariationValues ?? undefined)
+                : undefined
+            }
           />
         ) : null}
 

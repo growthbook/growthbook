@@ -5,12 +5,20 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import {
+  canChangeImplementationType,
+  getImplementationType,
   getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
   isDefined,
   autoMerge,
   reconcileMergeBaselines,
   includeExperimentInPayload,
+  isManagedByExperiment,
+  isManagedFeature,
+  type ManagedFlagKeyPlan,
+  validateFeatureValue,
+  type ExperimentLinkageBlocker,
+  type LinkedChangesResolution,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -45,6 +53,11 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
+import {
+  ExperimentRefVariation,
+  FeatureInterface,
+  FeatureValueType,
+} from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -117,7 +130,13 @@ import {
   getContextForAgendaJobByOrgId,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
+import {
+  archiveExperimentWithCleanup,
+  deleteExperimentWithCleanup,
+  LinkedChangesBlockedError,
+  unarchiveExperimentWithCleanup,
+  assertCanChangeServing,
+} from "back-end/src/services/experimentRemoval";
 import {
   createPastExperiments,
   getPastExperimentsById,
@@ -141,15 +160,37 @@ import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperi
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  NotFoundError,
+  SoftWarningError,
+} from "back-end/src/util/errors";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
+  getManagedFlagIdsUnfiltered,
   getFeaturesByIds,
+  getManagedFlagsByExperiment,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
-import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
+import { getActiveDraft } from "back-end/src/models/FeatureRevisionModel";
+import {
+  adoptManagedFlagForExperiment,
+  assertManagedFlagCanMove,
+  clearManagedMarkersForExperiment,
+  createManagedFlagForNewExperiment,
+  discardManagedDraftIfNoop,
+  ejectManagedFeature,
+  getManagedFeatureForExperiment,
+  managedFlagAdoptionBlocker,
+  moveManagedFlagWithExperiment,
+  planManagedFlagKey,
+  publishManagedDraft,
+  releaseManagedFlagForImplementationChange,
+  removeManagedFeatureForExperiment,
+  requestReviewForManagedDraft,
+  stageManagedFeatureFields,
+} from "back-end/src/services/managedFeatures";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
@@ -169,6 +210,7 @@ import {
 import {
   ExperimentLinkedFeatureValueUpdate,
   updateExperimentRefVariations,
+  updateExperimentRuleEnvironments,
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
@@ -180,6 +222,23 @@ import {
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
+
+// Ownership lives on the flag, so a list row cannot answer this itself.
+export async function getManagedExperiments(
+  req: AuthRequest<unknown, unknown, { ids?: string }>,
+  res: Response<{ status: 200; managed: Record<string, string> }>,
+) {
+  const context = getContextFromReq(req);
+  const ids = (req.query?.ids || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+  res.status(200).json({
+    status: 200,
+    managed: await getManagedFlagsByExperiment(context, ids),
+  });
+}
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1144,6 +1203,7 @@ export async function getSnapshots(
  */
 export async function postExperiments(
   req: AuthRequest<
+    // Creation-time instruction; ownership lives on the flag.
     Partial<ExperimentInterfaceStringDates>,
     unknown,
     {
@@ -1227,6 +1287,28 @@ export async function postExperiments(
 
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
+
+  if (data.implementationType === "multi") {
+    res.status(400).json({
+      status: 400,
+      message: "implementationType cannot be set to multi",
+    });
+    return;
+  }
+  // Some entry points choose for the user: a flag rule, an import, a duplicate's source.
+  if (!data.implementationType) {
+    if (req.query.originalId) {
+      const original = await getExperimentById(context, req.query.originalId);
+      const inherited = original ? getImplementationType(original) : undefined;
+      if (inherited && inherited !== "multi") {
+        data.implementationType = inherited;
+      }
+    } else if (data.linkedFeatures?.length) {
+      data.implementationType = "feature";
+    } else if (req.query.autoRefreshResults) {
+      data.implementationType = "none";
+    }
+  }
 
   // TODO: Added as a hotfix. Remove when issue #5316 is fixed.
   // Filter out invalid metric ids from the data
@@ -1320,6 +1402,7 @@ export async function postExperiments(
     banditConversionWindowUnit: data.banditConversionWindowUnit,
     customFields: data.customFields || undefined,
     templateId: data.templateId || undefined,
+    implementationType: data.implementationType,
     shareLevel: data.shareLevel || "organization",
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
     holdoutId: holdoutId || undefined,
@@ -1488,6 +1571,34 @@ export async function postExperiments(
       type: "experiments",
     });
 
+    // A duplicate gets its own flag.
+    const originalExperiment = req.query.originalId
+      ? await getExperimentById(context, req.query.originalId)
+      : null;
+    const sourceManaged = originalExperiment
+      ? await getManagedFeatureForExperiment(context, originalExperiment)
+      : null;
+
+    if (sourceManaged) {
+      try {
+        await createManagedFlagForNewExperiment({
+          context,
+          experiment,
+          sourceExperiment: originalExperiment,
+          eventAudit: res.locals.eventAudit,
+          audit: req.audit,
+        });
+      } catch (e) {
+        await clearManagedMarkersForExperiment(context, experiment.id).catch(
+          () => undefined,
+        );
+        await deleteExperimentByIdForOrganization(context, experiment);
+        throw new Error(
+          `Could not create the managed Feature Flag for this experiment: ${e.message}`,
+        );
+      }
+    }
+
     res.status(200).json({
       status: 200,
       experiment,
@@ -1535,16 +1646,17 @@ export async function postExperiment(
     ...data
   } = req.body;
 
-  const experiment = await getExperimentById(context, id);
+  const foundExperiment = await getExperimentById(context, id);
   const aiSettings = await getAISettingsForOrg(context);
 
-  if (!experiment) {
+  if (!foundExperiment) {
     res.status(403).json({
       status: 404,
       message: "Experiment not found",
     });
     return;
   }
+  let experiment: ExperimentInterface = foundExperiment;
 
   if (experiment.organization !== org.id) {
     res.status(403).json({
@@ -1556,6 +1668,40 @@ export async function postExperiment(
 
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
+  }
+
+  if (data.implementationType === "multi") {
+    res.status(400).json({
+      status: 400,
+      message: "implementationType cannot be set to multi",
+    });
+    return;
+  }
+  // Against the flag actually managed, not the stored label; the release waits until every check passes.
+  let releaseManagedFlagFor: typeof data.implementationType;
+  if (data.implementationType !== undefined) {
+    const managed = await getManagedFeatureForExperiment(context, experiment);
+    const current = managed ? "values" : experiment.implementationType;
+    if (data.implementationType !== current) {
+      const afterRelease =
+        managed && data.implementationType !== "feature"
+          ? {
+              ...experiment,
+              linkedFeatures: (experiment.linkedFeatures ?? []).filter(
+                (id) => id !== managed.id,
+              ),
+            }
+          : experiment;
+      if (!canChangeImplementationType(afterRelease, data.implementationType)) {
+        res.status(400).json({
+          status: 400,
+          message:
+            "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
+        });
+        return;
+      }
+      if (managed) releaseManagedFlagFor = data.implementationType;
+    }
   }
 
   const attributeScope = lazyAttributeScope(() =>
@@ -1920,6 +2066,7 @@ export async function postExperiment(
     "sequentialTestingTuningParameter",
     "statsEngine",
     "type",
+    "implementationType",
     "banditStage",
     "banditScheduleValue",
     "banditScheduleUnit",
@@ -2179,12 +2326,27 @@ export async function postExperiment(
     }
   }
 
+  if ("project" in changes) {
+    await assertManagedFlagCanMove(context, experiment, changes.project ?? "");
+  }
   await validateExperimentChange({ context, experiment, changes });
+  if (releaseManagedFlagFor) {
+    experiment = await releaseManagedFlagForImplementationChange({
+      context,
+      experiment,
+      next: releaseManagedFlagFor,
+      audit: req.audit,
+      acknowledged: context.ignoreWarnings,
+    });
+  }
   const updated = await updateExperimentAndSync({
     context,
     experiment,
     changes,
   });
+  if ("project" in changes) {
+    await moveManagedFlagWithExperiment(context, updated);
+  }
   if (
     aiSettings.aiEnabled &&
     (changes.name || changes.description || changes.hypothesis)
@@ -2218,7 +2380,10 @@ export async function postExperiment(
 }
 
 export async function postExperimentArchive(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<
+    { linkedChanges?: LinkedChangesResolution } | null,
+    { id: string }
+  >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -2249,50 +2414,37 @@ export async function postExperimentArchive(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  changes.archived = true;
+  await assertCanChangeServing(context, experiment);
 
   try {
-    await validateExperimentChange({ context, experiment, changes });
-    await updateExperiment({
+    await archiveExperimentWithCleanup({
       context,
       experiment,
-      changes,
-    });
-
-    res.status(200).json({
-      status: 200,
-    });
-
-    await req.audit({
-      event: "experiment.archive",
-      entity: {
-        object: "experiment",
-        id: experiment.id,
-      },
+      linkedChanges: req.body?.linkedChanges,
+      eventAudit: res.locals.eventAudit,
+      audit: req.audit,
     });
   } catch (e) {
-    if (e instanceof SoftWarningError) throw e;
-    res.status(400).json({
-      status: 400,
-      message: e.message || "Failed to archive experiment",
-    });
+    if (e instanceof LinkedChangesBlockedError) {
+      res
+        .status(400)
+        .json({ status: 400, message: e.message, blocker: e.blocker });
+      return;
+    }
+    throw e;
   }
+
+  await req.audit({
+    event: "experiment.archive",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postExperimentUnarchive(
@@ -2325,16 +2477,10 @@ export async function postExperimentUnarchive(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
-
-  changes.archived = false;
+  await assertCanChangeServing(context, experiment);
 
   try {
-    await validateExperimentChange({ context, experiment, changes });
-    await updateExperiment({
-      context,
-      experiment,
-      changes,
-    });
+    await unarchiveExperimentWithCleanup({ context, experiment });
 
     res.status(200).json({
       status: 200,
@@ -2347,26 +2493,6 @@ export async function postExperimentUnarchive(
         id: experiment.id,
       },
     });
-
-    // Restore pendingFeatureDrafts: archive clears them, so re-sync each
-    // linked feature's revisions to rebuild the queue. Fire-and-forget.
-    const linkedFeatureIds = experiment.linkedFeatures ?? [];
-    if (linkedFeatureIds.length > 0) {
-      Promise.all(
-        linkedFeatureIds.map(async (featureId) => {
-          const { openDrafts, liveRevision } =
-            await getLinkageSyncRevisionSummaries(context.org.id, featureId);
-          return syncFeatureExperimentLinkages(
-            context,
-            featureId,
-            openDrafts,
-            liveRevision,
-          );
-        }),
-      ).catch((e) => {
-        logger.error(e, "syncFeatureExperimentLinkages failed on unarchive");
-      });
-    }
   } catch (e) {
     if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
@@ -3275,9 +3401,13 @@ export async function getWatchingUsers(
 }
 
 export async function deleteExperiment(
-  req: AuthRequest<ExperimentInterface, { id: string }>,
+  req: AuthRequest<
+    { linkedChanges?: LinkedChangesResolution } | null,
+    { id: string }
+  >,
   res: Response<
-    { status: 200 } | PrivateApiErrorResponse,
+    | { status: 200 }
+    | (PrivateApiErrorResponse & { blocker?: ExperimentLinkageBlocker }),
     EventUserForResponseLocals
   >,
 ) {
@@ -3307,9 +3437,10 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures = await getFeaturesByIds(
+    context,
+    experiment.linkedFeatures || [],
+  );
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -3324,25 +3455,22 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
-  const promises = [
-    // note: we might want to change this to change the status to
-    // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(context, experiment),
-    removeExperimentFromPresentations(experiment.id),
-  ];
-
-  await Promise.all(promises);
-
-  if (experiment.holdoutId) {
-    try {
-      await context.models.holdout.removeExperimentFromHoldout(
-        experiment.holdoutId,
-        experiment.id,
-      );
-    } catch (e) {
-      // This is not a fatal error, so don't block the request from happening
-      logger.warn(e, "Error removing experiment from holdout");
+  try {
+    await deleteExperimentWithCleanup({
+      context,
+      experiment,
+      linkedChanges: req.body?.linkedChanges,
+      eventAudit: res.locals.eventAudit,
+      audit: req.audit,
+    });
+  } catch (e) {
+    if (e instanceof LinkedChangesBlockedError) {
+      res
+        .status(400)
+        .json({ status: 400, message: e.message, blocker: e.blocker });
+      return;
     }
+    throw e;
   }
 
   await req.audit({
@@ -3763,81 +3891,11 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   return;
 }
 
-export async function deleteScreenshot(
-  req: AuthRequest<{ url: string }, { id: string; variation: number }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { id, variation } = req.params;
-  const { url } = req.body;
-  const changes: Changeset = {};
-
-  const experiment = await getExperimentById(context, id);
-
-  if (!experiment) {
-    res.status(403).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (experiment.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this experiment",
-    });
-    return;
-  }
-
-  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
-    context.permissions.throwPermissionError();
-  }
-
-  if (!experiment.variations[variation]) {
-    res.status(404).json({
-      status: 404,
-      message: "Unknown variation " + variation,
-    });
-    return;
-  }
-
-  changes.variations = cloneDeep(experiment.variations);
-
-  // TODO: delete from s3 as well?
-  changes.variations[variation].screenshots = changes.variations[
-    variation
-  ].screenshots.filter((s) => s.path !== url);
-  await validateExperimentChange({ context, experiment, changes });
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes,
-  });
-
-  await req.audit({
-    event: "experiment.screenshot.delete",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsUpdate(
-      experiment.variations[variation].screenshots,
-      updated?.variations[variation].screenshots,
-      { variation },
-    ),
-  });
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
 type AddScreenshotRequestBody = {
   url: string;
   description?: string;
 };
+
 export async function addScreenshot(
   req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
   res: Response,
@@ -4304,7 +4362,8 @@ export async function postExperimentFeatureValues(
   req: AuthRequest<
     {
       variations: Variation[];
-      variationWeights: number[];
+      /** Required while the experiment is a draft; ignored once it has started. */
+      variationWeights?: number[];
       features: Record<string, ExperimentLinkedFeatureValueUpdate>;
     },
     { id: string }
@@ -4324,13 +4383,47 @@ export async function postExperimentFeatureValues(
     return;
   }
 
-  if (experiment.status !== "draft") {
-    res.status(400).json({
-      status: 400,
-      message:
-        "Editing feature values from an experiment is only allowed for experiments in draft. To edit feature values for a running experiment, edit the values from the feature flags directly.",
-    });
-    return;
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  // Make sure features ids are valid for the experiment
+  Object.keys(features).forEach((featureId) => {
+    if (!linkedFeatureIds.includes(featureId)) {
+      throw new Error(`Feature ${featureId} is not linked to the experiment`);
+    }
+  });
+
+  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
+
+  // Once started: drafts and variation metadata only.
+  const structureLocked = experiment.status !== "draft";
+  if (structureLocked) {
+    const autoPublishingShared = featureObjects.find(
+      (f) =>
+        features[f.id].revisionOptions.autoPublish &&
+        !isManagedByExperiment(f, experiment.id),
+    );
+    if (autoPublishingShared) {
+      res.status(400).json({
+        status: 400,
+        message: `Feature ${autoPublishingShared.id}: publishing from a running experiment is only allowed for a Feature Flag it manages. Publish the draft from the feature flag directly.`,
+      });
+      return;
+    }
+    const sameStructure =
+      variations.length === experiment.variations.length &&
+      variations.every(
+        (v, i) =>
+          v.id === experiment.variations[i].id &&
+          v.key === experiment.variations[i].key,
+      );
+    if (!sameStructure) {
+      res.status(400).json({
+        status: 400,
+        message:
+          "Variation ids and keys cannot change once an experiment has started.",
+      });
+      return;
+    }
   }
 
   if (!experiment.phases?.length) {
@@ -4346,33 +4439,31 @@ export async function postExperimentFeatureValues(
     experiment.variations.map((v) => v.key),
   );
   validateVariationIds(variations);
+
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+  const effectiveWeights = structureLocked
+    ? latestPhase.variationWeights
+    : variationWeights;
+  if (!effectiveWeights) {
+    res.status(400).json({
+      status: 400,
+      message: "variationWeights is required for a draft experiment",
+    });
+    return;
+  }
   validateExperimentFeatureVariations({
     variations,
-    variationWeights,
+    variationWeights: effectiveWeights,
     experiment,
     features,
   });
 
-  const latestPhase = experiment.phases[experiment.phases.length - 1];
-
   const variationsChanged = !isEqual(variations, experiment.variations);
-  const variationWeightsChanged = !isEqual(
-    variationWeights,
-    latestPhase.variationWeights,
-  );
+  const variationWeightsChanged =
+    !structureLocked &&
+    !isEqual(effectiveWeights, latestPhase.variationWeights);
 
   const changes: Changeset = {};
-
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  // Make sure features ids are valid for the experiment
-  Object.keys(features).forEach((featureId) => {
-    if (!linkedFeatureIds.includes(featureId)) {
-      throw new Error(`Feature ${featureId} is not linked to the experiment`);
-    }
-  });
-
-  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -4402,7 +4493,7 @@ export async function postExperimentFeatureValues(
     const updatedPhases = [...basePhases];
     updatedPhases[lastIndex] = {
       ...updatedPhases[lastIndex],
-      variationWeights,
+      variationWeights: effectiveWeights,
     };
     changes.phases = updatedPhases;
   }
@@ -4421,6 +4512,17 @@ export async function postExperimentFeatureValues(
     if (!context.permissions.canEditFeatureDrafts(feature)) {
       context.permissions.throwPermissionError();
     }
+  }
+
+  // One draft on a managed flag; the caller's revision choice is replaced with it.
+  for (const f of featureObjects) {
+    const entry = features[f.id];
+    if (!entry || !isManagedByExperiment(f, experiment.id)) continue;
+    if (entry.revisionOptions?.autoPublish) continue;
+    const openDraft = await getActiveDraft(context, f);
+    entry.revisionOptions = openDraft
+      ? { targetVersion: openDraft.version }
+      : { forceNewDraft: true };
   }
 
   // Validate feature updates and get update plans for each feature before applying any changes
@@ -4455,9 +4557,38 @@ export async function postExperimentFeatureValues(
     const orgEnvIds = context.environments;
     const updatedVariationValues = features[feature.id].variations;
 
-    const revision = existingRevision
+    let revision = existingRevision
       ? existingRevision
       : await getDraftRevision(context, feature, feature.version);
+
+    // Staged before the values so both land on one draft and publish together.
+    const requestedType = features[feature.id].valueType;
+    const managedHere = isManagedByExperiment(feature, experiment.id);
+    if (requestedType && requestedType !== feature.valueType && !managedHere) {
+      throw new Error(
+        `Feature ${feature.id}: only a Feature Flag managed by this experiment can change its value type here.`,
+      );
+    }
+    if (managedHere) {
+      const landingType =
+        requestedType ?? revision.metadata?.valueType ?? feature.valueType;
+      updatedVariationValues.forEach((v, i) => {
+        v.value = validateFeatureValue(
+          { valueType: landingType },
+          v.value,
+          `Variation ${i}`,
+        );
+      });
+      // Control drives a managed flag's default.
+      revision = await stageManagedFeatureFields({
+        context,
+        feature,
+        revision,
+        ...(requestedType && { valueType: requestedType }),
+        defaultValue: updatedVariationValues[0].value,
+        eventAudit: res.locals.eventAudit,
+      });
+    }
 
     const updatedRevision = await updateExperimentRefVariations({
       context,
@@ -4468,6 +4599,28 @@ export async function postExperimentFeatureValues(
       sparse: features[feature.id].sparse,
       user: res.locals.eventAudit,
     });
+
+    if (
+      !autoPublish &&
+      managedHere &&
+      (await discardManagedDraftIfNoop({
+        context,
+        feature,
+        revision: updatedRevision,
+        eventAudit: res.locals.eventAudit,
+      }))
+    ) {
+      continue;
+    }
+
+    if (!autoPublish && isManagedFeature(feature)) {
+      await requestReviewForManagedDraft({
+        context,
+        feature,
+        version: updatedRevision.version,
+        eventAudit: res.locals.eventAudit,
+      });
+    }
 
     if (autoPublish) {
       const { live, base } = await getLiveAndBaseRevisionsForFeature({
@@ -4530,6 +4683,57 @@ export async function postExperimentFeatureValues(
   });
 }
 
+export async function postExperimentLinkedFeatureEnvironments(
+  req: AuthRequest<
+    {
+      allEnvironments: boolean;
+      environments?: string[];
+      targetVersion?: number;
+    },
+    { id: string; featureId: string }
+  >,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { id, featureId } = req.params;
+  const { allEnvironments, environments = [], targetVersion } = req.body;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const feature = await getFeature(context, featureId);
+  if (!feature) {
+    throw new NotFoundError("Feature not found");
+  }
+
+  const { version } = await updateExperimentRuleEnvironments({
+    context,
+    experiment,
+    feature,
+    allEnvironments,
+    environments,
+    targetVersion,
+    eventAudit: res.locals.eventAudit,
+  });
+
+  if (isManagedByExperiment(feature, experiment.id)) {
+    await requestReviewForManagedDraft({
+      context,
+      feature,
+      version,
+      eventAudit: res.locals.eventAudit,
+    });
+  }
+
+  res.status(200).json({ status: 200, version });
+}
+
 export async function deleteExperimentLinkedFeature(
   req: AuthRequest<null, { id: string; featureId: string }>,
   res: Response,
@@ -4556,7 +4760,161 @@ export async function deleteExperimentLinkedFeature(
     context.permissions.throwPermissionError();
   }
 
+  // Unfiltered: an unreadable flag is still managed.
+  const managedIds = await getManagedFlagIdsUnfiltered(context, id);
+  if (managedIds.includes(featureId)) {
+    throw new Error(
+      "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
+    );
+  }
+
   await unlinkFeatureFromExperiment(context, id, featureId);
 
   res.status(200).json({ status: 200 });
+}
+
+export async function getExperimentManagedFlagKeyPlan(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    blocker: string | null;
+    keyPlan: ManagedFlagKeyPlan;
+  }>,
+) {
+  const context = getContextFromReq(req);
+  const experiment = await getExperimentById(context, req.params.id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  res.status(200).json({
+    status: 200,
+    blocker: await managedFlagAdoptionBlocker(context, experiment),
+    keyPlan: await planManagedFlagKey({ context, experiment }),
+  });
+}
+
+export async function postExperimentManagedFlag(
+  req: AuthRequest<
+    {
+      valueType: FeatureValueType;
+      variations: ExperimentRefVariation[];
+      sparse?: boolean;
+      /** Create under this exact key instead of the derived one. */
+      featureId?: string;
+      /** Rename the experiment to this key first, so the pair matches. */
+      trackingKey?: string;
+    },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; feature: FeatureInterface; version: number },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+
+  const experiment = await getExperimentById(context, req.params.id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { feature, version } = await adoptManagedFlagForExperiment({
+    context,
+    experiment,
+    valueType: req.body.valueType,
+    variations: req.body.variations,
+    sparse: req.body.sparse,
+    featureId: req.body.featureId,
+    trackingKey: req.body.trackingKey,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+  });
+
+  res.status(200).json({ status: 200, feature, version });
+}
+
+export async function postExperimentManagedFlagPublish(
+  req: AuthRequest<{ bypassApproval?: boolean } | null, { id: string }>,
+  res: Response<
+    { status: 200; feature: FeatureInterface },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const feature = await publishManagedDraft({
+    context,
+    experiment,
+    bypassApproval:
+      !!req.body?.bypassApproval &&
+      context.permissions.canBypassFlagApprovalChecks(experiment, "feature"),
+    audit: req.audit,
+  });
+
+  res.status(200).json({ status: 200, feature });
+}
+
+export async function postExperimentManagedFlagRemove(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const experiment = await getExperimentById(context, req.params.id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+  await removeManagedFeatureForExperiment(context, experiment, req.audit);
+  res.status(200).json({ status: 200 });
+}
+
+export async function postExperimentManagedFlagEject(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    { status: 200; feature: FeatureInterface },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new NotFoundError("Experiment not found");
+  }
+
+  if (!context.permissions.canUpdateExperiment(experiment, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const managed = await getManagedFeatureForExperiment(context, experiment);
+  if (!managed) {
+    throw new Error("This experiment does not manage a Feature Flag.");
+  }
+
+  const feature = await ejectManagedFeature({
+    context,
+    feature: managed,
+    experimentId: id,
+    audit: req.audit,
+  });
+
+  res.status(200).json({ status: 200, feature });
 }

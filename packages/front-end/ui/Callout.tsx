@@ -36,6 +36,9 @@ export default forwardRef<
     style?: React.CSSProperties;
     icon?: ReactNode | null;
     action?: ReactNode;
+    // "center" centres icon, body and action against each other rather than
+    // pinning them to the first text line.
+    contentAlign?: "start" | "center";
     role?: string;
   } & (DismissibleProps | UndismissibleProps) &
     MarginProps
@@ -47,6 +50,7 @@ export default forwardRef<
     style,
     icon,
     action,
+    contentAlign = "start",
     dismissible = false,
     id,
     renderWhenDismissed,
@@ -99,13 +103,20 @@ export default forwardRef<
       variant="soft"
     >
       {renderedIcon ? (
-        <RadixCallout.Icon style={{ height: lineHeight }}>
+        // Centred: shrink to the glyph so flexbox can centre it.
+        <RadixCallout.Icon
+          style={
+            contentAlign === "center"
+              ? { height: "auto", alignSelf: "center" }
+              : { height: lineHeight }
+          }
+        >
           {renderedIcon}
         </RadixCallout.Icon>
       ) : null}
       <Flex
         wrap="wrap"
-        align="start"
+        align={contentAlign}
         gapX="3"
         gapY="3"
         flexGrow="1"
@@ -121,10 +132,26 @@ export default forwardRef<
         >
           {children}
         </Text>
-        {action ? <Box className={styles.firstLineSlot}>{action}</Box> : null}
+        {action ? (
+          <Box
+            className={
+              contentAlign === "center"
+                ? styles.centeredSlot
+                : styles.firstLineSlot
+            }
+          >
+            {action}
+          </Box>
+        ) : null}
       </Flex>
       {dismissible && id ? (
-        <Box className={styles.firstLineSlot}>
+        <Box
+          className={
+            contentAlign === "center"
+              ? styles.centeredSlot
+              : styles.firstLineSlot
+          }
+        >
           <Tooltip content="Dismiss">
             <IconButton
               variant="ghost"

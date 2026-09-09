@@ -23,7 +23,7 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
-import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
+import ExperimentManagedTrafficModal from "@/components/Experiment/ExperimentManagedTrafficModal";
 import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
@@ -153,6 +153,12 @@ const ExperimentPage = (): ReactElement => {
         setTrafficModalOpen(true);
       }
     : null;
+  const addVariationValues = canRunExperiment
+    ? () => {
+        setTrafficFocusVariation(null);
+        setTrafficModalOpen(true);
+      }
+    : null;
   const editNamespace = canRunExperiment
     ? () => setNamespaceModalOpen(true)
     : null;
@@ -262,7 +268,7 @@ const ExperimentPage = (): ReactElement => {
         />
       )}
       {trafficModalOpen && (
-        <EditTrafficModal
+        <ExperimentManagedTrafficModal
           close={() => {
             setTrafficModalOpen(false);
             setTrafficFocusVariation(null);
@@ -322,6 +328,7 @@ const ExperimentPage = (): ReactElement => {
           editTargeting={editTargeting}
           editTraffic={editTraffic}
           addVariation={addVariation}
+          addVariationValues={addVariationValues}
           editNamespace={editNamespace}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}

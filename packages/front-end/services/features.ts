@@ -45,6 +45,7 @@ import {
   HoldoutInterface,
   RevisionRampAction,
   SafeRolloutRule,
+  stripUnknownRuleFields,
 } from "shared/validators";
 import {
   featurePublishFootprint,
@@ -888,6 +889,13 @@ export function validateFeatureRule(
     if (rule.type === "rollout" && (rule.coverage < 0 || rule.coverage > 1)) {
       throw new Error("Rollout percent must be between 0 and 1");
     }
+  }
+
+  // The form carries widget-only fields for every rule type; drop the ones
+  // this type does not store, or they persist and diff forever.
+  const stripped = stripUnknownRuleFields(ruleCopy);
+  if (Object.keys(stripped).length !== Object.keys(ruleCopy).length) {
+    return stripped;
   }
 
   return hasChanges ? ruleCopy : null;

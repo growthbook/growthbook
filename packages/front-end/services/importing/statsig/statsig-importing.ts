@@ -1920,7 +1920,10 @@ export async function runImport(options: RunImportOptions) {
             // Use POST to create new experiment
             experimentRes = await apiCall(`/experiments`, {
               method: "POST",
-              body: JSON.stringify(transformedExperiment),
+              body: JSON.stringify({
+                ...transformedExperiment,
+                implementationType: "feature",
+              }),
             });
           }
 

@@ -23,6 +23,7 @@ const openApiTags = [
   "fact-metrics",
   "metrics",
   "experiments",
+  "experiment-values",
   "namespaces",
   "snapshots",
   "dimensions",
@@ -75,12 +76,12 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   "features-v2": {
     display: "Feature Flags",
     description:
-      "Control your feature flags programatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment.",
+      "Control your feature flags programatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment. A Feature Flag managed by an experiment refuses writes here with 403 `feature_managed_by_experiment`; change it through the Experiment Values endpoints.",
   },
   "feature-revisions-v2": {
     display: "Feature Revisions",
     description:
-      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\nRevision `rules` is a flat array with per-rule scope fields.",
+      "Draft revisions for feature flags, including rules, scheduling, and approval workflows.\n\nRevision `rules` is a flat array with per-rule scope fields. A Feature Flag managed by an experiment refuses writes here with 403 `feature_managed_by_experiment`; change it through the Experiment Values endpoints.",
   },
   "ramp-schedules": {
     display: "Ramp Schedules",
@@ -108,6 +109,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   experiments: {
     display: "Experiments",
     description: "Experiments (A/B Tests)",
+  },
+  "experiment-values": {
+    display: "Experiment Values",
+    description:
+      "An experiment with the **Values** implementation serves one value per variation through a Feature Flag that GrowthBook creates and manages for it (the *managed flag*). The flag carries a single experiment rule, and its values, value type, and environments are edited through these endpoints rather than through the Feature Flags endpoints, which refuse writes to a managed flag.\n\nEdits are staged as **pending values**, a draft on the managed flag. When the flag requires review, pending values go through the same approval as any Feature Flag revision. The usual flow is: `POST` to create the flag, `PUT` to set values (this requests review automatically when one is needed), reviewers call `submit-review`, then `POST /experiments/{id}/start` publishes the values as the experiment starts. On a running experiment, `PUT` again and call `publish`. `GET` returns the live values, the pending change, and `publishBlockers` naming anything that would stop a publish.\n\nTo back out: `recall-review` withdraws your review request but keeps the values; `undo-review` withdraws a review you gave as a reviewer; `discard` deletes the pending change and keeps the live values; `detach` keeps everything and hands the flag over to the Feature Flags and Feature Revisions endpoints.",
   },
   namespaces: {
     display: "Namespaces",

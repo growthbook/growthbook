@@ -7,6 +7,7 @@ import {
   DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
+import { getImplementationType } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -655,6 +656,14 @@ export function upgradeExperimentDoc(
   orig: LegacyExperimentInterface,
 ): ExperimentInterface {
   const experiment = cloneDeep(orig);
+
+  // Linkages outrank the stored type; unset when nothing is linked so the picker stays open.
+  const effectiveImplementationType = getImplementationType(experiment);
+  if (effectiveImplementationType) {
+    experiment.implementationType = effectiveImplementationType;
+  } else {
+    delete experiment.implementationType;
+  }
 
   // Add missing variation keys and ids
   experiment.variations.forEach((v, i) => {

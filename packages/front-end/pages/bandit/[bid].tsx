@@ -24,7 +24,7 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
-import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
+import ExperimentManagedTrafficModal from "@/components/Experiment/ExperimentManagedTrafficModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -138,6 +138,12 @@ const BanditExperimentPage = (): ReactElement => {
     ? () => {
         setTrafficFocusVariation(null);
         setAddVariationOnOpen(true);
+        setTrafficModalOpen(true);
+      }
+    : null;
+  const addVariationValues = canRunExperiment
+    ? () => {
+        setTrafficFocusVariation(null);
         setTrafficModalOpen(true);
       }
     : null;
@@ -290,7 +296,7 @@ const BanditExperimentPage = (): ReactElement => {
         />
       )}
       {trafficModalOpen && (
-        <EditTrafficModal
+        <ExperimentManagedTrafficModal
           close={() => {
             setTrafficModalOpen(false);
             setTrafficFocusVariation(null);
@@ -334,6 +340,7 @@ const BanditExperimentPage = (): ReactElement => {
           editTargeting={editTargeting}
           editTraffic={editTraffic}
           addVariation={addVariation}
+          addVariationValues={addVariationValues}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
         />

@@ -4,33 +4,34 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { MdArrowBackIosNew, MdArrowForwardIos } from "react-icons/md";
 import { PiCameraSlashLight } from "react-icons/pi";
-import Modal from "@/components/Modal";
+import Modal from "@/ui/Modal";
 import AuthorizedImage from "@/components/AuthorizedImage";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Button from "@/ui/Button";
+import VariationLabel from "@/ui/VariationLabel";
+import VisuallyHidden from "@/ui/VisuallyHidden";
 import styles from "./ExperimentCarouselModal.module.scss";
 
+// Wide enough for the Close button, and reserved on both sides so the
+// thumbnail strip sits in the middle of the footer.
+const CLOSE_SLOT = "72px";
+
 const ExperimentCarouselModal: FC<{
-  deleteImage?: (variantId: number, screenshotPath: string) => Promise<void>;
   experiment: ExperimentInterfaceStringDates;
   currentVariation: string;
   currentScreenshot: number;
   imageCache: Record<string, { url: string; expiresAt: string }>;
   close: () => void;
-  mutate?: () => void;
   restrictVariation?: boolean;
 }> = ({
-  deleteImage,
   experiment,
   currentVariation,
   currentScreenshot,
   imageCache,
   close,
-  mutate,
   restrictVariation = false,
 }) => {
   const [variantId, setVariationId] = useState(currentVariation);
   const [screenshotIndex, setScreenshotIndex] = useState(currentScreenshot);
-  const [zoom, setZoom] = useState(false);
 
   // loop through all experiment variations and get a map of all screenshots, with the variant id and info
   const orderedVariants = getLatestPhaseVariations(experiment);
@@ -126,7 +127,6 @@ const ExperimentCarouselModal: FC<{
   );
 
   const variant = variantMap.get(variantId);
-  const variantIndex = variant?.index;
   const screenshot = getScreenshot(variantId, screenshotIndex);
   const nextScreenshot = getNextScreenshot(variantId, screenshotIndex);
   const prevScreenshot = getPreviousScreenshot(variantId, screenshotIndex);
@@ -172,18 +172,25 @@ const ExperimentCarouselModal: FC<{
   if (!variant || !screenshot) return null;
 
   return (
-    <Modal
-      useRadixButton={false}
-      trackingEventModalType=""
+    // Radix-based so it can open from inside another Radix dialog; the legacy
+    // modal portals underneath one and the image would render behind it.
+    <Modal.Root
       open={true}
-      header={null}
-      close={close}
-      bodyClassName="d-flex justify-content-center align-items-center"
+      onOpenChange={(open) => {
+        if (!open) close();
+      }}
       size="max"
-      sizeY="max"
-      hideCta={true}
+      padding="even"
+      dismissible
+      showCloseButton
+      hasDescription={false}
+      trackingEventModalType=""
     >
-      <Flex direction="column" gap="2" height="100%" width="100%">
+      {/* Radix labels the dialog by its title; this viewer shows none. */}
+      <VisuallyHidden>
+        <Modal.Title>Screenshots</Modal.Title>
+      </VisuallyHidden>
+      <Flex direction="column" gap="2" height="100%" width="100%" minHeight="0">
         <Flex
           gap="3"
           align="center"
@@ -196,7 +203,7 @@ const ExperimentCarouselModal: FC<{
             {prevScreenshot ? (
               <Box className={styles.carouselnav} onClick={goToPrevious}>
                 <span className="sr-only">Previous</span>
-                <MdArrowBackIosNew />
+                <MdArrowBackIosNew size={22} />
               </Box>
             ) : null}
           </Box>
@@ -206,17 +213,12 @@ const ExperimentCarouselModal: FC<{
             flexBasis={"100%"}
             height="100%"
             className={styles.imageContainer}
-            style={{
-              textAlign: "center",
-              cursor: zoom ? "zoom-out" : "zoom-in",
-              overflow: zoom ? "scroll" : "",
-            }}
-            onClick={() => setZoom(!zoom)}
+            style={{ textAlign: "center" }}
           >
             {/* image container */}
             <AuthorizedImage
               imageCache={imageCache}
-              className={`experiment-image ${styles.mainimage}`}
+              className="experiment-image"
               src={screenshot.path}
               key={screenshot.path}
               onErrorMsg={(msg) => {
@@ -241,8 +243,8 @@ const ExperimentCarouselModal: FC<{
                 );
               }}
               style={{
-                width: zoom ? "auto" : "100%",
-                height: zoom ? "auto" : "100%",
+                width: "100%",
+                height: "100%",
                 objectFit: "contain",
                 // these are to center the loading spinner:
                 display: "inline-flex",
@@ -255,110 +257,110 @@ const ExperimentCarouselModal: FC<{
             {nextScreenshot ? (
               <Box onClick={goToNext} className={styles.carouselnav}>
                 <span className="sr-only">Next</span>
-                <MdArrowForwardIos />
+                <MdArrowForwardIos size={22} />
               </Box>
             ) : null}
           </Box>
         </Flex>
         <Flex direction="column" align="center">
-          {/* title & description */}
-          <h4>{variant.name}</h4>
-          <p>{variant.description}</p>
-        </Flex>
-        <Flex width="100%" align="center" justify="between">
-          <Box flexBasis="70px" flexGrow="0"></Box>
-          <Flex gap="2" justify="center" wrap="wrap" flexBasis="100%">
-            {orderedVariants.map((variant, variantIndex) =>
-              variant.screenshots.length > 0 &&
-              (!restrictVariation || variant.id === variantId)
-                ? variant.screenshots.map((screenshot, index) => (
-                    <Box
-                      key={`${variant.id}-${index}`}
-                      onClick={() => {
-                        setVariationId(variant.id);
-                        setScreenshotIndex(index);
-                      }}
-                      style={{
-                        cursor: "pointer",
-                        borderRadius: "5px",
-                        border:
-                          variant.id === variantId && screenshotIndex === index
-                            ? "2px solid var(--text-link-color)"
-                            : "2px solid transparent",
-                      }}
-                      title={`${variant.name} - screenshot ${index + 1}`}
-                    >
-                      <Box
-                        className={`variation variation${variantIndex} with-small-border`}
-                        style={{ borderRadius: "4px", overflow: "hidden" }}
-                      >
-                        <AuthorizedImage
-                          imageCache={imageCache}
-                          src={screenshot.path}
-                          onErrorMsg={(msg) => {
-                            return (
-                              <Flex
-                                title={msg}
-                                align="center"
-                                justify="center"
-                                className="appbox mb-0"
-                                width="100%"
-                                style={{
-                                  backgroundColor: "var(--slate-a3)",
-                                  height: "46px",
-                                  width: "50px",
-                                  color: "var(--slate-a9)",
-                                }}
-                              >
-                                <Text size="8">
-                                  <PiCameraSlashLight />
-                                </Text>
-                              </Flex>
-                            );
-                          }}
-                          style={{
-                            width: "50px",
-                            height: "46px",
-                            textAlign: "center",
-                            objectFit: "cover",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                  ))
-                : null,
-            )}
-          </Flex>
-          <Box flexBasis="70px" flexGrow="0">
-            {deleteImage && (
-              <DeleteButton
-                displayName="Screenshot"
-                text="Delete"
-                onClick={async () => {
-                  if (variantIndex == null) return;
-                  await deleteImage(variantIndex, screenshot.path);
-                  if (mutate) {
-                    mutate();
-                    if (prevScreenshot) {
-                      goToPrevious();
-                    } else if (nextScreenshot) {
-                      goToNext();
-                    } else {
-                      close();
-                    }
-                  } else {
-                    close();
-                  }
-                }}
-              />
-            )}
-          </Box>
+          <VariationLabel
+            number={orderedVariants.findIndex((v) => v.id === variantId)}
+            name={variant.name}
+            size="lg"
+          />
         </Flex>
       </Flex>
-    </Modal>
+      <Modal.Footer justify="between" align="center">
+        {/* Mirrors the Close slot, so the strip centres on the footer rather
+            than on whatever space is left beside the button. */}
+        <Box width={CLOSE_SLOT} flexShrink="0" />
+        <Flex
+          gap="4"
+          align="center"
+          wrap="wrap"
+          justify="center"
+          flexGrow="1"
+          minWidth="0"
+        >
+          {orderedVariants.map((variant) =>
+            variant.screenshots.length > 0 &&
+            (!restrictVariation || variant.id === variantId)
+              ? variant.screenshots.map((screenshot, index) => (
+                  <Box
+                    key={`${variant.id}-${index}`}
+                    onClick={() => {
+                      setVariationId(variant.id);
+                      setScreenshotIndex(index);
+                    }}
+                    style={{
+                      cursor: "pointer",
+                      borderRadius: "5px",
+                      boxShadow:
+                        variant.id === variantId && screenshotIndex === index
+                          ? "0 0 0 2px var(--violet-9)"
+                          : "0 0 0 2px var(--slate-a6)",
+                    }}
+                    title={`${variant.name} - screenshot ${index + 1}`}
+                  >
+                    <Box
+                      style={{
+                        borderRadius: "4px",
+                        overflow: "hidden",
+                        // Not the variation colour: the ring already says which
+                        // thumbnail is selected, and a tinted mat behind a
+                        // screenshot reads as part of the image.
+                        background: "var(--slate-a3)",
+                      }}
+                    >
+                      <AuthorizedImage
+                        imageCache={imageCache}
+                        src={screenshot.path}
+                        onErrorMsg={(msg) => {
+                          return (
+                            <Flex
+                              title={msg}
+                              align="center"
+                              justify="center"
+                              className="appbox mb-0"
+                              width="100%"
+                              style={{
+                                backgroundColor: "var(--slate-a3)",
+                                height: "46px",
+                                width: "50px",
+                                color: "var(--slate-a9)",
+                              }}
+                            >
+                              <Text size="8">
+                                <PiCameraSlashLight />
+                              </Text>
+                            </Flex>
+                          );
+                        }}
+                        style={{
+                          width: "50px",
+                          height: "46px",
+                          textAlign: "center",
+                          objectFit: "cover",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                ))
+              : null,
+          )}
+        </Flex>
+        <Flex width={CLOSE_SLOT} flexShrink="0" justify="end">
+          <Modal.Close>
+            <Button variant="ghost" onClick={close}>
+              Close
+            </Button>
+          </Modal.Close>
+        </Flex>
+      </Modal.Footer>
+    </Modal.Root>
   );
 };
 

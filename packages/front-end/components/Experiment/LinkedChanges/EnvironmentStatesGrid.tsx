@@ -1,4 +1,5 @@
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { LinkedFeatureEnvState } from "shared/types/experiment";
 import {
   PiCaretDown,
   PiCaretRight,
@@ -10,12 +11,87 @@ import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 
-type EnvironmentState = {
+export type EnvironmentState = {
   env: string;
   state: string;
   isActive: boolean;
   tooltip: string;
 };
+
+// The flag's environment toggle AND the rule's presence and enablement.
+// Shared so every surface explains a state with the same words.
+// Why a state is not yet true: not started, or shown from an unpublished draft.
+export type EnvironmentStateTense = false | "started" | "published";
+
+function environmentStateTooltip(
+  state: LinkedFeatureEnvState,
+  future: EnvironmentStateTense,
+): string {
+  const once = future === "started" ? " once started" : " once published";
+  switch (state) {
+    case "active":
+      return future
+        ? `The experiment will be active in this environment${once}`
+        : "The experiment is active in this environment";
+    case "disabled-env":
+      return future
+        ? `The environment is disabled for this feature, so the experiment will not be active${once}`
+        : "The environment is disabled for this feature, so the experiment is not active";
+    case "disabled-rule":
+      return future
+        ? `The experiment is disabled in this environment and will not be active${once}`
+        : "The experiment is disabled in this environment and is not active";
+    case "missing":
+      return "The experiment is not present in this environment";
+    default: {
+      const _exhaustiveCheck: never = state;
+      return _exhaustiveCheck;
+    }
+  }
+}
+
+export function getEnvironmentStates(
+  source: {
+    environmentStates?: Record<string, LinkedFeatureEnvState>;
+  },
+  { future = false }: { future?: EnvironmentStateTense } = {},
+): EnvironmentState[] {
+  return Object.entries(source.environmentStates || {}).map(([env, state]) => ({
+    env,
+    state,
+    isActive: state === "active",
+    tooltip: environmentStateTooltip(state, future),
+  }));
+}
+
+// The inline row: every environment with its state, wherever there is room to
+// show them all at once.
+export function EnvironmentStateChips({
+  states,
+}: {
+  states: EnvironmentState[];
+}) {
+  return (
+    <Flex gap="4" wrap="wrap">
+      {states.map(({ env, isActive, tooltip }) => (
+        <Tooltip key={env} content={tooltip} side="top">
+          <Flex align="center" gap="1" minWidth="0">
+            <Box
+              flexShrink="0"
+              style={{
+                display: "flex",
+                color: isActive ? "var(--green-11)" : "var(--slate-9)",
+              }}
+            >
+              {isActive ? <PiCheckCircleFill /> : <PiXCircleFill />}
+            </Box>
+            <Text weight="medium">{env}</Text>
+          </Flex>
+        </Tooltip>
+      ))}
+    </Flex>
+  );
+}
 
 type Props = {
   environmentStates: EnvironmentState[];

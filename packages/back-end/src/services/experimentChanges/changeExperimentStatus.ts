@@ -13,6 +13,11 @@ import {
 import {
   getAffectedEnvsForExperiment,
   experimentHasLiveLinkedChanges,
+  getImplementationType,
+  getManagedValueProblems,
+  hasStartReadyManagedFlag,
+  isManagedByExperiment,
+  PENDING_APPROVAL_ITEM_PREFIX,
 } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
@@ -225,20 +230,31 @@ export async function getExperimentStartChecklistStatus(
 
   const items: StartChecklistItemStatus[] = [];
 
-  items.push({
-    key: "linkedChanges",
-    required: true,
-    status:
-      (isBandit &&
-        experimentHasLiveLinkedChanges(experiment, linkedFeatures)) ||
-      (!isBandit && getHasLinkedChanges(experiment, linkedFeatures))
-        ? "complete"
-        : "incomplete",
-    manual: false,
-    reason: isBandit
-      ? "Add at least one live linked change before starting a bandit."
-      : "Add at least one linked feature, visual changeset, or URL redirect before starting.",
-  });
+  const isManaged = (f: LinkedFeatureInfo) =>
+    isManagedByExperiment(f.feature, experiment.id);
+  const implementationType = getImplementationType(experiment);
+  const valuesMode =
+    linkedFeatures.some(isManaged) || implementationType === "values";
+
+  if (implementationType !== "none") {
+    items.push({
+      key: "linkedChanges",
+      required: true,
+      status:
+        (isBandit &&
+          (hasStartReadyManagedFlag(experiment.id, linkedFeatures) ||
+            experimentHasLiveLinkedChanges(experiment, linkedFeatures))) ||
+        (!isBandit && getHasLinkedChanges(experiment, linkedFeatures))
+          ? "complete"
+          : "incomplete",
+      manual: false,
+      reason: valuesMode
+        ? "Add variation values before starting."
+        : isBandit
+          ? "Add at least one live linked change before starting a bandit."
+          : "Add at least one linked feature, visual changeset, or URL redirect before starting.",
+    });
+  }
 
   if (isBandit) {
     items.push({
@@ -270,6 +286,36 @@ export async function getExperimentStartChecklistStatus(
   linkedFeatures
     .filter((f) => f.state !== "discarded" && f.state !== "archived")
     .forEach((f) => {
+      if (isManaged(f)) {
+        const problems = getManagedValueProblems({
+          variations: latestVariations,
+          values: f.pendingDraft?.values ?? f.values,
+          valueType: f.pendingDraft?.valueType ?? f.feature.valueType,
+        });
+        if (problems.some((p) => p.problem === "missing")) {
+          items.push({
+            key: `missingVariationValues:${f.feature.id}`,
+            required: true,
+            status: "incomplete",
+            manual: false,
+            reason: "Fill in the missing variation values before starting.",
+          });
+        }
+        const malformed = problems.filter((p) => p.problem === "malformed");
+        if (malformed.length) {
+          items.push({
+            key: `malformedVariationValues:${f.feature.id}`,
+            required: true,
+            status: "incomplete",
+            manual: false,
+            hardBlock: true,
+            reason: `Fix the variation values before starting: ${malformed
+              .map((p) => `${p.variationName}: ${p.detail}`)
+              .join("; ")}`,
+          });
+        }
+        return;
+      }
       const configuredVariationIds = new Set(
         f.values.map((v) => v.variationId),
       );
@@ -296,7 +342,9 @@ export async function getExperimentStartChecklistStatus(
         status: "incomplete",
         manual: false,
         hardBlock: true,
-        reason: `Resolve the merge conflict in linked feature ${f.feature.id} before starting.`,
+        reason: isManaged(f)
+          ? "Resolve the merge conflict in this experiment's variation values before starting."
+          : `Resolve the merge conflict in linked feature ${f.feature.id} before starting.`,
       });
     });
 
@@ -304,13 +352,17 @@ export async function getExperimentStartChecklistStatus(
     .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
     .forEach((f) => {
       items.push({
-        key: `pendingApproval:${f.feature.id}`,
+        key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
         required: true,
         status:
-          f.draftRevisionStatus === "approved" ? "complete" : "incomplete",
+          (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
+            ? "complete"
+            : "incomplete",
         manual: false,
         hardBlock: true,
-        reason: `Approve the draft revision for linked feature ${f.feature.id} before starting.`,
+        reason: isManaged(f)
+          ? "The variation values need approval before starting."
+          : `Approve the draft revision for linked feature ${f.feature.id} before starting.`,
       });
     });
 
@@ -421,6 +473,7 @@ async function loadAndValidateExperimentForStatusChange(
 export async function executeExperimentStart(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
+  bypassLockdown = false,
 ): Promise<{
   updated: ExperimentInterface;
   publishResult: PendingDraftPublishResult;
@@ -428,6 +481,7 @@ export async function executeExperimentStart(
   const publishResult = await publishPendingFeatureDraftsForExperiment(
     context,
     experiment,
+    bypassLockdown,
   );
   if (publishResult.failed.length > 0) {
     throw new PendingDraftPublishFailedError(
@@ -566,8 +620,9 @@ export async function startExperiment({
   skipChecklist?: boolean;
   /**
    * When true, skip ramp-schedule lockdown enforcement on linked features and
-   * forward the bypass through to pending feature-draft publishing. Caller
-   * must verify admin-bypass permissions before passing true.
+   * forward the bypass through to pending feature-draft publishing, which
+   * re-checks bypass authority per feature. Caller must verify admin-bypass
+   * permissions before passing true.
    */
   bypassLockdown?: boolean;
 }) {
@@ -589,7 +644,14 @@ export async function startExperiment({
     );
   }
 
-  assertNoIncompleteHardBlockers(checklistItems);
+  // Safe to waive here: the publish path re-checks bypass authority per feature.
+  assertNoIncompleteHardBlockers(
+    bypassLockdown
+      ? checklistItems.filter(
+          (item) => !item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
+        )
+      : checklistItems,
+  );
 
   if (status === "notReady" && !skipChecklist) {
     const incompleteRequiredItems = checklistItems.filter(
@@ -607,7 +669,11 @@ export async function startExperiment({
     }
   }
 
-  const { updated } = await executeExperimentStart(context, experiment);
+  const { updated } = await executeExperimentStart(
+    context,
+    experiment,
+    bypassLockdown,
+  );
 
   return { experiment, updated, checklistItems };
 }

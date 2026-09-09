@@ -1,9 +1,18 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { ExperimentInterface } from "shared/types/experiment";
+import { canChangeImplementationType } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
   updateExperimentValidator,
 } from "shared/validators";
+import {
+  assertManagedFlagCanMove,
+  getManagedFeatureForExperiment,
+  moveManagedFlagWithExperiment,
+  releaseManagedFlagForImplementationChange,
+} from "back-end/src/services/managedFeatures";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   updateExperiment as updateExperimentToDb,
   getExperimentById,
@@ -42,10 +51,12 @@ import {
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
 )(async (req) => {
-  const experiment = await getExperimentById(req.context, req.params.id);
-  if (!experiment) {
+  const found = await getExperimentById(req.context, req.params.id);
+  if (!found) {
     throw new Error("Could not find the experiment to update");
   }
+  // Reassigned when leaving Values releases the managed flag.
+  let experiment: ExperimentInterface = found;
   if (experiment.type === "holdout") {
     throw new Error("Holdouts are not supported via this API");
   }
@@ -360,7 +371,48 @@ export const updateExperiment = createApiRequestHandler(
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
 
+  // Compared against the flag actually managed, not the stored label; the
+  // release (eject or delete) waits until every check has passed.
+  let releaseManagedFlagFor: typeof changes.implementationType;
+  if (changes.implementationType !== undefined) {
+    const managed = await getManagedFeatureForExperiment(
+      req.context,
+      experiment,
+    );
+    const current = managed ? "values" : experiment.implementationType;
+    if (changes.implementationType !== current) {
+      const afterRelease =
+        managed && changes.implementationType !== "feature"
+          ? {
+              ...experiment,
+              linkedFeatures: (experiment.linkedFeatures ?? []).filter(
+                (id) => id !== managed.id,
+              ),
+            }
+          : experiment;
+      if (
+        !canChangeImplementationType(afterRelease, changes.implementationType)
+      ) {
+        throw new Error(
+          "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing implementationType.",
+        );
+      }
+      if (managed) releaseManagedFlagFor = changes.implementationType;
+    }
+  }
+  if (changes.project !== undefined) {
+    await assertManagedFlagCanMove(req.context, experiment, changes.project);
+  }
   await validateExperimentChange({ context: req.context, experiment, changes });
+  if (releaseManagedFlagFor) {
+    experiment = await releaseManagedFlagForImplementationChange({
+      context: req.context,
+      experiment,
+      next: releaseManagedFlagFor,
+      audit: req.audit,
+      acknowledged: req.context.ignoreWarnings,
+    });
+  }
 
   let experimentForUpdate = experiment;
   let changesForUpdate = changes;
@@ -387,6 +439,12 @@ export const updateExperiment = createApiRequestHandler(
       experimentId: experiment.id,
       // behavior for patch endpoint is to skip pre-launch checklist
       skipChecklist: true,
+      bypassLockdown:
+        canUseRestApiBypassSetting(req) ||
+        req.context.permissions.canBypassFlagApprovalChecks(
+          experiment,
+          "feature",
+        ),
     });
     experimentForUpdate = updated;
     // All non-status changes were already persisted above; startExperiment
@@ -402,6 +460,9 @@ export const updateExperiment = createApiRequestHandler(
           changes: changesForUpdate,
         })
       : experimentForUpdate;
+  if (changes.project !== undefined) {
+    await moveManagedFlagWithExperiment(req.context, updatedExperiment);
+  }
 
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");

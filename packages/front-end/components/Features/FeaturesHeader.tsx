@@ -8,7 +8,11 @@ import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import { filterEnvironmentsByFeature, isDefined } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  isDefined,
+  isManagedFeature,
+} from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
 import { REVIEW_REQUESTED_STATUSES, HoldoutInterface } from "shared/validators";
@@ -207,9 +211,22 @@ export default function FeaturesHeader({
 
   // Editing an existing flag takes draft authority, not the create gate:
   // `canViewFeatureModal` answers "may this user create a feature".
-  const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+  // Managed flags refuse direct writes, so offer no edit/publish/archive/delete.
+  const isManagedFlag = isManagedFeature(feature);
+  const managedByExperimentId =
+    feature.managedBy?.type === "experiment"
+      ? feature.managedBy.experimentId
+      : null;
+  const { data: managingExperiment } = useApi<{
+    experiment: { name: string };
+  }>(`/experiment/${managedByExperimentId}`, {
+    shouldRun: () => !!managedByExperimentId,
+  });
+  const canEdit =
+    !isManagedFlag && permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
-  const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
+  const canPublish =
+    !isManagedFlag && permissionsUtil.canPublishFeature(feature, enabledEnvs);
   // Duplicating CREATES a flag, so it takes create authority — not authority over
   // the one being copied. The modal gates its own environment toggles.
   const canDuplicate = permissionsUtil.canCreateFeature(
@@ -222,26 +239,24 @@ export default function FeaturesHeader({
     baseFeature,
     filterEnvironmentsByFeature(allEnvironments, baseFeature),
   );
-  const canArchive = permissionsUtil.canDeleteFeature(
-    baseFeature,
-    liveArchiveEnvs,
-  );
-  const canDelete = permissionsUtil.canDeleteFeature(
-    baseFeature,
-    NO_ENVIRONMENT_BINDING,
-  );
-  const canUnarchive = permissionsUtil.canPublishFeature(
-    baseFeature,
-    liveArchiveEnvs,
-  );
+  const canArchive =
+    !isManagedFlag &&
+    permissionsUtil.canDeleteFeature(baseFeature, liveArchiveEnvs);
+  const canDelete =
+    !isManagedFlag &&
+    permissionsUtil.canDeleteFeature(baseFeature, NO_ENVIRONMENT_BINDING);
+  const canUnarchive =
+    !isManagedFlag &&
+    permissionsUtil.canPublishFeature(baseFeature, liveArchiveEnvs);
   const canToggleArchive =
-    (isArchived ? canUnarchive : canArchive) ||
-    canStageArchiveDraft({
-      permissions: permissionsUtil,
-      model: "feature",
-      entity: { project: baseFeature.project },
-      archived: !isArchived,
-    });
+    !isManagedFlag &&
+    ((isArchived ? canUnarchive : canArchive) ||
+      canStageArchiveDraft({
+        permissions: permissionsUtil,
+        model: "feature",
+        entity: { project: baseFeature.project },
+        archived: !isArchived,
+      }));
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
   // still being edited don't need reviewer/publisher attention.
@@ -485,6 +500,16 @@ export default function FeaturesHeader({
             {portalHost && createPortal(revisionAndSettingsGroup, portalHost)}
           </Flex>
           <Flex gap="4" align="center">
+            {managedByExperimentId && (
+              // Why the edit/publish controls are missing, visible without
+              // scrolling to the overview callout.
+              <Box>
+                <Text weight="medium">Managed by: </Text>
+                <Link href={`/experiment/${managedByExperimentId}`}>
+                  {managingExperiment?.experiment.name ?? managedByExperimentId}
+                </Link>
+              </Box>
+            )}
             {holdout?.id && (
               <Box>
                 <Text weight="medium">Holdout: </Text>
@@ -627,21 +652,23 @@ export default function FeaturesHeader({
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList size="lg" style={{ width: "100%" }}>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="review">
-                    Review &amp; Publish
-                    {activeDraftCount > 0 && (
-                      <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
-                        <Badge
-                          label={String(activeDraftCount)}
-                          color="red"
-                          variant="solid"
-                          radius="full"
-                          ml="2"
-                          style={{ minWidth: 18, height: 18 }}
-                        />
-                      </Tooltip>
-                    )}
-                  </TabsTrigger>
+                  {!isManagedFlag && (
+                    <TabsTrigger value="review">
+                      Review &amp; Publish
+                      {activeDraftCount > 0 && (
+                        <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                          <Badge
+                            label={String(activeDraftCount)}
+                            color="red"
+                            variant="solid"
+                            radius="full"
+                            ml="2"
+                            style={{ minWidth: 18, height: 18 }}
+                          />
+                        </Tooltip>
+                      )}
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="test">Simulate</TabsTrigger>
                   <TabsTrigger value="stats">Code Refs</TabsTrigger>
                   <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>

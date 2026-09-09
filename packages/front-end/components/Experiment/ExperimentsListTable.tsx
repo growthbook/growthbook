@@ -1,8 +1,5 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { RxDesktop } from "react-icons/rx";
-import { BsFlag } from "react-icons/bs";
-import { PiShuffle } from "react-icons/pi";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -10,6 +7,11 @@ import WatchButton from "@/components/WatchButton";
 import SortedTags from "@/components/Tags/SortedTags";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/ui/Pagination";
+import { useManagedExperimentFlagStates } from "@/hooks/useManagedExperimentFlagStates";
+import {
+  ImplementationTypeIcon,
+  LIST_ICON_STYLE,
+} from "@/components/Experiment/ImplementationTypeSelect";
 import Table, {
   TableHeader,
   TableBody,
@@ -49,6 +51,23 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   const NUM_PER_PAGE = 20;
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
+
+  // Managed-flag ownership lives on the Feature Flag, not the row, so it is
+  // fetched just-in-time for the page being rendered.
+  const { fetchSome, getManagedFlag } = useManagedExperimentFlagStates();
+  const visibleIdsKey = useMemo(
+    () =>
+      filtered
+        .slice(start, end)
+        .filter((e) => (e.linkedFeatures || []).length > 0)
+        .map((e) => e.id)
+        .join(","),
+    [filtered, start, end],
+  );
+  useEffect(() => {
+    if (!visibleIdsKey) return;
+    fetchSome(visibleIdsKey.split(","));
+  }, [visibleIdsKey, fetchSome]);
 
   const needsStatusColumn = tab === "all" || tab === "running";
   const needsResultColumn =
@@ -126,43 +145,22 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                     <div style={{ display: "flex", alignItems: "center" }}>
                       <span className="testname">{e.name}</span>
                       {e.hasVisualChangesets ? (
-                        <Tooltip
-                          flipTheme={false}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginLeft: "var(--space-2)",
-                          }}
-                          body="Visual experiment"
-                        >
-                          <RxDesktop className="text-blue" />
-                        </Tooltip>
+                        <ImplementationTypeIcon
+                          type="visual"
+                          style={LIST_ICON_STYLE}
+                        />
                       ) : null}
                       {(e.linkedFeatures || []).length > 0 ? (
-                        <Tooltip
-                          flipTheme={false}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginLeft: "var(--space-2)",
-                          }}
-                          body="Linked Feature Flag"
-                        >
-                          <BsFlag className="text-blue" />
-                        </Tooltip>
+                        <ImplementationTypeIcon
+                          type={getManagedFlag(e.id) ? "values" : "feature"}
+                          style={LIST_ICON_STYLE}
+                        />
                       ) : null}
                       {e.hasURLRedirects ? (
-                        <Tooltip
-                          flipTheme={false}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            marginLeft: "var(--space-2)",
-                          }}
-                          body="URL Redirect experiment"
-                        >
-                          <PiShuffle className="text-blue" />
-                        </Tooltip>
+                        <ImplementationTypeIcon
+                          type="urlredirect"
+                          style={LIST_ICON_STYLE}
+                        />
                       ) : null}
                     </div>
                     {isFiltered &&

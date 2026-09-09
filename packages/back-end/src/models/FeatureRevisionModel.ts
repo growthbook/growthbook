@@ -707,7 +707,7 @@ export async function getFeatureRevisionsByStatus({
   sort = "desc",
   skipPagination = false,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   organization: string;
   featureId?: string;
   featureIds?: string[];

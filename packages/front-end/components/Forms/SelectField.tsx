@@ -19,6 +19,7 @@ import clsx from "clsx";
 import { PiXBold, PiCaretDown } from "react-icons/pi";
 import CreatableSelect from "react-select/creatable";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
+import { Size } from "@/ui/sizes";
 import { RadixTheme } from "@/services/RadixTheme";
 import HelperText from "@/ui/HelperText";
 import Field, { FieldProps } from "./Field";
@@ -86,9 +87,20 @@ export type SelectFieldProps = Omit<
   legacyLabelFormatting?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
-  size?: "x-small" | "small" | "legacy" | "medium";
+  /**
+   * The shared t-shirt ladder, plus `legacy` for the un-migrated default.
+   * `md` is 32px, matching `Field size="md"` — the old `small` in disguise. The
+   * old `medium` (40px) is now `lg`.
+   */
+  size?: SelectFieldSize;
   errorLevel?: "error" | "warning";
 };
+
+/**
+ * `legacy` is the un-migrated default and is deliberately outside the shared
+ * ladder; everything else follows `@/ui/sizes`.
+ */
+export type SelectFieldSize = Size<"xs" | "sm" | "md" | "lg"> | "legacy";
 
 export function useSelectOptions(
   options: (SingleValue | GroupedValue)[],
@@ -287,7 +299,7 @@ const SelectField: FC<SelectFieldProps> = ({
   legacyLabelFormatting = true,
   labelSize,
   labelWeight = "semibold",
-  size = "legacy" as "x-small" | "small" | "legacy" | "medium",
+  size = "legacy" as SelectFieldSize,
   errorLevel = "error",
   ...otherProps
 }) => {
@@ -344,17 +356,19 @@ const SelectField: FC<SelectFieldProps> = ({
       }
     });
 
-    const sizeMinHeight: Record<string, number> = {
-      "x-small": 24,
-      small: 32,
+    const sizeMinHeight: Record<SelectFieldSize, number> = {
+      xs: 24,
+      sm: 28,
+      md: 32,
+      lg: 40,
       legacy: 36,
-      medium: 40,
     };
-    const sizeVPadding: Record<string, number> = {
-      "x-small": 0,
-      small: 0,
+    const sizeVPadding: Record<SelectFieldSize, number> = {
+      xs: 0,
+      sm: 0,
+      md: 0,
+      lg: 4,
       legacy: 2,
-      medium: 4,
     };
     const prevControl = merged.control;
     merged.control = (base, state) => ({
