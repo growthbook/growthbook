@@ -555,33 +555,35 @@ export async function updateDashboardExplorations(
         );
       }
       block.explorerAnalysisId = primaryResult.value.id;
-      if (comparisonResult.status === "fulfilled") {
-        if (comparisonResult.value?.status === "error") {
-          // Keep the previous comparison id rather than pointing at a failure.
-          logger.warn(
-            {
-              err: comparisonResult.value.error,
-              blockId: block.id,
-              blockType: block.type,
-            },
-            "Product analytics comparison query failed; keeping previous comparison",
-          );
-        } else if (comparisonResult.value) {
-          block.comparisonExplorerAnalysisId = comparisonResult.value.id;
-        } else {
-          // Clear a stale comparison id when comparison is off.
-          delete block.comparisonExplorerAnalysisId;
-        }
-      } else {
-        // Keep the previous comparison id so the primary still refreshes.
+
+      const comparisonRun =
+        comparisonResult.status === "fulfilled" ? comparisonResult.value : null;
+      // Thrown and reported failures are the same outcome here: no usable
+      // previous-period run this cycle.
+      const comparisonFailure =
+        comparisonResult.status === "rejected"
+          ? comparisonResult.reason
+          : comparisonRun?.status === "error"
+            ? comparisonRun.error || "Product analytics query failed"
+            : undefined;
+      if (comparisonFailure) {
         logger.warn(
           {
-            err: comparisonResult.reason,
+            err: comparisonFailure,
             blockId: block.id,
             blockType: block.type,
           },
-          "Failed to refresh product analytics comparison; keeping previous comparison",
+          "Failed to refresh product analytics comparison; cleared the stale comparison",
         );
+      }
+      if (comparisonRun && !comparisonFailure) {
+        block.comparisonExplorerAnalysisId = comparisonRun.id;
+      } else {
+        // Nothing usable, so leave no id behind — whether the comparison is now
+        // off or its run failed. The primary has just rolled to a new window, so
+        // a retained id is the window before the *old* primary: a plausible
+        // delta against the wrong baseline, worse than no comparison at all.
+        delete block.comparisonExplorerAnalysisId;
       }
       anyUpdated = true;
     } catch (e) {
