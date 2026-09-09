@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { PiEye } from "react-icons/pi";
 import {
   FactFilterTestResults,
   FactTableDefinition,
@@ -11,6 +12,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Avatar from "@/ui/Avatar";
 import { Select, SelectItem } from "@/ui/Select";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -169,17 +171,31 @@ export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
                   />
                 </div>
               ) : (
-                <>
-                  <Text color="text-mid" as="div">
-                    Run the preview to see a sample of the rows this metric
-                    selects.
-                  </Text>
-                  <Flex>
-                    <Button onClick={runPreview} setError={setRowsError}>
-                      Run Preview
-                    </Button>
+                <Flex
+                  direction="column"
+                  align="center"
+                  justify="center"
+                  gap="3"
+                  height="100%"
+                >
+                  <Avatar color="violet" variant="soft" size="lg">
+                    <PiEye />
+                  </Avatar>
+                  <Flex direction="column" align="center" gap="1">
+                    <Text weight="semibold" as="div">
+                      Preview will appear here
+                    </Text>
+                    <Text size="sm" color="text-mid" as="div">
+                      Configure a filter to see live sample data.
+                    </Text>
                   </Flex>
-                </>
+                  {/* Fetching rows runs a real query against the customer's
+                      warehouse - kept as an explicit, deliberate action even
+                      though the design's empty state doesn't show a button. */}
+                  <Button onClick={runPreview} setError={setRowsError}>
+                    Run Preview
+                  </Button>
+                </Flex>
               )}
             </Flex>
           )}
