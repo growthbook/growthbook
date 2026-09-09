@@ -1,11 +1,16 @@
 import React from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
+import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
+
+const ENV_COL_W = 80;
 
 export interface FeatureOptionForTooltip {
   label: string;
@@ -16,6 +21,7 @@ export interface FeatureOptionForTooltip {
   targetingAllProjects?: boolean;
   tags?: string[];
   description?: string;
+  states?: Record<string, PrerequisiteStateResult>;
 }
 
 function getProjectsLabel(option: FeatureOptionForTooltip) {
@@ -29,8 +35,10 @@ function getProjectsLabel(option: FeatureOptionForTooltip) {
 
 export function FeatureOptionTooltipContent({
   option,
+  environments = [],
 }: {
   option: FeatureOptionForTooltip;
+  environments?: string[];
 }) {
   const multipleProjects =
     !!option.targetingAllProjects ||
@@ -83,16 +91,52 @@ export function FeatureOptionTooltipContent({
           <Markdown style={{ fontSize: 12 }}>{option.description}</Markdown>
         </div>
       )}
+      {option.states && environments.length > 0 && (
+        <div>
+          <Text size="sm" as="div" weight="semibold">
+            Environments:
+          </Text>
+          <Box style={{ overflowX: "auto" }}>
+            <Flex direction="column" style={{ minWidth: "max-content" }}>
+              <Flex align="center">
+                {environments.map((env) => (
+                  <Box
+                    key={env}
+                    style={{
+                      width: ENV_COL_W,
+                      flexShrink: 0,
+                      textAlign: "center",
+                    }}
+                  >
+                    <Text size="sm" color="text-mid">
+                      <OverflowText maxWidth={ENV_COL_W}>{env}</OverflowText>
+                    </Text>
+                  </Box>
+                ))}
+              </Flex>
+              <Flex align="center">
+                <PrerequisiteStatesCols
+                  prereqStates={option.states}
+                  envs={environments}
+                  colWidth={ENV_COL_W}
+                />
+              </Flex>
+            </Flex>
+          </Box>
+        </div>
+      )}
     </Flex>
   );
 }
 
 export function FeatureOptionWithTooltip({
   option,
+  environments,
   context = "menu",
   children,
 }: {
   option: FeatureOptionForTooltip;
+  environments?: string[];
   context?: "menu" | "value";
   children: React.ReactNode;
 }) {
@@ -115,7 +159,12 @@ export function FeatureOptionWithTooltip({
           {children}
         </div>
       }
-      content={<FeatureOptionTooltipContent option={option} />}
+      content={
+        <FeatureOptionTooltipContent
+          option={option}
+          environments={environments}
+        />
+      }
     />
   );
 }

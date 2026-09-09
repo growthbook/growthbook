@@ -365,6 +365,7 @@ export default function PrerequisiteInput({
         valueType: f.valueType,
         tags: f.tags,
         description: f.description,
+        states: featuresStates[f.id],
       };
     });
 

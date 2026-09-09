@@ -247,6 +247,7 @@ export default function PrerequisiteModal({
         valueType: f.valueType,
         tags: f.tags,
         description: f.description,
+        states: featuresStates[f.id],
       };
     });
 

@@ -15,6 +15,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { FeatureOptionWithTooltip } from "@/components/Features/FeatureOptionTooltip";
+import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 import Text from "@/ui/Text";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 
@@ -39,6 +40,7 @@ interface FeatureOption {
   valueType?: string;
   tags?: string[];
   description?: string;
+  states?: Record<string, PrerequisiteStateResult>;
 }
 
 interface Props {
@@ -139,6 +141,7 @@ export default function PrerequisiteFeatureSelector({
           >
             <FeatureOptionWithTooltip
               option={foundOption ?? { label, value: optionValue }}
+              environments={environments}
               context={isSelectedValue ? "value" : "menu"}
             >
               <OverflowText
