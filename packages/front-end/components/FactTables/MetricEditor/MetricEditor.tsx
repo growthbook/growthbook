@@ -1,6 +1,6 @@
 import { UseFormReturn } from "react-hook-form";
 import { useEffect } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -219,265 +219,287 @@ export default function MetricEditor({
       ];
 
   return (
-    <Flex direction="column" gap="4">
-      <Frame>
-        <Heading as="h4" size="sm" mb="1">
-          Metric Type
-        </Heading>
-        {canEdit && (
-          <Text color="text-mid" as="div" mb="3">
-            Choose what kind of number this metric produces.
-          </Text>
-        )}
-        {canEdit ? (
-          <MetricTypeSelect
-            value={formType}
-            onChange={changeFormType}
-            hasRetentionMetrics={hasCommercialFeature("retention-metrics")}
-            hasFunnelMetrics={hasCommercialFeature("funnel-metrics")}
-            hasQuantileMetrics={hasCommercialFeature("quantile-metrics")}
-            quantileAvailableForDatasource={quantileAvailableForDatasource}
-          />
-        ) : (
-          <Flex direction="column" gap="1">
-            <Text weight="semibold" as="div">
-              {TYPE_LABELS[formType]}
+    <Grid columns={{ initial: "1", md: "2fr 1fr" }} gap="4">
+      <Flex direction="column" gap="4">
+        <Frame>
+          <Heading as="h4" size="sm" mb="1">
+            Metric Type
+          </Heading>
+          {canEdit && (
+            <Text color="text-mid" as="div" mb="3">
+              Choose what kind of number this metric produces.
             </Text>
-            <Text size="sm" color="text-mid" as="div">
-              {TYPE_DESCRIPTIONS[formType]}
-            </Text>
-          </Flex>
-        )}
-      </Frame>
+          )}
+          {canEdit ? (
+            <MetricTypeSelect
+              value={formType}
+              onChange={changeFormType}
+              hasRetentionMetrics={hasCommercialFeature("retention-metrics")}
+              hasFunnelMetrics={hasCommercialFeature("funnel-metrics")}
+              hasQuantileMetrics={hasCommercialFeature("quantile-metrics")}
+              quantileAvailableForDatasource={quantileAvailableForDatasource}
+            />
+          ) : (
+            <Flex direction="column" gap="1">
+              <Text weight="semibold" as="div">
+                {TYPE_LABELS[formType]}
+              </Text>
+              <Text size="sm" color="text-mid" as="div">
+                {TYPE_DESCRIPTIONS[formType]}
+              </Text>
+            </Flex>
+          )}
+        </Frame>
 
-      <Frame>
-        <Heading as="h4" size="sm" mb="1">
-          Definition
-        </Heading>
-        {canEdit && (
-          <Text color="text-mid" as="div" mb="3">
-            Tell us what to count and where to find it, and we&apos;ll take care
-            of matching it to the right experiments.
-          </Text>
-        )}
-        <Flex direction="column" gap="3">
-          {/* Ratio's numerator has no override of its own, so this select
+        <Frame>
+          <Heading as="h4" size="sm" mb="1">
+            Definition
+          </Heading>
+          {canEdit && (
+            <Text color="text-mid" as="div" mb="3">
+              Tell us what to count and where to find it, and we&apos;ll take
+              care of matching it to the right experiments.
+            </Text>
+          )}
+          <Flex direction="column" gap="3">
+            {/* Ratio's numerator has no override of its own, so this select
                 is its only way to set a fact table - only funnel (which owns
                 per-step fact tables via FunnelStepsInput) hides it. Read-only
                 mode shows it here for every type except ratio, which shows
                 its own Fact Table line per-part below instead. */}
-          {canEdit && !isFunnel && (
-            <Select
-              label="Fact table"
-              value={primaryFactTableId}
-              setValue={changeFactTable}
-            >
-              {availableFactTables.map((ft) => (
-                <SelectItem key={ft.id} value={ft.id}>
-                  {ft.name}
-                </SelectItem>
+            {canEdit && !isFunnel && (
+              <Select
+                label="Fact table"
+                value={primaryFactTableId}
+                setValue={changeFactTable}
+              >
+                {availableFactTables.map((ft) => (
+                  <SelectItem key={ft.id} value={ft.id}>
+                    {ft.name}
+                  </SelectItem>
+                ))}
+              </Select>
+            )}
+            {!canEdit && !isRatioOrFunnel && (
+              <DataList
+                columns={1}
+                data={[
+                  {
+                    label: "Fact Table",
+                    value: <FactTableLink id={primaryFactTableId} />,
+                  },
+                ]}
+              />
+            )}
+
+            {formType === "threshold" && (
+              <ThresholdBasisRow
+                value={thresholdValue}
+                onChange={onThresholdChange}
+                factTable={factTable}
+                canEdit={canEdit}
+              />
+            )}
+
+            {formType === "retention" && (
+              <RetentionFields
+                windowSettings={form.watch("windowSettings")}
+                onWindowSettingsChange={(v) =>
+                  form.setValue("windowSettings", v)
+                }
+                threshold={thresholdValue}
+                onThresholdChange={onThresholdChange}
+                factTable={factTable}
+                canEdit={canEdit}
+              />
+            )}
+
+            {valueShape && (
+              <ColumnSelect
+                shape={valueShape}
+                factTable={factTable}
+                hasCountDistinctHLL={hasCountDistinctHLL}
+                value={numerator.column}
+                onChange={(column) => {
+                  const refit = onShapeChange(
+                    numerator,
+                    valueShape,
+                    factTable,
+                    hasCountDistinctHLL,
+                  );
+                  form.setValue("numerator", { ...refit, column });
+                }}
+                canEdit={canEdit}
+              />
+            )}
+
+            {formType === "quantile" && quantileSettings && (
+              <QuantileFields
+                quantileSettings={quantileSettings}
+                onQuantileSettingsChange={(v) =>
+                  form.setValue("quantileSettings", v)
+                }
+                numerator={numerator}
+                onNumeratorChange={(v: ColumnRef) =>
+                  form.setValue("numerator", v)
+                }
+                factTable={factTable}
+                hasCountDistinctHLL={hasCountDistinctHLL}
+                canEdit={canEdit}
+              />
+            )}
+
+            {formType === "ratio" && denominator && (
+              <RatioFields
+                numerator={numerator}
+                onNumeratorChange={(v: ColumnRef) =>
+                  form.setValue("numerator", v)
+                }
+                denominator={denominator}
+                onDenominatorChange={(v: ColumnRef) =>
+                  form.setValue("denominator", v)
+                }
+                factTable={factTable}
+                availableFactTables={sameDatasourceFactTables}
+                getFactTableById={(id) => getFactTableById(id) ?? null}
+                hasCountDistinctHLL={hasCountDistinctHLL}
+                canEdit={canEdit}
+              />
+            )}
+
+            {isFunnel &&
+              (canEdit ? (
+                <FunnelStepsInput
+                  value={funnelSettings ?? { steps: [] }}
+                  setValue={(v) => {
+                    form.setValue("funnelSettings", v);
+                    // Datasource is derived from the fact table, not selected
+                    // directly (spec) - same as changeFactTable does for every
+                    // other type, just off step 1's fact table instead of the
+                    // numerator's, since that's what primaryFactTableId
+                    // already treats as the authoritative one for funnel.
+                    const stepFactTable = getFactTableById(
+                      v.steps[0]?.factTableId ?? "",
+                    );
+                    if (stepFactTable) {
+                      form.setValue("datasource", stepFactTable.datasource);
+                    }
+                  }}
+                  datasource={datasourceId}
+                  project={project}
+                  initialFactTable={primaryFactTableId || undefined}
+                />
+              ) : (
+                <FunnelStepsDisplay
+                  funnelSettings={funnelSettings ?? { steps: [] }}
+                />
               ))}
-            </Select>
+
+            {!isRatioOrFunnel &&
+              (canEdit ? (
+                factTable && (
+                  <RowFilterInput
+                    factTable={factTable}
+                    value={numerator.rowFilters || []}
+                    setValue={(rowFilters) =>
+                      form.setValue("numerator", { ...numerator, rowFilters })
+                    }
+                  />
+                )
+              ) : (
+                <FilterSummary
+                  rowFilters={numerator.rowFilters || []}
+                  factTable={factTable}
+                />
+              ))}
+          </Flex>
+        </Frame>
+
+        <Frame>
+          <Flex align="center" gap="1" mb="1">
+            <Heading as="h4" size="sm" mb="0">
+              Basics
+            </Heading>
+            <OfficialBadge type="metric" managedBy={form.watch("managedBy")} />
+          </Flex>
+          {canEdit && (
+            <Text color="text-mid" as="div" mb="3">
+              Define this metric with a clear name, description, and tags.
+            </Text>
           )}
-          {!canEdit && !isRatioOrFunnel && (
+          {canEdit ? (
+            <Flex direction="column" gap="3">
+              <TextField
+                label="Name"
+                value={form.watch("name")}
+                onChange={(e) => form.setValue("name", e.target.value)}
+                required
+              />
+              <Field
+                label="Description"
+                textarea
+                value={form.watch("description")}
+                onChange={(e) => form.setValue("description", e.target.value)}
+              />
+              <Flex direction="column" gap="1">
+                <Text weight="semibold" size="sm" as="div">
+                  Tags
+                </Text>
+                <TagsInput
+                  value={form.watch("tags") || []}
+                  onChange={(tags) => form.setValue("tags", tags)}
+                />
+              </Flex>
+            </Flex>
+          ) : (
             <DataList
               columns={1}
               data={[
+                { label: "Name", value: form.watch("name") },
                 {
-                  label: "Fact Table",
-                  value: <FactTableLink id={primaryFactTableId} />,
+                  label: "Description",
+                  value: form.watch("description") || "—",
+                },
+                {
+                  label: "Tags",
+                  value: form.watch("tags")?.length ? (
+                    <SortedTags tags={form.watch("tags")} useFlex />
+                  ) : (
+                    "No tags"
+                  ),
                 },
               ]}
             />
           )}
+        </Frame>
 
-          {formType === "threshold" && (
-            <ThresholdBasisRow
-              value={thresholdValue}
-              onChange={onThresholdChange}
-              factTable={factTable}
-              canEdit={canEdit}
-            />
-          )}
+        <AdvancedSettings
+          form={form}
+          formType={formType}
+          factTable={factTable}
+          canEdit={canEdit}
+        />
+      </Flex>
 
-          {formType === "retention" && (
-            <RetentionFields
-              windowSettings={form.watch("windowSettings")}
-              onWindowSettingsChange={(v) => form.setValue("windowSettings", v)}
-              threshold={thresholdValue}
-              onThresholdChange={onThresholdChange}
-              factTable={factTable}
-              canEdit={canEdit}
-            />
-          )}
+      <Flex direction="column" gap="4">
+        <PreviewPanel parts={previewParts} />
 
-          {valueShape && (
-            <ColumnSelect
-              shape={valueShape}
-              factTable={factTable}
-              hasCountDistinctHLL={hasCountDistinctHLL}
-              value={numerator.column}
-              onChange={(column) => {
-                const refit = onShapeChange(
-                  numerator,
-                  valueShape,
-                  factTable,
-                  hasCountDistinctHLL,
-                );
-                form.setValue("numerator", { ...refit, column });
-              }}
-              canEdit={canEdit}
-            />
-          )}
-
-          {formType === "quantile" && quantileSettings && (
-            <QuantileFields
-              quantileSettings={quantileSettings}
-              onQuantileSettingsChange={(v) =>
-                form.setValue("quantileSettings", v)
-              }
-              numerator={numerator}
-              onNumeratorChange={(v: ColumnRef) =>
-                form.setValue("numerator", v)
-              }
-              factTable={factTable}
-              hasCountDistinctHLL={hasCountDistinctHLL}
-              canEdit={canEdit}
-            />
-          )}
-
-          {formType === "ratio" && denominator && (
-            <RatioFields
-              numerator={numerator}
-              onNumeratorChange={(v: ColumnRef) =>
-                form.setValue("numerator", v)
-              }
-              denominator={denominator}
-              onDenominatorChange={(v: ColumnRef) =>
-                form.setValue("denominator", v)
-              }
-              factTable={factTable}
-              availableFactTables={sameDatasourceFactTables}
-              getFactTableById={(id) => getFactTableById(id) ?? null}
-              hasCountDistinctHLL={hasCountDistinctHLL}
-              canEdit={canEdit}
-            />
-          )}
-
-          {isFunnel &&
-            (canEdit ? (
-              <FunnelStepsInput
-                value={funnelSettings ?? { steps: [] }}
-                setValue={(v) => {
-                  form.setValue("funnelSettings", v);
-                  // Datasource is derived from the fact table, not selected
-                  // directly (spec) - same as changeFactTable does for every
-                  // other type, just off step 1's fact table instead of the
-                  // numerator's, since that's what primaryFactTableId
-                  // already treats as the authoritative one for funnel.
-                  const stepFactTable = getFactTableById(
-                    v.steps[0]?.factTableId ?? "",
-                  );
-                  if (stepFactTable) {
-                    form.setValue("datasource", stepFactTable.datasource);
-                  }
-                }}
-                datasource={datasourceId}
-                project={project}
-                initialFactTable={primaryFactTableId || undefined}
-              />
-            ) : (
-              <FunnelStepsDisplay
-                funnelSettings={funnelSettings ?? { steps: [] }}
-              />
-            ))}
-
-          {!isRatioOrFunnel &&
-            (canEdit ? (
-              factTable && (
-                <RowFilterInput
-                  factTable={factTable}
-                  value={numerator.rowFilters || []}
-                  setValue={(rowFilters) =>
-                    form.setValue("numerator", { ...numerator, rowFilters })
-                  }
-                />
-              )
-            ) : (
-              <FilterSummary
-                rowFilters={numerator.rowFilters || []}
-                factTable={factTable}
-              />
-            ))}
-        </Flex>
-      </Frame>
-
-      <PreviewPanel parts={previewParts} />
-
-      <Frame>
-        <Flex align="center" gap="1" mb="1">
-          <Heading as="h4" size="sm" mb="0">
-            Basics
+        <Frame>
+          <Heading as="h4" size="sm" mb="3">
+            Details
           </Heading>
-          <OfficialBadge type="metric" managedBy={form.watch("managedBy")} />
-        </Flex>
-        {canEdit && (
-          <Text color="text-mid" as="div" mb="3">
-            Define this metric with a clear name, description, and tags.
-          </Text>
-        )}
-        {canEdit ? (
-          <Flex direction="column" gap="3">
-            <TextField
-              label="Name"
-              value={form.watch("name")}
-              onChange={(e) => form.setValue("name", e.target.value)}
-              required
-            />
-            <Field
-              label="Description"
-              textarea
-              value={form.watch("description")}
-              onChange={(e) => form.setValue("description", e.target.value)}
-            />
-            <Flex direction="column" gap="1">
-              <Text weight="semibold" size="sm" as="div">
-                Tags
-              </Text>
-              <TagsInput
-                value={form.watch("tags") || []}
-                onChange={(tags) => form.setValue("tags", tags)}
-              />
-            </Flex>
-          </Flex>
-        ) : (
           <DataList
             columns={1}
             data={[
-              { label: "Name", value: form.watch("name") },
+              { label: "Owner", value: form.watch("owner") || "—" },
               {
-                label: "Description",
-                value: form.watch("description") || "—",
-              },
-              {
-                label: "Tags",
-                value: form.watch("tags")?.length ? (
-                  <SortedTags tags={form.watch("tags")} useFlex />
-                ) : (
-                  "No tags"
-                ),
+                label: "Directionality",
+                value: form.watch("inverse") ? "Decrease" : "Increase",
               },
             ]}
           />
-        )}
-      </Frame>
-
-      <AdvancedSettings
-        form={form}
-        formType={formType}
-        factTable={factTable}
-        canEdit={canEdit}
-      />
-    </Flex>
+        </Frame>
+      </Flex>
+    </Grid>
   );
 }
