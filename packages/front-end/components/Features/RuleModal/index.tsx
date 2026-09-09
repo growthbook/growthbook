@@ -1461,6 +1461,11 @@ export default function RuleModal({
         delete values.scheduleRules;
       }
 
+      // Only needed for experiment & bandit creation. Not stored on rules
+      // so we strip it here after the experiment is created.
+      delete (values as { disableStickyBucketing?: boolean })
+        .disableStickyBucketing;
+
       const correctedRule = validateFeatureRule(
         values as FeatureRule,
         feature,
