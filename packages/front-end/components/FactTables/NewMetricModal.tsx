@@ -4,7 +4,6 @@ import {
   MetricDefinitionInterface,
   MetricInterface,
 } from "shared/types/metric";
-import { FactMetricInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -16,7 +15,6 @@ import Button from "@/ui/Button";
 
 export type MetricModalState = {
   currentMetric?: MetricDefinitionInterface;
-  currentFactMetric?: FactMetricInterface;
   mode: "edit" | "duplicate" | "new";
 };
 
@@ -36,7 +34,6 @@ export function MetricModal({
   close,
   mode,
   source,
-  currentFactMetric,
   currentMetric,
   datasource,
 }: MetricModalProps) {
@@ -51,15 +48,6 @@ export function MetricModal({
         mode={mode}
         source={source}
         currentMetric={currentMetric}
-      />
-    );
-  } else if (currentFactMetric) {
-    return (
-      <FactMetricModal
-        close={close}
-        source={source + (mode === "duplicate" ? "-duplicate" : "")}
-        duplicate={mode === "duplicate"}
-        existing={currentFactMetric}
       />
     );
   } else {
