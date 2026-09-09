@@ -1,4 +1,5 @@
 import { Queries, QueryInterface, QueryStatus } from "shared/types/query";
+import { ExternalIdCallback } from "shared/types/integrations";
 import { ReqContext } from "back-end/types/request";
 import {
   QueryRunner,
@@ -12,6 +13,8 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   countRunningQueries,
   getQueriesByIds,
+  getQueryStatusesByIds,
+  markPendingQueriesAsFailed,
   updateQuery,
   updateQueryIfPending,
   updateQueryIfRunning,
@@ -758,6 +761,87 @@ describe("QueryRunner", () => {
     class CascadeFailureQueryRunner extends RaceTestQueryRunner {
       async onQueryFinish() {}
     }
+
+    it.each([true, false])(
+      "cancels the warehouse job when cancellation precedes external ID persistence: %s",
+      async (cancelBeforeExternalId) => {
+        jest.useFakeTimers();
+        const query = createMockQuery("qry_late_id", "running");
+        let storedQuery = { ...query };
+        const model: InterfaceWithQueries = {
+          id: "test-model",
+          organization: "test-org",
+          queries: [{ name: "a", query: query.id, status: "running" }],
+          runStarted: new Date(),
+        };
+        const runner = new CascadeFailureQueryRunner(
+          mockContext,
+          model,
+          mockIntegration,
+        );
+        const cancellingRunner = new CascadeFailureQueryRunner(
+          mockContext,
+          model,
+          mockIntegration,
+        );
+        const cancelQuery = jest.fn().mockResolvedValue(undefined);
+        mockIntegration.cancelQuery = cancelQuery;
+        jest.mocked(updateQueryIfPending).mockResolvedValue(true);
+        jest
+          .mocked(updateQuery)
+          .mockImplementation(async (context, doc, changes) => {
+            expect(context).toBe(mockContext);
+            expect(doc.id).toBe(query.id);
+            storedQuery = { ...storedQuery, ...changes };
+            return storedQuery;
+          });
+        jest
+          .mocked(getQueriesByIds)
+          .mockImplementation(async () => [storedQuery]);
+        jest
+          .mocked(getQueryStatusesByIds)
+          .mockImplementation(async () => [storedQuery]);
+        jest.mocked(markPendingQueriesAsFailed).mockImplementation(async () => {
+          storedQuery = { ...storedQuery, status: "failed" };
+          return 1;
+        });
+        const run = jest.fn(
+          (sql: string, setExternalId: ExternalIdCallback) => {
+            expect(sql).toBe(query.query);
+            expect(setExternalId).toEqual(expect.any(Function));
+            return new Promise<{ rows: [] }>(() => {});
+          },
+        );
+
+        try {
+          await runner.executeQuery(query, { run, onFailure: jest.fn() });
+          const setExternalId = run.mock.calls[0][1];
+          const metadata = { location: "europe-west2" };
+          if (cancelBeforeExternalId) {
+            await cancellingRunner.cancelQueries();
+            expect(cancelQuery).not.toHaveBeenCalled();
+            await setExternalId("job_late_id", metadata);
+          } else {
+            await setExternalId("job_late_id", metadata);
+            expect(cancelQuery).not.toHaveBeenCalled();
+            await cancellingRunner.cancelQueries();
+          }
+          expect(cancelQuery).toHaveBeenCalledTimes(1);
+          expect(cancelQuery).toHaveBeenCalledWith("job_late_id", metadata);
+          expect(storedQuery).toMatchObject({
+            status: "failed",
+            externalId: "job_late_id",
+            externalIdMetadata: metadata,
+          });
+        } finally {
+          jest.clearAllTimers();
+          jest.useRealTimers();
+          jest.mocked(updateQuery).mockReset();
+          jest.mocked(markPendingQueriesAsFailed).mockReset();
+          jest.mocked(getQueryStatusesByIds).mockReset();
+        }
+      },
+    );
 
     // Reproduces the swallowed-error bug in the aggregated fact table pipeline.
     // A multi-query DAG (insert + a dependent coverage query) fails when the

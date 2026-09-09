@@ -14,6 +14,7 @@ import {
   createNewQuery,
   createNewQueryFromCached,
   getQueriesByIds,
+  getQueryStatusesByIds,
   getRecentQuery,
   markPendingQueriesAsFailed,
   touchQueuedQueriesHeartbeat,
@@ -1133,6 +1134,24 @@ export abstract class QueryRunner<
         externalId: id,
         ...(metadata ? { externalIdMetadata: metadata } : {}),
       });
+      if (!this.integration.cancelQuery) return;
+
+      // In case the query was cancelled before externalId was set, detect that and cancel
+      // the external job here
+      const [current] = await getQueryStatusesByIds(this.context.org.id, [
+        doc.id,
+      ]);
+      if (!current || current.status === "failed") {
+        await cancelQueryAndConfirm(
+          this.integration,
+          { externalId: id, metadata },
+          {
+            datasourceId: this.integration.datasource.id,
+            modelId: this.model.id,
+            queryId: doc.id,
+          },
+        );
+      }
     };
 
     run(doc.query, setExternalId, { queryType: doc.queryType || "unknown" })
