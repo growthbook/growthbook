@@ -11,7 +11,6 @@ import type { FeatureRule, SafeRolloutRule } from "shared/validators";
 import {
   getAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
-  resetReviewOnChange,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
@@ -324,25 +323,13 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       changes.rampActions = [...filtered, resolvedRampAction];
     }
 
-    // Compute affected envs for review reset.
+    // Affected envs for the revision-update record.
     const affectedEnvs = resolvedAllEnvs
       ? Object.keys(feature.environmentSettings ?? {})
       : (environments ?? []);
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments: affectedEnvs,
-      defaultValueChanged: false,
-      settings: req.organization.settings,
-    });
 
     // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
-    await prevalidateRevisionUpdate(
-      req.context,
-      feature,
-      revision,
-      changes,
-      resetReview,
-    );
+    await prevalidateRevisionUpdate(req.context, feature, revision, changes);
 
     if (safeRolloutCreateProps) {
       const safeRollout = await req.context.models.safeRollout.create(
@@ -353,21 +340,14 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       createdSafeRolloutId = safeRollout.id;
     }
 
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      changes,
-      {
-        user: req.context.auditUser,
-        action: "add rule",
-        subject: resolvedAllEnvs
-          ? "all environments"
-          : `to ${(environments ?? []).join(", ")}`,
-        value: JSON.stringify(rule),
-      },
-      resetReview,
-    );
+    await updateRevision(req.context, feature, revision, changes, {
+      user: req.context.auditUser,
+      action: "add rule",
+      subject: resolvedAllEnvs
+        ? "all environments"
+        : `to ${(environments ?? []).join(", ")}`,
+      value: JSON.stringify(rule),
+    });
 
     const updated = await getRevision({
       context: req.context,

@@ -23,6 +23,7 @@ import {
   getLatestPhaseVariations,
   getFactMetricFactTableIds,
   getFactMetricPrimaryFactTableId,
+  parseDimensionId,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { differenceInMinutes } from "date-fns";
@@ -887,8 +888,17 @@ export async function generateExperimentReportSSRData({
   );
 
   const allDimensions = await findDimensionsByOrganization(organization);
-  const dimension = allDimensions.find((d) => d.id === snapshot?.dimension);
-  const dimensions = dimension ? [dimension] : [];
+  const parsedDimension = snapshot?.dimension
+    ? parseDimensionId(snapshot.dimension)
+    : null;
+  // Combos reference unit dimensions by id inside the combo id
+  const dimensionIds =
+    parsedDimension?.kind === "combo"
+      ? parsedDimension.constituentIds
+      : parsedDimension?.kind === "user"
+        ? [parsedDimension.id]
+        : [];
+  const dimensions = allDimensions.filter((d) => dimensionIds.includes(d.id));
 
   const settingsKeys = [
     "confidenceLevel",

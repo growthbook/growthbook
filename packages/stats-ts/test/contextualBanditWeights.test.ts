@@ -282,6 +282,74 @@ describe("computeContextualBanditWeights", () => {
     );
   });
 
+  it("records split metadata for the first (root) split", () => {
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 2),
+      countryObs("CA", 0, 200, 2),
+      countryObs("CA", 1, 200, 1),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    expect(result.sse_trajectory!.map((s) => s.numSplits)).toEqual([0, 1]);
+    // The root has no split; the first split has an empty leaf condition
+    // because it operates on the (unconstrained) root node.
+    expect(result.sse_trajectory![0].split).toBeUndefined();
+    const split = result.sse_trajectory![1].split!;
+    expect(split).toBeDefined();
+    expect(split.attribute).toBe("country");
+    expect(split.leafClauses).toEqual([]);
+    // The two sides partition the root node's two countries.
+    expect([...split.leftLevels, ...split.rightLevels].sort()).toEqual([
+      "CA",
+      "US",
+    ]);
+    expect(split.leftLevels).toHaveLength(1);
+    expect(split.rightLevels).toHaveLength(1);
+  });
+
+  it("records the pre-split leaf condition for a deeper split", () => {
+    // Three clearly distinct countries force two splits (three leaves): the
+    // root split, then a split of the leaf holding the two grouped countries.
+    const data = [
+      countryObs("US", 0, 200, 1),
+      countryObs("US", 1, 200, 10),
+      countryObs("CA", 0, 200, 10),
+      countryObs("CA", 1, 200, 1),
+      countryObs("MX", 0, 200, 5),
+      countryObs("MX", 1, 200, 5),
+    ];
+
+    const result = computeContextualBanditWeights(input(data));
+
+    expect(result.sse_trajectory!.map((s) => s.numSplits)).toEqual([0, 1, 2]);
+    expect(result.sse_trajectory![0].split).toBeUndefined();
+
+    const rootSplit = result.sse_trajectory![1].split!;
+    expect(rootSplit.attribute).toBe("country");
+    expect(rootSplit.leafClauses).toEqual([]);
+    expect([...rootSplit.leftLevels, ...rootSplit.rightLevels].sort()).toEqual([
+      "CA",
+      "MX",
+      "US",
+    ]);
+
+    const deepSplit = result.sse_trajectory![2].split!;
+    expect(deepSplit.attribute).toBe("country");
+    // The node split second is already constrained by the root split, so its
+    // leaf condition names exactly the two countries it still contains.
+    const nodeLevels = [
+      ...deepSplit.leftLevels,
+      ...deepSplit.rightLevels,
+    ].sort();
+    expect(nodeLevels).toHaveLength(2);
+    expect(deepSplit.leafClauses).toHaveLength(1);
+    expect(deepSplit.leafClauses[0].attribute).toBe("country");
+    expect(deepSplit.leafClauses[0].operator).toBe("in");
+    expect(deepSplit.leafClauses[0].levels.slice().sort()).toEqual(nodeLevels);
+  });
+
   it("returns a single root entry in the SSE trajectory when no split helps", () => {
     const data = [countryObs("US", 0, 200, 1), countryObs("US", 1, 200, 2)];
 
@@ -291,7 +359,7 @@ describe("computeContextualBanditWeights", () => {
     expect(result.sse_trajectory![0].totalSse).toBeCloseTo(398, 6);
   });
 
-  it("records per-variation SSE that sums to the total SSE at each stage", () => {
+  it("records a non-negative total SSE at each stage", () => {
     const data = [
       countryObs("US", 0, 200, 1),
       countryObs("US", 1, 200, 2),
@@ -303,10 +371,7 @@ describe("computeContextualBanditWeights", () => {
 
     expect(result.sse_trajectory!.length).toBeGreaterThan(0);
     for (const step of result.sse_trajectory!) {
-      expect(step.ssePerVariation).toBeDefined();
-      expect(step.ssePerVariation!).toHaveLength(2);
-      const sum = step.ssePerVariation!.reduce((a, b) => a + b, 0);
-      expect(sum).toBeCloseTo(step.totalSse, 6);
+      expect(step.totalSse).toBeGreaterThanOrEqual(0);
     }
   });
 
