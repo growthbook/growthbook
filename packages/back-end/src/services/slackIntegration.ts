@@ -25,6 +25,7 @@ import {
   getAllEventWebHooks,
   getEventWebHookById,
   reconnectSlackEventWebhook,
+  updateEventWebHook,
   updateSlackChannelName,
 } from "back-end/src/models/EventWebhookModel";
 import {
@@ -52,6 +53,7 @@ const slackOAuthStateSchema = z
   .object({
     orgId: z.string(),
     userId: z.string(),
+    teamId: z.string().optional(),
     nonce: z.string(),
     createdAt: z.number(),
   })
@@ -127,14 +129,17 @@ const signSlackOAuthState = (payload: string) =>
 const encodeSlackOAuthState = ({
   orgId,
   userId,
+  teamId,
 }: {
   orgId: string;
   userId: string;
+  teamId?: string;
 }) => {
   const payload = Buffer.from(
     JSON.stringify({
       orgId,
       userId,
+      teamId,
       nonce: randomBytes(16).toString("base64url"),
       createdAt: Date.now(),
     }),
@@ -190,9 +195,14 @@ const assertSlackOAuthState = ({
   ) {
     throw new Error("Slack OAuth state does not match the current user");
   }
+
+  return parsed.data;
 };
 
-export const getSlackOAuthAuthorizeUrl = (context: ReqContext) => {
+export const getSlackOAuthAuthorizeUrl = (
+  context: ReqContext,
+  teamId?: string,
+) => {
   if (!isSlackOAuthConfigured()) {
     throw new Error("Slack OAuth is not configured");
   }
@@ -201,11 +211,13 @@ export const getSlackOAuthAuthorizeUrl = (context: ReqContext) => {
   url.searchParams.set("client_id", SLACK_CLIENT_ID);
   url.searchParams.set("scope", SLACK_OAUTH_SCOPE);
   url.searchParams.set("redirect_uri", getSlackOAuthRedirectUri());
+  if (teamId) url.searchParams.set("team", teamId);
   url.searchParams.set(
     "state",
     encodeSlackOAuthState({
       orgId: context.org.id,
       userId: context.userId,
+      teamId,
     }),
   );
 
@@ -403,7 +415,8 @@ export const listSlackOAuthConnections = async (
     .filter(
       (eventWebHook) =>
         eventWebHook.payloadType === "slack" &&
-        (eventWebHook.slack?.channelId || !eventWebHook.slack?.teamId),
+        !!eventWebHook.slack?.teamId &&
+        !!eventWebHook.slack.channelId,
     )
     .map(slackEventWebhookToIntegration);
   const connectionsByTeamId = new Map(
@@ -463,9 +476,39 @@ export const getSlackOAuthIntegrationById = async ({
   id: string;
 }): Promise<SlackOAuthIntegrationInterface | null> => {
   const eventWebHook = await getEventWebHookById(id, context.org.id);
-  return eventWebHook?.payloadType === "slack"
+  return eventWebHook?.payloadType === "slack" && eventWebHook.slack?.teamId
     ? slackEventWebhookToIntegration(eventWebHook)
     : null;
+};
+
+export const updateSlackOAuthIntegration = async ({
+  context,
+  id,
+  updates,
+}: {
+  context: ReqContext;
+  id: string;
+  updates: Pick<
+    EventWebHookInterface,
+    "enabled" | "events" | "projects" | "environments" | "tags"
+  >;
+}): Promise<SlackOAuthIntegrationInterface | null> => {
+  const eventWebHook = await getEventWebHookById(id, context.org.id);
+  if (
+    eventWebHook?.payloadType !== "slack" ||
+    !eventWebHook.slack?.teamId ||
+    !eventWebHook.slack.channelId
+  ) {
+    return null;
+  }
+
+  await updateEventWebHook(
+    { eventWebHookId: id, organizationId: context.org.id },
+    updates,
+  );
+
+  const updated = await getEventWebHookById(id, context.org.id);
+  return updated ? slackEventWebhookToIntegration(updated) : null;
 };
 
 /**
@@ -482,9 +525,11 @@ export type SlackOAuthConnectionResult = {
 const attachSlackOAuthCode = async ({
   context,
   code,
+  expectedTeamId,
 }: {
   context: ReqContext;
   code: string;
+  expectedTeamId?: string;
 }): Promise<SlackOAuthConnectionResult> => {
   const slackOAuthResponse = await exchangeSlackOAuthCode(code);
   const teamId = slackOAuthResponse.team?.id;
@@ -492,6 +537,9 @@ const attachSlackOAuthCode = async ({
     throw new Error(
       "Slack did not return a workspace id. Install the GrowthBook app into a specific workspace (org-wide enterprise installs are not supported).",
     );
+  }
+  if (expectedTeamId && teamId !== expectedTeamId) {
+    throw new Error("Slack connected a different workspace than expected");
   }
   const connection = await upsertSlackWorkspaceConnection({
     context,
@@ -589,8 +637,12 @@ export const connectSlackOAuthIntegration = async ({
   code: string;
   state: string;
 }) => {
-  assertSlackOAuthState({ state, context });
-  return attachSlackOAuthCode({ context, code });
+  const oauthState = assertSlackOAuthState({ state, context });
+  return attachSlackOAuthCode({
+    context,
+    code,
+    expectedTeamId: oauthState.teamId,
+  });
 };
 
 /**
