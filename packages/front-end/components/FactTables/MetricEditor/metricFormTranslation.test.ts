@@ -11,6 +11,7 @@ import {
   onQuantileScopeChange,
   onRetentionDelayOrModeChange,
   onShapeChange,
+  retentionEnd,
   retentionModeFromWindow,
   shapeForValueType,
   shapeFromColumnRef,
@@ -313,6 +314,26 @@ describe("retention window reset rules", () => {
       value: 5,
     });
     expect(result.windowValue).toBe(1);
+  });
+
+  it("converts windowUnit into delayUnit's scale before computing end", () => {
+    // 7 days + 24 hours = 8 days, not 31 - windowValue is in a different
+    // unit than delayValue and must be converted before the arithmetic.
+    const mixedUnits = {
+      type: "conversion" as const,
+      delayValue: 7,
+      delayUnit: "days" as const,
+      windowValue: 24,
+      windowUnit: "hours" as const,
+    };
+    expect(retentionEnd(mixedUnits)).toBe(8);
+
+    const result = onRetentionDelayOrModeChange(mixedUnits, {
+      type: "delay",
+      value: 8,
+    });
+    expect(result.windowUnit).toBe("days");
+    expect(retentionEnd(result)).toBeGreaterThan(8);
   });
 });
 
@@ -805,6 +826,9 @@ describe("applyFormType", () => {
     expect(result.windowSettings).toMatchObject({
       delayValue: 7,
       delayUnit: "days",
+      // A fresh metric switching into retention must not display a bounded
+      // window ("Between X and Y days") while querying unbounded.
+      type: "conversion",
     });
   });
 
@@ -821,6 +845,24 @@ describe("applyFormType", () => {
     };
     const result = applyFormType(withDelay, "retention", factTable);
     expect(result.windowSettings?.delayValue).toBe(12);
+    expect(result.windowSettings?.type).toBe("conversion");
+  });
+
+  it("sets type to empty (not conversion) when switching into retention in starting mode", () => {
+    const startingMode = {
+      ...current,
+      windowSettings: {
+        // A prior type left behind by whichever type this metric was before -
+        // must not leak into retention's own bounding logic.
+        type: "conversion" as const,
+        windowUnit: "hours" as const,
+        windowValue: 0,
+        delayUnit: "hours" as const,
+        delayValue: 12,
+      },
+    };
+    const result = applyFormType(startingMode, "retention", factTable);
+    expect(result.windowSettings?.type).toBe("");
   });
 });
 
