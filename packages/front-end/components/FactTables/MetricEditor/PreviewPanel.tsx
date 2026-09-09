@@ -11,7 +11,9 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import { Select, SelectItem } from "@/ui/Select";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Code from "@/components/SyntaxHighlighting/Code";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 
 export type PreviewPart = {
@@ -28,7 +30,8 @@ export type PreviewPart = {
 // instead of a fake template).
 export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
   const { apiCall } = useAuth();
-  const [activeKey, setActiveKey] = useState(parts[0]?.key);
+  const [partKey, setPartKey] = useState(parts[0]?.key);
+  const [view, setView] = useState<"preview" | "sql">("preview");
   const [results, setResults] = useState<
     Record<string, FactFilterTestResults | undefined>
   >({});
@@ -36,7 +39,7 @@ export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
 
   if (!parts.length) return null;
 
-  const active = parts.find((p) => p.key === activeKey) ?? parts[0];
+  const active = parts.find((p) => p.key === partKey) ?? parts[0];
   const result = results[active.key];
 
   async function runPreview() {
@@ -54,10 +57,30 @@ export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
 
   return (
     <Frame>
-      <Flex justify="between" align="center" mb="3" wrap="wrap" gap="2">
-        <Heading as="h4" size="sm" mb="0">
-          Preview
-        </Heading>
+      <Flex direction="column" gap="2" mb="3">
+        <Flex justify="between" align="center">
+          <Heading as="h4" size="sm" mb="0">
+            Preview
+          </Heading>
+          <Tabs
+            value={view}
+            onValueChange={(v) => setView(v as "preview" | "sql")}
+          >
+            <TabsList>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+              <TabsTrigger value="sql">SQL</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </Flex>
+        {parts.length > 1 && (
+          <Select value={partKey} setValue={setPartKey}>
+            {parts.map((p) => (
+              <SelectItem key={p.key} value={p.key}>
+                {p.label}
+              </SelectItem>
+            ))}
+          </Select>
+        )}
         <Button
           onClick={runPreview}
           setError={setError}
@@ -66,37 +89,30 @@ export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
           Run Preview
         </Button>
       </Flex>
-      {parts.length > 1 && (
-        <Tabs value={activeKey} onValueChange={setActiveKey}>
-          <TabsList>
-            {parts.map((p) => (
-              <TabsTrigger key={p.key} value={p.key}>
-                {p.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      )}
       {error && (
-        <Callout status="error" mt="3">
+        <Callout status="error" mb="3">
           {error}
         </Callout>
       )}
       {!result && !error && (
-        <Text color="text-mid" as="div" mt="3">
+        <Text color="text-mid" as="div">
           {active.factTable
             ? "Run the preview to see sample rows and the SQL that selects them."
             : "Select a fact table to preview this metric's data."}
         </Text>
       )}
-      {result && (
-        <DisplayTestQueryResults
-          duration={result.duration || 0}
-          results={result.results || []}
-          sql={result.sql || ""}
-          error={result.error || ""}
-        />
-      )}
+      {result &&
+        (view === "sql" ? (
+          <Code language="sql" code={result.sql || ""} expandable />
+        ) : (
+          <DisplayTestQueryResults
+            duration={result.duration || 0}
+            results={result.results || []}
+            sql={result.sql || ""}
+            error={result.error || ""}
+            expandable
+          />
+        ))}
     </Frame>
   );
 }
