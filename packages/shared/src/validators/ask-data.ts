@@ -166,6 +166,7 @@ export const runSqlQueryValidator = {
         durationMs: z.number(),
         sql: z.string(),
         explorationUrl: z.string().optional(),
+        explorationId: z.string().optional(),
       })
       .strict(),
     z

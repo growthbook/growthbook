@@ -19665,6 +19665,8 @@ paths:
                         type: string
                       explorationUrl:
                         type: string
+                      explorationId:
+                        type: string
                     required:
                       - status
                       - summary

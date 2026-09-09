@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
-import { QueryInterface, QueryType } from "shared/types/query";
+import { QueryInterface, QueryStatistics, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
 import { ApiQuery } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
@@ -395,6 +395,47 @@ export async function createNewQueryFromCached({
     runAtEnd: runAtEnd,
     cachedQueryUsed: existing.cachedQueryUsed || existing.id,
     hasChunkedResults: existing.hasChunkedResults,
+  };
+  const doc = await QueryModel.create(data);
+  return toInterface(doc);
+}
+
+export async function createCompletedQuery({
+  organization,
+  datasource,
+  language,
+  query,
+  displayTitle,
+  queryType,
+  rawResult,
+  statistics,
+}: {
+  organization: string;
+  datasource: string;
+  language: QueryLanguage;
+  query: string;
+  displayTitle?: string;
+  queryType: QueryType;
+  rawResult: Record<string, unknown>[];
+  statistics?: QueryStatistics;
+}): Promise<QueryInterface> {
+  const now = new Date();
+  const data: QueryInterface = {
+    id: generateId("qry_"),
+    organization,
+    datasource,
+    language,
+    query,
+    displayTitle,
+    queryType,
+    status: "succeeded",
+    createdAt: now,
+    startedAt: now,
+    finishedAt: now,
+    heartbeat: now,
+    rawResult,
+    statistics,
+    dependencies: [],
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);

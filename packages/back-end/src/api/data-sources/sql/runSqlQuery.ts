@@ -1,5 +1,4 @@
 import { ASK_ROW_LIMIT, assertSafeReadOnlySQL, ensureLimit } from "shared/sql";
-import type { ExplorationConfig } from "shared/validators";
 import { runSqlQueryValidator } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -7,7 +6,10 @@ import {
   runFreeFormQuery,
 } from "back-end/src/services/datasource";
 import { getProductAnalyticsExplorationUrl } from "back-end/src/enterprise/services/product-analytics";
-import { resultsToCsv } from "back-end/src/agent/ask-data-tools";
+import {
+  resultsToCsv,
+  createSqlExploration,
+} from "back-end/src/agent/ask-data-tools";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 const DEFAULT_THRESHOLD_BYTES = 1073741824; // 1 GiB
@@ -99,39 +101,24 @@ export const runSqlQuery = createApiRequestHandler(runSqlQueryValidator)(async (
   const truncated = rows.length >= ASK_ROW_LIMIT;
   const executedSql = sql ?? limited;
 
-  // Build exploration URL when table metadata is provided
+  // Create a persisted SQL exploration so the agent's SQL populates the SQL IDE
   let explorationUrl: string | undefined;
-  const tm = req.body.tableMetadata;
-  if (tm) {
-    try {
-      const config: ExplorationConfig = {
-        type: "data_source",
-        datasource: datasource.id,
-        chartType: "table",
-        dateRange: { predefined: "last30Days" },
-        dimensions: [],
-        dataset: {
-          type: "data_source",
-          table: tm.table,
-          path: tm.path,
-          timestampColumn: tm.timestampColumn,
-          columnTypes: tm.columnTypes,
-          values: [
-            {
-              type: "data_source",
-              name: "Count",
-              valueType: "count",
-              valueColumn: null,
-              unit: null,
-              rowFilters: [],
-            },
-          ],
-        },
-      };
-      explorationUrl = getProductAnalyticsExplorationUrl(config);
-    } catch {
-      // If config building fails, skip the URL
-    }
+  let explorationId: string | undefined;
+  try {
+    const result = await createSqlExploration(req.context, {
+      datasourceId: datasource.id,
+      sql: executedSql,
+      purpose: req.body.purpose,
+      colNames,
+      columns: columns ?? undefined,
+      rows,
+      durationMs: duration ?? 0,
+      timestampColumn: req.body.tableMetadata?.timestampColumn,
+    });
+    explorationId = result.explorationId;
+    explorationUrl = getProductAnalyticsExplorationUrl(result.config);
+  } catch {
+    // If exploration creation fails, skip it
   }
 
   return {
@@ -147,6 +134,7 @@ export const runSqlQuery = createApiRequestHandler(runSqlQueryValidator)(async (
     durationMs: duration ?? 0,
     sql: executedSql,
     ...(explorationUrl ? { explorationUrl } : {}),
+    ...(explorationId ? { explorationId } : {}),
   };
 });
 

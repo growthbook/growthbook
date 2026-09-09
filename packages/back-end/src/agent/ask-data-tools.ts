@@ -5,11 +5,14 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type { InformationSchema } from "shared/types/integrations";
 import { ASK_ROW_LIMIT, assertSafeReadOnlySQL, ensureLimit } from "shared/sql";
+import type { ExplorationConfig } from "shared/validators";
+import { calculateProductAnalyticsDateRange } from "shared/enterprise";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 import type { AgentEmit } from "back-end/src/enterprise/services/agent-handler";
 import type { ConversationBuffer } from "back-end/src/enterprise/services/conversation-buffer";
 import type { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { createCompletedQuery } from "back-end/src/models/QueryModel";
 import {
   getSourceIntegrationObject,
   runFreeFormQuery,
@@ -122,6 +125,107 @@ export function resultsToCsv(
       .join("|"),
   );
   return [header, ...rows].join("\n");
+}
+
+// -----------------------------------------------------------------------------
+// Exploration persistence
+// -----------------------------------------------------------------------------
+
+/**
+ * Creates a persisted SQL exploration and linked Query record from SQL results.
+ * The exploration uses `type: "sql"` so the agent's SQL populates the SQL IDE
+ * at `/product-analytics/explore/sql`.
+ */
+export async function createSqlExploration(
+  ctx: ReqContext,
+  opts: {
+    datasourceId: string;
+    sql: string;
+    purpose: string;
+    colNames: string[];
+    columns: Array<{ name: string; dataType?: string }> | undefined;
+    rows: Record<string, unknown>[];
+    durationMs: number;
+    timestampColumn?: string;
+  },
+): Promise<{ explorationId: string; config: ExplorationConfig }> {
+  const { colNames, rows } = opts;
+
+  // Build columnTypes from SQL result columns
+  const columnTypes: Record<
+    string,
+    "string" | "number" | "date" | "boolean" | "other"
+  > = {};
+  for (const col of colNames) {
+    const meta = opts.columns?.find((c) => c.name === col);
+    const dt = meta?.dataType?.toLowerCase() ?? "";
+    if (/int|float|numeric|decimal|double/.test(dt)) {
+      columnTypes[col] = "number";
+    } else if (/date|time/.test(dt)) {
+      columnTypes[col] = "date";
+    } else if (/bool/.test(dt)) {
+      columnTypes[col] = "boolean";
+    } else {
+      columnTypes[col] = "string";
+    }
+  }
+
+  const config: ExplorationConfig = {
+    type: "sql",
+    datasource: opts.datasourceId,
+    chartType: "table",
+    dateRange: { predefined: "last30Days" },
+    dimensions: [],
+    dataset: {
+      type: "sql" as const,
+      sql: opts.sql,
+      timestampColumn: opts.timestampColumn ?? null,
+      columnTypes,
+      values: [],
+    },
+  };
+
+  const convertedRows = rows.map((row) => ({
+    dimensions: colNames.map((col) => {
+      const v = row[col];
+      return v === null || v === undefined ? null : String(v);
+    }),
+  }));
+
+  const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
+
+  const queryRecord = await createCompletedQuery({
+    organization: ctx.org.id,
+    datasource: opts.datasourceId,
+    language: "sql",
+    query: opts.sql,
+    displayTitle: opts.purpose,
+    queryType: "askDataAgentQuery",
+    rawResult: rows,
+    statistics: { executionDurationMs: opts.durationMs },
+  });
+
+  const exploration = await ctx.models.analyticsExplorations.create({
+    config,
+    datasource: opts.datasourceId,
+    configHash: "",
+    valueHashes: [],
+    dateStart: dateRange.startDate.toISOString(),
+    dateEnd: dateRange.endDate.toISOString(),
+    queries: [
+      {
+        query: queryRecord.id,
+        status: "succeeded" as const,
+        name: "SQL Query",
+      },
+    ],
+    result: { rows: convertedRows },
+    runStarted: new Date(),
+    status: "success",
+    error: null,
+  });
+
+  return { explorationId: exploration.id, config };
 }
 
 // -----------------------------------------------------------------------------
