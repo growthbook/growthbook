@@ -1,7 +1,14 @@
 // core+sessions bundle: everything in auto-wrapper.ts plus session replay,
 // with page events, errors, and CWV on by default. rrweb is inlined (rollup
 // external: () => false), so this stays a single self-contained script.
-// The defaults module must be imported before auto-wrapper evaluates.
+//
+// How the defaults get in: auto-wrapper.ts constructs the instance in its
+// module body, so nothing here can run first. ES modules evaluate imports
+// in order, so auto-wrapper-plus-defaults.ts is imported before
+// auto-wrapper and fills wrapperDefaults (auto-wrapper-defaults.ts) ahead of
+// time. package.json declares sideEffects: false, which would let rollup
+// drop this import; rollup.config.mjs sets ignoreSideEffectsForRoot for the
+// wrapper bundles so it is kept. Keep this import first.
 import "./auto-wrapper-plus-defaults";
 import gb, { type WindowContext } from "./auto-wrapper";
 import {

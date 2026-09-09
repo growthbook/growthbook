@@ -181,6 +181,10 @@ function readAutoEventsSettings(): AutoEventsSettings {
   return settings;
 }
 
+// Bundle defaults sit beneath the customer's config. They come from
+// auto-wrapper-defaults.ts, which is empty for auto.js; core+sessions fills
+// it in from auto-wrapper-plus-defaults.ts, imported ahead of this module
+// (see auto-wrapper-plus.ts for how that ordering is compiled in).
 const autoEventsSettings: AutoEventsSettings = {
   privacy: windowContext.privacy,
   ...wrapperDefaults.autoEvents,
