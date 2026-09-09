@@ -837,8 +837,6 @@ function ConditionAndGroupInput({
             }
             formatOptionLabel={(o, meta) => {
               const option = o as AttributeOptionForTooltip;
-              // The saved-group pseudo-options have no datatype: no popover
-              // and no project annotation for them.
               if (option.datatype === undefined) {
                 return <Text size="md">{o.label}</Text>;
               }

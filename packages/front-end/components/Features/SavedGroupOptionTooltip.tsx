@@ -77,8 +77,6 @@ export function SavedGroupOptionWithTooltip({
   const group = getSavedGroupById(groupId);
   if (!group) return <>{children}</>;
   const isValue = context === "value";
-  // @/ui/Popover, not the legacy popper Tooltip — the popper portals to body
-  // and is invisible above Radix modal Dialogs.
   return (
     <Popover
       openOnHover
@@ -152,8 +150,6 @@ function SavedGroupOptionLabel({
   );
 }
 
-// Drop-in `formatOptionLabel` for saved-group selects: hover popover in both
-// contexts, project annotation on menu rows, link to the group at rest.
 export function formatSavedGroupOptionLabel(
   o: { label: string; value: string },
   meta: { context: string },
