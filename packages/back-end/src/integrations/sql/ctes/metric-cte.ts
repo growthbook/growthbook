@@ -1,6 +1,7 @@
 import {
   ExperimentMetricInterface,
   getColumnRefWhereClause,
+  getFactTableIdColumnExpression,
   getMetricTemplateVariables,
   getUserIdTypes,
   isFactMetric,
@@ -74,7 +75,10 @@ export function getMetricCTE(
   // equal the userIdType, so when using the query builder, continue to
   // use the actual input column name rather than the id type
   if (userIdTypes.includes(baseIdType)) {
-    userIdCol = queryFormat === "builder" ? userIdCol : baseIdType;
+    userIdCol =
+      queryFormat === "builder"
+        ? userIdCol
+        : getFactTableIdColumnExpression(factTable, baseIdType, dialect);
   } else if (userIdTypes.length > 0) {
     for (let i = 0; i < userIdTypes.length; i++) {
       const userIdType: string = userIdTypes[i];
@@ -82,7 +86,12 @@ export function getMetricCTE(
         const metricUserIdCol =
           queryFormat === "builder"
             ? cols.userIds[userIdType]
-            : `m.${userIdType}`;
+            : getFactTableIdColumnExpression(
+                factTable,
+                userIdType,
+                dialect,
+                "m",
+              );
         join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
         userIdCol = `i.${baseIdType}`;
         break;
