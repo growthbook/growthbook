@@ -197,6 +197,15 @@ router.post(
   factTableController.postPreviewMetricRows,
 );
 
+router.post(
+  "/fact-tables/:id/preview-metric-sql",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: previewMetricRowsPropsValidator,
+  }),
+  factTableController.postPreviewMetricSql,
+);
+
 router.delete(
   "/fact-tables/:id/filter/:filterId",
   validateRequestMiddleware({
