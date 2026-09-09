@@ -2,6 +2,7 @@ export { autoAttributesPlugin } from "./auto-attributes";
 export { growthbookTrackingPlugin } from "./growthbook-tracking";
 export { thirdPartyTrackingPlugin } from "./third-party-tracking";
 export { autoEventsPlugin } from "./auto-events/index";
+export { redirectExposurePlugin } from "./redirect-exposure";
 export type { AutoEventsSettings } from "./auto-events/index";
 export {
   configureSession,

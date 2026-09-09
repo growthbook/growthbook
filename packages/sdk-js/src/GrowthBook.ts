@@ -1060,6 +1060,10 @@ export class GrowthBook<
     this.fireDeferredTrackingCalls();
   }
 
+  public getTrackingCallback(): TrackingCallback | undefined {
+    return this._options.trackingCallback;
+  }
+
   public setFeatureUsageCallback(callback: FeatureUsageCallback) {
     this._options.onFeatureUsage = callback;
   }
