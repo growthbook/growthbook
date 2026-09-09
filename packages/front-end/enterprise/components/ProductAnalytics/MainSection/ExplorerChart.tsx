@@ -617,9 +617,13 @@ export default function ExplorerChart({
     const valueAxis = {
       type: "value" as const,
       scale: false,
-      name: valueAxisName,
+      ...(valueAxisName
+        ? {
+            name: valueAxisName,
+            nameGap: 50,
+          }
+        : {}),
       nameLocation: "middle" as const,
-      nameGap: 50,
       nameTextStyle: {
         fontSize: 14,
         fontWeight: "bold",
@@ -996,6 +1000,7 @@ export default function ExplorerChart({
                 ...(animate ? {} : { animation: false }),
                 padding: [0, 0, 0, 0],
                 grid: {
+                  containLabel: true,
                   left:
                     submittedExploreState?.chartType === "horizontalBar" ||
                     submittedExploreState?.chartType === "stackedHorizontalBar"
