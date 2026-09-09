@@ -373,7 +373,7 @@ describe("runContextualBanditSnapshot", () => {
         },
       },
       models: {
-        contextualBandits: { update: updateMock },
+        contextualBandits: { dangerousUpdateBypassPermission: updateMock },
         contextualBanditQueries: {
           getById: jest.fn().mockResolvedValue({
             id: "cbq_1",

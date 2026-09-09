@@ -134,7 +134,7 @@ function makeContext({
     models: {
       rampSchedules: {
         getById: jest.fn().mockResolvedValue(schedule ?? null),
-        updateById: jest
+        dangerousUpdateByIdBypassPermission: jest
           .fn()
           .mockImplementation(
             (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -456,12 +456,11 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
     );
 
     expect(context.models.rampSchedules.getById).toHaveBeenCalledWith("rs_1");
-    expect(context.models.rampSchedules.updateById).toHaveBeenCalledWith(
-      "rs_1",
-      {
-        nextProcessAt: null,
-      },
-    );
+    expect(
+      context.models.rampSchedules.dangerousUpdateByIdBypassPermission,
+    ).toHaveBeenCalledWith("rs_1", {
+      nextProcessAt: null,
+    });
     expect(mockCreateSafeRolloutSnapshot).not.toHaveBeenCalled();
   });
 
@@ -919,7 +918,9 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
         expect(context.models.rampSchedules.getById).toHaveBeenCalledWith(
           "rs_1",
         );
-        expect(context.models.rampSchedules.updateById).not.toHaveBeenCalled();
+        expect(
+          context.models.rampSchedules.dangerousUpdateByIdBypassPermission,
+        ).not.toHaveBeenCalled();
       });
     }
 
@@ -940,7 +941,9 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
       );
 
       expect(context.models.rampSchedules.getById).toHaveBeenCalledWith("rs_1");
-      expect(context.models.rampSchedules.updateById).not.toHaveBeenCalled();
+      expect(
+        context.models.rampSchedules.dangerousUpdateByIdBypassPermission,
+      ).not.toHaveBeenCalled();
     });
   });
 
