@@ -153,7 +153,8 @@ export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
               results={rows.results || []}
               sql={rows.sql || ""}
               error={rows.error || ""}
-              expandable
+              sqlMaxHeight="calc(100% - 40px)"
+              sqlStyle={{ aspectRatio: "83 / 92", alignSelf: "stretch" }}
             />
           ) : (
             <>
