@@ -220,11 +220,19 @@ export function onRetentionDelayOrModeChange(
   change: RetentionWindowChange,
 ): MetricWindowSettings {
   if (change.type === "mode") {
+    // windowValue alone decides "starting" vs "between" in storage, but the
+    // query only enforces an upper bound when type === "conversion" - that
+    // field has to move with the mode or the two disagree: "between" with a
+    // stale non-"conversion" type stays unbounded, and "starting" (windowValue
+    // forced to 0) with a stale "conversion" type produces a zero-width upper
+    // bound (an impossible, always-false interval against its own lower bound).
     if (change.value === "starting") {
-      return { ...windowSettings, windowValue: 0 };
+      return { ...windowSettings, windowValue: 0, type: "" };
     }
-    if (windowSettings.windowValue > 0) return windowSettings;
-    return { ...windowSettings, windowValue: 1 };
+    if (windowSettings.windowValue > 0) {
+      return { ...windowSettings, type: "conversion" };
+    }
+    return { ...windowSettings, windowValue: 1, type: "conversion" };
   }
 
   if (change.type === "end") {
