@@ -15,6 +15,7 @@ import {
   testFactFilterPropsValidator,
   testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
+  previewMetricRowsPropsValidator,
   conversionWindowUnitValidator,
   cappingSettingsValidator,
   windowSettingsValidator,
@@ -207,6 +208,9 @@ export type TestFactFilterProps = z.infer<typeof testFactFilterPropsValidator>;
 export type TestRowFiltersProps = z.infer<typeof testRowFiltersPropsValidator>;
 export type TestVirtualColumnProps = z.infer<
   typeof testVirtualColumnPropsValidator
+>;
+export type PreviewMetricRowsProps = z.infer<
+  typeof previewMetricRowsPropsValidator
 >;
 
 export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
