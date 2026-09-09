@@ -57,10 +57,23 @@ export type ExplorerDraftConfig = ExplorationConfig & {
   comparisonMode?: ComparisonMode;
 };
 
+/**
+ * Converts an explorer draft into a config the API accepts. Drops the UI-only
+ * compare fields, and — for raw tables — the dimensions and values the draft
+ * keeps so switching back to a visualization is reversible. Raw tables return
+ * unaggregated rows, so the server rejects a config that still carries them.
+ */
 export function stripExplorerDraftFields(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
   const { previousTimeFrame: _, comparisonMode: __, ...rest } = config;
+  if (rest.type === "sql" && rest.chartType === "rawTable") {
+    return {
+      ...rest,
+      dimensions: [],
+      dataset: { ...rest.dataset, values: [] },
+    };
+  }
   return rest;
 }
 import {
@@ -418,41 +431,32 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
   }
 }
 
-/** Seed Count and line-vs-table when entering Explore Dataset, not when a test query first returns columns. */
-export function withDefaultSqlCountValue(
+/** True when a SQL dataset has been tested but not yet configured to explore. */
+function isUnconfiguredSqlDataset(config: ExplorerDraftConfig): boolean {
+  if (config.dataset.type !== "sql") return false;
+  if (config.dataset.values.length > 0) return false;
+  return (
+    !!config.dataset.sql.trim() &&
+    Object.keys(config.dataset.columnTypes).length > 0
+  );
+}
+
+/** Default a tested SQL dataset to its unaggregated result table on first Explore entry. */
+export function withDefaultSqlRawTable(
   config: ExplorerDraftConfig,
 ): ExplorerDraftConfig {
-  if (config.dataset.type !== "sql") return config;
-  if (config.dataset.values.length > 0) return config;
-  if (
-    !config.dataset.sql.trim() ||
-    Object.keys(config.dataset.columnTypes).length === 0
-  ) {
-    return config;
-  }
+  if (!isUnconfiguredSqlDataset(config)) return config;
 
-  const hasTimestamp = hasTimestampColumn(config.dataset.timestampColumn);
-  const dimensions =
-    hasTimestamp &&
-    !config.dimensions.some((dimension) => dimension.dimensionType === "date")
-      ? [
-          {
-            dimensionType: "date" as const,
-            column: "date",
-            dateGranularity: "auto" as const,
-          },
-          ...config.dimensions,
-        ]
-      : config.dimensions;
+  const {
+    previousTimeFrame: _,
+    comparisonMode: __,
+    ...withoutComparison
+  } = config;
 
   return {
-    ...config,
-    chartType: hasTimestamp ? "line" : "table",
-    dimensions,
-    dataset: {
-      ...config.dataset,
-      values: [createEmptyValue("sql") as SqlValue],
-    },
+    ...withoutComparison,
+    chartType: "rawTable",
+    dimensions: [],
   } as ExplorerDraftConfig;
 }
 
@@ -970,6 +974,18 @@ export function isTimeSeriesChart(
   return TIMESERIES_CHART_TYPES.has(chartType);
 }
 
+const TABLE_CHART_TYPES: Set<string> = new Set([
+  "table",
+  "timeseries-table",
+  "rawTable",
+]);
+
+export function isTableChartType(
+  chartType: string | null | undefined,
+): boolean {
+  return !!chartType && TABLE_CHART_TYPES.has(chartType);
+}
+
 export function isTimelessSqlExploration(
   config: Pick<ExplorationConfig, "dataset">,
 ): boolean {
@@ -1010,7 +1026,10 @@ export function applyTimestampColumn<T extends ExplorerDraftConfig>(
     if (chartType === "bar" || chartType === "table") {
       chartType = "line";
     }
-    if (!dimensions.some((dimension) => dimension.dimensionType === "date")) {
+    if (
+      chartType !== "rawTable" &&
+      !dimensions.some((dimension) => dimension.dimensionType === "date")
+    ) {
       dimensions = [DEFAULT_DATE_DIMENSION, ...dimensions];
     }
   } else if (!hasTime) {
@@ -1120,6 +1139,9 @@ export function applySqlPreviewMetadata(
       dimension.column === null ||
       valueColumns.has(dimension.column),
   );
+  const hiddenColumns = config.dataset.hiddenColumns?.filter((column) =>
+    valueColumns.has(column),
+  );
   return applyTimestampColumn(
     {
       ...config,
@@ -1128,6 +1150,10 @@ export function applySqlPreviewMetadata(
         ...config.dataset,
         sql,
         columnTypes,
+        // A query rewrite can leave every remaining column hidden; reset
+        // rather than render an empty table.
+        hiddenColumns:
+          hiddenColumns?.length === valueColumns.size ? [] : hiddenColumns,
         values: config.dataset.values.map((value) => ({
           ...value,
           valueColumn:
@@ -1146,6 +1172,7 @@ export function applySqlPreviewMetadata(
 function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
   if (CUMULATIVE_CHART_TYPES.has(chartType)) return "cumulative";
   if (TIMESERIES_CHART_TYPES.has(chartType)) return "timeseries";
+  if (chartType === "rawTable") return "results";
   throw new Error(`Invalid chart type: ${chartType}`);
 }
 
@@ -1159,13 +1186,22 @@ export function toFetchKey(
       : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { showAs, ...rest } = base;
+  if (base.dataset.type === "sql" && base.chartType === "rawTable") {
+    return {
+      ...rest,
+      dateRange: isTimelessSqlExploration(base) ? null : base.dateRange,
+      chartType: getChartCategory(base.chartType),
+      dataset: omit(base.dataset, ["hiddenColumns", "values"]),
+      dimensions: [],
+    };
+  }
   if (isTimelessSqlExploration(base) && base.dataset.type === "sql") {
     return {
       ...rest,
       dateRange: null,
       chartType: getChartCategory(base.chartType),
       dataset: {
-        ...base.dataset,
+        ...omit(base.dataset, "hiddenColumns"),
         values: base.dataset.values.map((value) => omit(value, "name")),
       },
     };
@@ -1190,7 +1226,9 @@ export function toFetchKey(
     ...rest,
     chartType: getChartCategory(base.chartType),
     dataset: {
-      ...base.dataset,
+      ...(base.dataset.type === "sql"
+        ? omit(base.dataset, "hiddenColumns")
+        : base.dataset),
       values: base.dataset.values.map((value) => omit(value, "name")),
     },
   };
@@ -1269,7 +1307,10 @@ export function isSubmittableConfig(
         if (!ft.userIdTypes?.includes(unit)) return false;
       }
     }
-  } else {
+  } else if (
+    cleanedConfig.dataset.type !== "sql" ||
+    cleanedConfig.chartType !== "rawTable"
+  ) {
     if (!Array.isArray(cleanedConfig.dataset.values)) return false;
     if (cleanedConfig.dataset.values.length === 0) return false;
     if (
@@ -1438,6 +1479,12 @@ export function hasSubmittablePayload(
   if (config.dataset.type === "funnel") {
     return (config.dataset.steps?.length ?? 0) >= 2;
   }
+  if (config.dataset.type === "sql" && config.chartType === "rawTable") {
+    return (
+      config.dataset.sql.trim().length > 0 &&
+      Object.keys(config.dataset.columnTypes).length > 0
+    );
+  }
   return (config.dataset.values?.length ?? 0) > 0;
 }
 
@@ -1454,9 +1501,7 @@ export function shouldChartSectionShow(params: {
   // Chart renders empty box for table-only types; table view handles display
   if (
     submittedExploreState &&
-    ["table", "timeseries-table"].includes(
-      submittedExploreState.chartType ?? "",
-    )
+    isTableChartType(submittedExploreState.chartType)
   ) {
     return false;
   }

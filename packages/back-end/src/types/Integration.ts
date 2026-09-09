@@ -79,6 +79,15 @@ import { ReqContext } from "back-end/types/request";
 
 export type { MetricAnalysisParams };
 
+export type ExternalQueryStatus =
+  | { state: "running" }
+  | { state: "succeeded" }
+  | { state: "failed"; error: string }
+  // expired: the warehouse no longer knows the id. unreachable: the status
+  // call itself failed. unrecognized: the warehouse answered with a payload or
+  // state we cannot classify.
+  | { state: "unknown"; reason: "expired" | "unreachable" | "unrecognized" };
+
 type DataSourceByType = {
   [DataSource in DataSourceInterface as DataSource["type"]]: DataSource;
 };
@@ -317,6 +326,10 @@ export interface SourceIntegrationInterface<
     externalId: string,
     metadata?: Record<string, string>,
   ): Promise<void>;
+  getExternalQueryStatus?(
+    externalId: string,
+    metadata?: Record<string, string>,
+  ): Promise<ExternalQueryStatus>;
   getFeatureUsage?(
     feature: string,
     lookback: FeatureUsageLookback,

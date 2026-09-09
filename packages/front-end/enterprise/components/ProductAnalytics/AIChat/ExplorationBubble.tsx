@@ -14,14 +14,14 @@ import LinkButton from "@/ui/LinkButton";
 import { AssistantBubble } from "@/enterprise/components/AIChat/AIChatPrimitives";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import SimpleExplorationTable from "@/enterprise/components/ProductAnalytics/MainSection/SimpleExplorationTable";
+import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
+import { isTableChartType } from "@/enterprise/components/ProductAnalytics/util";
 
 export interface ChartData {
   config: ExplorationConfig;
   exploration: ProductAnalyticsExploration | null;
 }
-
-const TABLE_CHART_TYPES: readonly string[] = ["table", "timeseries-table"];
 
 const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
   metric: "/product-analytics/explore/metrics",
@@ -62,7 +62,7 @@ export default function ExplorationBubble({
 }: ExplorationBubbleProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const explorerUrl = `${EXPLORER_PATHS[chartData.config.type]}?config=${encodeExplorationConfig(chartData.config)}`;
-  const isTable = TABLE_CHART_TYPES.includes(chartData.config.chartType);
+  const isTable = isTableChartType(chartData.config.chartType);
 
   return (
     <AssistantBubble wide>
@@ -97,7 +97,16 @@ export default function ExplorationBubble({
           </LinkButton>
         </Flex>
       </Flex>
-      {isTable ? (
+      {chartData.config.chartType === "rawTable" ? (
+        <Flex style={{ height: 360, minHeight: 260 }}>
+          <ExplorerDataTable
+            exploration={chartData.exploration}
+            error={chartData.exploration?.error ?? null}
+            submittedExploreState={chartData.config}
+            loading={false}
+          />
+        </Flex>
+      ) : isTable ? (
         <SimpleExplorationTable
           exploration={chartData.exploration}
           config={chartData.config}
