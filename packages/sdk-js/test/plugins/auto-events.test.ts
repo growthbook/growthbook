@@ -1574,7 +1574,7 @@ describe("autoEventsPlugin", () => {
 
     const warns = consoleWarnSpy.mock.calls.map((c) => String(c[0]));
     expect(
-      warns.some((m) => m.includes("CWV / page events / clickstream")),
+      warns.some((m) => m.includes("clickstream need a GrowthBook instance")),
     ).toBe(true);
   });
 });

@@ -1,3 +1,9 @@
+/**
+ * Automatic browser events: page views and engagement, browser errors, Core
+ * Web Vitals, and clickstream. Every category is off until local settings
+ * or remote sdkSettings turn it on. Browser only; inert on the server, so
+ * it is safe in a plugins array shared with SSR.
+ */
 import type { GrowthBook } from "../../GrowthBook";
 import type {
   AutoEventCategorySettings,
@@ -166,15 +172,18 @@ export function autoEventsPlugin(settings: AutoEventsSettings = {}) {
         {},
       );
 
-      if (
-        !full &&
-        !warned &&
-        (cwv.enabled || pageEvents.enabled || clickstream.enabled)
-      ) {
-        warned = true;
-        console.warn(
-          "autoEventsPlugin: CWV / page events / clickstream need a GrowthBook instance, skipping",
-        );
+      if (!full && !warned) {
+        const skipped = [
+          pageEvents.enabled && "pageEvents",
+          cwv.enabled && "cwv",
+          clickstream.enabled && "clickstream",
+        ].filter(Boolean);
+        if (skipped.length) {
+          warned = true;
+          console.warn(
+            `autoEventsPlugin: ${skipped.join(", ")} need a GrowthBook instance, skipping`,
+          );
+        }
       }
 
       toggle(
