@@ -60,6 +60,7 @@ import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapsho
 import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
 import { AggregatedFactTableModel } from "back-end/src/models/AggregatedFactTableModel";
 import { AggregatedFactTableRunModel } from "back-end/src/models/AggregatedFactTableRunModel";
+import { QueryRunnerRunModel } from "back-end/src/models/QueryRunnerRunModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
@@ -135,6 +136,7 @@ export type ModelName =
   | "incrementalRefresh"
   | "aggregatedFactTables"
   | "aggregatedFactTableRuns"
+  | "queryRunnerRuns"
   | "experimentSnapshotAnalysisChunks"
   | "sqlResultChunks"
   | "sdkConnectionCache"
@@ -191,6 +193,7 @@ export const modelClasses = {
   incrementalRefresh: IncrementalRefreshModel,
   aggregatedFactTables: AggregatedFactTableModel,
   aggregatedFactTableRuns: AggregatedFactTableRunModel,
+  queryRunnerRuns: QueryRunnerRunModel,
   experimentSnapshotAnalysisChunks: ExperimentSnapshotAnalysisChunkModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
@@ -349,6 +352,7 @@ export class ReqContextClass {
       incrementalRefresh: new IncrementalRefreshModel(this),
       aggregatedFactTables: new AggregatedFactTableModel(this),
       aggregatedFactTableRuns: new AggregatedFactTableRunModel(this),
+      queryRunnerRuns: new QueryRunnerRunModel(this),
       experimentSnapshotAnalysisChunks:
         new ExperimentSnapshotAnalysisChunkModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),

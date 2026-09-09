@@ -1,4 +1,5 @@
 import { getValidDate } from "shared/dates";
+import { QueryRunnerRunTargetType } from "shared/validators";
 import {
   PastExperimentParams,
   PastExperimentResponseRows,
@@ -31,6 +32,8 @@ export class PastExperimentsQueryRunner extends QueryRunner<
     }
     return [...exp.weights];
   }
+
+  readonly targetType: QueryRunnerRunTargetType = "pastExperiments";
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunPastExperimentQueries(

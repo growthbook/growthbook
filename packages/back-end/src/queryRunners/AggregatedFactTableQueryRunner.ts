@@ -2,6 +2,7 @@ import {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
   AggregatedFactTableRunInterface,
+  QueryRunnerRunTargetType,
 } from "shared/validators";
 import { Queries, QueryPointer, QueryStatus } from "shared/types/query";
 import { UpdateProps } from "shared/types/base-model";
@@ -165,6 +166,8 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
   // to restore it after a restate's up-front invalidation).
   private materializedTableFullName: string | null = null;
 
+  readonly targetType: QueryRunnerRunTargetType = "aggregatedFactTableRun";
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
@@ -235,7 +238,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     }
   }
 
-  protected override onHeartbeat(): void {
+  protected override async onHeartbeat(): Promise<void> {
     if (!this.params) return;
     this.context.models.aggregatedFactTables
       .touchLockHeartbeat(this.getKey(), this.params.executionId)
