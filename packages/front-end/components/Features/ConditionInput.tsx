@@ -61,9 +61,7 @@ import {
   ConditionRowLabel,
 } from "./TargetingConditionsCard";
 import {
-  AttributeOptionProjectsLabel,
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
   toAttributeOption,
 } from "./AttributeOptionTooltip";
 import { formatSavedGroupOptionLabel } from "./SavedGroupOptionTooltip";
@@ -836,28 +834,10 @@ function ConditionAndGroupInput({
                 : attributeSchema.map(toAttributeOption)
             }
             formatOptionLabel={(o, meta) => {
-              const option = o as AttributeOptionForTooltip;
-              if (
-                option.value === "$savedGroups" ||
-                option.value === "$notSavedGroups"
-              ) {
+              if (o.value === "$savedGroups" || o.value === "$notSavedGroups") {
                 return <Text size="md">{o.label}</Text>;
               }
-              return (
-                <AttributeOptionWithTooltip
-                  option={option}
-                  context={meta.context}
-                >
-                  <Flex align="center" gap="3">
-                    <Text size="md">{o.label}</Text>
-                    {meta.context === "menu" && (
-                      <AttributeOptionProjectsLabel
-                        projects={option.projects}
-                      />
-                    )}
-                  </Flex>
-                </AttributeOptionWithTooltip>
-              );
+              return formatAttributeOptionLabel(o, meta);
             }}
             name="field"
             onChange={(value) => {

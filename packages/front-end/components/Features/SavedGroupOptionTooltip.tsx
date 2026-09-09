@@ -1,62 +1,42 @@
 import React from "react";
-import { Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { SavedGroupForDefinitions } from "shared/types/saved-group";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Text from "@/ui/Text";
-import Link from "@/ui/Link";
-import { Popover } from "@/ui/Popover";
+import { AttributeOptionProjectsLabel } from "./AttributeOptionTooltip";
 import {
-  AttributeOptionProjectsLabel,
+  OptionContext,
+  OptionLabel,
+  OptionMenuRow,
+  OptionPopover,
   OptionTooltipDescription,
-} from "./AttributeOptionTooltip";
+  OptionTooltipProjectsRow,
+  OptionTooltipRow,
+  OptionTooltipShell,
+  useProjectNames,
+} from "./OptionTooltipShell";
 
 export function SavedGroupOptionTooltipContent({
   group,
 }: {
   group: SavedGroupForDefinitions;
 }) {
-  const { getProjectById } = useDefinitions();
+  const names = useProjectNames(group.projects);
   return (
-    <Flex direction="column" gap="2" style={{ minWidth: 0, maxWidth: 280 }}>
-      <Link
-        href={`/saved-groups/${group.id}`}
-        target="_blank"
-        weight="bold"
-        size="md"
-      >
-        <span style={{ overflowWrap: "anywhere" }} className="mr-1">
-          {group.groupName}
-        </span>
-        <PiArrowSquareOut />
-      </Link>
-      <Text size="sm" as="div">
-        <Text size="sm" as="span" weight="semibold">
-          Type:{" "}
-        </Text>
+    <OptionTooltipShell
+      href={`/saved-groups/${group.id}`}
+      title={group.groupName}
+    >
+      <OptionTooltipRow label="Type:">
         {group.type === "list" ? "ID List" : "Condition Group"}
-      </Text>
+      </OptionTooltipRow>
       {group.type === "list" && group.attributeKey && (
-        <Text size="sm" as="div">
-          <Text size="sm" as="span" weight="semibold">
-            Attribute:{" "}
-          </Text>
+        <OptionTooltipRow label="Attribute:">
           {group.attributeKey}
-        </Text>
+        </OptionTooltipRow>
       )}
-      <Text size="sm" as="div">
-        <Text size="sm" as="span" weight="semibold">
-          {group.projects?.length === 1 ? "Project:" : "Projects:"}{" "}
-        </Text>
-        {group.projects?.length
-          ? group.projects
-              .map((id) => getProjectById(id)?.name || id)
-              .join(", ")
-          : "All Projects"}
-      </Text>
+      <OptionTooltipProjectsRow names={names} />
       <OptionTooltipDescription description={group.description} />
-    </Flex>
+    </OptionTooltipShell>
   );
 }
 
@@ -66,34 +46,19 @@ export function SavedGroupOptionWithTooltip({
   children,
 }: {
   groupId: string;
-  context?: "menu" | "value";
+  context?: OptionContext;
   children: React.ReactNode;
 }) {
   const { getSavedGroupById } = useDefinitions();
   const group = getSavedGroupById(groupId);
   if (!group) return <>{children}</>;
-  const isValue = context === "value";
   return (
-    <Popover
-      openOnHover
-      anchorOnly
-      side={isValue ? "top" : "right"}
-      sideOffset={8}
-      trigger={
-        <div
-          style={{
-            position: "relative",
-            display: isValue ? "flex" : "block",
-            alignItems: isValue ? "center" : undefined,
-            minWidth: isValue ? undefined : 80,
-            maxWidth: 400,
-          }}
-        >
-          {children}
-        </div>
-      }
+    <OptionPopover
+      context={context}
       content={<SavedGroupOptionTooltipContent group={group} />}
-    />
+    >
+      {children}
+    </OptionPopover>
   );
 }
 
@@ -102,26 +67,22 @@ function SavedGroupOptionLabel({
   context,
 }: {
   option: { label: string; value: string };
-  context: "menu" | "value";
+  context: OptionContext;
 }) {
   const { getSavedGroupById } = useDefinitions();
   const group = getSavedGroupById(option.value);
-  if (!group) return <>{option.label}</>;
-
-  if (context === "menu") {
-    return (
-      <SavedGroupOptionWithTooltip groupId={group.id} context="menu">
-        <Flex align="center" gap="3">
-          <span>{option.label}</span>
-          <AttributeOptionProjectsLabel projects={group.projects} />
-        </Flex>
-      </SavedGroupOptionWithTooltip>
-    );
-  }
+  if (!group) return <Text size="md">{option.label}</Text>;
 
   return (
-    <SavedGroupOptionWithTooltip groupId={group.id} context="value">
-      <OverflowText maxWidth={200}>{option.label}</OverflowText>
+    <SavedGroupOptionWithTooltip groupId={group.id} context={context}>
+      {context === "menu" ? (
+        <OptionMenuRow
+          label={option.label}
+          right={<AttributeOptionProjectsLabel projects={group.projects} />}
+        />
+      ) : (
+        <OptionLabel label={option.label} />
+      )}
     </SavedGroupOptionWithTooltip>
   );
 }

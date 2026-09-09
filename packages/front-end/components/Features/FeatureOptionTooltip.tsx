@@ -1,19 +1,26 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { FaExclamationCircle, FaQuestion } from "react-icons/fa";
 import {
   FaRegCircleCheck,
   FaRegCircleQuestion,
   FaRegCircleXmark,
 } from "react-icons/fa6";
-import { OptionTooltipDescription } from "@/components/Features/AttributeOptionTooltip";
+import { FeatureValueType } from "shared/types/feature";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
-import SortedTags from "@/components/Tags/SortedTags";
+import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 import Text from "@/ui/Text";
-import Link from "@/ui/Link";
-import { Popover } from "@/ui/Popover";
+import {
+  OptionContext,
+  OptionPopover,
+  OptionTooltipDescription,
+  OptionTooltipProjectsRow,
+  OptionTooltipRow,
+  OptionTooltipSection,
+  OptionTooltipShell,
+  OptionTooltipTags,
+} from "@/components/Features/OptionTooltipShell";
 
 function getStateDisplay(state?: PrerequisiteStateResult) {
   if (!state) {
@@ -55,7 +62,8 @@ function getStateDisplay(state?: PrerequisiteStateResult) {
 export interface FeatureOptionForTooltip {
   label: string;
   value: string;
-  valueType?: string;
+  valueType?: FeatureValueType;
+  configBackingKey?: string | null;
   projectName?: string | null;
   targetingProjectNames?: string[];
   targetingAllProjects?: boolean;
@@ -64,13 +72,13 @@ export interface FeatureOptionForTooltip {
   states?: Record<string, PrerequisiteStateResult>;
 }
 
-function getProjectsLabel(option: FeatureOptionForTooltip) {
+function getProjectNames(option: FeatureOptionForTooltip) {
   const names = [
     option.projectName || "No Project",
     ...(option.targetingProjectNames ?? []),
   ];
   if (option.targetingAllProjects) names.push("All Projects");
-  return names.join(", ");
+  return names;
 }
 
 export function FeatureOptionTooltipContent({
@@ -80,54 +88,22 @@ export function FeatureOptionTooltipContent({
   option: FeatureOptionForTooltip;
   environments?: string[];
 }) {
-  const multipleProjects =
-    !!option.targetingAllProjects ||
-    (option.targetingProjectNames?.length ?? 0) > 0;
   return (
-    <Flex direction="column" gap="2" style={{ minWidth: 0, maxWidth: 280 }}>
-      <Link
-        href={`/features/${option.value}`}
-        target="_blank"
-        weight="bold"
-        size="md"
-      >
-        <span style={{ overflowWrap: "anywhere" }} className="mr-1">
-          {option.label}
-        </span>
-        <PiArrowSquareOut />
-      </Link>
-      {option.valueType && (
-        <Text size="sm" as="div">
-          <Text size="sm" as="span" weight="semibold">
-            Type:{" "}
-          </Text>
-          {option.valueType}
-        </Text>
-      )}
-      <Text size="sm" as="div">
-        <Text size="sm" as="span" weight="semibold">
-          {multipleProjects ? "Projects:" : "Project:"}{" "}
-        </Text>
-        {getProjectsLabel(option)}
-      </Text>
-      {option.tags && option.tags.length > 0 && (
-        <div>
-          <Text size="sm" as="div" weight="semibold">
-            Tags:
-          </Text>
-          <SortedTags
-            tags={option.tags}
-            shouldShowEllipsis={true}
-            showEllipsisAtIndex={20}
-            ellipsisFormat={(n) => `+${n}`}
+    <OptionTooltipShell href={`/features/${option.value}`} title={option.label}>
+      <OptionTooltipRow label="Type:">
+        {option.valueType ? (
+          <FeatureValueTypeDisplay
+            valueType={option.valueType}
+            configBackingKey={option.configBackingKey}
           />
-        </div>
-      )}
+        ) : (
+          "unknown"
+        )}
+      </OptionTooltipRow>
+      <OptionTooltipProjectsRow names={getProjectNames(option)} />
+      <OptionTooltipTags tags={option.tags} />
       {option.states && environments.length > 0 && (
-        <div>
-          <Text size="sm" as="div" weight="semibold">
-            Environments:
-          </Text>
+        <OptionTooltipSection label="Environments:">
           <Flex direction="column" gap="1">
             {environments.map((env) => {
               const { icon, label } = getStateDisplay(option.states?.[env]);
@@ -144,10 +120,10 @@ export function FeatureOptionTooltipContent({
               );
             })}
           </Flex>
-        </div>
+        </OptionTooltipSection>
       )}
       <OptionTooltipDescription description={option.description} />
-    </Flex>
+    </OptionTooltipShell>
   );
 }
 
@@ -159,35 +135,20 @@ export function FeatureOptionWithTooltip({
 }: {
   option: FeatureOptionForTooltip;
   environments?: string[];
-  context?: "menu" | "value";
+  context?: OptionContext;
   children: React.ReactNode;
 }) {
-  const isValue = context === "value";
   return (
-    <Popover
-      openOnHover
-      anchorOnly
-      side={isValue ? "top" : "right"}
-      sideOffset={8}
-      trigger={
-        <div
-          style={{
-            position: "relative",
-            display: isValue ? "flex" : "block",
-            alignItems: isValue ? "center" : undefined,
-            minWidth: isValue ? undefined : 80,
-            maxWidth: 400,
-          }}
-        >
-          {children}
-        </div>
-      }
+    <OptionPopover
+      context={context}
       content={
         <FeatureOptionTooltipContent
           option={option}
           environments={environments}
         />
       }
-    />
+    >
+      {children}
+    </OptionPopover>
   );
 }

@@ -1,6 +1,5 @@
 import React from "react";
-import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
+import { LinkedEntityBadge } from "@/components/Features/EntityBadge";
 
 interface SavedGroupBadgeProps {
   groupId: string;
@@ -9,34 +8,10 @@ interface SavedGroupBadgeProps {
 
 export function SavedGroupBadge({ groupId, groupName }: SavedGroupBadgeProps) {
   return (
-    <Badge
-      color="gray"
-      label={
-        <Link
-          href={`/saved-groups/${groupId}`}
-          target="_blank"
-          title={`View Saved Group: ${groupName}`}
-          className="hover-underline"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            overflow: "hidden",
-            color: "var(--accent-11)",
-          }}
-        >
-          <span
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: "400px",
-            }}
-          >
-            {groupName}
-          </span>
-        </Link>
-      }
+    <LinkedEntityBadge
+      href={`/saved-groups/${groupId}`}
+      title={`View Saved Group: ${groupName}`}
+      label={groupName}
     />
   );
 }

@@ -2,8 +2,8 @@ import { SavedGroupTargeting } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/ui/Badge";
 import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
+import { PlainEntityBadge } from "@/components/Features/EntityBadge";
 import Text from "@/ui/Text";
 
 export interface Props {
@@ -50,9 +50,7 @@ export default function SavedGroupTargetingDisplay({
               {s.ids.map((id) => {
                 const group = getSavedGroupById(id);
                 if (!group) {
-                  return (
-                    <Badge key={id} color="gray" label={<Text>{id}</Text>} />
-                  );
+                  return <PlainEntityBadge key={id} label={id} />;
                 }
                 return (
                   <SavedGroupBadge

@@ -363,6 +363,7 @@ export default function PrerequisiteInput({
         targetingProjectNames,
         targetingAllProjects: !!f.targetingAllProjects,
         valueType: f.valueType,
+        configBackingKey: f.configBackingKey,
         tags: f.tags,
         description: f.description,
         states: featuresStates[f.id],

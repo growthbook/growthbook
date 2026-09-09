@@ -10,6 +10,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";
+import { PlainEntityBadge } from "@/components/Features/EntityBadge";
 import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
 import Text from "@/ui/Text";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
@@ -332,17 +333,7 @@ function getConditionParts({
     let fieldEl: ReactNode = attributeIds.has(field) ? (
       <AttributeBadge attributeId={field} />
     ) : (
-      <Badge
-        color="gray"
-        className="text-ellipsis d-inline-block"
-        style={{ maxWidth: 300 }}
-        title={field}
-        label={
-          <Text size="inherit" whiteSpace="pre" color="text-high">
-            {field}
-          </Text>
-        }
-      />
+      <PlainEntityBadge label={field} />
     );
     let parentIdEl: ReactNode = null;
     if (renderPrerequisite) {
@@ -453,17 +444,7 @@ function getConditionParts({
             group ? (
               <SavedGroupBadge groupId={group.id} groupName={group.groupName} />
             ) : (
-              <Badge
-                color="gray"
-                className="text-ellipsis d-inline-block"
-                style={{ maxWidth: 300 }}
-                title={displayValue}
-                label={
-                  <Text size="inherit" whiteSpace="pre" color="text-high">
-                    {displayValue}
-                  </Text>
-                }
-              />
+              <PlainEntityBadge label={displayValue} />
             )
           ) : (
             <Badge

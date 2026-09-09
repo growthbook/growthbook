@@ -1,13 +1,18 @@
 import React from "react";
-import { Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
-import Markdown from "@/components/Markdown/Markdown";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import SortedTags from "@/components/Tags/SortedTags";
 import Text from "@/ui/Text";
-import Link from "@/ui/Link";
-import { Popover } from "@/ui/Popover";
+import {
+  OptionContext,
+  OptionLabel,
+  OptionMenuRow,
+  OptionPopover,
+  OptionProjectsLabel,
+  OptionTooltipDescription,
+  OptionTooltipProjectsRow,
+  OptionTooltipRow,
+  OptionTooltipShell,
+  OptionTooltipTags,
+  useProjectNames,
+} from "@/components/Features/OptionTooltipShell";
 
 export interface AttributeOptionForTooltip {
   label: string;
@@ -43,77 +48,24 @@ export function AttributeOptionTooltipContent({
 }: {
   option: AttributeOptionForTooltip;
 }) {
-  const { getProjectById } = useDefinitions();
+  const names = useProjectNames(option.projects);
   return (
-    <Flex direction="column" gap="2" style={{ minWidth: 0, maxWidth: 280 }}>
-      <Link
-        href={`/attributes/${option.value}`}
-        target="_blank"
-        weight="bold"
-        size="md"
-      >
-        <span style={{ overflowWrap: "anywhere" }} className="mr-1">
-          {option.label}
-        </span>
-        <PiArrowSquareOut />
-      </Link>
-      <Text size="sm" as="div">
-        <Text size="sm" as="span" weight="semibold">
-          Type:{" "}
-        </Text>
+    <OptionTooltipShell
+      href={`/attributes/${option.value}`}
+      title={option.label}
+    >
+      <OptionTooltipRow label="Type:">
         {option.datatype ?? "unknown"}
-      </Text>
-      <Text size="sm" as="div">
-        <Text size="sm" as="span" weight="semibold">
-          {option.projects?.length === 1 ? "Project:" : "Projects:"}{" "}
-        </Text>
-        {option.projects?.length
-          ? option.projects
-              .map((id) => getProjectById(id)?.name || id)
-              .join(", ")
-          : "All Projects"}
-      </Text>
+      </OptionTooltipRow>
+      <OptionTooltipProjectsRow names={names} />
       {option.hashAttribute === true && (
         <Text size="sm" as="div" weight="semibold">
           Identifier
         </Text>
       )}
-      {option.tags && option.tags.length > 0 && (
-        <div>
-          <Text size="sm" as="div" weight="semibold">
-            Tags:
-          </Text>
-          <SortedTags
-            tags={option.tags}
-            shouldShowEllipsis={true}
-            showEllipsisAtIndex={20}
-            ellipsisFormat={(n) => `+${n}`}
-          />
-        </div>
-      )}
+      <OptionTooltipTags tags={option.tags} />
       <OptionTooltipDescription description={option.description} />
-    </Flex>
-  );
-}
-
-export function OptionTooltipDescription({
-  description,
-}: {
-  description?: string;
-}) {
-  if (!description) return null;
-  return (
-    <div>
-      <Text size="sm" as="div" weight="semibold">
-        Description:
-      </Text>
-      <div
-        className="fade-mask-bottom-1rem"
-        style={{ maxHeight: 120, overflow: "hidden", paddingBottom: "1rem" }}
-      >
-        <Markdown style={{ fontSize: 12 }}>{description}</Markdown>
-      </div>
-    </div>
+    </OptionTooltipShell>
   );
 }
 
@@ -122,44 +74,25 @@ export function AttributeOptionProjectsLabel({
 }: {
   projects?: string[];
 }) {
-  const { getProjectById } = useDefinitions();
-  const names = (projects ?? []).map((id) => getProjectById(id)?.name || id);
-  if (!names.length) return null;
-  return (
-    <Flex ml="auto" flexShrink="0" align="center" style={{ fontSize: 11 }}>
-      <Text size="inherit">
-        <Text size="inherit" color="text-low">
-          {names.length > 1 ? "Projects:" : "Project:"}
-        </Text>{" "}
-        <Text size="inherit" color="text-high">
-          <OverflowText maxWidth={150} title={names.join(", ")}>
-            {names.join(", ")}
-          </OverflowText>
-        </Text>
-      </Text>
-    </Flex>
-  );
+  const names = useProjectNames(projects);
+  return <OptionProjectsLabel names={names} />;
 }
 
-// Drop-in `formatOptionLabel` for attribute selects: standard tooltip, plus
-// the right-aligned project annotation on menu rows (never at-rest values).
 export function formatAttributeOptionLabel(
   o: { label: string },
   meta: { context: string },
 ) {
   const option = o as AttributeOptionForTooltip;
+  const context: OptionContext = meta.context === "value" ? "value" : "menu";
   return (
-    <AttributeOptionWithTooltip
-      option={option}
-      context={meta.context === "value" ? "value" : "menu"}
-    >
-      {meta.context === "menu" ? (
-        <Flex align="center" gap="3">
-          <span>{o.label}</span>
-          <AttributeOptionProjectsLabel projects={option.projects} />
-        </Flex>
+    <AttributeOptionWithTooltip option={option} context={context}>
+      {context === "menu" ? (
+        <OptionMenuRow
+          label={o.label}
+          right={<AttributeOptionProjectsLabel projects={option.projects} />}
+        />
       ) : (
-        o.label
+        <OptionLabel label={o.label} />
       )}
     </AttributeOptionWithTooltip>
   );
@@ -171,31 +104,15 @@ export function AttributeOptionWithTooltip({
   children,
 }: {
   option: AttributeOptionForTooltip;
-  context?: "menu" | "value";
+  context?: OptionContext;
   children: React.ReactNode;
 }) {
-  const isValue = context === "value";
-  // @/ui/Popover, not the legacy popper Tooltip — the popper portals to body
-  // and is invisible above Radix modal Dialogs.
   return (
-    <Popover
-      openOnHover
-      anchorOnly
-      side={isValue ? "top" : "right"}
-      sideOffset={8}
-      trigger={
-        <div
-          style={{
-            position: "relative",
-            display: isValue ? "inline-block" : "block",
-            minWidth: 80,
-            maxWidth: 400,
-          }}
-        >
-          {children}
-        </div>
-      }
+    <OptionPopover
+      context={context}
       content={<AttributeOptionTooltipContent option={option} />}
-    />
+    >
+      {children}
+    </OptionPopover>
   );
 }
