@@ -1,10 +1,16 @@
+import mongoose from "mongoose";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import {
   ColumnInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "shared/types/fact-table";
-import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import {
+  authorizeAndPersistFactTableUpdate,
+  needsColumnRefresh,
+} from "back-end/src/api/fact-tables/updateFactTable";
 import { columnsNeedDetection } from "back-end/src/util/factTable";
+import { ReqContext } from "back-end/types/request";
 
 const existing: Pick<FactTableInterface, "sql" | "eventName"> = {
   sql: "SELECT user_id, timestamp FROM events",
@@ -92,5 +98,79 @@ describe("columnsNeedDetection", () => {
         makeColumn("country", ""),
       ]),
     ).toBe(true);
+  });
+});
+
+describe("authorizeAndPersistFactTableUpdate", () => {
+  let mongod: MongoMemoryServer;
+  const organization = {
+    id: "org_fact_table_update",
+    settings: {},
+    members: [],
+  };
+  const factTable: FactTableInterface = {
+    organization: organization.id,
+    id: "ftb_update",
+    managedBy: "",
+    dateCreated: new Date("2026-01-01"),
+    dateUpdated: new Date("2026-01-01"),
+    name: "Fact Table",
+    description: "",
+    owner: "",
+    projects: [],
+    tags: [],
+    datasource: "ds_update",
+    userIdTypes: [],
+    sql: "SELECT 1",
+    eventName: "",
+    columns: [],
+    filters: [],
+    columnRefreshPending: false,
+  };
+
+  const context = {
+    org: organization,
+    permissions: {
+      canUpdateFactTable: () => false,
+      throwPermissionError: () => {
+        throw new Error("Permission denied");
+      },
+    },
+  } as unknown as ReqContext;
+
+  beforeAll(async () => {
+    mongod = await MongoMemoryServer.create();
+    await mongoose.connect(mongod.getUri());
+  });
+
+  afterAll(async () => {
+    await mongoose.connection.close();
+    await mongod.stop();
+  });
+
+  it("does not persist columns when the parent update is denied", async () => {
+    await mongoose.connection.db!.collection("facttables").insertOne(factTable);
+
+    await expect(
+      authorizeAndPersistFactTableUpdate({
+        context,
+        factTable,
+        parentUpdateData: {},
+        incomingColumns: [
+          { column: "country", name: "Country", datatype: "string" },
+        ],
+      }),
+    ).rejects.toThrow("Permission denied");
+
+    expect(
+      await mongoose.connection
+        .db!.collection("facttables")
+        .findOne({ id: factTable.id }),
+    ).toMatchObject({ columns: [] });
+    expect(
+      await mongoose.connection
+        .db!.collection("definitionsversions")
+        .countDocuments({ organization: organization.id }),
+    ).toBe(0);
   });
 });
