@@ -9,9 +9,11 @@ import {
 import {
   errorSnapshotIfStillRunning,
   findRunningSnapshotsByQueryId,
+  findSnapshotById,
   dangerousFindStalledRunningSnapshotsFromAllOrgs,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { recoverStalledSnapshot } from "back-end/src/queryRunners/rehydrate";
 import {
   findRunningMetricsByQueryId,
   updateMetricQueriesAndStatus,
@@ -34,9 +36,12 @@ import {
   updateReport,
 } from "back-end/src/models/ReportModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { ApiReqContext } from "back-end/types/api";
+
 const JOB_NAME = "expireOldQueries";
 
 // The time after which a snapshot is considered stalled
@@ -270,6 +275,64 @@ async function reapStalledSnapshots() {
       latestFinishedAt > 0 ? latestFinishedAt : snapshot.dateCreated.getTime();
     if (Date.now() - lastActivityAt < STALLED_FINALIZE_GRACE_MS) continue;
 
+    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
+
+    // When every query succeeded, finalize the snapshot from the persisted
+    // results instead of erroring it. The cross-org candidate can be stale, so
+    // re-read in the org context and require the snapshot to still be running
+    // on the same queries. An ineligible or unsuccessful recovery returns false
+    // and falls through to the error write below
+    let recoverError = "";
+    if (allTerminal && statuses.every((q) => q.status === "succeeded")) {
+      try {
+        const freshSnapshot = await findSnapshotById(context, snapshot.id);
+        if (freshSnapshot?.status === "running") {
+          const freshQueryIds = new Set(
+            freshSnapshot.queries.map((q) => q.query),
+          );
+          const sameQueries =
+            freshQueryIds.size === queryIds.length &&
+            queryIds.every((id) => freshQueryIds.has(id));
+
+          // The snapshot changed since the original scan, so our succeeded
+          // statuses describe a stale query set. Skip rather than error
+          if (!sameQueries) continue;
+
+          // Results runners never hold the lock, so a fresh heartbeat means
+          // the incremental runner is still alive (including analysis).
+          // TODO: have a proper heartbeat for all queryRunners
+          if (
+            await context.models.incrementalRefresh.hasFreshLockHeartbeat(
+              snapshot.experiment,
+              snapshot.id,
+            )
+          ) {
+            logger.info(
+              `Deferring stalled snapshot ${snapshot.id}: its runner is still heartbeating the incremental refresh lock`,
+            );
+            continue;
+          }
+
+          if (await recoverStalledSnapshot(context, freshSnapshot)) {
+            logger.info(
+              `Recovered stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}) from persisted results`,
+            );
+            // Retry in case the runner's own release failed.
+            await releaseStalledSnapshotLock(context, snapshot);
+            continue;
+          }
+        }
+      } catch (e) {
+        // A failed finalize must still leave the snapshot terminal, so fall
+        // through to the error write below instead of retrying every tick.
+        recoverError = getErrorMessage(e);
+        logger.warn(
+          e,
+          `Failed to recover stalled snapshot ${snapshot.id} from persisted results`,
+        );
+      }
+    }
+
     const statusById = new Map(statuses.map((s) => [s.id, s.status]));
     snapshot.queries.forEach((q) => {
       q.status = statusById.get(q.query) ?? q.status;
@@ -285,9 +348,9 @@ async function reapStalledSnapshots() {
       ? shouldScheduleSnapshotRetry
         ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A retry has been scheduled."
         : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
-      : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
+      : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted." +
+        (recoverError ? ` Automatic recovery failed: ${recoverError}` : "");
 
-    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     const reaped = await errorSnapshotIfStillRunning(context, snapshot.id, {
       queries: snapshot.queries,
       error,
@@ -337,15 +400,20 @@ async function reapStalledSnapshots() {
       }
     }
 
-    await context.models.incrementalRefresh
-      .releaseLock(snapshot.experiment, snapshot.id)
-      .catch((e) =>
-        logger.warn(
-          e,
-          "Failed to release incremental lock for stalled snapshot",
-        ),
-      );
+    await releaseStalledSnapshotLock(context, snapshot);
   }
+}
+
+// No-op if a newer run has taken the lock (releaseLock filters on snapshot id).
+async function releaseStalledSnapshotLock(
+  context: ApiReqContext,
+  snapshot: { experiment: string; id: string },
+) {
+  await context.models.incrementalRefresh
+    .releaseLock(snapshot.experiment, snapshot.id)
+    .catch((e) =>
+      logger.warn(e, "Failed to release incremental lock for stalled snapshot"),
+    );
 }
 
 export default async function (agenda: Agenda) {

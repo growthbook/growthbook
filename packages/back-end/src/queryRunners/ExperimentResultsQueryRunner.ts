@@ -510,9 +510,15 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     );
   }
 
-  async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
+  prepareAnalysisData(
+    params: Pick<ExperimentResultsQueryParams, "metricMap" | "variationNames">,
+  ): void {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
+  }
+
+  async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
+    this.prepareAnalysisData(params);
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
