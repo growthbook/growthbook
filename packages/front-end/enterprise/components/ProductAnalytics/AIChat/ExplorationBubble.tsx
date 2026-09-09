@@ -14,17 +14,12 @@ import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/
 import SimpleExplorationTable from "@/enterprise/components/ProductAnalytics/MainSection/SimpleExplorationTable";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
 import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
+import { isTableChartType } from "@/enterprise/components/ProductAnalytics/util";
 
 export interface ChartData {
   config: ExplorationConfig;
   exploration: ProductAnalyticsExploration | null;
 }
-
-const TABLE_CHART_TYPES: readonly string[] = [
-  "table",
-  "timeseries-table",
-  "rawTable",
-];
 
 const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
   metric: "/product-analytics/explore/metrics",
@@ -78,7 +73,7 @@ export default function ExplorationBubble({
 }: ExplorationBubbleProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const explorerUrl = `${EXPLORER_PATHS[chartData.config.type]}?config=${encodeExplorationConfig(chartData.config)}`;
-  const isTable = TABLE_CHART_TYPES.includes(chartData.config.chartType);
+  const isTable = isTableChartType(chartData.config.chartType);
 
   return (
     <AssistantBubble wide>

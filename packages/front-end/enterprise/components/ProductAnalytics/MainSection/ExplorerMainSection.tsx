@@ -14,6 +14,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
   hasSubmittablePayload,
+  isTableChartType,
   isTimelessSqlExploration,
   shouldChartSectionShow,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -327,19 +328,17 @@ export default function ExplorerMainSection({
     draftExploreState.dataset?.type === "funnel" &&
     !hasSubmittablePayload(submittedExploreState);
 
-  const sqlEmptyButtonLabel =
-    isRawTable ||
-    draftExploreState.chartType === "table" ||
-    draftExploreState.chartType === "timeseries-table"
-      ? "Load table"
-      : "Load chart";
+  const sqlEmptyButtonLabel = isTableChartType(draftExploreState.chartType)
+    ? "Load table"
+    : "Load chart";
+  const timelessSql = isTimelessSqlExploration(draftExploreState);
   const sqlEmptyHelper = isRawTable
-    ? isTimelessSqlExploration(draftExploreState)
+    ? timelessSql
       ? "Configure columns in the sidebar."
       : "Configure columns in the sidebar, or change the date range above."
     : !hasSubmittablePayload(draftExploreState)
       ? "Add a value in the sidebar."
-      : isTimelessSqlExploration(draftExploreState)
+      : timelessSql
         ? "Add a group by in the sidebar."
         : "Change the date range above, or add a group by in the sidebar.";
 

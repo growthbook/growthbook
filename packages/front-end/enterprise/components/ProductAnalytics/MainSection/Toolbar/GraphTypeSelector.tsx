@@ -28,6 +28,7 @@ import {
 
 const chartTypes: {
   groupLabel: string;
+  sqlOnly?: boolean;
   items: {
     value: (typeof chartTypeValues)[number];
     label: string;
@@ -63,6 +64,7 @@ const chartTypes: {
   },
   {
     groupLabel: "No Aggregation",
+    sqlOnly: true,
     items: [{ value: "rawTable", label: "Table", icon: PiListBullets }],
   },
 ];
@@ -70,12 +72,9 @@ const chartTypes: {
 export default function GraphTypeSelector() {
   const { draftExploreState, changeChartType } = useExplorerContext();
   const timelessSql = isTimelessSqlExploration(draftExploreState);
-  const groups =
-    draftExploreState.dataset.type === "sql"
-      ? chartTypes
-      : chartTypes.filter(
-          (group) => !group.items.some((item) => item.value === "rawTable"),
-        );
+  const groups = chartTypes.filter(
+    (group) => !group.sqlOnly || draftExploreState.dataset.type === "sql",
+  );
 
   return (
     <Select

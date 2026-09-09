@@ -61,10 +61,9 @@ export default function ExplorerDataTable({
       ? submittedExploreState.dataset
       : null;
   const rawRows = rawTableDataset ? (exploration?.result.rawRows ?? []) : null;
-  const hiddenColumns = new Set(rawTableDataset?.hiddenColumns ?? []);
   const rawColumnKeys = rawTableDataset
     ? Object.keys(rawTableDataset.columnTypes).filter(
-        (column) => !hiddenColumns.has(column),
+        (column) => !(rawTableDataset.hiddenColumns ?? []).includes(column),
       )
     : [];
 
@@ -137,11 +136,11 @@ export default function ExplorerDataTable({
       allowDownload={true}
       showSampleHeader={false}
       showDuration={!!query?.statistics}
-      headerStructure={headerStructure ?? undefined}
+      headerStructure={rawRows ? undefined : (headerStructure ?? undefined)}
       orderedColumnKeys={rawRows ? rawColumnKeys : orderedColumnKeys}
-      columnLabels={rawRows ? rawColumnKeys : columnLabels}
-      csvColumnKeys={rawRows ? rawColumnKeys : csvColumnKeys}
-      csvColumnLabels={rawRows ? rawColumnKeys : csvColumnLabels}
+      columnLabels={rawRows ? undefined : columnLabels}
+      csvColumnKeys={rawRows ? undefined : csvColumnKeys}
+      csvColumnLabels={rawRows ? undefined : csvColumnLabels}
       rowsLabel={
         rawRows && exploration?.result.truncated
           ? `the first ${SQL_ROW_LIMIT} rows`

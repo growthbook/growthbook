@@ -971,6 +971,18 @@ export function isTimeSeriesChart(
   return TIMESERIES_CHART_TYPES.has(chartType);
 }
 
+const TABLE_CHART_TYPES: Set<string> = new Set([
+  "table",
+  "timeseries-table",
+  "rawTable",
+]);
+
+export function isTableChartType(
+  chartType: string | null | undefined,
+): boolean {
+  return !!chartType && TABLE_CHART_TYPES.has(chartType);
+}
+
 export function isTimelessSqlExploration(
   config: Pick<ExplorationConfig, "dataset">,
 ): boolean {
@@ -1486,9 +1498,7 @@ export function shouldChartSectionShow(params: {
   // Chart renders empty box for table-only types; table view handles display
   if (
     submittedExploreState &&
-    ["table", "timeseries-table", "rawTable"].includes(
-      submittedExploreState.chartType ?? "",
-    )
+    isTableChartType(submittedExploreState.chartType)
   ) {
     return false;
   }

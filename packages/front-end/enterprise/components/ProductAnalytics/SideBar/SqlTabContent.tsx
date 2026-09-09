@@ -113,7 +113,6 @@ export default function SqlTabContent() {
                   disabled={isLastVisible}
                   disabledMessage="Keep at least one column visible"
                   setValue={(nextVisible) => {
-                    if (isLastVisible && !nextVisible) return;
                     setDraftExploreState((prev) => {
                       if (prev.type !== "sql" || prev.dataset.type !== "sql") {
                         return prev;

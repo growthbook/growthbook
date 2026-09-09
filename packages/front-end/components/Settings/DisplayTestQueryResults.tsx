@@ -127,13 +127,6 @@ export default function DisplayTestQueryResults({
 
   function handleDownload(rows: Record<string, unknown>[]) {
     const keys = csvColumnKeys ?? orderedColumnKeys;
-    // An explicitly empty selection means every column is hidden. Falling
-    // through would export the raw rows, including the hidden columns.
-    if (keys?.length === 0) {
-      throw new Error(
-        "Error downloading results. Reason: no columns are visible.",
-      );
-    }
 
     const labelsForCsv = ((): string[] | undefined => {
       if (!keys?.length) return undefined;
