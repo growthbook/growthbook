@@ -3057,7 +3057,7 @@ export async function toExperimentApiInterface(
         ),
       })),
     ),
-    phases: experiment.phases.map((p) => ({
+    phases: experiment.phases.map((p, phaseIndex) => ({
       name: p.name,
       // dateStarted is required by the API but some legacy phases might not have one
       dateStarted: p.dateStarted?.toISOString() ?? "",
@@ -3065,7 +3065,7 @@ export async function toExperimentApiInterface(
       reasonForStopping: p.reason || "",
       seed: p.seed || experiment.trackingKey,
       coverage: p.coverage,
-      trafficSplit: getLatestPhaseVariations(experiment).map((v, i) => ({
+      trafficSplit: getPhaseVariations(experiment, phaseIndex).map((v, i) => ({
         variationId: v.id,
         weight: p.variationWeights[i] || 0,
       })),
