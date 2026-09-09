@@ -10,6 +10,7 @@ import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import {
   onRetentionDelayOrModeChange,
+  retentionEnd,
   retentionModeFromWindow,
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 import { ThresholdBasisRow, ThresholdBasisValue } from "./ThresholdBasisRow";
@@ -26,7 +27,7 @@ function retentionWindowProse(windowSettings: MetricWindowSettings): string {
   if (mode === "starting") {
     return `Starting ${windowSettings.delayValue} ${windowSettings.delayUnit} after exposure`;
   }
-  const end = windowSettings.delayValue + windowSettings.windowValue;
+  const end = retentionEnd(windowSettings);
   return `Between ${windowSettings.delayValue} and ${end} ${windowSettings.delayUnit} after exposure`;
 }
 
@@ -108,7 +109,7 @@ export default function RetentionFields({
               aria-label="End value"
               type="number"
               style={{ width: 70 }}
-              value={windowSettings.delayValue + windowSettings.windowValue}
+              value={retentionEnd(windowSettings)}
               onChange={(e) =>
                 onWindowSettingsChange(
                   onRetentionDelayOrModeChange(windowSettings, {
