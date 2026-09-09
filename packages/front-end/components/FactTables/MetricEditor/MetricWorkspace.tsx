@@ -23,6 +23,8 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
+import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateFieldMapping";
+import { FactMetricSeed } from "@/components/FactTables/MetricEditor/templateMetric";
 
 type DefaultsContext = Pick<
   Parameters<typeof getDefaultFactMetricProps>[0],
@@ -30,14 +32,22 @@ type DefaultsContext = Pick<
 >;
 
 function buildFormDefaults(
-  existing: Partial<FactMetricInterface> | null,
+  existing: FactMetricSeed | null,
   ctx: DefaultsContext,
 ): CreateFactMetricFormProps {
   return {
     ...toFactMetricFormValues(
       getDefaultFactMetricProps({
         ...ctx,
-        existing: existing ?? undefined,
+        // FactMetricSeed is deliberately a flat shape (see its own comment) -
+        // Partial<FactMetricInterface> distributes over the real discriminated
+        // union, which a still-unmapped template can't satisfy (its metricType
+        // is real, but its numerator/factTableId isn't yet). The cast is safe:
+        // getDefaultFactMetricProps only ever reads fields with `existing?.`,
+        // same as this flat shape guarantees.
+        existing: (existing ?? undefined) as
+          | Partial<FactMetricInterface>
+          | undefined,
         // managedBy is a top-level param, not read from `existing` - unlike
         // every other field, FactMetricModal always passes it explicitly
         // (FactMetricModal.tsx: managedBy: existing?.managedBy). Omitting it
@@ -81,8 +91,11 @@ export default function MetricWorkspace({
   existing: FactMetricInterface | null;
   // Seeds defaults for a brand-new metric (create payload, not update) -
   // distinct from `existing`, which also decides POST vs PUT. Partial since
-  // a mapped metric template has no id/owner/tags/etc. of its own yet.
-  duplicateFrom?: Partial<FactMetricInterface> | null;
+  // a metric template has no id/owner/tags/etc. of its own yet. When its
+  // numerator has no factTableId, it's an incomplete template seed rather
+  // than a real duplicate - TemplateFieldMapping completes it before this
+  // form ever renders (see needsMapping below).
+  duplicateFrom?: FactMetricSeed | null;
   // Pre-selects a fact table for a brand-new metric with no existing/
   // duplicateFrom data of its own to seed from (e.g. "Add Metric" from a
   // fact table's own page) - existing/duplicateFrom's own fact table always
@@ -118,8 +131,18 @@ export default function MetricWorkspace({
   // for the overwhelmingly common case (a fresh create, or an ordinary
   // existing metric) while MetricEditor's own effect reports the real value.
   const [representable, setRepresentable] = useState(true);
+  // A duplicateFrom with a real (non-null - a funnel duplicate's is null,
+  // not this) numerator but no factTableId is an incomplete template seed:
+  // nothing else ever constructs one - existing is always a real stored
+  // metric, and a plain duplicate always copies a real fact table. Captured
+  // once at mount, not derived from the form's own live value: a brand-new
+  // metric with no seed at all *also* starts with an empty factTableId, so
+  // this only means "map first" when there was a seed to begin with.
+  const [needsMapping, setNeedsMapping] = useState(
+    () => !!duplicateFrom?.numerator && !duplicateFrom.numerator.factTableId,
+  );
 
-  function resync(source: Partial<FactMetricInterface> | null) {
+  function resync(source: FactMetricSeed | null) {
     form.reset(buildFormDefaults(source, defaultsCtx));
   }
 
@@ -197,6 +220,25 @@ export default function MetricWorkspace({
     resync(seedSource);
     setError(null);
     setIsEditing(false);
+  }
+
+  // Mirrors FactMetricModal's own early return (fromTemplate && no
+  // factTableId -> FieldMappingModal): complete the seed before showing the
+  // normal edit form at all. onMapped resyncs the form with the completed
+  // seed and drops into the ordinary edit view - no separate page-level
+  // "mapped" state needed. duplicateFrom.numerator is re-checked here (not
+  // just via needsMapping, a boolean) so TypeScript narrows it to a real,
+  // non-null ColumnRef before it's handed to TemplateFieldMapping.
+  if (needsMapping && duplicateFrom?.numerator) {
+    return (
+      <TemplateFieldMapping
+        template={{ ...duplicateFrom, numerator: duplicateFrom.numerator }}
+        onMapped={(mapped) => {
+          resync(mapped);
+          setNeedsMapping(false);
+        }}
+      />
+    );
   }
 
   const actionRow = isEditing && (
