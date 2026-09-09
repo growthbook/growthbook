@@ -168,6 +168,9 @@ export default function ConnectPage() {
   }, [flagsSettled, aiOnboarding, router]);
 
   const apiHost = getApiBaseUrl(connection ?? undefined);
+  // Same contract as the setup wizard, so arriving from Features returns there.
+  const exitHref =
+    router.query.exitLocation === "features" ? "/features" : "/getstarted";
   const wizardable = !NO_WIZARD.has(language);
   const command = `npx ${PACKAGE} --language ${language} --${agent}${organization.id ? ` --org ${organization.id}` : ""}`;
   const agentLabel = AGENTS.find((a) => a.id === agent)?.label ?? "your agent";
@@ -397,7 +400,7 @@ export default function ConnectPage() {
         )}
         <Box ml="auto">
           <Flex align="center" gap="4">
-            <LinkButton href="/getstarted" variant="ghost">
+            <LinkButton href={exitHref} variant="ghost">
               Skip
             </LinkButton>
             {step === 1 && (
