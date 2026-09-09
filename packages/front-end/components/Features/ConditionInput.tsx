@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { extractConditionAttributeKeys } from "shared/util";
 import { some } from "lodash";
 import {
-  PiArrowSquareOut,
   PiBracketsCurly,
   PiPlusCircleBold,
   PiXBold,
@@ -67,6 +66,7 @@ import {
   type AttributeOptionForTooltip,
   toAttributeOption,
 } from "./AttributeOptionTooltip";
+import { formatSavedGroupOptionLabel } from "./SavedGroupOptionTooltip";
 
 export function ConditionLabel({
   label,
@@ -751,7 +751,7 @@ function ConditionAndGroupInput({
   slimMode?: boolean;
   disabled?: boolean;
 }) {
-  const { savedGroups, getSavedGroupById } = useDefinitions();
+  const { savedGroups } = useDefinitions();
 
   const { attributes, attributeSchema } = useScopedAttributes(
     resolveAttributeFilter(props.attributeProjects, props.project),
@@ -837,6 +837,11 @@ function ConditionAndGroupInput({
             }
             formatOptionLabel={(o, meta) => {
               const option = o as AttributeOptionForTooltip;
+              // The saved-group pseudo-options have no datatype: no popover
+              // and no project annotation for them.
+              if (option.datatype === undefined) {
+                return <Text size="md">{o.label}</Text>;
+              }
               return (
                 <AttributeOptionWithTooltip
                   option={option}
@@ -844,15 +849,11 @@ function ConditionAndGroupInput({
                 >
                   <Flex align="center" gap="3">
                     <Text size="md">{o.label}</Text>
-                    {/* Right-aligned project annotation in the menu only —
-                        not on the at-rest value, and not for the saved-group
-                        pseudo-options (they have no datatype). */}
-                    {meta.context === "menu" &&
-                      option.datatype !== undefined && (
-                        <AttributeOptionProjectsLabel
-                          projects={option.projects}
-                        />
-                      )}
+                    {meta.context === "menu" && (
+                      <AttributeOptionProjectsLabel
+                        projects={option.projects}
+                      />
+                    )}
                   </Flex>
                 </AttributeOptionWithTooltip>
               );
@@ -961,20 +962,7 @@ function ConditionAndGroupInput({
                   options={groupOptions}
                   onChange={handleListChange}
                   name="value"
-                  formatOptionLabel={(o, meta) => {
-                    if (meta.context !== "value" || !o.value) return o.label;
-                    const group = getSavedGroupById(o.value);
-                    if (!group) return o.label;
-                    return (
-                      <Link
-                        href={`/saved-groups/${group.id}`}
-                        target="_blank"
-                        style={{ position: "relative", zIndex: 1000 }}
-                      >
-                        {o.label} <PiArrowSquareOut />
-                      </Link>
-                    );
-                  }}
+                  formatOptionLabel={formatSavedGroupOptionLabel}
                   required
                 />
               }
@@ -1171,21 +1159,7 @@ function ConditionAndGroupInput({
                         onChange={(v) => {
                           handleCondsChange(v, "value");
                         }}
-                        formatOptionLabel={(o, meta) => {
-                          if (meta.context !== "value" || !o.value)
-                            return o.label;
-                          const group = getSavedGroupById(o.value);
-                          if (!group) return o.label;
-                          return (
-                            <Link
-                              href={`/saved-groups/${group.id}`}
-                              target="_blank"
-                              style={{ position: "relative", zIndex: 1000 }}
-                            >
-                              {o.label} <PiArrowSquareOut />
-                            </Link>
-                          );
-                        }}
+                        formatOptionLabel={formatSavedGroupOptionLabel}
                         name="value"
                         initialOption="Choose group..."
                         required
