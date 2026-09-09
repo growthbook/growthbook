@@ -244,16 +244,20 @@ async function testVirtualColumnQuery(
   }
 }
 
-// Previews a metric's numerator/denominator row filters, before the metric
-// is ever saved - shows the raw fact-table rows those filters would select
-// (not the metric's aggregated per-user value, which needs a full
-// experiment-relative analysis query this preview has no context for).
-async function previewMetricRowsQuery(
+// Builds (but does not run) the SQL for a metric's numerator/denominator row
+// filters, before the metric is ever saved - shows the raw fact-table rows
+// those filters would select (not the metric's aggregated per-user value,
+// which needs a full experiment-relative analysis query this preview has no
+// context for). Building the text is free - no warehouse round trip - so the
+// front-end can call this automatically as the definition changes, the same
+// way other parts of the app show generated SQL live; only actually running
+// it (previewMetricRowsQuery, below) is a deliberate, explicit action.
+function buildMetricPreviewSql(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
   rowFilters: RowFilter[],
-): Promise<FactFilterTestResults> {
+): { sql: string; integration: SqlIntegration } {
   if (!context.permissions.canRunTestQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
@@ -293,6 +297,23 @@ async function previewMetricRowsQuery(
     testDays: context.org.settings?.testQueryDays,
     timestampColumn,
   });
+
+  return { sql, integration };
+}
+
+async function previewMetricRowsQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: FactTableInterface,
+  rowFilters: RowFilter[],
+): Promise<FactFilterTestResults> {
+  const { sql, integration } = buildMetricPreviewSql(
+    context,
+    datasource,
+    factTable,
+    rowFilters,
+  );
+  const timestampColumn = getFactTableTimestampColumn(factTable);
 
   try {
     const results = await integration.runTestQuery(
@@ -1216,6 +1237,36 @@ export const postPreviewMetricRows = async (
   res.status(200).json({
     status: 200,
     result,
+  });
+};
+
+export const postPreviewMetricSql = async (
+  req: AuthRequest<PreviewMetricRowsProps, { id: string }>,
+  res: Response<{ status: 200; sql: string }>,
+) => {
+  const data = req.body;
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  const { sql } = buildMetricPreviewSql(
+    context,
+    datasource,
+    factTable,
+    data.rowFilters,
+  );
+
+  res.status(200).json({
+    status: 200,
+    sql,
   });
 };
 
