@@ -394,7 +394,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "3.1.0",
+    version: "3.1.1",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -453,7 +453,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.4.0",
+    version: "0.5.0",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -473,6 +473,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v0.5.0",
       },
       {
         trackingPlugin: "≥ v0.2.8",
@@ -738,7 +741,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "7.9.0",
+    version: "8.0.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -753,6 +756,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v8.0.0",
       },
       {
         trackingPlugin: "≥ v7.8.0",
