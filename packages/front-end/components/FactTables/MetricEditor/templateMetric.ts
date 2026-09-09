@@ -122,10 +122,11 @@ export function autoFillsColumn(
     : canInlineFilterColumn(factTable, placeholder);
 }
 
-// numericPlaceholders/stringPlaceholders are disjoint by construction
-// (placeholderColumns puts each name in exactly one), so a single map
-// covers both. Returns the placeholder unchanged if it isn't a tracked
-// placeholder at all (e.g. a $$ sentinel); returns the mapped value as-is
+// A placeholder name can appear in both the numeric and string sets
+// placeholderColumns builds (it's just a label the template author chose,
+// not guaranteed unique per role) - the caller passes whichever map applies
+// to this field. Returns the placeholder unchanged if it isn't tracked in
+// that map at all (e.g. a $$ sentinel); returns the mapped value as-is
 // otherwise, including "" for a still-unmapped placeholder - never falls
 // back to the placeholder name itself, since that would silently pass off
 // an unresolved mapping as a real column.
