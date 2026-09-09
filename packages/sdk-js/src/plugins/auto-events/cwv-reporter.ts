@@ -3,6 +3,8 @@ import { DEFAULT_SAMPLING_SEED, shouldSample } from "../utils/sampling";
 import { currentPageUrl, detectEnv, whenActivated } from "../utils/browser";
 import { subscribeToUrlChanges } from "../utils/url-change-observer";
 
+const noop = () => {};
+
 export type CWVReporterSettings = {
   trackFCP?: boolean;
   trackLCP?: boolean;
@@ -53,9 +55,9 @@ export function createCWVReporter({
   samplingSeed,
   trackQueryStringChanges = false,
   growthbook,
-}: CWVReporterSettings) {
+}: CWVReporterSettings): () => void {
   samplingRate = Math.min(1, Math.max(0, samplingRate));
-  if (detectEnv() !== "browser") return;
+  if (detectEnv() !== "browser") return noop;
   if (
     !shouldSample({
       rate: samplingRate,
@@ -64,20 +66,24 @@ export function createCWVReporter({
       seed: samplingSeed ?? DEFAULT_SAMPLING_SEED,
     })
   ) {
-    return;
+    return noop;
   }
 
   if (!("PerformanceObserver" in window)) {
-    return;
+    return noop;
   }
 
   let destroyed = false;
-  growthbook.onDestroy(() => {
+  let stopObserving: (() => void) | null = null;
+  const stop = () => {
     destroyed = true;
-  });
+    stopObserving && stopObserving();
+  };
+  growthbook.onDestroy(stop);
   whenActivated(() => {
     if (!destroyed) start();
   });
+  return stop;
 
   function start() {
     try {
@@ -109,7 +115,7 @@ export function createCWVReporter({
 
       // Drain queued entries first — observer callbacks are async, and the
       // shift from the click that navigated away is usually still pending
-      const stopObserving = () => {
+      const stopThisPage = () => {
         if (stopped) return;
         stopped = true;
         observers.forEach(({ observer, callback }) => {
@@ -133,8 +139,7 @@ export function createCWVReporter({
         removeListeners && removeListeners();
         removeListeners = null;
       };
-
-      growthbook.onDestroy(stopObserving);
+      stopObserving = stopThisPage;
 
       let fcpTime: number | null = null;
       let lcpTime: number | null = null;
@@ -144,7 +149,7 @@ export function createCWVReporter({
 
       const reportCWV = () => {
         if (stopped) return;
-        stopObserving();
+        stopThisPage();
         // null checks, not truthiness — 0 is a valid (and good) measurement
         trackLCP &&
           lcpTime !== null &&

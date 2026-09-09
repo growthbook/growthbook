@@ -19,8 +19,11 @@ import {
   thirdPartyTrackingPlugin,
   Trackers,
 } from "./plugins/third-party-tracking";
-import { autoEventsPlugin } from "./plugins/auto-events/index";
-import type { AutoEventsSettings } from "./plugins/auto-events/index";
+import {
+  AUTO_EVENT_CATEGORIES,
+  autoEventsPlugin,
+  type AutoEventsSettings,
+} from "./plugins/auto-events/index";
 import type { PrivacySettings } from "./plugins/utils/privacy";
 
 // auto-wrapper-plus extends this with its own plugin settings
@@ -158,29 +161,20 @@ const plugins: Plugin[] = [
 //   data-auto-events="pageEvents,errors,cwv,clickstream" (or "all")
 // Everything else (sampling rates, privacy, per-category options) goes
 // through window.growthbook_config.autoEvents, which mirrors the plugin's
-// own settings type and wins outright when present.
-const AUTO_EVENT_CATEGORIES = [
-  "pageEvents",
-  "errors",
-  "cwv",
-  "clickstream",
-] as const;
-type AutoEventCategory = (typeof AUTO_EVENT_CATEGORIES)[number];
-
+// own settings type and wins outright when present. Unlisted categories
+// stay undefined so remote sdkSettings can still turn them on.
 function readAutoEventsSettings(): AutoEventsSettings {
   if (windowContext.autoEvents) return windowContext.autoEvents;
   const settings: AutoEventsSettings = {};
   const list = dataContext.autoEvents;
-  const listed =
-    list === undefined
-      ? null
-      : new Set(
-          list === "all"
-            ? AUTO_EVENT_CATEGORIES
-            : list.split(",").map((s) => s.trim()),
-        );
+  if (list === undefined) return settings;
+  const listed = new Set(
+    list === "all"
+      ? AUTO_EVENT_CATEGORIES
+      : list.split(",").map((s) => s.trim()),
+  );
   for (const category of AUTO_EVENT_CATEGORIES) {
-    settings[category] = listed !== null && listed.has(category);
+    if (listed.has(category)) settings[category] = true;
   }
   return settings;
 }
@@ -189,12 +183,6 @@ const autoEventsSettings: AutoEventsSettings = {
   privacy: windowContext.privacy,
   ...readAutoEventsSettings(),
 };
-const autoEventsEnabled = AUTO_EVENT_CATEGORIES.some(
-  (category: AutoEventCategory) => {
-    const value = autoEventsSettings[category];
-    return typeof value === "object" ? value.enabled !== false : value === true;
-  },
-);
 
 const tracking = dataContext.tracking || "gtag,gtm,segment";
 const trackers =
@@ -205,11 +193,11 @@ const trackers =
         .map((t) => t.trim())
     : [];
 
-// Auto-events need a logger even when "growthbook" isn't a configured
-// tracker, but then only custom events ship, not exposures and feature
-// evaluations
+// Always installed: remote sdkSettings can turn auto-events on at any time,
+// so the logger must exist. Without the "growthbook" tracker only custom
+// events ship, not exposures and feature evaluations.
 const growthbookTracking = trackers.includes("growthbook");
-if (growthbookTracking || autoEventsEnabled) {
+{
   const eventTransport =
     windowContext.eventTransport || dataContext.eventTransport;
   plugins.push(
@@ -239,9 +227,7 @@ if (tracking !== "none" && !windowContext.trackingCallback) {
   );
 }
 
-if (autoEventsEnabled) {
-  plugins.push(autoEventsPlugin(autoEventsSettings));
-}
+plugins.push(autoEventsPlugin(autoEventsSettings));
 
 // Create GrowthBook instance
 const gb = new GrowthBook({

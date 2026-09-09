@@ -1440,11 +1440,83 @@ describe("autoEventsPlugin", () => {
 
   it("falls back to the default rate with a warning instead of throwing on bad config", () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    expect(() => autoEventsPlugin({ cwv: { samplingRate: 15 } })).not.toThrow();
+    const gb = new GrowthBook({ clientKey: "test" });
+    expect(() =>
+      autoEventsPlugin({ cwv: { samplingRate: 15 } })(gb),
+    ).not.toThrow();
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining("cwv.samplingRate must be between 0 and 1"),
     );
     warn.mockRestore();
+    gb.destroy();
+  });
+
+  it("categories are off until local settings or remote sdkSettings turn them on", async () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    autoEventsPlugin()(gb);
+    const btn = document.createElement("button");
+    document.body.appendChild(btn);
+
+    btn.click();
+    expect(logEvent).not.toHaveBeenCalled();
+
+    await gb.setPayload({
+      sdkSettings: {
+        autoEvents: { clickstream: { enabled: true, samplingRate: 1 } },
+      },
+    });
+    btn.click();
+    expect(logEvent).toHaveBeenCalledWith("button_click", expect.any(Object));
+
+    logEvent.mockClear();
+    await gb.setPayload({
+      sdkSettings: { autoEvents: { clickstream: { enabled: false } } },
+    });
+    btn.click();
+    expect(logEvent).not.toHaveBeenCalled();
+
+    document.body.removeChild(btn);
+    gb.destroy();
+  });
+
+  it("a local false stays off when remote enables the category", async () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    autoEventsPlugin({ clickstream: false })(gb);
+    await gb.setPayload({
+      sdkSettings: {
+        autoEvents: { clickstream: { enabled: true, samplingRate: 1 } },
+      },
+    });
+
+    const btn = document.createElement("button");
+    document.body.appendChild(btn);
+    btn.click();
+    expect(logEvent).not.toHaveBeenCalled();
+
+    document.body.removeChild(btn);
+    gb.destroy();
+  });
+
+  it("a remote samplingRate overrides the local one and restarts the category", async () => {
+    const gb = new GrowthBook({ clientKey: "test" });
+    const logEvent = jest.spyOn(gb, "logEvent");
+    autoEventsPlugin({ clickstream: { samplingRate: 0 } })(gb);
+    const btn = document.createElement("button");
+    document.body.appendChild(btn);
+
+    btn.click();
+    expect(logEvent).not.toHaveBeenCalled();
+
+    await gb.setPayload({
+      sdkSettings: { autoEvents: { clickstream: { samplingRate: 1 } } },
+    });
+    btn.click();
+    expect(logEvent).toHaveBeenCalledWith("button_click", expect.any(Object));
+
+    document.body.removeChild(btn);
+    gb.destroy();
   });
 
   it("a plugin that throws during init fails the GrowthBook constructor loudly", () => {
@@ -1492,7 +1564,7 @@ describe("autoEventsPlugin", () => {
   });
 
   it("warns when given a non-GrowthBook instance and a browser-only category is enabled", () => {
-    const fakeClient = { logEvent: jest.fn() };
+    const fakeClient = { logEvent: jest.fn(), getDecryptedPayload: () => ({}) };
     const apply = autoEventsPlugin({
       cwv: false,
       pageEvents: false,

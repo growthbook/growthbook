@@ -15,6 +15,8 @@ export type {
   FeatureApiResponse,
   SdkSettings,
   SessionReplaySettings,
+  AutoEventsRemoteSettings,
+  AutoEventCategorySettings,
   SessionStorageCompat,
   LoadFeaturesOptions,
   RefreshFeaturesOptions,

@@ -8,6 +8,8 @@ import { DEFAULT_SAMPLING_SEED, shouldSample } from "../utils/sampling";
 import { detectEnv } from "../utils/browser";
 import { isFullGrowthBook, isGrowthBookClient } from "../utils/instance";
 
+const noop = () => {};
+
 export type ErrorReporterSettings = {
   debounceTimeout?: number;
   samplingRate?: number;
@@ -54,10 +56,10 @@ export function createErrorReporter({
   samplingSeed,
   userContext,
   growthbook,
-}: ErrorReporterSettings) {
+}: ErrorReporterSettings): () => void {
   samplingRate = Math.min(1, Math.max(0, samplingRate));
 
-  if (detectEnv() !== "browser") return;
+  if (detectEnv() !== "browser") return noop;
 
   if (
     !shouldSample({
@@ -71,7 +73,7 @@ export function createErrorReporter({
       seed: samplingSeed ?? DEFAULT_SAMPLING_SEED,
     })
   ) {
-    return;
+    return noop;
   }
 
   // Insertion-ordered; oldest evicted when full
@@ -169,10 +171,11 @@ export function createErrorReporter({
   window.addEventListener("error", onError);
   window.addEventListener("unhandledrejection", onUnhandledRejection);
 
-  isFullGrowthBook(growthbook) &&
-    growthbook.onDestroy(() => {
-      window.removeEventListener("error", onError);
-      window.removeEventListener("unhandledrejection", onUnhandledRejection);
-      lastErrorTimestamps.clear();
-    });
+  const stop = () => {
+    window.removeEventListener("error", onError);
+    window.removeEventListener("unhandledrejection", onUnhandledRejection);
+    lastErrorTimestamps.clear();
+  };
+  isFullGrowthBook(growthbook) && growthbook.onDestroy(stop);
+  return stop;
 }

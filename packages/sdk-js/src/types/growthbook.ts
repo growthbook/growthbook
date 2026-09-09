@@ -490,10 +490,23 @@ export type SessionReplaySettings = {
   samplingRate?: number; // 0-1
 };
 
+export type AutoEventCategorySettings = {
+  enabled?: boolean;
+  samplingRate?: number; // 0-1
+};
+
+export type AutoEventsRemoteSettings = Partial<
+  Record<
+    "pageEvents" | "errors" | "cwv" | "clickstream",
+    AutoEventCategorySettings
+  >
+>;
+
 // Remotely-delivered plugin settings. Riding inside the features payload
 // inherits its caching, refresh, and SSE streaming for free.
 export type SdkSettings = {
   sessionReplay?: SessionReplaySettings;
+  autoEvents?: AutoEventsRemoteSettings;
 };
 
 export type FeatureApiResponse = {

@@ -4,6 +4,8 @@ import { currentPageUrl, detectEnv, whenActivated } from "../utils/browser";
 import { subscribeToUrlChanges } from "../utils/url-change-observer";
 import { createPageState, type PageState } from "./page-state";
 
+const noop = () => {};
+
 export type EngagementReporterSettings = {
   samplingRate?: number;
   // page_engagement heartbeats + hidden-tab events; page_view/page_leave are
@@ -31,8 +33,8 @@ export function createEngagementReporter({
   samplingSeed = DEFAULT_SAMPLING_SEED,
   pageState,
   growthbook,
-}: EngagementReporterSettings) {
-  if (detectEnv() !== "browser") return;
+}: EngagementReporterSettings): () => void {
+  if (detectEnv() !== "browser") return noop;
   if (
     !shouldSample({
       rate: Math.min(1, Math.max(0, samplingRate)),
@@ -41,7 +43,7 @@ export function createEngagementReporter({
       seed: samplingSeed,
     })
   ) {
-    return;
+    return noop;
   }
 
   const {
@@ -182,7 +184,7 @@ export function createEngagementReporter({
 
   whenActivated(startPage);
 
-  growthbook.onDestroy(() => {
+  const stop = () => {
     stopped = true;
     heartbeatTimer && clearInterval(heartbeatTimer);
     heartbeatTimer = null;
@@ -192,5 +194,7 @@ export function createEngagementReporter({
     window.removeEventListener("pagehide", onPageHide, true);
     document.removeEventListener("visibilitychange", onVisibilityChange);
     window.removeEventListener("scroll", onScroll);
-  });
+  };
+  growthbook.onDestroy(stop);
+  return stop;
 }

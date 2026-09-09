@@ -30,6 +30,8 @@ const RAGE_WINDOW_MS = 3000;
 const RAGE_MAX_DISTANCE_PX = 50;
 const PASSWORD_SELECTOR = "input[type='password']";
 
+const noop = () => {};
+
 export type InteractionReporterSettings = {
   samplingRate?: number;
   hashAttribute?: string;
@@ -53,8 +55,8 @@ export function createInteractionReporter({
   privacy,
   pageState,
   growthbook,
-}: InteractionReporterSettings) {
-  if (detectEnv() !== "browser") return;
+}: InteractionReporterSettings): () => void {
+  if (detectEnv() !== "browser") return noop;
   samplingRate = Math.min(1, Math.max(0, samplingRate));
   if (
     !shouldSample({
@@ -64,7 +66,7 @@ export function createInteractionReporter({
       seed: samplingSeed ?? DEFAULT_SAMPLING_SEED,
     })
   )
-    return;
+    return noop;
 
   const {
     incrementClickCount,
@@ -196,10 +198,12 @@ export function createInteractionReporter({
   document.addEventListener("click", onClick, { capture: true, passive: true });
   document.addEventListener("submit", onSubmit, { capture: true });
 
-  growthbook.onDestroy(() => {
+  const stop = () => {
     markInteractionTrackingInactive();
     document.removeEventListener("click", onClick, true);
     document.removeEventListener("submit", onSubmit, true);
     rageClicks = [];
-  });
+  };
+  growthbook.onDestroy(stop);
+  return stop;
 }
