@@ -4,6 +4,7 @@ import {
   ColumnRef,
   FactTableDefinition,
   FactMetricInterface,
+  FunnelSettings,
   RowFilter,
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
@@ -63,14 +64,22 @@ export type CreateStandardFactMetricProps =
   CreateProps<StandardFactMetricInterface>;
 
 // Form-state shape backing the shared metric modal. Widens metricType to include
-// "funnel" so one form can author every metric type. funnelSettings stays null
-// here: its deeply nested step/filter shape breaks react-hook-form's typed
-// field-path resolution, so the modal tracks it in dedicated state instead.
+// "funnel" so one form can author every metric type, and widens funnelSettings
+// to its real type (StandardFactMetricInterface's own funnelSettings is the
+// literal `null` - a discriminated-union member, not this form's concern) so
+// a funnel metric's steps can live on the form like every other field instead
+// of in separate state. numerator stays ColumnRef (never null): widening it
+// too would ripple into FactMetricModal.tsx, which shares this type and reads
+// numerator.* at ~60 call sites assuming it's never null - so a funnel
+// metric's numerator is still a stale, ignored placeholder on the form,
+// explicitly nulled out at the create/update payload boundary instead
+// (MetricWorkspace's handleSave), the same way FactMetricModal already does.
 export type CreateFactMetricFormProps = Omit<
   CreateStandardFactMetricProps,
-  "metricType"
+  "metricType" | "funnelSettings"
 > & {
   metricType: FactMetricInterface["metricType"];
+  funnelSettings: FunnelSettings | null;
 };
 
 export function getDefaultFactMetricProps({
@@ -123,7 +132,10 @@ export function getDefaultFactMetricProps({
     },
     managedBy: managedBy || "",
     quantileSettings: existing?.quantileSettings || null,
-    // Funnel steps are tracked in modal state, not react-hook-form.
+    // Always null here regardless of `existing` - FactMetricModal (the only
+    // caller that doesn't overlay a real value afterward) tracks funnel
+    // steps in its own separate state and never reads this field.
+    // MetricWorkspace overlays the real value from `existing` itself.
     funnelSettings: null,
     windowSettings: existing?.windowSettings || {
       type: DEFAULT_FACT_METRIC_WINDOW,

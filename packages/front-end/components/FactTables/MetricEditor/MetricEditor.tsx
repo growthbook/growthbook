@@ -1,7 +1,7 @@
 import { UseFormReturn } from "react-hook-form";
 import { useEffect } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
-import { ColumnRef, FunnelSettings } from "shared/types/fact-table";
+import { ColumnRef } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -59,14 +59,10 @@ const UNREPRESENTABLE_REASON_COPY: Record<UnrepresentableReason, string> = {
 export default function MetricEditor({
   form,
   canEdit,
-  funnelSettings,
-  onFunnelSettingsChange,
   onRepresentableChange,
 }: {
   form: UseFormReturn<CreateFactMetricFormProps>;
   canEdit: boolean;
-  funnelSettings: FunnelSettings | null;
-  onFunnelSettingsChange: (value: FunnelSettings | null) => void;
   // Lets MetricWorkspace gate its Save button on the same representable
   // check this component already computes for its own unrepresentable-
   // definition Callout, instead of deriving formTypeFromStored a second time
@@ -81,6 +77,7 @@ export default function MetricEditor({
   const numerator = form.watch("numerator");
   const denominator = form.watch("denominator");
   const quantileSettings = form.watch("quantileSettings");
+  const funnelSettings = form.watch("funnelSettings");
   const datasourceId = form.watch("datasource");
   const datasource = getDatasourceById(datasourceId);
   const hasCountDistinctHLL = !!datasource?.properties?.hasCountDistinctHLL;
@@ -150,26 +147,24 @@ export default function MetricEditor({
       hasCountDistinctHLL,
     );
     // One atomic reset instead of a pile of setValues - safe because nothing
-    // reads form.formState.isDirty (funnelSettings lives outside the form
-    // anyway, so isDirty could never fully answer "did anything change").
-    // numerator and funnelSettings are carried over as the old value rather
-    // than written through: funnel has no numerator, and CreateFactMetricFormProps
-    // types both fields against the Standard side of a discriminated union
-    // (see its own comment in services/metrics.tsx) - matches today's modal,
-    // which leaves the stale ColumnRef in the form and only nulls it in the
-    // submit payload.
+    // reads form.formState.isDirty. numerator is carried over as the old
+    // value rather than written through: funnel has no numerator, and
+    // CreateFactMetricFormProps types it against the Standard side of a
+    // discriminated union (see its own comment in services/metrics.tsx) -
+    // matches today's modal, which leaves the stale ColumnRef in the form
+    // and only nulls it in the submit payload.
     form.reset({
       ...form.getValues(),
       metricType: result.metricType,
       numerator: result.numerator ?? numerator,
       denominator: result.denominator ?? null,
       quantileSettings: result.quantileSettings ?? null,
+      funnelSettings: result.funnelSettings ?? null,
       ...(result.cappingSettings && {
         cappingSettings: result.cappingSettings,
       }),
       ...(result.windowSettings && { windowSettings: result.windowSettings }),
     });
-    onFunnelSettingsChange(result.funnelSettings ?? null);
   }
 
   function changeFactTable(newFactTableId: string) {
@@ -351,7 +346,7 @@ export default function MetricEditor({
                 <FunnelStepsInput
                   value={funnelSettings ?? { steps: [] }}
                   setValue={(v) => {
-                    onFunnelSettingsChange(v);
+                    form.setValue("funnelSettings", v);
                     // Datasource is derived from the fact table, not selected
                     // directly (spec) - same as changeFactTable does for every
                     // other type, just off step 1's fact table instead of the
