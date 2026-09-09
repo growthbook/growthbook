@@ -48,6 +48,9 @@ export default function Home(): React.ReactElement {
     : undefined;
 
   const willRedirect = hasFeatureOrExperiment === false;
+  // Set once the agent-driven setup has been offered, so a user who skips it is
+  // not sent straight back on their next visit.
+  const [stayHere, setStayHere] = useState(false);
 
   useEffect(() => {
     if (!organization) return;
@@ -56,12 +59,29 @@ export default function Home(): React.ReactElement {
 
     const demographics = organization.demographicData;
 
-    // Whoever chose "engineer" at signup gets the agent-driven setup, when it is on.
+    // Whoever chose "engineer" at signup gets the agent-driven setup, when it is
+    // on — once. After that this page is theirs, so skipping it actually sticks.
     if (
       aiOnboarding &&
       !organization.isVercelIntegration &&
       demographics?.ownerJobTitle === "engineer"
     ) {
+      const key = `onboarding:connect-offered:${organization.id}`;
+      let offered = false;
+      try {
+        offered = localStorage.getItem(key) === "1";
+      } catch {
+        // Storage can be unavailable; offering it again beats a blank page.
+      }
+      if (offered) {
+        setStayHere(true);
+        return;
+      }
+      try {
+        localStorage.setItem(key, "1");
+      } catch {
+        // Same: the redirect still happens, it just repeats next visit.
+      }
       router.replace("/connect");
       return;
     }
@@ -79,6 +99,6 @@ export default function Home(): React.ReactElement {
       <Callout status="error">{error.message || "An error occurred"}</Callout>
     );
   }
-  if (!data || willRedirect) return <LoadingOverlay />;
+  if (!data || (willRedirect && !stayHere)) return <LoadingOverlay />;
   return <GetStartedAndHomePage showMarketingBanner />;
 }
