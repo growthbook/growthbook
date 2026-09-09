@@ -67,9 +67,8 @@ export type WrapperDefaults = {
   autoEvents?: AutoEventsSettings;
 };
 
-// Everything the script-tag bundles share. Each entrypoint (auto-wrapper.ts,
-// auto-wrapper-plus.ts) calls this once with its own defaults; rollup inlines
-// it into each bundle.
+// Shared by both script-tag bundles; each entrypoint calls it once with its
+// own defaults
 export function buildCore(defaults: WrapperDefaults = {}) {
   // Ensure dataLayer exists
   window.dataLayer = window.dataLayer || [];
@@ -189,7 +188,6 @@ export function buildCore(defaults: WrapperDefaults = {}) {
     return settings;
   }
 
-  // The entrypoint's defaults sit beneath the customer's config
   const autoEventsSettings: AutoEventsSettings = {
     privacy: windowContext.privacy,
     ...defaults.autoEvents,
