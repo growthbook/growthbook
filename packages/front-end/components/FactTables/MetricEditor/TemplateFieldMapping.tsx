@@ -33,10 +33,16 @@ export default function TemplateFieldMapping({
     placeholderColumns(template);
 
   const [factTableId, setFactTableId] = useState("");
-  const [columnMap, setColumnMap] = useState<Record<string, string>>(
-    Object.fromEntries(
-      [...numericPlaceholders, ...stringPlaceholders].map((c) => [c, ""]),
-    ),
+  // Separate maps, not one keyed by placeholder name - a placeholder name is
+  // just a label a template author chose, and the same name can appear in
+  // both sets (e.g. a numeric aggregation column here, a string row-filter
+  // column there); one shared map would let picking one silently overwrite
+  // the other.
+  const [numericMap, setNumericMap] = useState<Record<string, string>>(
+    Object.fromEntries([...numericPlaceholders].map((c) => [c, ""])),
+  );
+  const [stringMap, setStringMap] = useState<Record<string, string>>(
+    Object.fromEntries([...stringPlaceholders].map((c) => [c, ""])),
   );
 
   const factTable = getFactTableById(factTableId);
@@ -58,28 +64,36 @@ export default function TemplateFieldMapping({
     // Rebuild every mapping from scratch against the new fact table - never
     // carry forward a value picked against a different table, which could
     // silently reference a column that doesn't exist here.
-    setColumnMap((prev) =>
+    const rebuild = (prev: Record<string, string>, isNumeric: boolean) =>
       Object.fromEntries(
         Object.keys(prev).map((k) => [
           k,
-          newFactTable &&
-          autoFillsColumn(k, numericPlaceholders.has(k), newFactTable)
-            ? k
-            : "",
+          newFactTable && autoFillsColumn(k, isNumeric, newFactTable) ? k : "",
         ]),
-      ),
-    );
+      );
+    setNumericMap((prev) => rebuild(prev, true));
+    setStringMap((prev) => rebuild(prev, false));
   }
 
-  const canContinue = !!factTableId && Object.values(columnMap).every(Boolean);
+  const canContinue =
+    !!factTableId &&
+    Object.values(numericMap).every(Boolean) &&
+    Object.values(stringMap).every(Boolean);
 
-  function placeholderSelect(placeholder: string, options: string[]) {
+  function placeholderSelect(
+    placeholder: string,
+    options: string[],
+    map: Record<string, string>,
+    setMap: (
+      updater: (prev: Record<string, string>) => Record<string, string>,
+    ) => void,
+  ) {
     return (
       <Select
         key={placeholder}
         label={`Column: ${placeholder}`}
-        value={columnMap[placeholder] || ""}
-        setValue={(v) => setColumnMap({ ...columnMap, [placeholder]: v })}
+        value={map[placeholder] || ""}
+        setValue={(v) => setMap((prev) => ({ ...prev, [placeholder]: v }))}
         disabled={!factTable || !options.length}
         placeholder="Select..."
       >
@@ -101,20 +115,29 @@ export default function TemplateFieldMapping({
       numerator: {
         ...numerator,
         factTableId,
-        column: mappedColumn(numerator.column, columnMap) ?? numerator.column,
+        column:
+          mappedColumn(
+            numerator.column,
+            numerator.aggregation === "count distinct" ? stringMap : numericMap,
+          ) ?? numerator.column,
         aggregateFilterColumn: mappedColumn(
           numerator.aggregateFilterColumn,
-          columnMap,
+          numericMap,
         ),
-        rowFilters: mappedRowFilters(numerator.rowFilters, columnMap),
+        rowFilters: mappedRowFilters(numerator.rowFilters, stringMap),
       },
       denominator: denominator
         ? {
             ...denominator,
             factTableId,
             column:
-              mappedColumn(denominator.column, columnMap) ?? denominator.column,
-            rowFilters: mappedRowFilters(denominator.rowFilters, columnMap),
+              mappedColumn(
+                denominator.column,
+                denominator.aggregation === "count distinct"
+                  ? stringMap
+                  : numericMap,
+              ) ?? denominator.column,
+            rowFilters: mappedRowFilters(denominator.rowFilters, stringMap),
           }
         : undefined,
     });
@@ -164,10 +187,20 @@ export default function TemplateFieldMapping({
           </Callout>
         )}
         {[...numericPlaceholders].map((placeholder) =>
-          placeholderSelect(placeholder, numericOptions),
+          placeholderSelect(
+            placeholder,
+            numericOptions,
+            numericMap,
+            setNumericMap,
+          ),
         )}
         {[...stringPlaceholders].map((placeholder) =>
-          placeholderSelect(placeholder, stringOptions),
+          placeholderSelect(
+            placeholder,
+            stringOptions,
+            stringMap,
+            setStringMap,
+          ),
         )}
         <Flex>
           <Button onClick={handleContinue} disabled={!canContinue}>
