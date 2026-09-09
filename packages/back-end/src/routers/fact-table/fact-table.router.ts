@@ -9,6 +9,7 @@ import {
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
   testVirtualColumnPropsValidator,
+  previewMetricRowsPropsValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -175,6 +176,15 @@ router.post(
     body: testFactFilterPropsValidator,
   }),
   factTableController.postFactFilterTest,
+);
+
+router.post(
+  "/fact-tables/:id/preview-metric-rows",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: previewMetricRowsPropsValidator,
+  }),
+  factTableController.postPreviewMetricRows,
 );
 
 router.delete(
