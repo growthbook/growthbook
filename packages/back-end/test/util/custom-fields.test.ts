@@ -26,14 +26,17 @@ describe("custom fields validation", () => {
     const validate = async ({
       fields,
       values,
+      existingValues,
       section = "feature",
     }: {
       fields: CustomField[];
       values?: Record<string, unknown>;
+      existingValues?: Record<string, unknown>;
       section?: "feature" | "experiment";
     }) => {
       return validateCustomFieldsForSection({
         customFieldValues: values,
+        existingCustomFieldValues: existingValues,
         customFieldsModel: buildCustomFieldsModel(fields),
         section,
       });
@@ -322,6 +325,153 @@ describe("custom fields validation", () => {
       ).rejects.toThrow(
         "Invalid multiselect value for custom field cfd_owners",
       );
+    });
+
+    it("accepts values outside the allowed options for creatable multiselect fields", async () => {
+      await expect(
+        validate({
+          values: { cfd_owners: '["team-c","team-a"]' },
+          fields: [
+            buildCustomField({
+              id: "cfd_owners",
+              name: "Owners",
+              type: "multiselect",
+              required: true,
+              values: "team-a,team-b",
+              creatable: true,
+              sections: ["experiment"],
+            }),
+          ],
+          section: "experiment",
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("accepts values outside the allowed options for creatable enum fields", async () => {
+      await expect(
+        validate({
+          values: { cfd_tier: "tier-c" },
+          fields: [
+            buildCustomField({
+              id: "cfd_tier",
+              name: "Tier",
+              type: "enum",
+              required: true,
+              values: "tier-a,tier-b",
+              creatable: true,
+              sections: ["experiment"],
+            }),
+          ],
+          section: "experiment",
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("still rejects multiple values for creatable enum fields", async () => {
+      await expect(
+        validate({
+          values: { cfd_tier: '["tier-a","tier-c"]' },
+          fields: [
+            buildCustomField({
+              id: "cfd_tier",
+              name: "Tier",
+              type: "enum",
+              required: true,
+              values: "tier-a,tier-b",
+              creatable: true,
+              sections: ["experiment"],
+            }),
+          ],
+          section: "experiment",
+        }),
+      ).rejects.toThrow("Only one value is allowed for enum fields");
+    });
+
+    describe("grandfathering unchanged values on update", () => {
+      const owners = buildCustomField({
+        id: "cfd_owners",
+        name: "Owners",
+        type: "multiselect",
+        required: true,
+        values: "team-a,team-b",
+        sections: ["experiment"],
+      });
+      const tier = buildCustomField({
+        id: "cfd_tier",
+        name: "Tier",
+        type: "enum",
+        required: false,
+        values: "tier-a,tier-b",
+        sections: ["experiment"],
+      });
+
+      it("allows an unchanged out-of-list value when another field changes", async () => {
+        await expect(
+          validate({
+            values: { cfd_owners: '["team-c"]', cfd_tier: "tier-b" },
+            existingValues: { cfd_owners: '["team-c"]', cfd_tier: "tier-a" },
+            fields: [owners, tier],
+            section: "experiment",
+          }),
+        ).resolves.toBeUndefined();
+      });
+
+      it("still rejects a changed out-of-list value", async () => {
+        await expect(
+          validate({
+            values: { cfd_owners: '["team-c","team-d"]' },
+            existingValues: { cfd_owners: '["team-c"]' },
+            fields: [owners],
+            section: "experiment",
+          }),
+        ).rejects.toThrow(
+          "Invalid multiselect value for custom field cfd_owners",
+        );
+      });
+
+      it("allows an unchanged value for a field that no longer exists", async () => {
+        await expect(
+          validate({
+            values: { cfd_removed: "stale", cfd_tier: "tier-a" },
+            existingValues: { cfd_removed: "stale" },
+            fields: [tier],
+            section: "experiment",
+          }),
+        ).resolves.toBeUndefined();
+      });
+
+      it("allows a required field to stay absent when it was already absent", async () => {
+        await expect(
+          validate({
+            values: { cfd_tier: "tier-a" },
+            existingValues: {},
+            fields: [owners, tier],
+            section: "experiment",
+          }),
+        ).resolves.toBeUndefined();
+      });
+
+      it("still requires a required field that is being removed", async () => {
+        await expect(
+          validate({
+            values: { cfd_tier: "tier-a" },
+            existingValues: { cfd_owners: '["team-a"]', cfd_tier: "tier-a" },
+            fields: [owners, tier],
+            section: "experiment",
+          }),
+        ).rejects.toThrow('Custom field "Owners" is required.');
+      });
+
+      it("allows unchanged values when no custom fields are configured anymore", async () => {
+        await expect(
+          validate({
+            values: { cfd_removed: "stale" },
+            existingValues: { cfd_removed: "stale" },
+            fields: [],
+            section: "experiment",
+          }),
+        ).resolves.toBeUndefined();
+      });
     });
 
     it("treats numeric zero as a valid required number value", async () => {

@@ -16,7 +16,6 @@ import type {
 import {
   getAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
-  resetReviewOnChange,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
@@ -316,21 +315,8 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       changes.rampActions = [...filtered, resolvedRampAction];
     }
 
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments: [environment],
-      defaultValueChanged: false,
-      settings: req.organization.settings,
-    });
-
     // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
-    await prevalidateRevisionUpdate(
-      req.context,
-      feature,
-      revision,
-      changes,
-      resetReview,
-    );
+    await prevalidateRevisionUpdate(req.context, feature, revision, changes);
 
     if (safeRolloutCreateProps) {
       const safeRollout = await req.context.models.safeRollout.create(
@@ -343,19 +329,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Link now only when the validated holdout is already live on the feature. A draft-only
 
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      changes,
-      {
-        user: req.context.auditUser,
-        action: "add rule",
-        subject: `to ${environment}`,
-        value: JSON.stringify(rule),
-      },
-      resetReview,
-    );
+    await updateRevision(req.context, feature, revision, changes, {
+      user: req.context.auditUser,
+      action: "add rule",
+      subject: `to ${environment}`,
+      value: JSON.stringify(rule),
+    });
 
     const updated = await getRevision({
       context: req.context,
