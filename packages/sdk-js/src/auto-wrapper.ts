@@ -24,7 +24,7 @@ import {
   autoEventsPlugin,
   type AutoEventsSettings,
 } from "./plugins/auto-events/index";
-import { redirectExposurePlugin } from "./plugins/redirect-exposure";
+import { persistRedirectExposures } from "./redirect-exposure";
 import type { PrivacySettings } from "./plugins/utils/privacy";
 
 // auto-wrapper-plus extends this with its own plugin settings
@@ -229,8 +229,6 @@ if (tracking !== "none" && !windowContext.trackingCallback) {
 }
 
 plugins.push(autoEventsPlugin(autoEventsSettings));
-// Last: wraps whichever tracking callback the plugins above installed
-plugins.push(redirectExposurePlugin());
 
 // Create GrowthBook instance
 const gb = new GrowthBook({
@@ -241,6 +239,7 @@ const gb = new GrowthBook({
   plugins,
   stickyBucketService,
 });
+persistRedirectExposures(gb);
 
 // Set the renderer to fire a custom DOM event
 // This will let us attach multiple listeners

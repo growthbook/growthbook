@@ -1,9 +1,6 @@
-import { GrowthBook } from "../../src";
-import { redirectExposurePlugin } from "../../src/plugins/redirect-exposure";
-import type {
-  AutoExperiment,
-  TrackingCallback,
-} from "../../src/types/growthbook";
+import { GrowthBook } from "../src";
+import { persistRedirectExposures } from "../src/redirect-exposure";
+import type { AutoExperiment, TrackingCallback } from "../src/types/growthbook";
 
 const STORAGE_KEY = "gb_redirect_exposure";
 const ORIGIN = "http://www.example.com/home";
@@ -21,20 +18,22 @@ function buildGrowthBook(
   url = ORIGIN,
   experiments: AutoExperiment[] = [redirectExperiment],
 ) {
-  return new GrowthBook({
+  // Wrapped after construction, before the payload arrives, as the wrapper does
+  const gb = new GrowthBook({
     attributes: { id: "1" },
     url,
-    experiments,
     trackingCallback,
     navigate: () => {},
-    plugins: [redirectExposurePlugin()],
   });
+  persistRedirectExposures(gb);
+  gb.initSync({ payload: { experiments } });
+  return gb;
 }
 
 const settle = () => new Promise((r) => setTimeout(r, 20));
 const stored = () => JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
 
-describe("redirectExposurePlugin", () => {
+describe("persistRedirectExposures", () => {
   afterEach(() => localStorage.clear());
 
   it("persists a redirect exposure whose tracking callback gives no confirmation", async () => {
