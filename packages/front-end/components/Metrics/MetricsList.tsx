@@ -265,7 +265,7 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && enableRowActions && setMetricModalProps
+          canDuplicate && setMetricModalProps
             ? () =>
                 setMetricModalProps({
                   mode: "duplicate",
@@ -282,7 +282,7 @@ export function useCombinedMetrics({
                 })
             : undefined,
         onEdit:
-          canEdit && enableRowActions && setMetricModalProps
+          canEdit && setMetricModalProps
             ? () =>
                 setMetricModalProps({
                   mode: "edit",
