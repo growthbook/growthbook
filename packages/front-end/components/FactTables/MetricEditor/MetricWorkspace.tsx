@@ -34,7 +34,7 @@ type DefaultsContext = Pick<
 >;
 
 function buildFormDefaults(
-  existing: FactMetricInterface | null,
+  existing: Partial<FactMetricInterface> | null,
   ctx: DefaultsContext,
 ): CreateFactMetricFormProps {
   return {
@@ -84,8 +84,9 @@ export default function MetricWorkspace({
 }: {
   existing: FactMetricInterface | null;
   // Seeds defaults for a brand-new metric (create payload, not update) -
-  // distinct from `existing`, which also decides POST vs PUT.
-  duplicateFrom?: FactMetricInterface | null;
+  // distinct from `existing`, which also decides POST vs PUT. Partial since
+  // a mapped metric template has no id/owner/tags/etc. of its own yet.
+  duplicateFrom?: Partial<FactMetricInterface> | null;
   // Pre-selects a fact table for a brand-new metric with no existing/
   // duplicateFrom data of its own to seed from (e.g. "Add Metric" from a
   // fact table's own page) - existing/duplicateFrom's own fact table always
@@ -169,7 +170,7 @@ export default function MetricWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, router.events]);
 
-  function resync(source: FactMetricInterface | null) {
+  function resync(source: Partial<FactMetricInterface> | null) {
     form.reset(buildFormDefaults(source, defaultsCtx));
     baseline.current = snapshot();
   }
