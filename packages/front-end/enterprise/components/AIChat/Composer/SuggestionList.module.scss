@@ -41,10 +41,12 @@
   }
 }
 
-// Shrinks (and truncates) when the row is tight, but never grows — a short
-// name keeps its secondary right beside it instead of across the row.
+// Never grows and never shrinks, so the name a user is picking from is always
+// readable in full; the secondary gives up its space instead. `max-width` only
+// bites when the name alone is wider than the row.
 .name {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
