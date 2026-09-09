@@ -9,6 +9,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
   MetricExperimentsBlockInterface,
   ExperimentsScaledImpactBlockInterface,
   ExperimentsWinRateBlockInterface,
@@ -19,6 +20,7 @@ import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
+  SqlExplorationConfig,
   FunnelExplorationConfig,
   ExplorationDateRange,
   dateGranularity,
@@ -100,6 +102,7 @@ type DashboardGlobalControlSupportedBlock = DashboardBlockInterfaceOrData<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
+  | SqlExplorationBlockInterface
   | FunnelExplorationBlockInterface
 >;
 
@@ -107,6 +110,7 @@ const dashboardGlobalControlSupportedBlockTypes = new Set<DashboardBlockType>([
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "sql-exploration",
   "funnel-exploration",
 ]);
 
@@ -117,7 +121,13 @@ export function getTemporaryDashboardBlockId(index: number): string {
 export function isDashboardGlobalControlSupportedBlock(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 ): block is DashboardGlobalControlSupportedBlock {
-  return dashboardGlobalControlSupportedBlockTypes.has(block.type);
+  return (
+    dashboardGlobalControlSupportedBlockTypes.has(block.type) &&
+    !(
+      block.type === "sql-exploration" &&
+      block.config.dataset.timestampColumn === null
+    )
+  );
 }
 
 // The set of dashboard-wide global filters. `dateRange` drives exploration
@@ -475,6 +485,7 @@ type DashboardGlobalControlSupportedConfig =
   | MetricExplorationConfig
   | FactTableExplorationConfig
   | DataSourceExplorationConfig
+  | SqlExplorationConfig
   | FunnelExplorationConfig;
 
 function applyDateGranularity<T extends DashboardGlobalControlSupportedBlock>(
@@ -1025,6 +1036,19 @@ export const CREATE_BLOCK_TYPE: {
         "funnel-exploration",
         initialValues?.config?.datasource ?? "",
       ) as FunnelExplorationConfig),
+    ...(initialValues || {}),
+  }),
+  "sql-exploration": ({ initialValues }) => ({
+    type: "sql-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      (getInitialConfigByBlockType(
+        "sql-exploration",
+        initialValues?.config?.datasource ?? "",
+      ) as SqlExplorationConfig),
     ...(initialValues || {}),
   }),
 };

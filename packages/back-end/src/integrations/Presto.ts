@@ -229,7 +229,9 @@ export default class Presto extends SqlIntegration {
   ): string {
     return format(
       `
-      SELECT MAX(max_timestamp) AS max_timestamp
+      SELECT
+        MAX(max_timestamp) AS max_timestamp
+        , ${this.getSqlDialect().formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
       FROM ${this.getTablePartitionsTableName(params.unitsTableFullName)}
       `,
       this.getSqlDialect().formatDialect,
@@ -241,7 +243,9 @@ export default class Presto extends SqlIntegration {
   ): string {
     return format(
       `
-      SELECT MAX(max_timestamp) AS max_timestamp
+      SELECT
+        MAX(max_timestamp) AS max_timestamp
+        , ${this.getSqlDialect().formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
       FROM ${this.getTablePartitionsTableName(params.metricSourceTableFullName)}
       `,
       this.getSqlDialect().formatDialect,
