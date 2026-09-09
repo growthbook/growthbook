@@ -2,12 +2,14 @@ import React from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { SavedGroupForDefinitions } from "shared/types/saved-group";
-import Markdown from "@/components/Markdown/Markdown";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
-import { AttributeOptionProjectsLabel } from "./AttributeOptionTooltip";
+import {
+  AttributeOptionProjectsLabel,
+  OptionTooltipDescription,
+} from "./AttributeOptionTooltip";
 
 export function SavedGroupOptionTooltipContent({
   group,
@@ -52,14 +54,7 @@ export function SavedGroupOptionTooltipContent({
               .join(", ")
           : "All Projects"}
       </Text>
-      {group.description && (
-        <div>
-          <Text size="sm" as="div" weight="semibold">
-            Description:
-          </Text>
-          <Markdown style={{ fontSize: 12 }}>{group.description}</Markdown>
-        </div>
-      )}
+      <OptionTooltipDescription description={group.description} />
     </Flex>
   );
 }
@@ -87,7 +82,8 @@ export function SavedGroupOptionWithTooltip({
         <div
           style={{
             position: "relative",
-            display: isValue ? "inline-block" : "block",
+            display: isValue ? "flex" : "block",
+            alignItems: isValue ? "center" : undefined,
             minWidth: isValue ? undefined : 80,
             maxWidth: 400,
           }}

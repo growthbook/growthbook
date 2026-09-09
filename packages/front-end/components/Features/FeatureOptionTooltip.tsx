@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
-import Markdown from "@/components/Markdown/Markdown";
+import { OptionTooltipDescription } from "@/components/Features/AttributeOptionTooltip";
 import SortedTags from "@/components/Tags/SortedTags";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
@@ -83,14 +83,6 @@ export function FeatureOptionTooltipContent({
           />
         </div>
       )}
-      {option.description && (
-        <div>
-          <Text size="sm" as="div" weight="semibold">
-            Description:
-          </Text>
-          <Markdown style={{ fontSize: 12 }}>{option.description}</Markdown>
-        </div>
-      )}
       {option.states && environments.length > 0 && (
         <div>
           <Text size="sm" as="div" weight="semibold">
@@ -125,6 +117,7 @@ export function FeatureOptionTooltipContent({
           </Box>
         </div>
       )}
+      <OptionTooltipDescription description={option.description} />
     </Flex>
   );
 }
@@ -151,7 +144,8 @@ export function FeatureOptionWithTooltip({
         <div
           style={{
             position: "relative",
-            display: isValue ? "inline-block" : "block",
+            display: isValue ? "flex" : "block",
+            alignItems: isValue ? "center" : undefined,
             minWidth: isValue ? undefined : 80,
             maxWidth: 400,
           }}

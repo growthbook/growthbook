@@ -91,15 +91,29 @@ export function AttributeOptionTooltipContent({
           />
         </div>
       )}
-      {option.description && (
-        <div>
-          <Text size="sm" as="div" weight="semibold">
-            Description:
-          </Text>
-          <Markdown style={{ fontSize: 12 }}>{option.description}</Markdown>
-        </div>
-      )}
+      <OptionTooltipDescription description={option.description} />
     </Flex>
+  );
+}
+
+export function OptionTooltipDescription({
+  description,
+}: {
+  description?: string;
+}) {
+  if (!description) return null;
+  return (
+    <div>
+      <Text size="sm" as="div" weight="semibold">
+        Description:
+      </Text>
+      <div
+        className="fade-mask-bottom-1rem"
+        style={{ maxHeight: 120, overflow: "hidden", paddingBottom: "1rem" }}
+      >
+        <Markdown style={{ fontSize: 12 }}>{description}</Markdown>
+      </div>
+    </div>
   );
 }
 
