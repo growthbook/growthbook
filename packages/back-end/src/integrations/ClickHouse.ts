@@ -16,6 +16,7 @@ import {
 import { SqlDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
+import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 import { clickHouseDialect } from "./dialects/clickhouse";
@@ -117,23 +118,35 @@ export default class ClickHouse extends SqlIntegration {
           : {}),
       },
     });
-    const results = await client.query({ query: sql, format: "JSON" });
-    // eslint-disable-next-line
-    const data: ResponseJSON<Record<string, any>[]> = await results.json();
-    const rows = data.data ? data.data : [];
-    if (isManagedWarehouse(this.datasource)) {
-      normalizeManagedWarehouseDatetimes(rows, data.meta);
+    try {
+      const results = await client.query({ query: sql, format: "JSON" });
+      // eslint-disable-next-line
+      const data: ResponseJSON<Record<string, any>[]> = await results.json();
+      const rows = data.data ? data.data : [];
+      if (isManagedWarehouse(this.datasource)) {
+        normalizeManagedWarehouseDatetimes(rows, data.meta);
+      }
+      return {
+        rows,
+        columns: data.meta?.map((col) => {
+          const dataType = getFactTableTypeFromClickHouseType(col.type);
+          return { name: col.name, ...(dataType && { dataType }) };
+        }),
+        statistics: data.statistics
+          ? {
+              executionDurationMs: data.statistics.elapsed,
+              rowsProcessed: data.statistics.rows_read,
+              bytesProcessed: data.statistics.bytes_read,
+            }
+          : undefined,
+      };
+    } finally {
+      try {
+        await client.close();
+      } catch (e) {
+        logger.warn(e, "Failed to close ClickHouse client");
+      }
     }
-    return {
-      rows,
-      statistics: data.statistics
-        ? {
-            executionDurationMs: data.statistics.elapsed,
-            rowsProcessed: data.statistics.rows_read,
-            bytesProcessed: data.statistics.bytes_read,
-          }
-        : undefined,
-    };
   }
 
   getInformationSchemaWhereClause(): string {

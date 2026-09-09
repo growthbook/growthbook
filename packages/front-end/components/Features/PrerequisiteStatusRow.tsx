@@ -250,6 +250,7 @@ export function PrerequisiteStatesCols({
   loading = false,
   tooltipBodyWrapper,
   colWidth = 120,
+  compact = false,
 }: {
   prereqStates?: Record<string, PrerequisiteStateResult>;
   defaultValues?: Record<string, string>;
@@ -259,7 +260,9 @@ export function PrerequisiteStatesCols({
   /** When set (e.g. from Features overview), appended after each tooltip body. */
   tooltipBodyWrapper?: (body: ReactElement) => ReactElement;
   colWidth?: number;
+  compact?: boolean;
 }) {
+  const iconSize = compact ? 14 : 20;
   const featureLabel = isSummaryRow
     ? "The current feature"
     : "This prerequisite";
@@ -340,23 +343,23 @@ export function PrerequisiteStatesCols({
                   {defaultValues?.[env] === "false" ? (
                     isSummaryRow ? (
                       <FaCircleXmark
-                        size={20}
+                        size={iconSize}
                         style={{ color: featureStatusColors.offMuted }}
                       />
                     ) : (
                       <FaRegCircleXmark
-                        size={20}
+                        size={iconSize}
                         style={{ color: featureStatusColors.offMuted }}
                       />
                     )
                   ) : isSummaryRow ? (
                     <FaCircleCheck
-                      size={20}
+                      size={iconSize}
                       style={{ color: featureStatusColors.on }}
                     />
                   ) : (
                     <FaRegCircleCheck
-                      size={20}
+                      size={iconSize}
                       style={{ color: featureStatusColors.on }}
                     />
                   )}
@@ -386,12 +389,12 @@ export function PrerequisiteStatesCols({
                 >
                   {isSummaryRow ? (
                     <FaCircleXmark
-                      size={20}
+                      size={iconSize}
                       style={{ color: featureStatusColors.offMuted }}
                     />
                   ) : (
                     <FaRegCircleXmark
-                      size={20}
+                      size={iconSize}
                       style={{ color: featureStatusColors.offMuted }}
                     />
                   )}
@@ -426,12 +429,12 @@ export function PrerequisiteStatesCols({
               >
                 {isSummaryRow ? (
                   <FaCircleQuestion
-                    size={20}
+                    size={iconSize}
                     style={{ color: featureStatusColors.warning }}
                   />
                 ) : (
                   <FaRegCircleQuestion
-                    size={20}
+                    size={iconSize}
                     style={{ color: featureStatusColors.warning }}
                   />
                 )}
@@ -448,7 +451,7 @@ export function PrerequisiteStatesCols({
                 )}
               >
                 <FaExclamationCircle
-                  size={20}
+                  size={iconSize}
                   style={{ color: featureStatusColors.danger }}
                 />
               </Tooltip>
@@ -465,7 +468,7 @@ export function PrerequisiteStatesCols({
                 )}
               >
                 <FaQuestion
-                  size={20}
+                  size={iconSize}
                   style={{ color: featureStatusColors.offMuted }}
                 />
               </Tooltip>
@@ -475,7 +478,7 @@ export function PrerequisiteStatesCols({
 
         return (
           <Box key={env} style={{ width: colWidth, flexShrink: 0 }}>
-            <Flex justify="center" align="center" py="2">
+            <Flex justify="center" align="center" py={compact ? "0" : "2"}>
               {content}
             </Flex>
           </Box>
