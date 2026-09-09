@@ -1,4 +1,5 @@
 import { UseFormReturn } from "react-hook-form";
+import { useEffect } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef, FunnelSettings } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
@@ -60,11 +61,17 @@ export default function MetricEditor({
   canEdit,
   funnelSettings,
   onFunnelSettingsChange,
+  onRepresentableChange,
 }: {
   form: UseFormReturn<CreateFactMetricFormProps>;
   canEdit: boolean;
   funnelSettings: FunnelSettings | null;
   onFunnelSettingsChange: (value: FunnelSettings | null) => void;
+  // Lets MetricWorkspace gate its Save button on the same representable
+  // check this component already computes for its own unrepresentable-
+  // definition Callout, instead of deriving formTypeFromStored a second time
+  // from the same form fields.
+  onRepresentableChange?: (representable: boolean) => void;
 }) {
   const { getFactTableById, getDatasourceById, factTables, project } =
     useDefinitions();
@@ -107,6 +114,11 @@ export default function MetricEditor({
     { metricType, numerator, denominator, quantileSettings },
     factTable,
   );
+
+  useEffect(() => {
+    onRepresentableChange?.(formTypeResult.representable);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formTypeResult.representable]);
 
   // Definitions the form can't represent (spec) are opened read-only with an
   // explanation rather than coerced to the nearest type, which would silently
@@ -394,56 +406,50 @@ export default function MetricEditor({
               Define this metric with a clear name, description, and tags.
             </Text>
           )}
-          <Flex direction="column" gap="3">
-            {canEdit ? (
+          {canEdit ? (
+            <Flex direction="column" gap="3">
               <TextField
                 label="Name"
                 value={form.watch("name")}
                 onChange={(e) => form.setValue("name", e.target.value)}
                 required
               />
-            ) : (
-              <DataList
-                columns={1}
-                data={[{ label: "Name", value: form.watch("name") }]}
-              />
-            )}
-            {canEdit ? (
               <Field
                 label="Description"
                 textarea
                 value={form.watch("description")}
                 onChange={(e) => form.setValue("description", e.target.value)}
               />
-            ) : (
-              <DataList
-                columns={1}
-                data={[
-                  {
-                    label: "Description",
-                    value: form.watch("description") || "—",
-                  },
-                ]}
-              />
-            )}
-            <Flex direction="column" gap="1">
-              <Text weight="semibold" size="sm" as="div">
-                Tags
-              </Text>
-              {canEdit ? (
+              <Flex direction="column" gap="1">
+                <Text weight="semibold" size="sm" as="div">
+                  Tags
+                </Text>
                 <TagsInput
                   value={form.watch("tags") || []}
                   onChange={(tags) => form.setValue("tags", tags)}
                 />
-              ) : form.watch("tags")?.length ? (
-                <SortedTags tags={form.watch("tags")} useFlex />
-              ) : (
-                <Text color="text-mid" as="div">
-                  No tags
-                </Text>
-              )}
+              </Flex>
             </Flex>
-          </Flex>
+          ) : (
+            <DataList
+              columns={1}
+              data={[
+                { label: "Name", value: form.watch("name") },
+                {
+                  label: "Description",
+                  value: form.watch("description") || "—",
+                },
+                {
+                  label: "Tags",
+                  value: form.watch("tags")?.length ? (
+                    <SortedTags tags={form.watch("tags")} useFlex />
+                  ) : (
+                    "No tags"
+                  ),
+                },
+              ]}
+            />
+          )}
         </Frame>
 
         <AdvancedSettings
