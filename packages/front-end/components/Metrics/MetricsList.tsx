@@ -438,6 +438,14 @@ const MetricsList = (): React.ReactElement => {
     ? !hasFactTables
     : !hasLegacyMetrics && !hasFactTables;
 
+  // Navigating straight to the new full page loses the old modal's in-place
+  // "Switch to legacy SQL" escape hatch (NewMetricModal defaults to fact type
+  // whenever fact tables exist, but still lets the user flip to MetricForm).
+  // Only skip the modal when that escape hatch wouldn't have been reachable
+  // anyway - no legacy metrics to switch from, or legacy creation disabled.
+  const skipModalForFactMetricCreation =
+    hasFactTables && (disableLegacyMetricCreation || !hasLegacyMetrics);
+
   //searching:
   const filterResults = useCallback(
     (items: typeof filteredMetrics) => {
@@ -568,7 +576,7 @@ const MetricsList = (): React.ReactElement => {
                   !permissionsUtil.canCreateMetric({ projects: [project] })
                 }
                 onClick={() =>
-                  hasFactTables
+                  skipModalForFactMetricCreation
                     ? router.push("/fact-metrics/new")
                     : setModalData({ mode: "new" })
                 }
