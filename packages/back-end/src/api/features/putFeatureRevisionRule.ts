@@ -1,9 +1,5 @@
 import isEqual from "lodash/isEqual";
-import {
-  getAttributeScopeProjectIds,
-  resetReviewOnChange,
-  ruleAppliesToEnv,
-} from "shared/util";
+import { getAttributeScopeProjectIds, ruleAppliesToEnv } from "shared/util";
 import {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
@@ -405,24 +401,12 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       changes.rampActions = nextRampActions;
     }
 
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      changes,
-      {
-        user: req.context.auditUser,
-        action: "edit rule",
-        subject: req.params.ruleId,
-        value: JSON.stringify(updatedRule),
-      },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [environment],
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
-    );
+    await updateRevision(req.context, feature, revision, changes, {
+      user: req.context.auditUser,
+      action: "edit rule",
+      subject: req.params.ruleId,
+      value: JSON.stringify(updatedRule),
+    });
 
     const updated = await getRevision({
       context: req.context,

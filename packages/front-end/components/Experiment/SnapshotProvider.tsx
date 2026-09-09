@@ -237,7 +237,7 @@ export default function SnapshotProvider({
     dimensionless?: ExperimentSnapshotInterface;
   }>(
     `/experiment/${experiment.id}/snapshot/${phase}` +
-      (dimension ? "/" + dimension : "") +
+      (dimension ? "/" + encodeURIComponent(dimension) : "") +
       (snapshotType ? `?type=${snapshotType}` : ""),
     { autoRevalidate: false },
   );

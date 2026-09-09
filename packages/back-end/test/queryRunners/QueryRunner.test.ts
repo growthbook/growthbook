@@ -15,9 +15,16 @@ import {
   updateQuery,
   updateQueryIfPending,
   updateQueryIfRunning,
+  touchQueuedQueriesHeartbeat,
 } from "back-end/src/models/QueryModel";
 
 jest.mock("back-end/src/models/QueryModel");
+
+// The automocked heartbeat resolves nowhere by default, and the runner calls
+// `.catch` on it inside a timer callback.
+beforeEach(() => {
+  jest.mocked(touchQueuedQueriesHeartbeat).mockResolvedValue(0);
+});
 
 class TestQueryRunner extends QueryRunner<
   InterfaceWithQueries,
@@ -932,6 +939,38 @@ describe("QueryRunner", () => {
         // Interval must be cleared — no further beats no matter how long we wait.
         jest.advanceTimersByTime(120000);
         expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("heartbeats its queued query docs on every beat, and stops when finished", async () => {
+      jest.useFakeTimers();
+      try {
+        const runner = new HeartbeatTestQueryRunner(
+          mockContext,
+          {
+            id: "test-model",
+            organization: "test-org",
+            queries: [],
+            runStarted: new Date(),
+          },
+          mockIntegration,
+        );
+
+        await runner.startAnalysis({ pointers: runningPointers });
+
+        jest.advanceTimersByTime(30000);
+        expect(touchQueuedQueriesHeartbeat).toHaveBeenCalledTimes(1);
+        expect(touchQueuedQueriesHeartbeat).toHaveBeenCalledWith(mockContext, [
+          "qry_drop",
+          "qry_create",
+        ]);
+
+        await runner.cancelQueries();
+        jest.advanceTimersByTime(120000);
+        expect(touchQueuedQueriesHeartbeat).toHaveBeenCalledTimes(1);
       } finally {
         jest.clearAllTimers();
         jest.useRealTimers();
