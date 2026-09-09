@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { SavedGroupForDefinitions } from "shared/types/saved-group";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
@@ -120,17 +121,7 @@ function SavedGroupOptionLabel({
 
   return (
     <SavedGroupOptionWithTooltip groupId={group.id} context="value">
-      <span
-        style={{
-          display: "block",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          maxWidth: "200px",
-        }}
-      >
-        {option.label}
-      </span>
+      <OverflowText maxWidth={200}>{option.label}</OverflowText>
     </SavedGroupOptionWithTooltip>
   );
 }
