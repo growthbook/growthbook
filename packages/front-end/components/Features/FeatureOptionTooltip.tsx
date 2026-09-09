@@ -1,14 +1,9 @@
 import React from "react";
-import { Flex } from "@radix-ui/themes";
-import { FaExclamationCircle, FaQuestion } from "react-icons/fa";
-import {
-  FaRegCircleCheck,
-  FaRegCircleQuestion,
-  FaRegCircleXmark,
-} from "react-icons/fa6";
+import { Box, Flex } from "@radix-ui/themes";
 import { FeatureValueType } from "shared/types/feature";
-import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
+import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 import Text from "@/ui/Text";
 import {
@@ -22,42 +17,7 @@ import {
   OptionTooltipTags,
 } from "@/components/Features/OptionTooltipShell";
 
-function getStateDisplay(state?: PrerequisiteStateResult) {
-  if (!state) {
-    return {
-      icon: <FaQuestion style={{ color: featureStatusColors.offMuted }} />,
-      label: "Unknown",
-    };
-  }
-  if (state.state === "cyclic") {
-    return {
-      icon: (
-        <FaExclamationCircle style={{ color: featureStatusColors.danger }} />
-      ),
-      label: "Cyclic dependency",
-    };
-  }
-  if (state.state === "conditional") {
-    return {
-      icon: (
-        <FaRegCircleQuestion style={{ color: featureStatusColors.warning }} />
-      ),
-      label: "Schrödinger state",
-    };
-  }
-  if (state.value === null) {
-    return {
-      icon: (
-        <FaRegCircleXmark style={{ color: featureStatusColors.offMuted }} />
-      ),
-      label: "Not live",
-    };
-  }
-  return {
-    icon: <FaRegCircleCheck style={{ color: featureStatusColors.on }} />,
-    label: "Live",
-  };
-}
+const ENV_COL_W = 80;
 
 export interface FeatureOptionForTooltip {
   label: string;
@@ -104,22 +64,33 @@ export function FeatureOptionTooltipContent({
       <OptionTooltipTags tags={option.tags} />
       {option.states && environments.length > 0 && (
         <OptionTooltipSection label="Environments:">
-          <Flex direction="column" gap="1">
-            {environments.map((env) => {
-              const { icon, label } = getStateDisplay(option.states?.[env]);
-              return (
-                <Flex key={env} align="center" gap="2">
-                  {icon}
-                  <Text size="sm" overflowWrap="anywhere">
-                    {env}
-                  </Text>
-                  <Text size="sm" color="text-low">
-                    {label}
-                  </Text>
-                </Flex>
-              );
-            })}
-          </Flex>
+          <Box style={{ overflowX: "auto" }}>
+            <Flex direction="column" style={{ minWidth: "max-content" }}>
+              <Flex align="center">
+                {environments.map((env) => (
+                  <Box
+                    key={env}
+                    style={{
+                      width: ENV_COL_W,
+                      flexShrink: 0,
+                      textAlign: "center",
+                    }}
+                  >
+                    <Text size="sm" color="text-mid">
+                      <OverflowText maxWidth={ENV_COL_W}>{env}</OverflowText>
+                    </Text>
+                  </Box>
+                ))}
+              </Flex>
+              <Flex align="center">
+                <PrerequisiteStatesCols
+                  prereqStates={option.states}
+                  envs={environments}
+                  colWidth={ENV_COL_W}
+                />
+              </Flex>
+            </Flex>
+          </Box>
         </OptionTooltipSection>
       )}
       <OptionTooltipDescription description={option.description} />
