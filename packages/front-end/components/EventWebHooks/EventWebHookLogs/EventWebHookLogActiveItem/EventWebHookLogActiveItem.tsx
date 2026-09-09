@@ -50,7 +50,7 @@ export const EventWebHookLogActiveItem: FC<EventWebHookLogActiveItemProps> = ({
       <p>{log.responseCode || "None"}</p>
 
       <h4 className="mt-4">Response Body</h4>
-      <code className="text-main">{log.responseBody}</code>
+      <Code expandable={true} code={log.responseBody ?? ""} language="none" />
     </div>
   );
 };

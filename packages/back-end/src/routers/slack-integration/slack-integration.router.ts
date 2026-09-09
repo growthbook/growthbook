@@ -13,6 +13,76 @@ const slackIntegrationController = wrapController(
 
 router.get("/", slackIntegrationController.getSlackIntegrations);
 
+router.post(
+  "/connect",
+  validateRequestMiddleware({}),
+  slackIntegrationController.postSlackOAuthConnect,
+);
+
+router.post(
+  "/oauth-callback",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        code: z.string().min(1),
+        state: z.string().min(1),
+      })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackOAuthCallback,
+);
+
+// Slack-initiated install (App Directory): code only, no signed state. The org
+// is taken from the confirmed session (X-Organization header).
+router.post(
+  "/oauth-install",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        code: z.string().min(1),
+      })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackOAuthInstall,
+);
+
+// Channel management for workspace-level installs. Registered before /:id so
+// "channels" isn't captured as an id param.
+router.get(
+  "/channels",
+  validateRequestMiddleware({
+    query: z
+      .object({
+        teamId: z.string().optional(),
+        cursor: z.string().optional(),
+      })
+      .strict(),
+  }),
+  slackIntegrationController.getSlackWorkspaceChannels,
+);
+
+router.post(
+  "/channels",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        teamId: z.string().optional(),
+        channelId: z.string().min(1),
+      })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackChannel,
+);
+
+// Disconnect an entire workspace (its connection doc + all channel docs).
+router.post(
+  "/disconnect",
+  validateRequestMiddleware({
+    body: z.object({ teamId: z.string().optional() }).strict(),
+  }),
+  slackIntegrationController.postSlackDisconnect,
+);
+
 router.get(
   "/:id",
   validateRequestMiddleware({

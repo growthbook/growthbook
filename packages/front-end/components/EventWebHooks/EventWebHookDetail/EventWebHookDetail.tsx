@@ -6,9 +6,10 @@ import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { datetime } from "shared/dates";
-import { Flex, Box, IconButton } from "@radix-ui/themes";
+import { Flex, Box, Grid, IconButton } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
+import { useExperiments } from "@/hooks/useExperiments";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
 import {
@@ -22,6 +23,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
+import LinkButton from "@/ui/LinkButton";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -56,7 +59,8 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   isModalOpen,
   editError,
 }) => {
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, getMetricById, getFactMetricById } = useDefinitions();
+  const { experimentsMap } = useExperiments(undefined, true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const {
@@ -66,14 +70,25 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
     enabled,
     environments = [],
     projects: projectIds,
+    experiments: experimentIds = [],
+    metrics: metricIds = [],
     tags = [],
     events,
     name,
     signingKey,
+    coalesceWindowMs,
   } = eventWebHook;
 
   const defined = <T,>(v: T): v is NonNullable<T> => !!v;
   const projects = (projectIds || []).map(getProjectById).filter(defined);
+  const experiments = experimentIds.map((id) => ({
+    id,
+    name: experimentsMap.get(id)?.name ?? id,
+  }));
+  const metrics = metricIds.map((id) => ({
+    id,
+    name: getMetricById(id)?.name ?? getFactMetricById(id)?.name ?? id,
+  }));
 
   const { apiCall } = useAuth();
   const { mutate: mutateEventLogs } = useEventWebhookLogs(webhookId);
@@ -143,6 +158,12 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   if (!payloadType) return null;
 
   const loading = state?.type === "loading";
+  const slackSettingsUrl =
+    payloadType === "slack" && eventWebHook.slack?.teamId
+      ? eventWebHook.slack.channelId
+        ? `/integrations/slack?channel=${encodeURIComponent(eventWebHook.id)}`
+        : "/integrations/slack"
+      : null;
 
   return (
     <Box>
@@ -167,9 +188,15 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         </Flex>
 
         <Flex align="center" gap="4">
-          <Button icon={<PiPencilSimpleFill />} onClick={onEditModalOpen}>
-            Edit
-          </Button>
+          {slackSettingsUrl ? (
+            <LinkButton href={slackSettingsUrl} icon={<PiPencilSimpleFill />}>
+              Edit Slack settings
+            </LinkButton>
+          ) : (
+            <Button icon={<PiPencilSimpleFill />} onClick={onEditModalOpen}>
+              Edit
+            </Button>
+          )}
 
           <DropdownMenu
             trigger={
@@ -264,92 +291,131 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         </Flex>
       )}
 
-      <Box className="card mt-3 p-3 p-4">
-        <div className="row">
-          <div className="col-xs-12 col-md-6">
-            <Box mt="2">
-              <Text weight="semibold">Events enabled</Text>
-              <Box mt="1">{displayedEvents(events)}</Box>
-            </Box>
-          </div>
-        </div>
+      <Frame mt="3" mb="0" px="4" py="4">
+        <Grid columns={{ initial: "1", md: "2" }} gapX="4" gapY="4">
+          <Box mt="2">
+            <Text weight="semibold">Events enabled</Text>
+            <Box mt="1">{displayedEvents(events)}</Box>
+          </Box>
+        </Grid>
 
-        <div className="row mt-4">
-          <div className="col mt-2 mt-md-0">
-            <Box mt="2">
-              <Text weight="semibold" as="div" mb="1">
-                Environments
+        <Grid columns={{ initial: "1", md: "3" }} gapX="4" gapY="4" mt="4">
+          <Box mt="2">
+            <Text weight="semibold" as="div" mb="1">
+              Environments
+            </Text>
+            {environments.length ? (
+              <Flex gap="2" wrap="wrap">
+                {environments.map((env) => (
+                  <Badge key={env} label={env} color="purple" variant="soft" />
+                ))}
+              </Flex>
+            ) : (
+              <Text color="text-low" fontStyle="italic">
+                All
               </Text>
-              {environments.length ? (
-                <Flex gap="2" wrap="wrap">
-                  {environments.map((env) => (
-                    <Badge
-                      key={env}
-                      label={env}
-                      color="purple"
-                      variant="soft"
-                    />
-                  ))}
-                </Flex>
-              ) : (
-                <Text color="text-low" fontStyle="italic">
-                  All
-                </Text>
-              )}
-            </Box>
-          </div>
+            )}
+          </Box>
 
-          <div className="col mt-2 mt-md-0">
-            <Box mt="2">
-              <Text weight="semibold" as="div" mb="1">
-                Projects
+          <Box mt="2">
+            <Text weight="semibold" as="div" mb="1">
+              Projects
+            </Text>
+            {projects.length ? (
+              <Flex gap="2" wrap="wrap">
+                {projects.map((proj) => (
+                  <Badge
+                    key={proj.id}
+                    label={proj.name}
+                    color="purple"
+                    variant="soft"
+                  />
+                ))}
+              </Flex>
+            ) : (
+              <Text color="text-low" fontStyle="italic">
+                All
               </Text>
-              {projects.length ? (
-                <Flex gap="2" wrap="wrap">
-                  {projects.map((proj) => (
-                    <Badge
-                      key={proj.id}
-                      label={proj.name}
-                      color="purple"
-                      variant="soft"
-                    />
-                  ))}
-                </Flex>
-              ) : (
-                <Text color="text-low" fontStyle="italic">
-                  All
-                </Text>
-              )}
-            </Box>
-          </div>
+            )}
+          </Box>
 
-          <div className="col mt-2 mt-md-0">
-            <Box mt="2">
-              <Text weight="semibold" as="div" mb="1">
-                Tags
+          <Box mt="2">
+            <Text weight="semibold" as="div" mb="1">
+              Tags
+            </Text>
+            {tags.length ? (
+              <Flex gap="2" wrap="wrap">
+                {tags.map((tag) => (
+                  <Badge key={tag} label={tag} color="purple" variant="soft" />
+                ))}
+              </Flex>
+            ) : (
+              <Text color="text-low" fontStyle="italic">
+                All
               </Text>
-              {tags.length ? (
-                <Flex gap="2" wrap="wrap">
-                  {tags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      label={tag}
-                      color="purple"
-                      variant="soft"
-                    />
-                  ))}
-                </Flex>
-              ) : (
-                <Text color="text-low" fontStyle="italic">
-                  All
-                </Text>
-              )}
-            </Box>
-          </div>
-        </div>
-      </Box>
+            )}
+          </Box>
+        </Grid>
 
-      {isModalOpen ? (
+        <Grid columns={{ initial: "1", md: "3" }} gapX="4" gapY="4" mt="4">
+          <Box mt="2">
+            <Text weight="semibold" as="div" mb="1">
+              Experiments
+            </Text>
+            {experiments.length ? (
+              <Flex gap="2" wrap="wrap">
+                {experiments.map((experiment) => (
+                  <Badge
+                    key={experiment.id}
+                    label={experiment.name}
+                    color="purple"
+                    variant="soft"
+                  />
+                ))}
+              </Flex>
+            ) : (
+              <Text color="text-low" fontStyle="italic">
+                All
+              </Text>
+            )}
+          </Box>
+
+          <Box mt="2">
+            <Text weight="semibold" as="div" mb="1">
+              Metrics
+            </Text>
+            {metrics.length ? (
+              <Flex gap="2" wrap="wrap">
+                {metrics.map((metric) => (
+                  <Badge
+                    key={metric.id}
+                    label={metric.name}
+                    color="purple"
+                    variant="soft"
+                  />
+                ))}
+              </Flex>
+            ) : (
+              <Text color="text-low" fontStyle="italic">
+                All
+              </Text>
+            )}
+          </Box>
+
+          <Box mt="2">
+            <Text weight="semibold" as="div" mb="1">
+              Coalescing
+            </Text>
+            <Text color="text-low">
+              {coalesceWindowMs
+                ? `Burst window ${coalesceWindowMs / 1000}s`
+                : "Off"}
+            </Text>
+          </Box>
+        </Grid>
+      </Frame>
+
+      {isModalOpen && !slackSettingsUrl ? (
         <EventWebHookAddEditModal
           isOpen={isModalOpen}
           onClose={onModalClose}

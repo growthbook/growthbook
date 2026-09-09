@@ -38,6 +38,10 @@ import {
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import {
+  notifyExperimentStarted,
+  notifyExperimentStopped,
+} from "back-end/src/services/experimentNotifications";
+import {
   ChecklistIncompleteError,
   InvalidStatusError,
   PendingDraftPublishFailedError,
@@ -510,6 +514,13 @@ export async function executeExperimentStart(
     changes: { ...changes, nextScheduledStatusUpdate },
   });
 
+  if (experiment.status === "draft") {
+    await notifyExperimentStarted({
+      context,
+      experiment: updated,
+    });
+  }
+
   trackEventForContext(context, "Experiment Started", {
     source: context.auditUser?.type ?? "agenda-job",
     hasDatasource: !!updated.datasource,
@@ -862,8 +873,29 @@ export async function stopExperiment({
     changes,
   });
 
-  // Only track true stop events; ignore results edits to already-stopped experiments.
   if (isEnding) {
+    const stoppedType =
+      input.results === "won" ||
+      (input.results !== "lost" && enableTemporaryRollout)
+        ? "shipped"
+        : "rolledback";
+    const releasedVariationName =
+      variations[releasedVariationIndexFromId]?.name ||
+      variations[winner]?.name ||
+      undefined;
+
+    await notifyExperimentStopped({
+      context,
+      experiment: updated,
+      type: stoppedType,
+      results: input.results,
+      enableTemporaryRollout,
+      releasedVariationName,
+      reason: input.reason,
+    });
+
+    // Only track true stop events; ignore results edits to already-stopped
+    // experiments.
     trackEventForContext(context, "Experiment Stopped", {
       source: context.auditUser?.type ?? "agenda-job",
       result: updated.results,
