@@ -291,6 +291,7 @@ export default function SavedGroupTargetingField({
                       }}
                       options={options}
                       formatOptionLabel={formatSavedGroupOptionLabel}
+                      valueTitles={false}
                       required
                       placeholder="Select groups..."
                       closeMenuOnSelect={true}

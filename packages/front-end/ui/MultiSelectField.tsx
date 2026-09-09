@@ -50,11 +50,13 @@ type MultiValueLabelStyle = {
   fontSize: string;
   fontWeight: number;
   cursor: string | undefined;
+  title: boolean;
 };
 const MultiValueLabelStyleContext = createContext<MultiValueLabelStyle>({
   fontSize: "12px",
   fontWeight: 500,
   cursor: undefined,
+  title: true,
 });
 
 const SortableMultiValue = SortableElement(
@@ -73,9 +75,13 @@ const SortableMultiValue = SortableElement(
 const SortableMultiValueLabel = (
   props: MultiValueGenericProps<SingleValue, true, GroupBase<SingleValue>>,
 ) => {
-  const style = useContext(MultiValueLabelStyleContext);
+  const { title: showTitle, ...style } = useContext(
+    MultiValueLabelStyleContext,
+  );
   const title = props.data?.tooltip || props.data?.label || "";
-  const innerProps = { ...props.innerProps, title };
+  const innerProps = showTitle
+    ? { ...props.innerProps, title }
+    : props.innerProps;
   return (
     <span
       style={{
@@ -280,6 +286,8 @@ export type MultiSelectFieldProps = Omit<
   size?: MultiSelectFieldSize;
   /** Preserve the pre-design-system 36px control height. */
   legacyHeight?: boolean;
+  /** Set false when selected values carry their own hover popover. */
+  valueTitles?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
   errorLevel?: "error" | "warning";
@@ -309,6 +317,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   showCopyButton = true,
   size,
   legacyHeight,
+  valueTitles = true,
   labelSize,
   labelWeight = "semibold",
   errorLevel = "error",
@@ -450,8 +459,9 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       fontSize: !usesLegacyHeight && resolvedSize === "lg" ? "14px" : "12px",
       fontWeight: 500,
       cursor: sort ? "grab" : undefined,
+      title: valueTitles,
     }),
-    [resolvedSize, sort, usesLegacyHeight],
+    [resolvedSize, sort, usesLegacyHeight, valueTitles],
   );
   return (
     <MultiValueLabelStyleContext.Provider value={labelStyle}>

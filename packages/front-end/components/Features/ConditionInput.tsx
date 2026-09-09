@@ -944,6 +944,7 @@ function ConditionAndGroupInput({
                   onChange={handleListChange}
                   name="value"
                   formatOptionLabel={formatSavedGroupOptionLabel}
+                  valueTitles={false}
                   required
                 />
               }

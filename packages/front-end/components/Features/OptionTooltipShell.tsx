@@ -211,9 +211,7 @@ export function OptionProjectsLabel({
               {names.length > 1 ? "Projects:" : "Project:"}
             </Text>{" "}
             <Text size="inherit" color="text-high">
-              <OverflowText maxWidth={150} title={names.join(", ")}>
-                {names.join(", ")}
-              </OverflowText>
+              <OverflowText maxWidth={150}>{names.join(", ")}</OverflowText>
             </Text>
           </>
         )}
