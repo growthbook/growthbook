@@ -85,24 +85,24 @@ function placeholderColumns(template: TemplateMetric) {
   return { numeric, string };
 }
 
+// numericPlaceholders/stringPlaceholders are disjoint by construction
+// (placeholderColumns puts each name in exactly one), so a single map
+// covers both - only the Select options offered for each name differ.
 function mappedColumn(
   column: string | undefined,
-  numericMap: Record<string, string>,
-  stringMap: Record<string, string>,
+  columnMap: Record<string, string>,
 ): string | undefined {
   if (!column) return column;
-  if (column in numericMap) return numericMap[column] || column;
-  if (column in stringMap) return stringMap[column] || column;
-  return column;
+  return column in columnMap ? columnMap[column] || column : column;
 }
 
 function mappedRowFilters(
   filters: RowFilter[] | undefined,
-  stringMap: Record<string, string>,
+  columnMap: Record<string, string>,
 ): RowFilter[] | undefined {
   return filters?.map((f) => ({
     ...f,
-    column: (f.column && stringMap[f.column]) || f.column,
+    column: (f.column && columnMap[f.column]) || f.column,
   }));
 }
 
@@ -118,11 +118,10 @@ export default function TemplateFieldMapping({
     placeholderColumns(template);
 
   const [factTableId, setFactTableId] = useState("");
-  const [numericMap, setNumericMap] = useState<Record<string, string>>(
-    Object.fromEntries([...numericPlaceholders].map((c) => [c, ""])),
-  );
-  const [stringMap, setStringMap] = useState<Record<string, string>>(
-    Object.fromEntries([...stringPlaceholders].map((c) => [c, ""])),
+  const [columnMap, setColumnMap] = useState<Record<string, string>>(
+    Object.fromEntries(
+      [...numericPlaceholders, ...stringPlaceholders].map((c) => [c, ""]),
+    ),
   );
 
   const factTable = getFactTableById(factTableId);
@@ -144,32 +143,40 @@ export default function TemplateFieldMapping({
     if (!newFactTable) return;
     // Auto-fill any mapping whose placeholder name exactly matches a real
     // column of the right kind, same convenience FieldMappingModal has.
-    setNumericMap((prev) =>
+    setColumnMap((prev) =>
       Object.fromEntries(
-        Object.keys(prev).map((k) => [
-          k,
-          newFactTable.columns.some(
-            (c) => c.column === k && !c.deleted && c.datatype === "number",
-          )
-            ? k
-            : prev[k],
-        ]),
-      ),
-    );
-    setStringMap((prev) =>
-      Object.fromEntries(
-        Object.keys(prev).map((k) => [
-          k,
-          canInlineFilterColumn(newFactTable, k) ? k : prev[k],
-        ]),
+        Object.keys(prev).map((k) => {
+          const matches = numericPlaceholders.has(k)
+            ? newFactTable.columns.some(
+                (c) => c.column === k && !c.deleted && c.datatype === "number",
+              )
+            : canInlineFilterColumn(newFactTable, k);
+          return [k, matches ? k : prev[k]];
+        }),
       ),
     );
   }
 
-  const canContinue =
-    !!factTableId &&
-    Object.values(numericMap).every(Boolean) &&
-    Object.values(stringMap).every(Boolean);
+  const canContinue = !!factTableId && Object.values(columnMap).every(Boolean);
+
+  function placeholderSelect(placeholder: string, options: string[]) {
+    return (
+      <Select
+        key={placeholder}
+        label={`Column: ${placeholder}`}
+        value={columnMap[placeholder] || ""}
+        setValue={(v) => setColumnMap({ ...columnMap, [placeholder]: v })}
+        disabled={!factTable || !options.length}
+        placeholder="Select..."
+      >
+        {options.map((col) => (
+          <SelectItem key={col} value={col}>
+            {columnValueLabel(col, factTable)}
+          </SelectItem>
+        ))}
+      </Select>
+    );
+  }
 
   function handleContinue() {
     const { numerator, denominator } = template;
@@ -179,24 +186,20 @@ export default function TemplateFieldMapping({
       numerator: {
         ...numerator,
         factTableId,
-        column:
-          mappedColumn(numerator.column, numericMap, stringMap) ??
-          numerator.column,
+        column: mappedColumn(numerator.column, columnMap) ?? numerator.column,
         aggregateFilterColumn: mappedColumn(
           numerator.aggregateFilterColumn,
-          numericMap,
-          stringMap,
+          columnMap,
         ),
-        rowFilters: mappedRowFilters(numerator.rowFilters, stringMap),
+        rowFilters: mappedRowFilters(numerator.rowFilters, columnMap),
       },
       denominator: denominator
         ? {
             ...denominator,
             factTableId,
             column:
-              mappedColumn(denominator.column, numericMap, stringMap) ??
-              denominator.column,
-            rowFilters: mappedRowFilters(denominator.rowFilters, stringMap),
+              mappedColumn(denominator.column, columnMap) ?? denominator.column,
+            rowFilters: mappedRowFilters(denominator.rowFilters, columnMap),
           }
         : undefined,
     });
@@ -245,38 +248,12 @@ export default function TemplateFieldMapping({
             different fact table.
           </Callout>
         )}
-        {[...numericPlaceholders].map((placeholder) => (
-          <Select
-            key={placeholder}
-            label={`Column: ${placeholder}`}
-            value={numericMap[placeholder] || ""}
-            setValue={(v) => setNumericMap({ ...numericMap, [placeholder]: v })}
-            disabled={!factTable || !numericOptions.length}
-            placeholder="Select..."
-          >
-            {numericOptions.map((col) => (
-              <SelectItem key={col} value={col}>
-                {columnValueLabel(col, factTable)}
-              </SelectItem>
-            ))}
-          </Select>
-        ))}
-        {[...stringPlaceholders].map((placeholder) => (
-          <Select
-            key={placeholder}
-            label={`Column: ${placeholder}`}
-            value={stringMap[placeholder] || ""}
-            setValue={(v) => setStringMap({ ...stringMap, [placeholder]: v })}
-            disabled={!factTable || !stringOptions.length}
-            placeholder="Select..."
-          >
-            {stringOptions.map((col) => (
-              <SelectItem key={col} value={col}>
-                {columnValueLabel(col, factTable)}
-              </SelectItem>
-            ))}
-          </Select>
-        ))}
+        {[...numericPlaceholders].map((placeholder) =>
+          placeholderSelect(placeholder, numericOptions),
+        )}
+        {[...stringPlaceholders].map((placeholder) =>
+          placeholderSelect(placeholder, stringOptions),
+        )}
         <Flex>
           <Button onClick={handleContinue} disabled={!canContinue}>
             Continue
