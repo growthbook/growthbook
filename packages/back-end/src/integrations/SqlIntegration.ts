@@ -3,7 +3,9 @@ import { parseIntWithDefault } from "shared/util";
 import { format as formatDate, subDays } from "date-fns";
 import {
   ExperimentMetricInterface,
+  getFactMetricFactTableIds,
   getFactTableTemplateVariables,
+  isFactFunnelMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -94,6 +96,7 @@ import {
   DropAggregatedFactTableQueryParams,
   PipelineIntegration,
   ResolvedExposureQuery,
+  FactMetricData,
 } from "shared/types/integrations";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import {
@@ -118,6 +121,7 @@ import {
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
+import { conversionWindowToSeconds } from "shared/funnels";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -132,6 +136,16 @@ import { getAlterNewIncrementalUnitsQuery } from "back-end/src/integrations/sql/
 import { getBanditVariationPeriodWeights as getBanditVariationPeriodWeightsFromSql } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getColumnsTopValuesQuery } from "back-end/src/integrations/sql/queries/columns-top-values-query";
 import { castToTimestamp } from "back-end/src/integrations/sql/primitives/cast-to-timestamp";
+import {
+  funnelStepTimestampColumn,
+  funnelStepArrayColumn,
+  funnelStepResolvedTsColumn,
+} from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
+import {
+  getFunnelResolutionCTEs,
+  type FunnelMetricForResolution,
+} from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
+import { getFlattenedUnitMetricsCTE } from "back-end/src/integrations/sql/ctes/flattened-unit-metrics-cte";
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
@@ -187,6 +201,85 @@ const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
   rudderstack: true,
   amplitude: true,
 };
+
+/**
+ * Column names consumed/transformed by funnel resolution CTEs. These are
+ * excluded from the passthrough list so they don't flow into the terminal
+ * table twice.
+ */
+function getFunnelWorkingColumns(
+  funnelMetrics: FunnelMetricForResolution[],
+  filterFactTableId?: string,
+): Set<string> {
+  return new Set(
+    funnelMetrics.flatMap(({ metric, alias }) =>
+      (metric.funnelSettings?.steps ?? []).flatMap((step, stepIndex) => {
+        if (filterFactTableId && step.factTableId !== filterFactTableId)
+          return [];
+        return [
+          stepIndex === 0
+            ? funnelStepResolvedTsColumn(alias, 0)
+            : funnelStepArrayColumn(alias, stepIndex),
+        ];
+      }),
+    ),
+  );
+}
+
+/**
+ * Columns the funnel resolution CTEs must carry through unchanged — base
+ * identity columns, non-funnel metric values, and optionally covariates.
+ */
+function getFunnelPassthroughColumns({
+  baseIdType,
+  dimensionCols,
+  includeVariationAndDimensions,
+  metricData,
+  metricColumnFilter,
+  covariatePairs,
+}: {
+  baseIdType: string;
+  dimensionCols: { alias: string }[];
+  includeVariationAndDimensions: boolean;
+  metricData: FactMetricData[];
+  metricColumnFilter?: (data: FactMetricData) => {
+    numerator: boolean;
+    denominator: boolean;
+  };
+  covariatePairs?: {
+    data: FactMetricData;
+    includeNumerator: boolean;
+    includeDenominator: boolean;
+  }[];
+}): string[] {
+  const cols: string[] = [baseIdType];
+  if (includeVariationAndDimensions) {
+    cols.push("variation", ...dimensionCols.map((d) => d.alias));
+  }
+  cols.push("first_exposure_timestamp");
+  for (const data of metricData) {
+    if (isFactFunnelMetric(data.metric)) continue;
+    const filter = metricColumnFilter?.(data);
+    const hasNumerator = filter ? filter.numerator : true;
+    const hasDenominator = filter ? filter.denominator : data.ratioMetric;
+    if (hasNumerator) {
+      cols.push(`${data.alias}_value`);
+      if (data.quantileMetric === "event") cols.push(`${data.alias}_n_events`);
+    }
+    if (hasDenominator) cols.push(`${data.alias}_denominator`);
+  }
+  if (covariatePairs) {
+    for (const {
+      data,
+      includeNumerator,
+      includeDenominator,
+    } of covariatePairs) {
+      if (includeNumerator) cols.push(`${data.alias}_covariate_value`);
+      if (includeDenominator) cols.push(`${data.alias}_covariate_denominator`);
+    }
+  }
+  return cols;
+}
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface, PipelineIntegration
@@ -1876,10 +1969,18 @@ export default abstract class SqlIntegration
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // Event-timestamp type; Trino-flavored default treats it as TIMESTAMP
+        // (identity castUserDateCol). BigQuery overrides to DATETIME.
+        return "TIMESTAMP";
       case "hll":
         return "VARBINARY";
       case "quantileSketch":
         return "VARBINARY";
+      case "arrayTimestamp":
+        // Trino/Presto/Athena array syntax (Trino-flavored default); dialects
+        // with different array syntax handle it in their own getDataType.
+        return "ARRAY(TIMESTAMP)";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);
@@ -2198,6 +2299,52 @@ export default abstract class SqlIntegration
             , m.timestamp AS timestamp
             ${metricData
               .map((data) => {
+                if (isFactFunnelMetric(data.metric)) {
+                  const funnelMetric = data.metric;
+                  const dialect = this.getSqlDialect();
+                  return (funnelMetric.funnelSettings?.steps ?? [])
+                    .map((step, stepIndex) => {
+                      if (step.factTableId !== params.factTableId) return "";
+                      const col = funnelStepTimestampColumn(
+                        data.alias,
+                        stepIndex,
+                      );
+                      // Overall (funnel-wide) window + exposure lower bound.
+                      const overall = addCaseWhenTimeFilter(dialect, {
+                        col: `m.${col}`,
+                        metric: funnelMetric,
+                        overrideConversionWindows:
+                          data.overrideConversionWindows,
+                        endDate: params.settings.endDate,
+                        metricTimestampColExpr: castToTimestamp("m.timestamp"),
+                        exposureTimestampColExpr: "d.first_exposure_timestamp",
+                      });
+                      // Step 0 is resolved to a scalar (MIN) downstream, so its
+                      // own conversion window must be applied here (exposure is
+                      // available per-row). Later steps keep only the overall
+                      // window and are windowed against their prior step at read.
+                      if (stepIndex === 0 && step.conversionWindow) {
+                        const exposure = dialect.castUserDateCol(
+                          "d.first_exposure_timestamp",
+                        );
+                        const conc =
+                          funnelMetric.funnelSettings
+                            .concurrencyWindowSeconds ?? 0;
+                        const lower =
+                          conc > 0
+                            ? dialect.addIntervalSeconds(exposure, "-", conc)
+                            : exposure;
+                        const upper = dialect.addIntervalSeconds(
+                          exposure,
+                          "+",
+                          conversionWindowToSeconds(step.conversionWindow),
+                        );
+                        return `, CASE WHEN m.${col} >= ${lower} AND m.${col} <= ${upper} THEN (${overall}) ELSE NULL END AS ${col}`;
+                      }
+                      return `, ${overall} AS ${col}`;
+                    })
+                    .join("\n");
+                }
                 // For each metric, project only the columns this cache owns.
                 // Cross-FT ratio metrics fan into a numerator-only insert
                 // against the numerator FT and a denominator-only insert
@@ -2264,6 +2411,27 @@ export default abstract class SqlIntegration
             , ${this.getSqlDialect().castToDate("timestamp")} AS metric_date
             ${metricData
               .map((m) => {
+                if (isFactFunnelMetric(m.metric)) {
+                  const prefix = encodeMetricIdForColumnName(m.id);
+                  return (m.metric.funnelSettings?.steps ?? [])
+                    .map((step, stepIndex) => {
+                      if (step.factTableId !== params.factTableId) return "";
+                      const inCol = funnelStepTimestampColumn(
+                        m.alias,
+                        stepIndex,
+                      );
+                      // Step 0 is already window-filtered in __newMetricRows, so
+                      // a plain MIN resolves it (decomposable across days).
+                      if (stepIndex === 0) {
+                        return `, MIN(${inCol}) AS ${funnelStepResolvedTsColumn(prefix, 0)}`;
+                      }
+                      return `, ${this.getSqlDialect().arrayAggSorted(
+                        inCol,
+                        "timestamp",
+                      )} AS ${funnelStepArrayColumn(prefix, stepIndex)}`;
+                    })
+                    .join("\n");
+                }
                 // Use partial aggregation function since we are
                 // aggregating at the user-date level, not the user level
                 const aggfunction =
@@ -2301,6 +2469,20 @@ export default abstract class SqlIntegration
           dv.${baseIdType} AS ${baseIdType}
           ${metricData
             .map((m) => {
+              // Funnels: pass through the per-step columns produced above.
+              if (isFactFunnelMetric(m.metric)) {
+                const prefix = encodeMetricIdForColumnName(m.id);
+                return (m.metric.funnelSettings?.steps ?? [])
+                  .map((step, stepIndex) => {
+                    if (step.factTableId !== params.factTableId) return "";
+                    const outCol =
+                      stepIndex === 0
+                        ? funnelStepResolvedTsColumn(prefix, 0)
+                        : funnelStepArrayColumn(prefix, stepIndex);
+                    return `, ${outCol} AS ${outCol}`;
+                  })
+                  .join("\n");
+              }
               const numeratorCol = includesNumerator(m.metric)
                 ? `, ${encodeMetricIdForColumnName(m.id)}_value AS ${encodeMetricIdForColumnName(m.id)}_value`
                 : "";
@@ -2338,7 +2520,7 @@ export default abstract class SqlIntegration
   // Source ordering and `m{i}` aliases are derived internally from the
   // metrics' first-appearance order, so the caller-supplied entry order is
   // not significant. Three or more sources are rejected below: only funnels
-  // can span that many tables, and they are not supported incrementally.
+  // can span up to 5 tables for multifact funnels.
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
   ): string {
@@ -2350,6 +2532,14 @@ export default abstract class SqlIntegration
       );
     }
 
+    // Multi-FT funnels flatten all sources into one table, so column refs
+    // must use the bare `m` alias instead of per-source `m{i}`.
+    const hasMultiFtFunnelMetrics = params.metrics.some(
+      (m) =>
+        isFactFunnelMetric(m) &&
+        [...new Set(getFactMetricFactTableIds(m))].length > 1,
+    );
+
     const {
       sources,
       metricData,
@@ -2360,11 +2550,12 @@ export default abstract class SqlIntegration
       ...params,
       // Covariate data joined to single table with `m` alias before columns are extracted
       covariateTableAlias: "m",
+      flattenSources: hasMultiFtFunnelMetrics,
     });
 
-    if (sources.length > 2) {
+    if (sources.length > 5) {
       throw new Error(
-        "getIncrementalRefreshStatisticsQuery: only two fact tables at a time are supported.",
+        "getIncrementalRefreshStatisticsQuery: at most five fact tables at a time are supported.",
       );
     }
 
@@ -2555,9 +2746,27 @@ export default abstract class SqlIntegration
         .filter(
           (data) =>
             data.numeratorSourceIndex === i ||
-            (data.ratioMetric && data.denominatorSourceIndex === i),
+            (data.ratioMetric && data.denominatorSourceIndex === i) ||
+            data.funnelStepSourceIndices.includes(i),
         )
         .map((data) => {
+          if (isFactFunnelMetric(data.metric)) {
+            const prefix = encodeMetricIdForColumnName(data.metric.id);
+            const alias = data.alias;
+            return (data.metric.funnelSettings?.steps ?? [])
+              .map((step, stepIndex) => {
+                if (step.factTableId !== sources[i].factTable.id) return "";
+                // Step 0 is a pre-resolved scalar (windowed or not) — merge
+                // across days with MIN. Later steps stay candidate arrays.
+                if (stepIndex === 0) {
+                  return `, MIN(umj.${funnelStepResolvedTsColumn(prefix, 0)}) AS ${funnelStepResolvedTsColumn(alias, 0)}`;
+                }
+                return `, ${this.getSqlDialect().arrayConcatAgg(
+                  `umj.${funnelStepArrayColumn(prefix, stepIndex)}`,
+                )} AS ${funnelStepArrayColumn(alias, stepIndex)}`;
+              })
+              .join("\n");
+          }
           const isNumeratorSide = data.numeratorSourceIndex === i;
           const isDenominatorSide =
             data.ratioMetric && data.denominatorSourceIndex === i;
@@ -2728,7 +2937,24 @@ export default abstract class SqlIntegration
               const numeratorHere = data.numeratorSourceIndex === i;
               const denominatorHere =
                 data.ratioMetric && data.denominatorSourceIndex === i;
-              if (!numeratorHere && !denominatorHere) return "";
+              const funnelStepHere = data.funnelStepSourceIndices.includes(i);
+              if (!numeratorHere && !denominatorHere && !funnelStepHere)
+                return "";
+
+              if (isFactFunnelMetric(data.metric)) {
+                const alias = data.alias;
+                return (data.metric.funnelSettings?.steps ?? [])
+                  .map((step, stepIndex) => {
+                    if (step.factTableId !== sources[i].factTable.id) return "";
+                    // Step 0 is a resolved-ts scalar; later steps are arrays.
+                    const col =
+                      stepIndex === 0
+                        ? funnelStepResolvedTsColumn(alias, 0)
+                        : funnelStepArrayColumn(alias, stepIndex);
+                    return `, ${localAlias}.${col} AS ${col}`;
+                  })
+                  .join("\n");
+              }
 
               // Event quantiles are non-ratio and always live entirely in a
               // single source — the kllRankApprox path needs `qm` (the
@@ -2855,8 +3081,44 @@ export default abstract class SqlIntegration
                   )`
               : "";
 
-          return `
-        , __joinedData${sourceSuffix(i)} AS (
+          // Single-FT funnels resolve per-source; multifact funnels are
+          // resolved after flattening all sources (below the per-source loop).
+          const funnelMetricsForSource: FunnelMetricForResolution[] =
+            metricData.flatMap((data) => {
+              if (
+                !isFactFunnelMetric(data.metric) ||
+                data.numeratorSourceIndex !== i
+              )
+                return [];
+              const ftIds = [
+                ...new Set(getFactMetricFactTableIds(data.metric)),
+              ];
+              if (ftIds.length > 1) return [];
+              return [{ metric: data.metric, alias: data.alias }];
+            });
+          const hasFunnel = funnelMetricsForSource.length > 0;
+          // Multi-FT funnels resolve after flattening, but source 0's
+          // __joinedData still needs first_exposure_timestamp for the
+          // resolution chain.
+          const hasMultiFtFunnelStep =
+            isSource0 &&
+            metricData.some(
+              (d) =>
+                isFactFunnelMetric(d.metric) &&
+                [...new Set(getFactMetricFactTableIds(d.metric))].length > 1,
+            );
+          const joinedTableName = hasFunnel
+            ? `__joinedDataSteps${sourceSuffix(i)}`
+            : `__joinedData${sourceSuffix(i)}`;
+          const needsExposureCol = hasFunnel || hasMultiFtFunnelStep;
+          const exposureCol = needsExposureCol
+            ? `, ${this.getSqlDialect().castUserDateCol(
+                "u.first_exposure_timestamp",
+              )} AS first_exposure_timestamp`
+            : "";
+
+          const joinCte = `
+        , ${joinedTableName} AS (
             SELECT
               u.${baseIdType}
               ${
@@ -2865,6 +3127,7 @@ export default abstract class SqlIntegration
               , u.variation`
                   : ""
               }
+              ${exposureCol}
               ${metricColumns}
               ${covariateColumns}
             FROM ${unitsCteName} u
@@ -2872,8 +3135,131 @@ export default abstract class SqlIntegration
             ${covariateJoin}
             ${eventQuantileJoin}
         )`;
+
+          if (!hasFunnel) return joinCte;
+
+          const funnelWorkingCols = getFunnelWorkingColumns(
+            funnelMetricsForSource,
+            sources[i].factTable.id,
+          );
+          const funnelPassthroughCols = getFunnelPassthroughColumns({
+            baseIdType,
+            dimensionCols: allDimensionCols,
+            includeVariationAndDimensions: isSource0,
+            metricData,
+            metricColumnFilter: (data) => ({
+              numerator: data.numeratorSourceIndex === i,
+              denominator: !!(
+                data.ratioMetric && data.denominatorSourceIndex === i
+              ),
+            }),
+            covariatePairs: localCovariatePairs.map((p) => ({
+              data: p.data,
+              includeNumerator: p.numeratorHere,
+              includeDenominator: !!p.denominatorHere,
+            })),
+          });
+
+          return (
+            joinCte +
+            getFunnelResolutionCTEs(this.getSqlDialect(), {
+              funnelMetrics: funnelMetricsForSource,
+              sourceTableName: joinedTableName,
+              terminalTableName: `__joinedData${sourceSuffix(i)}`,
+              resolveTablePrefix: `__funnelResolveInc${sourceSuffix(i)}_`,
+              exposureColumn: "first_exposure_timestamp",
+              sourcePassthroughColumns: funnelPassthroughCols.filter(
+                (c) => !funnelWorkingCols.has(c),
+              ),
+            })
+          );
         })
         .join("\n")}
+      ${(() => {
+        // Multifact funnels: steps span multiple sources. Flatten all
+        // per-source __joinedData CTEs into one row per user, then resolve.
+        const multiFtFunnelMetrics: FunnelMetricForResolution[] =
+          metricData.flatMap((data) => {
+            if (!isFactFunnelMetric(data.metric)) return [];
+            const ftIds = [...new Set(getFactMetricFactTableIds(data.metric))];
+            if (ftIds.length <= 1) return [];
+            return [{ metric: data.metric, alias: data.alias }];
+          });
+        if (multiFtFunnelMetrics.length === 0) return "";
+
+        // Collect output columns from sources >0 for the flattened join.
+        const sourceColumnsByIndex = new Map<number, string[]>();
+        for (const data of metricData) {
+          if (!isFactFunnelMetric(data.metric)) {
+            // Non-funnel metrics: value/denominator columns
+            const addCol = (sourceIdx: number, col: string) => {
+              const existing = sourceColumnsByIndex.get(sourceIdx) ?? [];
+              existing.push(col);
+              sourceColumnsByIndex.set(sourceIdx, existing);
+            };
+            if (data.numeratorSourceIndex !== 0) {
+              addCol(data.numeratorSourceIndex, `${data.alias}_value`);
+              if (data.quantileMetric === "event")
+                addCol(data.numeratorSourceIndex, `${data.alias}_n_events`);
+            }
+            if (data.ratioMetric && data.denominatorSourceIndex !== 0) {
+              addCol(data.denominatorSourceIndex, `${data.alias}_denominator`);
+            }
+          } else {
+            // Funnel metrics: step columns
+            const ftIds = [...new Set(getFactMetricFactTableIds(data.metric))];
+            if (ftIds.length <= 1) continue;
+            for (const step of data.metric.funnelSettings?.steps ?? []) {
+              const sourceIdx = sources.findIndex(
+                (s) => s.factTable.id === step.factTableId,
+              );
+              if (sourceIdx <= 0) continue; // source 0 comes via m.*
+              const stepIndex = data.metric.funnelSettings!.steps.indexOf(step);
+              const col =
+                stepIndex === 0
+                  ? funnelStepResolvedTsColumn(data.alias, 0)
+                  : funnelStepArrayColumn(data.alias, stepIndex);
+              const existing = sourceColumnsByIndex.get(sourceIdx) ?? [];
+              existing.push(col);
+              sourceColumnsByIndex.set(sourceIdx, existing);
+            }
+          }
+        }
+        const flattenedSourceColumns = sources
+          .filter((s) => s.index !== 0 && sourceColumnsByIndex.has(s.index))
+          .map((s) => ({
+            index: s.index,
+            columns: sourceColumnsByIndex.get(s.index) ?? [],
+          }));
+
+        const flattenCte = getFlattenedUnitMetricsCTE({
+          tableName: "__unitMetricsBase",
+          perUserAggTableName: "__joinedData",
+          sourceColumns: flattenedSourceColumns,
+          baseIdType,
+        });
+
+        const funnelWorkingCols = getFunnelWorkingColumns(multiFtFunnelMetrics);
+        const funnelPassthroughCols = getFunnelPassthroughColumns({
+          baseIdType,
+          dimensionCols: allDimensionCols,
+          includeVariationAndDimensions: true,
+          metricData,
+        });
+
+        const resolutionCtes = getFunnelResolutionCTEs(this.getSqlDialect(), {
+          funnelMetrics: multiFtFunnelMetrics,
+          sourceTableName: "__unitMetricsBase",
+          terminalTableName: "__unitMetrics",
+          resolveTablePrefix: "__funnelResolveIncMultiFt_",
+          exposureColumn: "first_exposure_timestamp",
+          sourcePassthroughColumns: funnelPassthroughCols.filter(
+            (c) => !funnelWorkingCols.has(c),
+          ),
+        });
+
+        return flattenCte + resolutionCtes;
+      })()}
       ${sources
         .filter((s) => percentileTableIndices.has(s.index))
         .map(
@@ -2887,20 +3273,37 @@ export default abstract class SqlIntegration
         `,
         )
         .join("")}
-      ${getExperimentFactMetricStatisticsCTE(this.getSqlDialect(), {
-        dimensionCols: analysisDimensionCols,
-        metricData,
-        eventQuantileData,
-        baseIdType,
-        joinedMetricTableName: "__joinedData",
-        eventQuantileTableName: "__eventQuantileMetric",
-        capValueTableName: "__capValue",
-        factTablesWithIndices: sources.map((s) => ({
-          factTable: s.factTable,
-          index: s.index,
-        })),
-        percentileTableIndices,
-      })}
+      ${(() => {
+        const hasMultiFtFunnels = metricData.some(
+          (d) =>
+            isFactFunnelMetric(d.metric) &&
+            [...new Set(getFactMetricFactTableIds(d.metric))].length > 1,
+        );
+        const hasFunnels = metricData.some((d) => isFactFunnelMetric(d.metric));
+        return getExperimentFactMetricStatisticsCTE(this.getSqlDialect(), {
+          dimensionCols: analysisDimensionCols,
+          metricData,
+          eventQuantileData,
+          baseIdType,
+          joinedMetricTableName: "__joinedData",
+          ...(hasMultiFtFunnels
+            ? {
+                statisticsSourceTableName: "__unitMetrics",
+                flattenedSources: true,
+                funnelsResolvedOnSource: true,
+              }
+            : {
+                funnelsResolvedOnSource: hasFunnels,
+              }),
+          eventQuantileTableName: "__eventQuantileMetric",
+          capValueTableName: "__capValue",
+          factTablesWithIndices: sources.map((s) => ({
+            factTable: s.factTable,
+            index: s.index,
+          })),
+          percentileTableIndices,
+        });
+      })()}
       `,
       this.getSqlDialect().formatDialect,
     );
