@@ -27,15 +27,16 @@ export default function NewFactMetricPage() {
 
   if (!ready || !router.isReady) return <LoadingOverlay />;
 
-  const initialFactTable =
-    typeof router.query.factTable === "string"
-      ? getFactTableById(router.query.factTable)
-      : null;
+  const fromQuery = <T,>(
+    key: string,
+    lookup: (id: string) => T | null,
+  ): T | null => {
+    const v = router.query[key];
+    return typeof v === "string" ? lookup(v) : null;
+  };
 
-  const duplicateSource =
-    typeof router.query.duplicate === "string"
-      ? getFactMetricById(router.query.duplicate)
-      : null;
+  const initialFactTable = fromQuery("factTable", getFactTableById);
+  const duplicateSource = fromQuery("duplicate", getFactMetricById);
   if (router.query.duplicate && !router.query.addMetric && !duplicateSource) {
     return (
       <Callout status="error">
