@@ -122,53 +122,68 @@ export default function PreviewPanel({ parts }: { parts: PreviewPart[] }) {
         </Text>
       )}
 
-      {active.factTable && view === "sql" && (
-        <>
-          {sqlError && (
-            <Callout status="error" mb="3">
-              {sqlError}
-            </Callout>
-          )}
-          {sql ? (
-            <Code
-              language="sql"
-              code={sql}
-              maxHeight="calc(100% - 40px)"
-              style={{ aspectRatio: "83 / 92", alignSelf: "stretch" }}
-            />
+      {/* One shared box for both tabs, sized off the design's proportions
+          (not a fixed pixel height, so it scales with the sidebar's own
+          width as the viewport changes) - keeps the card the same size
+          switching between them instead of jumping to whichever tab's
+          content happens to be shorter. */}
+      {active.factTable && (
+        <div
+          style={{
+            aspectRatio: "83 / 92",
+            alignSelf: "stretch",
+            overflow: "hidden",
+          }}
+        >
+          {view === "sql" ? (
+            <div style={{ height: "100%" }}>
+              {sqlError && (
+                <Callout status="error" mb="3">
+                  {sqlError}
+                </Callout>
+              )}
+              {sql ? (
+                <Code
+                  language="sql"
+                  code={sql}
+                  maxHeight="100%"
+                  style={{ height: "100%" }}
+                />
+              ) : (
+                <Text color="text-mid" as="div">
+                  {sqlLoading ? "Generating SQL…" : "Waiting for the SQL…"}
+                </Text>
+              )}
+            </div>
           ) : (
-            <Text color="text-mid" as="div">
-              {sqlLoading ? "Generating SQL…" : "Waiting for the SQL…"}
-            </Text>
+            <Flex direction="column" gap="3" height="100%">
+              {rowsError && <Callout status="error">{rowsError}</Callout>}
+              {rows ? (
+                <div style={{ height: "100%" }}>
+                  <DisplayTestQueryResults
+                    duration={rows.duration || 0}
+                    results={rows.results || []}
+                    sql={rows.sql || ""}
+                    error={rows.error || ""}
+                    sqlMaxHeight="140px"
+                  />
+                </div>
+              ) : (
+                <>
+                  <Text color="text-mid" as="div">
+                    Run the preview to see a sample of the rows this metric
+                    selects.
+                  </Text>
+                  <Flex>
+                    <Button onClick={runPreview} setError={setRowsError}>
+                      Run Preview
+                    </Button>
+                  </Flex>
+                </>
+              )}
+            </Flex>
           )}
-        </>
-      )}
-
-      {active.factTable && view === "preview" && (
-        <Flex direction="column" gap="3">
-          {rowsError && <Callout status="error">{rowsError}</Callout>}
-          {rows ? (
-            <DisplayTestQueryResults
-              duration={rows.duration || 0}
-              results={rows.results || []}
-              sql={rows.sql || ""}
-              error={rows.error || ""}
-              sqlMaxHeight="calc(100% - 40px)"
-              sqlStyle={{ aspectRatio: "83 / 92", alignSelf: "stretch" }}
-            />
-          ) : (
-            <>
-              <Text color="text-mid" as="div">
-                Run the preview to see a sample of the rows this metric selects.
-              </Text>
-              <Flex>
-                <Button onClick={runPreview} setError={setRowsError}>
-                  Run Preview
-                </Button>
-              </Flex>
-            </>
-          )}
-        </Flex>
+        </div>
       )}
     </Frame>
   );
