@@ -51264,6 +51264,310 @@ paths:
             'https://api.growthbook.io/api/v1/product-analytics/funnel-exploration'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/product-analytics/search:
+    get:
+      operationId: searchProductAnalyticsResources
+      summary: Search Product Analytics resources
+      tags:
+        - AnalyticsExplorations
+      parameters:
+        - $ref: '#/components/parameters/query'
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            default: 10
+            type: integer
+            minimum: 1
+            maximum: 20
+        - $ref: '#/components/parameters/skip'
+        - name: datasourceId
+          in: query
+          description: ''
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matches:
+                    type: array
+                    items:
+                      anyOf:
+                        - type: object
+                          properties:
+                            kind:
+                              type: string
+                              const: metric
+                            explorerType:
+                              type: string
+                              const: metric
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            type:
+                              type: string
+                            official:
+                              type: boolean
+                            description:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            owner:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            ownerEmail:
+                              type: string
+                            tags:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - kind
+                            - explorerType
+                            - id
+                            - name
+                            - type
+                            - official
+                            - description
+                            - owner
+                            - tags
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            kind:
+                              type: string
+                              const: fact_table
+                            explorerType:
+                              type: string
+                              const: fact_table
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            official:
+                              type: boolean
+                            eventName:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            columnCount:
+                              type: integer
+                          required:
+                            - kind
+                            - explorerType
+                            - id
+                            - name
+                            - official
+                            - eventName
+                            - columnCount
+                          additionalProperties: false
+                  totalMetrics:
+                    type: integer
+                  totalFactTables:
+                    type: integer
+                  totalMatches:
+                    type: integer
+                  skip:
+                    type: integer
+                  limit:
+                    type: integer
+                required:
+                  - matches
+                  - totalMetrics
+                  - totalFactTables
+                  - totalMatches
+                  - skip
+                  - limit
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/product-analytics/search' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/product-analytics/columns:
+    get:
+      operationId: getProductAnalyticsColumns
+      summary: List columns available to a Product Analytics exploration
+      tags:
+        - AnalyticsExplorations
+      parameters:
+        - name: source
+          in: query
+          required: true
+          description: ''
+          schema:
+            type: string
+            enum:
+              - fact_table
+              - metric
+        - name: factTableId
+          in: query
+          description: ''
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+        - $ref: '#/components/parameters/metricIds'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  columns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/columns'
+                  userIdTypes:
+                    type: array
+                    items:
+                      type: string
+                  metrics:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/metrics'
+                  unitNote:
+                    type: string
+                required:
+                  - columns
+                  - userIdTypes
+                  - unitNote
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/product-analytics/columns' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/product-analytics/column-values:
+    post:
+      operationId: getProductAnalyticsColumnValues
+      summary: Fetch values for Product Analytics string columns
+      tags:
+        - AnalyticsExplorations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source:
+                  type: string
+                  enum:
+                    - fact_table
+                    - metric
+                factTableId:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                metricIds:
+                  minItems: 1
+                  maxItems: 20
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 255
+                columns:
+                  minItems: 1
+                  maxItems: 5
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 255
+                searchTerm:
+                  type: string
+                  maxLength: 200
+                limit:
+                  default: 20
+                  type: integer
+                  minimum: 1
+                  maximum: 50
+              required:
+                - source
+                - columns
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  values:
+                    $ref: '#/components/schemas/values'
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - values
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/product-analytics/column-values' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/product-analytics/explorations/{id}:
+    get:
+      operationId: getProductAnalyticsExploration
+      summary: Get a Product Analytics exploration
+      tags:
+        - AnalyticsExplorations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exploration:
+                    $ref: '#/components/schemas/AnalyticsExploration'
+                  query:
+                    anyOf:
+                      - title: Query
+                        $ref: '#/components/schemas/Query'
+                      - type: 'null'
+                  explorationUrl:
+                    type: string
+                required:
+                  - exploration
+                  - query
+                  - explorationUrl
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/product-analytics/explorations/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedule-templates/{id}:
     get:
       operationId: getRampScheduleTemplate
@@ -54139,6 +54443,36 @@ components:
           - preferred
           - required
           - never
+    query:
+      name: query
+      in: query
+      description: ''
+      schema:
+        default: ''
+        type: string
+        maxLength: 200
+    skip:
+      name: skip
+      in: query
+      description: ''
+      schema:
+        default: 0
+        type: integer
+        minimum: 0
+        maximum: 10000
+    metricIds:
+      name: metricIds
+      in: query
+      description: ''
+      schema:
+        type: array
+        items:
+          type: string
+          minLength: 1
+          maxLength: 255
+        minItems: 1
+        maxItems: 20
+      explode: false
     stage:
       name: stage
       in: query
@@ -69244,1223 +69578,6 @@ components:
         - statsEngine
         - targeting
       additionalProperties: false
-    RampScheduleTemplate:
-      type: object
-      properties:
-        id:
-          type: string
-        dateCreated:
-          type: string
-          format: date-time
-        dateUpdated:
-          type: string
-          format: date-time
-        name:
-          type: string
-        steps:
-          type: array
-          items:
-            type: object
-            properties:
-              interval:
-                description: >-
-                  Hold duration in seconds before this step's gates are
-                  evaluated. null = no time gate (advance as soon as
-                  holdConditions clear).
-                anyOf:
-                  - type: number
-                    exclusiveMinimum: 0
-                  - type: 'null'
-              approvalNotes:
-                anyOf:
-                  - type: string
-                  - type: 'null'
-              monitored:
-                description: >-
-                  When true, this step runs A/B traffic analysis while active.
-                  Treatment = [0, coverage), control = [0.5, 0.5+coverage). Arms
-                  are equal-sized and non-adjacent: step-ups only add users,
-                  never reassign existing ones. The UI caps monitored-step
-                  coverage at 0.5 so control end never exceeds 1.0. The SDK uses
-                  explicit hash ranges on the experiment rule to prevent
-                  bucketing shifts across monitored/unmonitored transitions.
-                type: boolean
-              holdConditions:
-                type: object
-                properties:
-                  minSampleSize:
-                    type: integer
-                    exclusiveMinimum: 0
-                  requiresApproval:
-                    type: boolean
-                additionalProperties: false
-              actions:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    targetType:
-                      type: string
-                      const: feature-rule
-                    targetId:
-                      type: string
-                    patch:
-                      type: object
-                      properties:
-                        ruleId:
-                          type: string
-                        coverage:
-                          description: >-
-                            Traffic fraction (0–1). For monitored steps the
-                            rollout rule is promoted to an experiment: treatment
-                            = [0, coverage), control = [0.5, 0.5+coverage). Both
-                            arms are equal-sized and non-adjacent, so a step-up
-                            only adds new users to each arm — no existing user
-                            changes group. The REST API enforces coverage ≤ 0.5
-                            on monitored steps so control end never exceeds 1.0.
-                            The SDK uses explicit hash ranges on bucketingV2
-                            clients to keep bucketing stable across
-                            monitored/unmonitored transitions.
-                          anyOf:
-                            - type: number
-                              minimum: 0
-                              maximum: 1
-                            - type: 'null'
-                        condition:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        savedGroups:
-                          anyOf:
-                            - type: array
-                              items:
-                                type: object
-                                properties:
-                                  match:
-                                    type: string
-                                    enum:
-                                      - all
-                                      - none
-                                      - any
-                                  ids:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - match
-                                  - ids
-                                additionalProperties: false
-                            - type: 'null'
-                        prerequisites:
-                          anyOf:
-                            - type: array
-                              items:
-                                type: object
-                                properties:
-                                  id:
-                                    type: string
-                                  condition:
-                                    type: string
-                                required:
-                                  - id
-                                  - condition
-                                additionalProperties: false
-                            - type: 'null'
-                        allEnvironments:
-                          anyOf:
-                            - type: boolean
-                            - type: 'null'
-                        environments:
-                          anyOf:
-                            - type: array
-                              items:
-                                type: string
-                            - type: 'null'
-                        enabled:
-                          anyOf:
-                            - type: boolean
-                            - type: 'null'
-                      required:
-                        - ruleId
-                      additionalProperties: false
-                  required:
-                    - targetType
-                    - targetId
-                    - patch
-                  additionalProperties: false
-            required:
-              - interval
-              - actions
-            additionalProperties: false
-        endPatch:
-          type: object
-          properties:
-            coverage:
-              type: number
-              minimum: 0
-              maximum: 1
-            condition:
-              type: string
-            savedGroups:
-              type: array
-              items:
-                type: object
-                properties:
-                  match:
-                    type: string
-                    enum:
-                      - all
-                      - none
-                      - any
-                  ids:
-                    type: array
-                    items:
-                      type: string
-                required:
-                  - match
-                  - ids
-                additionalProperties: false
-            prerequisites:
-              type: array
-              items:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  condition:
-                    type: string
-                required:
-                  - id
-                  - condition
-                additionalProperties: false
-            allEnvironments:
-              type: boolean
-            environments:
-              type: array
-              items:
-                type: string
-          additionalProperties: false
-        official:
-          type: boolean
-        monitoringConfig:
-          anyOf:
-            - type: object
-              properties:
-                datasourceId:
-                  type: string
-                exposureQueryId:
-                  type: string
-                guardrailMetricIds:
-                  minItems: 1
-                  type: array
-                  items:
-                    type: string
-                signalMetricIds:
-                  type: array
-                  items:
-                    type: string
-                updateScheduleMinutes:
-                  anyOf:
-                    - type: number
-                      minimum: 10
-                    - type: 'null'
-                monitoringMode:
-                  type: string
-                  enum:
-                    - auto
-                    - manual
-                autoUpdate:
-                  type: boolean
-                srmAction:
-                  type: string
-                  enum:
-                    - rollback
-                    - hold
-                    - warn
-                noTrafficAction:
-                  type: string
-                  enum:
-                    - rollback
-                    - hold
-                    - warn
-                noTrafficGracePeriodHours:
-                  description: >-
-                    How long to wait for traffic before applying
-                    `noTrafficAction`. Defaults to 24 hours when null or not
-                    set.
-                  anyOf:
-                    - type: number
-                      exclusiveMinimum: 0
-                    - type: 'null'
-                multipleExposureAction:
-                  type: string
-                  enum:
-                    - rollback
-                    - hold
-                    - warn
-              required:
-                - datasourceId
-                - exposureQueryId
-                - guardrailMetricIds
-              additionalProperties: false
-            - type: 'null'
-        lockdownConfig:
-          anyOf:
-            - type: object
-              properties:
-                mode:
-                  type: string
-                  enum:
-                    - none
-                    - locked
-              required:
-                - mode
-              additionalProperties: false
-            - type: 'null'
-        order:
-          description: >-
-            Manual display order within the org (read-only; managed via the
-            app).
-          type: number
-      required:
-        - id
-        - dateCreated
-        - dateUpdated
-        - name
-        - steps
-        - order
-      additionalProperties: false
-    Learning:
-      type: object
-      properties:
-        id:
-          type: string
-        dateCreated:
-          type: string
-          format: date-time
-        dateUpdated:
-          type: string
-          format: date-time
-        owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
-          type: string
-        ownerEmail:
-          description: >-
-            The email address of the owner, when the owner can be resolved to a
-            known user.
-          type: string
-        authors:
-          type: array
-          items:
-            type: string
-        title:
-          type: string
-        text:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        supportingExperimentIds:
-          type: array
-          items:
-            type: string
-        contradictingExperimentIds:
-          type: array
-          items:
-            type: string
-        projects:
-          type: array
-          items:
-            type: string
-        status:
-          type: string
-        source:
-          type: string
-          enum:
-            - ai
-            - manual
-            - api
-      required:
-        - id
-        - dateCreated
-        - dateUpdated
-        - owner
-        - authors
-        - title
-        - text
-        - tags
-        - supportingExperimentIds
-        - contradictingExperimentIds
-        - projects
-        - status
-        - source
-      additionalProperties: false
-    Holdout:
-      type: object
-      properties:
-        id:
-          type: string
-        dateCreated:
-          type: string
-          format: date-time
-        dateUpdated:
-          type: string
-          format: date-time
-        name:
-          type: string
-        description:
-          type: string
-          maxLength: 10000
-        projects:
-          description: >-
-            Project IDs this Holdout applies to. An empty array means All
-            Projects.
-          type: array
-          items:
-            type: string
-        owner:
-          description: The userId of the owner (or raw owner name/email for legacy records)
-          type: string
-        ownerEmail:
-          description: >-
-            The email address of the owner, when the owner can be resolved to a
-            known user.
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        archived:
-          type: boolean
-        stage:
-          description: >-
-            Lifecycle stage of the Holdout. Use the start, start-analysis, and
-            stop endpoints to move through the lifecycle.
-          type: string
-          enum:
-            - draft
-            - running
-            - analysis-period
-            - stopped
-        trackingKey:
-          type: string
-        experimentId:
-          description: >-
-            ID of the companion experiment that stores this Holdout's analysis.
-            Use it with the experiment results endpoints (e.g. GET
-            /experiments/{experimentId}/results). Pass phase=0 for results
-            across the whole Holdout period, or phase=1 for results limited to
-            the analysis period.
-          type: string
-        skipAsDefaultHoldout:
-          description: >-
-            When true, this Holdout is not selected automatically when creating
-            Feature Flags or experiments in Projects assigned to the Holdout.
-          type: boolean
-        holdoutSize:
-          description: >-
-            Proportion of traffic placed in the holdout group (e.g. 0.05 for
-            5%). An equally sized comparison group is sampled from the remaining
-            traffic for measurement, so 2× this value enters the holdout
-            experiment in total. Must be greater than 0 and at most 0.5.
-          type: number
-          exclusiveMinimum: 0
-          maximum: 0.5
-        hashAttribute:
-          description: Attribute used to assign users to the Holdout.
-          type: string
-        targetingCondition:
-          description: Targeting condition as a JSON string.
-          type: string
-        savedGroupTargeting:
-          type: array
-          items:
-            type: object
-            properties:
-              match:
-                type: string
-                enum:
-                  - all
-                  - none
-                  - any
-              ids:
-                type: array
-                items:
-                  type: string
-            required:
-              - match
-              - ids
-            additionalProperties: false
-        datasourceId:
-          type: string
-        assignmentQueryId:
-          type: string
-        goalMetrics:
-          type: array
-          items:
-            type: string
-        secondaryMetrics:
-          type: array
-          items:
-            type: string
-        statsEngine:
-          description: Statistics engine used to analyze this Holdout.
-          type: string
-          enum:
-            - bayesian
-            - frequentist
-        variations:
-          type: array
-          items:
-            type: object
-            properties:
-              variationId:
-                type: string
-              key:
-                type: string
-              name:
-                type: string
-              description:
-                type: string
-                maxLength: 10000
-            required:
-              - variationId
-              - key
-              - name
-            additionalProperties: false
-        environments:
-          description: >-
-            Per-environment state, keyed by environment ID. Environments not
-            present are disabled.
-          type: object
-          propertyNames:
-            type: string
-          additionalProperties:
-            type: object
-            properties:
-              enabled:
-                description: Whether the Holdout is active in this environment.
-                type: boolean
-            required:
-              - enabled
-            additionalProperties: false
-        linkedFeatures:
-          description: >-
-            Feature Flags held out by this Holdout. Manage these through the
-            Feature Flag endpoints.
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              dateAdded:
-                type: string
-                format: date-time
-            required:
-              - id
-              - dateAdded
-            additionalProperties: false
-        linkedExperiments:
-          description: >-
-            Experiments held out by this Holdout. Manage these through the
-            experiment endpoints.
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              dateAdded:
-                type: string
-                format: date-time
-            required:
-              - id
-              - dateAdded
-            additionalProperties: false
-        dateStarted:
-          type: string
-          format: date-time
-        analysisStartDate:
-          description: When the Holdout entered its analysis period.
-          type: string
-          format: date-time
-        dateStopped:
-          type: string
-          format: date-time
-        statusUpdateSchedule:
-          anyOf:
-            - description: >-
-                Automatic stage transitions for the Holdout. Dates must be
-                consecutive: `startAt` before `startAnalysisPeriodAt` before
-                `stopAt`. Send `null` to delete the schedule.
-              type: object
-              properties:
-                startAt:
-                  description: >-
-                    ISO datetime to move the Holdout from `draft` to `running`.
-                    Must be in the future while the Holdout is still a draft.
-                  type: string
-                  format: date-time
-                startAnalysisPeriodAt:
-                  description: >-
-                    ISO datetime to move the Holdout from `running` to
-                    `analysis-period`. Requires `startAt` while the Holdout is
-                    still a draft.
-                  type: string
-                  format: date-time
-                stopAt:
-                  description: >-
-                    ISO datetime to stop the Holdout. Requires
-                    `startAnalysisPeriodAt` unless the analysis period has
-                    already begun.
-                  type: string
-                  format: date-time
-              additionalProperties: false
-            - type: 'null'
-        nextScheduledStatusUpdate:
-          anyOf:
-            - description: The next stage transition that will run automatically.
-              type: object
-              properties:
-                type:
-                  type: string
-                  enum:
-                    - start
-                    - startAnalysisPeriod
-                    - stop
-                date:
-                  type: string
-                  format: date-time
-              required:
-                - type
-                - date
-              additionalProperties: false
-            - type: 'null'
-      required:
-        - id
-        - dateCreated
-        - dateUpdated
-        - name
-        - description
-        - projects
-        - owner
-        - tags
-        - archived
-        - stage
-        - trackingKey
-        - experimentId
-        - skipAsDefaultHoldout
-        - holdoutSize
-        - hashAttribute
-        - targetingCondition
-        - datasourceId
-        - assignmentQueryId
-        - goalMetrics
-        - secondaryMetrics
-        - variations
-        - environments
-        - linkedFeatures
-        - linkedExperiments
-      additionalProperties: false
-    ExperimentSnapshot:
-      type: object
-      properties:
-        id:
-          type: string
-        experiment:
-          type: string
-        status:
-          type: string
-      required:
-        - id
-        - experiment
-        - status
-      additionalProperties: false
-    FeatureDefinition:
-      type: object
-      properties:
-        defaultValue:
-          anyOf:
-            - type: string
-            - type: number
-            - type: array
-              items: {}
-            - type: object
-              propertyNames:
-                type: string
-              additionalProperties: {}
-            - type: 'null'
-        rules:
-          type: array
-          items:
-            type: object
-            properties:
-              force:
-                anyOf:
-                  - type: string
-                  - type: number
-                  - type: array
-                    items: {}
-                  - type: object
-                    propertyNames:
-                      type: string
-                    additionalProperties: {}
-                  - type: 'null'
-              weights:
-                type: array
-                items:
-                  type: number
-              variations:
-                type: array
-                items:
-                  anyOf:
-                    - type: string
-                    - type: number
-                    - type: array
-                      items: {}
-                    - type: object
-                      propertyNames:
-                        type: string
-                      additionalProperties: {}
-                    - type: 'null'
-              hashAttribute:
-                type: string
-              namespace:
-                minItems: 3
-                maxItems: 3
-                type: array
-                items:
-                  anyOf:
-                    - type: number
-                    - type: string
-              key:
-                type: string
-              coverage:
-                type: number
-              condition:
-                type: object
-                propertyNames:
-                  type: string
-                additionalProperties: {}
-            additionalProperties: false
-      required:
-        - defaultValue
-      additionalProperties: false
-    ConfigReferences:
-      type: object
-      properties:
-        features:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-            required:
-              - id
-            additionalProperties: false
-        constants:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              key:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-              isConfig:
-                type: boolean
-            required:
-              - id
-              - key
-              - name
-            additionalProperties: false
-      required:
-        - features
-        - constants
-      additionalProperties: false
-    ConfigKeyUsage:
-      type: object
-      properties:
-        familyKeys:
-          type: array
-          items:
-            type: string
-        implementations:
-          type: array
-          items:
-            type: object
-            properties:
-              featureId:
-                type: string
-              project:
-                type: string
-              location:
-                type: string
-                enum:
-                  - defaultValue
-                  - rule
-              ruleType:
-                type: string
-              ruleId:
-                type: string
-              experimentId:
-                type: string
-              experimentName:
-                type: string
-              experimentStatus:
-                type: string
-              variationId:
-                type: string
-              configKey:
-                type: string
-              relation:
-                type: string
-                enum:
-                  - self
-                  - ancestor
-                  - descendant
-                  - other
-              keys:
-                type: array
-                items:
-                  type: string
-              state:
-                type: string
-                enum:
-                  - live
-                  - draft
-              revisionVersion:
-                type: number
-            required:
-              - featureId
-              - location
-              - configKey
-              - keys
-              - state
-            additionalProperties: false
-      required:
-        - familyKeys
-        - implementations
-      additionalProperties: false
-    ConfigLineage:
-      type: object
-      properties:
-        root:
-          description: The key of the family root (the topmost ancestor).
-          type: string
-        target:
-          description: The requested config's key.
-          type: string
-        ancestors:
-          description: >-
-            The target's ancestor keys, root-first, ending at its immediate
-            parent.
-          type: array
-          items:
-            type: string
-        descendants:
-          description: Keys of every config that descends from the target.
-          type: array
-          items:
-            type: string
-        nodes:
-          description: >-
-            Every config in the family (root plus all descendants),
-            breadth-first.
-          type: array
-          items:
-            type: object
-            properties:
-              key:
-                type: string
-              name:
-                type: string
-              parent:
-                description: >-
-                  The lineage parent's key (tree spine), or null for the family
-                  root.
-                anyOf:
-                  - type: string
-                  - type: 'null'
-              extends:
-                description: >-
-                  Additional composition bases (mixin config keys) layered on
-                  top of `parent`. The tree shape follows `parent`/`depth`;
-                  these express composition beyond the parent/child spine.
-                type: array
-                items:
-                  type: string
-              project:
-                type: string
-              archived:
-                type: boolean
-              depth:
-                description: >-
-                  Distance from the family root along the `parent` spine (root
-                  is 0).
-                type: integer
-                minimum: -9007199254740991
-                maximum: 9007199254740991
-              isTarget:
-                description: True for the requested config.
-                type: boolean
-              incompatibleFields:
-                description: >-
-                  Own value keys whose value no longer conforms to the effective
-                  (inherited) field type and must be fixed. Empty when all
-                  conform.
-                type: array
-                items:
-                  type: string
-              orphanedFields:
-                description: >-
-                  Own value keys the effective schema no longer declares (e.g.
-                  an ancestor removed the field). They still resolve and are
-                  served, but nothing validates them and validation rules read
-                  them as null; a non-extensible family rejects them on the next
-                  changing publish.
-                type: array
-                items:
-                  type: string
-            required:
-              - key
-              - name
-              - parent
-              - archived
-              - depth
-              - isTarget
-            additionalProperties: false
-      required:
-        - root
-        - target
-        - ancestors
-        - descendants
-        - nodes
-      additionalProperties: false
-    ConfigSchemaExport:
-      type: object
-      properties:
-        schema:
-          description: >-
-            The config's schema in the requested format: a JSON Schema document
-            (`{ type: "json-schema", value }`) or rendered TypeScript source (`{
-            type: "typescript", value }`).
-          $ref: '#/components/schemas/ConfigSchemaSource'
-        effective:
-          description: >-
-            True when the schema includes inherited fields accumulated across
-            the lineage; false when it is only this config's own fields.
-          type: boolean
-        additionalProperties:
-          description: Whether the config family permits extra keys.
-          type: boolean
-      required:
-        - schema
-        - effective
-        - additionalProperties
-      additionalProperties: false
-      $defs:
-        ConfigSchemaSource:
-          id: ConfigSchemaSource
-          anyOf:
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: json-schema
-                value:
-                  description: A JSON Schema document (an object).
-                  type: object
-                  propertyNames:
-                    type: string
-                  additionalProperties: {}
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: typescript
-                value:
-                  description: TypeScript source — an interface or object type.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: protobuf
-                value:
-                  description: Protobuf (proto3) source — a `message` definition.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: python
-                value:
-                  description: Python source — a Pydantic `BaseModel` class.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: go
-                value:
-                  description: Go source — a `struct` definition.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-            - type: object
-              properties:
-                type:
-                  type: string
-                  const: rust
-                value:
-                  description: Rust source — a serde `struct` definition.
-                  type: string
-              required:
-                - type
-                - value
-              additionalProperties: false
-    ConfigSchemaVerify:
-      type: object
-      properties:
-        inSync:
-          description: >-
-            True when the supplied schema is canonically identical to the
-            config's stored schema.
-          type: boolean
-        fingerprint:
-          description: Canonical fingerprint of the config's stored schema.
-          type: string
-        incomingFingerprint:
-          description: Canonical fingerprint of the supplied schema.
-          type: string
-        drift:
-          description: Present only when `inSync` is false.
-          type: object
-          properties:
-            contract:
-              description: >-
-                Changes that alter what validates
-                (type/enum/required/nullable/bounds/structure, or an
-                added/removed field).
-              type: array
-              items:
-                type: object
-                properties:
-                  key:
-                    type: string
-                  change:
-                    type: string
-                    enum:
-                      - added
-                      - removed
-                      - changed
-                required:
-                  - key
-                  - change
-                additionalProperties: false
-            docs:
-              description: Description-only changes (no effect on validation).
-              type: array
-              items:
-                type: object
-                properties:
-                  key:
-                    type: string
-                  change:
-                    type: string
-                    enum:
-                      - added
-                      - removed
-                      - changed
-                required:
-                  - key
-                  - change
-                additionalProperties: false
-          required:
-            - contract
-            - docs
-          additionalProperties: false
-        ancestorOwnedFields:
-          description: >-
-            Supplied fields an ancestor config already owns ("base wins").
-            Subtract these from `drift.contract` adds when round-tripping a full
-            effective schema.
-          type: array
-          items:
-            type: object
-            properties:
-              key:
-                type: string
-              ownedBy:
-                description: Key of the ancestor config that owns the field.
-                type: string
-              identical:
-                description: >-
-                  True when the supplied definition matches the ancestor's
-                  contract — a save would strip it harmlessly (with a warning).
-                  False means a save would be rejected.
-                type: boolean
-            required:
-              - key
-              - ownedBy
-              - identical
-            additionalProperties: false
-        warnings:
-          type: array
-          items:
-            $ref: '#/components/schemas/ConfigSchemaWarning'
-      required:
-        - inSync
-        - fingerprint
-        - incomingFingerprint
-      additionalProperties: false
-      $defs:
-        ConfigSchemaWarning:
-          id: ConfigSchemaWarning
-          type: object
-          properties:
-            code:
-              type: string
-              enum:
-                - dropped-declaration
-                - non-object-root
-                - unresolved-type
-                - unsupported-member
-                - redundant-declaration
-                - undeclared-rule-field
-            message:
-              type: string
-            path:
-              type: string
-          required:
-            - code
-            - message
-          additionalProperties: false
-    SavedGroupReferences:
-      type: object
-      properties:
-        features:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-            required:
-              - id
-            additionalProperties: false
-        experiments:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-              projects:
-                type: array
-                items:
-                  type: string
-            required:
-              - id
-            additionalProperties: false
-        savedGroups:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              groupName:
-                type: string
-              projects:
-                type: array
-                items:
-                  type: string
-            required:
-              - id
-            additionalProperties: false
-      required:
-        - features
-        - experiments
-        - savedGroups
-      additionalProperties: false
-    ConstantReferences:
-      type: object
-      properties:
-        features:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-            required:
-              - id
-            additionalProperties: false
-        constants:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              key:
-                type: string
-              name:
-                type: string
-              project:
-                type: string
-            required:
-              - id
-              - key
-              - name
-            additionalProperties: false
-      required:
-        - features
-        - constants
-      additionalProperties: false
     AnalyticsExploration:
       type: object
       properties:
@@ -70469,13 +69586,9 @@ components:
         dateCreated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         dateUpdated:
           type: string
           format: date-time
-          pattern: >-
-            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         datasource:
           type: string
         status:
@@ -71951,7 +71064,6 @@ components:
                     concurrencyWindowSeconds:
                       type: integer
                       minimum: 0
-                      maximum: 9007199254740991
                     yAxisScale:
                       type: string
                       enum:
@@ -71980,6 +71092,1223 @@ components:
         - dateEnd
         - result
         - config
+      additionalProperties: false
+    RampScheduleTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              interval:
+                description: >-
+                  Hold duration in seconds before this step's gates are
+                  evaluated. null = no time gate (advance as soon as
+                  holdConditions clear).
+                anyOf:
+                  - type: number
+                    exclusiveMinimum: 0
+                  - type: 'null'
+              approvalNotes:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              monitored:
+                description: >-
+                  When true, this step runs A/B traffic analysis while active.
+                  Treatment = [0, coverage), control = [0.5, 0.5+coverage). Arms
+                  are equal-sized and non-adjacent: step-ups only add users,
+                  never reassign existing ones. The UI caps monitored-step
+                  coverage at 0.5 so control end never exceeds 1.0. The SDK uses
+                  explicit hash ranges on the experiment rule to prevent
+                  bucketing shifts across monitored/unmonitored transitions.
+                type: boolean
+              holdConditions:
+                type: object
+                properties:
+                  minSampleSize:
+                    type: integer
+                    exclusiveMinimum: 0
+                  requiresApproval:
+                    type: boolean
+                additionalProperties: false
+              actions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    targetType:
+                      type: string
+                      const: feature-rule
+                    targetId:
+                      type: string
+                    patch:
+                      type: object
+                      properties:
+                        ruleId:
+                          type: string
+                        coverage:
+                          description: >-
+                            Traffic fraction (0–1). For monitored steps the
+                            rollout rule is promoted to an experiment: treatment
+                            = [0, coverage), control = [0.5, 0.5+coverage). Both
+                            arms are equal-sized and non-adjacent, so a step-up
+                            only adds new users to each arm — no existing user
+                            changes group. The REST API enforces coverage ≤ 0.5
+                            on monitored steps so control end never exceeds 1.0.
+                            The SDK uses explicit hash ranges on bucketingV2
+                            clients to keep bucketing stable across
+                            monitored/unmonitored transitions.
+                          anyOf:
+                            - type: number
+                              minimum: 0
+                              maximum: 1
+                            - type: 'null'
+                        condition:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        savedGroups:
+                          anyOf:
+                            - type: array
+                              items:
+                                type: object
+                                properties:
+                                  match:
+                                    type: string
+                                    enum:
+                                      - all
+                                      - none
+                                      - any
+                                  ids:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - match
+                                  - ids
+                                additionalProperties: false
+                            - type: 'null'
+                        prerequisites:
+                          anyOf:
+                            - type: array
+                              items:
+                                type: object
+                                properties:
+                                  id:
+                                    type: string
+                                  condition:
+                                    type: string
+                                required:
+                                  - id
+                                  - condition
+                                additionalProperties: false
+                            - type: 'null'
+                        allEnvironments:
+                          anyOf:
+                            - type: boolean
+                            - type: 'null'
+                        environments:
+                          anyOf:
+                            - type: array
+                              items:
+                                type: string
+                            - type: 'null'
+                        enabled:
+                          anyOf:
+                            - type: boolean
+                            - type: 'null'
+                      required:
+                        - ruleId
+                      additionalProperties: false
+                  required:
+                    - targetType
+                    - targetId
+                    - patch
+                  additionalProperties: false
+            required:
+              - interval
+              - actions
+            additionalProperties: false
+        endPatch:
+          type: object
+          properties:
+            coverage:
+              type: number
+              minimum: 0
+              maximum: 1
+            condition:
+              type: string
+            savedGroups:
+              type: array
+              items:
+                type: object
+                properties:
+                  match:
+                    type: string
+                    enum:
+                      - all
+                      - none
+                      - any
+                  ids:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - match
+                  - ids
+                additionalProperties: false
+            prerequisites:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  condition:
+                    type: string
+                required:
+                  - id
+                  - condition
+                additionalProperties: false
+            allEnvironments:
+              type: boolean
+            environments:
+              type: array
+              items:
+                type: string
+          additionalProperties: false
+        official:
+          type: boolean
+        monitoringConfig:
+          anyOf:
+            - type: object
+              properties:
+                datasourceId:
+                  type: string
+                exposureQueryId:
+                  type: string
+                guardrailMetricIds:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+                signalMetricIds:
+                  type: array
+                  items:
+                    type: string
+                updateScheduleMinutes:
+                  anyOf:
+                    - type: number
+                      minimum: 10
+                    - type: 'null'
+                monitoringMode:
+                  type: string
+                  enum:
+                    - auto
+                    - manual
+                autoUpdate:
+                  type: boolean
+                srmAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
+                noTrafficAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
+                noTrafficGracePeriodHours:
+                  description: >-
+                    How long to wait for traffic before applying
+                    `noTrafficAction`. Defaults to 24 hours when null or not
+                    set.
+                  anyOf:
+                    - type: number
+                      exclusiveMinimum: 0
+                    - type: 'null'
+                multipleExposureAction:
+                  type: string
+                  enum:
+                    - rollback
+                    - hold
+                    - warn
+              required:
+                - datasourceId
+                - exposureQueryId
+                - guardrailMetricIds
+              additionalProperties: false
+            - type: 'null'
+        lockdownConfig:
+          anyOf:
+            - type: object
+              properties:
+                mode:
+                  type: string
+                  enum:
+                    - none
+                    - locked
+              required:
+                - mode
+              additionalProperties: false
+            - type: 'null'
+        order:
+          description: >-
+            Manual display order within the org (read-only; managed via the
+            app).
+          type: number
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - steps
+        - order
+      additionalProperties: false
+    Learning:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+        text:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        supportingExperimentIds:
+          type: array
+          items:
+            type: string
+        contradictingExperimentIds:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        source:
+          type: string
+          enum:
+            - ai
+            - manual
+            - api
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - authors
+        - title
+        - text
+        - tags
+        - supportingExperimentIds
+        - contradictingExperimentIds
+        - projects
+        - status
+        - source
+      additionalProperties: false
+    Holdout:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        description:
+          type: string
+          maxLength: 10000
+        projects:
+          description: >-
+            Project IDs this Holdout applies to. An empty array means All
+            Projects.
+          type: array
+          items:
+            type: string
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        archived:
+          type: boolean
+        stage:
+          description: >-
+            Lifecycle stage of the Holdout. Use the start, start-analysis, and
+            stop endpoints to move through the lifecycle.
+          type: string
+          enum:
+            - draft
+            - running
+            - analysis-period
+            - stopped
+        trackingKey:
+          type: string
+        experimentId:
+          description: >-
+            ID of the companion experiment that stores this Holdout's analysis.
+            Use it with the experiment results endpoints (e.g. GET
+            /experiments/{experimentId}/results). Pass phase=0 for results
+            across the whole Holdout period, or phase=1 for results limited to
+            the analysis period.
+          type: string
+        skipAsDefaultHoldout:
+          description: >-
+            When true, this Holdout is not selected automatically when creating
+            Feature Flags or experiments in Projects assigned to the Holdout.
+          type: boolean
+        holdoutSize:
+          description: >-
+            Proportion of traffic placed in the holdout group (e.g. 0.05 for
+            5%). An equally sized comparison group is sampled from the remaining
+            traffic for measurement, so 2× this value enters the holdout
+            experiment in total. Must be greater than 0 and at most 0.5.
+          type: number
+          exclusiveMinimum: 0
+          maximum: 0.5
+        hashAttribute:
+          description: Attribute used to assign users to the Holdout.
+          type: string
+        targetingCondition:
+          description: Targeting condition as a JSON string.
+          type: string
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            properties:
+              match:
+                type: string
+                enum:
+                  - all
+                  - none
+                  - any
+              ids:
+                type: array
+                items:
+                  type: string
+            required:
+              - match
+              - ids
+            additionalProperties: false
+        datasourceId:
+          type: string
+        assignmentQueryId:
+          type: string
+        goalMetrics:
+          type: array
+          items:
+            type: string
+        secondaryMetrics:
+          type: array
+          items:
+            type: string
+        statsEngine:
+          description: Statistics engine used to analyze this Holdout.
+          type: string
+          enum:
+            - bayesian
+            - frequentist
+        variations:
+          type: array
+          items:
+            type: object
+            properties:
+              variationId:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+                maxLength: 10000
+            required:
+              - variationId
+              - key
+              - name
+            additionalProperties: false
+        environments:
+          description: >-
+            Per-environment state, keyed by environment ID. Environments not
+            present are disabled.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: object
+            properties:
+              enabled:
+                description: Whether the Holdout is active in this environment.
+                type: boolean
+            required:
+              - enabled
+            additionalProperties: false
+        linkedFeatures:
+          description: >-
+            Feature Flags held out by this Holdout. Manage these through the
+            Feature Flag endpoints.
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              dateAdded:
+                type: string
+                format: date-time
+            required:
+              - id
+              - dateAdded
+            additionalProperties: false
+        linkedExperiments:
+          description: >-
+            Experiments held out by this Holdout. Manage these through the
+            experiment endpoints.
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              dateAdded:
+                type: string
+                format: date-time
+            required:
+              - id
+              - dateAdded
+            additionalProperties: false
+        dateStarted:
+          type: string
+          format: date-time
+        analysisStartDate:
+          description: When the Holdout entered its analysis period.
+          type: string
+          format: date-time
+        dateStopped:
+          type: string
+          format: date-time
+        statusUpdateSchedule:
+          anyOf:
+            - description: >-
+                Automatic stage transitions for the Holdout. Dates must be
+                consecutive: `startAt` before `startAnalysisPeriodAt` before
+                `stopAt`. Send `null` to delete the schedule.
+              type: object
+              properties:
+                startAt:
+                  description: >-
+                    ISO datetime to move the Holdout from `draft` to `running`.
+                    Must be in the future while the Holdout is still a draft.
+                  type: string
+                  format: date-time
+                startAnalysisPeriodAt:
+                  description: >-
+                    ISO datetime to move the Holdout from `running` to
+                    `analysis-period`. Requires `startAt` while the Holdout is
+                    still a draft.
+                  type: string
+                  format: date-time
+                stopAt:
+                  description: >-
+                    ISO datetime to stop the Holdout. Requires
+                    `startAnalysisPeriodAt` unless the analysis period has
+                    already begun.
+                  type: string
+                  format: date-time
+              additionalProperties: false
+            - type: 'null'
+        nextScheduledStatusUpdate:
+          anyOf:
+            - description: The next stage transition that will run automatically.
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - start
+                    - startAnalysisPeriod
+                    - stop
+                date:
+                  type: string
+                  format: date-time
+              required:
+                - type
+                - date
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - description
+        - projects
+        - owner
+        - tags
+        - archived
+        - stage
+        - trackingKey
+        - experimentId
+        - skipAsDefaultHoldout
+        - holdoutSize
+        - hashAttribute
+        - targetingCondition
+        - datasourceId
+        - assignmentQueryId
+        - goalMetrics
+        - secondaryMetrics
+        - variations
+        - environments
+        - linkedFeatures
+        - linkedExperiments
+      additionalProperties: false
+    ExperimentSnapshot:
+      type: object
+      properties:
+        id:
+          type: string
+        experiment:
+          type: string
+        status:
+          type: string
+      required:
+        - id
+        - experiment
+        - status
+      additionalProperties: false
+    FeatureDefinition:
+      type: object
+      properties:
+        defaultValue:
+          anyOf:
+            - type: string
+            - type: number
+            - type: array
+              items: {}
+            - type: object
+              propertyNames:
+                type: string
+              additionalProperties: {}
+            - type: 'null'
+        rules:
+          type: array
+          items:
+            type: object
+            properties:
+              force:
+                anyOf:
+                  - type: string
+                  - type: number
+                  - type: array
+                    items: {}
+                  - type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties: {}
+                  - type: 'null'
+              weights:
+                type: array
+                items:
+                  type: number
+              variations:
+                type: array
+                items:
+                  anyOf:
+                    - type: string
+                    - type: number
+                    - type: array
+                      items: {}
+                    - type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties: {}
+                    - type: 'null'
+              hashAttribute:
+                type: string
+              namespace:
+                minItems: 3
+                maxItems: 3
+                type: array
+                items:
+                  anyOf:
+                    - type: number
+                    - type: string
+              key:
+                type: string
+              coverage:
+                type: number
+              condition:
+                type: object
+                propertyNames:
+                  type: string
+                additionalProperties: {}
+            additionalProperties: false
+      required:
+        - defaultValue
+      additionalProperties: false
+    ConfigReferences:
+      type: object
+      properties:
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+            additionalProperties: false
+        constants:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+              isConfig:
+                type: boolean
+            required:
+              - id
+              - key
+              - name
+            additionalProperties: false
+      required:
+        - features
+        - constants
+      additionalProperties: false
+    ConfigKeyUsage:
+      type: object
+      properties:
+        familyKeys:
+          type: array
+          items:
+            type: string
+        implementations:
+          type: array
+          items:
+            type: object
+            properties:
+              featureId:
+                type: string
+              project:
+                type: string
+              location:
+                type: string
+                enum:
+                  - defaultValue
+                  - rule
+              ruleType:
+                type: string
+              ruleId:
+                type: string
+              experimentId:
+                type: string
+              experimentName:
+                type: string
+              experimentStatus:
+                type: string
+              variationId:
+                type: string
+              configKey:
+                type: string
+              relation:
+                type: string
+                enum:
+                  - self
+                  - ancestor
+                  - descendant
+                  - other
+              keys:
+                type: array
+                items:
+                  type: string
+              state:
+                type: string
+                enum:
+                  - live
+                  - draft
+              revisionVersion:
+                type: number
+            required:
+              - featureId
+              - location
+              - configKey
+              - keys
+              - state
+            additionalProperties: false
+      required:
+        - familyKeys
+        - implementations
+      additionalProperties: false
+    ConfigLineage:
+      type: object
+      properties:
+        root:
+          description: The key of the family root (the topmost ancestor).
+          type: string
+        target:
+          description: The requested config's key.
+          type: string
+        ancestors:
+          description: >-
+            The target's ancestor keys, root-first, ending at its immediate
+            parent.
+          type: array
+          items:
+            type: string
+        descendants:
+          description: Keys of every config that descends from the target.
+          type: array
+          items:
+            type: string
+        nodes:
+          description: >-
+            Every config in the family (root plus all descendants),
+            breadth-first.
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              name:
+                type: string
+              parent:
+                description: >-
+                  The lineage parent's key (tree spine), or null for the family
+                  root.
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              extends:
+                description: >-
+                  Additional composition bases (mixin config keys) layered on
+                  top of `parent`. The tree shape follows `parent`/`depth`;
+                  these express composition beyond the parent/child spine.
+                type: array
+                items:
+                  type: string
+              project:
+                type: string
+              archived:
+                type: boolean
+              depth:
+                description: >-
+                  Distance from the family root along the `parent` spine (root
+                  is 0).
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
+              isTarget:
+                description: True for the requested config.
+                type: boolean
+              incompatibleFields:
+                description: >-
+                  Own value keys whose value no longer conforms to the effective
+                  (inherited) field type and must be fixed. Empty when all
+                  conform.
+                type: array
+                items:
+                  type: string
+              orphanedFields:
+                description: >-
+                  Own value keys the effective schema no longer declares (e.g.
+                  an ancestor removed the field). They still resolve and are
+                  served, but nothing validates them and validation rules read
+                  them as null; a non-extensible family rejects them on the next
+                  changing publish.
+                type: array
+                items:
+                  type: string
+            required:
+              - key
+              - name
+              - parent
+              - archived
+              - depth
+              - isTarget
+            additionalProperties: false
+      required:
+        - root
+        - target
+        - ancestors
+        - descendants
+        - nodes
+      additionalProperties: false
+    ConfigSchemaExport:
+      type: object
+      properties:
+        schema:
+          description: >-
+            The config's schema in the requested format: a JSON Schema document
+            (`{ type: "json-schema", value }`) or rendered TypeScript source (`{
+            type: "typescript", value }`).
+          $ref: '#/components/schemas/ConfigSchemaSource'
+        effective:
+          description: >-
+            True when the schema includes inherited fields accumulated across
+            the lineage; false when it is only this config's own fields.
+          type: boolean
+        additionalProperties:
+          description: Whether the config family permits extra keys.
+          type: boolean
+      required:
+        - schema
+        - effective
+        - additionalProperties
+      additionalProperties: false
+      $defs:
+        ConfigSchemaSource:
+          id: ConfigSchemaSource
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: json-schema
+                value:
+                  description: A JSON Schema document (an object).
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
+              required:
+                - type
+                - value
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: typescript
+                value:
+                  description: TypeScript source — an interface or object type.
+                  type: string
+              required:
+                - type
+                - value
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: protobuf
+                value:
+                  description: Protobuf (proto3) source — a `message` definition.
+                  type: string
+              required:
+                - type
+                - value
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: python
+                value:
+                  description: Python source — a Pydantic `BaseModel` class.
+                  type: string
+              required:
+                - type
+                - value
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: go
+                value:
+                  description: Go source — a `struct` definition.
+                  type: string
+              required:
+                - type
+                - value
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: rust
+                value:
+                  description: Rust source — a serde `struct` definition.
+                  type: string
+              required:
+                - type
+                - value
+              additionalProperties: false
+    ConfigSchemaVerify:
+      type: object
+      properties:
+        inSync:
+          description: >-
+            True when the supplied schema is canonically identical to the
+            config's stored schema.
+          type: boolean
+        fingerprint:
+          description: Canonical fingerprint of the config's stored schema.
+          type: string
+        incomingFingerprint:
+          description: Canonical fingerprint of the supplied schema.
+          type: string
+        drift:
+          description: Present only when `inSync` is false.
+          type: object
+          properties:
+            contract:
+              description: >-
+                Changes that alter what validates
+                (type/enum/required/nullable/bounds/structure, or an
+                added/removed field).
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  change:
+                    type: string
+                    enum:
+                      - added
+                      - removed
+                      - changed
+                required:
+                  - key
+                  - change
+                additionalProperties: false
+            docs:
+              description: Description-only changes (no effect on validation).
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  change:
+                    type: string
+                    enum:
+                      - added
+                      - removed
+                      - changed
+                required:
+                  - key
+                  - change
+                additionalProperties: false
+          required:
+            - contract
+            - docs
+          additionalProperties: false
+        ancestorOwnedFields:
+          description: >-
+            Supplied fields an ancestor config already owns ("base wins").
+            Subtract these from `drift.contract` adds when round-tripping a full
+            effective schema.
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              ownedBy:
+                description: Key of the ancestor config that owns the field.
+                type: string
+              identical:
+                description: >-
+                  True when the supplied definition matches the ancestor's
+                  contract — a save would strip it harmlessly (with a warning).
+                  False means a save would be rejected.
+                type: boolean
+            required:
+              - key
+              - ownedBy
+              - identical
+            additionalProperties: false
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConfigSchemaWarning'
+      required:
+        - inSync
+        - fingerprint
+        - incomingFingerprint
+      additionalProperties: false
+      $defs:
+        ConfigSchemaWarning:
+          id: ConfigSchemaWarning
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - dropped-declaration
+                - non-object-root
+                - unresolved-type
+                - unsupported-member
+                - redundant-declaration
+                - undeclared-rule-field
+            message:
+              type: string
+            path:
+              type: string
+          required:
+            - code
+            - message
+          additionalProperties: false
+    SavedGroupReferences:
+      type: object
+      properties:
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+            additionalProperties: false
+        experiments:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+              projects:
+                type: array
+                items:
+                  type: string
+            required:
+              - id
+            additionalProperties: false
+        savedGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              groupName:
+                type: string
+              projects:
+                type: array
+                items:
+                  type: string
+            required:
+              - id
+            additionalProperties: false
+      required:
+        - features
+        - experiments
+        - savedGroups
+      additionalProperties: false
+    ConstantReferences:
+      type: object
+      properties:
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+            additionalProperties: false
+        constants:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              project:
+                type: string
+            required:
+              - id
+              - key
+              - name
+            additionalProperties: false
+      required:
+        - features
+        - constants
       additionalProperties: false
     VisualChange:
       type: object
@@ -74249,6 +74578,42 @@ components:
       required:
         - mode
       additionalProperties: false
+    columns:
+      type: object
+      properties:
+        column:
+          type: string
+        name:
+          type: string
+        datatype:
+          type: string
+      required:
+        - column
+        - name
+        - datatype
+      additionalProperties: false
+    metrics:
+      type: object
+      properties:
+        metricId:
+          type: string
+        metricType:
+          type: string
+        needsUnit:
+          type: boolean
+      required:
+        - metricId
+        - metricType
+        - needsUnit
+      additionalProperties: false
+    values:
+      type: object
+      propertyNames:
+        type: string
+      additionalProperties:
+        type: array
+        items:
+          type: string
     learnings:
       type: object
       properties:
