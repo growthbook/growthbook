@@ -29,7 +29,7 @@ import { canFormatSql, formatSql } from "@/services/sqlFormatter";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useExplorerContext,
-  type SqlExploreDefault,
+  type SqlExploreMode,
 } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
@@ -127,8 +127,7 @@ export default function SqlQuerySection({
   const { getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { aiEnabled } = useAISettings();
-  const { draftExploreState, ensureDefaultSqlExploreConfig } =
-    useExplorerContext();
+  const { draftExploreState, setSqlExploreMode } = useExplorerContext();
   const dataset =
     draftExploreState.dataset.type === "sql" ? draftExploreState.dataset : null;
   const datasource = draftExploreState.datasource
@@ -202,8 +201,8 @@ export default function SqlQuerySection({
     canRunQueries;
   const canFormat =
     !loading && datasource ? canFormatSql(datasource.type) : false;
-  const openExplore = (mode: SqlExploreDefault) => {
-    ensureDefaultSqlExploreConfig(mode);
+  const openExplore = (mode: SqlExploreMode) => {
+    setSqlExploreMode(mode);
     markExploreSeen();
     setViewMode("explore");
   };

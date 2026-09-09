@@ -457,39 +457,6 @@ export function withDefaultSqlRawTable(
   } as ExplorerDraftConfig;
 }
 
-/** Seed Count and line-vs-table when entering Explore Dataset to build a chart. */
-export function withDefaultSqlVisualization(
-  config: ExplorerDraftConfig,
-): ExplorerDraftConfig {
-  if (!isUnconfiguredSqlDataset(config) || config.dataset.type !== "sql") {
-    return config;
-  }
-
-  const hasTimestamp = hasTimestampColumn(config.dataset.timestampColumn);
-  const dimensions =
-    hasTimestamp &&
-    !config.dimensions.some((dimension) => dimension.dimensionType === "date")
-      ? [
-          {
-            dimensionType: "date" as const,
-            column: "date",
-            dateGranularity: "auto" as const,
-          },
-          ...config.dimensions,
-        ]
-      : config.dimensions;
-
-  return {
-    ...config,
-    chartType: hasTimestamp ? "line" : "table",
-    dimensions,
-    dataset: {
-      ...config.dataset,
-      values: [createEmptyValue("sql") as SqlValue],
-    },
-  } as ExplorerDraftConfig;
-}
-
 /** Builds an empty funnel step. `factTableId` is optional so the "Add step"
  *  button can prefill from the previous step (the inherited default). */
 export function createEmptyFunnelStep({
