@@ -16,6 +16,8 @@ export interface BaseEventInterface<T, V> {
   dateCreated: Date;
   data: T;
   organizationId: string;
+  object?: NotificationEventResource;
+  objectId?: string;
 }
 
 export type EventInterface =

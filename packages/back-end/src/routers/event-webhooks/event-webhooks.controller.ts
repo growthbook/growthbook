@@ -23,6 +23,7 @@ import {
   UpdateEventWebHookAttributes,
 } from "back-end/src/models/EventWebhookModel";
 import * as EventWebHookLog from "back-end/src/models/EventWebHookLogModel";
+import { deleteCoalesceBucketsForWebhook } from "back-end/src/models/EventWebHookCoalesceBucketModel";
 
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -100,9 +101,14 @@ type PostEventWebHooksRequest = AuthRequest & {
     tags: string[];
     environments: string[];
     projects: string[];
+    experiments: string[];
+    metrics: string[];
+    features?: string[];
     payloadType: EventWebHookPayloadType;
     method: EventWebHookMethod;
     headers: Record<string, string>;
+    coalesceWindowMs?: number;
+    slackOptions?: EventWebHookInterface["slackOptions"];
   };
 };
 
@@ -126,10 +132,15 @@ export const createEventWebHook = async (
     enabled,
     tags = [],
     projects = [],
+    experiments = [],
+    metrics = [],
+    features = [],
     environments = [],
     payloadType,
     method = "POST",
     headers = {},
+    coalesceWindowMs,
+    slackOptions,
   } = req.body;
 
   const created = await EventWebHook.createEventWebHook({
@@ -139,11 +150,16 @@ export const createEventWebHook = async (
     organizationId: context.org.id,
     enabled,
     projects,
+    experiments,
+    metrics,
+    features,
     environments,
     tags,
     payloadType,
     method,
     headers,
+    coalesceWindowMs,
+    slackOptions,
   });
 
   return res.json({ eventWebHook: created });
@@ -204,6 +220,11 @@ export const deleteEventWebHook = async (
     context.permissions.throwPermissionError();
   }
 
+  await deleteCoalesceBucketsForWebhook({
+    organizationId: context.org.id,
+    eventWebHookId: req.params.eventWebHookId,
+  });
+
   const successful = await deleteEventWebHookById({
     eventWebHookId: req.params.eventWebHookId,
     organizationId: context.org.id,
@@ -221,7 +242,7 @@ export const deleteEventWebHook = async (
 // region PUT /event-webhooks/:eventWebHookId
 
 type UpdateEventWebHookRequest = AuthRequest<
-  Required<UpdateEventWebHookAttributes>,
+  UpdateEventWebHookAttributes,
   { eventWebHookId: string }
 >;
 

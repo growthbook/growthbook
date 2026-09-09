@@ -76,6 +76,39 @@ async function runGate(
   }
 }
 
+/**
+ * Result of the AI access checks, for callers with no `res` to write to.
+ */
+export type AccessGateResult =
+  | { ok: true }
+  | { ok: false; status: number; message: string; retryAfter?: number };
+
+/**
+ * Non-throwing wrapper around assertAIAccess, for transports that surface a
+ * denial as a value rather than an exception or HTTP response — e.g. the
+ * headless agent runner, whose Slack caller posts `message` back to the user.
+ */
+export async function checkAccessGates(
+  context: ReqContext,
+  target: AIUsageTarget = {},
+): Promise<AccessGateResult> {
+  try {
+    await assertAIAccess(context, target);
+    return { ok: true };
+  } catch (e) {
+    const status =
+      e instanceof Error && "status" in e && typeof e.status === "number"
+        ? e.status
+        : 400;
+    return {
+      ok: false,
+      status,
+      message: e instanceof Error ? e.message : "AI access denied",
+      ...(e instanceof AIUsageLimitError ? { retryAfter: e.retryAfter } : {}),
+    };
+  }
+}
+
 export async function runAccessGates(
   context: ReqContext,
   res: Response,
