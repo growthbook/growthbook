@@ -7,7 +7,7 @@ import { useEffect } from "react";
 // template. The full flow (parse, premium/name-collision gates, fact-table
 // field mapping) now lives at /fact-metrics/new, which understands the same
 // querystring - this just forwards the request there unchanged.
-export default function CreateMetricFromTemplate() {
+export default function MetricTemplateRedirect() {
   const router = useRouter();
 
   useEffect(() => {
