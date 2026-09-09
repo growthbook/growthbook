@@ -1,9 +1,8 @@
 import React from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { FeatureValueType } from "shared/types/feature";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 import Text from "@/ui/Text";
 import {
@@ -16,8 +15,6 @@ import {
   OptionTooltipShell,
   OptionTooltipTags,
 } from "@/components/Features/OptionTooltipShell";
-
-const ENV_COL_W = 80;
 
 export interface FeatureOptionForTooltip {
   label: string;
@@ -64,33 +61,18 @@ export function FeatureOptionTooltipContent({
       <OptionTooltipTags tags={option.tags} />
       {option.states && environments.length > 0 && (
         <OptionTooltipSection label="Environments:">
-          <Box style={{ overflowX: "auto" }}>
-            <Flex direction="column" style={{ minWidth: "max-content" }}>
-              <Flex align="center">
-                {environments.map((env) => (
-                  <Box
-                    key={env}
-                    style={{
-                      width: ENV_COL_W,
-                      flexShrink: 0,
-                      textAlign: "center",
-                    }}
-                  >
-                    <Text size="sm" color="text-mid">
-                      <OverflowText maxWidth={ENV_COL_W}>{env}</OverflowText>
-                    </Text>
-                  </Box>
-                ))}
-              </Flex>
-              <Flex align="center">
-                <PrerequisiteStatesCols
-                  prereqStates={option.states}
-                  envs={environments}
-                  colWidth={ENV_COL_W}
-                />
-              </Flex>
+          {environments.map((env) => (
+            <Flex key={env} align="center" gap="2">
+              <PrerequisiteStatesCols
+                prereqStates={option.states}
+                envs={[env]}
+                colWidth={28}
+              />
+              <Text size="sm" overflowWrap="anywhere">
+                {env}
+              </Text>
             </Flex>
-          </Box>
+          ))}
         </OptionTooltipSection>
       )}
       <OptionTooltipDescription description={option.description} />
