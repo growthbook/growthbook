@@ -34,6 +34,7 @@ import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { getEvent } from "back-end/src/models/EventModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
+import { buildExperimentAlertMessage } from "./experimentAlerts";
 
 // region Filtering
 
@@ -99,6 +100,19 @@ export const getSlackMessageForNotificationEvent = async (
         event.data.object,
         eventId,
       );
+
+    case "experiment.started":
+    case "experiment.stopped":
+    case "experiment.health.guardrailFailed":
+    case "experiment.health.queryFailed":
+    case "experiment.status.changed":
+    case "experiment.endingSoon":
+    case "experiment.stale":
+    case "experiment.metric.regression":
+    case "experiment.bandit.weightsChanged":
+    case "experiment.holdout.created":
+    case "experiment.holdout.updated":
+      return buildExperimentAlertMessage(event);
 
     case "experiment.warning":
       return buildSlackMessageForExperimentWarningEvent(event.data.object);

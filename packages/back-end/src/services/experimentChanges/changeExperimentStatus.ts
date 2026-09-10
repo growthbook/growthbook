@@ -14,6 +14,7 @@ import {
   getAffectedEnvsForExperiment,
   experimentHasLiveLinkedChanges,
 } from "shared/util";
+import { logger } from "back-end/src/util/logger";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -37,6 +38,10 @@ import {
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
+import {
+  notifyExperimentStarted,
+  notifyExperimentStopped,
+} from "back-end/src/services/experimentNotifications";
 import {
   ChecklistIncompleteError,
   InvalidStatusError,
@@ -510,6 +515,15 @@ export async function executeExperimentStart(
     changes: { ...changes, nextScheduledStatusUpdate },
   });
 
+  if (experiment.status === "draft") {
+    await notifyExperimentStarted({
+      context,
+      experiment: updated,
+    }).catch((error: unknown) =>
+      logger.error(error, "Failed to notify experiment start"),
+    );
+  }
+
   trackEventForContext(context, "Experiment Started", {
     source: context.auditUser?.type ?? "agenda-job",
     hasDatasource: !!updated.datasource,
@@ -862,8 +876,26 @@ export async function stopExperiment({
     changes,
   });
 
-  // Only track true stop events; ignore results edits to already-stopped experiments.
   if (isEnding) {
+    const releasedVariationName =
+      variations[releasedVariationIndexFromId]?.name ||
+      variations[winner]?.name ||
+      undefined;
+
+    await notifyExperimentStopped({
+      context,
+      experiment: updated,
+      type: "stopped",
+      results: input.results,
+      enableTemporaryRollout,
+      releasedVariationName,
+      reason: input.reason,
+    }).catch((error: unknown) =>
+      logger.error(error, "Failed to notify experiment stop"),
+    );
+
+    // Only track true stop events; ignore results edits to already-stopped
+    // experiments.
     trackEventForContext(context, "Experiment Stopped", {
       source: context.auditUser?.type ?? "agenda-job",
       result: updated.results,

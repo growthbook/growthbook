@@ -685,6 +685,36 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (
+      status === "failed" &&
+      this.model.type === "standard" &&
+      !this.model.report
+    ) {
+      try {
+        const { getExperimentById } = await import(
+          "back-end/src/models/ExperimentModel"
+        );
+        const { notifyExperimentQueryFailed } = await import(
+          "back-end/src/services/experimentNotifications"
+        );
+        const experiment = await getExperimentById(
+          this.context,
+          this.model.experiment,
+        );
+        if (experiment)
+          await notifyExperimentQueryFailed({
+            context: this.context,
+            experiment,
+            errorMessage: error,
+          });
+      } catch (notificationError) {
+        const { logger } = await import("back-end/src/util/logger");
+        logger.error(
+          notificationError,
+          "Failed to notify experiment query failure",
+        );
+      }
+    }
+    if (
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)
     ) {
