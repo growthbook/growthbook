@@ -26,6 +26,14 @@ export default function NewFactMetricPage() {
     typeof router.query.duplicate === "string"
       ? getFactMetricById(router.query.duplicate)
       : null;
+  if (router.query.duplicate && !router.query.addMetric && !duplicateSource) {
+    return (
+      <Callout status="error">
+        Could not find the metric to duplicate.{" "}
+        <Link href={returnUrl}>Go back</Link>
+      </Callout>
+    );
+  }
   // Matches the old modal's duplicate normalization (FactMetricList.tsx,
   // pre-migration): only "admin" managedBy carries over, and only if this
   // user could create it themselves - otherwise a copy of an API-managed or
