@@ -19,7 +19,7 @@ export default function NewFactMetricPage() {
       ? router.query.returnUrl
       : "/metrics";
 
-  if (!ready) return <LoadingOverlay />;
+  if (!ready || !router.isReady) return <LoadingOverlay />;
 
   const canCreate = permissionsUtil.canCreateFactMetric({
     projects: project ? [project] : [],
@@ -31,7 +31,7 @@ export default function NewFactMetricPage() {
       <PageHead
         breadcrumb={[
           { display: "Metrics", href: "/metrics" },
-          { display: "New Metric" },
+          { display: "New Fact Metric" },
         ]}
       />
       <Heading as="h1" mb="3">
