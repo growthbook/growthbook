@@ -67,7 +67,7 @@ function RatioPart({
           maxColumns={1}
           data={[
             {
-              label: "Fact Table",
+              label: "Fact table",
               value: <FactTableLink id={value.factTableId} />,
             },
             {
@@ -77,7 +77,7 @@ function RatioPart({
             ...(agg
               ? [
                   {
-                    label: "Per-User Aggregation",
+                    label: "Per-user aggregation",
                     value: agg.toUpperCase(),
                   },
                 ]

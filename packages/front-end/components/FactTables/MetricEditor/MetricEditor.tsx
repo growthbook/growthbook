@@ -259,7 +259,7 @@ export default function MetricEditor({
                 columns={1}
                 data={[
                   {
-                    label: "Fact Table",
+                    label: "Fact table",
                     value: <FactTableLink id={primaryFactTableId} />,
                   },
                 ]}
@@ -428,24 +428,28 @@ export default function MetricEditor({
               </Flex>
             </Flex>
           ) : (
-            <DataList
-              columns={1}
-              data={[
-                { label: "Name", value: form.watch("name") },
-                {
-                  label: "Description",
-                  value: form.watch("description") || "—",
-                },
-                {
-                  label: "Tags",
-                  value: form.watch("tags")?.length ? (
-                    <SortedTags tags={form.watch("tags")} useFlex />
-                  ) : (
-                    "No tags"
-                  ),
-                },
-              ]}
-            />
+            <Flex direction="column" gap="6">
+              <DataList
+                columns={1}
+                data={[
+                  { label: "Name", value: form.watch("name") },
+                  {
+                    label: "Description",
+                    value: form.watch("description") || "—",
+                  },
+                ]}
+              />
+              <div>
+                <Text weight="semibold" as="div" mb="2">
+                  Tags
+                </Text>
+                {form.watch("tags")?.length ? (
+                  <SortedTags tags={form.watch("tags")} useFlex />
+                ) : (
+                  <Text>No tags</Text>
+                )}
+              </div>
+            </Flex>
           )}
         </Frame>
 

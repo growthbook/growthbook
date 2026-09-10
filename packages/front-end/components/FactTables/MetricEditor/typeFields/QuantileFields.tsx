@@ -76,7 +76,7 @@ export default function QuantileFields({
             value: columnValueLabel(numerator.column, factTable),
           },
           ...(agg
-            ? [{ label: "Per-User Aggregation", value: agg.toUpperCase() }]
+            ? [{ label: "Per-user aggregation", value: agg.toUpperCase() }]
             : []),
           {
             label: "Percentile",
