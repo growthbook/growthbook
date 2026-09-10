@@ -9,7 +9,7 @@ import {
 
 export type TempRolloutHealthState = "temp-rollout" | "old-temp-rollout";
 
-export type HealthDotColor = "yellow" | "orange" | "red";
+export type HealthDotColor = "yellow" | "amber" | "red";
 
 export type { FeatureHealthSeverity };
 
@@ -18,7 +18,7 @@ export const FEATURE_HEALTH_SEVERITIES: Record<
   { label: string; color: HealthDotColor }
 > = {
   high: { label: "High", color: "red" },
-  medium: { label: "Medium", color: "orange" },
+  medium: { label: "Medium", color: "amber" },
   low: { label: "Low", color: "yellow" },
 };
 

@@ -283,13 +283,13 @@ export default function ConstantsPage(): React.ReactElement {
                       <SortableTableColumnHeader field="key">
                         Key
                       </SortableTableColumnHeader>
+                      <TableColumnHeader>Project</TableColumnHeader>
                       <SortableTableColumnHeader field="typeLabel">
                         Type
                       </SortableTableColumnHeader>
                       <TableColumnHeader style={{ width: "25%" }}>
                         Description
                       </TableColumnHeader>
-                      <TableColumnHeader>Projects</TableColumnHeader>
                       <SortableTableColumnHeader field="dateUpdated">
                         Last Modified
                       </SortableTableColumnHeader>
@@ -322,10 +322,6 @@ export default function ConstantsPage(): React.ReactElement {
                             </Flex>
                           </TableCell>
                           <TableCell>{c.key}</TableCell>
-                          <TableCell>{c.typeLabel}</TableCell>
-                          <TableCell>
-                            {truncateString(c.description || "", 80)}
-                          </TableCell>
                           <TableCell>
                             {c.project ? (
                               <ProjectBadges
@@ -333,6 +329,10 @@ export default function ConstantsPage(): React.ReactElement {
                                 projectIds={[c.project]}
                               />
                             ) : null}
+                          </TableCell>
+                          <TableCell>{c.typeLabel}</TableCell>
+                          <TableCell>
+                            {truncateString(c.description || "", 80)}
                           </TableCell>
                           <TableCell title={datetime(c.dateUpdated)}>
                             {date(c.dateUpdated)}
@@ -342,7 +342,7 @@ export default function ConstantsPage(): React.ReactElement {
                     })}
                     {items.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} style={{ textAlign: "center" }}>
+                        <TableCell colSpan={6} style={{ textAlign: "center" }}>
                           {isFiltered
                             ? "No Constants match the current filter."
                             : "No Constants found."}

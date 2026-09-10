@@ -309,10 +309,10 @@ export default function ConfigsPage(): React.ReactElement {
                       <SortableTableColumnHeader field="key">
                         Key
                       </SortableTableColumnHeader>
+                      <TableColumnHeader>Project</TableColumnHeader>
                       <TableColumnHeader style={{ width: "25%" }}>
                         Description
                       </TableColumnHeader>
-                      <TableColumnHeader>Project</TableColumnHeader>
                       <SortableTableColumnHeader field="dateUpdated">
                         Last Modified
                       </SortableTableColumnHeader>
@@ -366,15 +366,15 @@ export default function ConfigsPage(): React.ReactElement {
                           </TableCell>
                           <TableCell>{c.key}</TableCell>
                           <TableCell>
-                            {truncateString(c.description || "", 80)}
-                          </TableCell>
-                          <TableCell>
                             {c.project ? (
                               <ProjectBadges
                                 resourceType="constant"
                                 projectIds={[c.project]}
                               />
                             ) : null}
+                          </TableCell>
+                          <TableCell>
+                            {truncateString(c.description || "", 80)}
                           </TableCell>
                           <TableCell title={datetime(c.dateUpdated)}>
                             {date(c.dateUpdated)}
@@ -384,7 +384,7 @@ export default function ConfigsPage(): React.ReactElement {
                     })}
                     {items.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} style={{ textAlign: "center" }}>
+                        <TableCell colSpan={5} style={{ textAlign: "center" }}>
                           {isFiltered
                             ? "No Configs match the current filter."
                             : "No Configs found."}
