@@ -107,7 +107,7 @@ export default function AdvancedSettings({
           <TabsTrigger value="display">Display settings</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="query" p="4">
+        <TabsContent value="query" style={{ padding: "var(--space-4)" }}>
           {windowOk(formType) && <MetricDelaySettings form={form} />}
           {cappingOk(formType) && (
             <MetricCappingSettingsForm
@@ -174,7 +174,7 @@ export default function AdvancedSettings({
           )}
         </TabsContent>
 
-        <TabsContent value="display" p="4">
+        <TabsContent value="display" style={{ padding: "var(--space-4)" }}>
           <Field
             label={
               formType === "ratio"
