@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import {
   RampScheduleInterface,
   SafeRolloutInterface,
@@ -9,37 +10,38 @@ import {
 } from "back-end/src/services/rampScheduleEvaluator";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 
-jest.mock("back-end/src/services/safeRolloutSnapshots", () => ({
-  createSafeRolloutSnapshot: jest.fn(),
+vi.mock("back-end/src/services/safeRolloutSnapshots", () => ({
+  createSafeRolloutSnapshot: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/EventModel", () => ({
-  createEvent: jest.fn(),
+vi.mock("back-end/src/models/EventModel", () => ({
+  createEvent: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
 // The post-snapshot evaluator swaps to the org's job context; hand it the
 // test's own mocked context so assertions keep seeing the same models.
-let mockLastContext: unknown;
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgObject: jest.fn(() => mockLastContext),
+let { mockLastContext } = vi.hoisted(() => {
+  let mockLastContext: unknown;
+  return { mockLastContext };
+});
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgObject: vi.fn(() => mockLastContext),
 }));
 
 const mockCreateSafeRolloutSnapshot =
-  createSafeRolloutSnapshot as jest.MockedFunction<
-    typeof createSafeRolloutSnapshot
-  >;
+  createSafeRolloutSnapshot as MockedFunction<typeof createSafeRolloutSnapshot>;
 
 function makeSchedule(
   overrides: Partial<RampScheduleInterface> = {},
@@ -140,8 +142,8 @@ function makeContext({
     org: { id: "org_1", settings: {} },
     models: {
       rampSchedules: {
-        getById: jest.fn().mockResolvedValue(schedule ?? null),
-        updateById: jest
+        getById: vi.fn().mockResolvedValue(schedule ?? null),
+        updateById: vi
           .fn()
           .mockImplementation(
             (_id: string, updates: Partial<RampScheduleInterface>) => ({
@@ -149,16 +151,16 @@ function makeContext({
               ...updates,
             }),
           ),
-        acquireAdvanceLock: jest.fn().mockResolvedValue(true),
-        releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
-        touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
+        acquireAdvanceLock: vi.fn().mockResolvedValue(true),
+        releaseAdvanceLock: vi.fn().mockResolvedValue(undefined),
+        touchAdvanceLockHeartbeat: vi.fn().mockResolvedValue(true),
       },
       safeRollout: {
-        getById: jest.fn().mockResolvedValue(safeRollout),
-        update: jest.fn(),
+        getById: vi.fn().mockResolvedValue(safeRollout),
+        update: vi.fn(),
       },
       safeRolloutSnapshots: {
-        getById: jest.fn().mockResolvedValue({
+        getById: vi.fn().mockResolvedValue({
           id: safeRollout.analysisSummary?.snapshotId,
           status: "success",
           dateCreated: snapshotDate,
@@ -166,7 +168,7 @@ function makeContext({
         }),
       },
       metricGroups: {
-        getAll: jest.fn().mockResolvedValue([]),
+        getAll: vi.fn().mockResolvedValue([]),
       },
     },
   };
@@ -312,7 +314,7 @@ describe("evaluateCurrentStep: 0-step simple schedules", () => {
 
 describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("holds for stale SafeRollout analysis without creating a snapshot", async () => {

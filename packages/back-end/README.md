@@ -336,9 +336,17 @@ await context.models.factMetrics.updateById(
 
 ## Tests
 
-We use Jest to write tests on the back-end.
+We use Vitest 3 with test globals enabled. Import `vi` and mock types from `vitest`. Test-only aliases resolve back-end, shared, and stats-ts imports to source so module mocks reach the code under test.
 
-To avoid pulling in Mongo dependencies, all tested code should be in small standalone util files that do not import db models.
+```bash
+pnpm --filter back-end test
+pnpm --filter back-end test test/features.test.ts
+pnpm --filter back-end test --shard=1/4
+```
+
+The test command preserves the Node flags needed by the sandbox and disables the Python pool. Tests run in isolated fork workers, with half the available cores locally. CI runs four shards. API suites use an in-memory MongoDB and a 20-second timeout.
+
+Prefer standalone utility tests that do not import database models. For partial module mocks, use an async `importOriginal` factory. Initialize mock factory dependencies with `vi.hoisted`. Hooks run in declaration order; use block bodies so a hook does not accidentally return a mock as a cleanup function.
 
 ## REST API endpoints
 

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { CreateMetricTimeSeriesSingleDataPoint } from "shared/validators";
@@ -7,7 +8,7 @@ import type { Context } from "back-end/src/models/BaseModel";
 
 const context = {
   org: { id: "org_1" },
-  populateForeignRefs: jest.fn().mockResolvedValue(undefined),
+  populateForeignRefs: vi.fn().mockResolvedValue(undefined),
   models: {},
 } as unknown as Context;
 
@@ -56,7 +57,7 @@ describe("MetricTimeSeriesModel", () => {
   });
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     const collections = mongoose.connection.collections;
     for (const key in collections) {
       await collections[key].deleteMany({});

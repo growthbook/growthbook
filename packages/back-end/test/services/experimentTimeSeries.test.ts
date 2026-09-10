@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -184,7 +185,7 @@ function makeContext(extraFns: Record<string, unknown> = {}) {
   return {
     models: {
       metricTimeSeries: {
-        upsertMultipleSingleDataPoint: jest.fn().mockResolvedValue(undefined),
+        upsertMultipleSingleDataPoint: vi.fn().mockResolvedValue(undefined),
       },
       ...extraFns,
     },
@@ -271,9 +272,7 @@ describe("updateExperimentAnalysisTimeSeries dimension gate", () => {
 
 describe("updateExperimentAnalysisTimeSeries", () => {
   it("does not let covariate absolute analyses replace regular absolute results", async () => {
-    const upsertMultipleSingleDataPoint = jest
-      .fn()
-      .mockResolvedValue(undefined);
+    const upsertMultipleSingleDataPoint = vi.fn().mockResolvedValue(undefined);
     const context = {
       models: {
         metricTimeSeries: {
@@ -313,9 +312,7 @@ describe("updateExperimentAnalysisTimeSeries", () => {
   });
 
   it("records difference types that computed even when the base analysis errored", async () => {
-    const upsertMultipleSingleDataPoint = jest
-      .fn()
-      .mockResolvedValue(undefined);
+    const upsertMultipleSingleDataPoint = vi.fn().mockResolvedValue(undefined);
     const context = {
       models: {
         metricTimeSeries: {
@@ -349,9 +346,7 @@ describe("updateExperimentAnalysisTimeSeries", () => {
   });
 
   it("drops an errored difference type instead of writing a zeroed value", async () => {
-    const upsertMultipleSingleDataPoint = jest
-      .fn()
-      .mockResolvedValue(undefined);
+    const upsertMultipleSingleDataPoint = vi.fn().mockResolvedValue(undefined);
     const context = {
       models: {
         metricTimeSeries: {
@@ -383,9 +378,7 @@ describe("updateExperimentAnalysisTimeSeries", () => {
   });
 
   it("skips a metric when every difference type errored", async () => {
-    const upsertMultipleSingleDataPoint = jest
-      .fn()
-      .mockResolvedValue(undefined);
+    const upsertMultipleSingleDataPoint = vi.fn().mockResolvedValue(undefined);
     const context = {
       models: {
         metricTimeSeries: {
@@ -412,9 +405,7 @@ describe("updateExperimentAnalysisTimeSeries", () => {
   });
 
   it("records a successful metric that carries a non-fatal errorMessage", async () => {
-    const upsertMultipleSingleDataPoint = jest
-      .fn()
-      .mockResolvedValue(undefined);
+    const upsertMultipleSingleDataPoint = vi.fn().mockResolvedValue(undefined);
     const context = {
       models: {
         metricTimeSeries: {
@@ -448,9 +439,7 @@ describe("updateExperimentAnalysisTimeSeries", () => {
   });
 
   it("skips writes when there are no time-series-compatible analyses", async () => {
-    const upsertMultipleSingleDataPoint = jest
-      .fn()
-      .mockResolvedValue(undefined);
+    const upsertMultipleSingleDataPoint = vi.fn().mockResolvedValue(undefined);
     const context = {
       models: {
         metricTimeSeries: {

@@ -1,57 +1,62 @@
+import { MockedFunction, Mock, vi } from "vitest";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { EventUser } from "shared/types/events/event-types";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  createAndPublishRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
+  createAndPublishRevision: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentMapForFeature: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentMapForFeature: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/features", () => ({
-  getApiFeatureObj: jest.fn(),
-  getSavedGroupMap: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  getApiFeatureObj: vi.fn(),
+  getSavedGroupMap: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/audit", () => ({
-  auditDetailsUpdate: jest.fn(() => ({})),
+vi.mock("back-end/src/services/audit", () => ({
+  auditDetailsUpdate: vi.fn(() => ({})),
 }));
 
-jest.mock("back-end/src/models/EventModel", () => ({
-  createEvent: jest.fn(),
+vi.mock("back-end/src/models/EventModel", () => ({
+  createEvent: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
-  logger: { error: jest.fn() },
+vi.mock("back-end/src/util/logger", () => ({
+  logger: { error: vi.fn() },
 }));
 
 // Keep the real getPublishedRevisionForEvents (it drives the re-read/fallback
 // behavior under test, via the mocked getRevision) and stub only the dispatch.
-jest.mock("back-end/src/services/featureRevisionEvents", () => ({
-  ...jest.requireActual("back-end/src/services/featureRevisionEvents"),
-  dispatchFeatureRevisionEvent: jest.fn(),
+vi.mock("back-end/src/services/featureRevisionEvents", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/services/featureRevisionEvents")
+  >("back-end/src/services/featureRevisionEvents")),
+  dispatchFeatureRevisionEvent: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getEnvironments: jest.fn(() => [
+vi.mock("back-end/src/services/organizations", () => ({
+  getEnvironments: vi.fn(() => [
     { id: "production", description: "" },
     { id: "dev", description: "" },
   ]),
 }));
 
-jest.mock("back-end/src/util/features", () => ({
-  getEnabledEnvironments: jest.fn(() => new Set(["production", "dev"])),
+vi.mock("back-end/src/util/features", () => ({
+  getEnabledEnvironments: vi.fn(() => new Set(["production", "dev"])),
 }));
 
-jest.mock("back-end/src/util/organization.util", () => ({
-  ...jest.requireActual("back-end/src/util/organization.util"),
-  getEnvironmentIdsFromOrg: jest.fn(() => ["production", "dev"]),
+vi.mock("back-end/src/util/organization.util", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/util/organization.util")
+  >("back-end/src/util/organization.util")),
+  getEnvironmentIdsFromOrg: vi.fn(() => ["production", "dev"]),
 }));
 
 import { revertFeatureCore } from "back-end/src/api/features/revertFeature";
@@ -63,32 +68,32 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 
-const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
-const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
-const mockCreateAndPublish = createAndPublishRevision as jest.MockedFunction<
+const mockGetFeature = getFeature as MockedFunction<typeof getFeature>;
+const mockGetRevision = getRevision as MockedFunction<typeof getRevision>;
+const mockCreateAndPublish = createAndPublishRevision as MockedFunction<
   typeof createAndPublishRevision
 >;
-const mockGetExperimentMap = getExperimentMapForFeature as jest.MockedFunction<
+const mockGetExperimentMap = getExperimentMapForFeature as MockedFunction<
   typeof getExperimentMapForFeature
 >;
-const mockDispatchEvent = dispatchFeatureRevisionEvent as jest.MockedFunction<
+const mockDispatchEvent = dispatchFeatureRevisionEvent as MockedFunction<
   typeof dispatchFeatureRevisionEvent
 >;
 
 const ctx = {
   org: { id: "org_1", settings: {} },
   permissions: {
-    canPublishFeature: jest.fn(() => true),
-    canRevertFeature: jest.fn(() => true),
-    canBypassFlagApprovalChecks: jest.fn(() => true),
-    throwPermissionError: jest.fn(() => {
+    canPublishFeature: vi.fn(() => true),
+    canRevertFeature: vi.fn(() => true),
+    canBypassFlagApprovalChecks: vi.fn(() => true),
+    throwPermissionError: vi.fn(() => {
       throw new Error("forbidden");
     }),
   },
-  hasPremiumFeature: jest.fn(() => true),
+  hasPremiumFeature: vi.fn(() => true),
   models: {
     safeRollout: {
-      getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+      getAllPayloadSafeRollouts: vi.fn().mockResolvedValue(new Map()),
     },
   },
 } as never;
@@ -117,7 +122,7 @@ function makeFeature(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   mockGetExperimentMap.mockResolvedValue(new Map() as never);
 });
 
@@ -140,7 +145,7 @@ describe("revertFeatureCore empty-diff guard", () => {
         eventAudit,
         { id: "feat_1" },
         { revision: 3 },
-        jest.fn(),
+        vi.fn(),
         false,
       ),
     ).rejects.toThrow(/Nothing to revert/);
@@ -171,7 +176,7 @@ describe("revertFeatureCore empty-diff guard", () => {
       eventAudit,
       { id: "feat_1" },
       { revision: 3 },
-      jest.fn(),
+      vi.fn(),
       false,
     );
 
@@ -229,7 +234,7 @@ describe("revertFeatureCore revision events", () => {
       eventAudit,
       { id: "feat_1" },
       { revision: 3 },
-      jest.fn(),
+      vi.fn(),
       false,
     );
 
@@ -255,7 +260,7 @@ describe("revertFeatureCore revision events", () => {
       eventAudit,
       { id: "feat_1" },
       { revision: 3 },
-      jest.fn(),
+      vi.fn(),
       false,
     );
 
@@ -286,7 +291,7 @@ describe("revertFeatureCore revision events", () => {
       eventAudit,
       { id: "feat_1" },
       { revision: 3 },
-      jest.fn(),
+      vi.fn(),
       false,
     );
 
@@ -313,7 +318,7 @@ describe("revertFeatureCore revision events", () => {
         eventAudit,
         { id: "feat_1" },
         { revision: 3 },
-        jest.fn(),
+        vi.fn(),
         false,
       ),
     ).rejects.toThrow(/Nothing to revert/);
@@ -342,7 +347,7 @@ describe("revertFeatureCore metadata-only revert authority floor", () => {
       makeFeature({ description: "live description" }),
     );
     mockGetRevision.mockResolvedValue(inertMetadataRevision);
-    (ctx.permissions.canRevertFeature as jest.Mock).mockReturnValue(false);
+    (ctx.permissions.canRevertFeature as Mock).mockReturnValue(false);
 
     try {
       await expect(
@@ -352,12 +357,12 @@ describe("revertFeatureCore metadata-only revert authority floor", () => {
           eventAudit,
           { id: "feat_1" },
           { revision: 3 },
-          jest.fn(),
+          vi.fn(),
           false,
         ),
       ).rejects.toThrow(/forbidden/);
     } finally {
-      (ctx.permissions.canRevertFeature as jest.Mock).mockReturnValue(true);
+      (ctx.permissions.canRevertFeature as Mock).mockReturnValue(true);
     }
 
     // The floor asks the weakest question — the revert atom, env-unbound (`[]`) —
@@ -390,7 +395,7 @@ describe("revertFeatureCore metadata-only revert authority floor", () => {
       eventAudit,
       { id: "feat_1" },
       { revision: 3 },
-      jest.fn(),
+      vi.fn(),
       false,
     );
 

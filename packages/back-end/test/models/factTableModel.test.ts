@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   ColumnInterface,
   CreateColumnProps,
@@ -263,8 +264,8 @@ describe("updateFactTable", () => {
   };
 
   const getContext = () => {
-    const canUpdateFactTable = jest.fn().mockReturnValue(false);
-    const throwPermissionError = jest.fn(() => {
+    const canUpdateFactTable = vi.fn().mockReturnValue(false);
+    const throwPermissionError = vi.fn(() => {
       throw new Error("permission denied");
     });
 

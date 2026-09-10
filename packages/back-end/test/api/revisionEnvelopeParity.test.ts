@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { Revision } from "shared/enterprise";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -17,7 +18,7 @@ import type { ApiReqContext } from "back-end/types/api";
  * a new field is fine, a new field in only two of three is not.
  */
 
-jest.mock("back-end/src/services/owner", () => ({
+vi.mock("back-end/src/services/owner", () => ({
   // The real one batches a Mongo lookup for owner emails; identity keeps this a
   // pure shape test. Batching itself is exercised by the API suites.
   resolveOwnerEmails: async <T>(docs: T[]) => docs,

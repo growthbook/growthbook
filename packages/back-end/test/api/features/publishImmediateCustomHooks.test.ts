@@ -1,3 +1,4 @@
+import { MockedFunction, MockInstance, vi } from "vitest";
 import mongoose from "mongoose";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -13,13 +14,11 @@ import { setupApp } from "../api.setup";
 // Regression tests for publish-immediately validation ordering: hooks must run
 // BEFORE the draft revision is written so a rejection can't orphan the draft.
 
-jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
-  runInSandbox: jest.fn(),
+vi.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
+  runInSandbox: vi.fn(),
 }));
 
-const mockRunInSandbox = runInSandbox as jest.MockedFunction<
-  typeof runInSandbox
->;
+const mockRunInSandbox = runInSandbox as MockedFunction<typeof runInSandbox>;
 
 const ORG = {
   id: "org_pub_hooks_test",
@@ -102,10 +101,10 @@ function findRevision(version: number) {
 describe("publish-immediately custom hooks", () => {
   setupApp();
 
-  let premiumSpy: jest.SpyInstance;
+  let premiumSpy: MockInstance;
 
   beforeEach(() => {
-    premiumSpy = jest
+    premiumSpy = vi
       .spyOn(ReqContextClass.prototype, "hasPremiumFeature")
       .mockReturnValue(true);
     mockRunInSandbox.mockResolvedValue({ ok: true, warnings: [] });

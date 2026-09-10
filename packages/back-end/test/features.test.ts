@@ -1116,7 +1116,7 @@ describe("Detecting Feature Changes", () => {
   });
 });
 
-describe("Changes are ignored when archived or disabled", () => {
+it("Changes are ignored when archived or disabled", () => {
   const feature = cloneDeep(baseFeature);
   const updatedFeature = cloneDeep(baseFeature);
 

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   getSlackConversation,
   isSlackWorkspacePlaceholderUrl,
@@ -7,8 +8,8 @@ import {
 } from "back-end/src/services/slack/slackWebApi";
 import { cancellableFetch } from "back-end/src/util/http.util";
 
-jest.mock("back-end/src/util/http.util", () => ({
-  cancellableFetch: jest.fn(),
+vi.mock("back-end/src/util/http.util", () => ({
+  cancellableFetch: vi.fn(),
 }));
 
 const slackResponse = (body: Record<string, unknown>) => ({
@@ -17,7 +18,7 @@ const slackResponse = (body: Record<string, unknown>) => ({
 });
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe("isSlackWorkspacePlaceholderUrl", () => {

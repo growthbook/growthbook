@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import { contextualBanditAttrCol } from "shared/experiments";
 import {
@@ -6,10 +7,10 @@ import {
   prepareRowsForContextualStats,
 } from "back-end/src/enterprise/services/contextualBanditStats";
 
-jest.mock("back-end/src/services/stats", () => ({
-  getAnalysisSettingsForStatsEngine: jest.fn(),
-  getMetricSettingsForStatsEngine: jest.fn(),
-  runStatsEngine: jest.fn(),
+vi.mock("back-end/src/services/stats", () => ({
+  getAnalysisSettingsForStatsEngine: vi.fn(),
+  getMetricSettingsForStatsEngine: vi.fn(),
+  runStatsEngine: vi.fn(),
 }));
 
 function rows(

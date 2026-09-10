@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ReqContext } from "back-end/types/request";
 import { addSlackChannelToWorkspace } from "back-end/src/services/slackIntegration";
 import {
@@ -10,14 +11,14 @@ import {
   listSlackConversations,
 } from "back-end/src/services/slack/slackWebApi";
 
-jest.mock("back-end/src/models/EventWebhookModel", () => ({
-  createEventWebHook: jest.fn(),
-  getAllEventWebHooks: jest.fn(),
+vi.mock("back-end/src/models/EventWebhookModel", () => ({
+  createEventWebHook: vi.fn(),
+  getAllEventWebHooks: vi.fn(),
 }));
-jest.mock("back-end/src/services/slack/slackWebApi", () => ({
-  getSlackConversation: jest.fn(),
-  joinSlackConversation: jest.fn(),
-  listSlackConversations: jest.fn(),
+vi.mock("back-end/src/services/slack/slackWebApi", () => ({
+  getSlackConversation: vi.fn(),
+  joinSlackConversation: vi.fn(),
+  listSlackConversations: vi.fn(),
   SLACK_WORKSPACE_PLACEHOLDER_URL: "https://slack.com",
 }));
 const context = {
@@ -39,12 +40,12 @@ const context = {
 const add = () =>
   addSlackChannelToWorkspace({ context, teamId: "T1", channelId: "C1" });
 beforeEach(() => {
-  jest.resetAllMocks();
-  jest.mocked(getAllEventWebHooks).mockResolvedValue([]);
-  jest.mocked(createEventWebHook).mockResolvedValue({ id: "created" } as never);
+  vi.resetAllMocks();
+  vi.mocked(getAllEventWebHooks).mockResolvedValue([]);
+  vi.mocked(createEventWebHook).mockResolvedValue({ id: "created" } as never);
 });
 it("connects an invited private channel without pagination or joining", async () => {
-  jest.mocked(getSlackConversation).mockResolvedValue({
+  vi.mocked(getSlackConversation).mockResolvedValue({
     id: "C1",
     name: "private-alerts",
     isPrivate: true,
@@ -55,7 +56,7 @@ it("connects an invited private channel without pagination or joining", async ()
     token: "xoxb-token",
     channelId: "C1",
   });
-  expect(jest.mocked(createEventWebHook).mock.calls[0][0].slack).toEqual({
+  expect(vi.mocked(createEventWebHook).mock.calls[0][0].slack).toEqual({
     teamId: "T1",
     channelId: "C1",
     channelName: "private-alerts",
@@ -64,15 +65,13 @@ it("connects an invited private channel without pagination or joining", async ()
   expect(joinSlackConversation).not.toHaveBeenCalled();
 });
 it("joins a public channel before saving its destination", async () => {
-  jest.mocked(getSlackConversation).mockResolvedValue({
+  vi.mocked(getSlackConversation).mockResolvedValue({
     id: "C1",
     name: "alerts",
     isPrivate: false,
     isMember: false,
   });
-  jest
-    .mocked(joinSlackConversation)
-    .mockResolvedValue({ ok: true, error: null });
+  vi.mocked(joinSlackConversation).mockResolvedValue({ ok: true, error: null });
   await expect(add()).resolves.toMatchObject({ id: "created" });
   expect(joinSlackConversation).toHaveBeenCalledWith({
     token: "xoxb-token",
@@ -80,7 +79,7 @@ it("joins a public channel before saving its destination", async () => {
   });
 });
 it("requires an invitation for private channels", async () => {
-  jest.mocked(getSlackConversation).mockResolvedValue({
+  vi.mocked(getSlackConversation).mockResolvedValue({
     id: "C1",
     name: "private-alerts",
     isPrivate: true,
@@ -91,7 +90,7 @@ it("requires an invitation for private channels", async () => {
   expect(joinSlackConversation).not.toHaveBeenCalled();
 });
 it("does not save an inaccessible channel", async () => {
-  jest.mocked(getSlackConversation).mockResolvedValue(null);
+  vi.mocked(getSlackConversation).mockResolvedValue(null);
   await expect(add()).rejects.toThrow("Slack channel not found");
   expect(createEventWebHook).not.toHaveBeenCalled();
 });

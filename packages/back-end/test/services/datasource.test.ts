@@ -1,22 +1,23 @@
+import { vi } from "vitest";
 import { testQueryValidity } from "back-end/src/services/datasource";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 
 // @ts-expect-error - we are not testing all the properties of the integration
 const mockDataSourceIntegration: SourceIntegrationInterface = {
-  getTestValidityQuery: jest.fn(),
-  runTestQuery: jest.fn(),
+  getTestValidityQuery: vi.fn(),
+  runTestQuery: vi.fn(),
 };
 
 // Mock integration whose test queries report the output columns
 // @ts-expect-error - we are not testing all the properties of the integration
 const mockSchemaIntegration: SourceIntegrationInterface = {
-  getTestValidityQuery: jest.fn(),
-  runTestQuery: jest.fn(),
+  getTestValidityQuery: vi.fn(),
+  runTestQuery: vi.fn(),
 };
 
 describe("testQueryValidity", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("should return undefined if integration does not support test queries", async () => {
@@ -46,10 +47,10 @@ describe("testQueryValidity", () => {
         query: "SELECT * FROM experiments",
       };
 
-      mockDataSourceIntegration.getTestValidityQuery = jest
+      mockDataSourceIntegration.getTestValidityQuery = vi
         .fn()
         .mockReturnValue("SELECT * FROM experiments");
-      mockDataSourceIntegration.runTestQuery = jest
+      mockDataSourceIntegration.runTestQuery = vi
         .fn()
         .mockResolvedValue({ results: [] });
 
@@ -76,10 +77,10 @@ describe("testQueryValidity", () => {
         query: "SELECT * FROM experiments",
       };
 
-      mockDataSourceIntegration.getTestValidityQuery = jest
+      mockDataSourceIntegration.getTestValidityQuery = vi
         .fn()
         .mockReturnValue("SELECT * FROM experiments");
-      mockDataSourceIntegration.runTestQuery = jest.fn().mockResolvedValue({
+      mockDataSourceIntegration.runTestQuery = vi.fn().mockResolvedValue({
         results: [
           {
             experiment_id: 1,
@@ -114,10 +115,10 @@ describe("testQueryValidity", () => {
         query: "SELECT * FROM experiments",
       };
 
-      mockDataSourceIntegration.getTestValidityQuery = jest
+      mockDataSourceIntegration.getTestValidityQuery = vi
         .fn()
         .mockReturnValue("SELECT * FROM experiments");
-      mockDataSourceIntegration.runTestQuery = jest.fn().mockResolvedValue({
+      mockDataSourceIntegration.runTestQuery = vi.fn().mockResolvedValue({
         results: [
           {
             user_id: 1,
@@ -174,10 +175,10 @@ describe("testQueryValidity", () => {
         query: "SELECT * FROM experiments",
       };
 
-      mockSchemaIntegration.getTestValidityQuery = jest
+      mockSchemaIntegration.getTestValidityQuery = vi
         .fn()
         .mockReturnValue("SELECT * FROM experiments LIMIT 0");
-      mockSchemaIntegration.runTestQuery = jest
+      mockSchemaIntegration.runTestQuery = vi
         .fn()
         .mockResolvedValue({ results: [], columns: [] });
 
@@ -196,10 +197,10 @@ describe("testQueryValidity", () => {
         query: "SELECT * FROM experiments",
       };
 
-      mockSchemaIntegration.getTestValidityQuery = jest
+      mockSchemaIntegration.getTestValidityQuery = vi
         .fn()
         .mockReturnValue("SELECT * FROM experiments LIMIT 0");
-      mockSchemaIntegration.runTestQuery = jest.fn().mockResolvedValue({
+      mockSchemaIntegration.runTestQuery = vi.fn().mockResolvedValue({
         results: [],
         columns: [
           { name: "experiment_id" },
@@ -225,10 +226,10 @@ describe("testQueryValidity", () => {
         query: "SELECT * FROM experiments",
       };
 
-      mockSchemaIntegration.getTestValidityQuery = jest
+      mockSchemaIntegration.getTestValidityQuery = vi
         .fn()
         .mockReturnValue("SELECT * FROM experiments LIMIT 0");
-      mockSchemaIntegration.runTestQuery = jest.fn().mockResolvedValue({
+      mockSchemaIntegration.runTestQuery = vi.fn().mockResolvedValue({
         results: [],
         columns: [
           { name: "user_id" },
@@ -281,10 +282,10 @@ describe("testQueryValidity", () => {
         expected: missingCamelCaseDimension,
       },
     ])("$name", async ({ queryResult, expected }) => {
-      mockSchemaIntegration.getTestValidityQuery = jest
+      mockSchemaIntegration.getTestValidityQuery = vi
         .fn()
         .mockReturnValue("SELECT * FROM experiments LIMIT 0");
-      mockSchemaIntegration.runTestQuery = jest
+      mockSchemaIntegration.runTestQuery = vi
         .fn()
         .mockResolvedValue(queryResult);
 
@@ -297,13 +298,13 @@ describe("testQueryValidity", () => {
     });
 
     it("reports a casing-only mismatch as missing on a case-sensitive engine (ClickHouse)", async () => {
-      // Local stub: jest.clearAllMocks does not reset plain props on the shared mock.
+      // Local stub: vi.clearAllMocks does not reset plain props on the shared mock.
       const caseSensitiveIntegration = {
         columnNamesAreCaseSensitive: true,
-        getTestValidityQuery: jest
+        getTestValidityQuery: vi
           .fn()
           .mockReturnValue("SELECT * FROM experiments LIMIT 0"),
-        runTestQuery: jest.fn().mockResolvedValue({
+        runTestQuery: vi.fn().mockResolvedValue({
           results: [],
           columns: lowercasedMetadataColumns,
         }),
@@ -328,10 +329,10 @@ describe("testQueryValidity", () => {
       query: "SELECT * FROM experiments",
     };
 
-    mockDataSourceIntegration.getTestValidityQuery = jest
+    mockDataSourceIntegration.getTestValidityQuery = vi
       .fn()
       .mockReturnValue("SELECT * FROM experiments");
-    mockDataSourceIntegration.runTestQuery = jest
+    mockDataSourceIntegration.runTestQuery = vi
       .fn()
       .mockRejectedValue(new Error("Test query failed"));
 

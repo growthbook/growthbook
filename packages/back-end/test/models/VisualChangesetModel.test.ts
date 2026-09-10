@@ -1,3 +1,4 @@
+import { Mock, MockInstance, vi } from "vitest";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ReqContext } from "shared/types/organization";
 import {
@@ -7,7 +8,7 @@ import {
 } from "back-end/src/models/VisualChangesetModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 
-jest.mock("back-end/src/util/mongo.util");
+vi.mock("back-end/src/util/mongo.util");
 
 describe("updateVisualChangeset", () => {
   const context: ReqContext = {
@@ -27,7 +28,7 @@ describe("updateVisualChangeset", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("when a visual changeset has existing visual changes", () => {
@@ -53,15 +54,18 @@ describe("updateVisualChangeset", () => {
         urlPatterns: [],
         visualChanges: undefined,
       };
-      const updateFn = jest
-        .spyOn(VisualChangesetModel, "updateOne")
-        .mockResolvedValue({
-          acknowledged: true,
-          matchedCount: 1,
-          modifiedCount: 1,
-          upsertedCount: 0,
-          upsertedId: null,
-        });
+      let updateFn: MockInstance;
+      beforeEach(() => {
+        updateFn = vi
+          .spyOn(VisualChangesetModel, "updateOne")
+          .mockResolvedValue({
+            acknowledged: true,
+            matchedCount: 1,
+            modifiedCount: 1,
+            upsertedCount: 0,
+            upsertedId: null,
+          });
+      });
       it("should keep the existing visual changes", async () => {
         await updateVisualChangeset({
           visualChangeset,
@@ -105,19 +109,22 @@ describe("updateVisualChangeset", () => {
           },
         ],
       };
-      const updateFn = jest
-        .spyOn(VisualChangesetModel, "updateOne")
-        .mockResolvedValue({
-          acknowledged: true,
-          matchedCount: 1,
-          modifiedCount: 1,
-          upsertedCount: 0,
-          upsertedId: null,
-        });
+      let updateFn: MockInstance;
+      beforeEach(() => {
+        updateFn = vi
+          .spyOn(VisualChangesetModel, "updateOne")
+          .mockResolvedValue({
+            acknowledged: true,
+            matchedCount: 1,
+            modifiedCount: 1,
+            upsertedCount: 0,
+            upsertedId: null,
+          });
+      });
 
       it("should overwrite the existing visual changes with new changes", async () => {
-        (getCollection as jest.Mock).mockReturnValue({
-          findOne: jest.fn().mockResolvedValue(null),
+        (getCollection as Mock).mockReturnValue({
+          findOne: vi.fn().mockResolvedValue(null),
         });
 
         await updateVisualChangeset({
@@ -146,19 +153,22 @@ describe("updateVisualChangeset", () => {
         urlPatterns: [],
         visualChanges: [],
       };
-      const updateFn = jest
-        .spyOn(VisualChangesetModel, "updateOne")
-        .mockResolvedValue({
-          acknowledged: true,
-          matchedCount: 1,
-          modifiedCount: 1,
-          upsertedCount: 0,
-          upsertedId: null,
-        });
+      let updateFn: MockInstance;
+      beforeEach(() => {
+        updateFn = vi
+          .spyOn(VisualChangesetModel, "updateOne")
+          .mockResolvedValue({
+            acknowledged: true,
+            matchedCount: 1,
+            modifiedCount: 1,
+            upsertedCount: 0,
+            upsertedId: null,
+          });
+      });
 
       it("should overwrite the existing visual changes with an empty list", async () => {
-        (getCollection as jest.Mock).mockReturnValue({
-          findOne: jest.fn().mockResolvedValue(null),
+        (getCollection as Mock).mockReturnValue({
+          findOne: vi.fn().mockResolvedValue(null),
         });
 
         const res = await updateVisualChangeset({
@@ -184,19 +194,22 @@ describe("updateVisualChangeset", () => {
       });
     });
     describe("and incoming updates has partial visualChanges", () => {
-      const updateFn = jest
-        .spyOn(VisualChangesetModel, "updateOne")
-        .mockResolvedValue({
-          acknowledged: true,
-          matchedCount: 1,
-          modifiedCount: 1,
-          upsertedCount: 0,
-          upsertedId: null,
-        });
+      let updateFn: MockInstance;
+      beforeEach(() => {
+        updateFn = vi
+          .spyOn(VisualChangesetModel, "updateOne")
+          .mockResolvedValue({
+            acknowledged: true,
+            matchedCount: 1,
+            modifiedCount: 1,
+            upsertedCount: 0,
+            upsertedId: null,
+          });
+      });
 
       it("should default required visual change fields", async () => {
-        (getCollection as jest.Mock).mockReturnValue({
-          findOne: jest.fn().mockResolvedValue(null),
+        (getCollection as Mock).mockReturnValue({
+          findOne: vi.fn().mockResolvedValue(null),
         });
 
         const res = await updateVisualChangeset({
@@ -260,19 +273,22 @@ describe("updateVisualChangeset", () => {
           },
         ],
       };
-      const updateFn = jest
-        .spyOn(VisualChangesetModel, "updateOne")
-        .mockResolvedValue({
-          acknowledged: true,
-          matchedCount: 1,
-          modifiedCount: 1,
-          upsertedCount: 0,
-          upsertedId: null,
-        });
+      let updateFn: MockInstance;
+      beforeEach(() => {
+        updateFn = vi
+          .spyOn(VisualChangesetModel, "updateOne")
+          .mockResolvedValue({
+            acknowledged: true,
+            matchedCount: 1,
+            modifiedCount: 1,
+            upsertedCount: 0,
+            upsertedId: null,
+          });
+      });
 
       it("should preserve fields the caller did not supply", async () => {
-        (getCollection as jest.Mock).mockReturnValue({
-          findOne: jest.fn().mockResolvedValue(null),
+        (getCollection as Mock).mockReturnValue({
+          findOne: vi.fn().mockResolvedValue(null),
         });
 
         const res = await updateVisualChangeset({
@@ -322,15 +338,18 @@ describe("updateVisualChangeset", () => {
       });
     });
     describe("and incoming updates include a disallowed organization field", () => {
-      const updateFn = jest
-        .spyOn(VisualChangesetModel, "updateOne")
-        .mockResolvedValue({
-          acknowledged: true,
-          matchedCount: 1,
-          modifiedCount: 1,
-          upsertedCount: 0,
-          upsertedId: null,
-        });
+      let updateFn: MockInstance;
+      beforeEach(() => {
+        updateFn = vi
+          .spyOn(VisualChangesetModel, "updateOne")
+          .mockResolvedValue({
+            acknowledged: true,
+            matchedCount: 1,
+            modifiedCount: 1,
+            upsertedCount: 0,
+            upsertedId: null,
+          });
+      });
 
       it("should not write disallowed fields to the visual changeset", async () => {
         const updates = {
@@ -361,15 +380,18 @@ describe("updateVisualChangeset", () => {
       });
     });
     describe("and incoming updates have undefined-valued fields", () => {
-      const updateFn = jest
-        .spyOn(VisualChangesetModel, "updateOne")
-        .mockResolvedValue({
-          acknowledged: true,
-          matchedCount: 1,
-          modifiedCount: 1,
-          upsertedCount: 0,
-          upsertedId: null,
-        });
+      let updateFn: MockInstance;
+      beforeEach(() => {
+        updateFn = vi
+          .spyOn(VisualChangesetModel, "updateOne")
+          .mockResolvedValue({
+            acknowledged: true,
+            matchedCount: 1,
+            modifiedCount: 1,
+            upsertedCount: 0,
+            upsertedId: null,
+          });
+      });
 
       it("should not write undefined values into $set", async () => {
         await updateVisualChangeset({
@@ -427,14 +449,14 @@ describe("updateVisualChange", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("ignores attempts to rename a visual change via the payload id", async () => {
-    jest.spyOn(VisualChangesetModel, "findOne").mockResolvedValue({
+    vi.spyOn(VisualChangesetModel, "findOne").mockResolvedValue({
       toJSON: () => visualChangeset,
     } as never);
-    const updateFn = jest
+    const updateFn = vi
       .spyOn(VisualChangesetModel, "updateOne")
       .mockResolvedValue({
         acknowledged: true,

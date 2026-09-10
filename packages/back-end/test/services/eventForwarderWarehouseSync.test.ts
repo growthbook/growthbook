@@ -1,30 +1,28 @@
+import { MockedFunction, vi } from "vitest";
 import { queueDelayedFactTableColumnsRefreshForDatasource } from "back-end/src/services/eventForwarder/factTable";
 import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarder/warehouseSync";
 import { queueRevalidateEventForwarderDataSourceQueriesAt } from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
 
-jest.mock("back-end/src/services/eventForwarder/factTable", () => ({
-  queueDelayedFactTableColumnsRefreshForDatasource: jest.fn(),
+vi.mock("back-end/src/services/eventForwarder/factTable", () => ({
+  queueDelayedFactTableColumnsRefreshForDatasource: vi.fn(),
 }));
 
-jest.mock(
-  "back-end/src/jobs/revalidateEventForwarderDataSourceQueries",
-  () => ({
-    queueRevalidateEventForwarderDataSourceQueriesAt: jest.fn(),
-  }),
-);
+vi.mock("back-end/src/jobs/revalidateEventForwarderDataSourceQueries", () => ({
+  queueRevalidateEventForwarderDataSourceQueriesAt: vi.fn(),
+}));
 
 const factTableRefreshMock =
-  queueDelayedFactTableColumnsRefreshForDatasource as jest.MockedFunction<
+  queueDelayedFactTableColumnsRefreshForDatasource as MockedFunction<
     typeof queueDelayedFactTableColumnsRefreshForDatasource
   >;
 const revalidateJobMock =
-  queueRevalidateEventForwarderDataSourceQueriesAt as jest.MockedFunction<
+  queueRevalidateEventForwarderDataSourceQueriesAt as MockedFunction<
     typeof queueRevalidateEventForwarderDataSourceQueriesAt
   >;
 
 describe("eventForwarderWarehouseSync", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("queues fact table column refresh and delayed query revalidation", async () => {

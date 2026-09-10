@@ -1,18 +1,22 @@
+import { MockedFunction, vi } from "vitest";
 import { AIModel, AIProvider } from "shared/ai";
 import { AIKeySource } from "back-end/src/services/aiCredentials";
 import { ReqContext } from "back-end/types/request";
 
 // The cap only exists on Cloud, so every case here is a Cloud case.
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/secrets")>(
+    "back-end/src/util/secrets",
+  )),
   IS_CLOUD: true,
 }));
-jest.mock("back-end/src/services/organizations", () => {
+vi.mock("back-end/src/services/organizations", async () => {
   // Mirrors getAllowedAIModel's Cloud rule. requireActual on the real module
   // cycles through OrganizationModel, and the rule is one line.
-  const { getProviderForAIModel } = jest.requireActual("shared/ai");
+  const { getProviderForAIModel } =
+    await vi.importActual<typeof import("shared/ai")>("shared/ai");
   return {
-    getAISettingsForOrg: jest.fn(),
+    getAISettingsForOrg: vi.fn(),
     getAllowedAIModel: (
       kind: "text" | "embedding" | "image",
       model: string | undefined,
@@ -26,9 +30,9 @@ jest.mock("back-end/src/services/organizations", () => {
     },
   };
 });
-jest.mock("back-end/src/models/AITokenUsageModel", () => ({
-  getTokensUsedByOrganization: jest.fn(),
-  updateTokenUsage: jest.fn(),
+vi.mock("back-end/src/models/AITokenUsageModel", () => ({
+  getTokensUsedByOrganization: vi.fn(),
+  updateTokenUsage: vi.fn(),
 }));
 
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
@@ -39,10 +43,10 @@ import {
   secondsUntilAICanBeUsedAgainForProvider,
 } from "back-end/src/enterprise/services/ai";
 
-const mockedSettings = getAISettingsForOrg as jest.MockedFunction<
+const mockedSettings = getAISettingsForOrg as MockedFunction<
   typeof getAISettingsForOrg
 >;
-const mockedTokens = getTokensUsedByOrganization as jest.MockedFunction<
+const mockedTokens = getTokensUsedByOrganization as MockedFunction<
   typeof getTokensUsedByOrganization
 >;
 
@@ -83,7 +87,7 @@ const context = { org: { id: "org_1" } } as unknown as ReqContext;
 
 describe("provider-exact AI usage cap", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     setOverCap();
   });
 

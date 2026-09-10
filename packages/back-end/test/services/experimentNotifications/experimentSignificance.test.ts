@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { Promise as BluebirdPromise } from "bluebird";
 import { ensureAndReturn } from "shared/util";
 import { Permissions } from "shared/permissions";
@@ -18,14 +19,14 @@ import {
   experiments,
 } from "./experimentSignificance.mocks.json";
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  getLatestSuccessfulSnapshot: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  getLatestSuccessfulSnapshot: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getEnvironmentIdsFromOrg: jest.fn(),
-  getMetricDefaultsForOrg: jest.fn(),
-  getSignificanceSettingsForProject: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getEnvironmentIdsFromOrg: vi.fn(),
+  getMetricDefaultsForOrg: vi.fn(),
+  getSignificanceSettingsForProject: vi.fn(),
 }));
 
 const testCases = [
@@ -134,8 +135,8 @@ describe("Experiment Significance notifications", () => {
         },
         projects: {},
       }),
-      auditLog: jest.fn(),
-      logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn() },
+      auditLog: vi.fn(),
+      logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
     } as unknown as ReqContext;
 
     setReqContext(globalContext);

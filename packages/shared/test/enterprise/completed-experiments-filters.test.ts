@@ -1,4 +1,4 @@
-/// <reference types="jest" />
+/// <reference types="vitest/globals" />
 
 import { resolveCompletedExperimentsFilters } from "../../src/enterprise/validators/dashboard-block";
 

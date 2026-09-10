@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { format } from "shared/sql";
 import { MetricInterface } from "shared/types/metric";
 import {
@@ -1085,7 +1086,6 @@ describe("full fact metric experiment query - bigquery", () => {
   let bqIntegration: BigQuery;
 
   // Empty exposureQueryId resolves to lookup id "anonymous_id" in getExposureQuery.
-  // Real config avoids jest.spyOn on the module export (non-configurable under @swc/jest).
   const testExposureQuery: ExposureQuery = {
     id: "anonymous_id",
     name: "Exposure",
@@ -1879,12 +1879,12 @@ describe("quantile grid array packing is BigQuery-only", () => {
 
 describe("getFeatureEvalDiagnosticsQuery", () => {
   beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date("2025-03-24T12:00:00.000Z"));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-03-24T12:00:00.000Z"));
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("replaces template variables in the feature usage query", () => {

@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import type Agenda from "agenda";
 import type {
   ExperimentSnapshotInterface,
@@ -25,68 +26,68 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  dangerousFindStalledRunningSnapshotsFromAllOrgs: jest.fn(),
-  errorSnapshotIfStillRunning: jest.fn(),
-  findRunningSnapshotsByQueryId: jest.fn().mockResolvedValue([]),
-  updateSnapshot: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  dangerousFindStalledRunningSnapshotsFromAllOrgs: vi.fn(),
+  errorSnapshotIfStillRunning: vi.fn(),
+  findRunningSnapshotsByQueryId: vi.fn().mockResolvedValue([]),
+  updateSnapshot: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/QueryModel", () => ({
-  getQueryStatusesByIds: jest.fn(),
-  getStaleQueries: jest.fn(),
-  markPendingQueriesAsFailed: jest.fn(),
+vi.mock("back-end/src/models/QueryModel", () => ({
+  getQueryStatusesByIds: vi.fn(),
+  getStaleQueries: vi.fn(),
+  markPendingQueriesAsFailed: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentById: jest.fn(),
-  updateExperiment: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentById: vi.fn(),
+  updateExperiment: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/MetricModel", () => ({
-  findRunningMetricsByQueryId: jest.fn().mockResolvedValue([]),
-  updateMetricQueriesAndStatus: jest.fn(),
+vi.mock("back-end/src/models/MetricModel", () => ({
+  findRunningMetricsByQueryId: vi.fn().mockResolvedValue([]),
+  updateMetricQueriesAndStatus: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/PastExperimentsModel", () => ({
-  findRunningPastExperimentsByQueryId: jest.fn().mockResolvedValue([]),
-  updatePastExperiments: jest.fn(),
+vi.mock("back-end/src/models/PastExperimentsModel", () => ({
+  findRunningPastExperimentsByQueryId: vi.fn().mockResolvedValue([]),
+  updatePastExperiments: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ReportModel", () => ({
-  findReportsByQueryId: jest.fn().mockResolvedValue([]),
-  updateReport: jest.fn(),
+vi.mock("back-end/src/models/ReportModel", () => ({
+  findReportsByQueryId: vi.fn().mockResolvedValue([]),
+  updateReport: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgId: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgId: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/MetricAnalysisModel", () => ({
+vi.mock("back-end/src/models/MetricAnalysisModel", () => ({
   MetricAnalysisModel: {
-    findByQueryIds: jest.fn().mockResolvedValue([]),
+    findByQueryIds: vi.fn().mockResolvedValue([]),
   },
 }));
 
-jest.mock("back-end/src/util/mongo.util", () => ({
-  getCollection: jest.fn(() => {
+vi.mock("back-end/src/util/mongo.util", () => ({
+  getCollection: vi.fn(() => {
     const cursor = {
-      limit: jest.fn().mockReturnThis(),
-      toArray: jest.fn().mockResolvedValue([]),
+      limit: vi.fn().mockReturnThis(),
+      toArray: vi.fn().mockResolvedValue([]),
     };
     return {
-      find: jest.fn().mockReturnValue(cursor),
-      updateOne: jest.fn().mockResolvedValue({ modifiedCount: 0 }),
+      find: vi.fn().mockReturnValue(cursor),
+      updateOne: vi.fn().mockResolvedValue({ modifiedCount: 0 }),
     };
   }),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
@@ -306,12 +307,12 @@ describe("classifyStalledSnapshot", () => {
 });
 
 describe("expireOldQueries stalled snapshot reaper", () => {
-  const releaseLock = jest.fn().mockResolvedValue(undefined);
+  const releaseLock = vi.fn().mockResolvedValue(undefined);
   const context = {
     org: { id: "org_1" },
     models: {
       incrementalRefresh: { releaseLock },
-      metricAnalysis: { update: jest.fn() },
+      metricAnalysis: { update: vi.fn() },
     },
   };
 
@@ -319,7 +320,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
   // oldest-first, honoring the caller's limit and exclusion list.
   function mockCandidates(candidates: ExperimentSnapshotInterface[]) {
     (
-      dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
+      dangerousFindStalledRunningSnapshotsFromAllOrgs as Mock
     ).mockImplementation(
       async (_stalledBefore: Date, limit: number, excludeIds: string[] = []) =>
         candidates.filter((c) => !excludeIds.includes(c.id)).slice(0, limit),
@@ -327,30 +328,30 @@ describe("expireOldQueries stalled snapshot reaper", () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    (getStaleQueries as jest.Mock).mockResolvedValue([]);
+    vi.clearAllMocks();
+    (getStaleQueries as Mock).mockResolvedValue([]);
     mockCandidates([]);
-    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([]);
-    (errorSnapshotIfStillRunning as jest.Mock).mockResolvedValue(true);
-    (markPendingQueriesAsFailed as jest.Mock).mockResolvedValue(1);
-    (getExperimentById as jest.Mock).mockResolvedValue({
+    (getQueryStatusesByIds as Mock).mockResolvedValue([]);
+    (errorSnapshotIfStillRunning as Mock).mockResolvedValue(true);
+    (markPendingQueriesAsFailed as Mock).mockResolvedValue(1);
+    (getExperimentById as Mock).mockResolvedValue({
       id: "exp_1",
       organization: "org_1",
     });
-    (updateExperiment as jest.Mock).mockResolvedValue({});
-    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(context);
+    (updateExperiment as Mock).mockResolvedValue({});
+    (getContextForAgendaJobByOrgId as Mock).mockResolvedValue(context);
   });
 
   async function runJob() {
     const definitions: Record<string, () => Promise<void>> = {};
     const agenda = {
-      define: jest.fn((name: string, fn: () => Promise<void>) => {
+      define: vi.fn((name: string, fn: () => Promise<void>) => {
         definitions[name] = fn;
       }),
-      create: jest.fn(() => ({
-        unique: jest.fn(),
-        repeatEvery: jest.fn(),
-        save: jest.fn().mockResolvedValue(undefined),
+      create: vi.fn(() => ({
+        unique: vi.fn(),
+        repeatEvery: vi.fn(),
+        save: vi.fn().mockResolvedValue(undefined),
       })),
     };
 
@@ -400,7 +401,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     const candidate = runningSnapshot("snp_1", snapshot);
     candidate.queries = [{ name: "main", query: "qry_1", status: "queued" }];
     mockCandidates([candidate]);
-    (getQueryStatusesByIds as jest.Mock).mockResolvedValue(
+    (getQueryStatusesByIds as Mock).mockResolvedValue(
       snapshot.statuses ?? [{ id: "qry_1", status: "queued" }],
     );
   }
@@ -497,7 +498,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       ageMs: 12 * 60 * 1000,
     });
     mockCandidates([...live, dead]);
-    (getQueryStatusesByIds as jest.Mock).mockImplementation(
+    (getQueryStatusesByIds as Mock).mockImplementation(
       async (_org: string, ids: string[]) =>
         ids.map((id) => ({
           id,

@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import { PermissionError } from "shared/util";
 import request from "supertest";
 import { FeatureInterface } from "shared/types/feature";
@@ -21,39 +22,39 @@ import {
 } from "back-end/src/services/features";
 import { setupApp } from "./api.setup";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  createFeature: jest.fn(),
-  updateFeature: jest.fn(),
-  createAndPublishRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
+  createFeature: vi.fn(),
+  updateFeature: vi.fn(),
+  createAndPublishRevision: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/TagModel", () => ({
-  addTags: jest.fn(),
-  addTagsDiff: jest.fn(),
+vi.mock("back-end/src/models/TagModel", () => ({
+  addTags: vi.fn(),
+  addTagsDiff: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentMapForFeature: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentMapForFeature: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getRevision: jest.fn(),
-  normalizeRulesInputToV2: jest.fn(() => []),
-  registerRevisionPublishedHook: jest.fn(),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: vi.fn(),
+  normalizeRulesInputToV2: vi.fn(() => []),
+  registerRevisionPublishedHook: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/features", () => ({
-  getApiFeatureObj: jest.fn(),
-  getSavedGroupMap: jest.fn(),
-  getNextScheduledUpdate: jest.fn(),
-  addIdsToRules: jest.fn(),
-  addIdsToFlatRules: jest.fn(),
-  inheritStoredRolloutSeeds: jest.fn(),
-  createInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
-  updateInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
-  buildFeatureRulesFromApiEnvSettings: jest.fn(() => []),
-  fromApiEnvSettingsRulesToFeatureEnvSettingsRules: jest.fn(() => []),
+vi.mock("back-end/src/services/features", () => ({
+  getApiFeatureObj: vi.fn(),
+  getSavedGroupMap: vi.fn(),
+  getNextScheduledUpdate: vi.fn(),
+  addIdsToRules: vi.fn(),
+  addIdsToFlatRules: vi.fn(),
+  inheritStoredRolloutSeeds: vi.fn(),
+  createInterfaceEnvSettingsFromApiEnvSettings: vi.fn(),
+  updateInterfaceEnvSettingsFromApiEnvSettings: vi.fn(),
+  buildFeatureRulesFromApiEnvSettings: vi.fn(() => []),
+  fromApiEnvSettingsRulesToFeatureEnvSettingsRules: vi.fn(() => []),
 }));
 
 // ---------------------------------------------------------------------------
@@ -111,12 +112,12 @@ describe("features API", () => {
   };
 
   const getEmptyCustomFieldsModel = () => ({
-    getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
+    getCustomFieldsBySectionAndProject: vi.fn().mockResolvedValue([]),
   });
 
   const defaultModels = () => ({
     safeRollout: {
-      getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+      getAllPayloadSafeRollouts: vi.fn().mockResolvedValue(new Map()),
     },
     customFields: getEmptyCustomFieldsModel(),
   });
@@ -141,48 +142,44 @@ describe("features API", () => {
       models: defaultModels(),
       permissions: defaultPermissions(),
       getProjects: async () => [{ id: "project" }],
-      getUserByEmail: jest.fn().mockResolvedValue(null),
-      getUsersByIds: jest.fn().mockResolvedValue([]),
+      getUserByEmail: vi.fn().mockResolvedValue(null),
+      getUsersByIds: vi.fn().mockResolvedValue([]),
       ...overrides,
     });
 
   beforeEach(() => {
-    (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
-    (getSavedGroupMap as jest.Mock).mockResolvedValue("savedGroupMap");
-    (getExperimentMapForFeature as jest.Mock).mockResolvedValue(new Map());
-    (getNextScheduledUpdate as jest.Mock).mockReturnValue(null);
+    (getApiFeatureObj as Mock).mockImplementation((v) => v);
+    (getSavedGroupMap as Mock).mockResolvedValue("savedGroupMap");
+    (getExperimentMapForFeature as Mock).mockResolvedValue(new Map());
+    (getNextScheduledUpdate as Mock).mockReturnValue(null);
 
-    (getRevision as jest.Mock).mockImplementation(({ version }) =>
+    (getRevision as Mock).mockImplementation(({ version }) =>
       version !== undefined
         ? Promise.resolve(makeRevisionDoc(version))
         : Promise.resolve(null),
     );
 
     // Default: createAndPublishRevision succeeds and bumps the version.
-    (createAndPublishRevision as jest.Mock).mockImplementation(
-      ({ feature }) => {
-        const newVersion = (feature.version || 1) + 1;
-        return Promise.resolve({
-          revision: makeRevisionDoc(newVersion, feature.id),
-          updatedFeature: { ...feature, version: newVersion },
-        });
-      },
-    );
+    (createAndPublishRevision as Mock).mockImplementation(({ feature }) => {
+      const newVersion = (feature.version || 1) + 1;
+      return Promise.resolve({
+        revision: makeRevisionDoc(newVersion, feature.id),
+        updatedFeature: { ...feature, version: newVersion },
+      });
+    });
 
     // Default write mocks — individual tests can override as needed.
-    (getFeature as jest.Mock).mockReturnValue(undefined);
-    (addTags as jest.Mock).mockReturnValue(undefined);
-    (createFeature as jest.Mock).mockImplementation((v) => v);
-    (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
+    (getFeature as Mock).mockReturnValue(undefined);
+    (addTags as Mock).mockReturnValue(undefined);
+    (createFeature as Mock).mockImplementation((v) => v);
+    (updateFeature as Mock).mockImplementation((ctx, f, updates) =>
       Promise.resolve({ ...f, ...updates }),
     );
-    (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
-      {},
-    );
+    (createInterfaceEnvSettingsFromApiEnvSettings as Mock).mockReturnValue({});
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   // ---------------------------------------------------------------------------
@@ -191,7 +188,7 @@ describe("features API", () => {
 
   it("can create new features", async () => {
     defaultContext();
-    (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
+    (createInterfaceEnvSettingsFromApiEnvSettings as Mock).mockReturnValue(
       "createInterfaceEnvSettingsFromApiEnvSettings",
     );
 
@@ -263,7 +260,7 @@ describe("features API", () => {
       enabled: true,
       allEnvironments: true,
     };
-    (buildFeatureRulesFromApiEnvSettings as jest.Mock).mockReturnValueOnce([
+    (buildFeatureRulesFromApiEnvSettings as Mock).mockReturnValueOnce([
       unstampedRule,
     ]);
 
@@ -283,7 +280,7 @@ describe("features API", () => {
 
   it("resolves email to userId when creating a feature", async () => {
     defaultContext({
-      getUserByEmail: jest.fn().mockResolvedValue({ id: testUser.id }),
+      getUserByEmail: vi.fn().mockResolvedValue({ id: testUser.id }),
     });
 
     const response = await request(app)
@@ -339,7 +336,7 @@ describe("features API", () => {
       models: {
         ...defaultModels(),
         customFields: {
-          getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([
+          getCustomFieldsBySectionAndProject: vi.fn().mockResolvedValue([
             {
               id: "cfd_team",
               name: "Owning Team",
@@ -412,7 +409,7 @@ describe("features API", () => {
       requireProjectContext();
 
       const existingFeature = makeFeature({ project: "project" });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      (getFeature as Mock).mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -426,7 +423,7 @@ describe("features API", () => {
       requireProjectContext();
 
       const existingFeature = makeFeature({ project: "" });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      (getFeature as Mock).mockResolvedValue(existingFeature);
 
       const newDescription = "This is an updated description";
       const response = await request(app)
@@ -447,7 +444,7 @@ describe("features API", () => {
     });
 
     it("allows updating existing features when required custom fields are missing and payload omits customFields", async () => {
-      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+      const getCustomFieldsBySectionAndProject = vi.fn().mockResolvedValue([
         {
           id: "cfd_team",
           name: "Owning Team",
@@ -467,7 +464,7 @@ describe("features API", () => {
       });
 
       const existingFeature = makeFeature({ customFields: {} });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      (getFeature as Mock).mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -479,7 +476,7 @@ describe("features API", () => {
     });
 
     it("allows updating existing features when customFields payload is unchanged", async () => {
-      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+      const getCustomFieldsBySectionAndProject = vi.fn().mockResolvedValue([
         {
           id: "cfd_team",
           name: "Owning Team",
@@ -499,7 +496,7 @@ describe("features API", () => {
       });
 
       const existingFeature = makeFeature({ customFields: {} });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      (getFeature as Mock).mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -511,7 +508,7 @@ describe("features API", () => {
     });
 
     it("rejects updating existing features when customFields are cleared from a non-empty object", async () => {
-      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+      const getCustomFieldsBySectionAndProject = vi.fn().mockResolvedValue([
         {
           id: "cfd_team",
           name: "Owning Team",
@@ -533,7 +530,7 @@ describe("features API", () => {
       const existingFeature = makeFeature({
         customFields: { cfd_team: "growth" },
       });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      (getFeature as Mock).mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -548,7 +545,7 @@ describe("features API", () => {
     });
 
     it("allows updating existing features when project payload is unchanged", async () => {
-      const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
+      const getCustomFieldsBySectionAndProject = vi.fn().mockResolvedValue([
         {
           id: "cfd_team",
           name: "Owning Team",
@@ -569,7 +566,7 @@ describe("features API", () => {
       });
 
       const existingFeature = makeFeature({ customFields: {} });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      (getFeature as Mock).mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -581,7 +578,7 @@ describe("features API", () => {
     });
 
     it("revalidates and rejects when changing project to one with required custom fields", async () => {
-      const getCustomFieldsBySectionAndProject = jest
+      const getCustomFieldsBySectionAndProject = vi
         .fn()
         .mockImplementation(({ project }) =>
           project === "project-b"
@@ -608,7 +605,7 @@ describe("features API", () => {
       });
 
       const existingFeature = makeFeature({ customFields: {} });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      (getFeature as Mock).mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -622,7 +619,7 @@ describe("features API", () => {
     });
 
     it("revalidates and rejects when changing project and customFields payload is changed", async () => {
-      const getCustomFieldsBySectionAndProject = jest
+      const getCustomFieldsBySectionAndProject = vi
         .fn()
         .mockImplementation(({ project }) =>
           project === "project-b"
@@ -651,7 +648,7 @@ describe("features API", () => {
       const existingFeature = makeFeature({
         customFields: { cfd_team: "growth" },
       });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      (getFeature as Mock).mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -713,14 +710,12 @@ describe("features API", () => {
         environmentSettings: { production: { enabled: true, rules: [] } },
       });
 
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (
-        updateInterfaceEnvSettingsFromApiEnvSettings as jest.Mock
-      ).mockReturnValue(updatedEnvironmentSettings);
-      (getNextScheduledUpdate as jest.Mock).mockReturnValue(
-        nextScheduledUpdate,
+      (getFeature as Mock).mockResolvedValue(existingFeature);
+      (updateInterfaceEnvSettingsFromApiEnvSettings as Mock).mockReturnValue(
+        updatedEnvironmentSettings,
       );
-      (createAndPublishRevision as jest.Mock).mockResolvedValue({
+      (getNextScheduledUpdate as Mock).mockReturnValue(nextScheduledUpdate);
+      (createAndPublishRevision as Mock).mockResolvedValue({
         revision: makeRevisionDoc(11, existingFeature.id),
         updatedFeature: { ...existingFeature, version: 11 },
       });
@@ -787,8 +782,8 @@ describe("features API", () => {
         },
       });
 
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
-      (getNextScheduledUpdate as jest.Mock).mockImplementation((envSettings) =>
+      (getFeature as Mock).mockResolvedValue(existingFeature);
+      (getNextScheduledUpdate as Mock).mockImplementation((envSettings) =>
         envSettings ? new Date("2026-02-20T08:00:00.000Z") : null,
       );
 
@@ -799,7 +794,7 @@ describe("features API", () => {
 
       expect(response.status).toBe(200);
       expect(updateFeature).toHaveBeenCalled();
-      const updateFeatureCall = (updateFeature as jest.Mock).mock.calls[0];
+      const updateFeatureCall = (updateFeature as Mock).mock.calls[0];
       const updatesArg = updateFeatureCall[2];
       expect(updatesArg).toEqual({ version: originalVersion + 1 });
     });
@@ -827,7 +822,7 @@ describe("features API", () => {
         org: { ...org, settings: { ...org.settings, ...orgSettings } },
         permissions: defaultPermissions(permissionsOverride),
       });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      (getFeature as Mock).mockResolvedValue(existingFeature);
       return existingFeature;
     };
 
@@ -892,7 +887,7 @@ describe("features API", () => {
 
     it("still lets a publisher unarchive without delete authority", async () => {
       const existing = setupUpdateTest({}, { canDeleteFeature: () => false });
-      (getFeature as jest.Mock).mockResolvedValue({
+      (getFeature as Mock).mockResolvedValue({
         ...existing,
         archived: true,
       });
@@ -909,7 +904,7 @@ describe("features API", () => {
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
         { canBypassFlagApprovalChecks: () => false },
       );
-      (createAndPublishRevision as jest.Mock).mockRejectedValue(
+      (createAndPublishRevision as Mock).mockRejectedValue(
         Object.assign(
           new Error(
             "This feature requires approval before changes can be published. " +
@@ -934,7 +929,7 @@ describe("features API", () => {
         ...approvalRequiredSettings,
         restApiBypassesReviews: false,
       });
-      (createAndPublishRevision as jest.Mock).mockResolvedValue({
+      (createAndPublishRevision as Mock).mockResolvedValue({
         revision: makeRevisionDoc(2),
         updatedFeature: makeFeature({ version: 2 }),
       });
@@ -971,7 +966,7 @@ describe("features API", () => {
       setupUpdateTest();
       // Send a field that results in no revision-tracked delta
       const existingFeature = makeFeature();
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      (getFeature as Mock).mockResolvedValue(existingFeature);
       // defaultValue same as current — no change
       const response = await request(app)
         .post("/api/v1/features/myfeature")

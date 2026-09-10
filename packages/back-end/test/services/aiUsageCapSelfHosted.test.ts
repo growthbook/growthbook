@@ -1,16 +1,19 @@
+import { MockedFunction, vi } from "vitest";
 // Companion to aiUsageCap.test.ts. IS_CLOUD is mocked per file, so the
 // self-hosted half of the gate needs its own module instance.
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/secrets")>(
+    "back-end/src/util/secrets",
+  )),
   IS_CLOUD: false,
 }));
-jest.mock("back-end/src/services/organizations", () => ({
-  getAISettingsForOrg: jest.fn(),
-  getAllowedAIModel: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getAISettingsForOrg: vi.fn(),
+  getAllowedAIModel: vi.fn(),
 }));
-jest.mock("back-end/src/models/AITokenUsageModel", () => ({
-  getTokensUsedByOrganization: jest.fn(),
-  updateTokenUsage: jest.fn(),
+vi.mock("back-end/src/models/AITokenUsageModel", () => ({
+  getTokensUsedByOrganization: vi.fn(),
+  updateTokenUsage: vi.fn(),
 }));
 
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
@@ -22,10 +25,10 @@ import {
   secondsUntilAICanBeUsedAgainForProvider,
 } from "back-end/src/enterprise/services/ai";
 
-const mockedSettings = getAISettingsForOrg as jest.MockedFunction<
+const mockedSettings = getAISettingsForOrg as MockedFunction<
   typeof getAISettingsForOrg
 >;
-const mockedTokens = getTokensUsedByOrganization as jest.MockedFunction<
+const mockedTokens = getTokensUsedByOrganization as MockedFunction<
   typeof getTokensUsedByOrganization
 >;
 
@@ -33,7 +36,7 @@ const context = { org: { id: "org_1" } } as unknown as ReqContext;
 
 describe("AI usage cap when self-hosted", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedTokens.mockResolvedValue({
       numTokensUsed: 100,
       dailyLimit: 10,

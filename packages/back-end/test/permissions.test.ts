@@ -58,7 +58,7 @@ describe("Build base user permissions", () => {
   };
   // Basic user permissions - no project-level permissions or teams
   it("should throw error if user isn't in the org", async () => {
-    expect(async () =>
+    await expect(async () =>
       getUserPermissions({ id: "base_user_not_in_org" }, testOrg, []),
     ).rejects.toThrow("User is not a member of this organization");
   });

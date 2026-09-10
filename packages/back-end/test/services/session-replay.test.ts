@@ -1,4 +1,5 @@
 import zlib from "zlib";
+import { vi } from "vitest";
 import {
   filterClientKeysByProject,
   getSessionReplayEventsByStoragePrefix,
@@ -10,20 +11,20 @@ import {
   getSessionReplayObjectBuffer,
 } from "back-end/src/services/files";
 
-jest.mock("back-end/src/services/files", () => ({
-  listSessionReplayChunks: jest.fn(),
-  getSessionReplayObjectBuffer: jest.fn(),
+vi.mock("back-end/src/services/files", () => ({
+  listSessionReplayChunks: vi.fn(),
+  getSessionReplayObjectBuffer: vi.fn(),
 }));
 
-const mockListChunks = jest.mocked(listSessionReplayChunks);
-const mockGetBuffer = jest.mocked(getSessionReplayObjectBuffer);
+const mockListChunks = vi.mocked(listSessionReplayChunks);
+const mockGetBuffer = vi.mocked(getSessionReplayObjectBuffer);
 
 function gzip(events: unknown[]): Buffer {
   return zlib.gzipSync(Buffer.from(JSON.stringify(events)));
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
@@ -13,14 +14,14 @@ import { factMetricFactory } from "../factories/FactMetric.factory";
 
 type MockBigQueryJob = {
   id: string;
-  getQueryResults: jest.Mock;
-  getMetadata: jest.Mock;
+  getQueryResults: Mock;
+  getMetadata: Mock;
 };
 
 describe("BigQuery reservation job config", () => {
   let integration: BigQuery;
   let mockJob: MockBigQueryJob;
-  let mockCreateQueryJob: jest.Mock;
+  let mockCreateQueryJob: Mock;
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
@@ -28,20 +29,20 @@ describe("BigQuery reservation job config", () => {
 
     mockJob = {
       id: "job_123",
-      getQueryResults: jest.fn().mockResolvedValue([[], undefined, undefined]),
-      getMetadata: jest.fn().mockResolvedValue([{}]),
+      getQueryResults: vi.fn().mockResolvedValue([[], undefined, undefined]),
+      getMetadata: vi.fn().mockResolvedValue([{}]),
     };
 
-    mockCreateQueryJob = jest.fn().mockResolvedValue([mockJob]);
+    mockCreateQueryJob = vi.fn().mockResolvedValue([mockJob]);
 
-    jest
+    vi
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .spyOn(integration as any, "getClient")
       .mockReturnValue({ createQueryJob: mockCreateQueryJob });
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("includes reservation in query job config when set", async () => {
@@ -79,24 +80,24 @@ describe("BigQuery reservation job config", () => {
 
 describe("BigQuery getExternalQueryStatus (status-only)", () => {
   let integration: BigQuery;
-  let mockJob: { getMetadata: jest.Mock };
-  let mockClientJob: jest.Mock;
+  let mockJob: { getMetadata: Mock };
+  let mockClientJob: Mock;
 
   beforeEach(() => {
     // @ts-expect-error -- context/datasource not needed for this unit test
     integration = new BigQuery("", {});
 
-    mockJob = { getMetadata: jest.fn() };
-    mockClientJob = jest.fn().mockReturnValue(mockJob);
+    mockJob = { getMetadata: vi.fn() };
+    mockClientJob = vi.fn().mockReturnValue(mockJob);
 
-    jest
+    vi
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .spyOn(integration as any, "getClient")
       .mockReturnValue({ job: mockClientJob });
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("maps DONE + errorResult to failed with the warehouse message", async () => {
@@ -571,7 +572,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
   beforeEach(() => {
     // @ts-expect-error -- context not needed for this unit test; exposure list
     // satisfies getExposureQuery(settings.exposureQueryId === "exposure") without
-    // jest.spyOn (non-configurable export under @swc/jest).
+    // Use the configured concurrency for this integration.
     integration = new BigQuery("", {
       settings: {
         queries: {

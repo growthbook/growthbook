@@ -1,4 +1,4 @@
-/// <reference types="jest" />
+/// <reference types="vitest/globals" />
 
 import { ExperimentInterface } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "../src/experiments/variations";

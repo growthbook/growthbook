@@ -1,9 +1,10 @@
 import * as path from "path";
+import { vi } from "vitest";
 
 // Integration tests for the worker pool's runtime behavior (boot handshake,
 // job round-trip, crash-loop breaker). These fork real child processes, so they
 // use plain-.js fixture workers (the real worker is .ts and can't be forked under
-// ts-jest). The pool reads its config from env at module load, so each test sets
+// the test runner). The pool reads its config from env at module load, so each test sets
 // env then loads a fresh module instance.
 
 const FIXTURES = path.join(__dirname, "fixtures", "sandbox");
@@ -23,9 +24,8 @@ const POOL_ENV_KEYS = [
 ];
 
 async function loadPool(env: Record<string, string>): Promise<Pool> {
-  jest.resetModules();
-  for (const k of POOL_ENV_KEYS) delete process.env[k];
-  Object.assign(process.env, env);
+  vi.resetModules();
+  for (const key of POOL_ENV_KEYS) vi.stubEnv(key, env[key]);
   return import("../src/enterprise/sandbox/sandbox-pool");
 }
 
@@ -35,7 +35,7 @@ describe("sandbox pool runtime", () => {
   afterEach(() => {
     pool?.__shutdownSandboxPool();
     pool = null;
-    for (const k of POOL_ENV_KEYS) delete process.env[k];
+    vi.unstubAllEnvs();
   });
 
   it("boots a worker, completes a job, and returns its result", async () => {

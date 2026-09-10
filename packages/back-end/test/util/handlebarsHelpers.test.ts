@@ -276,7 +276,7 @@ describe("sqlstring", function () {
 describe("date", function () {
   it("should throw a RangeError if undefined", function () {
     const fn = compile("{{date}}") as HandlebarsCompileFunction;
-    expect(() => fn()).toThrowError("");
+    expect(() => fn()).toThrowError(RangeError);
   });
 
   it("should return a correctly formatted test date", function () {

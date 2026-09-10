@@ -1,13 +1,14 @@
+import { vi } from "vitest";
 // Mock the same import chain dispatcher.test.ts mocks. general-agent.ts
 // transitively imports the dispatcher (which imports api.router) — without
 // the stub, the whole app loads and the test takes 30+ seconds.
-jest.mock("back-end/src/api/api.router", () => ({
+vi.mock("back-end/src/api/api.router", () => ({
   allRoutes: [],
 }));
 
 // Stub createAgentHandler so we don't try to spin up the real handler in
 // this unit test. We only care about the coerceBody helper.
-jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
+vi.mock("back-end/src/enterprise/services/agent-handler", () => ({
   createAgentHandler: () => async () => undefined,
 }));
 

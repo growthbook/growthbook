@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { Permissions, roleToPermissionMap } from "shared/permissions";
@@ -13,12 +14,12 @@ import {
 import { usingFileConfig, getConfigMetrics } from "back-end/src/init/config";
 import { ReqContext } from "back-end/types/request";
 
-jest.mock("back-end/src/init/config");
+vi.mock("back-end/src/init/config");
 
-const mockedUsingFileConfig = usingFileConfig as jest.MockedFunction<
+const mockedUsingFileConfig = usingFileConfig as MockedFunction<
   typeof usingFileConfig
 >;
-const mockedGetConfigMetrics = getConfigMetrics as jest.MockedFunction<
+const mockedGetConfigMetrics = getConfigMetrics as MockedFunction<
   typeof getConfigMetrics
 >;
 
@@ -105,7 +106,7 @@ describe("getMetricsForDefinitions", () => {
   });
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     await mongoose.connection.db!.collection("metrics").deleteMany({});
   });
 
@@ -172,7 +173,7 @@ describe("getMetricsByOrganization includeArchived", () => {
   });
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     await mongoose.connection.db!.collection("metrics").deleteMany({});
   });
 

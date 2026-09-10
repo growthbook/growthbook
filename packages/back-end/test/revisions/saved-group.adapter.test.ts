@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { SavedGroupInterface } from "shared/types/saved-group";
 import type { Revision, JsonPatchOperation } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -90,8 +91,8 @@ function makeContext(overrides: {
         : false,
     models: {
       savedGroups: overrides.savedGroupsModel ?? {
-        getById: jest.fn(),
-        update: jest.fn(),
+        getById: vi.fn(),
+        update: vi.fn(),
       },
     },
   } as unknown as Context;
@@ -342,7 +343,7 @@ describe("savedGroupAdapter", () => {
 
   describe("permission helpers", () => {
     it("canRead delegates to canReadMultiProjectResource with the snapshot projects", () => {
-      const canReadMultiProjectResource = jest.fn(() => true);
+      const canReadMultiProjectResource = vi.fn(() => true);
       const ctx = makeContext({
         permissions: { canReadMultiProjectResource },
       });
@@ -355,7 +356,7 @@ describe("savedGroupAdapter", () => {
     // destination-project check on a publish that moves projects, and the bulk
     // publisher's move guard — so both ask for publish authority.
     it("canCreate / canUpdate both ask for saved-group publish authority", () => {
-      const canRevisionAction = jest.fn(() => true);
+      const canRevisionAction = vi.fn(() => true);
       const ctx = makeContext({ permissions: { canRevisionAction } });
       expect(savedGroupAdapter.canCreate(ctx, baseGroup)).toBe(true);
       expect(savedGroupAdapter.canUpdate(ctx, baseGroup)).toBe(true);
@@ -370,7 +371,7 @@ describe("savedGroupAdapter", () => {
     });
 
     it("canDelete with no projects checks bypass on the empty project", () => {
-      const canBypassSavedGroupApprovalChecks = jest.fn(() => true);
+      const canBypassSavedGroupApprovalChecks = vi.fn(() => true);
       const ctx = makeContext({
         permissions: { canBypassSavedGroupApprovalChecks },
       });
@@ -386,7 +387,7 @@ describe("savedGroupAdapter", () => {
 
     it("canDelete with multiple projects requires bypass on every project", () => {
       const allowedProjects = new Set(["prj-1", "prj-2"]);
-      const canBypassSavedGroupApprovalChecks = jest.fn(
+      const canBypassSavedGroupApprovalChecks = vi.fn(
         ({ project }: { project: string }) => allowedProjects.has(project),
       );
       const ctx = makeContext({
@@ -398,7 +399,7 @@ describe("savedGroupAdapter", () => {
       };
       expect(savedGroupAdapter.canDelete(ctx, group)).toBe(true);
 
-      const partialDeny = jest.fn(
+      const partialDeny = vi.fn(
         ({ project }: { project: string }) => project !== "prj-2",
       );
       const ctx2 = makeContext({
@@ -408,7 +409,7 @@ describe("savedGroupAdapter", () => {
     });
 
     it("canBypassApproval mirrors canDelete logic", () => {
-      const canBypassSavedGroupApprovalChecks = jest.fn(
+      const canBypassSavedGroupApprovalChecks = vi.fn(
         ({ project }: { project: string }) => project === "prj-1",
       );
       const ctx = makeContext({
@@ -427,9 +428,9 @@ describe("savedGroupAdapter", () => {
 
   describe("applyChanges", () => {
     it("filters out non-updatable fields before calling the model", async () => {
-      const update = jest.fn().mockResolvedValue(undefined);
+      const update = vi.fn().mockResolvedValue(undefined);
       const ctx = makeContext({
-        savedGroupsModel: { getById: jest.fn(), update },
+        savedGroupsModel: { getById: vi.fn(), update },
       });
 
       await savedGroupAdapter.applyChanges(ctx, baseGroup, {
@@ -445,9 +446,9 @@ describe("savedGroupAdapter", () => {
     });
 
     it("ignores updatable fields whose value is unchanged", async () => {
-      const update = jest.fn().mockResolvedValue(undefined);
+      const update = vi.fn().mockResolvedValue(undefined);
       const ctx = makeContext({
-        savedGroupsModel: { getById: jest.fn(), update },
+        savedGroupsModel: { getById: vi.fn(), update },
       });
 
       await savedGroupAdapter.applyChanges(ctx, baseGroup, {
@@ -460,9 +461,9 @@ describe("savedGroupAdapter", () => {
     });
 
     it("treats undefined as 'no change' and skips the field", async () => {
-      const update = jest.fn().mockResolvedValue(undefined);
+      const update = vi.fn().mockResolvedValue(undefined);
       const ctx = makeContext({
-        savedGroupsModel: { getById: jest.fn(), update },
+        savedGroupsModel: { getById: vi.fn(), update },
       });
 
       await savedGroupAdapter.applyChanges(ctx, baseGroup, {
@@ -483,9 +484,9 @@ describe("savedGroupAdapter", () => {
     });
 
     it("does not call update at all when no changes are detected", async () => {
-      const update = jest.fn().mockResolvedValue(undefined);
+      const update = vi.fn().mockResolvedValue(undefined);
       const ctx = makeContext({
-        savedGroupsModel: { getById: jest.fn(), update },
+        savedGroupsModel: { getById: vi.fn(), update },
       });
 
       await savedGroupAdapter.applyChanges(ctx, baseGroup, {});
@@ -493,9 +494,9 @@ describe("savedGroupAdapter", () => {
     });
 
     it("passes only the differing updatable fields through", async () => {
-      const update = jest.fn().mockResolvedValue(undefined);
+      const update = vi.fn().mockResolvedValue(undefined);
       const ctx = makeContext({
-        savedGroupsModel: { getById: jest.fn(), update },
+        savedGroupsModel: { getById: vi.fn(), update },
       });
 
       await savedGroupAdapter.applyChanges(ctx, baseGroup, {
@@ -519,7 +520,7 @@ describe("revisions registry", () => {
   });
 
   it("getEntityModel returns the entity model from the adapter", () => {
-    const fakeModel = { getById: jest.fn() };
+    const fakeModel = { getById: vi.fn() };
     const ctx = makeContext({ savedGroupsModel: fakeModel });
     expect(getEntityModel(ctx, "saved-group")).toBe(fakeModel);
   });

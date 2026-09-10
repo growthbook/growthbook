@@ -1,27 +1,32 @@
+import { vi } from "vitest";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ReqContext } from "back-end/types/request";
 import { fireGlobalSdkWebhooks } from "back-end/src/jobs/sdkWebhooks";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/secrets")>(
+    "back-end/src/util/secrets",
+  )),
   // No global webhooks configured (the WEBHOOKS env var is unset)
   WEBHOOKS: [],
 }));
-jest.mock("back-end/src/controllers/features", () => ({
-  getFeatureDefinitionsWithCache: jest.fn().mockResolvedValue({
+vi.mock("back-end/src/controllers/features", () => ({
+  getFeatureDefinitionsWithCache: vi.fn().mockResolvedValue({
     features: {},
     dateUpdated: null,
   }),
 }));
-jest.mock("back-end/src/util/http.util", () => ({
-  ...jest.requireActual("back-end/src/util/http.util"),
-  cancellableFetch: jest.fn(),
+vi.mock("back-end/src/util/http.util", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/http.util")>(
+    "back-end/src/util/http.util",
+  )),
+  cancellableFetch: vi.fn(),
 }));
 
 describe("fireGlobalSdkWebhooks", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("does not generate SDK payloads when no global webhooks are configured", async () => {

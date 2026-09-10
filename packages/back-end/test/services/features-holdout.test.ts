@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import { ReqContext } from "shared/types/organization";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
@@ -6,38 +7,38 @@ import {
   getAllVisualExperiments,
   getAllURLRedirectExperiments,
 } from "back-end/src/models/ExperimentModel";
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeatures: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getAllFeatures: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getAllPayloadExperiments: jest.fn(),
-  getAllVisualExperiments: jest.fn(),
-  getAllURLRedirectExperiments: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getAllPayloadExperiments: vi.fn(),
+  getAllVisualExperiments: vi.fn(),
+  getAllURLRedirectExperiments: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
-  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("none"),
-  SdkConnectionCacheModel: jest.fn(),
+vi.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
+  getSDKPayloadCacheLocation: vi.fn().mockReturnValue("none"),
+  SdkConnectionCacheModel: vi.fn(),
 }));
 
-jest.mock("shared/util", () => ({
-  ...jest.requireActual("shared/util"),
-  getSavedGroupsValuesFromInterfaces: jest.fn().mockReturnValue({}),
+vi.mock("shared/util", async () => ({
+  ...(await vi.importActual<typeof import("shared/util")>("shared/util")),
+  getSavedGroupsValuesFromInterfaces: vi.fn().mockReturnValue({}),
 }));
 
-jest.mock("back-end/src/init/config", () => ({
+vi.mock("back-end/src/init/config", () => ({
   usingFileConfig: false,
-  getConfigMetrics: jest.fn().mockReturnValue([]),
-  getConfigDimensions: jest.fn().mockReturnValue([]),
-  getConfigSegments: jest.fn().mockReturnValue([]),
-  getConfigOrganizationSettings: jest.fn().mockReturnValue({}),
+  getConfigMetrics: vi.fn().mockReturnValue([]),
+  getConfigDimensions: vi.fn().mockReturnValue([]),
+  getConfigSegments: vi.fn().mockReturnValue([]),
+  getConfigOrganizationSettings: vi.fn().mockReturnValue({}),
 }));
 
-jest.mock("back-end/src/services/python", () => ({
+vi.mock("back-end/src/services/python", () => ({
   statsServerPool: {
-    acquire: jest.fn(),
-    release: jest.fn(),
+    acquire: vi.fn(),
+    release: vi.fn(),
   },
 }));
 
@@ -54,48 +55,44 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
     },
     models: {
       safeRollout: {
-        getAllPayloadSafeRollouts: jest
-          .fn()
-          .mockResolvedValue(new Map()) as jest.Mock,
+        getAllPayloadSafeRollouts: vi.fn().mockResolvedValue(new Map()) as Mock,
       },
       holdout: {
-        getAllPayloadHoldouts: jest
-          .fn()
-          .mockResolvedValue(new Map()) as jest.Mock,
+        getAllPayloadHoldouts: vi.fn().mockResolvedValue(new Map()) as Mock,
       },
       rampSchedules: {
-        getPayloadRampMonitoredRuleMap: jest
+        getPayloadRampMonitoredRuleMap: vi
           .fn()
-          .mockResolvedValue(new Map()) as jest.Mock,
+          .mockResolvedValue(new Map()) as Mock,
       },
       savedGroups: {
-        getAll: jest.fn().mockResolvedValue([]),
-        getByIds: jest.fn().mockResolvedValue([]),
+        getAll: vi.fn().mockResolvedValue([]),
+        getByIds: vi.fn().mockResolvedValue([]),
       },
       constants: {
-        getAll: jest.fn().mockResolvedValue([]),
+        getAll: vi.fn().mockResolvedValue([]),
       },
       configs: {
-        getAll: jest.fn().mockResolvedValue([]),
+        getAll: vi.fn().mockResolvedValue([]),
       },
     },
     userId: "test-user",
     email: "test@example.com",
     userName: "Test User",
-    initModels: jest.fn(),
+    initModels: vi.fn(),
   } as unknown as ReqContext;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
-    (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
-    (getAllVisualExperiments as jest.Mock).mockResolvedValue([]);
-    (getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);
+    (getAllPayloadExperiments as Mock).mockResolvedValue(new Map());
+    (getAllVisualExperiments as Mock).mockResolvedValue([]);
+    (getAllURLRedirectExperiments as Mock).mockResolvedValue([]);
   });
 
   it("should include holdout and holdout rule when holdout has the requested project", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (getAllFeatures as Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -123,7 +120,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
     // Mock holdouts
     (
-      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+      mockContext.models.holdout.getAllPayloadHoldouts as Mock
     ).mockResolvedValue(
       new Map([
         [
@@ -209,7 +206,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should NOT include holdout and holdout rule when holdout doesn't have the requested project", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (getAllFeatures as Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -237,7 +234,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
     // Mock holdouts
     (
-      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+      mockContext.models.holdout.getAllPayloadHoldouts as Mock
     ).mockResolvedValue(
       new Map([
         [
@@ -296,7 +293,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should include holdout and holdout rule when requested project is in holdout projects array", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (getAllFeatures as Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -324,7 +321,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
     // Mock holdouts
     (
-      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+      mockContext.models.holdout.getAllPayloadHoldouts as Mock
     ).mockResolvedValue(
       new Map([
         [
@@ -408,7 +405,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should NOT include holdout rule when holdout feature definition is missing", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (getAllFeatures as Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -436,7 +433,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
     // Mock holdouts
     (
-      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+      mockContext.models.holdout.getAllPayloadHoldouts as Mock
     ).mockResolvedValue(new Map());
 
     const result = await getFeatureDefinitionsWithCache({
@@ -459,7 +456,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should NOT include holdout feature definition when no feature has a holdout", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (getAllFeatures as Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -483,7 +480,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
     // Mock holdouts
     (
-      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+      mockContext.models.holdout.getAllPayloadHoldouts as Mock
     ).mockResolvedValue(
       new Map([
         [
@@ -540,7 +537,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should include feature definitions normally when no holdouts are present", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (getAllFeatures as Mock).mockResolvedValue([
       {
         id: "feature-1",
         valueType: "string",
@@ -585,7 +582,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
     // Mock holdouts
     (
-      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+      mockContext.models.holdout.getAllPayloadHoldouts as Mock
     ).mockResolvedValue(new Map());
 
     const result = await getFeatureDefinitionsWithCache({
@@ -622,7 +619,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
   });
 
   it("should include the holdout's targeting condition and saved groups on the holdout rule", async () => {
-    (mockContext.models.savedGroups.getAll as jest.Mock).mockResolvedValue([
+    (mockContext.models.savedGroups.getAll as Mock).mockResolvedValue([
       {
         id: "grp_beta",
         type: "condition",
@@ -630,7 +627,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       },
     ]);
 
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (getAllFeatures as Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -657,7 +654,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
     ]);
 
     (
-      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+      mockContext.models.holdout.getAllPayloadHoldouts as Mock
     ).mockResolvedValue(
       new Map([
         [
@@ -717,7 +714,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
   });
 
   it("should include list saved groups referenced only by a holdout in the payload", async () => {
-    (mockContext.models.savedGroups.getAll as jest.Mock).mockResolvedValue([
+    (mockContext.models.savedGroups.getAll as Mock).mockResolvedValue([
       {
         id: "grp_us_ca",
         type: "list",
@@ -726,7 +723,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       },
     ]);
 
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (getAllFeatures as Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -753,7 +750,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
     ]);
 
     (
-      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+      mockContext.models.holdout.getAllPayloadHoldouts as Mock
     ).mockResolvedValue(
       new Map([
         [

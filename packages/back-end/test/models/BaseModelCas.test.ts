@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { z } from "zod";
@@ -73,8 +74,8 @@ class MigratingCasModel extends BaseClass {
 
 const context = {
   org: { id: "org_1" },
-  populateForeignRefs: jest.fn().mockResolvedValue(undefined),
-  registerTags: jest.fn().mockResolvedValue(undefined),
+  populateForeignRefs: vi.fn().mockResolvedValue(undefined),
+  registerTags: vi.fn().mockResolvedValue(undefined),
   models: {},
 } as unknown as Context;
 
@@ -101,7 +102,7 @@ describe("BaseModel.updateWithCas", () => {
   });
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     const collections = mongoose.connection.collections;
     for (const key in collections) {
       await collections[key].deleteMany({});
@@ -335,7 +336,7 @@ describe("BaseModel.updateWithCas", () => {
       { $set: { counter: 42, dateUpdated: new Date(Date.now() + 1000) } },
     );
 
-    const onWritten = jest.fn();
+    const onWritten = vi.fn();
     await expect(
       // `created` carries the pre-race stamp, so the guard cannot match.
       model.updateIfUnchanged(created, { counter: 1 }, undefined, {

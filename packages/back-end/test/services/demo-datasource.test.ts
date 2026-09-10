@@ -1,3 +1,4 @@
+import { MockedFunction, Mock, vi } from "vitest";
 import {
   DEMO_DATASOURCE_HOST,
   DEMO_DATASOURCE_ID,
@@ -32,154 +33,152 @@ import * as DatasourceService from "back-end/src/services/datasource";
 import * as ExperimentsService from "back-end/src/services/experiments";
 import * as RefreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
-  getDataSourcesByOrganization: jest.fn(),
-  createDataSource: jest.fn(),
-  deleteDatasource: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
+  getDataSourcesByOrganization: vi.fn(),
+  createDataSource: vi.fn(),
+  deleteDatasource: vi.fn(),
 }));
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentById: jest.fn(),
-  getAllExperiments: jest.fn(),
-  createExperiment: jest.fn(),
-  deleteExperimentByIdForOrganization: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentById: vi.fn(),
+  getAllExperiments: vi.fn(),
+  createExperiment: vi.fn(),
+  deleteExperimentByIdForOrganization: vi.fn(),
 }));
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  createFeature: jest.fn(),
-  deleteFeature: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
+  createFeature: vi.fn(),
+  deleteFeature: vi.fn(),
 }));
-jest.mock("back-end/src/models/FactTableModel", () => ({
-  getFactTable: jest.fn(),
-  createFactTable: jest.fn(),
-  deleteFactTable: jest.fn(),
-  getFactTableMap: jest.fn(),
-  getFactTablesForDatasource: jest.fn(),
+vi.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTable: vi.fn(),
+  createFactTable: vi.fn(),
+  deleteFactTable: vi.fn(),
+  getFactTableMap: vi.fn(),
+  getFactTablesForDatasource: vi.fn(),
 }));
-jest.mock("back-end/src/models/DimensionModel", () => ({
-  findDimensionsByDataSource: jest.fn(),
-  deleteDimensionById: jest.fn(),
+vi.mock("back-end/src/models/DimensionModel", () => ({
+  findDimensionsByDataSource: vi.fn(),
+  deleteDimensionById: vi.fn(),
 }));
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  getLatestSuccessfulSnapshot: jest.fn(),
-  deleteAllSnapshotsForExperiment: jest.fn(),
+vi.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  getLatestSuccessfulSnapshot: vi.fn(),
+  deleteAllSnapshotsForExperiment: vi.fn(),
 }));
-jest.mock("back-end/src/models/MetricModel", () => ({
-  getMetricMap: jest.fn(),
-  getMetricsByDatasource: jest.fn(),
-  deleteMetricById: jest.fn(),
+vi.mock("back-end/src/models/MetricModel", () => ({
+  getMetricMap: vi.fn(),
+  getMetricsByDatasource: vi.fn(),
+  deleteMetricById: vi.fn(),
 }));
-jest.mock("back-end/src/services/datasource", () => ({
-  decryptDataSourceParams: jest.fn(),
+vi.mock("back-end/src/services/datasource", () => ({
+  decryptDataSourceParams: vi.fn(),
 }));
-jest.mock("back-end/src/services/experiments", () => ({
-  createSnapshot: jest.fn(),
-  getDefaultExperimentAnalysisSettings: jest.fn(),
+vi.mock("back-end/src/services/experiments", () => ({
+  createSnapshot: vi.fn(),
+  getDefaultExperimentAnalysisSettings: vi.fn(),
 }));
-jest.mock("back-end/src/jobs/refreshFactTableColumns", () => ({
-  queueFactTableColumnsRefresh: jest.fn(),
+vi.mock("back-end/src/jobs/refreshFactTableColumns", () => ({
+  queueFactTableColumnsRefresh: vi.fn(),
 }));
-jest.mock("back-end/src/services/holdouts", () => ({
-  deleteHoldoutAndExperiment: jest.fn(),
+vi.mock("back-end/src/services/holdouts", () => ({
+  deleteHoldoutAndExperiment: vi.fn(),
 }));
 
 const ORG_ID = "org_demotest";
 
 const mocked = {
-  getDataSourceById: DataSourceModel.getDataSourceById as jest.MockedFunction<
+  getDataSourceById: DataSourceModel.getDataSourceById as MockedFunction<
     typeof DataSourceModel.getDataSourceById
   >,
   getDataSourcesByOrganization:
-    DataSourceModel.getDataSourcesByOrganization as jest.MockedFunction<
+    DataSourceModel.getDataSourcesByOrganization as MockedFunction<
       typeof DataSourceModel.getDataSourcesByOrganization
     >,
-  createDataSource: DataSourceModel.createDataSource as jest.MockedFunction<
+  createDataSource: DataSourceModel.createDataSource as MockedFunction<
     typeof DataSourceModel.createDataSource
   >,
-  deleteDatasource: DataSourceModel.deleteDatasource as jest.MockedFunction<
+  deleteDatasource: DataSourceModel.deleteDatasource as MockedFunction<
     typeof DataSourceModel.deleteDatasource
   >,
-  getExperimentById: ExperimentModel.getExperimentById as jest.MockedFunction<
+  getExperimentById: ExperimentModel.getExperimentById as MockedFunction<
     typeof ExperimentModel.getExperimentById
   >,
-  getAllExperiments: ExperimentModel.getAllExperiments as jest.MockedFunction<
+  getAllExperiments: ExperimentModel.getAllExperiments as MockedFunction<
     typeof ExperimentModel.getAllExperiments
   >,
-  createExperiment: ExperimentModel.createExperiment as jest.MockedFunction<
+  createExperiment: ExperimentModel.createExperiment as MockedFunction<
     typeof ExperimentModel.createExperiment
   >,
   deleteExperimentByIdForOrganization:
-    ExperimentModel.deleteExperimentByIdForOrganization as jest.MockedFunction<
+    ExperimentModel.deleteExperimentByIdForOrganization as MockedFunction<
       typeof ExperimentModel.deleteExperimentByIdForOrganization
     >,
-  getFeature: FeatureModel.getFeature as jest.MockedFunction<
+  getFeature: FeatureModel.getFeature as MockedFunction<
     typeof FeatureModel.getFeature
   >,
-  createFeature: FeatureModel.createFeature as jest.MockedFunction<
+  createFeature: FeatureModel.createFeature as MockedFunction<
     typeof FeatureModel.createFeature
   >,
-  deleteFeature: FeatureModel.deleteFeature as jest.MockedFunction<
+  deleteFeature: FeatureModel.deleteFeature as MockedFunction<
     typeof FeatureModel.deleteFeature
   >,
-  getFactTable: FactTableModel.getFactTable as jest.MockedFunction<
+  getFactTable: FactTableModel.getFactTable as MockedFunction<
     typeof FactTableModel.getFactTable
   >,
-  createFactTable: FactTableModel.createFactTable as jest.MockedFunction<
+  createFactTable: FactTableModel.createFactTable as MockedFunction<
     typeof FactTableModel.createFactTable
   >,
-  deleteFactTable: FactTableModel.deleteFactTable as jest.MockedFunction<
+  deleteFactTable: FactTableModel.deleteFactTable as MockedFunction<
     typeof FactTableModel.deleteFactTable
   >,
-  getFactTableMap: FactTableModel.getFactTableMap as jest.MockedFunction<
+  getFactTableMap: FactTableModel.getFactTableMap as MockedFunction<
     typeof FactTableModel.getFactTableMap
   >,
   getFactTablesForDatasource:
-    FactTableModel.getFactTablesForDatasource as jest.MockedFunction<
+    FactTableModel.getFactTablesForDatasource as MockedFunction<
       typeof FactTableModel.getFactTablesForDatasource
     >,
   findDimensionsByDataSource:
-    DimensionModel.findDimensionsByDataSource as jest.MockedFunction<
+    DimensionModel.findDimensionsByDataSource as MockedFunction<
       typeof DimensionModel.findDimensionsByDataSource
     >,
-  deleteDimensionById:
-    DimensionModel.deleteDimensionById as jest.MockedFunction<
-      typeof DimensionModel.deleteDimensionById
-    >,
+  deleteDimensionById: DimensionModel.deleteDimensionById as MockedFunction<
+    typeof DimensionModel.deleteDimensionById
+  >,
   getLatestSuccessfulSnapshot:
-    ExperimentSnapshotModel.getLatestSuccessfulSnapshot as jest.MockedFunction<
+    ExperimentSnapshotModel.getLatestSuccessfulSnapshot as MockedFunction<
       typeof ExperimentSnapshotModel.getLatestSuccessfulSnapshot
     >,
   deleteAllSnapshotsForExperiment:
-    ExperimentSnapshotModel.deleteAllSnapshotsForExperiment as jest.MockedFunction<
+    ExperimentSnapshotModel.deleteAllSnapshotsForExperiment as MockedFunction<
       typeof ExperimentSnapshotModel.deleteAllSnapshotsForExperiment
     >,
-  getMetricMap: MetricModel.getMetricMap as jest.MockedFunction<
+  getMetricMap: MetricModel.getMetricMap as MockedFunction<
     typeof MetricModel.getMetricMap
   >,
-  getMetricsByDatasource:
-    MetricModel.getMetricsByDatasource as jest.MockedFunction<
-      typeof MetricModel.getMetricsByDatasource
-    >,
-  deleteMetricById: MetricModel.deleteMetricById as jest.MockedFunction<
+  getMetricsByDatasource: MetricModel.getMetricsByDatasource as MockedFunction<
+    typeof MetricModel.getMetricsByDatasource
+  >,
+  deleteMetricById: MetricModel.deleteMetricById as MockedFunction<
     typeof MetricModel.deleteMetricById
   >,
   decryptDataSourceParams:
-    DatasourceService.decryptDataSourceParams as jest.MockedFunction<
+    DatasourceService.decryptDataSourceParams as MockedFunction<
       typeof DatasourceService.decryptDataSourceParams
     >,
-  createSnapshot: ExperimentsService.createSnapshot as jest.MockedFunction<
+  createSnapshot: ExperimentsService.createSnapshot as MockedFunction<
     typeof ExperimentsService.createSnapshot
   >,
   getDefaultExperimentAnalysisSettings:
-    ExperimentsService.getDefaultExperimentAnalysisSettings as jest.MockedFunction<
+    ExperimentsService.getDefaultExperimentAnalysisSettings as MockedFunction<
       typeof ExperimentsService.getDefaultExperimentAnalysisSettings
     >,
   queueFactTableColumnsRefresh:
-    RefreshFactTableColumns.queueFactTableColumnsRefresh as jest.MockedFunction<
+    RefreshFactTableColumns.queueFactTableColumnsRefresh as MockedFunction<
       typeof RefreshFactTableColumns.queueFactTableColumnsRefresh
     >,
   deleteHoldoutAndExperiment:
-    HoldoutsService.deleteHoldoutAndExperiment as jest.MockedFunction<
+    HoldoutsService.deleteHoldoutAndExperiment as MockedFunction<
       typeof HoldoutsService.deleteHoldoutAndExperiment
     >,
 };
@@ -212,51 +211,51 @@ function makeContext(): ReqContext {
     userId: "u_tester",
     models: {
       projects: {
-        getById: jest.fn(async (id: string) => projects.get(id) || null),
-        create: jest.fn(async (data: Partial<ProjectInterface>) => {
+        getById: vi.fn(async (id: string) => projects.get(id) || null),
+        create: vi.fn(async (data: Partial<ProjectInterface>) => {
           const doc = { ...data } as ProjectInterface;
           projects.set(doc.id, doc);
           return doc;
         }),
-        deleteById: jest.fn(async (id: string) => {
+        deleteById: vi.fn(async (id: string) => {
           projects.delete(id);
         }),
       },
       factMetrics: {
-        getById: jest.fn(async (id: string) => factMetrics.get(id) || null),
-        create: jest.fn(async (data: { id: string }) => {
+        getById: vi.fn(async (id: string) => factMetrics.get(id) || null),
+        create: vi.fn(async (data: { id: string }) => {
           factMetrics.set(data.id, data);
           return data;
         }),
-        deleteById: jest.fn(async (id: string) => {
+        deleteById: vi.fn(async (id: string) => {
           factMetrics.delete(id);
         }),
-        getAllSorted: jest.fn(async () => [...factMetrics.values()]),
-        delete: jest.fn(async (doc: { id: string }) => {
+        getAllSorted: vi.fn(async () => [...factMetrics.values()]),
+        delete: vi.fn(async (doc: { id: string }) => {
           factMetrics.delete(doc.id);
         }),
       },
       metricGroups: {
-        getAll: jest.fn(async () => []),
-        delete: jest.fn(async () => undefined),
+        getAll: vi.fn(async () => []),
+        delete: vi.fn(async () => undefined),
       },
       segments: {
-        getByDataSource: jest.fn(async () => []),
-        delete: jest.fn(async () => undefined),
+        getByDataSource: vi.fn(async () => []),
+        delete: vi.fn(async () => undefined),
       },
       savedQueries: {
-        getAll: jest.fn(async () => []),
-        delete: jest.fn(async () => undefined),
+        getAll: vi.fn(async () => []),
+        delete: vi.fn(async () => undefined),
       },
       holdout: {
-        getAll: jest.fn(async () => []),
+        getAll: vi.fn(async () => []),
       },
     },
   } as unknown as ReqContext;
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 
   datasources = new Map();
   experiments = new Map();
@@ -529,14 +528,14 @@ describe("deleteDemoDatasourceAndDependents", () => {
     features.set("my-feature", { id: "my-feature" } as FeatureInterface);
 
     const context = makeContext();
-    (context.models.metricGroups.getAll as jest.Mock).mockResolvedValue([
+    (context.models.metricGroups.getAll as Mock).mockResolvedValue([
       userMetricGroup,
       { id: "mg_other", datasource: "ds_other" },
     ]);
-    (context.models.segments.getByDataSource as jest.Mock).mockResolvedValue([
+    (context.models.segments.getByDataSource as Mock).mockResolvedValue([
       userSegment,
     ]);
-    (context.models.savedQueries.getAll as jest.Mock).mockResolvedValue([
+    (context.models.savedQueries.getAll as Mock).mockResolvedValue([
       userSavedQuery,
       { id: "sq_other", datasourceId: "ds_other" },
     ]);
@@ -553,7 +552,7 @@ describe("deleteDemoDatasourceAndDependents", () => {
         (exp) => !exp.datasource || exp.datasource === DEMO_DATASOURCE_ID,
       ),
     );
-    (context.models.factMetrics.getAllSorted as jest.Mock).mockImplementation(
+    (context.models.factMetrics.getAllSorted as Mock).mockImplementation(
       async () => [...factMetrics.values()],
     );
 
@@ -599,7 +598,7 @@ describe("deleteDemoDatasourceAndDependents", () => {
     const holdout = { id: "hld_1", experimentId: holdoutExperiment.id };
 
     const context = makeContext();
-    (context.models.holdout.getAll as jest.Mock).mockResolvedValue([holdout]);
+    (context.models.holdout.getAll as Mock).mockResolvedValue([holdout]);
 
     await deleteDemoDatasourceAndDependents(context);
 
@@ -677,7 +676,7 @@ describe("deleteDemoDatasourceAndDependents", () => {
       [...factTables.values()].filter((ft) => ft.datasource === dsId),
     );
     const context = makeContext();
-    (context.models.factMetrics.getAllSorted as jest.Mock).mockImplementation(
+    (context.models.factMetrics.getAllSorted as Mock).mockImplementation(
       async ({ datasourceId }: { datasourceId?: string } = {}) =>
         [...factMetrics.values()].filter(
           (m) => !datasourceId || m.datasource === datasourceId,

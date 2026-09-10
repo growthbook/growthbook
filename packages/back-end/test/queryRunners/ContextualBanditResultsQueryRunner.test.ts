@@ -1,3 +1,4 @@
+import { MockedFunction, Mock, vi } from "vitest";
 import { contextualBanditAttrCol } from "shared/experiments";
 import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import { QueryInterface } from "shared/types/query";
@@ -18,20 +19,20 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { ReqContext } from "back-end/types/api";
 
-jest.mock("back-end/src/enterprise/services/contextualBanditStats", () => ({
-  runContextualStatsEngine: jest.fn(),
+vi.mock("back-end/src/enterprise/services/contextualBanditStats", () => ({
+  runContextualStatsEngine: vi.fn(),
 }));
-jest.mock("back-end/src/enterprise/services/contextualBandits", () => {
-  const actual = jest.requireActual(
-    "back-end/src/enterprise/services/contextualBandits",
-  );
+vi.mock("back-end/src/enterprise/services/contextualBandits", async () => {
+  const actual = await vi.importActual<
+    typeof import("back-end/src/enterprise/services/contextualBandits")
+  >("back-end/src/enterprise/services/contextualBandits");
   return {
     ...actual,
-    persistContextualBanditEvent: jest.fn(),
+    persistContextualBanditEvent: vi.fn(),
   };
 });
-jest.mock("back-end/src/models/MetricModel", () => ({
-  getMetricMap: jest.fn().mockResolvedValue(
+vi.mock("back-end/src/models/MetricModel", () => ({
+  getMetricMap: vi.fn().mockResolvedValue(
     new Map([
       [
         "fact__g1",
@@ -45,18 +46,17 @@ jest.mock("back-end/src/models/MetricModel", () => ({
     ]),
   ),
 }));
-jest.mock("back-end/src/models/FactTableModel", () => ({
-  getFactTableMap: jest.fn().mockResolvedValue(new Map()),
+vi.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTableMap: vi.fn().mockResolvedValue(new Map()),
 }));
 
 import { persistContextualBanditEvent } from "back-end/src/enterprise/services/contextualBandits";
 
-const runContextualStatsEngineMock =
-  runContextualStatsEngine as jest.MockedFunction<
-    typeof runContextualStatsEngine
-  >;
+const runContextualStatsEngineMock = runContextualStatsEngine as MockedFunction<
+  typeof runContextualStatsEngine
+>;
 const persistContextualBanditEventMock =
-  persistContextualBanditEvent as jest.MockedFunction<
+  persistContextualBanditEvent as MockedFunction<
     typeof persistContextualBanditEvent
   >;
 
@@ -166,10 +166,10 @@ function makeIntegration(): SourceIntegrationInterface {
         },
       },
     },
-    getExperimentFactMetricsQuery: jest
+    getExperimentFactMetricsQuery: vi
       .fn()
       .mockReturnValue("-- contextual-bandit metric SQL"),
-    runExperimentFactMetricsQuery: jest.fn().mockResolvedValue({ rows: [] }),
+    runExperimentFactMetricsQuery: vi.fn().mockResolvedValue({ rows: [] }),
   } as unknown as SourceIntegrationInterface;
 }
 
@@ -184,12 +184,12 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
     },
     models: {
       contextualBandits: {
-        getById: jest.fn().mockResolvedValue(cb),
-        patchLeafWeights: jest.fn().mockResolvedValue(cb),
+        getById: vi.fn().mockResolvedValue(cb),
+        patchLeafWeights: vi.fn().mockResolvedValue(cb),
       },
       contextualBanditEvents: {
-        getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockImplementation(async (payload) => ({
+        getLatestForContextualBandit: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockImplementation(async (payload) => ({
           id: "cbe_new",
           organization: "org_1",
           dateCreated: new Date(),
@@ -198,10 +198,8 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
         })),
       },
       contextualBanditSnapshots: {
-        getBySnapshotIdInOrg: jest.fn().mockResolvedValue(makeCbsModel()),
-        updateById: jest
-          .fn()
-          .mockImplementation(async (_id, updates) => updates),
+        getBySnapshotIdInOrg: vi.fn().mockResolvedValue(makeCbsModel()),
+        updateById: vi.fn().mockImplementation(async (_id, updates) => updates),
       },
     },
   } as unknown as ReqContext;
@@ -222,7 +220,7 @@ function newRunner(
 
 describe("ContextualBanditResultsQueryRunner", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("runAnalysis (happy path)", () => {
@@ -374,8 +372,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const runner = newRunner(context);
 
       (
-        context.models.contextualBanditSnapshots
-          .getBySnapshotIdInOrg as jest.Mock
+        context.models.contextualBanditSnapshots.getBySnapshotIdInOrg as Mock
       ).mockResolvedValue(
         makeCbsModel({ contextualBanditEventId: "cbe_existing" }),
       );
@@ -442,7 +439,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const integration = makeIntegration();
       const runner = newRunner(context, makeCbsModel(), integration);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).startQuery = jest
+      (runner as any).startQuery = vi
         .fn()
         .mockImplementation(async (q: { name: string; query: string }) => ({
           name: q.name,
@@ -457,8 +454,8 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(integration.getExperimentFactMetricsQuery).toHaveBeenCalledTimes(
         1,
       );
-      const callArgs = (integration.getExperimentFactMetricsQuery as jest.Mock)
-        .mock.calls[0][0];
+      const callArgs = (integration.getExperimentFactMetricsQuery as Mock).mock
+        .calls[0][0];
       expect(callArgs.settings.experimentId).toBe("exp_1");
       expect(callArgs.settings.banditSettings.contextualBandit).toBe(true);
       expect(

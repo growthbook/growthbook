@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { MergeResultChanges } from "shared/util";
 import { HoldoutInterface } from "shared/validators";
@@ -65,7 +66,7 @@ function ctxWith(
     },
     models: {
       holdout: {
-        getById: jest.fn(async (id: string) => holdoutsById[id] ?? null),
+        getById: vi.fn(async (id: string) => holdoutsById[id] ?? null),
       },
     },
   } as unknown as ReqContext;
@@ -219,7 +220,7 @@ describe("getMergeResultPublishEnvs", () => {
 
     it("same-id holdout (re-set without change) skips DB lookup of prior", async () => {
       const next = holdout("h_same", ["dev"]);
-      const getById = jest.fn(async (id: string) =>
+      const getById = vi.fn(async (id: string) =>
         id === "h_same" ? next : null,
       );
       const context = {
@@ -264,7 +265,7 @@ describe("getMergeResultPublishEnvs", () => {
     });
 
     it("holdout untouched (undefined) does not query DB", async () => {
-      const getById = jest.fn();
+      const getById = vi.fn();
       const context = {
         models: { holdout: { getById } },
       } as unknown as ReqContext;
@@ -354,7 +355,7 @@ describe("getMergeResultPublishEnvs", () => {
             ],
           },
         },
-        models: { holdout: { getById: jest.fn(async () => null) } },
+        models: { holdout: { getById: vi.fn(async () => null) } },
       } as unknown as ReqContext;
     }
 

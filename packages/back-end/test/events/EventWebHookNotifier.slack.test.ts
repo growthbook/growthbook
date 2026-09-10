@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
@@ -16,57 +17,56 @@ import { cancellableFetch } from "back-end/src/util/http.util";
 import { getEventWebHookSignatureForPayload } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { secretsReplacer } from "back-end/src/util/secrets";
 
-jest.mock("back-end/src/models/EventModel", () => ({
-  getEvent: jest.fn(),
+vi.mock("back-end/src/models/EventModel", () => ({
+  getEvent: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/EventWebhookModel", () => ({
-  getEventWebHookById: jest.fn(),
-  updateEventWebHookStatus: jest.fn(),
+vi.mock("back-end/src/models/EventWebhookModel", () => ({
+  getEventWebHookById: vi.fn(),
+  updateEventWebHookStatus: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/OrganizationModel", () => ({
-  findOrganizationById: jest.fn(),
+vi.mock("back-end/src/models/OrganizationModel", () => ({
+  findOrganizationById: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/EventWebHookLogModel", () => ({
-  createEventWebHookLog: jest.fn(),
+vi.mock("back-end/src/models/EventWebHookLogModel", () => ({
+  createEventWebHookLog: vi.fn(),
 }));
 
-jest.mock(
-  "back-end/src/events/handlers/slack/slack-event-handler-utils",
-  () => ({
-    getSlackMessageForLegacyNotificationEvent: jest.fn(),
-    getSlackMessageForNotificationEvent: jest.fn(),
-  }),
-);
-
-jest.mock("back-end/src/services/slack/slackWebApi", () => ({
-  ...jest.requireActual("back-end/src/services/slack/slackWebApi"),
-  postSlackMessageResult: jest.fn(),
+vi.mock("back-end/src/events/handlers/slack/slack-event-handler-utils", () => ({
+  getSlackMessageForLegacyNotificationEvent: vi.fn(),
+  getSlackMessageForNotificationEvent: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgObject: jest.fn(),
+vi.mock("back-end/src/services/slack/slackWebApi", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/services/slack/slackWebApi")
+  >("back-end/src/services/slack/slackWebApi")),
+  postSlackMessageResult: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/http.util", () => ({
-  cancellableFetch: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgObject: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/http.util", () => ({
+  cancellableFetch: vi.fn(),
+}));
+
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    error: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
   },
 }));
 
-jest.mock("back-end/src/events/handlers/webhooks/event-webhooks-utils", () => ({
-  getEventWebHookSignatureForPayload: jest.fn(),
+vi.mock("back-end/src/events/handlers/webhooks/event-webhooks-utils", () => ({
+  getEventWebHookSignatureForPayload: vi.fn(),
 }));
 
-const getSlackWorkspaceConnectionByTeamId = jest.fn();
+const getSlackWorkspaceConnectionByTeamId = vi.fn();
 
 const runAgendaJob = async () => {
   const job = {
@@ -77,7 +77,7 @@ const runAgendaJob = async () => {
         retryCount: 0,
       },
     },
-    save: jest.fn(),
+    save: vi.fn(),
   };
 
   await (
@@ -96,7 +96,7 @@ const setWebhook = ({
   url: string;
   slack?: { channelId: string; teamId?: string };
 }) => {
-  jest.mocked(getEventWebHookById).mockResolvedValue({
+  vi.mocked(getEventWebHookById).mockResolvedValue({
     id: "webhook-1",
     organizationId: "org-1",
     enabled: true,
@@ -111,38 +111,36 @@ const setWebhook = ({
 
 describe("Slack EventWebHook delivery compatibility", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.mocked(getEvent).mockResolvedValue({
+    vi.clearAllMocks();
+    vi.mocked(getEvent).mockResolvedValue({
       id: "event-1",
       organizationId: "org-1",
       event: "feature.updated",
       version: 1,
       data: {},
     });
-    jest.mocked(findOrganizationById).mockResolvedValue({
+    vi.mocked(findOrganizationById).mockResolvedValue({
       id: "org-1",
     });
-    jest.mocked(getSlackMessageForNotificationEvent).mockReturnValue({
+    vi.mocked(getSlackMessageForNotificationEvent).mockReturnValue({
       text: "Feature updated",
       blocks: [],
     });
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue(null);
-    jest.mocked(getContextForAgendaJobByOrgObject).mockReturnValue({
+    vi.mocked(getContextForAgendaJobByOrgObject).mockReturnValue({
       models: {
         slackWorkspaceConnections: {
           getByTeamId: getSlackWorkspaceConnectionByTeamId,
         },
         webhookSecrets: {
-          getBackEndSecretsReplacer: jest
+          getBackEndSecretsReplacer: vi
             .fn()
             .mockResolvedValue(secretsReplacer({})),
         },
       },
     });
-    jest
-      .mocked(getEventWebHookSignatureForPayload)
-      .mockReturnValue("signature");
-    jest.mocked(cancellableFetch).mockResolvedValue({
+    vi.mocked(getEventWebHookSignatureForPayload).mockReturnValue("signature");
+    vi.mocked(cancellableFetch).mockResolvedValue({
       responseWithoutBody: { ok: true, status: 200 },
       stringBody: "ok",
     });
@@ -209,7 +207,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       teamId: "T123",
       encryptedBotAccessToken: "xoxb-token",
     });
-    jest.mocked(postSlackMessageResult).mockResolvedValue({
+    vi.mocked(postSlackMessageResult).mockResolvedValue({
       ok: false,
       ts: null,
       error: "token_revoked",

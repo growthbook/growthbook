@@ -1,3 +1,5 @@
+import { vi } from "vitest";
+import mongoose from "mongoose";
 import {
   CLOUD_MANAGED_AI_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
@@ -13,39 +15,50 @@ type AISettingsContext = Parameters<
   OrganizationsModule["getAISettingsForOrg"]
 >[0];
 
-const loadModule = (isCloud: boolean, owned: AIProvider[]) => {
-  let mod: OrganizationsModule | undefined;
-  jest.isolateModules(() => {
-    jest.doMock("back-end/src/util/secrets", () => ({
-      ...jest.requireActual("back-end/src/util/secrets"),
+const loadModule = async (isCloud: boolean, owned: AIProvider[]) => {
+  vi.resetModules();
+  mongoose.deleteModel(/.*/);
+  try {
+    vi.doMock("back-end/src/util/secrets", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("back-end/src/util/secrets")>()),
       IS_CLOUD: isCloud,
     }));
-    jest.doMock("back-end/src/services/aiCredentials", () => ({
-      ...jest.requireActual("back-end/src/services/aiCredentials"),
-      getResolvedAIKeys: jest.fn().mockResolvedValue(
-        Object.fromEntries(
-          (
-            ["openai", "anthropic", "google", "xai", "mistral"] as AIProvider[]
-          ).map((p) => [
-            p,
-            {
-              key: owned.includes(p) ? "key" : "",
-              source: owned.includes(p) ? "organization" : "none",
-            },
-          ]),
+    vi.doMock(
+      "back-end/src/services/aiCredentials",
+      async (importOriginal) => ({
+        ...(await importOriginal<
+          typeof import("back-end/src/services/aiCredentials")
+        >()),
+        getResolvedAIKeys: vi.fn().mockResolvedValue(
+          Object.fromEntries(
+            (
+              [
+                "openai",
+                "anthropic",
+                "google",
+                "xai",
+                "mistral",
+              ] as AIProvider[]
+            ).map((p) => [
+              p,
+              {
+                key: owned.includes(p) ? "key" : "",
+                source: owned.includes(p) ? "organization" : "none",
+              },
+            ]),
+          ),
         ),
-      ),
-      canOrgChooseProviderModels: (
-        source: Record<AIProvider, AIKeySource>,
-        provider: AIProvider,
-      ) => (isCloud ? source[provider] === "organization" : true),
-    }));
-    mod = jest.requireActual<OrganizationsModule>(
-      "back-end/src/services/organizations",
+        canOrgChooseProviderModels: (
+          source: Record<AIProvider, AIKeySource>,
+          provider: AIProvider,
+        ) => (isCloud ? source[provider] === "organization" : true),
+      }),
     );
-  });
-  if (!mod) throw new Error("Could not load organizations module");
-  return mod;
+    return await import("back-end/src/services/organizations");
+  } finally {
+    vi.doUnmock("back-end/src/util/secrets");
+    vi.doUnmock("back-end/src/services/aiCredentials");
+  }
 };
 
 const makeContext = (settings: Record<string, unknown>): AISettingsContext =>
@@ -55,7 +68,7 @@ const makeContext = (settings: Record<string, unknown>): AISettingsContext =>
 
 describe("getAISettingsForOrg model resolution", () => {
   it("keeps the Visual Editor on Sonnet when a Cloud org sets its own default", async () => {
-    const mod = loadModule(true, ["anthropic"]);
+    const mod = await loadModule(true, ["anthropic"]);
     const settings = await mod.getAISettingsForOrg(
       makeContext({ defaultAIModel: "claude-sonnet-4-6" }),
     );
@@ -67,7 +80,7 @@ describe("getAISettingsForOrg model resolution", () => {
   });
 
   it("still honors an explicit Visual Editor model", async () => {
-    const mod = loadModule(true, ["anthropic"]);
+    const mod = await loadModule(true, ["anthropic"]);
     const settings = await mod.getAISettingsForOrg(
       makeContext({ visualEditorAIModel: "claude-opus-4-1-20250805" }),
     );
@@ -76,7 +89,7 @@ describe("getAISettingsForOrg model resolution", () => {
   });
 
   it("falls back to the managed model when a Cloud org sets no default", async () => {
-    const mod = loadModule(true, []);
+    const mod = await loadModule(true, []);
     const settings = await mod.getAISettingsForOrg(makeContext({}));
 
     expect(settings.defaultAIModel).toBe(CLOUD_MANAGED_AI_MODEL);
@@ -86,7 +99,7 @@ describe("getAISettingsForOrg model resolution", () => {
   });
 
   it("ignores a Cloud model the org holds no key for", async () => {
-    const mod = loadModule(true, ["anthropic"]);
+    const mod = await loadModule(true, ["anthropic"]);
     const settings = await mod.getAISettingsForOrg(
       makeContext({ defaultAIModel: "gpt-5.2" }),
     );
@@ -95,7 +108,7 @@ describe("getAISettingsForOrg model resolution", () => {
   });
 
   it("defaults self-hosted to a provider the org has a key for", async () => {
-    const mod = loadModule(false, ["anthropic"]);
+    const mod = await loadModule(false, ["anthropic"]);
     const settings = await mod.getAISettingsForOrg(makeContext({}));
 
     const expected = SELF_HOSTED_DEFAULT_AI_MODELS.find(
@@ -105,7 +118,7 @@ describe("getAISettingsForOrg model resolution", () => {
   });
 
   it("follows the org default on self-hosted", async () => {
-    const mod = loadModule(false, []);
+    const mod = await loadModule(false, []);
     const settings = await mod.getAISettingsForOrg(
       makeContext({ defaultAIModel: "gpt-5.2" }),
     );

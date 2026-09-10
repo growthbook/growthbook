@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import { Queries, QueryInterface, QueryStatus } from "shared/types/query";
 import { ExternalIdCallback } from "shared/types/integrations";
 import { ReqContext } from "back-end/types/request";
@@ -22,12 +23,12 @@ import {
   touchQueuedQueriesHeartbeat,
 } from "back-end/src/models/QueryModel";
 
-jest.mock("back-end/src/models/QueryModel");
+vi.mock("back-end/src/models/QueryModel");
 
 // The automocked heartbeat resolves nowhere by default, and the runner calls
 // `.catch` on it inside a timer callback.
 beforeEach(() => {
-  jest.mocked(touchQueuedQueriesHeartbeat).mockResolvedValue(0);
+  vi.mocked(touchQueuedQueriesHeartbeat).mockResolvedValue(0);
 });
 
 class TestQueryRunner extends QueryRunner<
@@ -60,7 +61,7 @@ class TestQueryRunner extends QueryRunner<
     this.pendingTimers[queryId] = timer;
   }
 
-  public executeQuerySpy = jest.fn();
+  public executeQuerySpy = vi.fn();
 
   async executeQuery(
     query: QueryInterface,
@@ -179,7 +180,7 @@ describe("QueryRunner", () => {
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     it("should process all queued queries even when some have existing timers", async () => {
@@ -203,9 +204,9 @@ describe("QueryRunner", () => {
       const timerA = setTimeout(() => {}, 10000);
       runner.setQueuedQueryTimer("qry_A", timerA);
 
-      const mockRun = jest.fn().mockResolvedValue({ rows: [], statistics: {} });
-      const mockProcess = jest.fn((rows) => rows);
-      const mockFailure = jest.fn();
+      const mockRun = vi.fn().mockResolvedValue({ rows: [], statistics: {} });
+      const mockProcess = vi.fn((rows) => rows);
+      const mockFailure = vi.fn();
 
       runner.runCallbacks["qry_A"] = {
         run: mockRun,
@@ -283,9 +284,9 @@ describe("QueryRunner", () => {
       const runner = new TestQueryRunner(mockContext, model, mockIntegration);
 
       const cb = {
-        run: jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
-        process: jest.fn((rows) => rows),
-        onFailure: jest.fn(),
+        run: vi.fn().mockResolvedValue({ rows: [], statistics: {} }),
+        process: vi.fn((rows) => rows),
+        onFailure: vi.fn(),
       };
       runner.runCallbacks["qry_end"] = cb;
       runner.runCallbacks["qry_B"] = cb;
@@ -324,9 +325,9 @@ describe("QueryRunner", () => {
       const runner = new TestQueryRunner(mockContext, model, mockIntegration);
 
       runner.runCallbacks["qry_A"] = {
-        run: jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
-        process: jest.fn((rows) => rows),
-        onFailure: jest.fn(),
+        run: vi.fn().mockResolvedValue({ rows: [], statistics: {} }),
+        process: vi.fn((rows) => rows),
+        onFailure: vi.fn(),
       };
 
       const queryMap: QueryMap = new Map([
@@ -364,9 +365,9 @@ describe("QueryRunner", () => {
       const runner = new TestQueryRunner(mockContext, model, mockIntegration);
 
       runner.runCallbacks["qry_A"] = {
-        run: jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
-        process: jest.fn((rows) => rows),
-        onFailure: jest.fn(),
+        run: vi.fn().mockResolvedValue({ rows: [], statistics: {} }),
+        process: vi.fn((rows) => rows),
+        onFailure: vi.fn(),
       };
 
       const queryMap: QueryMap = new Map([
@@ -415,9 +416,9 @@ describe("QueryRunner", () => {
       const runner = new TestQueryRunner(mockContext, model, mockIntegration);
 
       runner.runCallbacks["qry_A"] = {
-        run: jest.fn().mockResolvedValue({ rows: [], statistics: {} }),
-        process: jest.fn((rows) => rows),
-        onFailure: jest.fn(),
+        run: vi.fn().mockResolvedValue({ rows: [], statistics: {} }),
+        process: vi.fn((rows) => rows),
+        onFailure: vi.fn(),
       };
 
       const queryMap: QueryMap = new Map([
@@ -465,9 +466,9 @@ describe("QueryRunner", () => {
 
       const runner = new TestQueryRunner(mockContext, model, mockIntegration);
 
-      const mockRun = jest.fn().mockResolvedValue({ rows: [], statistics: {} });
-      const mockProcess = jest.fn((rows) => rows);
-      const mockFailure = jest.fn();
+      const mockRun = vi.fn().mockResolvedValue({ rows: [], statistics: {} });
+      const mockProcess = vi.fn((rows) => rows);
+      const mockFailure = vi.fn();
 
       runner.runCallbacks["qry_A"] = {
         run: mockRun,
@@ -551,11 +552,11 @@ describe("QueryRunner", () => {
       // getQueryMap() calls getQueriesByIds() to hydrate cached-query results.
       // The auto-mock returns undefined; make it return an empty array so the
       // cached path in startAnalysis() is exercisable without real DB access.
-      (getQueriesByIds as jest.Mock).mockResolvedValue([]);
+      (getQueriesByIds as Mock).mockResolvedValue([]);
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     class RaceTestQueryRunner extends QueryRunner<
@@ -564,8 +565,8 @@ describe("QueryRunner", () => {
       { success: boolean }
     > {
       public persistedQueries: Queries = [];
-      public updateModelSpy = jest.fn();
-      public onQueryFinishSpy = jest.fn();
+      public updateModelSpy = vi.fn();
+      public onQueryFinishSpy = vi.fn();
 
       checkPermissions() {
         return true;
@@ -604,7 +605,7 @@ describe("QueryRunner", () => {
     }
 
     it("gates onQueryFinish until the query DAG is persisted, then drives once", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const model: InterfaceWithQueries = {
           id: "test-model",
@@ -619,7 +620,7 @@ describe("QueryRunner", () => {
         );
 
         await runner.onQueryFinish();
-        expect(jest.getTimerCount()).toBe(0);
+        expect(vi.getTimerCount()).toBe(0);
         expect(runner.onQueryFinishSpy).toHaveBeenLastCalledWith(0);
 
         const pointers: Queries = [
@@ -635,15 +636,15 @@ describe("QueryRunner", () => {
         expect(runner.onQueryFinishSpy).toHaveBeenLastCalledWith(
           pointers.length,
         );
-        expect(jest.getTimerCount()).toBeGreaterThan(0);
+        expect(vi.getTimerCount()).toBeGreaterThan(0);
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("does not re-arm the timer when queries are already finished (cached)", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const model: InterfaceWithQueries = {
           id: "test-model",
@@ -661,7 +662,7 @@ describe("QueryRunner", () => {
           { name: "a", query: "qry_a", status: "succeeded" },
           { name: "b", query: "qry_b", status: "succeeded" },
         ];
-        (getQueriesByIds as jest.Mock).mockResolvedValue([
+        (getQueriesByIds as Mock).mockResolvedValue([
           createMockQuery("qry_a", "succeeded"),
           createMockQuery("qry_b", "succeeded"),
         ]);
@@ -673,8 +674,8 @@ describe("QueryRunner", () => {
         expect(runner.status).toBe("finished");
         expect(runner.onQueryFinishSpy).not.toHaveBeenCalled();
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
@@ -703,7 +704,7 @@ describe("QueryRunner", () => {
         { name: "a", query: "qry_a", status: "succeeded" },
         { name: "b", query: "qry_b", status: "succeeded" },
       ];
-      (getQueriesByIds as jest.Mock).mockResolvedValue([
+      (getQueriesByIds as Mock).mockResolvedValue([
         createMockQuery("qry_a", "succeeded"),
         createMockQuery("qry_b", "succeeded"),
       ]);
@@ -743,7 +744,7 @@ describe("QueryRunner", () => {
       runner.updateModelSpy.mockClear();
 
       const succeededQuery = createMockQuery("qry_a", "succeeded");
-      (getQueriesByIds as jest.Mock).mockResolvedValue([succeededQuery]);
+      (getQueriesByIds as Mock).mockResolvedValue([succeededQuery]);
 
       await runner.refreshQueryStatuses();
 
@@ -766,7 +767,7 @@ describe("QueryRunner", () => {
     it.each([true, false])(
       "cancels the warehouse job when cancellation precedes external ID persistence: %s",
       async (cancelBeforeExternalId) => {
-        jest.useFakeTimers();
+        vi.useFakeTimers();
         const query = createMockQuery("qry_late_id", "running");
         let storedQuery = { ...query };
         const model: InterfaceWithQueries = {
@@ -785,12 +786,11 @@ describe("QueryRunner", () => {
           model,
           mockIntegration,
         );
-        const cancelQuery = jest.fn().mockResolvedValue(undefined);
+        const cancelQuery = vi.fn().mockResolvedValue(undefined);
         mockIntegration.cancelQuery = cancelQuery;
-        jest.mocked(updateQueryIfPending).mockResolvedValue(true);
-        jest
-          .mocked(setQueryExternalId)
-          .mockImplementation(async (context, doc, externalId, metadata) => {
+        vi.mocked(updateQueryIfPending).mockResolvedValue(true);
+        vi.mocked(setQueryExternalId).mockImplementation(
+          async (context, doc, externalId, metadata) => {
             expect(context).toBe(mockContext);
             expect(doc.id).toBe(query.id);
             storedQuery = {
@@ -799,29 +799,26 @@ describe("QueryRunner", () => {
               externalIdMetadata: metadata,
             };
             return storedQuery.status;
-          });
-        jest
-          .mocked(getQueriesByIds)
-          .mockImplementation(async () => [storedQuery]);
-        jest
-          .mocked(getQueryStatusesByIds)
-          .mockRejectedValue(
-            new Error("Status lookup temporarily unavailable"),
-          );
-        jest.mocked(markPendingQueriesAsFailed).mockImplementation(async () => {
+          },
+        );
+        vi.mocked(getQueriesByIds).mockImplementation(async () => [
+          storedQuery,
+        ]);
+        vi.mocked(getQueryStatusesByIds).mockRejectedValue(
+          new Error("Status lookup temporarily unavailable"),
+        );
+        vi.mocked(markPendingQueriesAsFailed).mockImplementation(async () => {
           storedQuery = { ...storedQuery, status: "failed" };
           return 1;
         });
-        const run = jest.fn(
-          (sql: string, setExternalId: ExternalIdCallback) => {
-            expect(sql).toBe(query.query);
-            expect(setExternalId).toEqual(expect.any(Function));
-            return new Promise<{ rows: [] }>(() => {});
-          },
-        );
+        const run = vi.fn((sql: string, setExternalId: ExternalIdCallback) => {
+          expect(sql).toBe(query.query);
+          expect(setExternalId).toEqual(expect.any(Function));
+          return new Promise<{ rows: [] }>(() => {});
+        });
 
         try {
-          await runner.executeQuery(query, { run, onFailure: jest.fn() });
+          await runner.executeQuery(query, { run, onFailure: vi.fn() });
           const setExternalId = run.mock.calls[0][1];
           const metadata = { location: "europe-west2" };
           if (cancelBeforeExternalId) {
@@ -841,17 +838,17 @@ describe("QueryRunner", () => {
             externalIdMetadata: metadata,
           });
         } finally {
-          jest.clearAllTimers();
-          jest.useRealTimers();
-          jest.mocked(setQueryExternalId).mockReset();
-          jest.mocked(markPendingQueriesAsFailed).mockReset();
-          jest.mocked(getQueryStatusesByIds).mockReset();
+          vi.clearAllTimers();
+          vi.useRealTimers();
+          vi.mocked(setQueryExternalId).mockReset();
+          vi.mocked(markPendingQueriesAsFailed).mockReset();
+          vi.mocked(getQueryStatusesByIds).mockReset();
         }
       },
     );
 
     it("collects results while the query remains running", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       const query = createMockQuery("qry_status_lookup", "running");
       const runner = new CascadeFailureQueryRunner(
         mockContext,
@@ -863,12 +860,12 @@ describe("QueryRunner", () => {
         },
         mockIntegration,
       );
-      const onSuccess = jest.fn();
-      const onFailure = jest.fn();
-      mockIntegration.cancelQuery = jest.fn().mockResolvedValue(undefined);
-      jest.mocked(updateQueryIfPending).mockResolvedValue(true);
-      jest.mocked(updateQuery).mockResolvedValue(query);
-      jest.mocked(setQueryExternalId).mockResolvedValue("running");
+      const onSuccess = vi.fn();
+      const onFailure = vi.fn();
+      mockIntegration.cancelQuery = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(updateQueryIfPending).mockResolvedValue(true);
+      vi.mocked(updateQuery).mockResolvedValue(query);
+      vi.mocked(setQueryExternalId).mockResolvedValue("running");
 
       try {
         await runner.executeQuery(query, {
@@ -880,16 +877,16 @@ describe("QueryRunner", () => {
           onSuccess,
           onFailure,
         });
-        await jest.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(0);
 
         expect(onSuccess).toHaveBeenCalledWith([]);
         expect(onFailure).not.toHaveBeenCalled();
         expect(mockIntegration.cancelQuery).not.toHaveBeenCalled();
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
-        jest.mocked(updateQuery).mockReset();
-        jest.mocked(setQueryExternalId).mockReset();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        vi.mocked(updateQuery).mockReset();
+        vi.mocked(setQueryExternalId).mockReset();
       }
     });
 
@@ -927,13 +924,13 @@ describe("QueryRunner", () => {
         error: "Syntax error: unexpected keyword INSERT",
       };
 
-      (getQueriesByIds as jest.Mock).mockResolvedValue([
+      (getQueriesByIds as Mock).mockResolvedValue([
         insertFailed,
         createMockQuery("qry_coverage", "queued", ["qry_insert"]),
       ]);
       await runner.refreshQueryStatuses();
 
-      (getQueriesByIds as jest.Mock).mockResolvedValue([
+      (getQueriesByIds as Mock).mockResolvedValue([
         insertFailed,
         {
           ...createMockQuery("qry_coverage", "failed", ["qry_insert"]),
@@ -959,11 +956,11 @@ describe("QueryRunner", () => {
     beforeEach(() => {
       mockContext = createMockContext();
       mockIntegration = createMockIntegration();
-      (getQueriesByIds as jest.Mock).mockResolvedValue([]);
+      (getQueriesByIds as Mock).mockResolvedValue([]);
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     // Drives the runner into the "running" state with a DAG that still has
@@ -978,7 +975,7 @@ describe("QueryRunner", () => {
       { pointers: Queries },
       { success: boolean }
     > {
-      public onHeartbeatSpy = jest.fn();
+      public onHeartbeatSpy = vi.fn();
 
       checkPermissions() {
         return true;
@@ -1018,7 +1015,7 @@ describe("QueryRunner", () => {
     ];
 
     it("fires onHeartbeat every ~30s while running even when no query is executing", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const runner = new HeartbeatTestQueryRunner(
           mockContext,
@@ -1037,20 +1034,20 @@ describe("QueryRunner", () => {
         // Not yet — interval hasn't elapsed.
         expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(0);
 
-        jest.advanceTimersByTime(30000);
+        vi.advanceTimersByTime(30000);
         expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(1);
 
         // Spans the inter-query gap: still firing with zero query activity.
-        jest.advanceTimersByTime(60000);
+        vi.advanceTimersByTime(60000);
         expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(3);
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("stops firing onHeartbeat once the runner finishes", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const runner = new HeartbeatTestQueryRunner(
           mockContext,
@@ -1064,23 +1061,23 @@ describe("QueryRunner", () => {
         );
 
         await runner.startAnalysis({ pointers: runningPointers });
-        jest.advanceTimersByTime(30000);
+        vi.advanceTimersByTime(30000);
         expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(1);
 
         await runner.cancelQueries();
         expect(runner.status).toBe("finished");
 
         // Interval must be cleared — no further beats no matter how long we wait.
-        jest.advanceTimersByTime(120000);
+        vi.advanceTimersByTime(120000);
         expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(1);
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("heartbeats its queued query docs on every beat, and stops when finished", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const runner = new HeartbeatTestQueryRunner(
           mockContext,
@@ -1095,7 +1092,7 @@ describe("QueryRunner", () => {
 
         await runner.startAnalysis({ pointers: runningPointers });
 
-        jest.advanceTimersByTime(30000);
+        vi.advanceTimersByTime(30000);
         expect(touchQueuedQueriesHeartbeat).toHaveBeenCalledTimes(1);
         expect(touchQueuedQueriesHeartbeat).toHaveBeenCalledWith(mockContext, [
           "qry_drop",
@@ -1103,16 +1100,16 @@ describe("QueryRunner", () => {
         ]);
 
         await runner.cancelQueries();
-        jest.advanceTimersByTime(120000);
+        vi.advanceTimersByTime(120000);
         expect(touchQueuedQueriesHeartbeat).toHaveBeenCalledTimes(1);
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("never starts the heartbeat when the runner finishes immediately (cached)", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const runner = new HeartbeatTestQueryRunner(
           mockContext,
@@ -1125,7 +1122,7 @@ describe("QueryRunner", () => {
           mockIntegration,
         );
 
-        (getQueriesByIds as jest.Mock).mockResolvedValue([
+        (getQueriesByIds as Mock).mockResolvedValue([
           createMockQuery("qry_a", "succeeded"),
           createMockQuery("qry_b", "succeeded"),
         ]);
@@ -1137,11 +1134,11 @@ describe("QueryRunner", () => {
         });
 
         expect(runner.status).toBe("finished");
-        jest.advanceTimersByTime(120000);
+        vi.advanceTimersByTime(120000);
         expect(runner.onHeartbeatSpy).toHaveBeenCalledTimes(0);
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
   });
@@ -1153,11 +1150,11 @@ describe("QueryRunner", () => {
     beforeEach(() => {
       mockContext = createMockContext();
       mockIntegration = createMockIntegration();
-      (getQueriesByIds as jest.Mock).mockResolvedValue([]);
+      (getQueriesByIds as Mock).mockResolvedValue([]);
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     class StallTestQueryRunner extends QueryRunner<
@@ -1165,8 +1162,8 @@ describe("QueryRunner", () => {
       { pointers: Queries },
       { success: boolean }
     > {
-      public runAnalysisSpy = jest.fn();
-      public updateModelSpy = jest.fn();
+      public runAnalysisSpy = vi.fn();
+      public updateModelSpy = vi.fn();
       public getLatestModelImpl: () => Promise<InterfaceWithQueries> = () =>
         Promise.resolve(this.model);
 
@@ -1224,7 +1221,7 @@ describe("QueryRunner", () => {
         mockIntegration,
       );
       runner.status = "running";
-      (getQueriesByIds as jest.Mock).mockResolvedValue([
+      (getQueriesByIds as Mock).mockResolvedValue([
         createMockQuery("qry_a", "succeeded"),
         createMockQuery("qry_b", "succeeded"),
       ]);
@@ -1249,7 +1246,7 @@ describe("QueryRunner", () => {
         mockIntegration,
       );
       expect(runner.status).toBe("pending");
-      (getQueriesByIds as jest.Mock).mockResolvedValue([
+      (getQueriesByIds as Mock).mockResolvedValue([
         createMockQuery("qry_a", "succeeded"),
         createMockQuery("qry_b", "succeeded"),
       ]);
@@ -1271,7 +1268,7 @@ describe("QueryRunner", () => {
         mockIntegration,
       );
       runner.status = "running";
-      (getQueriesByIds as jest.Mock).mockResolvedValue([
+      (getQueriesByIds as Mock).mockResolvedValue([
         createMockQuery("qry_a", "succeeded"),
       ]);
 
@@ -1283,7 +1280,7 @@ describe("QueryRunner", () => {
     });
 
     it("restores cached query statuses after an incomplete refresh reloads stale pointers", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const persistedQueries: Queries = [
           { name: "a", query: "qry_a", status: "running" },
@@ -1304,7 +1301,7 @@ describe("QueryRunner", () => {
             makeModel(persistedQueries.map((pointer) => ({ ...pointer }))),
           );
 
-        const getQueriesByIdsMock = jest.mocked(getQueriesByIds);
+        const getQueriesByIdsMock = vi.mocked(getQueriesByIds);
         getQueriesByIdsMock
           .mockResolvedValueOnce([
             createMockQuery("qry_a", "succeeded"),
@@ -1312,13 +1309,13 @@ describe("QueryRunner", () => {
           ])
           .mockResolvedValueOnce([createMockQuery("qry_c", "succeeded")]);
 
-        await jest.advanceTimersByTimeAsync(1000);
+        await vi.advanceTimersByTimeAsync(1000);
 
         expect(runner.status).toBe("running");
         expect(runner.runAnalysisSpy).not.toHaveBeenCalled();
         expect(runner.updateModelSpy).not.toHaveBeenCalled();
 
-        await jest.advanceTimersByTimeAsync(300000);
+        await vi.advanceTimersByTimeAsync(300000);
 
         expect(getQueriesByIdsMock).toHaveBeenNthCalledWith(2, mockContext, [
           "qry_c",
@@ -1336,13 +1333,13 @@ describe("QueryRunner", () => {
         );
         expect(runner.status).toBe("finished");
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("retries a dropped refresh via the watchdog and finalizes", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const runner = new StallTestQueryRunner(
           mockContext,
@@ -1364,29 +1361,29 @@ describe("QueryRunner", () => {
           }
           return Promise.resolve(runner.model);
         };
-        (getQueriesByIds as jest.Mock).mockResolvedValue([
+        (getQueriesByIds as Mock).mockResolvedValue([
           createMockQuery("qry_a", "succeeded"),
         ]);
 
         // Debounce fires; re-fetch fails (bounded retry)
-        await jest.advanceTimersByTimeAsync(1000);
+        await vi.advanceTimersByTimeAsync(1000);
         expect(runner.runAnalysisSpy).not.toHaveBeenCalled();
         expect(runner.status).toBe("running");
 
         // Watchdog re-arms and finalizes
-        await jest.advanceTimersByTimeAsync(302000);
+        await vi.advanceTimersByTimeAsync(302000);
         expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
         expect(runner.status).toBe("finished");
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("stands down (without an error) when the model is missing", async () => {
       // Cancel deletes the snapshot; stand down so waitForResults resolves
       // (rejecting would disable scheduled auto-updates).
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const runner = new StallTestQueryRunner(
           mockContext,
@@ -1403,24 +1400,24 @@ describe("QueryRunner", () => {
 
         // 5 failures (debounce + 4 watchdog) plus one tick proving stand-down.
         for (let i = 0; i < 5; i++) {
-          await jest.advanceTimersByTimeAsync(302000);
+          await vi.advanceTimersByTimeAsync(302000);
         }
 
         expect(runner.status).toBe("finished");
         expect(runner.error).toBe("");
         expect(runner.runAnalysisSpy).not.toHaveBeenCalled();
         expect(runner.updateModelSpy).not.toHaveBeenCalled();
-        expect(jest.getTimerCount()).toBe(0);
+        expect(vi.getTimerCount()).toBe(0);
         await expect(runner.waitForResults()).resolves.toBeUndefined();
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("fails loudly after repeated transient model re-fetch failures", async () => {
       // Transient failures must shut down via updateModel so locks release.
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const runner = new StallTestQueryRunner(
           mockContext,
@@ -1436,7 +1433,7 @@ describe("QueryRunner", () => {
           Promise.reject(new Error("transient mongo error"));
 
         for (let i = 0; i < 5; i++) {
-          await jest.advanceTimersByTimeAsync(302000);
+          await vi.advanceTimersByTimeAsync(302000);
         }
 
         expect(runner.status).toBe("finished");
@@ -1448,16 +1445,16 @@ describe("QueryRunner", () => {
             error: expect.stringContaining("transient mongo error"),
           }),
         );
-        expect(jest.getTimerCount()).toBe(0);
+        expect(vi.getTimerCount()).toBe(0);
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("stands down when the query list was emptied by a cancel", async () => {
       // cancelQueries() on another instance writes queries: []; stand down.
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const runner = new StallTestQueryRunner(
           mockContext,
@@ -1472,24 +1469,24 @@ describe("QueryRunner", () => {
         runner.getLatestModelImpl = () =>
           Promise.resolve({ ...runner.model, queries: [] });
 
-        await jest.advanceTimersByTimeAsync(1000);
+        await vi.advanceTimersByTimeAsync(1000);
 
         expect(runner.status).toBe("finished");
         expect(runner.error).toBe("");
         expect(runner.runAnalysisSpy).not.toHaveBeenCalled();
         expect(runner.updateModelSpy).not.toHaveBeenCalled();
-        expect(jest.getTimerCount()).toBe(0);
+        expect(vi.getTimerCount()).toBe(0);
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("routes the give-up error through the conditional-write hook", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         class HookedRunner extends StallTestQueryRunner {
-          public conditionalWriteSpy = jest.fn();
+          public conditionalWriteSpy = vi.fn();
           protected override async writeErrorIfStillActive(
             error: string,
           ): Promise<void> {
@@ -1505,12 +1502,10 @@ describe("QueryRunner", () => {
           pointers: [{ name: "a", query: "qry_a", status: "running" }],
         });
         runner.updateModelSpy.mockClear();
-        (getQueriesByIds as jest.Mock).mockRejectedValue(
-          new Error("mongo down"),
-        );
+        (getQueriesByIds as Mock).mockRejectedValue(new Error("mongo down"));
 
         for (let i = 0; i < 5; i++) {
-          await jest.advanceTimersByTimeAsync(302000);
+          await vi.advanceTimersByTimeAsync(302000);
         }
 
         expect(runner.status).toBe("finished");
@@ -1526,13 +1521,13 @@ describe("QueryRunner", () => {
             .filter((p) => p.status === "failed").length,
         ).toBe(0);
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("waits for terminal error persistence before reporting completion", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       let resolveWrite: () => void = () => {
         throw new Error("write promise was not initialized");
       };
@@ -1541,7 +1536,7 @@ describe("QueryRunner", () => {
       });
       try {
         class DeferredWriteRunner extends StallTestQueryRunner {
-          public writeErrorSpy = jest.fn();
+          public writeErrorSpy = vi.fn();
 
           protected override async writeErrorIfStillActive(
             error: string,
@@ -1559,14 +1554,14 @@ describe("QueryRunner", () => {
         await runner.startAnalysis({
           pointers: [{ name: "a", query: "qry_a", status: "running" }],
         });
-        jest.mocked(getQueriesByIds).mockRejectedValue(new Error("mongo down"));
+        vi.mocked(getQueriesByIds).mockRejectedValue(new Error("mongo down"));
         const completion = runner.waitForResults().then(
           () => "resolved",
           () => "rejected",
         );
 
         for (let i = 0; i < 5; i++) {
-          await jest.advanceTimersByTimeAsync(302000);
+          await vi.advanceTimersByTimeAsync(302000);
         }
 
         expect(runner.writeErrorSpy).toHaveBeenCalledTimes(1);
@@ -1579,13 +1574,13 @@ describe("QueryRunner", () => {
       } finally {
         resolveWrite();
         await Promise.resolve();
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("does not start a queued query after error shutdown begins", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       let resolveCount: (count: number) => void = () => {
         throw new Error("count promise was not initialized");
       };
@@ -1598,10 +1593,10 @@ describe("QueryRunner", () => {
       const writeFinished = new Promise<void>((resolve) => {
         resolveWrite = resolve;
       });
-      const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0);
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
       try {
         class DeferredShutdownRunner extends StallTestQueryRunner {
-          public writeErrorSpy = jest.fn();
+          public writeErrorSpy = vi.fn();
 
           protected override async writeErrorIfStillActive(
             error: string,
@@ -1612,7 +1607,7 @@ describe("QueryRunner", () => {
         }
 
         const query = createMockQuery("qry_late", "queued");
-        const run = jest.fn().mockResolvedValue({ rows: [] });
+        const run = vi.fn().mockResolvedValue({ rows: [] });
         const runner = new DeferredShutdownRunner(
           mockContext,
           makeModel([]),
@@ -1621,23 +1616,23 @@ describe("QueryRunner", () => {
         await runner.startAnalysis({
           pointers: [{ name: "late", query: query.id, status: query.status }],
         });
-        runner.runCallbacks[query.id] = { run, onFailure: jest.fn() };
-        jest.mocked(countRunningQueries).mockReturnValue(countFinished);
-        jest.mocked(updateQueryIfPending).mockResolvedValue(true);
-        jest.mocked(updateQueryIfRunning).mockResolvedValue(true);
-        jest.mocked(getQueriesByIds).mockRejectedValue(new Error("mongo down"));
+        runner.runCallbacks[query.id] = { run, onFailure: vi.fn() };
+        vi.mocked(countRunningQueries).mockReturnValue(countFinished);
+        vi.mocked(updateQueryIfPending).mockResolvedValue(true);
+        vi.mocked(updateQueryIfRunning).mockResolvedValue(true);
+        vi.mocked(getQueriesByIds).mockRejectedValue(new Error("mongo down"));
 
         runner.queueQueryExecution(query);
-        await jest.advanceTimersByTimeAsync(250);
+        await vi.advanceTimersByTimeAsync(250);
         for (let i = 0; i < 5; i++) {
-          await jest.advanceTimersByTimeAsync(302000);
+          await vi.advanceTimersByTimeAsync(302000);
         }
 
         expect(runner.writeErrorSpy).toHaveBeenCalledTimes(1);
         expect(runner.status).toBe("finishing");
 
         resolveCount(0);
-        await jest.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(0);
 
         expect(run).not.toHaveBeenCalled();
         expect(updateQueryIfRunning).toHaveBeenCalledWith(
@@ -1650,14 +1645,14 @@ describe("QueryRunner", () => {
         resolveWrite();
         randomSpy.mockRestore();
         await Promise.resolve();
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("persists the give-up error through updateModel by default", async () => {
       // Base writeErrorIfStillActive writes unconditionally; subclasses may not.
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const runner = new StallTestQueryRunner(
           mockContext,
@@ -1668,12 +1663,10 @@ describe("QueryRunner", () => {
           pointers: [{ name: "a", query: "qry_a", status: "running" }],
         });
         runner.updateModelSpy.mockClear();
-        (getQueriesByIds as jest.Mock).mockRejectedValue(
-          new Error("mongo down"),
-        );
+        (getQueriesByIds as Mock).mockRejectedValue(new Error("mongo down"));
 
         for (let i = 0; i < 5; i++) {
-          await jest.advanceTimersByTimeAsync(302000);
+          await vi.advanceTimersByTimeAsync(302000);
         }
 
         expect(runner.status).toBe("finished");
@@ -1684,13 +1677,13 @@ describe("QueryRunner", () => {
           }),
         );
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("does not restart a finished runner on a late query completion", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const runner = new StallTestQueryRunner(
           mockContext,
@@ -1704,15 +1697,15 @@ describe("QueryRunner", () => {
         await runner.onQueryFinish();
 
         expect(runner.hasDebounceTimer()).toBe(false);
-        expect(jest.getTimerCount()).toBe(0);
+        expect(vi.getTimerCount()).toBe(0);
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
 
     it("re-queues a queued query when the concurrency retry throws", async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         const query = createMockQuery("qry_stuck", "queued");
         const runner = new TestQueryRunner(
@@ -1721,22 +1714,22 @@ describe("QueryRunner", () => {
           mockIntegration,
         );
         // First concurrency check throws; later ones pass
-        (countRunningQueries as jest.Mock)
+        (countRunningQueries as Mock)
           .mockRejectedValueOnce(new Error("mongo down"))
           .mockResolvedValue(0);
 
         runner.runCallbacks[query.id] = {
-          run: jest.fn(),
-          onFailure: jest.fn(),
+          run: vi.fn(),
+          onFailure: vi.fn(),
         };
 
         runner.queueQueryExecution(query);
-        await jest.advanceTimersByTimeAsync(600);
-        await jest.advanceTimersByTimeAsync(2000);
+        await vi.advanceTimersByTimeAsync(600);
+        await vi.advanceTimersByTimeAsync(2000);
         expect(runner.executeQuerySpy).toHaveBeenCalled();
       } finally {
-        jest.clearAllTimers();
-        jest.useRealTimers();
+        vi.clearAllTimers();
+        vi.useRealTimers();
       }
     });
   });

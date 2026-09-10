@@ -1,41 +1,42 @@
+import { MockedFunction, vi } from "vitest";
 import type { ExperimentInterface } from "shared/validators";
 import { autoMerge } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  publishRevision: jest.fn(),
-  prevalidatePublishRevision: jest.fn(),
-  editFeatureRules: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
+  publishRevision: vi.fn(),
+  prevalidatePublishRevision: vi.fn(),
+  editFeatureRules: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  getRevision: jest.fn(),
-  discardRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: vi.fn(),
+  discardRevision: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  removePendingFeatureDraftFromExperiment: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  removePendingFeatureDraftFromExperiment: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/features", () => ({
-  assertCanAutoPublish: jest.fn(),
-  getDraftRevision: jest.fn(),
-  getLiveAndBaseRevisionsForFeature: jest.fn(),
-  getLiveRevisionForFeature: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  assertCanAutoPublish: vi.fn(),
+  getDraftRevision: vi.fn(),
+  getLiveAndBaseRevisionsForFeature: vi.fn(),
+  getLiveRevisionForFeature: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
-  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+vi.mock("back-end/src/util/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-jest.mock("shared/util", () => ({
-  ...jest.requireActual("shared/util"),
-  autoMerge: jest.fn(),
+vi.mock("shared/util", async () => ({
+  ...(await vi.importActual<typeof import("shared/util")>("shared/util")),
+  autoMerge: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/featurePublishGates", () => ({
-  assessRevisionApproval: jest.fn(),
+vi.mock("back-end/src/services/featurePublishGates", () => ({
+  assessRevisionApproval: vi.fn(),
 }));
 
 import {
@@ -55,29 +56,28 @@ import {
 import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 
-const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
-const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
-const mockDiscardRevision = discardRevision as jest.MockedFunction<
+const mockGetFeature = getFeature as MockedFunction<typeof getFeature>;
+const mockGetRevision = getRevision as MockedFunction<typeof getRevision>;
+const mockDiscardRevision = discardRevision as MockedFunction<
   typeof discardRevision
 >;
-const mockPublishRevision = publishRevision as jest.MockedFunction<
+const mockPublishRevision = publishRevision as MockedFunction<
   typeof publishRevision
 >;
-const mockPrevalidatePublish =
-  prevalidatePublishRevision as jest.MockedFunction<
-    typeof prevalidatePublishRevision
-  >;
+const mockPrevalidatePublish = prevalidatePublishRevision as MockedFunction<
+  typeof prevalidatePublishRevision
+>;
 const mockRemovePending =
-  removePendingFeatureDraftFromExperiment as jest.MockedFunction<
+  removePendingFeatureDraftFromExperiment as MockedFunction<
     typeof removePendingFeatureDraftFromExperiment
   >;
-const mockGetLiveAndBase =
-  getLiveAndBaseRevisionsForFeature as jest.MockedFunction<
-    typeof getLiveAndBaseRevisionsForFeature
-  >;
-const mockAutoMerge = autoMerge as jest.MockedFunction<typeof autoMerge>;
-const mockAssessRevisionApproval =
-  assessRevisionApproval as jest.MockedFunction<typeof assessRevisionApproval>;
+const mockGetLiveAndBase = getLiveAndBaseRevisionsForFeature as MockedFunction<
+  typeof getLiveAndBaseRevisionsForFeature
+>;
+const mockAutoMerge = autoMerge as MockedFunction<typeof autoMerge>;
+const mockAssessRevisionApproval = assessRevisionApproval as MockedFunction<
+  typeof assessRevisionApproval
+>;
 
 // The shared approval answer; tests override it to simulate a blocked draft.
 const approvalSatisfied = {
@@ -111,7 +111,7 @@ function makeExperiment(
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   mockGetFeature.mockResolvedValue({
     id: "j2-test",
     organization: "org_1",

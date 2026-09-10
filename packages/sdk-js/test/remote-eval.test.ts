@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import cloneDeep from "lodash/cloneDeep";
 import {
   configureCache,
@@ -16,7 +17,6 @@ import { ApiHost, ClientKey } from "../src/types/growthbook";
 global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
 const { MockEvent, EventSource } = require("mocksse");
-require("jest-localstorage-mock");
 /* eslint-enable */
 
 setPolyfills({
@@ -37,28 +37,13 @@ async function sleep(ms: number) {
 // Fake Date only, so cache staleness follows explicit clock moves rather than how
 // long SDK init happens to take on a loaded machine.
 function useFrozenClock() {
-  jest.useFakeTimers({
-    doNotFake: [
-      "hrtime",
-      "nextTick",
-      "performance",
-      "queueMicrotask",
-      "requestAnimationFrame",
-      "cancelAnimationFrame",
-      "requestIdleCallback",
-      "cancelIdleCallback",
-      "setImmediate",
-      "clearImmediate",
-      "setInterval",
-      "clearInterval",
-      "setTimeout",
-      "clearTimeout",
-    ],
+  vi.useFakeTimers({
+    toFake: ["Date"],
   });
 }
 
 function advanceClock(ms: number) {
-  jest.setSystemTime(Date.now() + ms);
+  vi.setSystemTime(Date.now() + ms);
 }
 
 function mockApi(
@@ -67,7 +52,7 @@ function mockApi(
   delay: number = 50,
 ) {
   // eslint-disable-next-line
-  const f = jest.fn((url: string, resp: any) => {
+  const f = vi.fn((url: string, resp: any) => {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
@@ -192,7 +177,7 @@ const sdkPayloadUpdated = {
 
 describe("remote-eval", () => {
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("debounces network requests for same clientKey and cacheKeyAttributes", async () => {

@@ -1,4 +1,6 @@
-import { Context, Experiment, GrowthBook } from "../src";
+import { vi } from "vitest";
+import { Context, Experiment, GrowthBook, setPolyfills } from "../src";
+import { getPolyfills } from "../src/util";
 
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
@@ -18,7 +20,7 @@ const setGlobalCrypto = (value: unknown) => {
 };
 
 const mockCallback = (context: Context) => {
-  const onFeatureUsage = jest.fn((a) => {
+  const onFeatureUsage = vi.fn((a) => {
     return a;
   });
   context.onFeatureUsage = onFeatureUsage;
@@ -149,14 +151,18 @@ describe("features", () => {
       "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
     const originalCrypto = globalThis.crypto;
+    const originalSubtleCrypto = getPolyfills().SubtleCrypto;
     setGlobalCrypto(undefined);
-
-    await expect(
-      growthbook.setEncryptedFeatures(encryptedFeatures, keyString),
-    ).rejects.toThrow("No SubtleCrypto implementation found");
-
-    growthbook.destroy();
-    setGlobalCrypto(originalCrypto);
+    setPolyfills({ SubtleCrypto: undefined });
+    try {
+      await expect(
+        growthbook.setEncryptedFeatures(encryptedFeatures, keyString),
+      ).rejects.toThrow("No SubtleCrypto implementation found");
+    } finally {
+      growthbook.destroy();
+      setGlobalCrypto(originalCrypto);
+      setPolyfills({ SubtleCrypto: originalSubtleCrypto });
+    }
   });
 
   it("can set features asynchronously", () => {
@@ -390,7 +396,7 @@ describe("features", () => {
   });
 
   it("fires remote tracking calls", async () => {
-    const onExperimentViewed = jest.fn((a) => a);
+    const onExperimentViewed = vi.fn((a) => a);
 
     const exp: Experiment<number | null> = {
       key: "test",

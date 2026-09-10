@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import type { Request } from "express";
@@ -33,7 +34,7 @@ describe("generic landing fences", () => {
   const { app, setReqContext } = setupApp();
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   async function seedConstant(orgId: string, key: string, value: string) {
@@ -131,15 +132,15 @@ describe("generic landing fences", () => {
     );
 
     const orig = adapter.applyChanges.bind(adapter);
-    jest
-      .spyOn(adapter, "applyChanges")
-      .mockImplementation(async (c, current, values, opts) => {
+    vi.spyOn(adapter, "applyChanges").mockImplementation(
+      async (c, current, values, opts) => {
         if (opts?.isRevert) throw new Error("restore failed");
         // Real write: live changes, the constant.updated event is deferred into
         // the landing's buffer, onPersisted reports. Then the next step "fails".
         await orig(c, current, values, opts);
         throw new Error("post-write step failed");
-      });
+      },
+    );
 
     await expect(
       publishRevision(ctx, revision, entity as Record<string, unknown>),
@@ -190,14 +191,14 @@ describe("generic landing fences", () => {
     const { revision } = await loadRevisionAndEntity(ctx, "fence_rec", version);
 
     const orig = adapter.applyChanges.bind(adapter);
-    jest
-      .spyOn(adapter, "applyChanges")
-      .mockImplementation(async (c, current, values, opts) => {
+    vi.spyOn(adapter, "applyChanges").mockImplementation(
+      async (c, current, values, opts) => {
         if (opts?.isRevert) return orig(c, current, values, opts);
         // The rival lands its claim inside recovery's write window.
         await insertRivalMerged(ORG, (entity as { id: string }).id);
         return orig(c, current, values, opts);
-      });
+      },
+    );
 
     await expect(
       publishRevision(ctx, revision, entity as Record<string, unknown>),
@@ -253,9 +254,8 @@ describe("generic landing fences", () => {
       .findOne({ organization: ORG, key: "fence_casc_child" });
 
     const orig = adapter.applyChanges.bind(adapter);
-    jest
-      .spyOn(adapter, "applyChanges")
-      .mockImplementation(async (c, current, values, opts) => {
+    vi.spyOn(adapter, "applyChanges").mockImplementation(
+      async (c, current, values, opts) => {
         if (opts?.isRevert) return orig(c, current, values, opts);
         // Rival claims during the write, and the apply reports a cascade write
         // it also physically performed — the shape a config schema strip leaves.
@@ -281,7 +281,8 @@ describe("generic landing fences", () => {
             });
           },
         });
-      });
+      },
+    );
 
     await expect(
       publishRevision(ctx, revision, entity as Record<string, unknown>),
@@ -322,9 +323,9 @@ describe("generic landing fences", () => {
       version,
     );
 
-    jest.spyOn(adapter, "isApprovalRequiredForRevision").mockReturnValue(true);
+    vi.spyOn(adapter, "isApprovalRequiredForRevision").mockReturnValue(true);
     // The armer's role holds bypass — exactly what must NOT count here.
-    jest.spyOn(adapter, "canBypassApproval").mockReturnValue(true);
+    vi.spyOn(adapter, "canBypassApproval").mockReturnValue(true);
 
     await expect(
       publishRevision(ctx, pending, entity as Record<string, unknown>, {
@@ -355,15 +356,15 @@ describe("generic landing fences", () => {
     // Inject the rival between the no-op's claim and its baseline read.
     const origGetById = ctx.models.constants.getById.bind(ctx.models.constants);
     let injected = false;
-    jest
-      .spyOn(ctx.models.constants, "getById")
-      .mockImplementation(async (id: string) => {
+    vi.spyOn(ctx.models.constants, "getById").mockImplementation(
+      async (id: string) => {
         if (!injected) {
           injected = true;
           await insertRivalMerged(ORG, (entity as { id: string }).id);
         }
         return origGetById(id);
-      });
+      },
+    );
 
     await expect(
       publishRevision(ctx, revision, entity as Record<string, unknown>),

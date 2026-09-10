@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import {
@@ -25,24 +26,24 @@ import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/servic
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentById: jest.fn(),
+vi.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentById: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/experiments", () => ({
-  updateExperimentAnalysisSummary: jest.fn(),
+vi.mock("back-end/src/services/experiments", () => ({
+  updateExperimentAnalysisSummary: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/experimentNotifications", () => ({
-  notifyExperimentChange: jest.fn(),
+vi.mock("back-end/src/services/experimentNotifications", () => ({
+  notifyExperimentChange: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/experimentTimeSeries", () => ({
-  updateExperimentTimeSeries: jest.fn(),
+vi.mock("back-end/src/services/experimentTimeSeries", () => ({
+  updateExperimentTimeSeries: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/experimentDimensionAnalyses", () => ({
-  runEagerExperimentAndUnitDimensionsAnalyses: jest
+vi.mock("back-end/src/services/experimentDimensionAnalyses", () => ({
+  runEagerExperimentAndUnitDimensionsAnalyses: vi
     .fn()
     .mockResolvedValue(undefined),
 }));
@@ -57,10 +58,10 @@ function getSnapshotUpdateContext() {
     org: { id: "org_1" },
     userId: "user_1",
     userName: "Test User",
-    populateForeignRefs: jest.fn().mockResolvedValue(undefined),
+    populateForeignRefs: vi.fn().mockResolvedValue(undefined),
     models: {
       dashboards: {
-        findByExperiment: jest.fn().mockResolvedValue([]),
+        findByExperiment: vi.fn().mockResolvedValue([]),
       },
     },
   } as unknown as Context;
@@ -273,7 +274,7 @@ describe("ExperimentSnapshotModel", () => {
   });
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     const collections = mongoose.connection.collections;
     for (const key in collections) {
       await collections[key].deleteMany({});
@@ -704,15 +705,13 @@ describe("ExperimentSnapshotModel", () => {
         phases,
         analysisSummary: undefined,
       };
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (updateExperimentAnalysisSummary as jest.Mock).mockResolvedValue(
-        experiment,
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      (updateExperimentAnalysisSummary as Mock).mockResolvedValue(experiment);
+      (notifyExperimentChange as Mock).mockResolvedValue([]);
+      (updateExperimentTimeSeries as Mock).mockResolvedValue(undefined);
+      (runEagerExperimentAndUnitDimensionsAnalyses as Mock).mockResolvedValue(
+        undefined,
       );
-      (notifyExperimentChange as jest.Mock).mockResolvedValue([]);
-      (updateExperimentTimeSeries as jest.Mock).mockResolvedValue(undefined);
-      (
-        runEagerExperimentAndUnitDimensionsAnalyses as jest.Mock
-      ).mockResolvedValue(undefined);
       return experiment;
     }
 
@@ -763,13 +762,13 @@ describe("ExperimentSnapshotModel", () => {
     });
 
     it("logs experiment_updated for error snapshots without propagation side effects", async () => {
-      const info = jest.fn();
+      const info = vi.fn();
       const context = getSnapshotUpdateContext();
       context.logger = {
         info,
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
       } as never;
 
       const snapshot = makeSnapshotWithMetric("snp_error_log");
@@ -820,13 +819,13 @@ describe("ExperimentSnapshotModel", () => {
     });
 
     it("logs experiment_updated for exploratory success without propagation", async () => {
-      const info = jest.fn();
+      const info = vi.fn();
       const context = getSnapshotUpdateContext();
       context.logger = {
         info,
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
       } as never;
 
       const snapshot = makeSnapshotWithMetric("snp_exploratory_log");
@@ -889,13 +888,11 @@ describe("ExperimentSnapshotModel", () => {
         analysisSummary: undefined,
       };
 
-      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (updateExperimentAnalysisSummary as jest.Mock).mockResolvedValue(
-        experiment,
-      );
-      (notifyExperimentChange as jest.Mock).mockResolvedValue([]);
-      (updateExperimentTimeSeries as jest.Mock).mockResolvedValue(undefined);
-      const populateChunkedAnalysesSpy = jest.spyOn(
+      (getExperimentById as Mock).mockResolvedValue(experiment);
+      (updateExperimentAnalysisSummary as Mock).mockResolvedValue(experiment);
+      (notifyExperimentChange as Mock).mockResolvedValue([]);
+      (updateExperimentTimeSeries as Mock).mockResolvedValue(undefined);
+      const populateChunkedAnalysesSpy = vi.spyOn(
         context.models.experimentSnapshotAnalysisChunks,
         "populateChunkedAnalyses",
       );
@@ -972,7 +969,7 @@ describe("ExperimentSnapshotModel", () => {
       });
 
       expect(updateExperimentAnalysisSummary).toHaveBeenCalledTimes(1);
-      const passedSnapshot = (updateExperimentAnalysisSummary as jest.Mock).mock
+      const passedSnapshot = (updateExperimentAnalysisSummary as Mock).mock
         .calls[0][0].experimentSnapshot as ExperimentSnapshotInterface;
 
       expect(passedSnapshot.hasChunkedAnalyses).toBe(true);

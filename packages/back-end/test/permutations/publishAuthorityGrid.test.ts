@@ -172,8 +172,6 @@ describe.each(SETTINGS)("%s", (_settingName, rules) => {
           );
         }
 
-        // instanceof PermissionError fails under jest's mixed shared-module
-        // copies, so match by name.
         const canPublish = await assertCanPublishFeatureRevision({
           context: context as never,
           feature,

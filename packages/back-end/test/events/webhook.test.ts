@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { setupApp } from "back-end/test/api/api.setup";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 import {
@@ -6,13 +7,15 @@ import {
 } from "back-end/src/models/EventWebhookModel";
 import { EventModel } from "back-end/src/models/EventModel";
 
-jest.mock("back-end/src/models/EventWebhookModel", () => ({
-  ...jest.requireActual("back-end/src/models/EventWebhookModel"),
-  getEventWebHookById: jest.fn(),
+vi.mock("back-end/src/models/EventWebhookModel", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/models/EventWebhookModel")
+  >("back-end/src/models/EventWebhookModel")),
+  getEventWebHookById: vi.fn(),
 }));
 
-jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
-  EventNotifier: jest.fn(),
+vi.mock("back-end/src/events/notifiers/EventNotifier", () => ({
+  EventNotifier: vi.fn(),
 }));
 
 describe("webhook test events", () => {
@@ -21,14 +24,14 @@ describe("webhook test events", () => {
   const org = { id: "org", environments: [{ id: "production" }] };
 
   it("dispatches webhook test events", async () => {
-    jest
-      .spyOn(EventWebHookModel, "findOne")
-      .mockReturnValue({ toJSON: () => ({ id: "webhook-aabb" }) });
+    vi.spyOn(EventWebHookModel, "findOne").mockReturnValue({
+      toJSON: () => ({ id: "webhook-aabb" }),
+    });
 
-    const mockNotifier = { perform: jest.fn() };
+    const mockNotifier = { perform: vi.fn() };
     EventNotifier.mockReturnValue(mockNotifier);
 
-    const eventModelCreate = jest.spyOn(EventModel, "create");
+    const eventModelCreate = vi.spyOn(EventModel, "create");
 
     await sendEventWebhookTestEvent(
       {

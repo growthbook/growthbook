@@ -1,9 +1,10 @@
+import { vi } from "vitest";
 // Mocked only to sever the heavy services/rampSchedule import chain — no test
 // here exercises the monitoringStatus branch that calls these.
-jest.mock("back-end/src/services/rampSchedule", () => ({
-  getEffectiveRampAutoUpdateState: jest.fn(),
-  getRampMonitoringMode: jest.fn(),
-  getRampAutoUpdatePreference: jest.fn(),
+vi.mock("back-end/src/services/rampSchedule", () => ({
+  getEffectiveRampAutoUpdateState: vi.fn(),
+  getRampMonitoringMode: vi.fn(),
+  getRampAutoUpdatePreference: vi.fn(),
 }));
 
 import { RampScheduleInterface } from "shared/validators";

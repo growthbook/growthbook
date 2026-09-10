@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import cloneDeep from "lodash/cloneDeep";
 import {
   configureCache,
@@ -18,7 +19,6 @@ import { evaluateFeatures, remoteEvalRedis } from "./helpers/evaluateFeatures";
 global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
 const { MockEvent, EventSource } = require("mocksse");
-require("jest-localstorage-mock");
 const Cookie = require("js-cookie");
 const Redis = require("ioredis-mock");
 /* eslint-enable */
@@ -44,7 +44,7 @@ function mockApi(
   delay: number = 50,
 ) {
   // eslint-disable-next-line
-  const f = jest.fn((url: string, resp: any) => {
+  const f = vi.fn((url: string, resp: any) => {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
@@ -82,7 +82,7 @@ function mockRemoteEvalApi(
   delay: number = 50,
 ) {
   // eslint-disable-next-line
-  const f = jest.fn((url: string, resp: any) => {
+  const f = vi.fn((url: string, resp: any) => {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({

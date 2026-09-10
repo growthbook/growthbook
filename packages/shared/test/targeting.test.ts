@@ -1,4 +1,4 @@
-/// <reference types="jest" />
+/// <reference types="vitest/globals" />
 
 import {
   hasAttributeCondition,
