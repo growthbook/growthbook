@@ -430,7 +430,6 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
   return { newMetric, overrideFields };
 }
 
-// Ordered as shown in filter UIs. Keys double as `health:` search tokens.
 export const EXPERIMENT_HEALTH_STATE_LABELS: Record<
   ExperimentHealthState,
   string
@@ -456,8 +455,7 @@ const HEALTH_SORT_ORDER: Record<ExperimentHealthState, number> = {
   unhealthy: 4,
 };
 
-// Detailed statuses from `statusIndicatorData.ts` that describe a data or
-// setup problem with a running experiment rather than a result.
+// Running-experiment data problems, as opposed to results.
 const DETAILED_STATUS_HEALTH_STATES: Record<string, ExperimentHealthState> = {
   "No data": "no-data",
   Unhealthy: "unhealthy",
@@ -470,9 +468,8 @@ export function getHealthStateFromDetailedStatus(
   return DETAILED_STATUS_HEALTH_STATES[detailedStatus] ?? null;
 }
 
-// Whether the rollout is actually served is decided server-side
-// (`tempRolloutExperimentIds` on the experiments list response) with the same
-// published-rule check the experiment page's banner uses.
+// Whether the rollout is actually served is decided server-side with the same
+// published-rule check as the experiment page's banner.
 export function getTempRolloutHealthState(
   exp: Pick<ExperimentInterfaceStringDates, "status" | "phases">,
   hasLiveTempRollout: boolean,
@@ -534,7 +531,6 @@ export function useExperimentSearch({
   ) => ComputedExperimentInterface[];
   localStorageKey: string;
   watchedExperimentIds?: string[];
-  // From the experiments list response; without it no temp rollout is reported.
   tempRolloutExperimentIds?: string[];
   // When provided, drives filtering from a stored search string (e.g. a
   // dashboard block's saved filter) instead of a user-typed input. Bypasses the

@@ -77,7 +77,6 @@ const updateSingleSafeRolloutSnapshot = async (
     ? await context.models.rampSchedules.getById(safeRollout.rampScheduleId)
     : null;
   if (isOrphanedSafeRollout(feature, safeRollout, rampSchedule)) {
-    // Nothing serves it any more: stop it instead of re-queueing it forever.
     await context.models.safeRollout.update(safeRollout, {
       status: "stopped",
       autoSnapshots: false,

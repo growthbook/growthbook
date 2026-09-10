@@ -11,8 +11,6 @@ import {
 import { FeatureHealthEntry, IsFeatureStaleResult } from "shared/util";
 import { useAuth } from "@/services/auth";
 
-// Staleness plus deduped health signals, from the windowed /features/health
-// endpoint; both the Stale and Health columns read from this one cache.
 export type FeatureHealthStateEntry = IsFeatureStaleResult & {
   neverStale: boolean;
   computedAt: string;
@@ -24,8 +22,7 @@ const ENTRY_TTL_MS = 10 * 60 * 1000; // 10 minutes per entry
 const ERROR_RETRY_MS = 30_000;
 
 export interface UseFeatureHealthStatesReturn {
-  // Skips already-loaded IDs whose TTL hasn't expired. After a fetchAll, only
-  // IDs missing from that snapshot (e.g. newly created features) are fetched.
+  // After a fetchAll, only IDs missing from that snapshot are fetched.
   fetchSome: (featureIds: string[]) => Promise<void>;
   // Fetches all org features, overwriting the current data.
   fetchAll: () => Promise<void>;

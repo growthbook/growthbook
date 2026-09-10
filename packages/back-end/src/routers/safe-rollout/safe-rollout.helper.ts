@@ -33,9 +33,8 @@ export function getSafeRolloutRuleFromFeature(
 
 const TERMINAL_RAMP_STATUSES = ["completed", "rolled-back"];
 
-// A safe rollout nothing points at any more: no safe-rollout rule in any
-// environment (enabled or not) and no live ramp schedule. Rule removals and
-// revision reverts can leave these behind still marked "running".
+// Rule removals and revision reverts can leave a running safe rollout that
+// nothing references any more.
 export function isOrphanedSafeRollout(
   feature: FeatureInterface | null,
   safeRollout: Pick<SafeRolloutInterface, "id" | "rampScheduleId">,

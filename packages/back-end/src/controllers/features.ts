@@ -7481,8 +7481,6 @@ type FeatureHealthStateEntry = IsFeatureStaleResult & {
   health: FeatureHealthEntry[];
 };
 
-// Staleness plus cleanup/attention signals for the feature list. Windowed:
-// `ids` limits the work to the visible rows; omit it for filter-driven scans.
 export async function getFeaturesHealth(
   req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<

@@ -130,7 +130,6 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     (f) => f.field === "has" && f.values.includes("draft"),
   );
 
-  // Draft states are only needed for the `has:draft` filter.
   useEffect(() => {
     if (hasDraftFilter) draftHook.fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps

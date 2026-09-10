@@ -48,7 +48,6 @@ export function isExperimentRefRuleSkipped(
   return !includeExperimentInPayload(experiment);
 }
 
-// Rule-level notice for a stopped experiment still serving its released variation.
 export function TempRolloutCallout({
   experiment,
 }: {

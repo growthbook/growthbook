@@ -15,8 +15,7 @@ export function useExperiments(
     experiments: ExperimentInterfaceStringDates[];
     hasArchived: boolean;
     holdouts: HoldoutInterface[];
-    // Stopped experiments whose temporary rollout is actually being served
-    // (see getServedTempRolloutExperimentIds on the back-end).
+    // Stopped experiments whose temporary rollout is actually being served.
     tempRolloutExperimentIds: string[];
   }>(
     `/experiments?project=${project || ""}&includeArchived=${

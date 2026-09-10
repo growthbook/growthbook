@@ -20,7 +20,6 @@ function deriveStatus({
   envStatus,
 }: {
   archived?: boolean;
-  // environment id → enabled, from the lazily loaded feature status endpoint.
   envStatus?: Record<string, boolean>;
 }): FeatureStatus {
   if (archived) return "archived";
@@ -29,7 +28,6 @@ function deriveStatus({
   return "live";
 }
 
-// Lifecycle only (Live / Off / Archived) — health lives in its own column.
 export const FeatureLifecycleStatus: FC<{
   archived?: boolean;
   envStatus?: Record<string, boolean>;
@@ -37,7 +35,6 @@ export const FeatureLifecycleStatus: FC<{
   <>{STATUS_CONFIG[deriveStatus({ archived, envStatus })].label}</>
 );
 
-// Detail-page header: Archived badge, or the staleness verdict for live flags.
 const FeatureStatusBadge: FC<{
   feature: {
     archived?: boolean;

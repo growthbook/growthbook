@@ -29,9 +29,7 @@ function isTempRolloutCandidate(exp: TempRolloutExperiment): boolean {
   );
 }
 
-// Linked feature ids that must be loaded to decide whether a candidate's
-// rollout is really being served. Visual and redirect experiments are served
-// independently of their flags, so their features are not needed.
+// Visual and redirect experiments are served independently of their flags.
 export function getTempRolloutCandidateFeatureIds(
   experiments: TempRolloutExperiment[],
 ): string[] {

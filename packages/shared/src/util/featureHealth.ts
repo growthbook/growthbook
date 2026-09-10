@@ -23,10 +23,8 @@ import { getRulesForEnvironment, includeExperimentInPayload } from ".";
 
 export type FeatureHealthSeverity = "high" | "medium" | "low";
 
-// Ranked most urgent first, mirroring the experiment status precedence:
-// active harm, then decisions a person is blocking on, then data problems,
-// then misconfiguration and hygiene, then cleanup. Doubles as display order
-// and as the `health:` token set.
+// Ranked most urgent first (mirrors experiment status precedence): active harm,
+// blocking decisions, data problems, misconfiguration, cleanup.
 export const FEATURE_HEALTH_SIGNAL_SEVERITY = {
   "safe-rollout-rollback-now": "high",
   "invalid-value": "high",
@@ -46,13 +44,11 @@ export const FEATURE_HEALTH_SIGNALS = Object.keys(
 
 export type FeatureHealthDetail = {
   label: string;
-  // ISO date the underlying thing started needing attention (e.g. when the
-  // experiment behind a temp rollout stopped), for relative display.
+  // ISO date this started needing attention, for relative display.
   since?: string;
 };
 
-// One entry per signal per feature, however many rules, ramps, or
-// environments triggered it.
+// One entry per signal per feature, however many rules or environments triggered it.
 export type FeatureHealthEntry = {
   signal: FeatureHealthSignal;
   count: number;
@@ -60,8 +56,7 @@ export type FeatureHealthEntry = {
   details?: FeatureHealthDetail[];
 };
 
-// Ajv compiles are expensive and this engine runs across every feature on a
-// filter-driven fetch-all, so compiled schemas are cached by schema text.
+// Ajv compiles are expensive and this runs across every feature on a fetch-all.
 const ajv = getJSONValidator();
 const compiledSchemas = new Map<string, ValidateFunction>();
 const MAX_CACHED_SCHEMAS = 1000;
@@ -167,8 +162,7 @@ export function computeFeatureHealth({
     found.set(signal, entry);
   };
 
-  // A temp rollout is one rule, however many environments it targets: count
-  // distinct rules, list the environments.
+  // One temp rollout rule may target several environments: count rules, list envs.
   const tempRolloutRules = new Map<
     TempRolloutStaleReason,
     { rules: Map<string, FeatureHealthDetail>; envs: Set<string> }
@@ -247,9 +241,8 @@ export function computeFeatureHealth({
     }
   }
 
-  // A safe rollout only counts while something still points at it: an enabled
-  // safe-rollout rule, or a live ramp schedule it monitors (the default embed).
-  // Orphans (rule deleted, revision reverted) are inert.
+  // Only safe rollouts an enabled rule or a live ramp schedule still points at;
+  // orphans are inert.
   const referencedSafeRollouts = new Set(
     (feature.rules ?? []).flatMap((rule) =>
       rule.type === "safe-rollout" && rule.enabled ? [rule.safeRolloutId] : [],

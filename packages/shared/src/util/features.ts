@@ -741,8 +741,6 @@ export type TempRolloutStaleReason = Extract<
   "temp-rollout" | "old-temp-rollout"
 >;
 
-// A stopped experiment still serving its released variation is a temporary
-// rollout; past OLD_TEMP_ROLLOUT_DAYS it is an old one.
 export function getTempRolloutStaleReason(
   exp: { phases?: { dateEnded?: string | Date }[] },
   now: Date = new Date(),
@@ -761,8 +759,7 @@ export type EnvStaleResult = {
   stale: boolean;
   reason?: StaleFeatureReason;
   evaluatesTo?: string; // set when all users receive the same value; same format as feature.defaultValue
-  // Cleanup signal, independent of staleness: a reachable rule still serves a
-  // stopped experiment's released variation. Most severe tier when several.
+  // Cleanup signal, independent of staleness. Most severe tier when several.
   tempRollout?: TempRolloutStaleReason;
 };
 
@@ -934,8 +931,7 @@ function buildEnvResults(
     let activeExperimentReason: "active-experiment" | "temp-rollout" | null =
       null;
     let tempRollout: TempRolloutStaleReason | undefined;
-    // First reachable temp rollout's released value; the env serves it as a
-    // constant, so it feeds `evaluatesTo` when nothing two-sided is present.
+    // First reachable temp rollout's released value, for `evaluatesTo`.
     let rolloutValue: { index: number; value: string } | undefined;
     for (const [index, rule] of rules.entries()) {
       if (isUnconditionalCatcher(rule)) break;

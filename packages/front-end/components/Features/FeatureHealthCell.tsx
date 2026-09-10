@@ -12,12 +12,8 @@ import {
   getFeatureHealthEntries,
 } from "@/services/health";
 
-// The feature list's Health column: the most severe signal (plus any signal the
-// user is filtering on), a "+N" chip for every other occurrence, and a hover
-// popover listing everything. Staleness has its own Stale column.
 const FeatureHealthCell: FC<{
   staleData?: FeatureHealthStateEntry;
-  // Active `health:` filter values; matching signals always render in full.
   healthFilter?: string[];
 }> = ({ staleData, healthFilter = [] }) => {
   const entries = getFeatureHealthEntries(staleData);
@@ -25,8 +21,7 @@ const FeatureHealthCell: FC<{
   const shown = entries.filter(
     (entry, i) => i === 0 || entryMatchesHealthFilter(entry, healthFilter),
   );
-  // Each visible line stands for one occurrence; everything else, including
-  // repeats of a shown signal, is counted in the chip.
+  // Repeats of a shown signal count toward the chip too.
   const hidden =
     entries.reduce((sum, entry) => sum + entry.count, 0) - shown.length;
 

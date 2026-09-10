@@ -9,19 +9,15 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const ERROR_RETRY_MS = 30_000;
 
 export interface UseEntityDraftStatesReturn {
-  // entity id → status counts; absent if no active draft. Empty until
-  // fetchAll runs (only the `has:draft` filter needs it).
+  // entity id → status counts; absent if no active draft.
   draftStates: DraftStateCache;
   fetchAll: () => Promise<void>;
   loading: boolean;
   mutate: () => Promise<void>;
 }
 
-// Generic "active draft status counts per entity id" hook. Backs the list-page
-// `has:draft` filter for any revision-backed entity (saved groups, constants,
-// configs), so it only ever loads the whole org on demand. `path` is the
-// draft-states endpoint; `responseKey` is the field on the JSON response that
-// holds the id→counts map.
+// Active draft status counts per entity id, loaded on demand for the
+// `has:draft` filter. `responseKey` is the response field holding the map.
 export function useEntityDraftStates({
   path,
   responseKey,

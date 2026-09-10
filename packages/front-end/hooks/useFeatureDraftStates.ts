@@ -10,8 +10,7 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const ERROR_RETRY_MS = 30_000;
 
 export interface UseFeatureDraftStatesReturn {
-  // featureId → status counts; absent if no active draft. Empty until
-  // fetchAll runs (only the `is:draft` / `has:draft` filters need it).
+  // featureId → status counts; absent if no active draft.
   draftStates: DraftStateCache;
   fetchAll: () => Promise<void>;
   loading: boolean;

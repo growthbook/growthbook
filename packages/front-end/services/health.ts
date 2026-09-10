@@ -48,8 +48,7 @@ export function isTempRolloutHealthState(
   return state === "temp-rollout" || state === "old-temp-rollout";
 }
 
-// Health = things to fix or clean up while the flag stays. Staleness (can the
-// flag be removed?) is a separate column with its own `is:` filters.
+// Health = things to fix while the flag stays; staleness = whether it can go.
 export type FeatureHealthState = FeatureHealthSignal;
 
 const FEATURE_HEALTH_COPY: Record<
@@ -136,8 +135,6 @@ export function getFeatureHealthStates(
   return getFeatureHealthEntries(staleData).map((e) => e.signal);
 }
 
-// Entries arrive most urgent first, so the first one is the feature's overall
-// severity.
 export function getFeatureOverallHealthSeverity(
   staleData: FeatureStaleSummary | undefined,
 ): FeatureHealthSeverity | null {
@@ -145,8 +142,6 @@ export function getFeatureOverallHealthSeverity(
   return first ? getFeatureHealthSeverity(first.signal) : null;
 }
 
-// Tooltip body for one deduped entry: what it means, plus how many rules,
-// ramps, or environments triggered it.
 export function describeFeatureHealthEntry(entry: FeatureHealthEntry): string {
   const { description } = FEATURE_HEALTH_STATES[entry.signal];
   const parts = [description];
@@ -157,9 +152,7 @@ export function describeFeatureHealthEntry(entry: FeatureHealthEntry): string {
   return parts.join(" ");
 }
 
-// `health:` search tokens: every signal present, its severity, and the overall
-// severity is implied by the most severe. An old temp rollout is still a temp
-// rollout, so `health:temp-rollout` matches both tiers.
+// An old temp rollout is still a temp rollout, so `health:temp-rollout` matches both.
 export function getFeatureHealthSearchTokens(
   staleData: FeatureStaleSummary | undefined,
 ): (FeatureHealthState | FeatureHealthSeverity)[] {
@@ -174,8 +167,6 @@ export function getFeatureHealthSearchTokens(
   return tokens;
 }
 
-// Whether an entry is one the user asked about via `health:` filter values
-// (signals, the temp-rollout alias, or severities).
 export function entryMatchesHealthFilter(
   entry: FeatureHealthEntry,
   filterValues: string[],
@@ -196,7 +187,6 @@ export const FEATURE_HEALTH_FILTER_OPTIONS = FEATURE_HEALTH_STATE_ORDER.map(
   (state) => ({ value: state, label: FEATURE_HEALTH_STATES[state].label }),
 );
 
-// Some environments stale while the feature as a whole is not.
 export function isPartiallyStale(staleData: FeatureStaleSummary): boolean {
   return (
     !staleData.stale &&
@@ -218,8 +208,7 @@ export const FEATURE_STALE_FILTER_OPTIONS: {
   { value: "stale-detection-off", label: "Stale detection off" },
 ];
 
-// `is:` search tokens for the Stale column. `neverStale` on the feature is
-// authoritative over the (possibly cached) stale data.
+// `neverStale` on the feature is authoritative over cached stale data.
 export function getFeatureStaleSearchTokens(
   staleData: FeatureStaleSummary | undefined,
   neverStale?: boolean,

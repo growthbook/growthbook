@@ -230,8 +230,7 @@ export default function FeaturesPage() {
         .flatMap((f) => f.values.map((v) => v.toLowerCase())),
     [syntaxFilters],
   );
-  // Both the Stale (`is:`) and Health (`health:`) filters need every
-  // feature's stale data, not just the visible page.
+  // Stale and Health filters need every feature's data, not just the visible page.
   const hasStaleFilter = syntaxFilters.some(
     (f) =>
       f.field === "health" ||
