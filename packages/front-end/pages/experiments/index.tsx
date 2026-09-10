@@ -94,6 +94,7 @@ const ExperimentsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
+    tempRolloutExperimentIds,
   } = useExperiments(project, activeTab === "archived", "standard");
   const { watchedExperiments } = useWatching();
 
@@ -113,6 +114,7 @@ const ExperimentsPage = (): React.ReactElement => {
   } = useExperimentSearch({
     allExperiments,
     watchedExperimentIds: watchedExperiments,
+    tempRolloutExperimentIds,
     localStorageKey: "experiments-page",
   });
 

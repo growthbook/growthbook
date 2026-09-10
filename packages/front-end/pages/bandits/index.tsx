@@ -66,6 +66,7 @@ const ExperimentsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
+    tempRolloutExperimentIds,
   } = useExperiments(project, activeTab === "archived", "multi-armed-bandit");
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
@@ -85,6 +86,7 @@ const ExperimentsPage = (): React.ReactElement => {
   } = useExperimentSearch({
     allExperiments,
     watchedExperimentIds: watchedExperiments,
+    tempRolloutExperimentIds,
     localStorageKey: "bandits-page",
   });
 

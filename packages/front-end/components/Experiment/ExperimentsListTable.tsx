@@ -26,9 +26,12 @@ import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import {
   EXPERIMENT_HEALTH_STATE_LABELS,
   getHealthStateFromDetailedStatus,
-  isTempRolloutHealthState,
-  TEMP_ROLLOUT_HEALTH_STATES,
+  getTempRolloutTooltip,
 } from "@/services/experiments";
+import {
+  isTempRolloutHealthState,
+  TEMP_ROLLOUT_HEALTH,
+} from "@/services/health";
 
 interface ExperimentsListTableProps {
   tab: string;
@@ -262,16 +265,10 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
               {showHealthColumn ? (
                 <TableCell style={{ whiteSpace: "nowrap" }}>
                   {isTempRolloutHealthState(e.healthState) ? (
-                    <UITooltip
-                      content={
-                        TEMP_ROLLOUT_HEALTH_STATES[e.healthState].tooltip
-                      }
-                    >
+                    <UITooltip content={getTempRolloutTooltip(e)}>
                       <Flex gap="1" align="center">
                         <ExperimentDot
-                          color={
-                            TEMP_ROLLOUT_HEALTH_STATES[e.healthState].color
-                          }
+                          color={TEMP_ROLLOUT_HEALTH[e.healthState].color}
                         />
                         {EXPERIMENT_HEALTH_STATE_LABELS[e.healthState]}
                       </Flex>

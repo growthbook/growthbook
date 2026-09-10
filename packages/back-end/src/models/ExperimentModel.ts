@@ -568,8 +568,8 @@ export async function getAllExperiments(
  * Lightweight sibling of {@link getAllExperiments} for the feature
  * stale-detection and dependents graph. Projects only the fields that
  * `buildExperimentDependencyIndex`, `getDependentExperiments`,
- * `includeExperimentInPayload`, and the temp-rollout scan in
- * `getFeatureExperimentStates` read, and skips `upgradeExperimentDoc`. Of
+ * `includeExperimentInPayload`, and `getTempRolloutStaleReason` read, and
+ * skips `upgradeExperimentDoc`. Of
  * the projected fields, only `releasedVariationId` is derived by that
  * migration, so the same backfill is applied inline below. Same permission
  * filter as `getAllExperiments`.
@@ -609,6 +609,7 @@ export async function getAllExperimentsForStaleGraph(
         winner: 1,
         "variations.id": 1,
         "phases.prerequisites": 1,
+        "phases.dateEnded": 1,
       },
     })
     .toArray();

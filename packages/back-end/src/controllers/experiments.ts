@@ -178,6 +178,7 @@ import {
   isHoldoutExperiment,
 } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
+import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -208,7 +209,10 @@ export async function getExperiments(
     type,
   });
 
-  const holdouts = await context.models.holdout.getAll();
+  const [holdouts, tempRolloutExperimentIds] = await Promise.all([
+    context.models.holdout.getAll(),
+    getServedTempRolloutExperimentIds(context, experiments),
+  ]);
 
   const hasArchived = includeArchived
     ? experiments.some((e) => e.archived)
@@ -219,6 +223,7 @@ export async function getExperiments(
     experiments,
     hasArchived,
     holdouts,
+    tempRolloutExperimentIds,
   });
 }
 

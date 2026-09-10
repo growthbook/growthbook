@@ -55,6 +55,7 @@ import {
 } from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
+import { getFeatureHealthSearchTokens } from "@/services/health";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -215,7 +216,6 @@ export function useFeatureSearch({
   staleStates,
   rampStates,
   dependencyIndex,
-  experimentStates,
   contentSearchPrefixes = [],
 }: {
   allFeatures: FeatureInterface[];
@@ -236,12 +236,14 @@ export function useFeatureSearch({
     {
       stale: boolean;
       neverStale: boolean;
-      envResults?: Record<string, { stale: boolean; reason?: string }>;
+      envResults?: Record<
+        string,
+        { stale: boolean; reason?: string; tempRollout?: string }
+      >;
     }
   >;
   rampStates?: Record<string, unknown>;
   dependencyIndex?: Set<string> | null;
-  experimentStates?: Record<string, { hasTempRollout: boolean }>;
   contentSearchPrefixes?: string[];
 }) {
   const syntaxFilterPassthrough = useCallback(
@@ -286,7 +288,6 @@ export function useFeatureSearch({
       staleStates,
       rampStates,
       dependencyIndex,
-      experimentStates,
       projects,
       getProjectById,
     ],
@@ -299,24 +300,12 @@ export function useFeatureSearch({
         if (item.valueType === "string") is.push("string");
         if (item.valueType === "number") is.push("number");
         if (item.valueType === "boolean") is.push("boolean");
-        // item.neverStale is authoritative — overrides staleStates cache immediately
-        if (item.neverStale) {
-          is.push("stale-disabled");
-        } else {
-          const s = staleStates?.[item.id];
-          if (s?.stale) is.push("stale");
-        }
         return is;
       },
       has: (item) => {
         const has: string[] = [];
         if (item.project) has.push("project");
         if (draftStates?.[item.id]) has.push("draft", "drafts");
-        if (!item.neverStale) {
-          const s = staleStates?.[item.id];
-          const envEntries = Object.values(s?.envResults ?? {});
-          if (envEntries.some((e) => e.stale)) has.push("stale-env");
-        }
         const meta = item as FeatureInterface & {
           hasPrerequisites?: boolean;
           hasSavedGroups?: boolean;
@@ -326,10 +315,12 @@ export function useFeatureSearch({
         if (item.linkedExperiments?.length) has.push("experiments");
         if (rampStates?.[item.id]) has.push("ramp-schedule");
         if (dependencyIndex?.has(item.id)) has.push("dependents");
-        const expState = experimentStates?.[item.id];
-        if (expState?.hasTempRollout) has.push("temp-rollout");
         return has;
       },
+      // item.neverStale is authoritative — overrides the staleStates cache
+      // immediately after toggling detection.
+      health: (item) =>
+        getFeatureHealthSearchTokens(staleStates?.[item.id], item.neverStale),
       key: (item) => item.id,
       // Match the governance project plus any targeting projects (all
       // projects when targetingAllProjects), by id and resolved name, so

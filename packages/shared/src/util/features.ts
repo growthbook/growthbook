@@ -1,5 +1,5 @@
 import Ajv from "ajv";
-import { subMonths, subWeeks } from "date-fns";
+import { differenceInDays, subMonths, subWeeks } from "date-fns";
 import { jsonrepair } from "jsonrepair";
 import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
@@ -731,12 +731,40 @@ export type StaleFeatureReason =
   | "toggled-off"
   | "active-experiment"
   | "temp-rollout"
+  | "old-temp-rollout"
   | "has-rules";
+
+export const OLD_TEMP_ROLLOUT_DAYS = 30;
+
+export type TempRolloutStaleReason = Extract<
+  StaleFeatureReason,
+  "temp-rollout" | "old-temp-rollout"
+>;
+
+// A stopped experiment still serving its released variation is a temporary
+// rollout. Once it has been stopped for more than OLD_TEMP_ROLLOUT_DAYS it is
+// an old one — the same rollout, but a more urgent cleanup candidate.
+export function getTempRolloutStaleReason(
+  exp: { phases?: { dateEnded?: string | Date }[] },
+  now: Date = new Date(),
+): TempRolloutStaleReason {
+  const dateEnded = exp.phases?.[exp.phases.length - 1]?.dateEnded;
+  if (
+    dateEnded &&
+    differenceInDays(now, getValidDate(dateEnded)) > OLD_TEMP_ROLLOUT_DAYS
+  ) {
+    return "old-temp-rollout";
+  }
+  return "temp-rollout";
+}
 
 export type EnvStaleResult = {
   stale: boolean;
   reason?: StaleFeatureReason;
   evaluatesTo?: string; // set when all users receive the same value; same format as feature.defaultValue
+  // Cleanup signal, independent of staleness: a reachable rule still serves a
+  // stopped experiment's released variation. Most severe tier when several.
+  tempRollout?: TempRolloutStaleReason;
 };
 
 export type IsFeatureStaleResult = {
@@ -806,6 +834,7 @@ const REASON_PRIORITY: StaleFeatureReason[] = [
   "abandoned-draft",
   "no-rules",
   "rules-one-sided",
+  "old-temp-rollout",
 ];
 
 function pickOverallReason(
@@ -900,21 +929,31 @@ function buildEnvResults(
     }
 
     // Walk rules in order; an unconditional catcher shadows everything after it.
-    // A stopped experiment that's still in the payload is a temporary rollout — a
-    // distinct non-stale signal so engineers can find features ready for cleanup.
-    // Prefer a live running experiment over a temp rollout when both are
-    // reachable: the running experiment is the dominant signal, so we record
-    // any temp rollout we encounter but keep scanning for a running one.
+    // A stopped experiment that's still in the payload is a temporary rollout.
+    // A recent one keeps the env non-stale (grace period). An old one serves a
+    // constant, so it counts as one-sided: if it is all the env does, the env
+    // is stale; other real logic keeps it alive. Either way the rollout is
+    // reported in `tempRollout` so it can be cleaned up.
     let activeExperimentReason: "active-experiment" | "temp-rollout" | null =
       null;
-    for (const rule of rules) {
+    let tempRollout: TempRolloutStaleReason | undefined;
+    // First reachable temp rollout's released value; the env serves it as a
+    // constant, so it feeds `evaluatesTo` when nothing two-sided is present.
+    let rolloutValue: { index: number; value: string } | undefined;
+    for (const [index, rule] of rules.entries()) {
       if (isUnconditionalCatcher(rule)) break;
       if (isExperimentRefRule(rule)) {
         const exp = experimentMap.get(rule.experimentId);
         if (exp && includeExperimentInPayload(exp)) {
           if (exp.status === "stopped") {
-            if (!activeExperimentReason) {
-              activeExperimentReason = "temp-rollout";
+            const tier = getTempRolloutStaleReason(exp);
+            if (!tempRollout || tier === "old-temp-rollout") tempRollout = tier;
+            if (tier === "temp-rollout") activeExperimentReason ??= tier;
+            if (!rolloutValue) {
+              const released = rule.variations.find(
+                (v) => v.variationId === exp.releasedVariationId,
+              );
+              if (released) rolloutValue = { index, value: released.value };
             }
           } else {
             activeExperimentReason = "active-experiment";
@@ -923,31 +962,53 @@ function buildEnvResults(
         }
       }
     }
-    if (activeExperimentReason) {
-      envResults[envId] = { stale: false, reason: activeExperimentReason };
-      continue;
-    }
-
-    if (areRulesOneSided(rules)) {
-      const firstValueRule = rules.find(
+    const withTempRollout = (result: EnvStaleResult): EnvStaleResult =>
+      tempRollout ? { ...result, tempRollout } : result;
+    const oneSided = areRulesOneSided(rules);
+    const oneSidedValue = (): string => {
+      const firstValueRuleIndex = rules.findIndex(
         (r): r is ForceRule | RolloutRule =>
           r.type === "force" || r.type === "rollout",
       );
-      envResults[envId] = hasDependentsInEnv
-        ? {
-            stale: false,
-            reason: "has-dependents",
-            evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
-          }
-        : {
-            stale: true,
-            reason: "rules-one-sided",
-            evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
-          };
+      const firstValueRule = rules[firstValueRuleIndex] as
+        | ForceRule
+        | RolloutRule
+        | undefined;
+      return rolloutValue &&
+        (firstValueRuleIndex === -1 || rolloutValue.index < firstValueRuleIndex)
+        ? rolloutValue.value
+        : (firstValueRule?.value ?? feature.defaultValue);
+    };
+
+    if (activeExperimentReason) {
+      envResults[envId] = withTempRollout({
+        stale: false,
+        reason: activeExperimentReason,
+        ...(activeExperimentReason === "temp-rollout" && oneSided
+          ? { evaluatesTo: oneSidedValue() }
+          : {}),
+      });
       continue;
     }
 
-    envResults[envId] = { stale: false, reason: "has-rules" };
+    if (oneSided) {
+      const evaluatesTo = oneSidedValue();
+      envResults[envId] = withTempRollout(
+        hasDependentsInEnv
+          ? { stale: false, reason: "has-dependents", evaluatesTo }
+          : {
+              stale: true,
+              reason:
+                tempRollout === "old-temp-rollout"
+                  ? "old-temp-rollout"
+                  : "rules-one-sided",
+              evaluatesTo,
+            },
+      );
+      continue;
+    }
+
+    envResults[envId] = withTempRollout({ stale: false, reason: "has-rules" });
   }
 
   return envResults;

@@ -18,8 +18,8 @@ import {
   DataSourcePipelineSettings,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { daysBetween, getValidDate } from "shared/dates";
-import { includeExperimentInPayload } from "shared/util";
+import { ago, getValidDate } from "shared/dates";
+import { getTempRolloutStaleReason } from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
@@ -52,7 +52,8 @@ import {
   SliceDataForMetric,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { ReactElement } from "react";
+import { ReactElement, useMemo } from "react";
+import { TEMP_ROLLOUT_HEALTH, TempRolloutHealthState } from "@/services/health";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -429,13 +430,6 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
   return { newMetric, overrideFields };
 }
 
-export const OLD_TEMP_ROLLOUT_DAYS = 30;
-
-type TempRolloutHealthState = Extract<
-  ExperimentHealthState,
-  "temp-rollout" | "old-temp-rollout"
->;
-
 // Ordered as shown in filter UIs. Keys double as `health:` search tokens.
 export const EXPERIMENT_HEALTH_STATE_LABELS: Record<
   ExperimentHealthState,
@@ -443,24 +437,17 @@ export const EXPERIMENT_HEALTH_STATE_LABELS: Record<
 > = {
   "no-data": "No data",
   unhealthy: "Unhealthy",
-  "temp-rollout": "Temp rollout",
-  "old-temp-rollout": "Old temp rollout",
+  "temp-rollout": TEMP_ROLLOUT_HEALTH["temp-rollout"].label,
+  "old-temp-rollout": TEMP_ROLLOUT_HEALTH["old-temp-rollout"].label,
 };
 
-export const TEMP_ROLLOUT_HEALTH_STATES: Record<
-  TempRolloutHealthState,
-  { color: "yellow" | "orange"; tooltip: string }
-> = {
-  "temp-rollout": {
-    color: "yellow",
-    tooltip:
-      "This stopped experiment still has its temporary rollout enabled. Ready for cleanup.",
-  },
-  "old-temp-rollout": {
-    color: "orange",
-    tooltip: `This experiment stopped over ${OLD_TEMP_ROLLOUT_DAYS} days ago and still has its temporary rollout enabled. Ready for cleanup.`,
-  },
-};
+export function getTempRolloutTooltip(
+  exp: Pick<ExperimentInterfaceStringDates, "phases">,
+): string {
+  const dateEnded = exp.phases?.[exp.phases.length - 1]?.dateEnded;
+  const stopped = dateEnded ? `Stopped ${ago(dateEnded)}` : "Stopped";
+  return `${stopped} with its temporary rollout still enabled. Ready for cleanup.`;
+}
 
 const HEALTH_SORT_ORDER: Record<ExperimentHealthState, number> = {
   "temp-rollout": 1,
@@ -483,67 +470,41 @@ export function getHealthStateFromDetailedStatus(
   return DETAILED_STATUS_HEALTH_STATES[detailedStatus] ?? null;
 }
 
-export function isTempRolloutHealthState(
-  state: ExperimentHealthState | null,
-): state is TempRolloutHealthState {
-  return state === "temp-rollout" || state === "old-temp-rollout";
-}
-
-type ExperimentForTempRollout = Pick<
-  ExperimentInterfaceStringDates,
-  | "status"
-  | "archived"
-  | "excludeFromPayload"
-  | "releasedVariationId"
-  | "hasVisualChangesets"
-  | "hasURLRedirects"
-  | "linkedFeatures"
-  | "phases"
->;
-
 /**
- * Which temp-rollout state a stopped experiment is in, or null when its
- * temporary rollout is off. "old-temp-rollout" once the experiment has been
- * stopped for more than OLD_TEMP_ROLLOUT_DAYS.
- *
- * Delegates to `includeExperimentInPayload` for the experiment-level guards —
- * archived, missing released variation, no phases, no linked changes all
- * correctly exclude themselves.
- *
- * Deliberately called without linked feature documents, which the experiment
- * list does not load. That skips the published-rule check inside
- * `includeExperimentInPayload`, so an experiment whose experiment-ref rules are
- * all disabled, in a disabled environment, or present only in an unpublished
- * draft still counts. That is the intent here: the rollout setting is still on
- * and wants turning off, which is precisely the cleanup signal the "Health"
- * column exists to surface. It is NOT a guarantee that a live rule is
- * currently serving the released variation — use `includeExperimentInPayload`
- * with the linked features for that.
+ * Which temp-rollout tier a stopped experiment is in, or null when its
+ * temporary rollout is not being served. Whether it is served is decided
+ * server-side (`tempRolloutExperimentIds` on the experiments list response),
+ * using the same published-rule check as the experiment page's banner, so
+ * the list never reports a rollout that no SDK is actually receiving.
+ * "old-temp-rollout" once the experiment has been stopped for more than
+ * OLD_TEMP_ROLLOUT_DAYS.
  */
 export function getTempRolloutHealthState(
-  exp: ExperimentForTempRollout,
+  exp: Pick<ExperimentInterfaceStringDates, "status" | "phases">,
+  hasLiveTempRollout: boolean,
   now: Date = new Date(),
 ): TempRolloutHealthState | null {
-  if (exp.status !== "stopped") return null;
-  if (!includeExperimentInPayload(exp as ExperimentInterfaceStringDates)) {
-    return null;
-  }
-  const dateEnded = exp.phases?.[exp.phases.length - 1]?.dateEnded;
-  if (dateEnded && daysBetween(dateEnded, now) > OLD_TEMP_ROLLOUT_DAYS) {
-    return "old-temp-rollout";
-  }
-  return "temp-rollout";
+  if (exp.status !== "stopped" || !hasLiveTempRollout) return null;
+  return getTempRolloutStaleReason(exp, now);
 }
 
 export function getExperimentHealthState(
-  exp: ExperimentForTempRollout,
-  detailedStatus?: string,
+  exp: Pick<ExperimentInterfaceStringDates, "status" | "phases">,
+  detailedStatus: string | undefined,
+  hasLiveTempRollout: boolean,
   now: Date = new Date(),
 ): ExperimentHealthState | null {
   return (
     getHealthStateFromDetailedStatus(detailedStatus) ??
-    getTempRolloutHealthState(exp, now)
+    getTempRolloutHealthState(exp, hasLiveTempRollout, now)
   );
+}
+
+export function getHealthSearchTokens(
+  state: ExperimentHealthState | null,
+): ExperimentHealthState[] {
+  if (!state) return [];
+  return state === "old-temp-rollout" ? [state, "temp-rollout"] : [state];
 }
 
 export function getHealthSortOrder(
@@ -568,6 +529,7 @@ export function useExperimentSearch({
   filterResults,
   localStorageKey,
   watchedExperimentIds,
+  tempRolloutExperimentIds,
   controlledSearchValue,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
@@ -578,6 +540,8 @@ export function useExperimentSearch({
   ) => ComputedExperimentInterface[];
   localStorageKey: string;
   watchedExperimentIds?: string[];
+  // From the experiments list response; without it no temp rollout is reported.
+  tempRolloutExperimentIds?: string[];
   // When provided, drives filtering from a stored search string (e.g. a
   // dashboard block's saved filter) instead of a user-typed input. Bypasses the
   // URL `q` param so it doesn't leak into or clobber the page's search state.
@@ -592,6 +556,10 @@ export function useExperimentSearch({
   } = useDefinitions();
   const { getOwnerDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
+  const tempRolloutIds = useMemo(
+    () => new Set(tempRolloutExperimentIds ?? []),
+    [tempRolloutExperimentIds],
+  );
 
   const experiments: ComputedExperimentInterface[] = useAddComputedFields(
     allExperiments,
@@ -608,6 +576,7 @@ export function useExperimentSearch({
       const healthState = getExperimentHealthState(
         exp,
         statusIndicator.detailedStatus,
+        tempRolloutIds.has(exp.id),
       );
 
       return {
@@ -635,7 +604,7 @@ export function useExperimentSearch({
         healthSortOrder: getHealthSortOrder(healthState),
       };
     },
-    [getExperimentMetricById, getOwnerDisplay, getProjectById],
+    [getExperimentMetricById, getOwnerDisplay, getProjectById, tempRolloutIds],
   );
 
   return useSearch({
@@ -686,9 +655,6 @@ export function useExperimentSearch({
         ) {
           has.push("screenshots");
         }
-        if (isTempRolloutHealthState(item.healthState)) {
-          has.push("rollout", "tempRollout");
-        }
         return has;
       },
       variations: (item) => getLatestPhaseVariations(item).length,
@@ -700,7 +666,7 @@ export function useExperimentSearch({
       trackingKey: (item) => item.trackingKey,
       id: (item) => [item.id, item.trackingKey],
       status: (item) => item.status,
-      health: (item) => item.healthState,
+      health: (item) => getHealthSearchTokens(item.healthState),
       result: (item) =>
         item.status === "stopped" ? item.results || "unfinished" : "unfinished",
       owner: (item) => [item.owner, item.ownerName],

@@ -1040,6 +1040,7 @@ export const getFeatureStaleV2Validator = {
                 "toggled-off",
                 "active-experiment",
                 "temp-rollout",
+                "old-temp-rollout",
                 "has-rules",
               ])
               .nullable(),
@@ -1057,6 +1058,7 @@ export const getFeatureStaleV2Validator = {
                       "toggled-off",
                       "active-experiment",
                       "temp-rollout",
+                      "old-temp-rollout",
                       "has-rules",
                       "recently-updated",
                       "active-draft",
@@ -1064,6 +1066,9 @@ export const getFeatureStaleV2Validator = {
                     ])
                     .nullable(),
                   evaluatesTo: z.string().optional(),
+                  tempRollout: z
+                    .enum(["temp-rollout", "old-temp-rollout"])
+                    .optional(),
                 }),
               )
               .optional(),

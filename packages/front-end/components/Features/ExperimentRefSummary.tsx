@@ -2,11 +2,13 @@ import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import NextLink from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getTempRolloutStaleReason,
   includeExperimentInPayload,
   calculateNamespaceCoverage,
   getConfigBackingKey,
   getFeatureBaseConfigKey,
 } from "shared/util";
+import { ago } from "shared/dates";
 import {
   getLatestPhaseVariations,
   hasTargetingConfigured,
@@ -44,6 +46,33 @@ export function isExperimentRefRuleSkipped(
     return !isDraft;
   }
   return !includeExperimentInPayload(experiment);
+}
+
+// Rule-level notice for a stopped experiment still serving its released
+// variation. Rendered by Rule.tsx above the rule body, not inside targeting.
+export function TempRolloutCallout({
+  experiment,
+}: {
+  experiment?: ExperimentInterfaceStringDates;
+}) {
+  if (!experiment || experiment.status !== "stopped") return null;
+  if (experiment.excludeFromPayload || !experiment.releasedVariationId) {
+    return null;
+  }
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const lastPhaseEnded =
+    experiment.phases?.[experiment.phases.length - 1]?.dateEnded;
+  const isOld = getTempRolloutStaleReason(experiment) === "old-temp-rollout";
+  return (
+    <Callout status={isOld ? "warning" : "info"} size="sm" mt="3">
+      <strong>Temporary Rollout</strong> from{" "}
+      {isBandit ? "a Bandit" : "an Experiment"} stopped{" "}
+      {lastPhaseEnded ? ago(lastPhaseEnded) : "earlier"}.{" "}
+      {isOld
+        ? "Clean up this rule."
+        : `Stop it from the ${isBandit ? "Bandit" : "Experiment"} page when no longer needed.`}
+    </Callout>
+  );
 }
 
 export default function ExperimentRefSummary({
@@ -131,15 +160,6 @@ export default function ExperimentRefSummary({
           This {isBandit ? "Bandit" : "Experiment"} is in a{" "}
           <strong>draft</strong> state and has not been started yet. This rule
           will be skipped.
-        </Callout>
-      )}
-      {experiment.status === "stopped" && (
-        <Callout status="info" mb="3">
-          This {isBandit ? "Bandit" : "Experiment"} is stopped and a{" "}
-          <strong>Temporary Rollout</strong> is enabled. All users in the{" "}
-          {isBandit ? "Bandit" : "Experiment"} will receive the winning
-          variation. If no longer needed, you can stop it from the{" "}
-          {isBandit ? "Bandit" : "Experiment"} page.
         </Callout>
       )}
       {hasCondition && (

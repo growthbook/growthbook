@@ -31,7 +31,9 @@ import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
+import { FeatureLifecycleStatus } from "@/components/Features/FeatureStatusBadge";
+import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import FeatureHealthCell from "@/components/Features/FeatureHealthCell";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -55,7 +57,6 @@ import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
 import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
 import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
 import { useFeatureDependencyIndex } from "@/hooks/useFeatureDependencyIndex";
-import { useFeatureExperimentStates } from "@/hooks/useFeatureExperimentStates";
 import ProjectBadges from "@/components/ProjectBadges";
 import Table, {
   TableHeader,
@@ -142,7 +143,6 @@ export default function FeaturesPage() {
   const staleHook = useFeatureStaleStates();
   const rampHook = useFeatureRampStates();
   const dependencyHook = useFeatureDependencyIndex();
-  const experimentHook = useFeatureExperimentStates();
 
   const archivedFilter = useMemo(
     () =>
@@ -169,7 +169,6 @@ export default function FeaturesPage() {
     staleStates: staleHook.staleStates,
     rampStates: rampHook.rampStates,
     dependencyIndex: dependencyHook.dependencyIndex,
-    experimentStates: experimentHook.experimentStates,
     filterResults: archivedFilter,
     contentSearchPrefixes: CONTENT_SEARCH_PREFIX_STRINGS,
   });
@@ -227,27 +226,12 @@ export default function FeaturesPage() {
       (f.field === "is" && f.values.includes("draft")) ||
       (f.field === "has" && f.values.includes("draft")),
   );
-  const hasStaleFilter = syntaxFilters.some(
-    (f) =>
-      (f.field === "is" && f.values.includes("stale")) ||
-      (f.field === "has" && f.values.includes("stale-env")),
-  );
+  const hasStaleFilter = syntaxFilters.some((f) => f.field === "health");
   const hasRampFilter = syntaxFilters.some(
     (f) => f.field === "has" && f.values.includes("ramp-schedule"),
   );
   const hasDependentsFilter = syntaxFilters.some(
     (f) => f.field === "has" && f.values.includes("dependents"),
-  );
-  const hasExperimentStateFilter = syntaxFilters.some(
-    (f) =>
-      f.field === "has" &&
-      f.values.some(
-        (v) =>
-          v === "experiments" ||
-          v === "temp-rollout" ||
-          v.startsWith("experiment:") ||
-          v.startsWith("bandit:"),
-      ),
   );
 
   useEffect(() => {
@@ -275,11 +259,6 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDependentsFilter]);
 
-  useEffect(() => {
-    if (hasExperimentStateFilter) experimentHook.fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasExperimentStateFilter]);
-
   // fetchSome for visible features when no bulk filter is active
   useEffect(() => {
     const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
@@ -296,7 +275,6 @@ export default function FeaturesPage() {
     staleHook.loading ||
     rampHook.loading ||
     dependencyHook.loading ||
-    experimentHook.loading ||
     contentSearch.loading
   );
 
@@ -372,6 +350,7 @@ export default function FeaturesPage() {
                   </TableColumnHeader>
                 )}
                 <TableColumnHeader>Status</TableColumnHeader>
+                <TableColumnHeader>Health</TableColumnHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -566,16 +545,26 @@ export default function FeaturesPage() {
                       </TableCell>
                     )}
                     <TableCell style={{ textAlign: "left" }}>
-                      <FeatureStatusBadge
-                        feature={feature}
-                        envStatus={statusHook.environmentStatus[feature.id]}
-                        context="list"
-                        staleData={staleHook.getStaleState(feature.id)}
-                        fetchStaleData={async () => {
-                          staleHook.invalidate([feature.id]);
-                          await staleHook.fetchSome([feature.id]);
-                        }}
-                      />
+                      <FeatureLifecycleStatus archived={feature.archived} />
+                    </TableCell>
+                    <TableCell style={{ textAlign: "left" }}>
+                      {!feature.archived && (
+                        <Flex direction="column" gap="1" align="start">
+                          <StaleFeatureIcon
+                            context="list"
+                            neverStale={feature.neverStale}
+                            valueType={feature.valueType}
+                            staleData={staleHook.getStaleState(feature.id)}
+                            fetchStaleData={async () => {
+                              staleHook.invalidate([feature.id]);
+                              await staleHook.fetchSome([feature.id]);
+                            }}
+                          />
+                          <FeatureHealthCell
+                            staleData={staleHook.getStaleState(feature.id)}
+                          />
+                        </Flex>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -584,7 +573,7 @@ export default function FeaturesPage() {
                 <TableRow>
                   <TableCell
                     colSpan={
-                      7 +
+                      8 +
                       (showProjectColumn ? 1 : 0) +
                       toggleEnvs.length +
                       (showGraphs ? 1 : 0)

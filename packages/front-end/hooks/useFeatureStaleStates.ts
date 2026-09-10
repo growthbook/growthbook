@@ -21,7 +21,9 @@ const ENTRY_TTL_MS = 10 * 60 * 1000; // 10 minutes per entry
 const ERROR_RETRY_MS = 30_000;
 
 export interface UseFeatureStaleStatesReturn {
-  // Skips already-loaded IDs whose TTL hasn't expired; no-op if fetchAll has already run.
+  // Skips already-loaded IDs whose TTL hasn't expired. After a fetchAll, only
+  // IDs missing from that snapshot (e.g. newly created features) are fetched;
+  // the periodic refresh keeps the rest current.
   fetchSome: (featureIds: string[]) => Promise<void>;
   // Fetches all org features, overwriting the current data.
   fetchAll: () => Promise<void>;
@@ -88,12 +90,12 @@ export function FeatureStaleStatesProvider({
 
   const fetchSome = useCallback(
     async (featureIds: string[]) => {
-      if (hasFetchedAll.current) return;
       const now = Date.now();
       const toFetch = featureIds.filter(
         (id) =>
           !loadedIds.current.has(id) ||
-          now - (entryTimestamps.current[id] ?? 0) > ENTRY_TTL_MS,
+          (!hasFetchedAll.current &&
+            now - (entryTimestamps.current[id] ?? 0) > ENTRY_TTL_MS),
       );
       await doFetch(toFetch);
     },

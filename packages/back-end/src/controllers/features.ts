@@ -7924,64 +7924,6 @@ export async function getFeatureRampStates(
   res.status(200).json({ status: 200, features: result });
 }
 
-export async function getFeatureExperimentStates(
-  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
-  res: Response<
-    {
-      status: 200;
-      features: Record<
-        string,
-        {
-          hasTempRollout: boolean;
-        }
-      >;
-    },
-    EventUserForResponseLocals
-  >,
-) {
-  const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
-
-  const allExperiments = await getAllExperimentsForStaleGraph(context);
-
-  const tempRolloutExpIds = new Set<string>();
-
-  for (const exp of allExperiments) {
-    if (
-      exp.status === "stopped" &&
-      !exp.excludeFromPayload &&
-      (exp.linkedFeatures?.length ||
-        exp.hasURLRedirects ||
-        exp.hasVisualChangesets)
-    ) {
-      tempRolloutExpIds.add(exp.id);
-    }
-  }
-
-  const allFeatures = await getAllFeatures(context, {});
-  const targetFeatures = featureIds
-    ? allFeatures.filter((f) => featureIds.includes(f.id))
-    : allFeatures;
-
-  const result: Record<string, { hasTempRollout: boolean }> = {};
-
-  for (let i = 0; i < targetFeatures.length; i++) {
-    await yieldEventLoop(i);
-    const feature = targetFeatures[i];
-    const linked = feature.linkedExperiments ?? [];
-
-    const hasTempRollout = linked.some((id) => tempRolloutExpIds.has(id));
-
-    if (hasTempRollout) {
-      result[feature.id] = { hasTempRollout };
-    }
-  }
-
-  res.status(200).json({ status: 200, features: result });
-}
-
 export async function getFeatureWatchers(
   req: AuthRequest<null, { id: string }>,
   res: Response,

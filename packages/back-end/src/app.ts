@@ -1049,10 +1049,6 @@ app.get(
   featuresController.getFeatureDependencyIndex,
 );
 app.get("/features/ramp-states", featuresController.getFeatureRampStates);
-app.get(
-  "/features/experiment-states",
-  featuresController.getFeatureExperimentStates,
-);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,
