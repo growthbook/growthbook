@@ -1,13 +1,5 @@
-/// <reference types="vitest/globals" />
-
 import { ExperimentInterface } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "../src/experiments/variations";
-
-declare const describe: (name: string, fn: () => void) => void;
-declare const it: (name: string, fn: () => void) => void;
-declare const expect: (value: unknown) => {
-  toEqual: (expected: unknown) => void;
-};
 
 type MinimalExperiment = Pick<ExperimentInterface, "variations" | "phases">;
 

@@ -1,5 +1,3 @@
-/// <reference types="vitest/globals" />
-
 import {
   getEffectiveExperimentBlock,
   blockUsesGlobalFilter,
@@ -24,13 +22,6 @@ import {
   ExperimentsStatusBlockInterface,
   MetricExperimentsBlockInterface,
 } from "../../src/enterprise";
-
-declare const describe: (name: string, fn: () => void) => void;
-declare const it: (name: string, fn: () => void) => void;
-declare const expect: (value: unknown) => {
-  toEqual: (expected: unknown) => void;
-  toBe: (expected: unknown) => void;
-};
 
 type AnyBlock = DashboardBlockInterfaceOrData<DashboardBlockInterface>;
 

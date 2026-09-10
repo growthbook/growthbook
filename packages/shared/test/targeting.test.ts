@@ -1,15 +1,7 @@
-/// <reference types="vitest/globals" />
-
 import {
   hasAttributeCondition,
   hasTargetingConfigured,
 } from "../src/experiments/targeting";
-
-declare const describe: (name: string, fn: () => void) => void;
-declare const it: (name: string, fn: () => void) => void;
-declare const expect: (value: unknown) => {
-  toBe: (expected: unknown) => void;
-};
 
 describe("hasAttributeCondition", () => {
   it("returns false for empty / missing conditions", () => {

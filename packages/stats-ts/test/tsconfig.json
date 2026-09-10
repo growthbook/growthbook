@@ -3,6 +3,7 @@
   "compilerOptions": {
     "rootDir": "..",
     "noEmit": true,
+    "typeRoots": ["../node_modules/@types", "../node_modules"],
     "types": ["node", "vitest/globals"]
   },
   "include": ["./**/*.ts", "./**/*.tsx"]

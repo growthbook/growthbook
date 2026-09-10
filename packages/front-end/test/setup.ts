@@ -1,7 +1,5 @@
-import * as matchers from "@testing-library/jest-dom/matchers";
-import { expect, beforeEach } from "vitest";
-
-expect.extend(matchers);
+import "@testing-library/jest-dom/vitest";
+import { beforeEach } from "vitest";
 
 // Portal component requires a #portal-root element in the DOM
 beforeEach(() => {

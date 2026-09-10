@@ -14,7 +14,7 @@
     "build": "pnpm build:clean && pnpm build:typescript",
     "test": "vitest run",
     "clean": "rimraf node_modules",
-    "type-check": "tsgo --pretty --noEmit"
+    "type-check": "tsgo --pretty --noEmit && tsc --pretty --noEmit -p test/tsconfig.json"
   },
   "dependencies": {
     "@stdlib/stats": "^0.1.1",

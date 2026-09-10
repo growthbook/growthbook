@@ -1,17 +1,8 @@
-/// <reference types="vitest/globals" />
-
 import {
   isSameReviewCycle,
   reviewCycleOf,
   statusFromStandingVerdicts,
 } from "../../src/enterprise/reviewCycle";
-
-declare const describe: (name: string, fn: () => void) => void;
-declare const it: (name: string, fn: () => void) => void;
-declare const expect: (actual: unknown) => {
-  toBe: (expected: unknown) => void;
-  toEqual: (expected: unknown) => void;
-};
 
 /** Verifies verdict precedence shared by both revision engines. */
 
