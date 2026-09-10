@@ -205,6 +205,7 @@ const CompletedExperimentList = ({
             const moreGoalMetrics = e.goalMetrics.length > 2;
 
             const experimentProjects = e.project ? [e.project] : [];
+            const expEndDate = experimentDate(e);
             return (
               <Box key={e.trackingKey} className="appbox" mb="4" p="6" pt="5">
                 <Flex align="center" mb="4">
@@ -276,9 +277,7 @@ const CompletedExperimentList = ({
                               ? date(e.phases?.[0]?.dateStarted)
                               : "") +
                               " - " +
-                              (experimentDate(e)
-                                ? date(experimentDate(e))
-                                : "")}
+                              (expEndDate ? date(expEndDate) : "")}
                           </Box>
                         </Flex>
                         <Flex gap="2">
