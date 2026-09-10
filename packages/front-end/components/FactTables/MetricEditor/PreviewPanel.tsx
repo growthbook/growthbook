@@ -2,7 +2,6 @@ import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import DataList, { DataListItem } from "@/ui/DataList";
 
 // Visual shell only - no backend query, no live sample rows. Preview/SQL
 // are real Tabs (not just a styled Button pair) so the control already has
@@ -29,17 +28,6 @@ export default function PreviewPanel() {
           </Text>
         </TabsContent>
       </Tabs>
-    </Frame>
-  );
-}
-
-export function MetricDetailsPanel({ data }: { data: DataListItem[] }) {
-  return (
-    <Frame>
-      <Heading as="h4" size="sm" mb="3">
-        Details
-      </Heading>
-      <DataList data={data} columns={1} />
     </Frame>
   );
 }

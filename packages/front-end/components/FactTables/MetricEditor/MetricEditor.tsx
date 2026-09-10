@@ -1,6 +1,7 @@
 import { UseFormReturn } from "react-hook-form";
+import { useEffect } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
-import { ColumnRef, FunnelSettings } from "shared/types/fact-table";
+import { ColumnRef } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -12,14 +13,21 @@ import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
+import DataList from "@/ui/DataList";
 import TagsInput from "@/components/Tags/TagsInput";
+import SortedTags from "@/components/Tags/SortedTags";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
-import MetricTypeSelect from "@/components/FactTables/MetricEditor/MetricTypeSelect";
+import MetricTypeSelect, {
+  TYPE_DESCRIPTIONS,
+  TYPE_LABELS,
+} from "@/components/FactTables/MetricEditor/MetricTypeSelect";
 import AdvancedSettings from "@/components/FactTables/MetricEditor/AdvancedSettings";
-import PreviewPanel, {
-  MetricDetailsPanel,
-} from "@/components/FactTables/MetricEditor/PreviewPanel";
+import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
+import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
+import FunnelStepsDisplay from "@/components/FactTables/MetricEditor/FunnelStepsDisplay";
+import PreviewPanel from "@/components/FactTables/MetricEditor/PreviewPanel";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
 import ThresholdBasisRow, {
   ThresholdBasisValue,
@@ -48,17 +56,18 @@ const UNREPRESENTABLE_REASON_COPY: Record<UnrepresentableReason, string> = {
     "its threshold comparison uses a column or basis that isn't supported here",
 };
 
-// MetricEditor takes no canEdit/isNew props yet - this PR only builds the
-// editable tree. PR 4 adds canEdit once a read-only branch exists to consume
-// it; isNew has no behavioral difference here yet either.
 export default function MetricEditor({
   form,
-  funnelSettings,
-  onFunnelSettingsChange,
+  canEdit,
+  onRepresentableChange,
 }: {
   form: UseFormReturn<CreateFactMetricFormProps>;
-  funnelSettings: FunnelSettings | null;
-  onFunnelSettingsChange: (value: FunnelSettings | null) => void;
+  canEdit: boolean;
+  // Lets MetricWorkspace gate its Save button on the same representable
+  // check this component already computes for its own unrepresentable-
+  // definition Callout, instead of deriving formTypeFromStored a second time
+  // from the same form fields.
+  onRepresentableChange?: (representable: boolean) => void;
 }) {
   const { getFactTableById, getDatasourceById, factTables, project } =
     useDefinitions();
@@ -68,6 +77,7 @@ export default function MetricEditor({
   const numerator = form.watch("numerator");
   const denominator = form.watch("denominator");
   const quantileSettings = form.watch("quantileSettings");
+  const funnelSettings = form.watch("funnelSettings");
   const datasourceId = form.watch("datasource");
   const datasource = getDatasourceById(datasourceId);
   const hasCountDistinctHLL = !!datasource?.properties?.hasCountDistinctHLL;
@@ -102,10 +112,14 @@ export default function MetricEditor({
     factTable,
   );
 
+  useEffect(() => {
+    onRepresentableChange?.(formTypeResult.representable);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formTypeResult.representable]);
+
   // Definitions the form can't represent (spec) are opened read-only with an
   // explanation rather than coerced to the nearest type, which would silently
-  // rewrite the definition on save - this applies regardless of edit
-  // permission, so it isn't deferred to PR 4's canEdit branch.
+  // rewrite the definition on save - this applies regardless of canEdit.
   if (!formTypeResult.representable) {
     return (
       <Callout status="warning">
@@ -132,19 +146,25 @@ export default function MetricEditor({
       factTable,
       hasCountDistinctHLL,
     );
-    form.setValue("metricType", result.metricType);
-    // Funnel has no numerator - matches today's modal, which leaves the
-    // stale ColumnRef in the form and only nulls it in the submit payload.
-    if (result.numerator) form.setValue("numerator", result.numerator);
-    form.setValue("denominator", result.denominator ?? null);
-    form.setValue("quantileSettings", result.quantileSettings ?? null);
-    if (result.cappingSettings) {
-      form.setValue("cappingSettings", result.cappingSettings);
-    }
-    if (result.windowSettings) {
-      form.setValue("windowSettings", result.windowSettings);
-    }
-    onFunnelSettingsChange(result.funnelSettings ?? null);
+    // One atomic reset instead of a pile of setValues - safe because nothing
+    // reads form.formState.isDirty. numerator is carried over as the old
+    // value rather than written through: funnel has no numerator, and
+    // CreateFactMetricFormProps types it against the Standard side of a
+    // discriminated union (see its own comment in services/metrics.tsx) -
+    // matches today's modal, which leaves the stale ColumnRef in the form
+    // and only nulls it in the submit payload.
+    form.reset({
+      ...form.getValues(),
+      metricType: result.metricType,
+      numerator: result.numerator ?? numerator,
+      denominator: result.denominator ?? null,
+      quantileSettings: result.quantileSettings ?? null,
+      funnelSettings: result.funnelSettings ?? null,
+      ...(result.cappingSettings && {
+        cappingSettings: result.cappingSettings,
+      }),
+      ...(result.windowSettings && { windowSettings: result.windowSettings }),
+    });
   }
 
   function changeFactTable(newFactTableId: string) {
@@ -179,32 +199,49 @@ export default function MetricEditor({
           <Heading as="h4" size="sm" mb="1">
             Metric Type
           </Heading>
-          <Text color="text-mid" as="div" mb="3">
-            Choose what kind of number this metric produces.
-          </Text>
-          <MetricTypeSelect
-            value={formType}
-            onChange={changeFormType}
-            hasRetentionMetrics={hasCommercialFeature("retention-metrics")}
-            hasFunnelMetrics={hasCommercialFeature("funnel-metrics")}
-            hasQuantileMetrics={hasCommercialFeature("quantile-metrics")}
-            quantileAvailableForDatasource={quantileAvailableForDatasource}
-          />
+          {canEdit && (
+            <Text color="text-mid" as="div" mb="3">
+              Choose what kind of number this metric produces.
+            </Text>
+          )}
+          {canEdit ? (
+            <MetricTypeSelect
+              value={formType}
+              onChange={changeFormType}
+              hasRetentionMetrics={hasCommercialFeature("retention-metrics")}
+              hasFunnelMetrics={hasCommercialFeature("funnel-metrics")}
+              hasQuantileMetrics={hasCommercialFeature("quantile-metrics")}
+              quantileAvailableForDatasource={quantileAvailableForDatasource}
+            />
+          ) : (
+            <Flex direction="column" gap="1">
+              <Text weight="semibold" as="div">
+                {TYPE_LABELS[formType]}
+              </Text>
+              <Text size="sm" color="text-mid" as="div">
+                {TYPE_DESCRIPTIONS[formType]}
+              </Text>
+            </Flex>
+          )}
         </Frame>
 
         <Frame>
           <Heading as="h4" size="sm" mb="1">
             Definition
           </Heading>
-          <Text color="text-mid" as="div" mb="3">
-            Tell us what to count and where to find it, and we&apos;ll take care
-            of matching it to the right experiments.
-          </Text>
+          {canEdit && (
+            <Text color="text-mid" as="div" mb="3">
+              Tell us what to count and where to find it, and we&apos;ll take
+              care of matching it to the right experiments.
+            </Text>
+          )}
           <Flex direction="column" gap="3">
             {/* Ratio's numerator has no override of its own, so this select
                 is its only way to set a fact table - only funnel (which owns
-                per-step fact tables via FunnelStepsInput) hides it. */}
-            {!isFunnel && (
+                per-step fact tables via FunnelStepsInput) hides it. Read-only
+                mode shows it here for every type except ratio, which shows
+                its own Fact Table line per-part below instead. */}
+            {canEdit && !isFunnel && (
               <Select
                 label="Fact table"
                 value={primaryFactTableId}
@@ -217,12 +254,24 @@ export default function MetricEditor({
                 ))}
               </Select>
             )}
+            {!canEdit && !isRatioOrFunnel && (
+              <DataList
+                columns={1}
+                data={[
+                  {
+                    label: "Fact Table",
+                    value: <FactTableLink id={primaryFactTableId} />,
+                  },
+                ]}
+              />
+            )}
 
             {formType === "threshold" && (
               <ThresholdBasisRow
                 value={thresholdValue}
                 onChange={onThresholdChange}
                 factTable={factTable}
+                canEdit={canEdit}
               />
             )}
 
@@ -235,6 +284,7 @@ export default function MetricEditor({
                 threshold={thresholdValue}
                 onThresholdChange={onThresholdChange}
                 factTable={factTable}
+                canEdit={canEdit}
               />
             )}
 
@@ -253,6 +303,7 @@ export default function MetricEditor({
                   );
                   form.setValue("numerator", { ...refit, column });
                 }}
+                canEdit={canEdit}
               />
             )}
 
@@ -268,6 +319,7 @@ export default function MetricEditor({
                 }
                 factTable={factTable}
                 hasCountDistinctHLL={hasCountDistinctHLL}
+                canEdit={canEdit}
               />
             )}
 
@@ -285,94 +337,126 @@ export default function MetricEditor({
                 availableFactTables={sameDatasourceFactTables}
                 getFactTableById={(id) => getFactTableById(id) ?? null}
                 hasCountDistinctHLL={hasCountDistinctHLL}
+                canEdit={canEdit}
               />
             )}
 
-            {isFunnel && (
-              <FunnelStepsInput
-                value={funnelSettings ?? { steps: [] }}
-                setValue={(v) => {
-                  onFunnelSettingsChange(v);
-                  // Datasource is derived from the fact table, not selected
-                  // directly (spec) - same as changeFactTable does for every
-                  // other type, just off step 1's fact table instead of the
-                  // numerator's, since that's what primaryFactTableId already
-                  // treats as the authoritative one for funnel.
-                  const stepFactTable = getFactTableById(
-                    v.steps[0]?.factTableId ?? "",
-                  );
-                  if (stepFactTable) {
-                    form.setValue("datasource", stepFactTable.datasource);
-                  }
-                }}
-                datasource={datasourceId}
-                project={project}
-                initialFactTable={primaryFactTableId || undefined}
-              />
-            )}
+            {isFunnel &&
+              (canEdit ? (
+                <FunnelStepsInput
+                  value={funnelSettings ?? { steps: [] }}
+                  setValue={(v) => {
+                    form.setValue("funnelSettings", v);
+                    // Datasource is derived from the fact table, not selected
+                    // directly (spec) - same as changeFactTable does for every
+                    // other type, just off step 1's fact table instead of the
+                    // numerator's, since that's what primaryFactTableId
+                    // already treats as the authoritative one for funnel.
+                    const stepFactTable = getFactTableById(
+                      v.steps[0]?.factTableId ?? "",
+                    );
+                    if (stepFactTable) {
+                      form.setValue("datasource", stepFactTable.datasource);
+                    }
+                  }}
+                  datasource={datasourceId}
+                  project={project}
+                  initialFactTable={primaryFactTableId || undefined}
+                />
+              ) : (
+                <FunnelStepsDisplay
+                  funnelSettings={funnelSettings ?? { steps: [] }}
+                />
+              ))}
 
-            {!isRatioOrFunnel && factTable && (
-              <RowFilterInput
-                factTable={factTable}
-                value={numerator.rowFilters || []}
-                setValue={(rowFilters) =>
-                  form.setValue("numerator", { ...numerator, rowFilters })
-                }
-              />
-            )}
+            {!isRatioOrFunnel &&
+              (canEdit ? (
+                factTable && (
+                  <RowFilterInput
+                    factTable={factTable}
+                    value={numerator.rowFilters || []}
+                    setValue={(rowFilters) =>
+                      form.setValue("numerator", { ...numerator, rowFilters })
+                    }
+                  />
+                )
+              ) : (
+                <FilterSummary
+                  rowFilters={numerator.rowFilters || []}
+                  factTable={factTable}
+                />
+              ))}
           </Flex>
         </Frame>
 
         <Frame>
-          <Heading as="h4" size="sm" mb="1">
-            Basics
-          </Heading>
-          <Text color="text-mid" as="div" mb="3">
-            Define this metric with a clear name, description, and tags.
-          </Text>
-          <Flex direction="column" gap="3">
-            <TextField
-              label="Name"
-              value={form.watch("name")}
-              onChange={(e) => form.setValue("name", e.target.value)}
-              required
-            />
-            <Field
-              label="Description"
-              textarea
-              value={form.watch("description")}
-              onChange={(e) => form.setValue("description", e.target.value)}
-            />
-            <Flex direction="column" gap="1">
-              <Text weight="semibold" size="sm" as="div">
-                Tags
-              </Text>
-              <TagsInput
-                value={form.watch("tags") || []}
-                onChange={(tags) => form.setValue("tags", tags)}
-              />
-            </Flex>
+          <Flex align="center" gap="1" mb="1">
+            <Heading as="h4" size="sm" mb="0">
+              Basics
+            </Heading>
+            <OfficialBadge type="metric" managedBy={form.watch("managedBy")} />
           </Flex>
+          {canEdit && (
+            <Text color="text-mid" as="div" mb="3">
+              Define this metric with a clear name, description, and tags.
+            </Text>
+          )}
+          {canEdit ? (
+            <Flex direction="column" gap="3">
+              <TextField
+                label="Name"
+                value={form.watch("name")}
+                onChange={(e) => form.setValue("name", e.target.value)}
+                required
+              />
+              <Field
+                label="Description"
+                textarea
+                value={form.watch("description")}
+                onChange={(e) => form.setValue("description", e.target.value)}
+              />
+              <Flex direction="column" gap="1">
+                <Text weight="semibold" size="sm" as="div">
+                  Tags
+                </Text>
+                <TagsInput
+                  value={form.watch("tags") || []}
+                  onChange={(tags) => form.setValue("tags", tags)}
+                />
+              </Flex>
+            </Flex>
+          ) : (
+            <DataList
+              columns={1}
+              data={[
+                { label: "Name", value: form.watch("name") },
+                {
+                  label: "Description",
+                  value: form.watch("description") || "—",
+                },
+                {
+                  label: "Tags",
+                  value: form.watch("tags")?.length ? (
+                    <SortedTags tags={form.watch("tags")} useFlex />
+                  ) : (
+                    "No tags"
+                  ),
+                },
+              ]}
+            />
+          )}
         </Frame>
 
         <AdvancedSettings
           form={form}
           formType={formType}
           factTable={factTable}
+          canEdit={canEdit}
         />
       </Flex>
 
       <Flex direction="column" gap="4">
         <PreviewPanel />
-        <MetricDetailsPanel
-          data={[
-            { label: "Owner", value: form.watch("owner") || "—" },
-            {
-              label: "Directionality",
-              value: form.watch("inverse") ? "Decrease" : "Increase",
-            },
-          ]}
-        />
       </Flex>
     </Grid>
   );
