@@ -528,6 +528,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     node.getBoundingClientRect()
                   }
                   id={id}
+                  inputId={id}
                   ref={ref}
                   formatOptionLabel={formatOptionLabel}
                   formatGroupLabel={formatGroupLabel}
