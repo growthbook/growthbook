@@ -21,7 +21,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import { MetricPreviewSql } from "@/components/FactTables/MetricEditor/previewSql";
 import MetricPerformance from "@/enterprise/components/ProductAnalytics/MetricPerformance";
-import MetricSampleChart from "./MetricSampleChart";
+import MetricActivityChart from "./MetricActivityChart";
 import styles from "./PreviewPanel.module.scss";
 
 export type PreviewPart = {
@@ -29,7 +29,6 @@ export type PreviewPart = {
   label: string;
   factTable: FactTableDefinition | null;
   rowFilters: RowFilter[];
-  column: string;
 };
 
 export default function PreviewPanel({
@@ -48,7 +47,8 @@ export default function PreviewPanel({
   const [rowsByPart, setRowsByPart] = useState<
     Record<
       string,
-      { requestKey: string; result: FactFilterTestResults } | undefined
+      | { requestKey: string; result: FactFilterTestResults; revision: number }
+      | undefined
     >
   >({});
   const [rowsError, setRowsError] = useState<string | null>(null);
@@ -77,7 +77,11 @@ export default function PreviewPanel({
     );
     setRowsByPart((prev) => ({
       ...prev,
-      [active.key]: { requestKey, result: res.result },
+      [active.key]: {
+        requestKey,
+        result: res.result,
+        revision: (prev[active.key]?.revision ?? 0) + 1,
+      },
     }));
   }
 
@@ -112,7 +116,7 @@ export default function PreviewPanel({
         <div
           style={{
             height:
-              metric && view === "preview"
+              view === "preview" && (metric || rows)
                 ? "auto"
                 : "clamp(280px, 40vh, 480px)",
             aspectRatio: metric && view === "preview" ? "16 / 10" : undefined,
@@ -195,20 +199,29 @@ export default function PreviewPanel({
                 {rowsError && <Callout status="error">{rowsError}</Callout>}
                 {rows ? (
                   <Flex direction="column" gap="4">
-                    {!rows.error && !!rows.results?.length && (
-                      <MetricSampleChart
-                        rows={rows.results}
-                        column={active.column}
+                    {!rows.error && (
+                      <MetricActivityChart
+                        key={requestKey}
+                        revision={cachedRows?.revision ?? 0}
+                        rowFilters={active.rowFilters}
                         factTable={active.factTable}
                       />
                     )}
-                    <DisplayTestQueryResults
-                      duration={rows.duration || 0}
-                      results={rows.results || []}
-                      sql={rows.sql || ""}
-                      error={rows.error || ""}
-                      sqlMaxHeight="140px"
-                    />
+                    <details>
+                      <summary style={{ cursor: "pointer" }}>
+                        View sample rows ({rows.results?.length ?? 0})
+                      </summary>
+                      <DisplayTestQueryResults
+                        duration={rows.duration || 0}
+                        results={rows.results || []}
+                        sql={rows.sql || ""}
+                        error={rows.error || ""}
+                        sqlMaxHeight="140px"
+                      />
+                    </details>
+                    {rows.error && (
+                      <Callout status="error">{rows.error}</Callout>
+                    )}
                   </Flex>
                 ) : (
                   <Flex
