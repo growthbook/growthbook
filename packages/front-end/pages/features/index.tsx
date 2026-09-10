@@ -34,6 +34,7 @@ import Field from "@/components/Forms/Field";
 import { FeatureLifecycleStatus } from "@/components/Features/FeatureStatusBadge";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import FeatureHealthCell from "@/components/Features/FeatureHealthCell";
+import { FEATURE_STALE_FILTER_OPTIONS } from "@/services/health";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -49,7 +50,6 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureHealthStates } from "@/hooks/useFeatureHealthStates";
-import {} from "@/components/Reviews/RevisionStatusBadge";
 import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
 import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
 import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
@@ -63,6 +63,10 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import FeaturesDraftTable from "./FeaturesDraftTable";
+
+const STALE_FILTER_TOKENS = new Set<string>(
+  FEATURE_STALE_FILTER_OPTIONS.map((o) => o.value),
+);
 
 const NUM_PER_PAGE = 20;
 
@@ -234,10 +238,7 @@ export default function FeaturesPage() {
   const hasStaleFilter = syntaxFilters.some(
     (f) =>
       f.field === "health" ||
-      (f.field === "is" &&
-        f.values.some((v) =>
-          ["stale", "partially-stale", "stale-detection-off"].includes(v),
-        )),
+      (f.field === "is" && f.values.some((v) => STALE_FILTER_TOKENS.has(v))),
   );
   const hasRampFilter = syntaxFilters.some(
     (f) => f.field === "has" && f.values.includes("ramp-schedule"),

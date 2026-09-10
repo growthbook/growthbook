@@ -28,7 +28,6 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import {} from "@/components/Reviews/RevisionStatusBadge";
 import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
 import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
 import SavedGroupForm from "./SavedGroupForm";

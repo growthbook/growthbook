@@ -9,7 +9,7 @@ import {
 
 export type TempRolloutHealthState = "temp-rollout" | "old-temp-rollout";
 
-export type HealthDotColor = "yellow" | "amber" | "red";
+type HealthDotColor = "yellow" | "amber" | "red";
 
 export type { FeatureHealthSeverity };
 
@@ -110,10 +110,6 @@ export const FEATURE_HEALTH_STATES = Object.fromEntries(
   { label: string; color: HealthDotColor; description: string }
 >;
 
-export const FEATURE_HEALTH_STATE_ORDER: FeatureHealthState[] = [
-  ...FEATURE_HEALTH_SIGNALS,
-];
-
 export type FeatureStaleSummary = {
   stale: boolean;
   envResults?: Record<
@@ -133,13 +129,6 @@ export function getFeatureHealthStates(
   staleData: FeatureStaleSummary | undefined,
 ): FeatureHealthState[] {
   return getFeatureHealthEntries(staleData).map((e) => e.signal);
-}
-
-export function getFeatureOverallHealthSeverity(
-  staleData: FeatureStaleSummary | undefined,
-): FeatureHealthSeverity | null {
-  const first = getFeatureHealthEntries(staleData)[0];
-  return first ? getFeatureHealthSeverity(first.signal) : null;
 }
 
 export function describeFeatureHealthEntry(entry: FeatureHealthEntry): string {
@@ -183,7 +172,7 @@ export const FEATURE_HEALTH_SEVERITY_FILTER_OPTIONS = (
   ["high", "medium", "low"] as FeatureHealthSeverity[]
 ).map((value) => ({ value, label: FEATURE_HEALTH_SEVERITIES[value].label }));
 
-export const FEATURE_HEALTH_FILTER_OPTIONS = FEATURE_HEALTH_STATE_ORDER.map(
+export const FEATURE_HEALTH_FILTER_OPTIONS = FEATURE_HEALTH_SIGNALS.map(
   (state) => ({ value: state, label: FEATURE_HEALTH_STATES[state].label }),
 );
 

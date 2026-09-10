@@ -1575,6 +1575,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             )}
           {rule.type === "experiment-ref" && (
             <TempRolloutCallout
+              rule={rule}
               experiment={experimentsMap.get(rule.experimentId)}
             />
           )}

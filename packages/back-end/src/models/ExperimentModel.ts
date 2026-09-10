@@ -578,6 +578,20 @@ export async function getAllExperiments(
  * `buildFeatureLookups`, but only the projected fields are populated at
  * runtime. Reach for `getAllExperiments` if you need a complete experiment.
  */
+// Ids of every non-archived experiment in the org, unfiltered by the caller's
+// read permissions. Used to tell "deleted" from "not visible to you".
+export async function getAllExperimentIds(
+  context: ReqContext | ApiReqContext,
+): Promise<Set<string>> {
+  const docs = await getCollection(COLLECTION)
+    .find(
+      { organization: context.org.id, archived: { $ne: true } },
+      { projection: { _id: 0, id: 1 } },
+    )
+    .toArray();
+  return new Set(docs.map((d) => d.id as string));
+}
+
 export async function getAllExperimentsForStaleGraph(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
@@ -610,6 +624,10 @@ export async function getAllExperimentsForStaleGraph(
         "variations.id": 1,
         "phases.prerequisites": 1,
         "phases.dateEnded": 1,
+        "phases.condition": 1,
+        "phases.coverage": 1,
+        "phases.savedGroups": 1,
+        "phases.namespace": 1,
       },
     })
     .toArray();

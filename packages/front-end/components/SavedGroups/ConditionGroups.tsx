@@ -24,7 +24,6 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import {} from "@/components/Reviews/RevisionStatusBadge";
 import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
 import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
 import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
@@ -93,6 +92,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
   } = useSearch({
     items: conditionGroupsWithOwners,
     localStorageKey: "savedGroupsRuntime",
+    searchTermFilterDeps: [draftHook.draftStates],
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
     searchFields: ["groupName^3", "condition^2", "ownerNameDisplay"],

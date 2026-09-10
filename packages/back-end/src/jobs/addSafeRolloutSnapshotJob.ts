@@ -5,6 +5,7 @@ import { logger } from "back-end/src/util/logger";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
+  getSafeRolloutRuleFromFeature,
   isOrphanedSafeRollout,
   shouldSkipScheduledSafeRolloutSnapshot,
 } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
@@ -73,14 +74,15 @@ const updateSingleSafeRolloutSnapshot = async (
   const feature = await getFeature(context, featureId);
   if (feature?.archived) return;
 
-  const rampSchedule = safeRollout.rampScheduleId
-    ? await context.models.rampSchedules.getById(safeRollout.rampScheduleId)
-    : null;
+  const rule = feature ? getSafeRolloutRuleFromFeature(feature, id) : null;
+  const rampSchedule =
+    !rule && safeRollout.rampScheduleId
+      ? await context.models.rampSchedules.getById(safeRollout.rampScheduleId)
+      : null;
   if (isOrphanedSafeRollout(feature, safeRollout, rampSchedule)) {
-    await context.models.safeRollout.update(safeRollout, {
-      status: "stopped",
-      autoSnapshots: false,
-    });
+    // Stopped drops it from the queue; a revert that re-adds the rule restores
+    // the status via the landing path, so leave autoSnapshots alone.
+    await context.models.safeRollout.update(safeRollout, { status: "stopped" });
     logger.warn(
       `SafeRollout ${id}: no rule or live ramp schedule references it; marked stopped`,
     );

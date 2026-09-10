@@ -8,14 +8,10 @@ import {
   ReactNode,
   createElement,
 } from "react";
-import { FeatureHealthEntry, IsFeatureStaleResult } from "shared/util";
+import { FeatureHealthStateEntry } from "shared/util";
 import { useAuth } from "@/services/auth";
 
-export type FeatureHealthStateEntry = IsFeatureStaleResult & {
-  neverStale: boolean;
-  computedAt: string;
-  health: FeatureHealthEntry[];
-};
+export type { FeatureHealthStateEntry };
 export type FeatureHealthStateMap = Record<string, FeatureHealthStateEntry>;
 
 const ENTRY_TTL_MS = 10 * 60 * 1000; // 10 minutes per entry

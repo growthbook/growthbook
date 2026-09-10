@@ -27,7 +27,6 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import {} from "@/components/Reviews/RevisionStatusBadge";
 import { useConstantDraftStates } from "@/hooks/useConstantDraftStates";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import ConstantModal from "@/components/Constants/ConstantModal";

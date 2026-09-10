@@ -1,4 +1,3 @@
-import { ValidateFunction } from "ajv";
 import {
   ExperimentInterfaceStringDates,
   ExperimentHealthSettings,
@@ -12,12 +11,11 @@ import {
 import { getSafeRolloutResultStatus } from "../enterprise/decision-criteria/decisionCriteria";
 import {
   EnvStaleResult,
-  getJSONValidator,
   getTempRolloutStaleReason,
-  getValidation,
   isUnconditionalCatcher,
-  parseLooseJSON,
+  IsFeatureStaleResult,
   TempRolloutStaleReason,
+  validateFeatureValue,
 } from "./features";
 import { getRulesForEnvironment, includeExperimentInPayload } from ".";
 
@@ -56,57 +54,12 @@ export type FeatureHealthEntry = {
   details?: FeatureHealthDetail[];
 };
 
-// Ajv compiles are expensive and this runs across every feature on a fetch-all.
-const ajv = getJSONValidator();
-const compiledSchemas = new Map<string, ValidateFunction>();
-const MAX_CACHED_SCHEMAS = 1000;
-
-function getCompiledSchema(feature: FeatureInterface): ValidateFunction | null {
-  const { jsonSchema, validationEnabled } = getValidation(feature);
-  if (!validationEnabled || !jsonSchema) return null;
-  const key = JSON.stringify(jsonSchema);
-  let validate = compiledSchemas.get(key);
-  if (!validate) {
-    if (compiledSchemas.size >= MAX_CACHED_SCHEMAS) compiledSchemas.clear();
-    try {
-      validate = ajv.compile(jsonSchema);
-    } catch {
-      return null;
-    }
-    compiledSchemas.set(key, validate);
-  }
-  return validate;
-}
-
-// Mirrors validateFeatureValue's rules without recompiling the schema per value.
-function invalidValueChecker(
-  feature: FeatureInterface,
-): (v: string) => boolean {
-  const { valueType } = feature;
-  if (valueType === "boolean") return (v) => v !== "true" && v !== "false";
-  const validate = getCompiledSchema(feature);
-  const parseJson = (v: string): { ok: boolean; value?: unknown } => {
-    try {
-      return { ok: true, value: JSON.parse(v) };
-    } catch {
-      try {
-        return { ok: true, value: parseLooseJSON(v) };
-      } catch {
-        return { ok: false };
-      }
-    }
-  };
-  return (v) => {
-    if (valueType === "number") {
-      if (!/^-?[0-9]+(\.[0-9]+)?$/.test(v)) return true;
-      return !!validate && !validate(parseFloat(v));
-    }
-    if (valueType === "string") return !!validate && !validate(v);
-    const parsed = parseJson(v);
-    if (!parsed.ok) return true;
-    return !!validate && !validate(parsed.value);
-  };
-}
+// One row of the internal /features/health response.
+export type FeatureHealthStateEntry = IsFeatureStaleResult & {
+  neverStale: boolean;
+  computedAt: string;
+  health: FeatureHealthEntry[];
+};
 
 const RULE_VALUES = (rule: FeatureRule): string[] => {
   switch (rule.type) {
@@ -120,8 +73,26 @@ const RULE_VALUES = (rule: FeatureRule): string[] => {
       return rule.variations.map((v) => v.value);
     case "safe-rollout":
       return [rule.controlValue, rule.variationValue];
+    default:
+      return [];
   }
 };
+
+const isRuleObject = (r: unknown): r is FeatureRule =>
+  r != null && typeof r === "object";
+
+// validateFeatureValue coerces booleans instead of rejecting them.
+function isInvalidValue(feature: FeatureInterface, value: string): boolean {
+  if (feature.valueType === "boolean") {
+    return value !== "true" && value !== "false";
+  }
+  try {
+    validateFeatureValue(feature, value);
+    return false;
+  } catch {
+    return true;
+  }
+}
 
 export function computeFeatureHealth({
   feature,
@@ -131,6 +102,7 @@ export function computeFeatureHealth({
   rampSchedules,
   safeRollouts,
   healthSettings,
+  knownExperimentIds,
 }: {
   feature: FeatureInterface;
   environments: string[];
@@ -139,7 +111,12 @@ export function computeFeatureHealth({
   rampSchedules: RampScheduleInterface[];
   safeRollouts: SafeRolloutInterface[];
   healthSettings: ExperimentHealthSettings;
+  // Every live experiment id in the org, regardless of the caller's read
+  // permissions, so unreadable experiments are not reported as missing.
+  knownExperimentIds?: Set<string>;
 }): FeatureHealthEntry[] {
+  const rules = (feature.rules ?? []).filter(isRuleObject);
+  const known = knownExperimentIds ?? new Set(experimentMap.keys());
   type Found = {
     count: number;
     envs: Set<string>;
@@ -228,9 +205,9 @@ export function computeFeatureHealth({
     found.set("unreachable-rule", entry);
   }
 
-  for (const rule of feature.rules ?? []) {
+  for (const rule of rules) {
     if (rule.type !== "experiment-ref" || !rule.enabled) continue;
-    if (!experimentMap.has(rule.experimentId)) add("missing-experiment");
+    if (!known.has(rule.experimentId)) add("missing-experiment");
   }
 
   for (const schedule of rampSchedules) {
@@ -244,7 +221,7 @@ export function computeFeatureHealth({
   // Only safe rollouts an enabled rule or a live ramp schedule still points at;
   // orphans are inert.
   const referencedSafeRollouts = new Set(
-    (feature.rules ?? []).flatMap((rule) =>
+    rules.flatMap((rule) =>
       rule.type === "safe-rollout" && rule.enabled ? [rule.safeRolloutId] : [],
     ),
   );
@@ -275,10 +252,11 @@ export function computeFeatureHealth({
   }
 
   // Counted per rule (plus the default value), not per variation.
-  const isInvalid = invalidValueChecker(feature);
-  if (isInvalid(feature.defaultValue)) add("invalid-value");
-  for (const rule of feature.rules ?? []) {
-    if (RULE_VALUES(rule).some(isInvalid)) add("invalid-value");
+  if (isInvalidValue(feature, feature.defaultValue)) add("invalid-value");
+  for (const rule of rules) {
+    if (RULE_VALUES(rule).some((v) => isInvalidValue(feature, v))) {
+      add("invalid-value");
+    }
   }
 
   return FEATURE_HEALTH_SIGNALS.filter((signal) => found.has(signal)).map(

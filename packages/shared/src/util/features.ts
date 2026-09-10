@@ -1,4 +1,4 @@
-import Ajv from "ajv";
+import Ajv, { ValidateFunction } from "ajv";
 import { differenceInDays, subMonths, subWeeks } from "date-fns";
 import { jsonrepair } from "jsonrepair";
 import stringify from "json-stringify-pretty-compact";
@@ -229,6 +229,24 @@ export function getJSONValidator() {
   });
 }
 
+// Ajv compiles are expensive; cache by schema text (validation runs across
+// every feature on a health fetch-all).
+const compiledValidators = new Map<string, ValidateFunction>();
+const MAX_COMPILED_VALIDATORS = 1000;
+let sharedAjv: Ajv | undefined;
+export function getCompiledValidator(jsonSchema: unknown): ValidateFunction {
+  const key = JSON.stringify(jsonSchema);
+  const cached = compiledValidators.get(key);
+  if (cached) return cached;
+  sharedAjv ??= getJSONValidator();
+  const validate = sharedAjv.compile(jsonSchema as object);
+  if (compiledValidators.size >= MAX_COMPILED_VALIDATORS) {
+    compiledValidators.clear();
+  }
+  compiledValidators.set(key, validate);
+  return validate;
+}
+
 export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
@@ -241,8 +259,7 @@ export function validateJSONFeatureValue(
     return { valid: true, enabled: validationEnabled, errors: [] };
   }
   try {
-    const ajv = getJSONValidator();
-    const validate = ajv.compile(jsonSchema);
+    const validate = getCompiledValidator(jsonSchema);
     let parsedValue;
     if (valueType === "string") {
       parsedValue = value;
@@ -785,6 +802,7 @@ export const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
   if (!hasNoCondition(rule)) return false;
   if ((rule.savedGroups ?? []).length > 0) return false;
   if ((rule.prerequisites ?? []).length > 0) return false;
+  if ((rule.scheduleRules ?? []).length > 0) return false;
   if (isForceRule(rule)) return true;
   if (isRolloutRule(rule)) return rule.coverage >= 1;
   return false;
@@ -792,6 +810,25 @@ export const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
 
 const hasNoCondition = (rule: FeatureRule): boolean =>
   !rule.condition || rule.condition === "{}";
+
+// The SDK payload keeps the phase's targeting on a temp rollout's force rule,
+// so it only serves everyone when neither the rule nor the phase targets.
+const isUnconditionalTempRollout = (
+  rule: FeatureRule,
+  exp: ExperimentInterfaceStringDates,
+): boolean => {
+  if (!hasNoCondition(rule)) return false;
+  if ((rule.savedGroups ?? []).length > 0) return false;
+  if ((rule.prerequisites ?? []).length > 0) return false;
+  const phase = exp.phases?.[exp.phases.length - 1];
+  if (!phase) return true;
+  if (phase.condition && phase.condition !== "{}") return false;
+  if ((phase.coverage ?? 1) < 1) return false;
+  if ((phase.savedGroups ?? []).length > 0) return false;
+  if ((phase.prerequisites ?? []).length > 0) return false;
+  if (phase.namespace?.enabled) return false;
+  return true;
+};
 
 const areRulesOneSided = (
   rules: FeatureRule[], // can assume all rules are enabled
@@ -931,8 +968,10 @@ function buildEnvResults(
     let activeExperimentReason: "active-experiment" | "temp-rollout" | null =
       null;
     let tempRollout: TempRolloutStaleReason | undefined;
-    // First reachable temp rollout's released value, for `evaluatesTo`.
+    // First reachable unconditional temp rollout's released value, for `evaluatesTo`.
     let rolloutValue: { index: number; value: string } | undefined;
+    // An old rollout that still targets a subset is real logic, not a constant.
+    let hasTargetedOldRollout = false;
     for (const [index, rule] of rules.entries()) {
       if (isUnconditionalCatcher(rule)) break;
       if (isExperimentRefRule(rule)) {
@@ -941,8 +980,10 @@ function buildEnvResults(
           if (exp.status === "stopped") {
             const tier = getTempRolloutStaleReason(exp);
             if (!tempRollout || tier === "old-temp-rollout") tempRollout = tier;
+            const unconditional = isUnconditionalTempRollout(rule, exp);
             if (tier === "temp-rollout") activeExperimentReason ??= tier;
-            if (!rolloutValue) {
+            else if (!unconditional) hasTargetedOldRollout = true;
+            if (unconditional && !rolloutValue) {
               const released = rule.variations.find(
                 (v) => v.variationId === exp.releasedVariationId,
               );
@@ -977,9 +1018,20 @@ function buildEnvResults(
       envResults[envId] = withTempRollout({
         stale: false,
         reason: activeExperimentReason,
-        ...(activeExperimentReason === "temp-rollout" && oneSided
+        ...(activeExperimentReason === "temp-rollout" &&
+        oneSided &&
+        rolloutValue &&
+        !hasTargetedOldRollout
           ? { evaluatesTo: oneSidedValue() }
           : {}),
+      });
+      continue;
+    }
+
+    if (hasTargetedOldRollout) {
+      envResults[envId] = withTempRollout({
+        stale: false,
+        reason: "has-rules",
       });
       continue;
     }

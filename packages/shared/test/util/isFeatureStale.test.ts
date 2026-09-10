@@ -1646,8 +1646,9 @@ describe("isFeatureStale", () => {
         stale: false,
         reason: "temp-rollout",
         tempRollout: "temp-rollout",
-        evaluatesTo: "true",
       });
+      // The mock phase targets a country, so the value is not deterministic.
+      expect(result.envResults.prod.evaluatesTo).toBeUndefined();
     });
 
     it("sets reason to old-temp-rollout when the stopped experiment ended more than 30 days ago", () => {
@@ -1697,6 +1698,55 @@ describe("isFeatureStale", () => {
         tempRollout: "old-temp-rollout",
         evaluatesTo: "true",
       });
+    });
+
+    it("keeps an env non-stale when its old temp rollout still targets a subset of users", () => {
+      const experiments = [
+        genMockExperiment({
+          id: "exp_done",
+          status: "stopped",
+          excludeFromPayload: false,
+          releasedVariationId: "v1",
+          phases: [
+            {
+              coverage: 0.2,
+              dateStarted: "2023-08-05T05:27:00Z",
+              dateEnded: "2023-09-05T05:27:00Z",
+              variationWeights: [0.5, 0.5],
+              namespace: { enabled: false, name: "", range: [0, 1] },
+              condition: '{"country": "US"}',
+              name: "Main",
+              reason: "",
+              seed: "seed",
+            },
+          ],
+        }),
+      ];
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_done",
+              id: "rule_1",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+          ],
+        },
+      };
+      const result = testStale({ feature, experiments });
+      expect(result.envResults.prod).toMatchObject({
+        stale: false,
+        reason: "has-rules",
+        tempRollout: "old-temp-rollout",
+      });
+      expect(result.envResults.prod.evaluatesTo).toBeUndefined();
     });
 
     it("keeps an env with an old temp rollout non-stale when other rules do real work, but still reports the rollout", () => {

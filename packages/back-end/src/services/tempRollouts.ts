@@ -3,7 +3,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 
 type TempRolloutExperiment = Pick<
   ExperimentInterface,
@@ -70,10 +70,9 @@ export async function getServedTempRolloutExperimentIds(
   context: ReqContext | ApiReqContext,
   experiments: TempRolloutExperiment[],
 ): Promise<string[]> {
-  const features = await getFeaturesByIds(
-    context,
-    getTempRolloutCandidateFeatureIds(experiments),
-  );
+  const features = await getAllFeaturesWithoutEditorFields(context, {
+    ids: getTempRolloutCandidateFeatureIds(experiments),
+  });
   return selectServedTempRolloutExperimentIds(
     experiments,
     new Map(features.map((f) => [f.id, f])),

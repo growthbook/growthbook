@@ -33,7 +33,6 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import {} from "@/components/Reviews/RevisionStatusBadge";
 import { useConfigDraftStates } from "@/hooks/useConstantDraftStates";
 import { useRevisionsEntityType } from "@/hooks/useRevisions";
 import ConfigModal from "@/components/Configs/ConfigModal";

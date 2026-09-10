@@ -49,12 +49,14 @@ export function isExperimentRefRuleSkipped(
 }
 
 export function TempRolloutCallout({
+  rule,
   experiment,
 }: {
+  rule: ExperimentRefRule;
   experiment?: ExperimentInterfaceStringDates;
 }) {
   if (!experiment || experiment.status !== "stopped") return null;
-  if (experiment.excludeFromPayload || !experiment.releasedVariationId) {
+  if (rule.enabled === false || !includeExperimentInPayload(experiment)) {
     return null;
   }
   const isBandit = experiment.type === "multi-armed-bandit";

@@ -5,7 +5,6 @@ import {
   getFeatureHealthSearchTokens,
   getFeatureHealthSeverity,
   getFeatureHealthStates,
-  getFeatureOverallHealthSeverity,
   getFeatureStaleSearchTokens,
 } from "@/services/health";
 
@@ -85,16 +84,6 @@ describe("severity", () => {
     expect(getFeatureHealthSeverity("ramp-paused")).toBe("medium");
     expect(getFeatureHealthSeverity("old-temp-rollout")).toBe("medium");
     expect(getFeatureHealthSeverity("temp-rollout")).toBe("low");
-    expect(
-      getFeatureOverallHealthSeverity({
-        stale: false,
-        health: [
-          { signal: "unreachable-rule", count: 2 },
-          { signal: "temp-rollout", count: 1 },
-        ],
-      }),
-    ).toBe("medium");
-    expect(getFeatureOverallHealthSeverity({ stale: false })).toBeNull();
   });
 });
 

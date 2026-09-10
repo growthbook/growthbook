@@ -16,7 +16,6 @@ import {
 } from "shared/types/sdk-connection";
 import {
   ANY_REVIEW_FOOTPRINT,
-  IsFeatureStaleResult,
   MergeResultChanges,
   MergeStrategy,
   assertSchemaMatchesValueType,
@@ -50,7 +49,7 @@ import {
   pruneOrphanedRampActions,
   reconcileMergeBaselines,
   computeFeatureHealth,
-  FeatureHealthEntry,
+  FeatureHealthStateEntry,
 } from "shared/util";
 import { getHealthSettings } from "shared/enterprise";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
@@ -140,6 +139,7 @@ import {
   publishRevision,
   setDefaultValue,
   updateFeature,
+  getFeatureJsonSchemasByIds,
 } from "back-end/src/models/FeatureModel";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
@@ -259,6 +259,7 @@ import {
   getExperimentsByTrackingKeys,
   getAllExperimentsForStaleGraph,
   updateExperiment,
+  getAllExperimentIds,
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
@@ -7475,12 +7476,6 @@ export async function getFeatureDraftStates(
 }
 
 // TODO: consider adding a force-recompute option that writes results back
-type FeatureHealthStateEntry = IsFeatureStaleResult & {
-  neverStale: boolean;
-  computedAt: string;
-  health: FeatureHealthEntry[];
-};
-
 export async function getFeaturesHealth(
   req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<
@@ -7493,17 +7488,29 @@ export async function getFeaturesHealth(
     ? req.query.ids.split(",").filter(Boolean)
     : undefined;
 
-  const [allFeatures, allExperiments, draftRevisions, allRampSchedules] =
-    await Promise.all([
-      getAllFeaturesWithoutEditorFields(context),
-      getAllExperimentsForStaleGraph(context),
-      getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
-        sparse: true,
-      }),
-      featureIds
-        ? context.models.rampSchedules.getAllByFeatureIds(featureIds)
-        : context.models.rampSchedules.getAll(),
-    ]);
+  const [
+    allFeatures,
+    allExperiments,
+    draftRevisions,
+    allRampSchedules,
+    safeRollouts,
+    jsonSchemas,
+    knownExperimentIds,
+  ] = await Promise.all([
+    getAllFeaturesWithoutEditorFields(context),
+    getAllExperimentsForStaleGraph(context),
+    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
+      sparse: true,
+    }),
+    featureIds
+      ? context.models.rampSchedules.getAllByFeatureIds(featureIds)
+      : context.models.rampSchedules.getAll(),
+    featureIds
+      ? context.models.safeRollout.getAllByFeatureIds(featureIds)
+      : context.models.safeRollout.getAll(),
+    getFeatureJsonSchemasByIds(context, featureIds),
+    getAllExperimentIds(context),
+  ]);
   const rampSchedulesByFeature = new Map<string, RampScheduleInterface[]>();
   for (const schedule of allRampSchedules) {
     if (schedule.entityType !== "feature") continue;
@@ -7530,9 +7537,6 @@ export async function getFeaturesHealth(
     ? allFeatures.filter((f) => targetIds.has(f.id))
     : allFeatures;
 
-  const safeRollouts = featureIds
-    ? await context.models.safeRollout.getAllByFeatureIds(featureIds)
-    : await context.models.safeRollout.getAll();
   const safeRolloutsByFeature = new Map<string, SafeRolloutInterface[]>();
   for (const safeRollout of safeRollouts) {
     const list = safeRolloutsByFeature.get(safeRollout.featureId) ?? [];
@@ -7572,13 +7576,14 @@ export async function getFeaturesHealth(
       neverStale: feature.neverStale ?? false,
       computedAt,
       health: computeFeatureHealth({
-        feature,
+        feature: { ...feature, jsonSchema: jsonSchemas.get(feature.id) },
         environments: applicableEnvIds,
         envResults: staleResult.envResults,
         experimentMap: lookups.experimentMap,
         rampSchedules: rampSchedulesByFeature.get(feature.id) ?? [],
         safeRollouts: safeRolloutsByFeature.get(feature.id) ?? [],
         healthSettings,
+        knownExperimentIds,
       }),
     };
   }
