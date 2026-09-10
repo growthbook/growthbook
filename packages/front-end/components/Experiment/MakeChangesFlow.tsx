@@ -116,6 +116,7 @@ export default function MakeChangesFlow({
 
   let cta = "Publish changes";
   let ctaEnabled = true;
+  let disabledMessage: string | undefined;
   let blockSteps: number[] = [];
   if (!changeType) {
     cta = "Select a change type";
@@ -134,6 +135,8 @@ export default function MakeChangesFlow({
       ctaEnabled = false;
     }
     if (step === lastStepNumber && !changesConfirmed) {
+      // Only name the confirm gate when it's the sole remaining blocker.
+      if (ctaEnabled) disabledMessage = 'Check "Confirm" to publish';
       ctaEnabled = false;
     }
   }
@@ -146,6 +149,7 @@ export default function MakeChangesFlow({
       submit={submit}
       cta={cta}
       ctaEnabled={ctaEnabled && canSubmit}
+      disabledMessage={disabledMessage}
       forceCtaText={!ctaEnabled}
       size="lg"
       step={step}

@@ -296,7 +296,11 @@ const Modal: FC<ModalProps> = ({
         <>
           {aboveFooterContent && !isSuccess ? aboveFooterContent : null}
           <div
-            className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
+            className={clsx("modal-footer", {
+              "sticky-footer": stickyFooter,
+              // The banner draws its own top border; avoid doubling up.
+              "border-top-0": !!aboveFooterContent,
+            })}
           >
             {backCTA ? (
               <>
