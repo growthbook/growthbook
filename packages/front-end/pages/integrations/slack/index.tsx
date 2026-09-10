@@ -696,29 +696,58 @@ const SlackWorkspacePage: NextPage = () => {
                         </Button>
                       </Flex>
                     </Flex>
-                    <Switch
-                      size="sm"
-                      label="AI assistant"
-                      description="Answer mentions in connected channels"
-                      value={group.workspace.assistantEnabled === true}
-                      disabled={updatingAssistantTeamId === group.teamId}
-                      onChange={async (enabled) => {
-                        setUpdatingAssistantTeamId(group.teamId);
-                        try {
-                          await apiCall("/integrations/slack/assistant", {
-                            method: "POST",
-                            body: JSON.stringify({
-                              teamId: group.teamId,
-                              enabled,
-                            }),
-                          });
-                          await mutate();
-                        } finally {
-                          setUpdatingAssistantTeamId(null);
-                        }
-                      }}
-                      mb="3"
-                    />
+                    {(
+                      [
+                        {
+                          key: "assistant",
+                          label: "AI assistant",
+                          description: "Answer mentions in connected channels",
+                          enabled: group.workspace.assistantEnabled,
+                        },
+                        {
+                          key: "unfurl",
+                          label: "Link previews",
+                          description:
+                            "Show experiment summaries for shared GrowthBook links",
+                          enabled: group.workspace.unfurlEnabled,
+                        },
+                      ] as const
+                    ).map((setting) => (
+                      <Switch
+                        key={setting.key}
+                        size="sm"
+                        label={setting.label}
+                        description={setting.description}
+                        value={setting.enabled === true}
+                        disabled={updatingAssistantTeamId !== null}
+                        onChange={async (enabled) => {
+                          setUpdatingAssistantTeamId(group.teamId);
+                          setConnectError(null);
+                          try {
+                            await apiCall(
+                              `/integrations/slack/${setting.key}`,
+                              {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  teamId: group.teamId,
+                                  enabled,
+                                }),
+                              },
+                            );
+                            await mutate();
+                          } catch (error) {
+                            setConnectError(
+                              error instanceof Error
+                                ? error.message
+                                : "Could not update Slack settings",
+                            );
+                          } finally {
+                            setUpdatingAssistantTeamId(null);
+                          }
+                        }}
+                        mb="3"
+                      />
+                    ))}
                     <Flex gap="2" mb="3">
                       <Button
                         variant="outline"

@@ -1,5 +1,14 @@
 import Agenda, { Job } from "agenda";
 import { logger } from "back-end/src/util/logger";
+import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
+import { postSlackEphemeralMessage } from "back-end/src/services/slack/slackWebApi";
+import {
+  claimSlackTask,
+  getSlackTaskClaimAge,
+  releaseSlackTask,
+  slackTaskKey,
+  isDuplicateKeyError,
+} from "back-end/src/services/slack/slackTaskSafety";
 import {
   handleSlackAssistantMention,
   handleSlackAssistantConfirmation,
@@ -10,15 +19,6 @@ import {
   handleSlackLinkShared,
   SlackLinkShared,
 } from "back-end/src/services/slack/slackUnfurl";
-
-// Durable processing for the interactive Slack assistant. The Events /
-// Interactions endpoints must ACK within 3s, but answering a mention or
-// unfurling a link can take many seconds. Enqueuing an Agenda job (persisted
-// in Mongo on creation) means the work survives a web-process restart/crash
-// instead of being dropped like a fire-and-forget promise.
-//
-// The handlers post user-facing messages and are NOT idempotent (a retry would
-// post a duplicate reply), so the job has no automatic retry on failure.
 
 const SLACK_ASSISTANT_JOB_NAME = "slackAssistantTask";
 
@@ -36,30 +36,69 @@ type SlackAssistantJob = Job<SlackAssistantTaskData>;
 const processSlackAssistantTask = async (job: SlackAssistantJob) => {
   const data = job.attrs.data;
   if (!data) return;
-
-  logger.info({ kind: data.kind }, "Slack task: processing from queue");
-
-  switch (data.kind) {
-    case "mention":
-      await handleSlackAssistantMention(data.mention);
-      return;
-    case "confirmation":
-      await handleSlackAssistantConfirmation(data.confirmation);
-      return;
-    case "unfurl":
-      await handleSlackLinkShared(data.event);
-      return;
-    default:
+  const task =
+    data.kind === "mention"
+      ? data.mention
+      : data.kind === "confirmation"
+        ? data.confirmation
+        : data.event;
+  const rootTs =
+    data.kind === "mention"
+      ? data.mention.threadTs || data.mention.messageTs
+      : data.kind === "confirmation"
+        ? data.confirmation.threadTs || ""
+        : data.event.messageTs;
+  const lockKey = `thread:${slackTaskKey([task.teamId, task.channelId, rootTs])}`;
+  if (!(await claimSlackTask(lockKey))) {
+    const age = await getSlackTaskClaimAge(lockKey);
+    if (age !== null && age > 15 * 60 * 1000) {
       logger.error(
-        { kind: (data as { kind?: string }).kind },
-        "Unknown Slack assistant task kind",
+        { lockKey },
+        "Slack thread is blocked by an interrupted or long-running turn; manual recovery required",
       );
+      const target = await resolveSlackAssistantTarget({
+        teamId: task.teamId,
+        channelId: task.channelId,
+        slackUserId: task.slackUserId,
+      });
+      if (target.botToken)
+        await postSlackEphemeralMessage({
+          token: target.botToken,
+          channel: task.channelId,
+          user: task.slackUserId,
+          text: "A previous request in this thread is still running or was interrupted. Ask your GrowthBook administrator to check it before retrying.",
+          threadTs: rootTs,
+        });
+      throw new Error(`Slack thread requires operator recovery: ${lockKey}`);
+    }
+    job.schedule(new Date(Date.now() + 5000));
+    await job.save();
+    return;
+  }
+  try {
+    switch (data.kind) {
+      case "mention":
+        await handleSlackAssistantMention(data.mention);
+        return;
+      case "confirmation":
+        await handleSlackAssistantConfirmation(data.confirmation);
+        return;
+      case "unfurl":
+        await handleSlackLinkShared(data.event);
+        return;
+    }
+  } finally {
+    // Do not expire a live lock: a paused worker could resume and replay a mutation.
+    // A process crash requires operator recovery of its orphaned thread claim.
+    await releaseSlackTask(lockKey);
   }
 };
 
 let agenda: Agenda;
+let indexReady: Promise<string> | null = null;
 export default function addSlackAssistantJobs(ag: Agenda) {
   agenda = ag;
+  indexReady = null;
   // Default lock lifetime (10m) and concurrency are fine for the slow agent
   // turn + PNG render.
   agenda.define(SLACK_ASSISTANT_JOB_NAME, processSlackAssistantTask);
@@ -70,26 +109,45 @@ async function enqueue(
   dedupeKey?: string,
 ): Promise<void> {
   if (!agenda) {
-    logger.error("Slack assistant queue not initialized; dropping task");
-    return;
+    throw new Error("Slack assistant queue not initialized");
   }
+  if (!dedupeKey) throw new Error("Slack task requires a delivery identity");
+  indexReady ??= agenda._collection
+    .createIndex(
+      { name: 1, "data.dedupeKey": 1 },
+      {
+        unique: true,
+        name: "slack_assistant_delivery",
+        partialFilterExpression: { name: SLACK_ASSISTANT_JOB_NAME },
+      },
+    )
+    .catch((error: unknown) => {
+      indexReady = null;
+      throw error;
+    });
+  await indexReady;
   const job = agenda.create(SLACK_ASSISTANT_JOB_NAME, {
     ...data,
     dedupeKey,
   }) as SlackAssistantJob;
-  // Collapse a duplicate delivery into the existing pending job. Once the job
-  // runs and is removed, an identical key can enqueue again (a genuinely new
-  // interaction).
-  if (dedupeKey) job.unique({ "data.dedupeKey": dedupeKey });
+  // Completed Agenda jobs remain for seven days; a retry never reschedules one.
+  job.unique({ "data.dedupeKey": dedupeKey }, { insertOnly: true });
   job.schedule(new Date());
-  await job.save();
+  try {
+    await job.save();
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) throw error;
+  }
 }
 
 export async function queueSlackAssistantMention(
   mention: SlackAssistantMention,
   dedupeKey?: string,
 ): Promise<void> {
-  await enqueue({ kind: "mention", mention }, dedupeKey);
+  await enqueue(
+    { kind: "mention", mention },
+    `mention:${slackTaskKey([mention.teamId, dedupeKey || mention.channelId + ":" + mention.messageTs])}`,
+  );
 }
 
 export async function queueSlackAssistantConfirmation(
@@ -97,7 +155,7 @@ export async function queueSlackAssistantConfirmation(
 ): Promise<void> {
   // Button clicks carry no Slack event_id; dedupe on the conversation + action
   // so a double-click can't park two replays of the same decision.
-  const dedupeKey = `confirm:${confirmation.conversationId}:${confirmation.actionId}`;
+  const dedupeKey = `confirm:${slackTaskKey([confirmation.teamId, confirmation.channelId, confirmation.slackUserId, confirmation.conversationId, confirmation.actionId])}`;
   await enqueue({ kind: "confirmation", confirmation }, dedupeKey);
 }
 
@@ -105,5 +163,8 @@ export async function queueSlackLinkUnfurl(
   event: SlackLinkShared,
   dedupeKey?: string,
 ): Promise<void> {
-  await enqueue({ kind: "unfurl", event }, dedupeKey);
+  await enqueue(
+    { kind: "unfurl", event },
+    `unfurl:${slackTaskKey([event.teamId, dedupeKey || event.channelId + ":" + event.messageTs])}`,
+  );
 }

@@ -23,9 +23,9 @@ export function parseGrowthBookExperimentUrl(
 
 export function escapeSlackMrkdwnText(value: string): string {
   return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 export interface SlackLinkShared {

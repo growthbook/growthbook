@@ -109,9 +109,6 @@ const SlackLinkPage = () => {
 
             <Flex gap="3" align="center">
               <Button onClick={onConfirm}>Link my account</Button>
-              <Text size="sm" color="text-mid">
-                You can unlink at any time.
-              </Text>
             </Flex>
           </Flex>
         )}

@@ -1,3 +1,9 @@
+import type { AIAgentPendingAction } from "shared/validators";
+import {
+  claimSlackTask,
+  slackTaskKey,
+  isCurrentSlackApproval,
+} from "back-end/src/services/slack/slackTaskSafety";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
@@ -51,11 +57,12 @@ function stripBotMention(text: string, botUserId?: string): string {
 function conversationIdFor(
   teamId: string,
   organizationId: string,
+  channelId: string,
   rootTs: string,
   userId: string,
 ) {
   const safeTs = rootTs.replace(/[^a-zA-Z0-9]/g, "");
-  return `conv_slack_${teamId}_${organizationId}_${safeTs}_${userId}`;
+  return `conv_slack_${teamId}_${organizationId}_${channelId}_${safeTs}_${userId}`;
 }
 
 /**
@@ -177,6 +184,7 @@ export async function handleSlackAssistantMention(
   const conversationId = conversationIdFor(
     teamId,
     target.organizationId,
+    channelId,
     rootTs,
     target.userId,
   );
@@ -236,59 +244,15 @@ export async function handleSlackAssistantMention(
       return;
     }
     if (result.pendingAction) {
-      // The agent parked a mutation — confirm via buttons rather than applying
-      // it silently. The interaction handler replays it on Confirm.
-      const pa = result.pendingAction;
-      const summary = pa.summary || `${pa.method} ${pa.path}`;
-      const value = JSON.stringify({ c: conversationId, a: pa.id, t: rootTs });
-      const preface = result.reply
-        ? `${toSlackMrkdwn(result.reply, { appOrigin: APP_ORIGIN })}\n\n`
-        : "";
-      const blocks = [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `${preface}I'd like to make this change — confirm?\n\`${summary}\``,
-          },
-        },
-        {
-          type: "actions",
-          elements: [
-            {
-              type: "button",
-              action_id: "gb_confirm_action",
-              style: "primary",
-              text: { type: "plain_text", text: "Confirm" },
-              value,
-            },
-            {
-              type: "button",
-              action_id: "gb_cancel_action",
-              text: { type: "plain_text", text: "Cancel" },
-              value,
-            },
-          ],
-        },
-      ];
-      const updated = placeholderTs
-        ? await updateSlackMessage({
-            token,
-            channel: channelId,
-            ts: placeholderTs,
-            text: "Confirm this change?",
-            blocks,
-          })
-        : false;
-      if (!updated) {
-        await postSlackMessage({
-          token,
-          channel: channelId,
-          text: "Confirm this change?",
-          blocks,
-          threadTs: rootTs,
-        });
-      }
+      await postPendingApproval({
+        pa: result.pendingAction,
+        reply: result.reply,
+        conversationId,
+        token,
+        channel: channelId,
+        threadTs: rootTs,
+        placeholderTs,
+      });
       return;
     }
     await finish(result.reply || "I couldn't find an answer to that.");
@@ -305,6 +269,72 @@ export async function handleSlackAssistantMention(
   } catch (e) {
     logger.error(e, "Slack assistant turn failed");
     await finish("Something went wrong answering that — please try again.");
+  }
+}
+
+async function postPendingApproval({
+  pa,
+  reply,
+  conversationId,
+  token,
+  channel,
+  threadTs,
+  placeholderTs,
+}: {
+  pa: AIAgentPendingAction;
+  reply: string;
+  conversationId: string;
+  token: string;
+  channel: string;
+  threadTs?: string;
+  placeholderTs?: string | null;
+}): Promise<void> {
+  const summary = pa.summary || `${pa.method} ${pa.path}`;
+  const value = JSON.stringify({ c: conversationId, a: pa.id, t: threadTs });
+  const blocks = [
+    {
+      type: "section",
+      text: {
+        type: "plain_text",
+        text: `Confirm this change?\n${summary.slice(0, 1800)}${reply ? `\n\n${reply.slice(0, 1000)}` : ""}`,
+      },
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          action_id: "gb_confirm_action",
+          style: "primary",
+          text: { type: "plain_text", text: "Confirm" },
+          value,
+        },
+        {
+          type: "button",
+          action_id: "gb_cancel_action",
+          text: { type: "plain_text", text: "Cancel" },
+          value,
+        },
+      ],
+    },
+  ];
+  const updated = placeholderTs
+    ? await updateSlackMessage({
+        token,
+        channel,
+        ts: placeholderTs,
+        text: "Confirm this change?",
+        blocks,
+      })
+    : false;
+  if (!updated) {
+    await postSlackMessage({
+      token,
+      channel,
+      text: "Confirm this change?",
+      blocks,
+      threadTs: threadTs,
+    });
   }
 }
 
@@ -389,19 +419,18 @@ export async function handleSlackAssistantConfirmation({
   }
   const token = target.botToken;
 
-  // Only the user who owns this conversation may confirm/cancel it. The id is
-  // `conv_slack_{team}_{org}_{ts}_{userId}` (ts is alphanumeric-only, so the
-  // owner is everything after the first "_" past the prefix). getById below
-  // enforces the org scope; this enforces the specific owning user, so another
-  // linked member of the same org can't act on someone else's parked mutation.
-  const ownerPrefix = `conv_slack_${teamId}_${target.organizationId}_`;
-  const ownerRest = conversationId.startsWith(ownerPrefix)
-    ? conversationId.slice(ownerPrefix.length)
-    : "";
-  const ownerUserId = ownerRest.includes("_")
-    ? ownerRest.slice(ownerRest.indexOf("_") + 1)
-    : "";
-  if (ownerUserId !== target.userId) {
+  // Bind approval to its original channel, thread, organization, and owner.
+  if (
+    !threadTs ||
+    conversationId !==
+      conversationIdFor(
+        teamId,
+        target.organizationId,
+        channelId,
+        threadTs,
+        target.userId,
+      )
+  ) {
     await postSlackEphemeralMessage({
       token,
       channel: channelId,
@@ -425,12 +454,31 @@ export async function handleSlackAssistantConfirmation({
 
   const existing =
     await target.context.models.aiConversations.getById(conversationId);
-  if (!existing || existing.pendingAction?.id !== actionId) {
+  if (
+    !existing ||
+    !isCurrentSlackApproval(existing.pendingAction?.id, actionId)
+  ) {
     await postSlackEphemeralMessage({
       token,
       channel: channelId,
       user: slackUserId,
       text: "This action isn't yours to confirm.",
+      threadTs,
+    });
+    return;
+  }
+
+  // A crash after applying a mutation must never turn a retry into another write.
+  if (
+    !(await claimSlackTask(
+      `action:${slackTaskKey([teamId, target.organizationId, conversationId, actionId])}`,
+    ))
+  ) {
+    await postSlackEphemeralMessage({
+      token,
+      channel: channelId,
+      user: slackUserId,
+      text: "This action has already been submitted. Check GrowthBook before requesting it again.",
       threadTs,
     });
     return;
@@ -463,6 +511,17 @@ export async function handleSlackAssistantConfirmation({
         token,
         channel: channelId,
         text: result.message,
+        threadTs,
+      });
+      return;
+    }
+    if (result.pendingAction) {
+      await postPendingApproval({
+        pa: result.pendingAction,
+        reply: result.reply,
+        conversationId,
+        token,
+        channel: channelId,
         threadTs,
       });
       return;

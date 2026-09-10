@@ -666,7 +666,19 @@ export async function runAgentTurnToCompletion<TParams>({
   // No SSE sink — keep the streamed-at timestamp fresh (so stale-stream
   // detection matches the HTTP path) and collect experiment-card events.
   const experimentCardIds: string[] = [];
+  const previousMessageCount = buffer.getMessages().length;
+  let streamError: string | null = null;
   const emit: AgentEmit = (event, data) => {
+    if (event === "error") {
+      const message =
+        data && typeof data === "object" && "message" in data
+          ? data.message
+          : null;
+      streamError =
+        typeof message === "string"
+          ? message
+          : "The assistant could not complete this request.";
+    }
     buffer.touchStreamedAt();
     if (event === "experiment-card" && data && typeof data === "object") {
       const id = (data as { experimentId?: unknown }).experimentId;
@@ -704,11 +716,14 @@ export async function runAgentTurnToCompletion<TParams>({
     },
   });
   if (capFailure) return capFailure;
+  if (streamError) return { ok: false, status: 500, message: streamError };
 
   return {
     ok: true,
     conversationId: buffer.conversationId,
-    reply: extractFinalAssistantText(buffer.getMessages()),
+    reply: extractFinalAssistantText(
+      buffer.getMessages().slice(previousMessageCount),
+    ),
     pendingAction: buffer.getPendingAction() ?? null,
     experimentCardIds,
   };

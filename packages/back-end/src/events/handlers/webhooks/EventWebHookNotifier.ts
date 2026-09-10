@@ -126,6 +126,32 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
+    if (
+      eventWebHook.payloadType === "slack" &&
+      eventWebHook.slack?.teamId &&
+      event.event.startsWith("experiment.")
+    ) {
+      const object = event.version ? event.data.data.object : null;
+      const experimentId =
+        object &&
+        "experimentId" in object &&
+        typeof object.experimentId === "string"
+          ? object.experimentId
+          : object && "id" in object && typeof object.id === "string"
+            ? object.id
+            : null;
+      if (experimentId) {
+        const context = getContextForAgendaJobByOrgObject(organization);
+        if (
+          await context.models.slackNotificationSnoozes.isExperimentSnoozed({
+            eventWebHookId,
+            experimentId,
+          })
+        )
+          return;
+      }
+    }
+
     const payload = await (async () => {
       let invalidPayloadType: never;
 

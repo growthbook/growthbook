@@ -142,8 +142,7 @@ export type SlackAssistantTarget =
       /**
        * Workspace-wide: whether the conversational assistant is enabled. When
        * false, the caller replies "assistant is off" instead of running a turn
-       * (notifications are unaffected). Defaults to true for installs predating
-       * the setting.
+       * (notifications are unaffected). Defaults off until explicitly enabled by a workspace administrator.
        */
       assistantEnabled: boolean;
       /** Workspace-wide: whether shared experiment links get unfurled. */

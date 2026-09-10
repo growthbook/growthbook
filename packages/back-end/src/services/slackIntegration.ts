@@ -37,10 +37,7 @@ import {
 } from "back-end/src/services/slack/slackWebApi";
 import { logger } from "back-end/src/util/logger";
 import { cancellableFetch } from "back-end/src/util/http.util";
-import {
-  getCollection,
-  isDuplicateKeyError,
-} from "back-end/src/util/mongo.util";
+import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import {
   decryptSlackBotToken,
   encryptSlackBotToken,
@@ -499,10 +496,9 @@ export const setSlackWorkspaceOption = async ({
         : "No Slack workspace connection found.",
     );
   }
-  await getCollection("slackworkspaceconnections").updateOne(
-    { teamId: target.teamId },
-    { $set: { [field]: enabled, dateUpdated: new Date() } },
-  );
+  await context.models.slackWorkspaceConnections.update(target, {
+    [field]: enabled,
+  });
   return { enabled };
 };
 
