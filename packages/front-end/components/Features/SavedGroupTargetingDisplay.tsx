@@ -1,10 +1,9 @@
 import { SavedGroupTargeting } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { ReactNode } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
+import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
+import { PlainEntityBadge } from "@/components/Features/EntityBadge";
 import Text from "@/ui/Text";
 
 export interface Props {
@@ -51,40 +50,13 @@ export default function SavedGroupTargetingDisplay({
               {s.ids.map((id) => {
                 const group = getSavedGroupById(id);
                 if (!group) {
-                  return (
-                    <Badge key={id} color="gray" label={<Text>{id}</Text>} />
-                  );
+                  return <PlainEntityBadge key={id} label={id} />;
                 }
                 return (
-                  <Badge
+                  <SavedGroupBadge
                     key={id}
-                    color="gray"
-                    label={
-                      <Link
-                        href={`/saved-groups/${group.id}`}
-                        title={`Manage Saved Group: ${group.groupName}`}
-                        target="_blank"
-                        color="violet"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <span
-                          style={{
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            maxWidth: "400px",
-                          }}
-                        >
-                          {group.groupName}
-                        </span>
-                        <PiArrowSquareOut style={{ flexShrink: 0 }} />
-                      </Link>
-                    }
+                    groupId={group.id}
+                    groupName={group.groupName}
                   />
                 );
               })}

@@ -1,10 +1,8 @@
 import { FC } from "react";
-import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Text } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 import {
   type SnapshotRefreshBlocker,
@@ -17,7 +15,6 @@ const RefreshSnapshotButton: FC<{
   experiment: ExperimentInterfaceStringDates;
   phase: number;
   dimension?: string;
-  useRadixButton?: boolean;
   radixVariant?: "outline" | "solid" | "soft";
   setError: (e: string | undefined) => void;
   // Return false to abort the refresh
@@ -36,7 +33,6 @@ const RefreshSnapshotButton: FC<{
   experiment,
   phase,
   dimension,
-  useRadixButton = true,
   radixVariant = "outline",
   setError,
   customValidation,
@@ -75,44 +71,24 @@ const RefreshSnapshotButton: FC<{
   return (
     <>
       <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
-      {useRadixButton ? (
-        <>
-          {loading && longResult && (
-            <Text size="1" color="gray" mr="3">
-              this may take several minutes
-            </Text>
-          )}
-          <RadixButton
-            variant={radixVariant}
-            size="md"
-            disabled={loading || disabled}
-            setError={(error) => setError(error ?? undefined)}
-            onClick={handleClick}
-            style={{
-              minWidth: 110,
-            }}
-            icon={<PiArrowClockwise />}
-          >
-            {label}
-          </RadixButton>
-        </>
-      ) : (
-        <>
-          {loading && longResult && (
-            <small className="text-muted mr-3">
-              this may take several minutes
-            </small>
-          )}
-          <Button
-            color="outline-primary"
-            setErrorText={setError}
-            onClick={handleClick}
-            disabled={loading || disabled}
-          >
-            <BsArrowRepeat /> {label}
-          </Button>
-        </>
+      {loading && longResult && (
+        <Text size="1" color="gray" mr="3">
+          this may take several minutes
+        </Text>
       )}
+      <RadixButton
+        variant={radixVariant}
+        size="md"
+        disabled={loading || disabled}
+        setError={(error) => setError(error ?? undefined)}
+        onClick={handleClick}
+        style={{
+          minWidth: 110,
+        }}
+        icon={<PiArrowClockwise />}
+      >
+        {label}
+      </RadixButton>
     </>
   );
 };

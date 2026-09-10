@@ -1,5 +1,5 @@
 import { SavedGroupTargeting } from "shared/types/feature";
-import { PiArrowSquareOut, PiPlusCircleBold, PiXBold } from "react-icons/pi";
+import { PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React, { useEffect } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
@@ -12,7 +12,7 @@ import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import Link from "@/ui/Link";
-import { AttributeOptionProjectsLabel } from "@/components/Features/AttributeOptionTooltip";
+import { formatSavedGroupOptionLabel } from "@/components/Features/SavedGroupOptionTooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import {
@@ -290,44 +290,8 @@ export default function SavedGroupTargetingField({
                         setValue(newValue);
                       }}
                       options={options}
-                      formatOptionLabel={(o, meta) => {
-                        if (meta.context !== "value") {
-                          return (
-                            <Flex align="center" gap="3">
-                              <span>{o.label}</span>
-                              <AttributeOptionProjectsLabel
-                                projects={getSavedGroupById(o.value)?.projects}
-                              />
-                            </Flex>
-                          );
-                        }
-                        const group = getSavedGroupById(o.value);
-                        if (!group) return o.label;
-                        return (
-                          <Link
-                            href={`/saved-groups/${group.id}`}
-                            target="_blank"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              overflow: "hidden",
-                            }}
-                          >
-                            <span
-                              style={{
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                maxWidth: "200px",
-                              }}
-                            >
-                              {o.label}
-                            </span>
-                            <PiArrowSquareOut style={{ flexShrink: 0 }} />
-                          </Link>
-                        );
-                      }}
+                      formatOptionLabel={formatSavedGroupOptionLabel}
+                      valueTitles={false}
                       required
                       placeholder="Select groups..."
                       closeMenuOnSelect={true}

@@ -1,6 +1,5 @@
 import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
@@ -10,7 +9,9 @@ import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
+import { FeatureBadge } from "@/components/Features/FeatureBadge";
+import { PlainEntityBadge } from "@/components/Features/EntityBadge";
+import { SavedGroupBadge } from "@/components/Features/SavedGroupBadge";
 import Text from "@/ui/Text";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
@@ -133,34 +134,10 @@ export function MultiValuesDisplay({
             ? displayMap?.[v] || group.groupName
             : displayMap?.[v] || v;
         return isSavedGroup && group ? (
-          <Badge
+          <SavedGroupBadge
             key={i}
-            color="gray"
-            label={
-              <Link
-                href={`/saved-groups/${group.id}`}
-                target="_blank"
-                title={`Manage Saved Group: ${displayValue}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  overflow: "hidden",
-                  color: "var(--accent-11)",
-                }}
-              >
-                <span
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    maxWidth: "400px",
-                  }}
-                >
-                  {displayValue}
-                </span>
-              </Link>
-            }
+            groupId={group.id}
+            groupName={displayValue}
           />
         ) : (
           <Badge
@@ -356,17 +333,7 @@ function getConditionParts({
     let fieldEl: ReactNode = attributeIds.has(field) ? (
       <AttributeBadge attributeId={field} />
     ) : (
-      <Badge
-        color="gray"
-        className="text-ellipsis d-inline-block"
-        style={{ maxWidth: 300 }}
-        title={field}
-        label={
-          <Text size="inherit" whiteSpace="pre" color="text-high">
-            {field}
-          </Text>
-        }
-      />
+      <PlainEntityBadge label={field} />
     );
     let parentIdEl: ReactNode = null;
     if (renderPrerequisite) {
@@ -406,7 +373,7 @@ function getConditionParts({
         parentIdEl = (
           <>
             <Text>prerequisite</Text>
-            <ParentIdLink parentId={parentId} />
+            <FeatureBadge featureId={parentId} />
           </>
         );
       }
@@ -475,46 +442,9 @@ function getConditionParts({
           (operator === "$inGroup" || operator === "$notInGroup") &&
           savedGroups ? (
             group ? (
-              <Badge
-                color="gray"
-                label={
-                  <Link
-                    href={`/saved-groups/${group.id}`}
-                    target="_blank"
-                    title={`Manage Saved Group: ${group.groupName}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      overflow: "hidden",
-                      color: "var(--accent-11)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: "400px",
-                      }}
-                    >
-                      {group.groupName}
-                    </span>
-                  </Link>
-                }
-              />
+              <SavedGroupBadge groupId={group.id} groupName={group.groupName} />
             ) : (
-              <Badge
-                color="gray"
-                className="text-ellipsis d-inline-block"
-                style={{ maxWidth: 300 }}
-                title={displayValue}
-                label={
-                  <Text size="inherit" whiteSpace="pre" color="text-high">
-                    {displayValue}
-                  </Text>
-                }
-              />
+              <PlainEntityBadge label={displayValue} />
             )
           ) : (
             <Badge
@@ -535,40 +465,6 @@ function getConditionParts({
       </Flex>
     );
   });
-}
-
-function ParentIdLink({ parentId }: { parentId: string }) {
-  return (
-    <Badge
-      color="gray"
-      label={
-        <Link
-          href={`/features/${parentId}`}
-          title={`Manage Feature: ${parentId}`}
-          target="_blank"
-          color="violet"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            overflow: "hidden",
-          }}
-        >
-          <span
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: "400px",
-            }}
-          >
-            {parentId}
-          </span>
-          <PiArrowSquareOut style={{ flexShrink: 0 }} />
-        </Link>
-      }
-    />
-  );
 }
 
 export default function ConditionDisplay({
@@ -631,7 +527,7 @@ export default function ConditionDisplay({
               {!prefixUsed && prefix}
               {prefixUsed && <Text weight="medium">AND</Text>}
               <Text>prerequisite</Text>
-              <ParentIdLink parentId={p.id} />
+              <FeatureBadge featureId={p.id} />
               <InlineCode language="json" code={jsonFormattedCondition} />
             </Flex>,
           );
