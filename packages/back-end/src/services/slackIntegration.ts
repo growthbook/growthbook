@@ -37,7 +37,10 @@ import {
 } from "back-end/src/services/slack/slackWebApi";
 import { logger } from "back-end/src/util/logger";
 import { cancellableFetch } from "back-end/src/util/http.util";
-import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
+import {
+  getCollection,
+  isDuplicateKeyError,
+} from "back-end/src/util/mongo.util";
 import {
   decryptSlackBotToken,
   encryptSlackBotToken,
@@ -295,6 +298,8 @@ const slackWorkspaceConnectionToFrontEnd = (
   authedUserId: connection.authedUserId,
   scope: connection.scope,
   isEnterpriseInstall: connection.isEnterpriseInstall,
+  assistantEnabled: connection.assistantEnabled,
+  unfurlEnabled: connection.unfurlEnabled,
 });
 
 const upsertSlackWorkspaceConnection = async ({
@@ -468,6 +473,37 @@ export const listSlackOAuthConnections = async (
     slackConnections: connections.map(slackWorkspaceConnectionToFrontEnd),
     slackIntegrations: integrations,
   };
+};
+
+export const setSlackWorkspaceOption = async ({
+  context,
+  teamId,
+  field,
+  enabled,
+}: {
+  context: ReqContext;
+  teamId?: string;
+  field: "assistantEnabled" | "unfurlEnabled";
+  enabled: boolean;
+}): Promise<{ enabled: boolean }> => {
+  const connections = await context.models.slackWorkspaceConnections.getAll();
+  const target = teamId
+    ? connections.find((connection) => connection.teamId === teamId)
+    : connections.length === 1
+      ? connections[0]
+      : undefined;
+  if (!target) {
+    throw new Error(
+      connections.length > 1
+        ? "Multiple Slack workspaces are connected — specify which one."
+        : "No Slack workspace connection found.",
+    );
+  }
+  await getCollection("slackworkspaceconnections").updateOne(
+    { teamId: target.teamId },
+    { $set: { [field]: enabled, dateUpdated: new Date() } },
+  );
+  return { enabled };
 };
 
 export const getSlackOAuthIntegrationById = async ({

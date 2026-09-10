@@ -32,6 +32,7 @@ import Link from "@/ui/Link";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
+import Switch from "@/ui/Switch";
 
 type SlackConnectionsResponse = {
   slackConnections: SlackWorkspaceConnectionFrontEndInterface[];
@@ -244,6 +245,7 @@ const SlackWorkspacePage: NextPage = () => {
   const [installing, setInstalling] = useState(false);
   const [addChannelTeamId, setAddChannelTeamId] = useState<string | null>(null);
   const [disconnectTeamId, setDisconnectTeamId] = useState<string | null>(null);
+  const [updatingAssistantTeamId, setUpdatingAssistantTeamId] = useState<string | null>(null);
 
   const {
     data,
@@ -692,6 +694,29 @@ const SlackWorkspacePage: NextPage = () => {
                         </Button>
                       </Flex>
                     </Flex>
+                    <Switch
+                      size="sm"
+                      label="AI assistant"
+                      description="Answer mentions in connected channels"
+                      value={group.workspace.assistantEnabled !== false}
+                      disabled={updatingAssistantTeamId === group.teamId}
+                      onChange={async (enabled) => {
+                        setUpdatingAssistantTeamId(group.teamId);
+                        try {
+                          await apiCall("/integrations/slack/assistant", {
+                            method: "POST",
+                            body: JSON.stringify({
+                              teamId: group.teamId,
+                              enabled,
+                            }),
+                          });
+                          await mutate();
+                        } finally {
+                          setUpdatingAssistantTeamId(null);
+                        }
+                      }}
+                      mb="3"
+                    />
                     <Flex gap="2" mb="3">
                       <Button
                         variant="outline"

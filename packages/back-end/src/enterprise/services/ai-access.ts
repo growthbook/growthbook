@@ -76,6 +76,50 @@ async function runGate(
   }
 }
 
+export type AIAccessResult =
+  | { ok: true }
+  | { ok: false; status: number; message: string; retryAfter?: number };
+
+export async function checkAIEnabled(
+  context: ReqContext,
+): Promise<AIAccessResult> {
+  try {
+    await assertAIEnabled(context);
+    return { ok: true };
+  } catch (e) {
+    const status =
+      e instanceof Error && "status" in e && typeof e.status === "number"
+        ? e.status
+        : 400;
+    return {
+      ok: false,
+      status,
+      message: e instanceof Error ? e.message : "AI access denied",
+    };
+  }
+}
+
+export async function checkAccessGates(
+  context: ReqContext,
+  target: AIUsageTarget = {},
+): Promise<AIAccessResult> {
+  try {
+    await assertAIAccess(context, target);
+    return { ok: true };
+  } catch (e) {
+    const status =
+      e instanceof Error && "status" in e && typeof e.status === "number"
+        ? e.status
+        : 400;
+    return {
+      ok: false,
+      status,
+      message: e instanceof Error ? e.message : "AI access denied",
+      ...(e instanceof AIUsageLimitError ? { retryAfter: e.retryAfter } : {}),
+    };
+  }
+}
+
 export async function runAccessGates(
   context: ReqContext,
   res: Response,

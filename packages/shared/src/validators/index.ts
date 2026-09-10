@@ -51,6 +51,7 @@ export * from "./watch";
 export * from "./apikey";
 export * from "./figma-connection";
 export * from "./slack-workspace-connection";
+export * from "./slack-notification-snooze";
 export * from "./ai-credential";
 export * from "./events";
 export * from "./experiment-decision";

@@ -29,6 +29,7 @@ import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
+import addSlackAssistantJobs from "back-end/src/jobs/slackAssistantTasks";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
@@ -56,6 +57,7 @@ export async function queueInit() {
   updateAggregatedFactTablesJob(agenda);
   addRampScheduleJob(agenda);
   addScheduledPublishJob(agenda);
+  addSlackAssistantJobs(agenda);
   await addSyncManagedWarehouseJsonErgonomicsJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently

@@ -89,6 +89,14 @@ router.post(
   slackIntegrationController.postSlackOAuthInstall,
 );
 
+router.post(
+  "/link",
+  validateRequestMiddleware({
+    body: z.object({ state: z.string().min(1) }).strict(),
+  }),
+  slackIntegrationController.postSlackLink,
+);
+
 // Channel management for workspace-level installs. Registered before /:id so
 // "channels" isn't captured as an id param.
 router.get(
@@ -124,6 +132,26 @@ router.post(
     body: z.object({ teamId: z.string().optional() }).strict(),
   }),
   slackIntegrationController.postSlackDisconnect,
+);
+
+router.post(
+  "/assistant",
+  validateRequestMiddleware({
+    body: z
+      .object({ teamId: z.string().optional(), enabled: z.boolean() })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackAssistant,
+);
+
+router.post(
+  "/unfurl",
+  validateRequestMiddleware({
+    body: z
+      .object({ teamId: z.string().optional(), enabled: z.boolean() })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackUnfurl,
 );
 
 router.get(

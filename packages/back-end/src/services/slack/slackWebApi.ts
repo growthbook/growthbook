@@ -28,6 +28,7 @@ type SlackApiResponse = { ok: boolean; error?: string } & Record<
   string,
   unknown
 >;
+type SlackBlock = Record<string, unknown>;
 
 // node-fetch v2's AbortSignal type is narrower than the global implementation.
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
@@ -114,16 +115,23 @@ export async function postSlackMessageResult({
   channel,
   text,
   blocks,
+  threadTs,
 }: {
   token: string;
   channel: string;
   text: string;
   blocks?: unknown[];
+  threadTs?: string;
 }): Promise<{ ok: boolean; ts: string | null; error: string | null }> {
   const res = await slackApiCall<SlackApiResponse & { ts?: string }>(
     token,
     "chat.postMessage",
-    { channel, text, ...(blocks ? { blocks } : {}) },
+    {
+      channel,
+      text,
+      ...(blocks ? { blocks } : {}),
+      ...(threadTs ? { thread_ts: threadTs } : {}),
+    },
   );
   return {
     ok: !!res?.ok,
@@ -137,8 +145,75 @@ export async function postSlackMessage(args: {
   channel: string;
   text: string;
   blocks?: unknown[];
+  threadTs?: string;
 }): Promise<string | null> {
   return (await postSlackMessageResult(args)).ts;
+}
+
+export async function postSlackEphemeralMessage({
+  token,
+  channel,
+  user,
+  text,
+  blocks,
+  threadTs,
+}: {
+  token: string;
+  channel: string;
+  user: string;
+  text: string;
+  blocks?: SlackBlock[];
+  threadTs?: string;
+}): Promise<boolean> {
+  const res = await slackApiCall<SlackApiResponse>(token, "chat.postEphemeral", {
+    channel,
+    user,
+    text,
+    ...(blocks ? { blocks } : {}),
+    ...(threadTs ? { thread_ts: threadTs } : {}),
+  });
+  return !!res?.ok;
+}
+
+export async function updateSlackMessage({
+  token,
+  channel,
+  ts,
+  text,
+  blocks,
+}: {
+  token: string;
+  channel: string;
+  ts: string;
+  text: string;
+  blocks?: SlackBlock[];
+}): Promise<boolean> {
+  const res = await slackApiCall<SlackApiResponse>(token, "chat.update", {
+    channel,
+    ts,
+    text,
+    ...(blocks ? { blocks } : {}),
+  });
+  return !!res?.ok;
+}
+
+export async function unfurlSlackLinks({
+  token,
+  channel,
+  ts,
+  unfurls,
+}: {
+  token: string;
+  channel: string;
+  ts: string;
+  unfurls: Record<string, { blocks: SlackBlock[] }>;
+}): Promise<boolean> {
+  const res = await slackApiCall<SlackApiResponse>(token, "chat.unfurl", {
+    channel,
+    ts,
+    unfurls,
+  });
+  return !!res?.ok;
 }
 
 /**
@@ -152,6 +227,7 @@ export async function uploadSlackImageFile({
   title,
   channelId,
   initialComment,
+  threadTs,
 }: {
   token: string;
   png: Buffer;
@@ -159,6 +235,7 @@ export async function uploadSlackImageFile({
   title?: string;
   channelId: string;
   initialComment?: string;
+  threadTs?: string;
 }): Promise<string | null> {
   const getRes = await slackApiGet<
     SlackApiResponse & { upload_url?: string; file_id?: string }
@@ -193,6 +270,7 @@ export async function uploadSlackImageFile({
       files: [{ id: getRes.file_id, title: title || filename }],
       channel_id: channelId,
       ...(initialComment ? { initial_comment: initialComment } : {}),
+      ...(threadTs ? { thread_ts: threadTs } : {}),
     },
   );
   return completeRes?.ok ? getRes.file_id : null;
