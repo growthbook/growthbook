@@ -6,6 +6,10 @@ import {
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
+import {
+  getFactTableIdColumn,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Collapsible from "react-collapsible";
@@ -15,6 +19,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getInitialFactTableQuery, validateSQL } from "@/services/datasources";
+import { getNewFactTableProjects } from "@/services/factTables";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -77,6 +82,8 @@ export default function FactTableModal({
       name: existing?.name || "",
       sql: existing?.sql || "",
       userIdTypes: existing?.userIdTypes || [],
+      userIdColumns: existing?.userIdColumns,
+      timestampColumn: existing?.timestampColumn,
       tags: existing?.tags || [],
       eventName: existing?.eventName || "",
       managedBy: existing?.managedBy || "",
@@ -128,6 +135,8 @@ export default function FactTableModal({
             sql: form.watch("sql"),
             eventName: form.watch("eventName"),
             userIdTypes: form.watch("userIdTypes"),
+            userIdColumns: form.watch("userIdColumns"),
+            timestampColumn: form.watch("timestampColumn"),
             name: form.watch("name"),
           }}
           save={async ({ sql, userIdTypes, eventName }) => {
@@ -138,7 +147,6 @@ export default function FactTableModal({
         />
       )}
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         close={close}
@@ -155,7 +163,12 @@ export default function FactTableModal({
             throw new Error("Must add a SQL query");
           }
 
-          validateSQL(value.sql, ["timestamp", ...value.userIdTypes]);
+          validateSQL(value.sql, [
+            getFactTableTimestampColumn(value),
+            ...value.userIdTypes.map(
+              (idType) => getFactTableIdColumn(value, idType).split(".")[0],
+            ),
+          ]);
 
           // Default eventName to the metric name
           value.eventName = value.eventName || value.name;
@@ -198,26 +211,12 @@ export default function FactTableModal({
             const ds = getDatasourceById(value.datasource);
             if (!ds) throw new Error("Must select a valid data source");
 
-            let projects = ds.projects || [];
-
-            if (projects.length) {
-              // If the data source has projects, filter out any the user doesn't have permission to create fact tables in
-              projects = projects.filter((project) => {
-                return permissionsUtil.canCreateFactTable({
-                  projects: [project],
-                });
-              });
-            } else {
-              // If the data source is in all projects, check if the user has permission to create a fact table globally
-              if (permissionsUtil.canCreateFactTable({ projects: [] })) {
-                projects = []; // If the user does have global permissions, allow the fact table to be created in all projects
-              } else {
-                // If the user doesn't have global permission to create fact tables, use the project the user is in
-                projects = [project];
-              }
-            }
             value.columns = [];
-            value.projects = projects;
+            value.projects = getNewFactTableProjects({
+              datasource: ds,
+              project,
+              permissionsUtil,
+            });
             value.aggregatedFactTableSettings =
               normalizedAggSettings ?? undefined;
 
