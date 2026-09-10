@@ -12,7 +12,7 @@ vi.mock("back-end/src/enterprise/services/agent-handler", () => ({
   createAgentHandler: () => async () => undefined,
 }));
 
-jest.mock("back-end/src/enterprise/services/ai", () => ({
+vi.mock("back-end/src/enterprise/services/ai", () => ({
   aiTool: (definition: unknown) => definition,
 }));
 
