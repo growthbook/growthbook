@@ -213,7 +213,7 @@ export default function FunnelStepsInput({
   project?: string;
   initialFactTable?: string;
 }) {
-  const { factTables, getFactTableById } = useDefinitions();
+  const { factTables, getFactTableById, getDatasourceById } = useDefinitions();
 
   // The funnel's own steps decide which datasource governs it, once any step
   // already has a real fact table - not the caller's guessed default, which
@@ -246,7 +246,10 @@ export default function FunnelStepsInput({
   const factTableOptions = factTables
     .filter((t) => !hasCommitted || t.datasource === effectiveDatasource)
     .filter((t) => isProjectListValidForProject(t.projects, project))
-    .map((t) => ({ label: t.name, value: t.id }));
+    .map((t) => ({
+      label: `${t.name} (${getDatasourceById(t.datasource)?.name || t.datasource})`,
+      value: t.id,
+    }));
 
   const updateStep = (index: number, updates: Partial<FunnelStep>) => {
     setValue({
