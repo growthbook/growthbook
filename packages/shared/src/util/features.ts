@@ -304,7 +304,7 @@ export function validateFeatureValue(
   const prefix = label ? label + ": " : "";
   if (type === "boolean") {
     if (!["true", "false"].includes(value)) {
-      return value ? "true" : "false";
+      throw new Error(prefix + 'Must be "true" or "false"');
     }
   } else if (type === "number") {
     if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
