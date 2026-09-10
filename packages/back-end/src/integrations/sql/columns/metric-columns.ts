@@ -2,6 +2,7 @@ import {
   ExperimentMetricInterface,
   getAggregateFilters,
   getColumnExpression,
+  getFactTableIdColumnExpression,
   getFactTableTimestampColumn,
   getUserIdTypes,
   isBinomialMetric,
@@ -23,16 +24,21 @@ export function getMetricColumns(
   useDenominator?: boolean,
 ): { userIds: Record<string, string>; timestamp: string; value: string } {
   if (isFactMetric(metric)) {
-    const userIds: Record<string, string> = {};
-    getUserIdTypes(metric, factTableMap, useDenominator).forEach(
-      (userIdType) => {
-        userIds[userIdType] = `${alias}.${userIdType}`;
-      },
-    );
-
     const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
     const factTable = factTableMap.get(columnRef?.factTableId || "");
+
+    const userIds: Record<string, string> = {};
+    getUserIdTypes(metric, factTableMap, useDenominator).forEach(
+      (userIdType) => {
+        userIds[userIdType] = getFactTableIdColumnExpression(
+          factTable,
+          userIdType,
+          dialect,
+          alias,
+        );
+      },
+    );
 
     const hasAggregateFilter =
       getAggregateFilters({

@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/router";
 import { OrganizationInterface } from "shared/types/organization";
+import { NonJsonResponseError } from "shared/util";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
@@ -305,7 +306,6 @@ export const AuthProvider: React.FC<{
       if (resp.confirm) {
         setAuthComponent(
           <Modal
-            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             submit={async () => {
@@ -403,7 +403,11 @@ export const AuthProvider: React.FC<{
       if (contentType && contentType.startsWith("image/")) {
         responseData = await response.blob();
       } else {
-        responseData = await response.json();
+        try {
+          responseData = await response.json();
+        } catch (e) {
+          throw new NonJsonResponseError(response.status);
+        }
         if (
           !response.ok &&
           responseData &&
@@ -609,7 +613,6 @@ export const AuthProvider: React.FC<{
   if (initError) {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         header="logo"
         open={true}
@@ -636,7 +639,6 @@ export const AuthProvider: React.FC<{
   if (sessionError) {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         cta="OK"

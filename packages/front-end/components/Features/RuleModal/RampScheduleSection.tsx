@@ -2478,7 +2478,8 @@ export default function RampScheduleSection({
                 </Flex>
 
                 {!isReadOnlyView &&
-                  (step.holdConditions?.requiresApproval ||
+                  ((step.triggerType !== "approval" &&
+                    step.holdConditions?.requiresApproval) ||
                     (step.monitored &&
                       (step.holdConditions?.minSampleSize ?? null) !==
                         null)) && (

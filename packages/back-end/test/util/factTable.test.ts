@@ -1,4 +1,4 @@
-import { ColumnInterface } from "shared/types/fact-table";
+import { ColumnInterface, UpdateColumnProps } from "shared/types/fact-table";
 import {
   DataSourceInterface,
   GrowthbookClickhouseDataSource,
@@ -6,17 +6,27 @@ import {
 import {
   columnsHaveAutoSlices,
   deriveUserIdTypesFromColumns,
+  validateColumnMappingTargets,
+  validateNewUserIdColumnKeys,
   ensureAutoSliceDefaults,
   normalizePersistedColumn,
   getMostRecentUpdateOccurrence,
   normalizeJSONFieldsInput,
   stripIncompatibleFields,
+  detectColumnsFromQueryResult,
+  buildColumnTypeMaps,
 } from "back-end/src/util/factTable";
+import { mergeUpsertColumns } from "back-end/src/models/FactTableModel";
 
-function makeColumn(column: string, deleted = false): ColumnInterface {
+function makeColumn(
+  column: string,
+  deleted = false,
+  datatype?: string,
+): ColumnInterface {
   return {
     column,
     deleted,
+    datatype,
   } as unknown as ColumnInterface;
 }
 
@@ -318,6 +328,124 @@ describe("getMostRecentUpdateOccurrence", () => {
   });
 });
 
+describe("validateColumnMappingTargets", () => {
+  const columns = [
+    makeColumn("event_time", false, "date"),
+    makeColumn("userId", false, "string"),
+    makeColumn("properties", false, "json"),
+    { column: "ts_vc", isVirtual: true, datatype: "date" } as ColumnInterface,
+  ];
+  const check = (args: Parameters<typeof validateColumnMappingTargets>[0]) =>
+    validateColumnMappingTargets({ columns, ...args });
+
+  it("requires a date column for timestampColumn", () => {
+    expect(() => check({ timestampColumn: "event_time" })).not.toThrow();
+    expect(() => check({ timestampColumn: "userId" })).toThrow(/not a date/);
+    expect(() => check({ timestampColumn: "missing" })).toThrow(/not a date/);
+    expect(() => check({ timestampColumn: "event-time" })).toThrow(
+      /safe bare SQL identifier/,
+    );
+    // Emitted as a bare `m.<name>`, so neither resolves at query time.
+    expect(() => check({ timestampColumn: "properties.ts" })).toThrow();
+    expect(() => check({ timestampColumn: "ts_vc" })).toThrow();
+  });
+
+  it("requires an id column or a single-dot JSON path for userIdColumns", () => {
+    const v = (user_id: string) => () => check({ userIdColumns: { user_id } });
+    expect(v("userId")).not.toThrow();
+    expect(v("properties.anonId")).not.toThrow();
+    expect(v("")).not.toThrow();
+    expect(v("event_time")).toThrow(/not an identifier column/);
+    expect(v("missing")).toThrow();
+    expect(v("userId.nested")).toThrow(); // root isn't a JSON column
+    expect(v("properties.a.b")).toThrow(); // more than one dot
+    expect(v("user-id")).toThrow(/safe bare SQL identifiers/);
+    expect(v("properties.anon-id")).toThrow(/safe bare SQL identifiers/);
+    expect(v("ts; DROP TABLE events")).toThrow(/safe bare SQL identifiers/);
+  });
+
+  // Detection is async, so a mapping can only be set alongside `columns`.
+  it("requires columns to be sent alongside a mapping", () => {
+    expect(() => check({ columns: [] })).not.toThrow();
+    expect(() => check({ columns: [], timestampColumn: "ts" })).toThrow(
+      /no columns yet, so send `columns`/,
+    );
+    expect(() =>
+      check({ columns: [], userIdColumns: { user_id: "userId" } }),
+    ).toThrow(/no columns yet, so send `columns`/);
+  });
+
+  // Callers pass the merged post-write state, so a mapping onto a column this
+  // same request adds has to pass, and one onto a column it deletes must not.
+  it("validates against the final column state", () => {
+    const finalState = (incoming: UpdateColumnProps[]) =>
+      mergeUpsertColumns(columns, incoming).columns;
+    expect(() =>
+      check({
+        columns: finalState([{ column: "new_id", datatype: "string" }]),
+        userIdColumns: { user_id: "new_id" },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      check({
+        columns: finalState([{ column: "userId", deleted: true }]),
+        userIdColumns: { user_id: "userId" },
+      }),
+    ).toThrow(/userId/);
+  });
+
+  // A column dropped from the SQL must not block an unrelated edit that
+  // round-trips the whole mapping.
+  it("only checks values the write is changing", () => {
+    const existing = {
+      timestampColumn: "dropped_ts",
+      userIdColumns: { user_id: "dropped_id" },
+    };
+    expect(() =>
+      check({
+        timestampColumn: "dropped_ts",
+        userIdColumns: { user_id: "dropped_id" },
+        existing,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      check({ userIdColumns: { user_id: "still_missing" }, existing }),
+    ).toThrow(/still_missing/);
+  });
+});
+
+describe("validateNewUserIdColumnKeys", () => {
+  const datasource = makeStandardDatasource([{ userIdType: "user_id" }]);
+  const validate = (
+    userIdColumns: Record<string, string>,
+    existingUserIdColumns?: Record<string, string>,
+  ) =>
+    validateNewUserIdColumnKeys({
+      datasource,
+      userIdColumns,
+      existingUserIdColumns,
+    });
+
+  it("rejects a new bad key but tolerates a stored stale one", () => {
+    expect(() => validate({ device_id: "deviceId" })).toThrow(
+      /Invalid userIdColumns key: device_id/,
+    );
+    expect(() =>
+      validate(
+        { user_id: "userId", device_id: "deviceId" },
+        { device_id: "x" },
+      ),
+    ).not.toThrow();
+    // ...but a genuinely new bad key alongside a stale one still throws.
+    expect(() =>
+      validate(
+        { device_id: "deviceId", session_id: "sessionId" },
+        { device_id: "deviceId" },
+      ),
+    ).toThrow(/session_id/);
+  });
+});
+
 describe("deriveUserIdTypesFromColumns", () => {
   describe("growthbook_clickhouse datasource", () => {
     it("returns identifier userIdTypes that appear in active fact table columns", () => {
@@ -396,6 +524,55 @@ describe("deriveUserIdTypesFromColumns", () => {
       ]);
       expect(deriveUserIdTypesFromColumns(ds, [])).toEqual([]);
     });
+
+    it("keeps a remapped id type whose mapped column is present", () => {
+      const ds = makeClickhouseDatasource([
+        { columnName: "user_id", type: "identifier" },
+        { columnName: "device_id", type: "identifier" },
+      ]);
+      const cols = [makeColumn("userId"), makeColumn("device_id")];
+      expect(
+        deriveUserIdTypesFromColumns(ds, cols, { user_id: "userId" }),
+      ).toEqual(["user_id", "device_id"]);
+    });
+
+    it("keeps an id type mapped to a JSON field path", () => {
+      const ds = makeClickhouseDatasource([
+        { columnName: "user_id", type: "identifier" },
+      ]);
+      // Only the root `properties` column is detected; query generation
+      // resolves the path with a JSON extract, so the id type must survive.
+      const cols = [makeColumn("properties", false, "json")];
+      expect(
+        deriveUserIdTypesFromColumns(ds, cols, {
+          user_id: "properties.userId",
+        }),
+      ).toEqual(["user_id"]);
+    });
+
+    it("drops a JSON-path mapping when the root column isn't a json column", () => {
+      const ds = makeClickhouseDatasource([
+        { columnName: "user_id", type: "identifier" },
+      ]);
+      const cols = [makeColumn("properties", false, "string")];
+      expect(
+        deriveUserIdTypesFromColumns(ds, cols, {
+          user_id: "properties.userId",
+        }),
+      ).toEqual([]);
+    });
+
+    it("drops a remapped id type whose mapped column is gone", () => {
+      const ds = makeClickhouseDatasource([
+        { columnName: "user_id", type: "identifier" },
+      ]);
+      // A column literally named after the id type doesn't count once the id
+      // type is mapped elsewhere -- SQL generation reads the mapped column.
+      const cols = [makeColumn("user_id"), makeColumn("userId", true)];
+      expect(
+        deriveUserIdTypesFromColumns(ds, cols, { user_id: "userId" }),
+      ).toEqual([]);
+    });
   });
 
   describe("standard (non-ClickHouse) datasources", () => {
@@ -461,5 +638,125 @@ describe("deriveUserIdTypesFromColumns", () => {
       const cols = [makeColumn("revenue"), makeColumn("country")];
       expect(deriveUserIdTypesFromColumns(ds, cols)).toEqual([]);
     });
+  });
+});
+
+describe("detectColumnsFromQueryResult", () => {
+  it("infers types from the returned rows", () => {
+    expect(
+      detectColumnsFromQueryResult({
+        results: [
+          {
+            user_id: "u1",
+            timestamp: "2024-01-02 03:04:05",
+            revenue: 12.5,
+            is_new: true,
+            nothing: null,
+          },
+        ],
+      }),
+    ).toEqual([
+      { column: "user_id", datatype: "string" },
+      { column: "timestamp", datatype: "date" },
+      { column: "revenue", datatype: "number" },
+      { column: "is_new", datatype: "boolean" },
+      { column: "nothing", datatype: "" },
+    ]);
+  });
+
+  it("falls back to the engine's reported schema when there are no rows", () => {
+    expect(
+      detectColumnsFromQueryResult({
+        results: [],
+        columns: [
+          { name: "user_id", dataType: "string" },
+          { name: "timestamp", dataType: "date" },
+          { name: "props", dataType: "json" },
+        ],
+      }),
+    ).toEqual([
+      { column: "user_id", datatype: "string" },
+      { column: "timestamp", datatype: "date" },
+      // JSON without field info stays typed, fields get filled in later
+      { column: "props", datatype: "json" },
+    ]);
+  });
+
+  it("keeps the engine's JSON fields", () => {
+    expect(
+      detectColumnsFromQueryResult({
+        results: [],
+        columns: [
+          {
+            name: "props",
+            dataType: "json",
+            fields: [{ name: "plan", dataType: "string" }],
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        column: "props",
+        datatype: "json",
+        jsonFields: { plan: { datatype: "string" } },
+      },
+    ]);
+  });
+
+  it("prefers the inferred type over an undetected engine type", () => {
+    expect(
+      detectColumnsFromQueryResult({
+        results: [{ revenue: 10 }],
+        columns: [{ name: "revenue", dataType: "" }],
+      }),
+    ).toEqual([{ column: "revenue", datatype: "number" }]);
+  });
+
+  it("lists name-only schema columns with an unknown type", () => {
+    expect(
+      detectColumnsFromQueryResult({
+        results: [],
+        columns: [{ name: "user_id" }, { name: "timestamp" }],
+      }),
+    ).toEqual([
+      { column: "user_id", datatype: "" },
+      { column: "timestamp", datatype: "" },
+    ]);
+  });
+
+  it("returns nothing when there are no rows and no schema", () => {
+    expect(detectColumnsFromQueryResult({ results: [] })).toEqual([]);
+  });
+});
+
+describe("buildColumnTypeMaps", () => {
+  // The refresh marks a column deleted when it's missing from `datatypes`,
+  // so untypeable columns the engine still reports have to appear there.
+  it("lists untypeable schema columns in datatypes", () => {
+    const { datatypes } = buildColumnTypeMaps({
+      results: [],
+      columns: [
+        { name: "user_id", dataType: "string" },
+        // JSON without field info can't be typed from an empty row sample
+        { name: "props", dataType: "json" },
+        // Vertica and Query Service report names without types
+        { name: "revenue" },
+      ],
+    });
+
+    expect([...datatypes]).toEqual([
+      ["user_id", "string"],
+      ["props", "json"],
+      ["revenue", ""],
+    ]);
+  });
+
+  it("prefers inferred types over the engine's in datatypes", () => {
+    const { datatypes } = buildColumnTypeMaps({
+      results: [{ revenue: 10 }],
+      columns: [{ name: "revenue" }],
+    });
+
+    expect([...datatypes]).toEqual([["revenue", "number"]]);
   });
 });

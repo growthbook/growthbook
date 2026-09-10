@@ -311,6 +311,59 @@ export const getConstantRevisionChange = (
 };
 
 /**
+ * What a write to an approved revision changed, for deciding whether it goes
+ * back for review. An edit keeps the snapshot and is judged on the difference
+ * between the states its `before` and `after` changes resolve to, so only what
+ * the edit added, altered, or removed counts. A rebase moves the snapshot, so
+ * it is judged the way publish judges the draft: what `after` still changes
+ * against its new snapshot.
+ */
+export const getConstantRevisionApprovalChange = (
+  before: {
+    snapshot: unknown;
+    proposedChanges: JsonPatchOperation[] | unknown;
+  },
+  after: { snapshot: unknown; proposedChanges: JsonPatchOperation[] | unknown },
+): { valueChanged: boolean; changedEnvironments: string[] } => {
+  const snapshot = after.snapshot as Pick<
+    ConstantInterface,
+    "value" | "environmentValues"
+  >;
+  if (!isEqual(before.snapshot, after.snapshot)) {
+    const { valueChanged, changedEnvironments } = getConstantRevisionChange(
+      snapshot,
+      after.proposedChanges,
+    );
+    return { valueChanged, changedEnvironments };
+  }
+
+  const beforeOps = normalizeProposedChanges(before.proposedChanges);
+  const afterOps = normalizeProposedChanges(after.proposedChanges);
+  const base = snapshot as unknown as Record<string, unknown>;
+  const was = applyTopLevelPatchOps(base, beforeOps);
+  const now = applyTopLevelPatchOps(base, afterOps);
+
+  const contentChanged = [...CONFIG_CONTENT_FIELDS].some(
+    (field) => !isEqual(was[field], now[field]),
+  );
+  // Ops this applier can't read make the resolved states unreliable; if the
+  // edit touched them, read it as the widest change it could be.
+  const unresolved =
+    !isEqual(beforeOps, afterOps) &&
+    (hasUnappliablePatchOps(beforeOps) || hasUnappliablePatchOps(afterOps));
+  const valueChanged =
+    !isEqual(was.value ?? "", now.value ?? "") || contentChanged || unresolved;
+
+  const wasEnvs = (was.environmentValues ?? {}) as Record<string, unknown>;
+  const nowEnvs = (now.environmentValues ?? {}) as Record<string, unknown>;
+  const changedEnvironments = Array.from(
+    new Set([...Object.keys(wasEnvs), ...Object.keys(nowEnvs)]),
+  ).filter((env) => !isEqual(wasEnvs[env] ?? "", nowEnvs[env] ?? ""));
+
+  return { valueChanged, changedEnvironments };
+};
+
+/**
  * Whether self-approval is blocked for this revision's entity, read from the
  * correct config source: constants use the feature `requireReviews` model
  * (matched on the constant's project); other entities use `approvalFlows`.
