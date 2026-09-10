@@ -93,13 +93,21 @@ export default function AdvancedSettings({
           </Flex>
         )}
 
-      <Tabs defaultValue="query">
+      <Tabs
+        defaultValue="query"
+        mt="4"
+        mb="4"
+        style={{
+          border: "1px solid var(--gray-a6)",
+          borderRadius: "var(--radius-3)",
+        }}
+      >
         <TabsList>
           <TabsTrigger value="query">Analysis settings</TabsTrigger>
           <TabsTrigger value="display">Display settings</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="query">
+        <TabsContent value="query" p="4">
           {windowOk(formType) && <MetricDelaySettings form={form} />}
           {cappingOk(formType) && (
             <MetricCappingSettingsForm
@@ -166,7 +174,7 @@ export default function AdvancedSettings({
           )}
         </TabsContent>
 
-        <TabsContent value="display">
+        <TabsContent value="display" p="4">
           <Field
             label={
               formType === "ratio"
