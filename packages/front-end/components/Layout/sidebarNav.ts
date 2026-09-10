@@ -65,7 +65,6 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Contextual Bandits",
         href: "/contextual-bandits",
         path: /^contextual-bandits?($|\/)/,
-        beta: true,
         filter: ({ gb }) => !!gb?.isOn("contextual-bandits"),
       },
       {
