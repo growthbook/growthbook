@@ -29,7 +29,6 @@ import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 import type { ConversationBuffer } from "back-end/src/enterprise/services/conversation-buffer";
-import { buildAskDataTools } from "back-end/src/agent/ask-data-tools";
 import {
   createAgentHandler,
   type AgentConfig,
@@ -204,29 +203,9 @@ async function buildProductAnalyticsSystemPrompt(
     "to re-pick it rather than searching for a replacement.\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
-    PA_SYSTEM_INSTRUCTIONS +
-    (ctx.org.settings?.aiAskDataEnabled ? SQL_FALLBACK_PROMPT_SECTION : "")
+    PA_SYSTEM_INSTRUCTIONS
   );
 }
-
-const SQL_FALLBACK_PROMPT_SECTION = `
-
-# SQL fallback
-
-When a question can't be answered with existing metrics or the exploration
-config (e.g., custom joins, unmodeled tables, complex aggregations), fall
-back to direct SQL:
-1. Use \`searchTables\` to discover raw warehouse tables.
-2. Use \`getTableSchema\` to read column names and types.
-3. Use \`previewColumnValues\` before filtering on specific values — never
-   guess enum spellings or date formats.
-4. Use \`runQuery\` to execute read-only SQL. Results are shown to the user
-   as a table.
-5. After results come back, write a brief text analysis of what the data shows.
-
-Prefer the exploration tools (\`search\` + \`runExploration\`) when possible —
-they produce richer visualizations. Use SQL only as a fallback.
-`;
 
 // =============================================================================
 // Helpers & tool implementations
@@ -532,10 +511,8 @@ function scoreSearch(
 }
 
 async function executeSearch(
-  ctx: ReqContext,
   getMetrics: () => Promise<FactMetricInterface[]>,
   getFactTables: () => Promise<FactTableInterface[]>,
-  datasourceId: string,
   input: { query: string; limit: number; skip: number },
 ): Promise<string> {
   const { query, limit, skip } = input;
@@ -621,41 +598,6 @@ async function executeSearch(
     );
     if (score > 0) {
       all.push({ score, name: ft.name, result: ftResult });
-    }
-  }
-
-  // Saved queries
-  if (datasourceId) {
-    const allSaved = await ctx.models.savedQueries.getAll();
-    const saved = allSaved.filter(
-      (sq: { datasourceId: string }) => sq.datasourceId === datasourceId,
-    );
-    for (const sq of saved) {
-      const sqResult = {
-        kind: "saved_query" as const,
-        id: sq.id,
-        name: sq.name,
-        sql: sq.sql,
-      };
-      if (isBlank) {
-        all.push({ score: 0, name: sq.name, result: sqResult });
-        continue;
-      }
-      const haystack = [sq.id, sq.name, sq.sql].join(" ").toLowerCase();
-      const haystackNorm = normalizeForSearch(haystack);
-      const score = scoreSearch(
-        q,
-        qNorm,
-        tokens,
-        tokensNorm,
-        haystack,
-        haystackNorm,
-        sq.name,
-        sq.id,
-      );
-      if (score > 0) {
-        all.push({ score, name: sq.name, result: sqResult });
-      }
     }
   }
 
@@ -1466,7 +1408,7 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   resolveMentions: (ctx, mentions, { datasourceId }) =>
     resolveProductAnalyticsMentions(ctx, mentions, datasourceId),
 
-  buildTools: async (ctx, buffer, { datasourceId }, emit) => {
+  buildTools: (ctx, buffer, { datasourceId }) => {
     let metricsCache: FactMetricInterface[] | null = null;
     const getMetrics = async (): Promise<FactMetricInterface[]> => {
       if (metricsCache) return metricsCache;
@@ -1486,15 +1428,11 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
       return factTablesCache;
     };
 
-    const sqlFallbackTools =
-      (await buildAskDataTools(ctx, buffer, datasourceId, emit)) ?? {};
-
     return {
       search: aiTool({
         description: SEARCH_DESCRIPTION,
         inputSchema: searchInputSchema,
-        execute: (input) =>
-          executeSearch(ctx, getMetrics, getFactTables, datasourceId, input),
+        execute: (input) => executeSearch(getMetrics, getFactTables, input),
       }),
 
       getAvailableColumns: aiTool({
@@ -1521,8 +1459,6 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
         inputSchema: getSnapshotInputSchema,
         execute: ({ snapshotId }) => executeGetSnapshot(buffer, snapshotId),
       }),
-
-      ...sqlFallbackTools,
     };
   },
 

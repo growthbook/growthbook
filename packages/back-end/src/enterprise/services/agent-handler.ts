@@ -97,7 +97,7 @@ export interface AgentConfig<TParams = unknown> {
     buffer: ConversationBuffer,
     params: TParams,
     emit?: AgentEmit,
-  ) => ToolSet | Promise<ToolSet>;
+  ) => ToolSet;
 
   /**
    * Slash-command resolver. Seeded calls use the same shape as a real
@@ -312,7 +312,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     setSseHeaders(res);
     const emit = createEmit(res, buffer);
-    const tools = await config.buildTools(context, buffer, params, emit);
+    const tools = config.buildTools(context, buffer, params, emit);
 
     const isFirstMessage = buffer.getMessages().length === 0;
 
