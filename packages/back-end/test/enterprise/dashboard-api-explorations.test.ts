@@ -149,6 +149,36 @@ describe("runNewApiExplorationBlocks", () => {
     ).rejects.toThrow("Syntax error near FROM");
   });
 
+  it("never carries a comparison id in from the caller's block", async () => {
+    // A reconfigured chart arrives with its saved comparison id still on it.
+    mockRunExploration
+      .mockResolvedValueOnce({ id: "expl_primary", status: "success" })
+      .mockResolvedValueOnce({
+        id: "expl_bad",
+        status: "error",
+        error: "boom",
+      });
+
+    const [failed] = await runNewApiExplorationBlocks(
+      ctx,
+      [chartBlock({ comparisonExplorerAnalysisId: "expl_cmp_old" })],
+      { comparison: { enabled: true, mode: "previousPeriod" } },
+    );
+    expect(failed).not.toHaveProperty("comparisonExplorerAnalysisId");
+
+    // Same when comparison is off now: nothing runs, nothing survives.
+    mockRunExploration.mockResolvedValueOnce({
+      id: "expl_primary",
+      status: "success",
+    });
+    const [off] = await runNewApiExplorationBlocks(
+      ctx,
+      [chartBlock({ comparisonExplorerAnalysisId: "expl_cmp_old" })],
+      {},
+    );
+    expect(off).not.toHaveProperty("comparisonExplorerAnalysisId");
+  });
+
   it("drops a failed comparison id rather than saving a broken series", async () => {
     mockRunExploration
       .mockResolvedValueOnce({ id: "expl_primary", status: "success" })

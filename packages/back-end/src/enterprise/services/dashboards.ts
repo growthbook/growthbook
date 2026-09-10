@@ -1,4 +1,4 @@
-import { isEqual, uniqWith } from "lodash";
+import { isEqual, omit, uniqWith } from "lodash";
 import { isString } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
@@ -479,7 +479,10 @@ export async function runNewApiExplorationBlocks<
       }
 
       return {
-        ...enrolled,
+        // Any comparison id the caller sent belongs to an earlier run, so only
+        // this run's may survive: dropped when the comparison failed and when
+        // it is now off, never carried over next to a fresh primary.
+        ...omit(enrolled, "comparisonExplorerAnalysisId"),
         explorerAnalysisId: exploration.id,
         ...(previousId ? { comparisonExplorerAnalysisId: previousId } : {}),
       } as DashboardBlockWithAnalysisId<T>;

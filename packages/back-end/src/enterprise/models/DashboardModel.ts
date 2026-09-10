@@ -556,8 +556,12 @@ export class DashboardModel extends BaseClass {
     );
 
     const toUpdate = await this.processApiUpdateBody(req.body, dashboard);
+    // CAS on the doc we read above, not a fresh one: `toUpdate` carries a whole
+    // block list derived from that snapshot, and the warehouse queries in
+    // between take long enough for someone else to have edited the dashboard.
+    // A 409 telling the caller to re-read beats silently dropping their work.
     return resolveOwnerEmail(
-      this.toApiInterface(await this.updateById(id, toUpdate)),
+      this.toApiInterface(await this.updateIfUnchanged(dashboard, toUpdate)),
       this.context,
     );
   }
