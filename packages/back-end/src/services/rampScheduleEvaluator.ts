@@ -31,6 +31,7 @@ import {
   RampAdvanceLockBusyError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 
 export type EvalDecision =
   | { action: "advance" }
@@ -534,12 +535,9 @@ export async function applyRampEvaluationDecision(
       nextSnapshotAt: schedule.nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     });
-    // Scheduler bookkeeping, not a user edit: the snapshot that triggered this
-    // may run under a member who cannot edit or publish the feature.
-    return ctx.models.rampSchedules.dangerousUpdateByIdBypassPermission(
-      schedule.id,
-      { nextProcessAt },
-    );
+    return ctx.models.rampSchedules.updateById(schedule.id, {
+      nextProcessAt,
+    });
   }
 
   // Fold the verified advance and any due backlog into a single jump publish.
@@ -554,12 +552,16 @@ export async function applyRampEvaluationDecision(
 }
 
 export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
-  ctx: ReqContext,
+  requestCtx: ReqContext,
   safeRollout: SafeRolloutInterface,
   now: Date = new Date(),
 ): Promise<void> {
   if (!safeRollout.rampScheduleId) return;
   const rampScheduleId = safeRollout.rampScheduleId;
+
+  // A scheduler decision, so it runs on the same authority as the cron tick:
+  // the member whose snapshot completed may not be able to publish the feature.
+  const ctx = getContextForAgendaJobByOrgObject(requestCtx.org);
 
   // Pre-lock screen: don't pay lock writes for no-op snapshot completions.
   // Re-screened inside the lock.
