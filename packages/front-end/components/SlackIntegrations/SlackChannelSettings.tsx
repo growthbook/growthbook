@@ -30,6 +30,9 @@ const REQUIRED_SCOPES = [
   "channels:read",
   "groups:read",
   "channels:join",
+  "assistant:write",
+  "im:history",
+  "app_mentions:read",
 ];
 
 const CARD_FORMAT_LABELS: Record<

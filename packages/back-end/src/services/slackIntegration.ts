@@ -46,7 +46,7 @@ import {
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
 const SLACK_OAUTH_SCOPE =
-  "chat:write,files:write,channels:read,groups:read,channels:join";
+  "chat:write,files:write,channels:read,groups:read,channels:join,assistant:write,im:history,app_mentions:read";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 const DEFAULT_SLACK_EVENTS = ["experiment.*", "feature.*"];
 

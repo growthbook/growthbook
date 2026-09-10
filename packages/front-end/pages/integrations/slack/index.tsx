@@ -64,6 +64,9 @@ const REQUIRED_SCOPES = [
   "channels:read",
   "groups:read",
   "channels:join",
+  "assistant:write",
+  "im:history",
+  "app_mentions:read",
 ];
 
 const getQueryStringValue = (value: string | string[] | undefined) =>
@@ -609,9 +612,11 @@ const SlackWorkspacePage: NextPage = () => {
             Slack OAuth is not configured. Set <code>SLACK_CLIENT_ID</code> and{" "}
             <code>SLACK_CLIENT_SECRET</code> for an app with the{" "}
             <code>chat:write</code>, <code>files:write</code>,{" "}
-            <code>channels:read</code>, <code>groups:read</code>, and{" "}
-            <code>channels:join</code> bot scopes. A Slack signing secret is not
-            required for outgoing notifications.
+            <code>channels:read</code>, <code>groups:read</code>,{" "}
+            <code>channels:join</code>, <code>assistant:write</code>,{" "}
+            <code>im:history</code>, and <code>app_mentions:read</code> bot
+            scopes. A Slack signing secret is not required for outgoing
+            notifications.
           </Callout>
         )}
 
