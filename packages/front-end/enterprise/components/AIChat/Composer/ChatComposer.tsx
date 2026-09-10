@@ -18,6 +18,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention } from "shared/ai-chat";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import HelperText from "@/ui/HelperText";
 import {
   collectMentions,
   collectSkills,
@@ -431,14 +432,36 @@ function ChatComposer(
     </Button>
   );
 
+  // Typing dismisses a stale dictation error rather than leaving it over the
+  // field while the person retries by hand.
+  const { clearError: clearDictationError } = dictation;
+  useEffect(() => {
+    clearDictationError();
+  }, [value, clearDictationError]);
+
+  // With nothing to send, the mic takes the send button's place as the filled
+  // primary action rather than sitting next to a dead arrow.
+  const micIsPrimary = !canSend && !isLocalStream;
   const dictateButton = (
-    <DictationButton dictation={dictation} disabled={loading || disabled} />
+    <DictationButton
+      dictation={dictation}
+      disabled={loading || disabled}
+      primary={micIsPrimary}
+    />
+  );
+  // Only stand down for a mic that is actually rendered.
+  const showSendButton = !(micIsPrimary && dictation.available);
+
+  const buttons = (
+    <>
+      {dictateButton}
+      {showSendButton && sendButton}
+    </>
   );
 
   const boxClasses = [
     styles.box,
     isHero ? styles.heroBox : styles.inlineBox,
-    !isHero && dictation.available ? styles.boxWithDictation : "",
     isHero ? "" : isCompact ? styles.compactBox : styles.wideBox,
     focused
       ? isHero
@@ -470,7 +493,15 @@ function ChatComposer(
           }
         />
       )}
-      {!isHero && dictateButton}
+      {/* Anchored to the box, not to the 30px mic: `bottom: 100%` of a
+          bottom-aligned button lands inside a multi-line composer. */}
+      {dictation.error && (
+        <div className={styles.dictateError} role="status" aria-live="polite">
+          <HelperText status="error" size="sm">
+            {dictation.error}
+          </HelperText>
+        </div>
+      )}
       <EditorContent
         editor={editor}
         className={`${styles.editor}${loading || disabled ? ` ${styles.readOnly}` : ""}`}
@@ -479,12 +510,9 @@ function ChatComposer(
         onBlur={handleBlur}
       />
       {isHero ? (
-        <>
-          <div className={styles.heroDictateButton}>{dictateButton}</div>
-          <div className={styles.heroSendButton}>{sendButton}</div>
-        </>
+        <div className={styles.heroSendButton}>{buttons}</div>
       ) : (
-        sendButton
+        buttons
       )}
     </div>
   );

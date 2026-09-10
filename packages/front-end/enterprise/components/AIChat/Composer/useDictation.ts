@@ -22,6 +22,8 @@ export interface Dictation {
   transcribing: boolean;
   error: string | null;
   toggle: () => void;
+  /** Called on editor input so a failed attempt doesn't linger over a retry. */
+  clearError: () => void;
 }
 
 /** Record a clip and hand the transcript to `onTranscript`. */
@@ -67,6 +69,10 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
       release();
     };
   }, [release]);
+
+  // setState bails when the value is unchanged, so calling this per keystroke
+  // costs nothing.
+  const clearError = useCallback(() => setError(null), []);
 
   const stop = useCallback(() => {
     recorderRef.current?.stop();
@@ -140,5 +146,6 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
     transcribing,
     error,
     toggle: () => (recording ? stop() : start()),
+    clearError,
   };
 }

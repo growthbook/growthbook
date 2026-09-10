@@ -1,5 +1,4 @@
 import { PiMicrophone, PiMicrophoneSlash, PiSpinnerGap } from "react-icons/pi";
-import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
 import type { Dictation } from "./useDictation";
@@ -9,9 +8,12 @@ import styles from "./ChatComposer.module.scss";
 export default function DictationButton({
   dictation: { available, recording, transcribing, error, toggle },
   disabled = false,
+  primary = false,
 }: {
   dictation: Dictation;
   disabled?: boolean;
+  /** Takes the send button's filled treatment when there's nothing to send. */
+  primary?: boolean;
 }) {
   if (!available) return null;
 
@@ -28,39 +30,32 @@ export default function DictationButton({
       : PiMicrophone;
 
   return (
-    <span className={styles.dictateWrapper}>
-      {/* A slash on the icon alone reads as "unavailable" rather than as a
-          recoverable error, and nobody hovers a control they didn't click. */}
-      {error && (
-        <div className={styles.dictateError} role="status" aria-live="polite">
-          <HelperText status="error" size="sm">
-            {error}
-          </HelperText>
-        </div>
-      )}
-      <Tooltip content={label}>
-        {/* Radix tooltips need an enabled trigger — pointer events never reach
-            a disabled button, so the wrapper is what gets hovered. */}
-        <span className={styles.dictateTrigger}>
-          <button
-            type="button"
-            className={`${styles.dictateButton}${recording ? ` ${styles.dictateButtonActive}` : ""}`}
-            onClick={toggle}
-            disabled={disabled || transcribing}
-            aria-label={label}
-            aria-pressed={recording}
-            aria-busy={transcribing}
-          >
-            {transcribing ? (
-              <span className={aiChatStyles.spinIcon}>
-                <Icon size={16} />
-              </span>
-            ) : (
+    <Tooltip content={label}>
+      {/* Radix tooltips need an enabled trigger — pointer events never reach a
+          disabled button, so the wrapper is what gets hovered. */}
+      <span className={styles.dictateTrigger}>
+        <button
+          type="button"
+          // The two buttons already share their geometry, so the filled
+          // treatment is just the send button's own class.
+          className={`${primary ? styles.sendButton : styles.dictateButton}${
+            recording ? ` ${styles.dictateButtonActive}` : ""
+          }`}
+          onClick={toggle}
+          disabled={disabled || transcribing}
+          aria-label={label}
+          aria-pressed={recording}
+          aria-busy={transcribing}
+        >
+          {transcribing ? (
+            <span className={aiChatStyles.spinIcon}>
               <Icon size={16} />
-            )}
-          </button>
-        </span>
-      </Tooltip>
-    </span>
+            </span>
+          ) : (
+            <Icon size={16} />
+          )}
+        </button>
+      </span>
+    </Tooltip>
   );
 }

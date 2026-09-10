@@ -158,19 +158,14 @@
 }
 
 // The 40px bottom padding on .heroBox is the gutter these sit in.
-.heroSendButton,
-.heroDictateButton {
+.heroSendButton {
   position: absolute;
+  right: 12px;
   bottom: 12px;
   z-index: 1;
-}
-
-.heroSendButton {
-  right: 12px;
-}
-
-.heroDictateButton {
-  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 // --- Buttons -----------------------------------------------------------------
@@ -263,26 +258,21 @@
   }
 }
 
-// The row's left padding insets the text from the border; the mic carries its
-// own, so drop back to the button gutter when it's present.
-.boxWithDictation {
-  padding-left: 4px;
-}
-
-// Anchors the error bubble and gives the tooltip an enabled trigger to hover.
-.dictateWrapper,
+// Gives the tooltip an enabled trigger to hover: pointer events never reach a
+// disabled button.
 .dictateTrigger {
   position: relative;
   display: inline-flex;
   flex-shrink: 0;
 }
 
-// Floats above the composer like the suggestion list, so the flex row keeps
-// its geometry whether or not there's an error to show.
+// A child of .box, positioned like SuggestionList's .popup so it clears the
+// whole composer rather than overlapping typed text. Right-aligned to sit
+// over the mic it came from.
 .dictateError {
   position: absolute;
   bottom: calc(100% + 6px);
-  left: 0;
+  right: 0;
   z-index: 2;
   width: max-content;
   max-width: 240px;

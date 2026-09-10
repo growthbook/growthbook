@@ -26,7 +26,7 @@ const STT_ENDPOINTS: Partial<Record<AIProvider, string>> = {
  * `audio.wav` and rejected by the provider.
  *
  * Callers must gate on secondsUntilAICanBeUsedAgainForSTT first; this records
- * the usage that gate reads.
+ * the usage that gate reads, on success only.
  */
 export async function transcribeAudio(
   context: ReqContext,
@@ -55,8 +55,6 @@ export async function transcribeAudio(
     throw new Error(`${sttModel} cannot be used for transcription.`);
   }
 
-  await recordSTTUsage(context, audio.length, provider);
-
   const form = new FormData();
   // Providers key off the extension, so it has to match the actual container.
   form.append("file", audio, {
@@ -74,7 +72,13 @@ export async function transcribeAudio(
   if (!res.ok) {
     throw new Error(`Transcription failed (HTTP ${res.status})`);
   }
-  return ((await res.json()) as { text?: string }).text ?? "";
+  const text = ((await res.json()) as { text?: string }).text ?? "";
+
+  // Charged only after the provider accepted the audio. A rejection costs
+  // GrowthBook nothing, so billing the org's shared quota for one would let
+  // junk uploads deny the org its own legitimate AI use.
+  await recordSTTUsage(context, audio.length, provider);
+  return text;
 }
 
 // "audio/webm;codecs=opus" -> "webm". Keep in sync with the recorder's
