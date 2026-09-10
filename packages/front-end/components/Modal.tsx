@@ -45,7 +45,6 @@ type ModalProps = {
   closeCta?: string | ReactNode;
   includeCloseCta?: boolean;
   onClickCloseCta?: () => Promise<void> | void;
-  closeCtaClassName?: string;
   disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
@@ -75,7 +74,6 @@ type ModalProps = {
   // Full-bleed row rendered between the body and the footer CTA buttons.
   // Not positioned for stickyFooter modals (the fixed footer would cover it).
   aboveFooterContent?: ReactNode;
-  useRadixButton?: boolean;
   borderlessHeader?: boolean;
   backgroundlessHeader?: boolean;
   borderlessFooter?: boolean;
@@ -98,7 +96,6 @@ const Modal: FC<ModalProps> = ({
   ctaEnabled = true,
   closeCta = "Cancel",
   onClickCloseCta,
-  closeCtaClassName = "btn btn-link",
   includeCloseCta = true,
   disabledMessage,
   inline = false,
@@ -127,7 +124,6 @@ const Modal: FC<ModalProps> = ({
   allowlistedTrackingEventProps = {},
   modalUuid: _modalUuid,
   trackOnSubmit = true,
-  useRadixButton = true,
   aboveBodyContent = null,
   aboveFooterContent = null,
   borderlessHeader = false,
@@ -318,33 +314,17 @@ const Modal: FC<ModalProps> = ({
               }
             >
               {close && includeCloseCta ? (
-                <>
-                  {useRadixButton ? (
-                    <div className="mr-1">
-                      <Button
-                        variant="ghost"
-                        onClick={async () => {
-                          await onClickCloseCta?.();
-                          close();
-                        }}
-                      >
-                        {isSuccess && successMessage ? "Close" : closeCta}
-                      </Button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className={closeCtaClassName}
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        await onClickCloseCta?.();
-                        close();
-                      }}
-                    >
-                      {isSuccess && successMessage ? "Close" : closeCta}
-                    </button>
-                  )}
-                </>
+                <div className="mr-1">
+                  <Button
+                    variant="ghost"
+                    onClick={async () => {
+                      await onClickCloseCta?.();
+                      close();
+                    }}
+                  >
+                    {isSuccess && successMessage ? "Close" : closeCta}
+                  </Button>
+                </div>
               ) : null}
               {secondaryCTA}
               {submit && !isSuccess ? (
@@ -353,26 +333,15 @@ const Modal: FC<ModalProps> = ({
                   enabled={!ctaEnabled && !!disabledMessage}
                   side="top"
                 >
-                  {useRadixButton ? (
-                    <Button
-                      type="submit"
-                      disabled={!ctaEnabled}
-                      ml="3"
-                      color={submitColor === "danger" ? "red" : undefined}
-                    >
-                      {cta}
-                    </Button>
-                  ) : (
-                    <button
-                      className={`btn btn-${submitColor} ${
-                        fullWidthSubmit ? "w-100" : ""
-                      } ${stickyFooter ? "ml-auto mr-5" : ""}`}
-                      type="submit"
-                      disabled={!ctaEnabled}
-                    >
-                      {cta}
-                    </button>
-                  )}
+                  <Button
+                    type="submit"
+                    disabled={!ctaEnabled}
+                    ml="3"
+                    color={submitColor === "danger" ? "red" : undefined}
+                    style={fullWidthSubmit ? { width: "100%" } : undefined}
+                  >
+                    {cta}
+                  </Button>
                 </UITooltip>
               ) : null}
               {tertiaryCTA}

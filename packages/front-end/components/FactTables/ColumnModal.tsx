@@ -265,7 +265,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}

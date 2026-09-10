@@ -60,7 +60,6 @@ type Props = {
   // Currently the allowlist for what event props are valid is controlled outside of the codebase.
   // Make sure you've checked that any props you pass here are in the list!
   allowlistedTrackingEventProps?: TrackEventProps;
-  useRadixButton?: boolean;
 };
 
 const PagedModal: FC<Props> = (props) => {
