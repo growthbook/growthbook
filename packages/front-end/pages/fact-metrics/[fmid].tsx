@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { isFactFunnelMetric } from "shared/experiments";
+import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 
 import { Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -10,6 +11,8 @@ import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBEdit, GBExperiment } from "@/components/Icons";
@@ -77,6 +80,18 @@ export default function FactMetricPage() {
     projects,
     getDatasourceById,
   } = useDefinitions();
+
+  const { data: metricExperiments } = useApi<{
+    data: ExperimentWithSnapshot[];
+  }>(`/metrics/${fmid}/experiments`, {
+    shouldRun: () => ready && typeof fmid === "string",
+  });
+  const experimentCount =
+    metricExperiments?.data.filter((e) => e.type !== "multi-armed-bandit")
+      .length ?? 0;
+  const banditCount =
+    metricExperiments?.data.filter((e) => e.type === "multi-armed-bandit")
+      .length ?? 0;
 
   if (!ready) return <LoadingOverlay />;
 
@@ -424,10 +439,16 @@ export default function FactMetricPage() {
           <TabsTrigger value="experiments">
             <GBExperiment className="mr-1" />
             Experiments
+            {experimentCount > 0 && (
+              <Badge label={String(experimentCount)} color="gray" ml="2" />
+            )}
           </TabsTrigger>
           <TabsTrigger value="bandits">
             <GBBandit className="mr-1" />
             Bandits
+            {banditCount > 0 && (
+              <Badge label={String(banditCount)} color="gray" ml="2" />
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -442,11 +463,18 @@ export default function FactMetricPage() {
         </TabsContent>
 
         <TabsContent value="experiments">
-          <MetricExperiments metric={factMetric} />
+          <MetricExperiments
+            metric={factMetric}
+            dataWithSnapshot={metricExperiments?.data}
+          />
         </TabsContent>
 
         <TabsContent value="bandits">
-          <MetricExperiments metric={factMetric} bandits={true} />
+          <MetricExperiments
+            metric={factMetric}
+            bandits={true}
+            dataWithSnapshot={metricExperiments?.data}
+          />
         </TabsContent>
       </Tabs>
     </div>
