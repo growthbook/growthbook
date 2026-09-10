@@ -19,16 +19,19 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 
 export default function TemplateFieldMapping({
   template,
   onMapped,
+  onCancel,
 }: {
   template: IncompleteFactMetricSeed;
   onMapped: (mapped: FactMetricSeed) => void;
+  onCancel: () => void;
 }) {
-  const { factTables, getFactTableById } = useDefinitions();
+  const { factTables, getFactTableById, datasources } = useDefinitions();
   const { numeric: numericPlaceholders, string: stringPlaceholders } =
     placeholderColumns(template);
 
@@ -81,6 +84,7 @@ export default function TemplateFieldMapping({
     Object.values(stringMap).every(Boolean);
 
   function placeholderSelect(
+    role: "Numeric" | "String",
     placeholder: string,
     options: string[],
     map: Record<string, string>,
@@ -90,8 +94,8 @@ export default function TemplateFieldMapping({
   ) {
     return (
       <Select
-        key={placeholder}
-        label={`Column: ${placeholder}`}
+        key={`${role}-${placeholder}`}
+        label={`${role} column: ${placeholder}`}
         value={map[placeholder] || ""}
         setValue={(v) => setMap((prev) => ({ ...prev, [placeholder]: v }))}
         disabled={!factTable || !options.length}
@@ -145,13 +149,24 @@ export default function TemplateFieldMapping({
 
   return (
     <Frame>
-      <Heading as="h4" size="sm">
-        Map template fields to your fact table
+      <Heading as="h2" size="sm">
+        Map Template Fields to Your Fact Table
       </Heading>
       <Text color="text-mid" as="div" mb="3">
         <strong>{template.name || "New metric"}</strong>
         {template.description ? ` — ${template.description}` : ""}
       </Text>
+      {!datasources.some((d) => d.properties?.queryLanguage === "sql") ? (
+        <Callout status="info" mb="3">
+          Connect a SQL Data Source before adding a metric.{" "}
+          <Link href="/datasources">View Data Sources</Link>
+        </Callout>
+      ) : !factTables.length ? (
+        <Callout status="info" mb="3">
+          Create a fact table before adding a metric.{" "}
+          <Link href="/fact-tables">View fact tables</Link>
+        </Callout>
+      ) : null}
       <Flex direction="column" gap="3">
         <Select
           label="Fact table"
@@ -188,6 +203,7 @@ export default function TemplateFieldMapping({
         )}
         {[...numericPlaceholders].map((placeholder) =>
           placeholderSelect(
+            "Numeric",
             placeholder,
             numericOptions,
             numericMap,
@@ -196,13 +212,17 @@ export default function TemplateFieldMapping({
         )}
         {[...stringPlaceholders].map((placeholder) =>
           placeholderSelect(
+            "String",
             placeholder,
             stringOptions,
             stringMap,
             setStringMap,
           ),
         )}
-        <Flex>
+        <Flex gap="2">
+          <Button variant="soft" color="gray" onClick={onCancel}>
+            Cancel
+          </Button>
           <Button onClick={handleContinue} disabled={!canContinue}>
             Continue
           </Button>
