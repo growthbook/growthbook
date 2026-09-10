@@ -2,6 +2,7 @@ import type { Response } from "express";
 import {
   canInlineFilterColumn,
   expandVirtualColumnsInSql,
+  getColumnRefWhereClause,
   getFactTableTimestampColumn,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
@@ -17,9 +18,11 @@ import {
   UpdateFactTableProps,
   TestFactFilterProps,
   TestVirtualColumnProps,
+  PreviewMetricRowsProps,
   FactFilterTestResults,
   ColumnInterface,
   FactTableColumnType,
+  RowFilter,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
@@ -47,6 +50,7 @@ import {
   getSourceIntegrationObject,
   getIntegrationIdentifierQuote,
 } from "back-end/src/services/datasource";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import {
@@ -235,6 +239,79 @@ async function testVirtualColumnQuery(
   } catch (e) {
     return {
       sql: testSql,
+      error: e.message,
+    };
+  }
+}
+
+// Previews a metric's numerator/denominator row filters, before the metric
+// is ever saved - shows the raw fact-table rows those filters would select
+// (not the metric's aggregated per-user value, which needs a full
+// experiment-relative analysis query this preview has no context for). This
+// is a deliberate, explicit action (real query against the customer's
+// warehouse) - the always-visible SQL preview shown while editing is a
+// separate, purely client-side, illustrative text generator
+// (previewSql.ts on the front-end) that never touches this endpoint or the
+// fact table's actual configured `sql`.
+async function previewMetricRowsQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: FactTableInterface,
+  rowFilters: RowFilter[],
+): Promise<FactFilterTestResults> {
+  if (!context.permissions.canRunTestQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (
+    !integration.getTestQuery ||
+    !integration.runTestQuery ||
+    !(integration instanceof SqlIntegration)
+  ) {
+    throw new Error("Testing not supported on this data source");
+  }
+
+  const timestampColumn = getFactTableTimestampColumn(factTable);
+  const dialect = integration.getSqlDialect();
+
+  const where = getColumnRefWhereClause({
+    factTable,
+    columnRef: { factTableId: factTable.id, column: "", rowFilters },
+    escapeStringLiteral: dialect.escapeStringLiteral,
+    stringMatch: dialect.stringMatch,
+    jsonExtract: dialect.jsonExtract,
+    evalBoolean: dialect.evalBoolean,
+    castToTimestamp: dialect.castToTimestamp,
+    identifierQuote: dialect.identifierQuote,
+  });
+
+  const sql = integration.getTestQuery({
+    // Must have a newline after factTable sql in case it ends with a comment.
+    query: `SELECT * FROM (
+      ${factTable.sql}
+    ) f${where.length ? ` WHERE ${where.join("\n AND ")}` : ""}`,
+    templateVariables: {
+      eventName: factTable.eventName,
+    },
+    testDays: context.org.settings?.testQueryDays,
+    timestampColumn,
+  });
+
+  try {
+    const results = await integration.runTestQuery(
+      sql,
+      [timestampColumn],
+      "factTableValidation",
+    );
+    return {
+      sql,
+      ...results,
+    };
+  } catch (e) {
+    return {
+      sql,
       error: e.message,
     };
   }
@@ -1106,6 +1183,39 @@ export const postFactFilterTest = async (
     datasource,
     factTable,
     data.value,
+  );
+
+  res.status(200).json({
+    status: 200,
+    result,
+  });
+};
+
+export const postPreviewMetricRows = async (
+  req: AuthRequest<PreviewMetricRowsProps, { id: string }>,
+  res: Response<{
+    status: 200;
+    result: FactFilterTestResults;
+  }>,
+) => {
+  const data = req.body;
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  const result = await previewMetricRowsQuery(
+    context,
+    datasource,
+    factTable,
+    data.rowFilters,
   );
 
   res.status(200).json({

@@ -2,7 +2,7 @@ import { PiCaretLeft, PiCaretRight, PiTimer } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -61,6 +61,10 @@ export type Props = {
   paddingTop?: number;
   showNoRowsWarning?: boolean;
   emptyResultsContent?: ReactNode;
+  /** Extra style applied to the SQL code block's own container. */
+  sqlStyle?: CSSProperties;
+  /** Passed through to the SQL code block's own `maxHeight`. */
+  sqlMaxHeight?: string;
 };
 
 export default function DisplayTestQueryResults({
@@ -83,6 +87,8 @@ export default function DisplayTestQueryResults({
   paddingTop = 0,
   showNoRowsWarning = true,
   emptyResultsContent,
+  sqlStyle,
+  sqlMaxHeight,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [showQueryModal, setShowQueryModal] = useState(false);
@@ -208,6 +214,8 @@ export default function DisplayTestQueryResults({
         language="sql"
         errorLine={errorLine}
         expandable={expandable}
+        style={sqlStyle}
+        maxHeight={sqlMaxHeight}
       />
     </div>
   );
