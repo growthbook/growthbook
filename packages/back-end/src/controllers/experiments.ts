@@ -53,6 +53,7 @@ import {
 import {
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
+  assertCanRunExperimentChanges,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
   determineNextBanditSchedule,
@@ -2134,50 +2135,7 @@ export async function postExperiment(
     }
   }
 
-  // Only some fields affect production SDK payloads
-  const needsRunExperimentsPermission = (
-    [
-      "phases",
-      "variations",
-      "project",
-      "name",
-      "trackingKey",
-      "archived",
-      "status",
-      "releasedVariationId",
-      "excludeFromPayload",
-      "type",
-      "banditStage",
-      "banditStageDateStarted",
-      "banditScheduleValue",
-      "banditScheduleUnit",
-      "banditBurnInValue",
-      "banditBurnInUnit",
-    ] as (keyof ExperimentInterfaceStringDates)[]
-  ).some((key) => key in changes);
-  if (needsRunExperimentsPermission) {
-    const linkedFeatureIds = experiment.linkedFeatures || [];
-
-    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-    const envs = getAffectedEnvsForExperiment({
-      experiment,
-      orgEnvironments: context.org.settings?.environments || [],
-      linkedFeatures,
-    });
-    if (envs.length > 0) {
-      const projects = [experiment.project || undefined];
-      if ("project" in changes) {
-        projects.push(changes.project || undefined);
-      }
-      // check user's permission on existing experiment project and the updated project, if changed
-      projects.forEach((project) => {
-        if (!context.permissions.canRunExperiment({ project }, envs)) {
-          context.permissions.throwPermissionError();
-        }
-      });
-    }
-  }
+  await assertCanRunExperimentChanges(context, experiment, changes);
 
   await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperimentAndSync({

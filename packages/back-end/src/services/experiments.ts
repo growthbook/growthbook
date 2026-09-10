@@ -25,6 +25,7 @@ import {
   findAnalysisComputeFailure,
   fillRevisionFromFeature,
   generateVariationId,
+  getAffectedEnvsForExperiment,
   getExperimentAttributeScopeProjectIds,
   getFeatureAttributeScopeWithDrafts,
   getMatchingRules,
@@ -2353,6 +2354,61 @@ export function fillEmptyVariationKeys(
       v.key = String(nextKey);
       usedKeys.add(v.key);
       nextKey++;
+    }
+  }
+}
+
+// Only some experiment fields reach SDK payloads. A change that touches any of
+// them needs run-experiments permission in the environments the experiment
+// affects (on both the current project and, if it moves, the new one); other
+// edits need only the update permission the caller has already been checked
+// for. Shared by the dashboard POST /experiment/:id and the REST
+// POST /api/v1/experiments/:id so the two agree on which fields count.
+const PAYLOAD_AFFECTING_EXPERIMENT_FIELDS: (keyof ExperimentInterface)[] = [
+  "phases",
+  "variations",
+  "project",
+  "name",
+  "trackingKey",
+  "archived",
+  "status",
+  "releasedVariationId",
+  "excludeFromPayload",
+  "type",
+  "banditStage",
+  "banditStageDateStarted",
+  "banditScheduleValue",
+  "banditScheduleUnit",
+  "banditBurnInValue",
+  "banditBurnInUnit",
+];
+export async function assertCanRunExperimentChanges(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  changes: Changeset,
+): Promise<void> {
+  const needsRunExperimentsPermission =
+    PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.some((key) => key in changes);
+  if (!needsRunExperimentsPermission) return;
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
+  });
+  if (envs.length > 0) {
+    const projects = [experiment.project || undefined];
+    if ("project" in changes) {
+      projects.push(changes.project || undefined);
+    }
+    // check user's permission on existing experiment project and the updated project, if changed
+    for (const project of projects) {
+      if (!context.permissions.canRunExperiment({ project }, envs)) {
+        context.permissions.throwPermissionError();
+      }
     }
   }
 }
