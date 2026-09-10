@@ -47,8 +47,14 @@ export type DataType =
   | "boolean"
   | "date"
   | "timestamp"
+  // Fact-table event-timestamp type (what `castUserDateCol` produces): DATETIME
+  // on BigQuery, TIMESTAMP elsewhere. Distinct from `timestamp` (used for
+  // units/refresh columns, genuinely TIMESTAMP) — funnel step caches store
+  // event timestamps and must match the resolver's DATETIME arithmetic on BQ.
+  | "datetime"
   | "hll"
-  | "quantileSketch";
+  | "quantileSketch"
+  | "arrayTimestamp";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 

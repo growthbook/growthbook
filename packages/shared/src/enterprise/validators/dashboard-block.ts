@@ -566,6 +566,7 @@ export function resolveBlockComparison(
   block: {
     comparison?: BlockComparison;
     config?: {
+      chartType?: string;
       dataset: {
         type: string;
         timestampColumn?: string | null;
@@ -574,6 +575,9 @@ export function resolveBlockComparison(
   },
   dashboard?: { comparison?: BlockComparison } | null,
 ): BlockComparison | null {
+  if (block.config?.chartType === "rawTable") {
+    return null;
+  }
   if (
     block.config?.dataset.type === "sql" &&
     !hasTimestampColumn(block.config.dataset.timestampColumn)

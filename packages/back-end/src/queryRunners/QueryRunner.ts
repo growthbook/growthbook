@@ -16,6 +16,7 @@ import {
   getQueriesByIds,
   getRecentQuery,
   markPendingQueriesAsFailed,
+  touchQueuedQueriesHeartbeat,
   updateQuery,
   updateQueryIfPending,
   updateQueryIfRunning,
@@ -24,6 +25,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -222,7 +224,7 @@ export abstract class QueryRunner<
   private dagPersisted = false;
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
-  private lockHeartbeatTimer: null | NodeJS.Timeout = null;
+  private heartbeatTimer: null | NodeJS.Timeout = null;
   private refreshWatchdogTimer: null | NodeJS.Timeout = null;
   /** Non-null while a refresh pass is in flight; watchdog skips re-arm then. */
   private refreshStartedAt: number | null = null;
@@ -306,17 +308,31 @@ export abstract class QueryRunner<
    */
   protected onHeartbeat(): void {}
 
-  private startLockHeartbeat(): void {
-    if (this.lockHeartbeatTimer) return;
-    this.lockHeartbeatTimer = setInterval(() => {
+  private startHeartbeat(): void {
+    if (this.heartbeatTimer) return;
+    this.heartbeatTimer = setInterval(() => {
       this.onHeartbeat();
+      this.heartbeatQueuedQueries();
     }, 30000);
   }
 
-  private stopLockHeartbeat(): void {
-    if (this.lockHeartbeatTimer) {
-      clearInterval(this.lockHeartbeatTimer);
-      this.lockHeartbeatTimer = null;
+  /**
+   * While the query is queued, update the heartbeat to show that this
+   * runner is still alive and monitoring the dependencies and will start
+   * the query when ready.
+   */
+  private heartbeatQueuedQueries(): void {
+    const ids = this.model.queries.map((q) => q.query);
+    if (!ids.length) return;
+    touchQueuedQueriesHeartbeat(this.context, ids).catch((e) =>
+      logger.warn(e, `Failed to heartbeat queued queries for ${this.model.id}`),
+    );
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 
@@ -647,12 +663,12 @@ export abstract class QueryRunner<
     this.result = result;
 
     if (this.status === "running") {
-      this.startLockHeartbeat();
+      this.startHeartbeat();
       this.startRefreshWatchdog();
     }
 
     if (this.status === "finished") {
-      this.stopLockHeartbeat();
+      this.stopHeartbeat();
       this.stopRefreshWatchdog();
       this.emitter.emit(FINISH_EVENT);
     }
@@ -962,18 +978,15 @@ export abstract class QueryRunner<
       if (externalJobs.length) {
         await promiseAllChunks(
           externalJobs.map(({ id, metadata }) => {
-            return async () => {
-              if (!this.integration.cancelQuery) return;
-              try {
-                await this.integration.cancelQuery(id, metadata);
-              } catch (e) {
-                const msg = e instanceof Error ? e.message : String(e);
-                logger.warn(
-                  { err: e, externalId: id },
-                  `Failed to cancel external job: ${msg}`,
-                );
-              }
-            };
+            return () =>
+              cancelQueryAndConfirm(
+                this.integration,
+                { externalId: id, metadata },
+                {
+                  datasourceId: this.integration.datasource.id,
+                  modelId: this.model.id,
+                },
+              );
           }),
           5,
         );

@@ -4,6 +4,7 @@ import { SqlDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { getFactTableTypeFromMysqlTypeCode } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 import { mysqlDialect } from "./dialects/mysql";
@@ -36,8 +37,20 @@ export default class Mysql extends SqlIntegration {
     }
     const conn = await mysql.createConnection(config);
     try {
-      const [rows] = await conn.query(sql);
-      return { rows: rows as RowDataPacket[] };
+      const [rows, fields] = await conn.query(sql);
+      return {
+        rows: rows as RowDataPacket[],
+        columns: fields?.map((field) => {
+          const dataType =
+            field.columnType === undefined
+              ? undefined
+              : getFactTableTypeFromMysqlTypeCode(
+                  field.columnType,
+                  field.characterSet,
+                );
+          return { name: field.name, ...(dataType && { dataType }) };
+        }),
+      };
     } finally {
       try {
         await conn.end();

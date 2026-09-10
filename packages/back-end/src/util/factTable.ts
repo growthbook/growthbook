@@ -5,9 +5,17 @@ import {
   AggregatedFactTableSettings,
   ColumnInterface,
   CreateColumnProps,
+  DetectedFactTableColumn,
+  FactTableColumnType,
+  FactTableInterface,
   JSONColumnFields,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
+import { TestQueryResult } from "shared/types/integrations";
+import {
+  type DetectedJSONFields,
+  determineColumnTypes,
+} from "back-end/src/util/sql";
 
 /**
  * Clears datatype-incompatible props. Empty datatype skips checks while
@@ -148,14 +156,119 @@ export function normalizeJSONFieldsInput(
 export function deriveUserIdTypesFromColumns(
   datasource: DataSourceInterface,
   columns: ColumnInterface[],
+  userIdColumns?: FactTableInterface["userIdColumns"],
 ): string[] {
-  const activeColumns = new Set(
-    columns.filter((c) => !c.deleted).map((c) => c.column),
-  );
+  const activeColumns = columns.filter((c) => !c.deleted);
+  const activeColumnNames = new Set(activeColumns.map((c) => c.column));
+
+  const isResolvable = (column: string): boolean => {
+    if (activeColumnNames.has(column)) return true;
+    const [root, ...path] = column.split(".");
+    return (
+      path.length > 0 &&
+      activeColumns.some((c) => c.column === root && c.datatype === "json")
+    );
+  };
 
   return (datasource.settings?.userIdTypes || [])
     .map((u) => u.userIdType)
-    .filter((id) => activeColumns.has(id));
+    .filter((id) => isResolvable(userIdColumns?.[id] || id));
+}
+
+/**
+ * Checks newly introduced keys against the Data Source identifier types.
+ * Existing stale keys must not block unrelated edits.
+ */
+export function validateNewUserIdColumnKeys({
+  datasource,
+  userIdColumns,
+  existingUserIdColumns,
+}: {
+  datasource: DataSourceInterface;
+  userIdColumns: FactTableInterface["userIdColumns"];
+  existingUserIdColumns?: FactTableInterface["userIdColumns"];
+}): void {
+  const identifierTypes = new Set(
+    (datasource.settings?.userIdTypes || []).map((t) => t.userIdType),
+  );
+
+  for (const idType of Object.keys(userIdColumns || {})) {
+    if (existingUserIdColumns && idType in existingUserIdColumns) continue;
+    if (!identifierTypes.has(idType)) {
+      throw new Error(
+        `Invalid userIdColumns key: ${idType} is not an identifier type on this Data Source`,
+      );
+    }
+  }
+}
+
+const SAFE_BARE_SQL_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * Validates changed mappings against the post-write column state without
+ * blocking unrelated edits when an existing mapped column has disappeared.
+ */
+export function validateColumnMappingTargets({
+  columns,
+  timestampColumn,
+  userIdColumns,
+  existing,
+}: {
+  columns: ColumnInterface[];
+  timestampColumn?: string;
+  userIdColumns?: FactTableInterface["userIdColumns"];
+  existing?: Pick<FactTableInterface, "timestampColumn" | "userIdColumns">;
+}): void {
+  const active = columns.filter((c) => !c.deleted);
+  // Without columns the mapping can't be checked at all, and it ends up
+  // interpolated into generated SQL -- so say what the caller has to do.
+  const where = active.length
+    ? "on this fact table"
+    : "-- this fact table has no columns yet, so send `columns` in the same request";
+
+  // "other" covers warehouse types we don't model; an undetected datatype ("")
+  // is unknown rather than wrong, so it's left alone.
+  const find = (name: string, allowed: string[]) =>
+    active.find(
+      (c) => c.column === name && (!c.datatype || allowed.includes(c.datatype)),
+    );
+
+  if (timestampColumn && timestampColumn !== existing?.timestampColumn) {
+    if (!SAFE_BARE_SQL_IDENTIFIER.test(timestampColumn)) {
+      throw new Error(
+        `Invalid timestampColumn: ${timestampColumn} must be a safe bare SQL identifier`,
+      );
+    }
+    // Emitted as a bare `m.<name>`, so a virtual column's expression and a JSON
+    // field path would both reach the warehouse as invalid SQL.
+    const column = find(timestampColumn, ["date", "other"]);
+    if (!column || column.isVirtual) {
+      throw new Error(
+        `Invalid timestampColumn: ${timestampColumn} is not a date column ${where}`,
+      );
+    }
+  }
+
+  for (const [idType, column] of Object.entries(userIdColumns || {})) {
+    if (!column || column === existing?.userIdColumns?.[idType]) continue;
+    const [root, field, ...rest] = column.split(".");
+    if (
+      !SAFE_BARE_SQL_IDENTIFIER.test(root) ||
+      (field && !SAFE_BARE_SQL_IDENTIFIER.test(field))
+    ) {
+      throw new Error(
+        `Invalid userIdColumns value for ${idType}: ${column} must use safe bare SQL identifiers`,
+      );
+    }
+    const resolved = field
+      ? !rest.length && find(root, ["json"])
+      : find(column, ["string", "number", "other"]);
+    if (!resolved) {
+      throw new Error(
+        `Invalid userIdColumns value for ${idType}: ${column} is not an identifier column or JSON field path ${where}`,
+      );
+    }
+  }
 }
 
 export function columnsHaveAutoSlices(
@@ -254,4 +367,73 @@ export function getNextUpdateOccurrence(
     occurrenceUtc = zonedTimeToUtc(addDays(todayZoned, 1), timezone);
   }
   return occurrenceUtc;
+}
+
+/**
+ * Combines the engine's schema with row inference. `datatypes` includes every
+ * reported column in SELECT order, using `""` when its type is unknown.
+ */
+export function buildColumnTypeMaps(
+  result: Pick<TestQueryResult, "results" | "columns">,
+): {
+  jsonMap: Map<string, DetectedJSONFields>;
+  warehouseTypeMap: Map<string, FactTableColumnType>;
+  datatypes: Map<string, FactTableColumnType>;
+} {
+  const typeMap = new Map<string, FactTableColumnType>();
+  const jsonMap = new Map<string, DetectedJSONFields>();
+  const warehouseTypeMap = new Map<string, FactTableColumnType>();
+
+  result.columns?.forEach((col) => {
+    if (col.dataType === undefined) return;
+
+    warehouseTypeMap.set(col.name, col.dataType);
+    if (
+      col.dataType === "json" &&
+      col.fields !== undefined &&
+      col.fields.length > 0
+    ) {
+      typeMap.set(col.name, "json");
+      jsonMap.set(col.name, {
+        source: "querySchema",
+        fields: col.fields.reduce(
+          (acc, field) => ({
+            ...acc,
+            [field.name]: { datatype: field.dataType },
+          }),
+          {},
+        ),
+      });
+    } else if (col.dataType !== "json") {
+      typeMap.set(col.name, col.dataType);
+    }
+  });
+
+  determineColumnTypes(result.results, typeMap).forEach((col) => {
+    typeMap.set(col.column, col.datatype);
+    if (col.jsonFields) {
+      jsonMap.set(col.column, {
+        source: "sampledValues",
+        fields: col.jsonFields,
+      });
+    }
+  });
+
+  const datatypes = new Map<string, FactTableColumnType>(
+    (result.columns || []).map((col) => [col.name, col.dataType || ""]),
+  );
+  typeMap.forEach((datatype, column) => datatypes.set(column, datatype));
+
+  return { jsonMap, warehouseTypeMap, datatypes };
+}
+
+export function detectColumnsFromQueryResult(
+  result: Pick<TestQueryResult, "results" | "columns">,
+): DetectedFactTableColumn[] {
+  const { jsonMap, datatypes } = buildColumnTypeMaps(result);
+
+  return [...datatypes].map(([column, datatype]) => {
+    const jsonFields = jsonMap.get(column)?.fields;
+    return { column, datatype, ...(jsonFields ? { jsonFields } : {}) };
+  });
 }
