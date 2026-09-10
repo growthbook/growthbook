@@ -1,5 +1,4 @@
 import React from "react";
-import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
@@ -14,7 +13,6 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const MetricsPage = (): React.ReactElement => {
-  const router = useRouter();
   const { metrics, factMetrics, factTables, datasources, project } =
     useDefinitions();
 
@@ -63,12 +61,11 @@ const MetricsPage = (): React.ReactElement => {
                 body="You don't have permission to add metrics in this project."
                 shouldDisplay={!canCreateMetric}
               >
-                <Button
-                  disabled={!canCreateMetric}
-                  onClick={() => router.push("/fact-metrics/new")}
-                >
-                  Add Metric
-                </Button>
+                {canCreateMetric ? (
+                  <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
+                ) : (
+                  <Button disabled>Add metric</Button>
+                )}
               </Tooltip>
             )}
           </Box>
