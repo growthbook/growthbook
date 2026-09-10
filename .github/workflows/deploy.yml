@@ -20,6 +20,11 @@ concurrency:
 jobs:
   # Build and publish the commit to docker
   docker:
+    # Shared with previews and other builds using the same Depot project.
+    concurrency:
+      group: depot-vmp2ssvj9r
+      queue: max
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     if: ${{ github.repository == 'growthbook/growthbook' }}
     permissions:
