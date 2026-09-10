@@ -64,14 +64,11 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       className={`gb-select--${size}`}
     >
       {typeof label === "string" ? (
-        <Text
-          id={labelId}
-          as="label"
-          size={labelSize ?? "md"}
-          weight={labelWeight}
-        >
-          {label}
-        </Text>
+        <label id={labelId}>
+          <Text size={labelSize ?? "md"} weight={labelWeight}>
+            {label}
+          </Text>
+        </label>
       ) : label !== undefined ? (
         label
       ) : null}
