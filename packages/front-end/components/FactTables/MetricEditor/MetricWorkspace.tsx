@@ -370,6 +370,7 @@ export default function MetricWorkspace({
       )}
       {actionRow}
       <MetricEditor
+        existingMetric={existing}
         form={form}
         canEdit={isEditing}
         onRepresentableChange={setRepresentable}

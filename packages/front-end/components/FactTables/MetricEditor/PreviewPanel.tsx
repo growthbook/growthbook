@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { PiEye } from "react-icons/pi";
 import {
   FactFilterTestResults,
+  FactMetricInterface,
   FactTableDefinition,
   RowFilter,
 } from "shared/types/fact-table";
@@ -19,6 +20,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Code from "@/components/SyntaxHighlighting/Code";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import { MetricPreviewSql } from "@/components/FactTables/MetricEditor/previewSql";
+import MetricPerformance from "@/enterprise/components/ProductAnalytics/MetricPerformance";
+import MetricSampleChart from "./MetricSampleChart";
 import styles from "./PreviewPanel.module.scss";
 
 export type PreviewPart = {
@@ -26,12 +29,15 @@ export type PreviewPart = {
   label: string;
   factTable: FactTableDefinition | null;
   rowFilters: RowFilter[];
+  column: string;
 };
 
 export default function PreviewPanel({
   parts,
   previewSql,
+  metric,
 }: {
+  metric?: FactMetricInterface | null;
   parts: PreviewPart[];
   previewSql: MetricPreviewSql | null;
 }) {
@@ -88,7 +94,7 @@ export default function PreviewPanel({
               <TabsTrigger value="sql">SQL</TabsTrigger>
             </TabsList>
           </Flex>
-          {view === "preview" && parts.length > 1 && (
+          {view === "preview" && !metric && parts.length > 1 && (
             <Select
               label="Part to preview"
               value={active?.key}
@@ -105,7 +111,11 @@ export default function PreviewPanel({
 
         <div
           style={{
-            height: "clamp(280px, 40vh, 480px)",
+            height:
+              metric && view === "preview"
+                ? "auto"
+                : "clamp(280px, 40vh, 480px)",
+            aspectRatio: metric && view === "preview" ? "16 / 10" : undefined,
             minWidth: 0,
             overflow: "auto",
           }}
@@ -167,10 +177,14 @@ export default function PreviewPanel({
             )}
           </TabsContent>
           <TabsContent value="preview" style={{ height: "100%" }}>
-            {!active ? (
+            {metric ? (
+              <MetricPerformance
+                key={`${metric.id}:${metric.dateUpdated}`}
+                metric={metric}
+              />
+            ) : !active ? (
               <Callout status="info">
-                Row preview isn&apos;t available for funnel metrics yet. Use the
-                SQL tab to see an illustrative query.
+                Add a funnel step to preview its sample data.
               </Callout>
             ) : !active.factTable ? (
               <Text color="text-mid" as="div">
@@ -180,7 +194,14 @@ export default function PreviewPanel({
               <Flex direction="column" gap="3" height="100%">
                 {rowsError && <Callout status="error">{rowsError}</Callout>}
                 {rows ? (
-                  <div style={{ height: "100%" }}>
+                  <Flex direction="column" gap="4">
+                    {!rows.error && !!rows.results?.length && (
+                      <MetricSampleChart
+                        rows={rows.results}
+                        column={active.column}
+                        factTable={active.factTable}
+                      />
+                    )}
                     <DisplayTestQueryResults
                       duration={rows.duration || 0}
                       results={rows.results || []}
@@ -188,7 +209,7 @@ export default function PreviewPanel({
                       error={rows.error || ""}
                       sqlMaxHeight="140px"
                     />
-                  </div>
+                  </Flex>
                 ) : (
                   <Flex
                     direction="column"
@@ -215,7 +236,7 @@ export default function PreviewPanel({
             )}
           </TabsContent>
         </div>
-        {view === "preview" && active?.factTable && (
+        {view === "preview" && !metric && active?.factTable && (
           <Flex mt="3">
             <Button onClick={runPreview} setError={setRowsError}>
               {rows ? "Refresh preview" : "Run preview"}
