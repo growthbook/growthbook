@@ -363,7 +363,7 @@ export default function AISettings({
                     />
                   </Box>
                   <Flex direction="column">
-                    <Text size="3" className="font-weight-semibold">
+                    <Text size="3" weight="medium">
                       <label htmlFor="toggle-aiAskDataEnabled">
                         Ask your data
                       </label>

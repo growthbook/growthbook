@@ -5,9 +5,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import Checkbox from "@/ui/Checkbox";
-import SelectField from "@/components/Forms/SelectField";
-import Field from "@/components/Forms/Field";
+import Switch from "@/ui/Switch";
+import { Select, SelectItem } from "@/ui/Select";
+import TextField from "@/ui/TextField";
 import Modal from "@/ui/Modal";
 import ModalForm from "@/ui/Modal/ModalForm";
 import Button from "@/ui/Button";
@@ -41,7 +41,7 @@ export default function AskDataSettings({
     <Box>
       <Flex align="center" justify="between" gap="3" mb="2">
         <Heading as="h3" size="md" mb="0">
-          Ask data
+          Ask Data
         </Heading>
         {canEdit && (
           <Link
@@ -137,47 +137,41 @@ function EditAskDataModal({
         }}
       >
         <Modal.Header>
-          <Modal.Title>Ask data settings</Modal.Title>
+          <Modal.Title>Ask Data Settings</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Flex gap="3" align="start" mb="4">
-            <Checkbox
-              value={enabled}
-              setValue={setEnabled}
-              id="ask-data-enabled"
-              mt="1"
-            />
-            <label htmlFor="ask-data-enabled">
-              <Text size="md" weight="medium">
-                Enable ask data
-              </Text>
-            </label>
-          </Flex>
+          <Switch
+            id="ask-data-enabled"
+            value={enabled}
+            onChange={setEnabled}
+            label="Enable Ask Data"
+            mb="4"
+          />
           {enabled && (
             <>
-              <SelectField
+              <Select
                 label="Run policy"
                 value={policy}
-                onChange={(v) => setPolicy(v as RunPolicy)}
-                options={[
-                  {
-                    value: "auto-below-threshold",
-                    label: "Auto-execute below cost threshold",
-                  },
-                  {
-                    value: "always-confirm",
-                    label: "Always confirm before executing",
-                  },
-                ]}
-                helpText="Controls whether the agent must confirm before running SQL queries"
-              />
+                setValue={(v) => setPolicy(v as RunPolicy)}
+              >
+                <SelectItem value="auto-below-threshold">
+                  Auto-execute below cost threshold
+                </SelectItem>
+                <SelectItem value="always-confirm">
+                  Always confirm before executing
+                </SelectItem>
+              </Select>
+              <Text size="sm" color="text-mid">
+                Controls whether the agent must confirm before running SQL
+                queries
+              </Text>
               {policy === "auto-below-threshold" && (
-                <Field
+                <TextField
                   label="Cost threshold (GiB)"
                   type="number"
                   min={1}
                   step={1}
-                  value={thresholdGib}
+                  value={String(thresholdGib)}
                   onChange={(e) =>
                     setThresholdGib(parseInt(e.target.value) || 1)
                   }
