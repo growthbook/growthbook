@@ -64,13 +64,21 @@ export function TempRolloutCallout({
     experiment.phases?.[experiment.phases.length - 1]?.dateEnded;
   const isOld = getTempRolloutStaleReason(experiment) === "old-temp-rollout";
   return (
-    <Callout status={isOld ? "warning" : "info"} size="sm" mt="3">
-      <strong>Temporary Rollout</strong> from{" "}
-      {isBandit ? "a Bandit" : "an Experiment"} stopped{" "}
-      {lastPhaseEnded ? ago(lastPhaseEnded) : "earlier"}.{" "}
+    <Callout
+      status={isOld ? "warning" : "info"}
+      size="sm"
+      mt="3"
+      action={
+        <Link href={`/experiment/${experiment.id}`}>
+          Open {isBandit ? "Bandit" : "experiment"}
+        </Link>
+      }
+    >
+      Temporary rollout from {isBandit ? "a Bandit" : "an experiment"} that
+      stopped {lastPhaseEnded ? ago(lastPhaseEnded) : "earlier"}.{" "}
       {isOld
-        ? "Clean up this rule."
-        : `Stop it from the ${isBandit ? "Bandit" : "Experiment"} page when no longer needed.`}
+        ? "Once the winner is in code, stop the rollout there."
+        : "Stop it there when it is no longer needed."}
     </Callout>
   );
 }

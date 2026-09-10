@@ -91,12 +91,12 @@ const FEATURE_HEALTH_COPY: Record<
   },
   "old-temp-rollout": {
     label: TEMP_ROLLOUT_HEALTH["old-temp-rollout"].label,
-    description: `A stopped experiment's rollout has been served for ${OLD_TEMP_ROLLOUT_DAYS}+ days. Clean up the rule.`,
+    description: `A stopped experiment's rollout has been served for ${OLD_TEMP_ROLLOUT_DAYS}+ days. Stop it on the experiment once the winner is in code.`,
   },
   "temp-rollout": {
     label: TEMP_ROLLOUT_HEALTH["temp-rollout"].label,
     description:
-      "A stopped experiment's rollout is still being served. Clean up the rule.",
+      "A stopped experiment's rollout is still being served. Stop it on the experiment once the winner is in code.",
   },
 };
 
