@@ -102,7 +102,15 @@ export default function ExplorationBubble({
         </Flex>
       </Flex>
       {chartData.config.chartType === "rawTable" ? (
-        <Flex style={{ height: 360, minHeight: 260 }}>
+        <Flex
+          style={{
+            height: compact ? 280 : 360,
+            minHeight: compact ? 240 : 260,
+            minWidth: 0,
+            width: "100%",
+            overflow: "hidden",
+          }}
+        >
           <ExplorerDataTable
             exploration={chartData.exploration}
             error={chartData.exploration?.error ?? null}
