@@ -70,6 +70,10 @@ export default function ChartSettingsSection() {
           size="sm"
           onClick={() => setIsCollapsed((prev) => !prev)}
           title={isCollapsed ? "Expand" : "Collapse"}
+          aria-label={
+            isCollapsed ? "Expand chart settings" : "Collapse chart settings"
+          }
+          aria-expanded={!isCollapsed}
         >
           {isCollapsed ? <PiCaretDown size={14} /> : <PiCaretUp size={14} />}
         </Button>
