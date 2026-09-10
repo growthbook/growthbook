@@ -306,7 +306,6 @@ export const AuthProvider: React.FC<{
       if (resp.confirm) {
         setAuthComponent(
           <Modal
-            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             submit={async () => {
@@ -614,7 +613,6 @@ export const AuthProvider: React.FC<{
   if (initError) {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         header="logo"
         open={true}
@@ -641,7 +639,6 @@ export const AuthProvider: React.FC<{
   if (sessionError) {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         cta="OK"

@@ -527,7 +527,6 @@ export default function EditSavedGroupPage() {
       )}
       {deleteItemsModal && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType="delete-saved-group-items"
           close={() => setDeleteItemsModal(false)}
           open={deleteItemsModal}
@@ -647,7 +646,6 @@ export default function EditSavedGroupPage() {
       )}
       {addItems && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType={`edit-saved-group-${importOperation}-items`}
           close={() => {
             setAddItems(false);

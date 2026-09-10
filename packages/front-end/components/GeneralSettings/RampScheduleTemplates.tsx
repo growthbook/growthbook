@@ -95,7 +95,6 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
 
   return (
     <Modal
-      useRadixButton={false}
       open
       trackingEventModalType="ramp-schedule-template-edit"
       close={onClose}
