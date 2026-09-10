@@ -233,6 +233,7 @@ export default function MetricWorkspace({
     return (
       <TemplateFieldMapping
         template={{ ...duplicateFrom, numerator: duplicateFrom.numerator }}
+        onCancel={handleDiscard}
         onMapped={(mapped) => {
           resync(mapped);
           setNeedsMapping(false);
