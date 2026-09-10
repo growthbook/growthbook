@@ -37,25 +37,32 @@ export function getMaxHoursToConvert(
   // has selected `skipPartialData`)
   let neededHoursForConversion = 0;
   metricAndDenominatorMetrics.forEach((m) => {
+    const funnelHours = getFunnelCompletionHours(m);
+    const delayHours = getDelayWindowHours(m.windowSettings);
+
+    // Step windows are hours-after-exposure even when the metric-level
+    // type is none/lookback.
+    let metricHours: number | null = null;
     if (m.windowSettings.type === "conversion") {
-      // The metric conversion window is a hard envelope on every event.
-      // When every funnel step also has a window, the funnel is settled
-      // earlier — at the sum of those step windows — so skipPartialData
-      // can use the tighter of the two. Otherwise the envelope alone
-      // bounds conversion.
       const windowHours = getMetricWindowHours(m.windowSettings);
-      const funnelHours = getFunnelCompletionHours(m);
-      const metricHours =
-        getDelayWindowHours(m.windowSettings) +
+      metricHours =
+        delayHours +
         (funnelHours === null
           ? windowHours
           : Math.min(windowHours, funnelHours));
-      if (funnelMetric) {
-        // funnel metric windows can cascade, so sum each metric hours to get max
-        neededHoursForConversion += metricHours;
-      } else if (metricHours > neededHoursForConversion) {
-        neededHoursForConversion = metricHours;
-      }
+    } else if (funnelHours !== null) {
+      metricHours = delayHours + funnelHours;
+    }
+
+    if (metricHours === null) {
+      return;
+    }
+
+    if (funnelMetric) {
+      // funnel metric windows can cascade, so sum each metric hours to get max
+      neededHoursForConversion += metricHours;
+    } else if (metricHours > neededHoursForConversion) {
+      neededHoursForConversion = metricHours;
     }
   });
   // activation metrics windows always cascade
