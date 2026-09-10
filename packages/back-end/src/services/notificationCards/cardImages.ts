@@ -247,6 +247,8 @@ export interface ExperimentCardData {
   ds?: string;
   note?: string;
   rows: CardGoalRow[];
+  summary?: string[];
+  sentiment?: "positive" | "negative";
   secondary?: CardCiMetric[];
   guardrail?: CardCiMetric[];
   // Shown above the conclusion for non-started states; and in the started body.
@@ -595,7 +597,7 @@ function arrowImg(dir: "up" | "down", color: string, size = 9): El {
 // Shared cells / primitives.
 // ---------------------------------------------------------------------------
 
-function badge(state: CardState): El {
+function badge(state: CardState, label = BADGE[state]): El {
   const hue = HUE[state];
   return el(
     "div",
@@ -615,7 +617,7 @@ function badge(state: CardState): El {
         borderRadius: 9999,
         backgroundColor: SOLID[hue],
       }),
-      txt(BADGE[state], { fontSize: 12, fontWeight: 600, color: P.st[hue] }),
+      txt(label, { fontSize: 12, fontWeight: 600, color: P.st[hue] }),
     ],
   );
 }
@@ -915,7 +917,10 @@ function headerEl(exp: ExperimentCardData): El {
             letterSpacing: "-0.01em",
           }),
           txt(exp.key, { fontSize: 12, color: P.subtle }, true),
-          badge(exp.state),
+          badge(
+            exp.state,
+            exp.summary && exp.state === "stopped" ? "Stopped" : undefined,
+          ),
         ],
       ),
       el(
@@ -1270,12 +1275,25 @@ function conclusionEl(exp: ExperimentCardData): El | null {
   );
 }
 
+function eventSummaryBody(lines: string[]): El {
+  return el(
+    "div",
+    { display: "flex", flexDirection: "column", gap: 12, padding: "20px 24px" },
+    lines.map((line) =>
+      txt(plainClamp(line, 240), { fontSize: 17, color: P.text }),
+    ),
+  );
+}
+
 function buildCard(exp: ExperimentCardData): El {
-  const hue = HUE[exp.state];
+  const hue = exp.sentiment === "negative" ? "red" : HUE[exp.state];
   let body: El;
   let footerItems: (string | undefined)[];
 
-  if (exp.state === "started") {
+  if (exp.summary) {
+    body = eventSummaryBody(exp.summary);
+    footerItems = [exp.dates];
+  } else if (exp.state === "started") {
     body = startedBody(exp);
     footerItems = [
       exp.variants.join(" · "),
@@ -1645,6 +1663,7 @@ function compactHero(
   event: CompactEvent,
   hue: Hue,
 ): El {
+  if (exp.summary) return eventSummaryBody(exp.summary);
   const accentText = P.st[hue];
   const r = exp.rows[0];
 
@@ -1897,7 +1916,7 @@ function buildCompactCard(exp: ExperimentCardData): El {
   const ev = COMPACT_EVENT[event];
   const r0 = exp.rows[0];
   // Event hue drives the rail + eyebrow; win/significance tint by direction.
-  let hue = ev.hue;
+  let hue = exp.sentiment === "negative" ? "red" : ev.hue;
   if ((event === "significance" || event === "won") && r0?.dir === "down") {
     hue = "red";
   }

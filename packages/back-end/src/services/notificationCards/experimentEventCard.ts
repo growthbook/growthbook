@@ -3,6 +3,7 @@ import { experimentCardFormats } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import type { CompactEvent } from "back-end/src/services/notificationCards/cardImages";
 import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
+import { buildEventSnapshotCard } from "./eventSnapshotCard";
 
 const compactEventForNotification = (
   event: NotificationEvent,
@@ -40,7 +41,9 @@ export async function renderExperimentNotificationCard(
   format: ExperimentNotificationCardFormat = "compact",
 ): Promise<RenderedExperimentNotificationCard | null> {
   if (format === "none") return null;
-  const compactEvent = compactEventForNotification(event);
+  const snapshotCard = buildEventSnapshotCard(event);
+  const compactEvent =
+    snapshotCard?.event ?? compactEventForNotification(event);
   if (!compactEvent) return null;
 
   const object = event.data?.object as
@@ -56,11 +59,15 @@ export async function renderExperimentNotificationCard(
     const { buildExperimentCardData } = await import(
       "back-end/src/services/notificationCards/experimentCardData"
     );
-    const context = await getContextForAgendaJobByOrgId(organizationId);
-    const card = await buildExperimentCardData(context, experimentId);
+    const card =
+      snapshotCard ??
+      (await buildExperimentCardData(
+        await getContextForAgendaJobByOrgId(organizationId),
+        experimentId,
+      ));
     // A delayed warning may now load healthy or stopped results. Preserve the
     // event's text instead of presenting a contradictory current-state card.
-    if (!card || card.state !== "warning") return null;
+    if (!card || (!snapshotCard && card.state !== "warning")) return null;
 
     card.event = compactEvent;
     const png = await renderExperimentCard(

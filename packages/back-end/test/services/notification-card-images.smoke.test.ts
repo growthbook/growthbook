@@ -1,9 +1,11 @@
+import { buildEventSnapshotCard } from "back-end/src/services/notificationCards/eventSnapshotCard";
 import {
   type CardState,
   type CompactEvent,
   sampleCard,
 } from "back-end/src/services/notificationCards/cardImages";
 import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
+import { eventSnapshotCardSamples } from "./eventSnapshotCard.fixtures";
 
 const isPng = (png: Buffer) =>
   png.subarray(0, 8).toString("hex") === "89504e470d0a1a0a";
@@ -45,6 +47,26 @@ describe("renderExperimentCard", () => {
       const png = await renderExperimentCard(card, "compact");
       expect(isPng(png)).toBe(true);
       expect(png.length).toBeGreaterThan(2000);
+    },
+    30000,
+  );
+});
+
+describe("immutable event summary rendering", () => {
+  it.each(eventSnapshotCardSamples)(
+    "renders compact and detailed $name cards without result rows",
+    async ({ event }) => {
+      const card = buildEventSnapshotCard(event);
+      expect(card).not.toBeNull();
+      if (!card) throw new Error("Missing event sample card");
+      expect(card.rows).toEqual([]);
+      for (const style of ["compact", "detailed"] as const) {
+        const png = await renderExperimentCard(card, style);
+        expect(isPng(png)).toBe(true);
+        expect(png.readUInt32BE(16)).toBeGreaterThan(500);
+        expect(png.readUInt32BE(20)).toBeGreaterThan(150);
+        expect(png.length).toBeGreaterThan(2000);
+      }
     },
     30000,
   );
