@@ -78,7 +78,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
       )}
       {...containerProps}
     >
-      <Flex gap="2">
+      <Flex gap="2" align={description || error ? undefined : "center"}>
         {checkboxTooltip && !disabled ? (
           <RadixTooltip content={checkboxTooltip} side="top" maxWidth="240px">
             {checkboxEl}

@@ -19,12 +19,7 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
-import {
-  PiCaretDown,
-  PiCaretRight,
-  PiCheckBold,
-  PiWarningFill,
-} from "react-icons/pi";
+import { PiCaretDown, PiCaretRight, PiWarningFill } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
@@ -83,6 +78,7 @@ import {
 } from "@/components/Features/RuleModal/rampStartImpact";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -213,13 +209,13 @@ function RampImpactBanner({
   impact,
   fallthroughPhrase,
   acknowledged,
-  onToggleAcknowledged,
+  setAcknowledged,
   onRampToNewValue,
 }: {
   impact: NonNullable<RampStartImpact>;
   fallthroughPhrase: string;
   acknowledged: boolean;
-  onToggleAcknowledged: () => void;
+  setAcknowledged: (value: boolean) => void;
   onRampToNewValue?: () => void;
 }) {
   return (
@@ -252,7 +248,7 @@ function RampImpactBanner({
           )}
         </Text>
       </Flex>
-      <Flex align="center" gap="3" flexShrink="0">
+      <Flex align="center" gap="4" flexShrink="0">
         {onRampToNewValue && (
           <Tooltip
             body="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
@@ -263,38 +259,15 @@ function RampImpactBanner({
             </Button>
           </Tooltip>
         )}
-        <Button
-          variant="ghost"
-          size="md"
-          color="inherit"
-          aria-pressed={acknowledged}
-          onClick={onToggleAcknowledged}
-        >
-          <Flex align="center" gap="2">
-            {/* Checkbox lookalike (a real one nests a button inside this
-                button); the button is the control. */}
-            <Flex
-              align="center"
-              justify="center"
-              flexShrink="0"
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: "var(--radius-1)",
-                boxShadow: acknowledged
-                  ? "none"
-                  : "inset 0 0 0 1px var(--gray-a7)",
-                background: acknowledged
-                  ? "var(--violet-9)"
-                  : "var(--color-surface)",
-                color: "var(--white-a12)",
-              }}
-            >
-              {acknowledged && <PiCheckBold size={12} />}
-            </Flex>
-            {acknowledged ? "Acknowledged" : "Acknowledge"}
-          </Flex>
-        </Button>
+        <Box style={{ color: "var(--violet-11)" }}>
+          <Checkbox
+            value={acknowledged}
+            setValue={setAcknowledged}
+            label="Acknowledge"
+            weight="medium"
+            containerClassName="mb-0"
+          />
+        </Box>
       </Flex>
     </Flex>
   );
@@ -2476,10 +2449,8 @@ export default function RuleModal({
               impact={rampStartImpact}
               fallthroughPhrase={rampFallthroughPhrase}
               acknowledged={rampImpactAcknowledged}
-              onToggleAcknowledged={() =>
-                setRampAcknowledgedKey(
-                  rampImpactAcknowledged ? "" : rampImpactKey,
-                )
+              setAcknowledged={(v) =>
+                setRampAcknowledgedKey(v ? rampImpactKey : "")
               }
               onRampToNewValue={switchToRampToNewValue}
             />
