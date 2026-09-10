@@ -138,6 +138,70 @@ describe("Prerequisite reduction in SDK Payload", () => {
     expect(payload).not.toHaveProperty("child1");
   });
 
+  it("Blocks features whose top-level prerequisites form a cycle and keeps the rest of the payload", () => {
+    const features: FeatureInterface[] = [
+      cloneDeep(childFeature),
+      {
+        ...cloneDeep(parentFeature),
+        prerequisites: [{ id: "child1", condition: `{"value": true}` }],
+      },
+      { ...cloneDeep(parentFeature), id: "unrelated1" },
+    ];
+
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
+    expect(
+      evaluatePrerequisiteState(
+        features[0],
+        featuresMap,
+        "production",
+        undefined,
+        true,
+      ).state,
+    ).toEqual("cyclic");
+
+    // With the "prerequisites" capability a feature whose prerequisite is
+    // merely "conditional" would be kept (with an inline gating rule), so
+    // absence here pins the "cyclic" branch specifically.
+    const payload = generateFeaturesPayload({
+      features: features.map(normalizeV1Fixture),
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["prerequisites"],
+    });
+    expect(payload).not.toHaveProperty("parent1");
+    expect(payload).not.toHaveProperty("child1");
+    expect(payload).toHaveProperty("unrelated1");
+  });
+
+  it("Blocks a feature that lists itself as a prerequisite", () => {
+    const features: FeatureInterface[] = [
+      {
+        ...cloneDeep(parentFeature),
+        prerequisites: [{ id: "parent1", condition: `{"value": true}` }],
+      },
+    ];
+    const featuresMap = new Map(features.map((f) => [f.id, f]));
+    expect(
+      evaluatePrerequisiteState(
+        features[0],
+        featuresMap,
+        "production",
+        undefined,
+        true,
+      ).state,
+    ).toEqual("cyclic");
+
+    const payload = generateFeaturesPayload({
+      features: features.map(normalizeV1Fixture),
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["prerequisites"],
+    });
+    expect(payload).not.toHaveProperty("parent1");
+  });
+
   it("Does not block when top-level prerequisite has conditional state, creates inline gating rule", () => {
     const features: FeatureInterface[] = [
       cloneDeep(childFeature),

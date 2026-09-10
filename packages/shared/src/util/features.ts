@@ -2538,7 +2538,13 @@ export function evaluatePrerequisiteState(
       return { state: "cyclic", value: null };
   }
 
+  // Features on the current prerequisite path. Callers that pass
+  // `skipCyclicCheck` (the SDK payload builder) rely on this to terminate on
+  // a cycle instead of recursing until the stack overflows.
+  const visiting = new Set<string>();
   const visit = (feature: FeatureInterface): PrerequisiteStateResult => {
+    if (visiting.has(feature.id)) return { state: "cyclic", value: null };
+
     // 1. Current environment toggles take priority
     if (!feature.environmentSettings[env]) {
       return { state: "deterministic", value: null };
@@ -2592,6 +2598,7 @@ export function evaluatePrerequisiteState(
     //  - if any are "conditional", the feature is "conditional"
     isTopLevel = false;
     const prerequisites = feature.prerequisites || [];
+    visiting.add(feature.id);
     for (const prerequisite of prerequisites) {
       const prerequisiteFeature = featuresMap.get(prerequisite.id);
       if (!prerequisiteFeature) {
@@ -2602,6 +2609,9 @@ export function evaluatePrerequisiteState(
       }
       const { state: prerequisiteState, value: prerequisiteValue } =
         visit(prerequisiteFeature);
+      if (prerequisiteState === "cyclic") {
+        return { state: "cyclic", value: null };
+      }
       if (prerequisiteState === "deterministic") {
         const evaled = evalDeterministicPrereqValue(
           prerequisiteValue ?? null,
@@ -2618,6 +2628,7 @@ export function evaluatePrerequisiteState(
         value = undefined;
       }
     }
+    visiting.delete(feature.id);
 
     return { state, value };
   };
