@@ -251,6 +251,31 @@ describe("computeFeatureHealth", () => {
     ]);
   });
 
+  it("validates values against an enabled JSON schema", () => {
+    const schema = {
+      enabled: true,
+      schemaType: "schema",
+      schema: JSON.stringify({
+        type: "object",
+        properties: { n: { type: "number" } },
+        required: ["n"],
+      }),
+      date: new Date(),
+    };
+    const bad = feature([force('{"n":"x"}', '{"a":1}')], {
+      valueType: "json",
+      defaultValue: '{"n":1}',
+      jsonSchema: schema,
+    } as Partial<FeatureInterface>);
+    expect(compute(bad)).toEqual([{ signal: "invalid-value", count: 1 }]);
+    const good = feature([force('{"n":2}', '{"a":1}')], {
+      valueType: "json",
+      defaultValue: '{"n":1}',
+      jsonSchema: schema,
+    } as Partial<FeatureInterface>);
+    expect(compute(good)).toEqual([]);
+  });
+
   it("orders entries most urgent first", () => {
     const f = feature([force("true"), force("bad")]);
     const envResults: Record<string, EnvStaleResult> = {

@@ -1,3 +1,4 @@
+import { ValidateFunction } from "ajv";
 import {
   ExperimentInterfaceStringDates,
   ExperimentHealthSettings,
@@ -11,10 +12,12 @@ import {
 import { getSafeRolloutResultStatus } from "../enterprise/decision-criteria/decisionCriteria";
 import {
   EnvStaleResult,
+  getJSONValidator,
   getTempRolloutStaleReason,
+  getValidation,
   isUnconditionalCatcher,
+  parseLooseJSON,
   TempRolloutStaleReason,
-  validateFeatureValue,
 } from "./features";
 import { getRulesForEnvironment, includeExperimentInPayload } from ".";
 
@@ -56,6 +59,59 @@ export type FeatureHealthEntry = {
   environments?: string[];
   details?: FeatureHealthDetail[];
 };
+
+// Ajv compiles are expensive and this engine runs across every feature on a
+// filter-driven fetch-all, so compiled schemas are cached by schema text.
+const ajv = getJSONValidator();
+const compiledSchemas = new Map<string, ValidateFunction>();
+const MAX_CACHED_SCHEMAS = 1000;
+
+function getCompiledSchema(feature: FeatureInterface): ValidateFunction | null {
+  const { jsonSchema, validationEnabled } = getValidation(feature);
+  if (!validationEnabled || !jsonSchema) return null;
+  const key = JSON.stringify(jsonSchema);
+  let validate = compiledSchemas.get(key);
+  if (!validate) {
+    if (compiledSchemas.size >= MAX_CACHED_SCHEMAS) compiledSchemas.clear();
+    try {
+      validate = ajv.compile(jsonSchema);
+    } catch {
+      return null;
+    }
+    compiledSchemas.set(key, validate);
+  }
+  return validate;
+}
+
+// Mirrors validateFeatureValue's rules without recompiling the schema per value.
+function invalidValueChecker(
+  feature: FeatureInterface,
+): (v: string) => boolean {
+  const { valueType } = feature;
+  if (valueType === "boolean") return (v) => v !== "true" && v !== "false";
+  const validate = getCompiledSchema(feature);
+  const parseJson = (v: string): { ok: boolean; value?: unknown } => {
+    try {
+      return { ok: true, value: JSON.parse(v) };
+    } catch {
+      try {
+        return { ok: true, value: parseLooseJSON(v) };
+      } catch {
+        return { ok: false };
+      }
+    }
+  };
+  return (v) => {
+    if (valueType === "number") {
+      if (!/^-?[0-9]+(\.[0-9]+)?$/.test(v)) return true;
+      return !!validate && !validate(parseFloat(v));
+    }
+    if (valueType === "string") return !!validate && !validate(v);
+    const parsed = parseJson(v);
+    if (!parsed.ok) return true;
+    return !!validate && !validate(parsed.value);
+  };
+}
 
 const RULE_VALUES = (rule: FeatureRule): string[] => {
   switch (rule.type) {
@@ -226,17 +282,7 @@ export function computeFeatureHealth({
   }
 
   // Counted per rule (plus the default value), not per variation.
-  const isInvalid = (value: string): boolean => {
-    if (feature.valueType === "boolean") {
-      return value !== "true" && value !== "false";
-    }
-    try {
-      validateFeatureValue(feature, value);
-      return false;
-    } catch {
-      return true;
-    }
-  };
+  const isInvalid = invalidValueChecker(feature);
   if (isInvalid(feature.defaultValue)) add("invalid-value");
   for (const rule of feature.rules ?? []) {
     if (RULE_VALUES(rule).some(isInvalid)) add("invalid-value");

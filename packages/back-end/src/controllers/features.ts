@@ -7502,7 +7502,9 @@ export async function getFeaturesHealth(
       getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
         sparse: true,
       }),
-      context.models.rampSchedules.getAll(),
+      featureIds
+        ? context.models.rampSchedules.getAllByFeatureIds(featureIds)
+        : context.models.rampSchedules.getAll(),
     ]);
   const rampSchedulesByFeature = new Map<string, RampScheduleInterface[]>();
   for (const schedule of allRampSchedules) {
@@ -7525,13 +7527,14 @@ export async function getFeaturesHealth(
     }
   }
 
-  const targetFeatures = featureIds
-    ? allFeatures.filter((f) => featureIds.includes(f.id))
+  const targetIds = featureIds ? new Set(featureIds) : null;
+  const targetFeatures = targetIds
+    ? allFeatures.filter((f) => targetIds.has(f.id))
     : allFeatures;
 
-  const safeRollouts = await context.models.safeRollout.getAllByFeatureIds(
-    targetFeatures.map((f) => f.id),
-  );
+  const safeRollouts = featureIds
+    ? await context.models.safeRollout.getAllByFeatureIds(featureIds)
+    : await context.models.safeRollout.getAll();
   const safeRolloutsByFeature = new Map<string, SafeRolloutInterface[]>();
   for (const safeRollout of safeRollouts) {
     const list = safeRolloutsByFeature.get(safeRollout.featureId) ?? [];
