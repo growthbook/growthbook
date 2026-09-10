@@ -579,6 +579,7 @@ export async function provisionResource(req: Request, res: Response) {
     includeVisualExperiments: true,
     includeDraftExperiments: true,
     includeRuleIds: true,
+    includeExperimentIds: false,
     includeRedirectExperiments: false,
     includeExperimentNames: true,
     hashSecureAttributes: false,

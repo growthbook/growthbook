@@ -44,6 +44,8 @@ export type FeatureRule<T = any> = {
   seed?: string;
   name?: string;
   phase?: string;
+  /** GrowthBook experiment record id when includeExperimentIds is enabled */
+  experimentId?: string;
   tracks?: Array<{
     experiment: Experiment<T>;
     result: Result<T>;
@@ -103,6 +105,8 @@ export type UrlTarget = {
 
 export type Experiment<T> = {
   key: string;
+  /** GrowthBook experiment record id (e.g. exp_...), when included in the SDK payload */
+  id?: string;
   variations: [T, T, ...T[]];
   ranges?: VariationRange[];
   meta?: VariationMeta[];
