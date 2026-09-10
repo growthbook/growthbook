@@ -317,7 +317,7 @@ export async function getSnowflakeQueryStatus(
     const status = await connection.getQueryStatus(queryId);
     return snowflakeStatusToExternalStatus(status, {
       isRunning: connection.isStillRunning(status as QueryStatus),
-      isError: connection.isAnError(),
+      isError: connection.isAnError(status),
     });
   } catch (e) {
     logger.debug(
