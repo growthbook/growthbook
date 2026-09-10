@@ -102,16 +102,10 @@ export default function PreviewPanel({
           )}
         </Flex>
 
-        {/* One shared box for both tabs, sized off the design's proportions
-          (not a fixed pixel height, so it scales with the sidebar's own
-          width as the viewport changes) - keeps the card the same size
-          switching between them instead of jumping to whichever tab's
-          content happens to be shorter. Content that doesn't fit scrolls
-          within it. */}
         <div
           style={{
-            aspectRatio: "83 / 92",
-            alignSelf: "stretch",
+            height: "clamp(280px, 40vh, 480px)",
+            minWidth: 0,
             overflow: "auto",
           }}
         >
@@ -207,18 +201,19 @@ export default function PreviewPanel({
                         optional.
                       </Text>
                     </Flex>
-                    {/* Fetching rows runs a real query against the customer's
-                    warehouse - kept as an explicit, deliberate action even
-                    though the design's empty state doesn't show a button. */}
                   </Flex>
                 )}
-                <Button onClick={runPreview} setError={setRowsError}>
-                  {rows ? "Refresh preview" : "Run preview"}
-                </Button>
               </Flex>
             )}
           </TabsContent>
         </div>
+        {view === "preview" && active?.factTable && (
+          <Flex mt="3">
+            <Button onClick={runPreview} setError={setRowsError}>
+              {rows ? "Refresh preview" : "Run preview"}
+            </Button>
+          </Flex>
+        )}
       </Tabs>
     </Frame>
   );
