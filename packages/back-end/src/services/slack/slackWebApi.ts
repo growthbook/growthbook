@@ -165,13 +165,17 @@ export async function postSlackEphemeralMessage({
   blocks?: SlackBlock[];
   threadTs?: string;
 }): Promise<boolean> {
-  const res = await slackApiCall<SlackApiResponse>(token, "chat.postEphemeral", {
-    channel,
-    user,
-    text,
-    ...(blocks ? { blocks } : {}),
-    ...(threadTs ? { thread_ts: threadTs } : {}),
-  });
+  const res = await slackApiCall<SlackApiResponse>(
+    token,
+    "chat.postEphemeral",
+    {
+      channel,
+      user,
+      text,
+      ...(blocks ? { blocks } : {}),
+      ...(threadTs ? { thread_ts: threadTs } : {}),
+    },
+  );
   return !!res?.ok;
 }
 

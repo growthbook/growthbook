@@ -330,6 +330,7 @@ async function executeAgentTurn<TParams>({
   dbOverrideModel,
   initialEmit,
   prepareTransport,
+  beforeResolvePendingAction,
   enforceUsageCap,
   onBeforeStream,
   finish,
@@ -345,6 +346,8 @@ async function executeAgentTurn<TParams>({
   initialEmit?: AgentEmit;
   /** Initialize transport output only after access/usage gates pass. */
   prepareTransport?: () => AgentEmit;
+  /** Acquire a transport-specific replay guard only after all access gates pass. */
+  beforeResolvePendingAction?: () => Promise<void>;
   /** Return false to abort before streaming (HTTP writes a 429 itself). */
   enforceUsageCap: (model: AIModel) => Promise<boolean>;
   /** Hook to stop the SSE keepalive when the client disconnects. */
@@ -409,6 +412,7 @@ async function executeAgentTurn<TParams>({
   // gate. A cancel/supersede with a follow-up message lets the model react
   // to the rejection plus the new instruction in the same turn.
   if (pendingAction) {
+    await beforeResolvePendingAction?.();
     await resolvePendingAction(context, buffer, pendingAction, emit, isConfirm);
     buffer.setPendingAction(undefined);
   }
@@ -617,10 +621,12 @@ export async function runAgentTurnToCompletion<TParams>({
   context,
   config,
   input,
+  beforeResolvePendingAction,
 }: {
   context: ReqContext;
   config: AgentConfig<TParams>;
   input: HeadlessTurnInput;
+  beforeResolvePendingAction?: () => Promise<void>;
 }): Promise<RunAgentTurnResult> {
   // No explicit model choice: `model` is only ever a *candidate* passed through
   // getAllowedAIModel, so omitting it falls through to the org's default (the
@@ -701,6 +707,7 @@ export async function runAgentTurnToCompletion<TParams>({
     orgAdditionalPrompt,
     dbOverrideModel,
     initialEmit: emit,
+    beforeResolvePendingAction,
     enforceUsageCap: async (model) => {
       const capped = await checkAccessGates(context, { model });
       if (capped.ok) return true;

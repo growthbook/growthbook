@@ -7,6 +7,7 @@ import {
 import { handleSlackAssistantMention } from "back-end/src/services/slack/slackAssistant";
 import addSlackAssistantJobs, {
   queueSlackAssistantMention,
+  queueSlackAssistantConfirmation,
 } from "back-end/src/jobs/slackAssistantTasks";
 
 jest.mock("back-end/src/services/slack/slackAssistant", () => ({
@@ -106,4 +107,24 @@ test("handler failure releases the thread for future messages", async () => {
     process({ attrs: { data: { kind: "mention", mention } }, schedule, save }),
   ).rejects.toThrow("failed turn");
   expect(releaseSlackTask).toHaveBeenCalledTimes(1);
+});
+
+test("deduplicates redeliveries but lets a fresh approval click retry preflight", async () => {
+  const confirmation = {
+    teamId: "team",
+    channelId: "channel",
+    slackUserId: "user",
+    conversationId: "conv",
+    actionId: "action",
+    decision: "confirm" as const,
+    interactionTs: "123.456",
+  };
+  await queueSlackAssistantConfirmation(confirmation);
+  await queueSlackAssistantConfirmation(confirmation);
+  await queueSlackAssistantConfirmation({
+    ...confirmation,
+    interactionTs: "123.457",
+  });
+  expect(unique.mock.calls[0]).toEqual(unique.mock.calls[1]);
+  expect(unique.mock.calls[2]).not.toEqual(unique.mock.calls[1]);
 });

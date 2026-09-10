@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import bodyParser from "body-parser";
 import express, { Request, Response } from "express";
+import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { APP_ORIGIN, SLACK_SIGNING_SECRET } from "back-end/src/util/secrets";
 import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
@@ -133,7 +134,10 @@ const commands = async (req: SlackRequest, res: Response) => {
 
     return res.json({
       response_type: "ephemeral",
-      text: `*${experiment.name}*\nStatus: ${experiment.status}\nResults: ${experiment.results || "not decided"}\n${APP_ORIGIN}/experiment/${experiment.id}#results`,
+      text: toSlackMrkdwn(
+        `**${experiment.name}**\nStatus: ${experiment.status}\nResults: ${experiment.results || "not decided"}\n${APP_ORIGIN}/experiment/${experiment.id}#results`,
+        { appOrigin: APP_ORIGIN },
+      ),
     });
   }
 
@@ -155,7 +159,7 @@ const interactions = async (req: SlackRequest, res: Response) => {
     channel?: { id?: string };
     user?: { id?: string };
     message?: { ts?: string };
-    actions?: { action_id?: string; value?: string }[];
+    actions?: { action_id?: string; action_ts?: string; value?: string }[];
   };
   try {
     payload = JSON.parse(req.body.payload || "{}");
@@ -175,7 +179,7 @@ const interactions = async (req: SlackRequest, res: Response) => {
         a?: string;
         t?: string;
       };
-      if (!parsed.c || !parsed.a)
+      if (!parsed.c || !parsed.a || !action.action_ts)
         return res.status(400).json({ text: "Missing Slack action identity." });
       await queueSlackAssistantConfirmation({
         teamId: payload.team?.id || "",
@@ -183,6 +187,7 @@ const interactions = async (req: SlackRequest, res: Response) => {
         slackUserId: payload.user?.id || "",
         conversationId: parsed.c,
         actionId: parsed.a,
+        interactionTs: action.action_ts,
         decision:
           action.action_id === "gb_confirm_action" ? "confirm" : "cancel",
         threadTs: parsed.t,

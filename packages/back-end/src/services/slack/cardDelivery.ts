@@ -1,3 +1,4 @@
+import { escapeSlackText } from "back-end/src/services/slack/slackMarkdown";
 import {
   postSlackMessage,
   uploadSlackImageFile,
@@ -40,7 +41,9 @@ export async function postExperimentCardImage({
     title: altText,
     channelId: channel,
     threadTs,
-    initialComment: viewLink ? `${altText}\n${viewLink}` : altText,
+    initialComment: viewLink
+      ? `${escapeSlackText(altText)}\n${viewLink}`
+      : escapeSlackText(altText),
   });
   if (!fileId) {
     if (fallbackText) {

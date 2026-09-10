@@ -1,7 +1,11 @@
+import { claimSlackTask } from "back-end/src/services/slack/slackTaskSafety";
+import {
+  updateSlackMessage,
+  postSlackMessage,
+} from "back-end/src/services/slack/slackWebApi";
 import { handleSlackAssistantConfirmation } from "back-end/src/services/slack/slackAssistant";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
-import { postSlackMessage } from "back-end/src/services/slack/slackWebApi";
 
 jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   runAgentTurnToCompletion: jest.fn(),
@@ -125,3 +129,46 @@ it.each([
     expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
   },
 );
+
+it("keeps controls retryable before dispatch but blocks replay after an uncertain mutation failure", async () => {
+  const input = {
+    teamId: "T1",
+    channelId: "C1",
+    slackUserId: "U1",
+    conversationId,
+    actionId: "first",
+    decision: "confirm" as const,
+    threadTs: "123.456",
+    buttonsMessageTs: "123.457",
+  };
+  jest.mocked(runAgentTurnToCompletion).mockResolvedValueOnce({
+    ok: false,
+    status: 429,
+    message: "Limit reached",
+  });
+  await handleSlackAssistantConfirmation(input);
+  expect(claimSlackTask).not.toHaveBeenCalled();
+  expect(updateSlackMessage).not.toHaveBeenCalled();
+  const dispatch = jest
+    .fn()
+    .mockRejectedValue(new Error("Unknown mutation outcome"));
+  jest
+    .mocked(runAgentTurnToCompletion)
+    .mockImplementation(async ({ beforeResolvePendingAction }) => {
+      await beforeResolvePendingAction?.();
+      return dispatch();
+    });
+  jest
+    .mocked(claimSlackTask)
+    .mockResolvedValueOnce(true)
+    .mockResolvedValueOnce(false);
+  await handleSlackAssistantConfirmation(input);
+  await handleSlackAssistantConfirmation(input);
+  expect(dispatch).toHaveBeenCalledTimes(1);
+  expect(updateSlackMessage).toHaveBeenCalledTimes(1);
+  expect(postSlackMessage).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      text: expect.stringContaining("already been submitted"),
+    }),
+  );
+});

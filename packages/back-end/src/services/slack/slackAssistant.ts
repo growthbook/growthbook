@@ -388,6 +388,8 @@ export interface SlackAssistantConfirmation {
   decision: "confirm" | "cancel";
   threadTs?: string;
   buttonsMessageTs?: string;
+  /** Slack action timestamp identifies a click; retries of that delivery reuse it. */
+  interactionTs?: string;
 }
 
 export async function handleSlackAssistantConfirmation({
@@ -468,37 +470,39 @@ export async function handleSlackAssistantConfirmation({
     return;
   }
 
-  // A crash after applying a mutation must never turn a retry into another write.
-  if (
-    !(await claimSlackTask(
-      `action:${slackTaskKey([teamId, target.organizationId, conversationId, actionId])}`,
-    ))
-  ) {
-    await postSlackEphemeralMessage({
-      token,
-      channel: channelId,
-      user: slackUserId,
-      text: "This action has already been submitted. Check GrowthBook before requesting it again.",
-      threadTs,
-    });
-    return;
-  }
-
-  // Swap the buttons for a status line so it can't be double-clicked.
-  if (buttonsMessageTs) {
-    await updateSlackMessage({
-      token,
-      channel: channelId,
-      ts: buttonsMessageTs,
-      text:
-        decision === "confirm" ? "_Applying change…_" : "_Change cancelled._",
-    });
-  }
-
+  let alreadySubmitted = false;
   try {
     const result = await runAgentTurnToCompletion({
       context: target.context,
       config: slackAgentConfig,
+      beforeResolvePendingAction: async () => {
+        // A preflight failure leaves the action and its buttons available. Once
+        // dispatch can begin, retain this claim even if its outcome is uncertain.
+        if (
+          !(await claimSlackTask(
+            `action:${slackTaskKey([teamId, target.organizationId, conversationId, actionId])}`,
+          ))
+        ) {
+          alreadySubmitted = true;
+          throw new Error("Slack action already submitted");
+        }
+        if (buttonsMessageTs) {
+          try {
+            await updateSlackMessage({
+              token,
+              channel: channelId,
+              ts: buttonsMessageTs,
+              text:
+                decision === "confirm"
+                  ? "_Applying change…_"
+                  : "_Change cancelled._",
+            });
+          } catch (error) {
+            // A Slack UI failure must not strand an already claimed mutation.
+            logger.warn(error, "Could not update Slack approval controls");
+          }
+        }
+      },
       input: {
         message: "",
         conversationId,
@@ -510,7 +514,7 @@ export async function handleSlackAssistantConfirmation({
       await postSlackMessage({
         token,
         channel: channelId,
-        text: result.message,
+        text: toSlackMrkdwn(result.message, { appOrigin: APP_ORIGIN }),
         threadTs,
       });
       return;
@@ -547,7 +551,9 @@ export async function handleSlackAssistantConfirmation({
     await postSlackMessage({
       token,
       channel: channelId,
-      text: "Something went wrong applying that change.",
+      text: alreadySubmitted
+        ? "This action has already been submitted. Check GrowthBook before requesting it again."
+        : "Something went wrong applying that change.",
       threadTs,
     });
   }

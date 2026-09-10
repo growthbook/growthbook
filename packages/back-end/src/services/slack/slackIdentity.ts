@@ -103,8 +103,8 @@ async function getWorkspaceOptions(
 
 /**
  * Narrow a workspace's Slack webhooks to the org candidates for a mention:
- * prefer webhooks bound to the exact channel (a connected channel belongs to
- * one org), else consider all of them, then keep one representative per org.
+ * Only an actual DM may fall back across workspace connections. All other
+ * conversations must have an exact configured channel binding.
  * Pure so it can be unit-tested independently of the DB/Slack lookups.
  */
 export function selectCandidateWebhooks<
@@ -113,7 +113,11 @@ export function selectCandidateWebhooks<
   const channelMatches = channelId
     ? webhooks.filter((w) => w.slack?.channelId === channelId)
     : [];
-  const candidates = channelMatches.length ? channelMatches : webhooks;
+  const candidates = channelMatches.length
+    ? channelMatches
+    : /^D[A-Z0-9]+$/.test(channelId)
+      ? webhooks
+      : [];
 
   const byOrg = new Map<string, T>();
   for (const w of candidates) {
@@ -124,6 +128,7 @@ export function selectCandidateWebhooks<
 
 export type SlackTargetFailureReason =
   | "no_connection"
+  | "unconnected_channel"
   | "no_bot_token"
   | "not_linked"
   | "not_a_member"
@@ -166,7 +171,7 @@ export type SlackAssistantTarget =
  *
  *   1. Prefer webhooks bound to the exact channel the mention came from — a
  *      connected channel belongs to a single org, the strongest routing signal.
- *   2. Otherwise consider every webhook for the workspace.
+ *   2. Only in a DM, consider every webhook for the workspace.
  *   3. Keep only orgs the mentioning user is actually a member of. Membership
  *      is both the disambiguator and the hard access check — the returned
  *      context can only ever touch that org's data at that user's permissions.
@@ -217,6 +222,17 @@ export async function resolveSlackAssistantTarget({
     };
   }
 
+  const candidates = selectCandidateWebhooks(webhooks, channelId);
+  if (!candidates.length) {
+    return {
+      ok: false,
+      reason: "unconnected_channel",
+      message:
+        "This Slack channel is not connected to GrowthBook. Use a connected channel or send me a direct message.",
+      botToken,
+    };
+  }
+
   // Identity comes from an explicit account link (proven via a GrowthBook
   // login), NOT the Slack profile email — which is user-settable/spoofable in
   // non-SSO workspaces and can be unset.
@@ -233,8 +249,6 @@ export async function resolveSlackAssistantTarget({
       botToken,
     };
   }
-
-  const candidates = selectCandidateWebhooks(webhooks, channelId);
 
   // Narrow to orgs the linked user belongs to. Membership is re-checked here so
   // a stale link (user removed from the org) can't act.

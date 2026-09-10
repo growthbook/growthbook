@@ -153,9 +153,12 @@ export async function queueSlackAssistantMention(
 export async function queueSlackAssistantConfirmation(
   confirmation: SlackAssistantConfirmation,
 ): Promise<void> {
-  // Button clicks carry no Slack event_id; dedupe on the conversation + action
-  // so a double-click can't park two replays of the same decision.
-  const dedupeKey = `confirm:${slackTaskKey([confirmation.teamId, confirmation.channelId, confirmation.slackUserId, confirmation.conversationId, confirmation.actionId])}`;
+  if (!confirmation.interactionTs) {
+    throw new Error("Slack confirmation requires an interaction timestamp");
+  }
+  // Retry deliveries reuse action_ts; a fresh click may retry a preflight
+  // failure. The permanent action claim separately prevents mutation replay.
+  const dedupeKey = `confirm:${slackTaskKey([confirmation.teamId, confirmation.channelId, confirmation.slackUserId, confirmation.conversationId, confirmation.actionId, confirmation.interactionTs])}`;
   await enqueue({ kind: "confirmation", confirmation }, dedupeKey);
 }
 

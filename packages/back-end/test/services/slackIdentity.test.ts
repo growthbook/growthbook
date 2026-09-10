@@ -19,18 +19,18 @@ describe("selectCandidateWebhooks", () => {
     expect(out.map((w) => w.organizationId)).toEqual(["org2"]);
   });
 
-  it("falls back to all webhooks when the mention channel isn't a connected one", () => {
-    const webhooks = [wh("a", "org1", "C_ONE"), wh("b", "org2", "C_TWO")];
-    const out = selectCandidateWebhooks(webhooks, "C_OTHER");
-    expect(new Set(out.map((w) => w.organizationId))).toEqual(
-      new Set(["org1", "org2"]),
-    );
-  });
+  it.each(["C_OTHER", "G_PRIVATE", "G_GROUPDM", "", "U_USER", "D_INVALID"])(
+    "rejects an unbound conversation %s even when only one organization is available",
+    (channel) => {
+      expect(
+        selectCandidateWebhooks([wh("a", "org1", "C_ONE")], channel),
+      ).toEqual([]);
+    },
+  );
 
-  it("falls back to all webhooks when no channel id is available (e.g. a DM)", () => {
+  it("considers all organizations for an actual direct message", () => {
     const webhooks = [wh("a", "org1", "C_ONE"), wh("b", "org2", "C_TWO")];
-    const out = selectCandidateWebhooks(webhooks, "");
-    expect(out).toHaveLength(2);
+    expect(selectCandidateWebhooks(webhooks, "D12345")).toHaveLength(2);
   });
 
   it("dedupes to one representative webhook per org", () => {
@@ -40,7 +40,7 @@ describe("selectCandidateWebhooks", () => {
       wh("b", "org1", "C_TWO"),
       wh("c", "org2", "C_THREE"),
     ];
-    const out = selectCandidateWebhooks(webhooks, "C_OTHER");
+    const out = selectCandidateWebhooks(webhooks, "D12345");
     expect(out).toHaveLength(2);
     expect(new Set(out.map((w) => w.organizationId))).toEqual(
       new Set(["org1", "org2"]),
@@ -57,6 +57,6 @@ describe("selectCandidateWebhooks", () => {
   it("returns the single webhook unchanged for the common one-org case", () => {
     const webhooks = [wh("a", "org1", "C_ONE")];
     expect(selectCandidateWebhooks(webhooks, "C_ONE")).toHaveLength(1);
-    expect(selectCandidateWebhooks(webhooks, "C_ELSEWHERE")).toHaveLength(1);
+    expect(selectCandidateWebhooks(webhooks, "C_ELSEWHERE")).toHaveLength(0);
   });
 });

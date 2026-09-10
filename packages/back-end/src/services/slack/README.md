@@ -28,7 +28,11 @@ the assistant switch.
 Slack event and interaction requests are acknowledged only after Agenda accepts
 the job. A unique delivery index and insert-only upsert retain completed delivery
 identities for the normal Agenda cleanup period (seven days). A duplicate never
-reschedules a completed task. Database failures return 503 so Slack can retry.
+reschedules a completed task. Database failures return 503 so Slack can retry. Button deliveries are deduplicated
+by the Slack click timestamp: a fresh click can retry a failed access or usage
+check. The permanent action claim is acquired only after these checks pass,
+immediately before resolving the approved action; preflight failures leave the
+original approval controls available.
 
 Turns in the same Slack thread are serialized with a durable `thread:` claim in
 `slacktaskclaims`. Busy jobs retry after five seconds. Claims are released when

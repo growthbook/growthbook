@@ -47,3 +47,29 @@ describe("toSlackMrkdwn", () => {
     );
   });
 });
+
+it("neutralizes Slack mentions while preserving generated links", () => {
+  expect(
+    toSlackMrkdwn("<!channel> <!here> <@U123> & [results](/experiment/exp_1)", {
+      appOrigin: APP_ORIGIN,
+    }),
+  ).toBe(
+    "&lt;!channel&gt; &lt;!here&gt; &lt;@U123&gt; &amp; <https://app.growthbook.io/experiment/exp_1|results>",
+  );
+});
+it("escapes mentions in link labels and rejects control syntax in URLs", () => {
+  const result = toSlackMrkdwn(
+    "[<@U123>](/experiment/x) [x](https://example.com/><!here>) [y](javascript:alert)",
+    { appOrigin: APP_ORIGIN },
+  );
+  expect(result).toContain(
+    "<https://app.growthbook.io/experiment/x|&lt;@U123&gt;>",
+  );
+  expect(result).not.toContain("<!here>");
+  expect(result).not.toContain("<javascript:");
+});
+it("does not turn encoded entities into active mentions", () => {
+  expect(toSlackMrkdwn("&lt;!channel&gt;", { appOrigin: APP_ORIGIN })).toBe(
+    "&amp;lt;!channel&amp;gt;",
+  );
+});
