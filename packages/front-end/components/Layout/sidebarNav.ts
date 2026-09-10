@@ -65,7 +65,9 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Contextual Bandits",
         href: "/contextual-bandits",
         path: /^contextual-bandits?($|\/)/,
-        filter: ({ gb }) => !!gb?.isOn("contextual-bandits"),
+        // Default ON; the remote flag only turns this off for specific orgs.
+        filter: ({ gb }) =>
+          gb?.getFeatureValue("contextual-bandits", true) ?? true,
       },
       {
         name: "Holdouts",

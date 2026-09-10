@@ -112,6 +112,10 @@ export const postProductAnalyticsRun = async (
     });
   }
 
+  if (config.chartType === "rawTable") {
+    throw new BadRequestError("Raw tables do not support comparisons");
+  }
+
   if (
     config.dataset.type === "sql" &&
     !hasTimestampColumn(config.dataset.timestampColumn)
