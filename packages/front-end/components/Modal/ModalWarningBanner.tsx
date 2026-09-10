@@ -23,6 +23,7 @@ export default function ModalWarningBanner({
       style={{
         background: "var(--amber-a3)",
         borderTop: "1px solid var(--amber-a5)",
+        borderBottom: "1px solid var(--amber-a5)",
       }}
     >
       <Flex align="center" gap="2" style={{ color: "var(--amber-11)" }}>
