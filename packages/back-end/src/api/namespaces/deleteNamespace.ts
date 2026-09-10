@@ -1,10 +1,9 @@
 import { deleteNamespaceValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { ConflictError, NotFoundError } from "back-end/src/util/errors";
+import { NotFoundError } from "back-end/src/util/errors";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { filterActiveNamespaceExperiments } from "./namespaceApiUtils";
+import { assertNamespaceNotInUse } from "back-end/src/services/namespaces";
 
 export const deleteNamespace = createApiRequestHandler(
   deleteNamespaceValidator,
@@ -21,12 +20,7 @@ export const deleteNamespace = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const allExperiments = await getAllExperiments(req.context);
-  if (filterActiveNamespaceExperiments(allExperiments, id).length > 0) {
-    throw new ConflictError(
-      "Cannot delete a namespace that is actively used by experiments.",
-    );
-  }
+  await assertNamespaceNotInUse(req.context, id, "delete");
 
   const updatedList = namespaces.filter((n) => n.name !== id);
 
