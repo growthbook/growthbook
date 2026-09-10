@@ -3,6 +3,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
+import { assertEnvironmentDeletable } from "back-end/src/services/environments";
 
 export const deleteEnvironment = createApiRequestHandler(
   deleteEnvironmentValidator,
@@ -18,6 +19,8 @@ export const deleteEnvironment = createApiRequestHandler(
 
   if (!req.context.permissions.canDeleteEnvironment(environment))
     req.context.permissions.throwPermissionError();
+
+  await assertEnvironmentDeletable(req.context, id);
 
   const updates: Partial<OrganizationInterface> = {
     settings: {

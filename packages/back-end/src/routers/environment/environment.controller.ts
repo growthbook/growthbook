@@ -28,6 +28,7 @@ import {
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { assertEnvironmentDeletable } from "back-end/src/services/environments";
 
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
 
@@ -342,6 +343,8 @@ export const deleteEnvironment = async (
   if (!context.permissions.canDeleteEnvironment(envToDelete)) {
     context.permissions.throwPermissionError();
   }
+
+  await assertEnvironmentDeletable(context, id);
 
   try {
     await updateOrganization(org.id, {
