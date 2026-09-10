@@ -1,34 +1,77 @@
 import { FC } from "react";
 import { Flex } from "@radix-ui/themes";
 import UITooltip from "@/ui/Tooltip";
+import Badge from "@/ui/Badge";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
 import {
+  describeFeatureHealthEntry,
+  entryMatchesHealthFilter,
   FEATURE_HEALTH_STATES,
-  getFeatureHealthStates,
+  getFeatureHealthEntries,
 } from "@/services/health";
 
-// The feature list's Health column: rules that want cleaning up while the
-// flag itself stays (temp rollouts). Staleness has its own Stale column.
-const FeatureHealthCell: FC<{ staleData?: StaleStateEntry }> = ({
-  staleData,
-}) => {
-  const states = getFeatureHealthStates(staleData);
-  if (!states.length) return null;
-  return (
-    <Flex direction="column" gap="1" align="start">
-      {states.map((state) => (
-        <UITooltip
-          key={state}
-          content={FEATURE_HEALTH_STATES[state].description}
-        >
-          <Flex gap="1" align="center" style={{ whiteSpace: "nowrap" }}>
-            <ExperimentDot color={FEATURE_HEALTH_STATES[state].color} />
-            {FEATURE_HEALTH_STATES[state].label}
+// The feature list's Health column: the most severe signal (plus any signal the
+// user is filtering on), a "+N" chip for the rest, and a tooltip listing
+// everything. Staleness has its own Stale column.
+const FeatureHealthCell: FC<{
+  staleData?: StaleStateEntry;
+  // Active `health:` filter values; matching signals always render in full.
+  healthFilter?: string[];
+}> = ({ staleData, healthFilter = [] }) => {
+  const entries = getFeatureHealthEntries(staleData);
+  if (!entries.length) return null;
+  const shown = entries.filter(
+    (entry, i) => i === 0 || entryMatchesHealthFilter(entry, healthFilter),
+  );
+  const hidden = entries.length - shown.length;
+
+  const tooltip = (
+    <Flex direction="column" gap="2">
+      {entries.map((entry) => (
+        <Flex key={entry.signal} direction="column" gap="0">
+          <Flex gap="1" align="center">
+            <ExperimentDot color={FEATURE_HEALTH_STATES[entry.signal].color} />
+            <strong>
+              {FEATURE_HEALTH_STATES[entry.signal].label}
+              {entry.count > 1 ? ` (${entry.count})` : ""}
+            </strong>
           </Flex>
-        </UITooltip>
+          <span>{describeFeatureHealthEntry(entry)}</span>
+        </Flex>
       ))}
     </Flex>
+  );
+
+  return (
+    <UITooltip content={tooltip}>
+      <Flex direction="column" gap="1" align="start">
+        {shown.map((entry, i) => (
+          <Flex
+            key={entry.signal}
+            gap="2"
+            align="center"
+            style={{ whiteSpace: "nowrap" }}
+          >
+            <Flex gap="1" align="center">
+              <ExperimentDot
+                color={FEATURE_HEALTH_STATES[entry.signal].color}
+              />
+              {FEATURE_HEALTH_STATES[entry.signal].label}
+            </Flex>
+            {i === shown.length - 1 && hidden > 0 && (
+              <Badge
+                label={`+${hidden}`}
+                color="gray"
+                variant="soft"
+                radius="full"
+                size="xs"
+              />
+            )}
+          </Flex>
+        ))}
+      </Flex>
+    </UITooltip>
   );
 };
 

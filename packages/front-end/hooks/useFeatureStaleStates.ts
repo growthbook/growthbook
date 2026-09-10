@@ -8,12 +8,15 @@ import {
   ReactNode,
   createElement,
 } from "react";
-import { IsFeatureStaleResult } from "shared/util";
+import { FeatureHealthEntry, IsFeatureStaleResult } from "shared/util";
 import { useAuth } from "@/services/auth";
 
+// Staleness plus deduped health signals, from the windowed /features/health
+// endpoint; both the Stale and Health columns read from this one cache.
 export type StaleStateEntry = IsFeatureStaleResult & {
   neverStale: boolean;
   computedAt: string;
+  health: FeatureHealthEntry[];
 };
 export type StaleStateMap = Record<string, StaleStateEntry>;
 
@@ -58,8 +61,8 @@ export function FeatureStaleStatesProvider({
       inflightKey.current = key;
       const url =
         ids !== undefined
-          ? `/features/stale?ids=${ids.join(",")}`
-          : "/features/stale";
+          ? `/features/health?ids=${ids.join(",")}`
+          : "/features/health";
       setLoading(true);
       try {
         const res = await apiCall<{ features: StaleStateMap }>(url);

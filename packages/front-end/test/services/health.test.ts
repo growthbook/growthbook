@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  describeFeatureHealthEntry,
+  entryMatchesHealthFilter,
   getFeatureHealthSearchTokens,
+  getFeatureHealthSeverity,
   getFeatureHealthStates,
+  getFeatureOverallHealthSeverity,
   getFeatureStaleSearchTokens,
 } from "@/services/health";
 
@@ -10,75 +14,86 @@ describe("getFeatureHealthStates", () => {
     expect(getFeatureHealthStates(undefined)).toEqual([]);
   });
 
-  it("ignores staleness — that is the Stale column's job", () => {
-    expect(
-      getFeatureHealthStates({
-        stale: true,
-        envResults: {
-          prod: { stale: true, reason: "no-rules" },
-          dev: { stale: true, reason: "no-rules" },
-        },
-      }),
-    ).toEqual([]);
-  });
-
-  it("reads temp rollouts from the tempRollout field, not the reason", () => {
+  it("reads the server's deduped signals in order", () => {
     expect(
       getFeatureHealthStates({
         stale: false,
-        envResults: {
-          prod: {
-            stale: false,
-            reason: "has-rules",
-            tempRollout: "old-temp-rollout",
-          },
-          staging: {
-            stale: false,
-            reason: "temp-rollout",
-            tempRollout: "temp-rollout",
-          },
-          dev: { stale: true, reason: "no-rules" },
-        },
+        health: [
+          { signal: "invalid-value", count: 1 },
+          { signal: "ramp-needs-approval", count: 3 },
+        ],
       }),
-    ).toEqual(["old-temp-rollout", "temp-rollout"]);
+    ).toEqual(["invalid-value", "ramp-needs-approval"]);
   });
+});
 
-  it("reports an old rollout even when it made the env stale", () => {
+describe("describeFeatureHealthEntry", () => {
+  it("adds counts and environments to the description", () => {
     expect(
-      getFeatureHealthStates({
-        stale: true,
-        envResults: {
-          prod: {
-            stale: true,
-            reason: "old-temp-rollout",
-            tempRollout: "old-temp-rollout",
-          },
-        },
+      describeFeatureHealthEntry({
+        signal: "unreachable-rule",
+        count: 2,
+        environments: ["dev", "prod"],
       }),
-    ).toEqual(["old-temp-rollout"]);
+    ).toBe(
+      "An earlier rule always matches, so this rule never runs. 2 occurrences. Environments: dev, prod.",
+    );
+    expect(
+      describeFeatureHealthEntry({ signal: "ramp-paused", count: 1 }),
+    ).toBe("A ramp schedule is paused.");
   });
 });
 
 describe("getFeatureHealthSearchTokens", () => {
-  it("lets health:temp-rollout match an old temp rollout", () => {
+  it("lets health:temp-rollout match an old temp rollout and adds severity", () => {
     expect(
       getFeatureHealthSearchTokens({
         stale: false,
-        envResults: { prod: { stale: false, tempRollout: "old-temp-rollout" } },
+        health: [{ signal: "old-temp-rollout", count: 1 }],
       }),
-    ).toEqual(["old-temp-rollout", "temp-rollout"]);
+    ).toEqual(["old-temp-rollout", "temp-rollout", "low"]);
   });
 
   it("does not duplicate temp-rollout when both tiers are present", () => {
     expect(
       getFeatureHealthSearchTokens({
         stale: false,
-        envResults: {
-          prod: { stale: false, tempRollout: "old-temp-rollout" },
-          dev: { stale: false, tempRollout: "temp-rollout" },
-        },
+        health: [
+          { signal: "old-temp-rollout", count: 1 },
+          { signal: "temp-rollout", count: 1 },
+        ],
       }),
-    ).toEqual(["old-temp-rollout", "temp-rollout"]);
+    ).toEqual(["old-temp-rollout", "temp-rollout", "low"]);
+  });
+});
+
+describe("entryMatchesHealthFilter", () => {
+  it("matches by signal, temp-rollout alias, or severity", () => {
+    const old = { signal: "old-temp-rollout" as const, count: 1 };
+    expect(entryMatchesHealthFilter(old, ["old-temp-rollout"])).toBe(true);
+    expect(entryMatchesHealthFilter(old, ["temp-rollout"])).toBe(true);
+    expect(entryMatchesHealthFilter(old, ["low"])).toBe(true);
+    expect(entryMatchesHealthFilter(old, ["high", "ramp-paused"])).toBe(false);
+    expect(entryMatchesHealthFilter(old, [])).toBe(false);
+  });
+});
+
+describe("severity", () => {
+  it("maps colors to high, medium, low and reports the most severe overall", () => {
+    expect(getFeatureHealthSeverity("invalid-value")).toBe("high");
+    expect(getFeatureHealthSeverity("unreachable-rule")).toBe("medium");
+    expect(getFeatureHealthSeverity("ramp-paused")).toBe("medium");
+    expect(getFeatureHealthSeverity("old-temp-rollout")).toBe("low");
+    expect(
+      getFeatureOverallHealthSeverity({
+        stale: false,
+        health: [
+          { signal: "unreachable-rule", count: 2 },
+          { signal: "temp-rollout", count: 1 },
+        ],
+      }),
+    ).toBe("medium");
+    expect(getFeatureOverallHealthSeverity({ stale: false })).toBeNull();
   });
 });
 

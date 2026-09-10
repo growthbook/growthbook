@@ -784,7 +784,7 @@ const isContextualBanditRefRule = (
 ): rule is ContextualBanditRefRule => rule.type === "contextual-bandit-ref";
 
 // A rule that unconditionally matches all users, blocking any rules after it.
-const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
+export const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
   if (!hasNoCondition(rule)) return false;
   if ((rule.savedGroups ?? []).length > 0) return false;
   if ((rule.prerequisites ?? []).length > 0) return false;

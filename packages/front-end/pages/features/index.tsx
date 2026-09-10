@@ -223,6 +223,13 @@ export default function FeaturesPage() {
       (f.field === "is" && f.values.includes("draft")) ||
       (f.field === "has" && f.values.includes("draft")),
   );
+  const healthFilterValues = useMemo(
+    () =>
+      syntaxFilters
+        .filter((f) => f.field === "health" && !f.negated)
+        .flatMap((f) => f.values.map((v) => v.toLowerCase())),
+    [syntaxFilters],
+  );
   // Both the Stale (`is:`) and Health (`health:`) filters need every
   // feature's stale data, not just the visible page.
   const hasStaleFilter = syntaxFilters.some(
@@ -529,6 +536,7 @@ export default function FeaturesPage() {
                       {!feature.archived && (
                         <FeatureHealthCell
                           staleData={staleHook.getStaleState(feature.id)}
+                          healthFilter={healthFilterValues}
                         />
                       )}
                     </TableCell>

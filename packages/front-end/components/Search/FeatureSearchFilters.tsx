@@ -4,8 +4,12 @@ import { PiX } from "react-icons/pi";
 import Text from "@/ui/Text";
 import {
   FEATURE_HEALTH_FILTER_OPTIONS,
+  FEATURE_HEALTH_SEVERITIES,
+  FEATURE_HEALTH_SEVERITY_FILTER_OPTIONS,
+  FEATURE_HEALTH_STATES,
   FEATURE_STALE_FILTER_OPTIONS,
 } from "@/services/health";
+import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useEnvironments, useAttributeSchema } from "@/services/features";
 import Tag from "@/components/Tags/Tag";
 import Button from "@/ui/Button";
@@ -699,6 +703,72 @@ const FeatureSearchFilters: FC<
         />
       </DropdownMenu>
 
+      {/* Health: severity first, then specific signals */}
+      <DropdownMenu
+        trigger={FilterHeading({
+          heading: "health",
+          open: dropdownFilterOpen === "health",
+        })}
+        open={dropdownFilterOpen === "health"}
+        menuPlacement="end"
+        variant="soft"
+        onOpenChange={(o) => {
+          setDropdownFilterOpen(o ? "health" : "");
+        }}
+      >
+        <DropdownMenuLabel>Severity</DropdownMenuLabel>
+        {FEATURE_HEALTH_SEVERITY_FILTER_OPTIONS.map(({ value, label }) => (
+          <DropdownMenuItem
+            key={value}
+            onClick={() => {
+              updateQuery({
+                field: "health",
+                values: [value],
+                operator: "",
+                negated: false,
+              });
+            }}
+          >
+            <FilterItem
+              item={
+                <Flex gap="1" align="center">
+                  <ExperimentDot
+                    color={FEATURE_HEALTH_SEVERITIES[value].color}
+                  />
+                  {label}
+                </Flex>
+              }
+              exists={doesFilterExist("health", value, "")}
+            />
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Issue</DropdownMenuLabel>
+        {FEATURE_HEALTH_FILTER_OPTIONS.map(({ value, label }) => (
+          <DropdownMenuItem
+            key={value}
+            onClick={() => {
+              updateQuery({
+                field: "health",
+                values: [value],
+                operator: "",
+                negated: false,
+              });
+            }}
+          >
+            <FilterItem
+              item={
+                <Flex gap="1" align="center">
+                  <ExperimentDot color={FEATURE_HEALTH_STATES[value].color} />
+                  {label}
+                </Flex>
+              }
+              exists={doesFilterExist("health", value, "")}
+            />
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenu>
+
       {/* More: status/staleness filters */}
       <DropdownMenu
         trigger={FilterHeading({
@@ -760,26 +830,6 @@ const FeatureSearchFilters: FC<
             <FilterItem
               item={label}
               exists={doesFilterExist("is", value, "")}
-            />
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Health</DropdownMenuLabel>
-        {FEATURE_HEALTH_FILTER_OPTIONS.map(({ value, label }) => (
-          <DropdownMenuItem
-            key={value}
-            onClick={() => {
-              updateQuery({
-                field: "health",
-                values: [value],
-                operator: "",
-                negated: false,
-              });
-            }}
-          >
-            <FilterItem
-              item={label}
-              exists={doesFilterExist("health", value, "")}
             />
           </DropdownMenuItem>
         ))}

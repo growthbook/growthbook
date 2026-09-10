@@ -49,7 +49,10 @@ import {
   normalizeTargetingProjects,
   pruneOrphanedRampActions,
   reconcileMergeBaselines,
+  computeFeatureHealth,
+  FeatureHealthEntry,
 } from "shared/util";
+import { getHealthSettings } from "shared/enterprise";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
@@ -66,6 +69,7 @@ import {
   RevisionRampDetachAction,
   RevisionRampUpdateAction,
   RampStepAction,
+  RampScheduleInterface,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -7471,16 +7475,18 @@ export async function getFeatureDraftStates(
 }
 
 // TODO: consider adding a force-recompute option that writes results back
-export async function getFeaturesStaleStates(
+type FeatureHealthStateEntry = IsFeatureStaleResult & {
+  neverStale: boolean;
+  computedAt: string;
+  health: FeatureHealthEntry[];
+};
+
+// Staleness plus cleanup/attention signals for the feature list. Windowed:
+// `ids` limits the work to the visible rows; omit it for filter-driven scans.
+export async function getFeaturesHealth(
   req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<
-    {
-      status: 200;
-      features: Record<
-        string,
-        IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
-      >;
-    },
+    { status: 200; features: Record<string, FeatureHealthStateEntry> },
     EventUserForResponseLocals
   >,
 ) {
@@ -7489,13 +7495,26 @@ export async function getFeaturesStaleStates(
     ? req.query.ids.split(",").filter(Boolean)
     : undefined;
 
-  const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
-    getAllFeaturesWithoutEditorFields(context),
-    getAllExperimentsForStaleGraph(context),
-    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
-      sparse: true,
-    }),
-  ]);
+  const [allFeatures, allExperiments, draftRevisions, allRampSchedules] =
+    await Promise.all([
+      getAllFeaturesWithoutEditorFields(context),
+      getAllExperimentsForStaleGraph(context),
+      getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
+        sparse: true,
+      }),
+      context.models.rampSchedules.getAll(),
+    ]);
+  const rampSchedulesByFeature = new Map<string, RampScheduleInterface[]>();
+  for (const schedule of allRampSchedules) {
+    if (schedule.entityType !== "feature") continue;
+    const list = rampSchedulesByFeature.get(schedule.entityId) ?? [];
+    list.push(schedule);
+    rampSchedulesByFeature.set(schedule.entityId, list);
+  }
+  const healthSettings = getHealthSettings(
+    context.org.settings,
+    context.hasPremiumFeature("decision-framework"),
+  );
 
   const mostRecentDraftDateByFeatureId = new Map<string, Date>();
   for (const rev of draftRevisions) {
@@ -7510,13 +7529,20 @@ export async function getFeaturesStaleStates(
     ? allFeatures.filter((f) => featureIds.includes(f.id))
     : allFeatures;
 
+  const safeRollouts = await context.models.safeRollout.getAllByFeatureIds(
+    targetFeatures.map((f) => f.id),
+  );
+  const safeRolloutsByFeature = new Map<string, SafeRolloutInterface[]>();
+  for (const safeRollout of safeRollouts) {
+    const list = safeRolloutsByFeature.get(safeRollout.featureId) ?? [];
+    list.push(safeRollout);
+    safeRolloutsByFeature.set(safeRollout.featureId, list);
+  }
+
   const lookups = buildFeatureLookups(allFeatures, allExperiments);
 
   const computedAt = new Date().toISOString();
-  const result: Record<
-    string,
-    IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
-  > = {};
+  const result: Record<string, FeatureHealthStateEntry> = {};
 
   for (let i = 0; i < targetFeatures.length; i++) {
     await yieldEventLoop(i);
@@ -7544,6 +7570,15 @@ export async function getFeaturesStaleStates(
       ...staleResult,
       neverStale: feature.neverStale ?? false,
       computedAt,
+      health: computeFeatureHealth({
+        feature,
+        environments: applicableEnvIds,
+        envResults: staleResult.envResults,
+        experimentMap: lookups.experimentMap,
+        rampSchedules: rampSchedulesByFeature.get(feature.id) ?? [],
+        safeRollouts: safeRolloutsByFeature.get(feature.id) ?? [],
+        healthSettings,
+      }),
     };
   }
 
