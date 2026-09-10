@@ -13,8 +13,8 @@ want to have an experimentation development culture, and determining the impact 
 
 Feature flag experiments use an experiment override rule. Saving and publishing the rule makes it available to the SDK.
 A user is enrolled when your application evaluates the feature (for example with `isOn` or `getFeatureValue`) and they
-qualify. That is when `trackingCallback` runs. If they are not included, you still get a value and `trackingCallback`
-does not run.
+qualify. That is when `trackingCallback` runs so the exposure can be tracked in your data warehouse. If they are not
+included, you still get a value and `trackingCallback` does not run.
 
 Here's what an Experiment rule looks like in the GrowthBook UI:
 
@@ -83,5 +83,6 @@ Before you can use namespaces, you must configure them under _Experimentation â†
 
 ## Experiment Results
 
-Results only include people who got an exposure. There is a link to view experiment results on the bottom of each
-experiment override rule. Read more about [experiment results](/app/experiment-results).
+Results only include people who got an exposure. Those exposures flow into your data warehouse via `trackingCallback`.
+There is a link to view experiment results on the bottom of each experiment override rule. Read more about
+[experiment results](/app/experiment-results).
