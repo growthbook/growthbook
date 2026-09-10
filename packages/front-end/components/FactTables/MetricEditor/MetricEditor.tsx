@@ -249,7 +249,8 @@ export default function MetricEditor({
               >
                 {availableFactTables.map((ft) => (
                   <SelectItem key={ft.id} value={ft.id}>
-                    {ft.name} ({getDatasourceById(ft.datasource)?.name || ft.datasource})
+                    {ft.name} (
+                    {getDatasourceById(ft.datasource)?.name || ft.datasource})
                   </SelectItem>
                 ))}
               </Select>
@@ -415,17 +416,12 @@ export default function MetricEditor({
                 value={form.watch("description")}
                 onChange={(e) => form.setValue("description", e.target.value)}
               />
-              <Flex direction="column" gap="1">
-                <Text weight="semibold" size="sm" as="div">
-                  Tags
-                </Text>
-                <TagsInput
-                    label="Tags"
-                    autoFocus={false}
-                  value={form.watch("tags") || []}
-                  onChange={(tags) => form.setValue("tags", tags)}
-                />
-              </Flex>
+              <TagsInput
+                label="Tags"
+                autoFocus={false}
+                value={form.watch("tags") || []}
+                onChange={(tags) => form.setValue("tags", tags)}
+              />
             </Flex>
           ) : (
             <Flex direction="column" gap="6">
