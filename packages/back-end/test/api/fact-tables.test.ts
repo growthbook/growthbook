@@ -12,7 +12,10 @@ import {
 import { columnsNeedDetection } from "back-end/src/util/factTable";
 import { ReqContext } from "back-end/types/request";
 
-const existing: Pick<FactTableInterface, "sql" | "eventName"> = {
+const existing: Pick<
+  FactTableInterface,
+  "sql" | "eventName" | "timestampColumn" | "userIdColumns"
+> = {
   sql: "SELECT user_id, timestamp FROM events",
   eventName: "purchase",
 };
@@ -56,6 +59,28 @@ describe("needsColumnRefresh", () => {
     };
     const changes: UpdateFactTableProps = { sql: existing.sql };
     expect(needsColumnRefresh(blank, changes)).toBe(true);
+  });
+
+  // The refresh is what re-derives userIdTypes from the mapping and re-runs
+  // detection with the new date filter, so a real mapping change has to trigger
+  // one -- but a resent no-op mustn't ("" and "timestamp" are the same column).
+  it("triggers only on a real column mapping change", () => {
+    expect(
+      needsColumnRefresh(existing, { timestampColumn: "event_time" }),
+    ).toBe(true);
+    expect(
+      needsColumnRefresh(existing, { userIdColumns: { user_id: "userId" } }),
+    ).toBe(true);
+    expect(needsColumnRefresh(existing, { timestampColumn: "" })).toBe(false);
+    expect(needsColumnRefresh(existing, { timestampColumn: "timestamp" })).toBe(
+      false,
+    );
+    expect(
+      needsColumnRefresh(
+        { ...existing, userIdColumns: { user_id: "userId" } },
+        { userIdColumns: { user_id: "userId" } },
+      ),
+    ).toBe(false);
   });
 });
 

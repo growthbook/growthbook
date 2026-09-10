@@ -1461,6 +1461,13 @@ export default function RuleModal({
         delete values.scheduleRules;
       }
 
+      // Only inline experiment rules store disableStickyBucketing; on every
+      // other type it's a stray form default
+      if (values.type !== "experiment") {
+        delete (values as { disableStickyBucketing?: boolean })
+          .disableStickyBucketing;
+      }
+
       const correctedRule = validateFeatureRule(
         values as FeatureRule,
         feature,

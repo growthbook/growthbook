@@ -11,9 +11,11 @@ jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   createAgentHandler: () => async () => undefined,
 }));
 
+import type { AIChatMessage } from "shared/ai-chat";
 import {
   _buildGeneralAgentSystemPrompt,
   _coerceBody,
+  _offScreenDashboardUpdate,
   _requiresMutationConfirmation,
 } from "back-end/src/agent/general-agent";
 
@@ -175,6 +177,16 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
     ).toBe(false);
   });
 
+  it("still gates a dashboard create", () => {
+    // The card is the user's only review of a multi-block dashboard.
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/dashboards",
+      }),
+    ).toBe(true);
+  });
+
   it("ignores query strings when matching the allowlist", () => {
     expect(
       _requiresMutationConfirmation({
@@ -182,5 +194,108 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
         path: "/api/v1/experiments/exp_123/snapshot?force=true",
       }),
     ).toBe(false);
+  });
+});
+
+describe("offScreenDashboardUpdate (the dashboard on screen is the only one)", () => {
+  const onPage = (currentPage?: string): AIChatMessage[] => [
+    { role: "assistant", id: "a", ts: 0, content: "earlier" },
+    {
+      role: "user",
+      id: "u",
+      ts: 1,
+      content: "change it",
+      ...(currentPage ? { currentPage } : {}),
+    },
+  ];
+
+  const viewing = onPage("/product-analytics/dashboards/dash_abc");
+
+  const put = (path: string) => ({ method: "PUT" as const, path });
+
+  it("allows an update to the dashboard the user is viewing", () => {
+    expect(
+      _offScreenDashboardUpdate(put("/api/v1/dashboards/dash_abc"), viewing),
+    ).toBeUndefined();
+  });
+
+  it("allows it whatever prefix or query string the model sent", () => {
+    for (const path of [
+      "/dashboards/dash_abc",
+      "/v1/dashboards/dash_abc",
+      "/api/v1/dashboards/dash_abc?foo=1",
+      "/api/v1/dashboards/dash_abc/",
+    ]) {
+      expect(_offScreenDashboardUpdate(put(path), viewing)).toBeUndefined();
+    }
+  });
+
+  it("rejects an update to any other dashboard, and names both", () => {
+    const rejection = _offScreenDashboardUpdate(
+      put("/api/v1/dashboards/dash_other"),
+      viewing,
+    );
+
+    expect(rejection?.status).toBe("rejected");
+    expect(rejection?.message).toContain("dash_abc");
+    expect(rejection?.message).toContain("dash_other");
+    expect(rejection?.message).toContain("Do not retry");
+  });
+
+  it("rejects an update when the user is not on a dashboard at all", () => {
+    // Browsing the list is the motivating case: every title is right there.
+    for (const page of [
+      "/product-analytics/dashboards",
+      "/features/dark-mode",
+      undefined,
+    ]) {
+      expect(
+        _offScreenDashboardUpdate(
+          put("/api/v1/dashboards/dash_abc"),
+          onPage(page),
+        ),
+      ).toMatchObject({ status: "rejected" });
+    }
+  });
+
+  it("reads the newest page context, not the first one in the thread", () => {
+    const navigated: AIChatMessage[] = [
+      ...onPage("/product-analytics/dashboards/dash_old"),
+      {
+        role: "user",
+        id: "u2",
+        ts: 2,
+        content: "now this one",
+        currentPage: "/product-analytics/dashboards/dash_new",
+      },
+    ];
+
+    expect(
+      _offScreenDashboardUpdate(put("/api/v1/dashboards/dash_new"), navigated),
+    ).toBeUndefined();
+    expect(
+      _offScreenDashboardUpdate(put("/api/v1/dashboards/dash_old"), navigated),
+    ).toMatchObject({ status: "rejected" });
+  });
+
+  it("leaves creates, reads, and other resources alone", () => {
+    expect(
+      _offScreenDashboardUpdate(
+        { method: "POST", path: "/api/v1/dashboards" },
+        onPage("/features/dark-mode"),
+      ),
+    ).toBeUndefined();
+    expect(
+      _offScreenDashboardUpdate(
+        { method: "GET", path: "/api/v1/dashboards/dash_other" },
+        viewing,
+      ),
+    ).toBeUndefined();
+    expect(
+      _offScreenDashboardUpdate(
+        put("/api/v1/experiments/exp_1"),
+        onPage("/features/dark-mode"),
+      ),
+    ).toBeUndefined();
   });
 });

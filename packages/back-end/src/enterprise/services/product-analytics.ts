@@ -37,6 +37,24 @@ function withRequestedDisplayConfig(
   existing: ProductAnalyticsExploration,
   requested: ExplorationConfig,
 ): ProductAnalyticsExploration {
+  if (
+    existing.config.type === "sql" &&
+    requested.type === "sql" &&
+    requested.chartType === "rawTable"
+  ) {
+    return {
+      ...existing,
+      config: {
+        ...existing.config,
+        chartType: requested.chartType,
+        dateRange: requested.dateRange,
+        dataset: {
+          ...existing.config.dataset,
+          hiddenColumns: requested.dataset.hiddenColumns,
+        },
+      },
+    };
+  }
   return {
     ...existing,
     config: {
@@ -63,6 +81,16 @@ export async function runProductAnalyticsExploration(
   const dataset = config.dataset;
   if (!dataset) {
     throw new BadRequestError("Dataset is required");
+  }
+  if (config.chartType === "rawTable") {
+    if (dataset.type !== "sql") {
+      throw new BadRequestError("Raw tables require a SQL dataset");
+    }
+    if (config.dimensions.length > 0 || dataset.values.length > 0) {
+      throw new BadRequestError(
+        "Raw tables cannot include grouped dimensions or aggregate values",
+      );
+    }
   }
 
   const datasource = await getDataSourceById(context, config.datasource);
@@ -108,6 +136,13 @@ export async function runProductAnalyticsExploration(
       throw new BadRequestError("No metrics provided");
     }
     const factMetrics = await context.models.factMetrics.getByIds(metricIds);
+    // `getByIds` just omits what it cannot find, and an id that resolves to
+    // nothing contributes no datasource — which reads downstream as a mismatch.
+    const foundIds = new Set(factMetrics.map((fm) => fm.id));
+    const missingIds = metricIds.filter((id) => !foundIds.has(id));
+    if (missingIds.length) {
+      throw new NotFoundError(`Metric not found: ${missingIds.join(", ")}`);
+    }
     factMetrics.forEach((fm) => metricMap.set(fm.id, fm));
 
     // Populate fact table map
