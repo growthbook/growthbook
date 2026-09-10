@@ -266,7 +266,6 @@ const OpenVisualEditorLink: FC<{
 
       {showEditorUrlDialog && openSettings && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType=""
           open
           header="Visual Editor Target URL"
@@ -284,7 +283,6 @@ const OpenVisualEditorLink: FC<{
 
       {showExtensionDialog && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType=""
           open
           header="GrowthBook Visual Editor Extension"

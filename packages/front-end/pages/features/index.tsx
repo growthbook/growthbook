@@ -35,6 +35,7 @@ import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
 import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useAgentOnboarding from "@/hooks/useAgentOnboarding";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -109,6 +110,7 @@ export default function FeaturesPage() {
   const { organization } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
   const permissionsUtil = usePermissionsUtil();
+  const agentOnboarding = useAgentOnboarding();
   const [modalOpen, setModalOpen] = useState(false);
   const [featureToDuplicate, setFeatureToDuplicate] =
     useState<FeatureInterface | null>(null);
@@ -731,7 +733,13 @@ export default function FeaturesPage() {
             }
             rightButton={
               showSetUpFlow ? (
-                <LinkButton href="/setup?exitLocation=features">
+                <LinkButton
+                  href={
+                    agentOnboarding
+                      ? "/connect?exitLocation=features"
+                      : "/setup?exitLocation=features"
+                  }
+                >
                   Connect your SDK
                 </LinkButton>
               ) : (
