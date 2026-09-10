@@ -317,10 +317,15 @@ export type ExperimentAnalysisSummaryHealth = z.infer<
   typeof experimentAnalysisSummaryHealth
 >;
 
-export const goalMetricStatus = ["won", "lost", "neutral"] as const;
+export const goalMetricStatus = ["won", "lost", "neutral", "failed"] as const;
 export type GoalMetricStatus = (typeof goalMetricStatus)[number];
 
-export const guardrailMetricStatus = ["safe", "lost", "neutral"] as const;
+export const guardrailMetricStatus = [
+  "safe",
+  "lost",
+  "neutral",
+  "failed",
+] as const;
 export type GuardrailMetricStatus = (typeof guardrailMetricStatus)[number];
 
 export const goalMetricResult = z.object({

@@ -2,6 +2,7 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   DecisionCriteriaRule,
+  DecisionCriteriaData,
   ExperimentResultStatusData,
   ExperimentDataForStatus,
   ExperimentHealthSettings,
@@ -15,6 +16,7 @@ import {
   getExperimentResultStatus,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
+import { MetricGroupInterface } from "../types/metric-groups";
 
 function shipNow(variationIds: string[]): ExperimentResultStatusData {
   return {
@@ -442,7 +444,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: [],
       requireSuperStatSig: false,
     });
-    expect(allWinning).toEqual("ship");
+    expect(allWinning).toEqual("matched");
 
     // One metric losing - should not match
     const oneLosing = evaluateDecisionRuleOnVariation({
@@ -458,7 +460,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: [],
       requireSuperStatSig: false,
     });
-    expect(oneLosing).toBeUndefined();
+    expect(oneLosing).toEqual("not-matched");
   });
 
   it("evaluates goal metrics with 'any' match condition", () => {
@@ -487,7 +489,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: [],
       requireSuperStatSig: false,
     });
-    expect(oneWinning).toEqual("ship");
+    expect(oneWinning).toEqual("matched");
 
     // No metrics winning - should not match
     const noneWinning = evaluateDecisionRuleOnVariation({
@@ -503,7 +505,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: [],
       requireSuperStatSig: false,
     });
-    expect(noneWinning).toBeUndefined();
+    expect(noneWinning).toEqual("not-matched");
   });
 
   it("evaluates goal metrics with 'none' match condition", () => {
@@ -532,7 +534,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: [],
       requireSuperStatSig: false,
     });
-    expect(noneLosing).toEqual("ship");
+    expect(noneLosing).toEqual("matched");
 
     // One metric losing - should not match
     const oneLosing = evaluateDecisionRuleOnVariation({
@@ -548,7 +550,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: [],
       requireSuperStatSig: false,
     });
-    expect(oneLosing).toBeUndefined();
+    expect(oneLosing).toEqual("not-matched");
   });
 
   it("evaluates guardrail metrics correctly", () => {
@@ -564,7 +566,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
     };
 
     // All guardrails losing - should match
-    const allWinning = evaluateDecisionRuleOnVariation({
+    const allLosing = evaluateDecisionRuleOnVariation({
       rule,
       variationStatus: {
         ...baseVariationStatus,
@@ -577,7 +579,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: ["guardrail1", "guardrail2"],
       requireSuperStatSig: false,
     });
-    expect(allWinning).toEqual("rollback");
+    expect(allLosing).toEqual("matched");
 
     // One guardrail losing - should not match
     const oneLosing = evaluateDecisionRuleOnVariation({
@@ -593,7 +595,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: ["guardrail1", "guardrail2"],
       requireSuperStatSig: false,
     });
-    expect(oneLosing).toBeUndefined();
+    expect(oneLosing).toEqual("not-matched");
   });
 
   it("respects requireSuperStatSig flag", () => {
@@ -621,7 +623,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: [],
       requireSuperStatSig: true,
     });
-    expect(superStatSigRequired).toBeUndefined();
+    expect(superStatSigRequired).toEqual("not-matched");
 
     // With requireSuperStatSig=false, should check regular status
     const superStatSigNotRequired = evaluateDecisionRuleOnVariation({
@@ -636,7 +638,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: [],
       requireSuperStatSig: false,
     });
-    expect(superStatSigNotRequired).toEqual("ship");
+    expect(superStatSigNotRequired).toEqual("matched");
   });
 
   it("handles multiple conditions", () => {
@@ -648,12 +650,12 @@ describe("evaluateDecisionRuleOnVariation", () => {
           direction: "statsigWinner" as const,
         },
         {
-          metrics: "guardrails" as const,
-          match: "none" as const,
-          direction: "statsigLoser" as const,
+          metrics: "guardrails",
+          match: "none",
+          direction: "statsigLoser",
         },
       ],
-      action: "ship" as const,
+      action: "ship",
     };
 
     // All conditions met - should match
@@ -672,7 +674,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: ["guardrail1"],
       requireSuperStatSig: false,
     });
-    expect(allConditionsMet).toEqual("ship");
+    expect(allConditionsMet).toEqual("matched");
 
     // One condition not met - should not match
     const oneConditionNotMet = evaluateDecisionRuleOnVariation({
@@ -690,7 +692,73 @@ describe("evaluateDecisionRuleOnVariation", () => {
       guardrailMetrics: ["guardrail1"],
       requireSuperStatSig: false,
     });
-    expect(oneConditionNotMet).toBeUndefined();
+    expect(oneConditionNotMet).toEqual("not-matched");
+  });
+
+  it("returns not-matched when one condition is indeterminate and another does not match in either order", () => {
+    const indeterminateCondition: DecisionCriteriaRule["conditions"][number] = {
+      metrics: "guardrails",
+      match: "none",
+      direction: "statsigLoser",
+    };
+    const notMatchedCondition: DecisionCriteriaRule["conditions"][number] = {
+      metrics: "goals",
+      match: "all",
+      direction: "statsigWinner",
+    };
+
+    for (const conditions of [
+      [indeterminateCondition, notMatchedCondition],
+      [notMatchedCondition, indeterminateCondition],
+    ]) {
+      expect(
+        evaluateDecisionRuleOnVariation({
+          rule: { conditions, action: "ship" },
+          variationStatus: {
+            ...baseVariationStatus,
+            goalMetrics: {
+              goal1: { status: "lost", superStatSigStatus: "lost" },
+            },
+            guardrailMetrics: { guardrail1: { status: "failed" } },
+          },
+          goalMetrics: ["goal1"],
+          guardrailMetrics: ["guardrail1"],
+          requireSuperStatSig: false,
+        }),
+      ).toEqual("not-matched");
+    }
+  });
+
+  it("returns indeterminate when one condition is indeterminate and the rest match", () => {
+    expect(
+      evaluateDecisionRuleOnVariation({
+        rule: {
+          conditions: [
+            {
+              metrics: "guardrails",
+              match: "none",
+              direction: "statsigLoser",
+            },
+            {
+              metrics: "goals",
+              match: "all",
+              direction: "statsigWinner",
+            },
+          ],
+          action: "ship",
+        },
+        variationStatus: {
+          ...baseVariationStatus,
+          goalMetrics: {
+            goal1: { status: "won", superStatSigStatus: "won" },
+          },
+          guardrailMetrics: { guardrail1: { status: "failed" } },
+        },
+        goalMetrics: ["goal1"],
+        guardrailMetrics: ["guardrail1"],
+        requireSuperStatSig: false,
+      }),
+    ).toEqual("indeterminate");
   });
 });
 
@@ -711,7 +779,7 @@ describe("getVariationDecisions", () => {
     settings: { sequentialTesting: false },
   };
 
-  it("applies rules to each variation and returns default (no) action if no rules match and power is reached (not reached) ", () => {
+  it("returns a decided fallback with power and pending without power when no rules match", () => {
     const decisionCriteria = {
       id: "test-criteria-1",
       name: "Test Criteria 1",
@@ -740,16 +808,18 @@ describe("getVariationDecisions", () => {
 
     expect(results).toEqual([
       {
+        status: "decided",
         decisionCriteriaAction: "review",
         variation: { variationId: "1", decidingRule: null },
       },
       {
+        status: "decided",
         decisionCriteriaAction: "review",
         variation: { variationId: "2", decidingRule: null },
       },
     ]);
 
-    // without power, return null
+    // Without power, no fallback decision is available yet.
     const resultsWithoutPower = getVariationDecisions({
       resultsStatus: baseResultsStatus,
       decisionCriteria,
@@ -760,11 +830,11 @@ describe("getVariationDecisions", () => {
 
     expect(resultsWithoutPower).toEqual([
       {
-        decisionCriteriaAction: null,
+        status: "pending",
         variation: { variationId: "1", decidingRule: null },
       },
       {
-        decisionCriteriaAction: null,
+        status: "pending",
         variation: { variationId: "2", decidingRule: null },
       },
     ]);
@@ -798,10 +868,12 @@ describe("getVariationDecisions", () => {
 
     expect(results).toEqual([
       {
+        status: "decided",
         decisionCriteriaAction: "review",
         variation: { variationId: "1", decidingRule: null },
       },
       {
+        status: "decided",
         decisionCriteriaAction: "review",
         variation: { variationId: "2", decidingRule: null },
       },
@@ -865,10 +937,12 @@ describe("getVariationDecisions", () => {
 
     expect(results).toEqual([
       {
+        status: "decided",
         decisionCriteriaAction: "ship",
         variation: { variationId: "1", decidingRule: shipRule },
       },
       {
+        status: "decided",
         decisionCriteriaAction: "rollback",
         variation: { variationId: "2", decidingRule: rollbackRule },
       },
@@ -935,10 +1009,12 @@ describe("getVariationDecisions", () => {
     // Both variations match the first rule (any metric winning)
     expect(results).toEqual([
       {
+        status: "decided",
         decisionCriteriaAction: "ship",
         variation: { variationId: "1", decidingRule: shipRule },
       },
       {
+        status: "decided",
         decisionCriteriaAction: "ship",
         variation: { variationId: "2", decidingRule: shipRule },
       },
@@ -995,10 +1071,12 @@ describe("getVariationDecisions", () => {
 
     expect(results).toEqual([
       {
+        status: "decided",
         decisionCriteriaAction: "rollback",
         variation: { variationId: "1", decidingRule: rollbackRule },
       },
       {
+        status: "decided",
         decisionCriteriaAction: "review",
         variation: { variationId: "2", decidingRule: null },
       },
@@ -1050,12 +1128,13 @@ describe("getVariationDecisions", () => {
     });
 
     expect(results).toEqual([
-      // Should not go to fallback, should instead return null
+      // Early stopping has no fallback decision.
       {
-        decisionCriteriaAction: null,
+        status: "pending",
         variation: { variationId: "1", decidingRule: null },
       },
       {
+        status: "decided",
         decisionCriteriaAction: "ship",
         variation: { variationId: "2", decidingRule: shipRule },
       },
@@ -1313,6 +1392,395 @@ describe("resolveScheduledShipDecision", () => {
   });
 });
 
+describe("compute-failed metrics are indeterminate, not false", () => {
+  const baseVariationStatus: ExperimentAnalysisSummaryVariationStatus = {
+    variationId: "1",
+    goalMetrics: {},
+    guardrailMetrics: {},
+  };
+
+  it("returns 'indeterminate' for a match:'none' ship guardrail when a guardrail failed", () => {
+    const rule: DecisionCriteriaRule = {
+      conditions: [
+        {
+          metrics: "guardrails" as const,
+          match: "none" as const,
+          direction: "statsigLoser" as const,
+        },
+      ],
+      action: "ship" as const,
+    };
+
+    const result = evaluateDecisionRuleOnVariation({
+      rule,
+      variationStatus: {
+        ...baseVariationStatus,
+        guardrailMetrics: {
+          guardrail1: { status: "safe" },
+          guardrail2: { status: "failed" },
+        },
+      },
+      goalMetrics: [],
+      guardrailMetrics: ["guardrail1", "guardrail2"],
+      requireSuperStatSig: false,
+    });
+    expect(result).toEqual("indeterminate");
+  });
+
+  it("returns matched for match:'any' with a surviving winner despite another failing", () => {
+    const rule: DecisionCriteriaRule = {
+      conditions: [
+        {
+          metrics: "goals",
+          match: "any",
+          direction: "statsigWinner",
+        },
+      ],
+      action: "ship",
+    };
+
+    const result = evaluateDecisionRuleOnVariation({
+      rule,
+      variationStatus: {
+        ...baseVariationStatus,
+        goalMetrics: {
+          metric1: { status: "won", superStatSigStatus: "won" },
+          metric2: { status: "failed", superStatSigStatus: "failed" },
+        },
+      },
+      goalMetrics: ["metric1", "metric2"],
+      guardrailMetrics: [],
+      requireSuperStatSig: false,
+    });
+    expect(result).toEqual("matched");
+  });
+
+  it("returns not-matched for match:'all' with a surviving loser despite a failed metric", () => {
+    const rule: DecisionCriteriaRule = {
+      conditions: [
+        {
+          metrics: "goals",
+          match: "all",
+          direction: "statsigWinner",
+        },
+      ],
+      action: "ship",
+    };
+
+    const result = evaluateDecisionRuleOnVariation({
+      rule,
+      variationStatus: {
+        ...baseVariationStatus,
+        goalMetrics: {
+          metric1: { status: "lost", superStatSigStatus: "lost" },
+          metric2: { status: "failed", superStatSigStatus: "failed" },
+        },
+      },
+      goalMetrics: ["metric1", "metric2"],
+      guardrailMetrics: [],
+      requireSuperStatSig: false,
+    });
+    expect(result).toEqual("not-matched");
+  });
+
+  it("returns matched for a surviving losing guardrail while another failed", () => {
+    const rule: DecisionCriteriaRule = {
+      conditions: [
+        {
+          metrics: "guardrails",
+          match: "any",
+          direction: "statsigLoser",
+        },
+      ],
+      action: "rollback",
+    };
+
+    const result = evaluateDecisionRuleOnVariation({
+      rule,
+      variationStatus: {
+        ...baseVariationStatus,
+        guardrailMetrics: {
+          guardrail1: { status: "lost" },
+          guardrail2: { status: "failed" },
+        },
+      },
+      goalMetrics: [],
+      guardrailMetrics: ["guardrail1", "guardrail2"],
+      requireSuperStatSig: false,
+    });
+    expect(result).toEqual("matched");
+  });
+
+  it("rollback rule is indeterminate, not a no-match, when every guardrail failed", () => {
+    const rule: DecisionCriteriaRule = {
+      conditions: [
+        {
+          metrics: "guardrails",
+          match: "any",
+          direction: "statsigLoser",
+        },
+      ],
+      action: "rollback",
+    };
+
+    const result = evaluateDecisionRuleOnVariation({
+      rule,
+      variationStatus: {
+        ...baseVariationStatus,
+        guardrailMetrics: {
+          guardrail1: { status: "failed" },
+          guardrail2: { status: "failed" },
+        },
+      },
+      goalMetrics: [],
+      guardrailMetrics: ["guardrail1", "guardrail2"],
+      requireSuperStatSig: false,
+    });
+    expect(result).toEqual("indeterminate");
+  });
+
+  it("rollback match:'all' is indeterminate, not a vacuous match, when every guardrail failed", () => {
+    const rule: DecisionCriteriaRule = {
+      conditions: [
+        {
+          metrics: "guardrails",
+          match: "all",
+          direction: "statsigLoser",
+        },
+      ],
+      action: "rollback",
+    };
+
+    const result = evaluateDecisionRuleOnVariation({
+      rule,
+      variationStatus: {
+        ...baseVariationStatus,
+        guardrailMetrics: {
+          guardrail1: { status: "failed" },
+          guardrail2: { status: "failed" },
+        },
+      },
+      goalMetrics: [],
+      guardrailMetrics: ["guardrail1", "guardrail2"],
+      requireSuperStatSig: false,
+    });
+    expect(result).toEqual("indeterminate");
+  });
+
+  it("getDecisionFrameworkStatus yields data-incomplete when a ship goal metric failed", () => {
+    const resultsStatus: ExperimentAnalysisSummaryResultsStatus = {
+      variations: [
+        {
+          variationId: "1",
+          goalMetrics: {
+            metric1: { status: "failed", superStatSigStatus: "failed" },
+          },
+          guardrailMetrics: {},
+        },
+      ],
+      settings: { sequentialTesting: false },
+    };
+
+    const decision = getDecisionFrameworkStatus({
+      resultsStatus,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      goalMetrics: ["metric1"],
+      guardrailMetrics: [],
+      daysNeeded: 0,
+    });
+
+    expect(decision).toEqual({
+      status: "data-incomplete",
+      failedMetrics: ["metric1"],
+    });
+  });
+
+  it("getDecisionFrameworkStatus still rolls back on a surviving losing guardrail while another failed", () => {
+    const resultsStatus: ExperimentAnalysisSummaryResultsStatus = {
+      variations: [
+        {
+          variationId: "1",
+          goalMetrics: {},
+          guardrailMetrics: {
+            guardrail1: { status: "lost" },
+            guardrail2: { status: "failed" },
+          },
+        },
+      ],
+      settings: { sequentialTesting: false },
+    };
+
+    const decision = getDecisionFrameworkStatus({
+      resultsStatus,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      goalMetrics: [],
+      guardrailMetrics: ["guardrail1", "guardrail2"],
+      daysNeeded: 0,
+    });
+
+    expect(decision).toEqual({
+      status: "rollback-now",
+      variations: [
+        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[1] },
+      ],
+      sequentialUsed: false,
+      powerReached: true,
+      scheduledEndPassed: false,
+      tooltip: "The test variation(s) should be rolled back.",
+    });
+  });
+
+  it("does not fire a lower-precedence rollback when an indeterminate rule sits above a definitive ship/review", () => {
+    const criteria: DecisionCriteriaData = {
+      id: "gbdeccrit_ship_review_rollback",
+      name: "ship-review-rollback",
+      description: "",
+      rules: [
+        {
+          conditions: [
+            { metrics: "goals", match: "all", direction: "statsigWinner" },
+          ],
+          action: "ship",
+        },
+        {
+          conditions: [
+            { metrics: "goals", match: "any", direction: "statsigWinner" },
+          ],
+          action: "review",
+        },
+        {
+          conditions: [
+            { metrics: "guardrails", match: "any", direction: "statsigLoser" },
+          ],
+          action: "rollback",
+        },
+      ],
+      defaultAction: "review",
+    };
+
+    const resultsStatus: ExperimentAnalysisSummaryResultsStatus = {
+      variations: [
+        {
+          variationId: "1",
+          goalMetrics: {
+            goalA: { status: "won", superStatSigStatus: "won" },
+            goalB: { status: "failed", superStatSigStatus: "failed" },
+          },
+          guardrailMetrics: { guardrail1: { status: "lost" } },
+        },
+      ],
+      settings: { sequentialTesting: false },
+    };
+
+    const decision = getDecisionFrameworkStatus({
+      resultsStatus,
+      decisionCriteria: criteria,
+      goalMetrics: ["goalA", "goalB"],
+      guardrailMetrics: ["guardrail1"],
+      daysNeeded: 0,
+    });
+
+    expect(decision).toEqual({
+      status: "data-incomplete",
+      failedMetrics: ["goalB"],
+    });
+  });
+
+  it("withholds a lower ship rule when a higher rollback rule's only guardrail failed", () => {
+    const criteria: DecisionCriteriaData = {
+      id: "gbdeccrit_rollback_then_ship",
+      name: "rollback-then-ship",
+      description: "",
+      rules: [
+        {
+          conditions: [
+            { metrics: "guardrails", match: "any", direction: "statsigLoser" },
+          ],
+          action: "rollback",
+        },
+        {
+          conditions: [
+            { metrics: "goals", match: "all", direction: "statsigWinner" },
+          ],
+          action: "ship",
+        },
+      ],
+      defaultAction: "review",
+    };
+
+    const resultsStatus: ExperimentAnalysisSummaryResultsStatus = {
+      variations: [
+        {
+          variationId: "1",
+          goalMetrics: {
+            goalA: { status: "won", superStatSigStatus: "won" },
+          },
+          guardrailMetrics: { guardrail1: { status: "failed" } },
+        },
+      ],
+      settings: { sequentialTesting: false },
+    };
+
+    const decision = getDecisionFrameworkStatus({
+      resultsStatus,
+      decisionCriteria: criteria,
+      goalMetrics: ["goalA"],
+      guardrailMetrics: ["guardrail1"],
+      daysNeeded: 0,
+    });
+
+    expect(decision).toEqual({
+      status: "data-incomplete",
+      failedMetrics: ["guardrail1"],
+    });
+  });
+
+  it("getVariationDecisions marks an unresolved variation indeterminate with no action and no fallback", () => {
+    const results = getVariationDecisions({
+      resultsStatus: {
+        variations: [
+          {
+            variationId: "1",
+            goalMetrics: {
+              metric1: { status: "failed", superStatSigStatus: "failed" },
+            },
+            guardrailMetrics: {},
+          },
+          {
+            variationId: "2",
+            goalMetrics: {
+              metric1: { status: "won", superStatSigStatus: "won" },
+            },
+            guardrailMetrics: {},
+          },
+        ],
+        settings: { sequentialTesting: false },
+      },
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      goalMetrics: ["metric1"],
+      guardrailMetrics: [],
+      powerReached: true,
+    });
+
+    expect(results).toEqual([
+      {
+        status: "indeterminate",
+        variation: { variationId: "1", decidingRule: null },
+      },
+      {
+        status: "decided",
+        variation: {
+          variationId: "2",
+          decidingRule: PRESET_DECISION_CRITERIA.rules.find(
+            (r) => r.action === "ship",
+          ),
+        },
+        decisionCriteriaAction: "ship",
+      },
+    ]);
+  });
+});
+
 describe("getExperimentResultStatus schedule-driven states", () => {
   const baseHealthSettings: ExperimentHealthSettings = {
     decisionFrameworkEnabled: true,
@@ -1370,10 +1838,55 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       }),
       healthSettings: baseHealthSettings,
       decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
     });
 
     expect(result?.status).toBe("scheduled-end-review");
     expect(result?.tooltip).toContain("The scheduled end date has passed");
+    expect(result?.tooltip).toContain("No goal metrics are configured");
+  });
+
+  it("requires review when the scheduled end passed with an empty goal metric group", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        stopAt: daysAgo(1),
+        goalMetrics: ["mg_empty"],
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: { srm: 0.5, multipleExposures: 0, totalUsers: 1000 },
+          resultsStatus: {
+            variations: [
+              {
+                variationId: "1",
+                goalMetrics: {},
+                guardrailMetrics: {},
+              },
+            ],
+            settings: { sequentialTesting: false },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [
+        {
+          id: "mg_empty",
+          organization: "org_1",
+          dateCreated: daysAgo(30),
+          dateUpdated: daysAgo(1),
+          name: "Empty goal group",
+          description: "",
+          owner: "",
+          tags: [],
+          projects: [],
+          metrics: [],
+          datasource: "ds_1",
+          archived: false,
+        },
+      ],
+    });
+
+    expect(result?.status).toBe("scheduled-end-review");
     expect(result?.tooltip).toContain("No goal metrics are configured");
   });
 
@@ -1392,6 +1905,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       }),
       healthSettings: baseHealthSettings,
       decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
     });
 
     expect(result?.status).toBe("unhealthy");
@@ -1418,6 +1932,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       }),
       healthSettings: baseHealthSettings,
       decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
     });
 
     expect(result?.status).toBe("days-left");
@@ -1445,6 +1960,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       }),
       healthSettings: baseHealthSettings,
       decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
     });
 
     expect(result?.status).toBe("days-left");
@@ -1470,6 +1986,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       }),
       healthSettings: baseHealthSettings,
       decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
     });
 
     expect(result).toMatchObject({ status: "days-left", daysLeft: 10 });
@@ -1484,9 +2001,85 @@ describe("getExperimentResultStatus schedule-driven states", () => {
         decisionFrameworkEnabled: false,
       },
       decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
     });
 
     expect(result).toMatchObject({ status: "days-left", daysLeft: 3 });
     expect(result?.tooltip).toContain("scheduled to end in about 3 days");
+  });
+
+  const incompleteAnalysisSummary: ExperimentDataForStatus["analysisSummary"] =
+    {
+      snapshotId: "snap-1",
+      health: {
+        srm: 0.5,
+        multipleExposures: 0,
+        totalUsers: 1000,
+        power: {
+          type: "success",
+          isLowPowered: false,
+          additionalDaysNeeded: 0,
+        },
+      },
+      resultsStatus: {
+        variations: [
+          {
+            variationId: "1",
+            goalMetrics: {
+              "metric-1": { status: "failed", superStatSigStatus: "failed" },
+            },
+            guardrailMetrics: {},
+          },
+        ],
+        settings: { sequentialTesting: false },
+      },
+    };
+
+  it("withholds data-incomplete while the experiment is before its minimum duration", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        dateStarted: daysAgo(2),
+        analysisSummary: incompleteAnalysisSummary,
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result?.status).toBe("before-min-duration");
+  });
+
+  it("surfaces data-incomplete once the experiment is past its minimum duration", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        dateStarted: daysAgo(30),
+        analysisSummary: incompleteAnalysisSummary,
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result?.status).toBe("data-incomplete");
+  });
+
+  it("expands metric groups so a failed group member is seen", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        dateStarted: daysAgo(30),
+        goalMetrics: ["mg_1"],
+        analysisSummary: incompleteAnalysisSummary,
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [
+        { id: "mg_1", metrics: ["metric-1"] } as MetricGroupInterface,
+      ],
+    });
+
+    expect(result).toEqual({
+      status: "data-incomplete",
+      failedMetrics: ["metric-1"],
+    });
   });
 });

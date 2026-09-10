@@ -158,10 +158,13 @@ const updateSingleExperimentStatus = async (
           return;
         }
 
+        const metricGroups = await context.models.metricGroups.getAll();
+
         // A stop refreshes the SDK payload as a side effect.
         const outcome = await applyScheduledExperimentStop({
           context,
           experiment,
+          metricGroups,
         });
 
         // The scheduled end passing can flip the EDF status to decisive
@@ -169,7 +172,7 @@ const updateSingleExperimentStatus = async (
         // experiment (post-stop it's no longer "running", so scheduledEndPassed
         // would be false) and fire the decision.* event for every outcome,
         // ordered before the scheduled-status-update event.
-        await notifyScheduledEndDecision({ context, experiment });
+        await notifyScheduledEndDecision({ context, experiment, metricGroups });
 
         // Re-load: stopExperiment may have already mutated the experiment, and
         // the notification below needs fresh state either way.

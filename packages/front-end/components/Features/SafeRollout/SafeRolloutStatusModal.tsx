@@ -65,6 +65,7 @@ function getDefaultStatusAndText(
     case "before-min-duration":
     case "days-left":
     case "no-data":
+    case "data-incomplete":
       return {
         defaultStatus: "",
         text: "The Safe Rollout is still collecting data. Are you sure you want to stop early?",
