@@ -60,11 +60,11 @@ export async function cleanupDeletedDiscussionUploads({
   );
 
   await Promise.all(
-    Array.from(uploads, async ([key, url]) => {
+    Array.from(uploads, async ([key]) => {
       try {
         const referenced = await DiscussionModel.exists({
           organization,
-          "comments.content": { $regex: escapeRegex(url) },
+          "comments.content": { $regex: escapeRegex(key) },
         });
         if (!referenced) {
           await deleteFile(key);

@@ -80,12 +80,15 @@ describe("getDiscussionUploadUrls", () => {
 
     expect(DiscussionModel.exists).toHaveBeenCalledWith({
       organization,
-      "comments.content": { $regex: expect.any(String) },
+      "comments.content": {
+        $regex:
+          "org_test/2026-09/img_123e4567-e89b-12d3-a456-426614174000\\.jpeg",
+      },
     });
     expect(fs.existsSync(resolveUploadPath(key))).toBe(false);
   });
 
-  it("keeps an upload that another discussion comment still references", async () => {
+  it("keeps an upload referenced through a different URL form", async () => {
     jest.mocked(DiscussionModel.exists).mockResolvedValueOnce({ _id: "ref" });
     await uploadFile(key, "image/jpeg", Buffer.from("image"));
 
@@ -95,6 +98,13 @@ describe("getDiscussionUploadUrls", () => {
       localOrigin: "https://api.example.com",
     });
 
+    expect(DiscussionModel.exists).toHaveBeenCalledWith({
+      organization,
+      "comments.content": {
+        $regex:
+          "org_test/2026-09/img_123e4567-e89b-12d3-a456-426614174000\\.jpeg",
+      },
+    });
     expect(fs.existsSync(resolveUploadPath(key))).toBe(true);
   });
 });
