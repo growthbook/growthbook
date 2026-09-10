@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   experimentCardFormats,
+  slackDigestFrequencies,
+  SlackDigestConfig,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -23,6 +25,8 @@ import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
+import { Select, SelectItem } from "@/ui/Select";
+import Switch from "@/ui/Switch";
 
 const REQUIRED_SCOPES = [
   "chat:write",
@@ -48,23 +52,126 @@ const CARD_FORMAT_LABELS: Record<
   },
   compact: {
     label: "Compact card",
-    description: "A short image highlighting the SRM warning.",
+    description: "A short image highlighting the experiment update.",
   },
   detailed: {
     label: "Detailed card",
-    description: "A larger image with the SRM warning and a results table.",
+    description: "A larger image with more detail when the event supports it.",
   },
 };
 
-const DIGEST_FREQUENCIES = [
-  "off",
-  "daily",
-  "weekly",
-  "monthly",
-  "quarterly",
-  "custom",
-] as const;
-type DigestFrequency = (typeof DIGEST_FREQUENCIES)[number];
+const DIGEST_LABELS: Record<SlackDigestConfig["frequency"], string> = {
+  off: "Off",
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
+  custom: "Every few days",
+};
+
+function DigestSettings({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: SlackDigestConfig;
+  onChange: (value: SlackDigestConfig) => void;
+}) {
+  return (
+    <Flex direction="column" gap="3">
+      <Select
+        label={label}
+        value={value.frequency}
+        setValue={(frequency) => {
+          const selected = slackDigestFrequencies.find(
+            (item) => item === frequency,
+          );
+          if (selected) onChange({ ...value, frequency: selected });
+        }}
+      >
+        {slackDigestFrequencies.map((frequency) => (
+          <SelectItem key={frequency} value={frequency}>
+            {DIGEST_LABELS[frequency]}
+          </SelectItem>
+        ))}
+      </Select>
+      {value.frequency !== "off" && (
+        <>
+          <Select
+            label="Delivery hour (UTC)"
+            value={String(value.hourUtc ?? 14)}
+            setValue={(hour) => onChange({ ...value, hourUtc: Number(hour) })}
+          >
+            {Array.from({ length: 24 }, (_, hour) => (
+              <SelectItem key={hour} value={String(hour)}>
+                {String(hour).padStart(2, "0")}:00 UTC
+              </SelectItem>
+            ))}
+          </Select>
+          {value.frequency === "weekly" && (
+            <Select
+              label="Day of week"
+              value={String(value.dayOfWeekUtc ?? 1)}
+              setValue={(day) =>
+                onChange({ ...value, dayOfWeekUtc: Number(day) })
+              }
+            >
+              {[
+                "Sunday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+              ].map((day, index) => (
+                <SelectItem key={day} value={String(index)}>
+                  {day}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
+          {(value.frequency === "monthly" ||
+            value.frequency === "quarterly") && (
+            <Select
+              label={
+                value.frequency === "quarterly"
+                  ? "Day in January, April, July, and October"
+                  : "Day of month"
+              }
+              value={String(value.dayOfMonth ?? 1)}
+              setValue={(day) =>
+                onChange({ ...value, dayOfMonth: Number(day) })
+              }
+            >
+              {Array.from({ length: 28 }, (_, index) => (
+                <SelectItem key={index} value={String(index + 1)}>
+                  {index + 1}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
+          {value.frequency === "custom" && (
+            <Select
+              label="Days between digests"
+              value={String(value.intervalDays ?? 14)}
+              setValue={(days) =>
+                onChange({ ...value, intervalDays: Number(days) })
+              }
+            >
+              {Array.from({ length: 90 }, (_, index) => (
+                <SelectItem key={index} value={String(index + 1)}>
+                  {index + 1}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
+        </>
+      )}
+    </Flex>
+  );
+}
 
 export const getSlackChannelLabel = (
   integration: SlackOAuthIntegrationInterface,
@@ -104,11 +211,14 @@ export default function SlackChannelSettings({
   const [cardFormat, setCardFormat] = useState(
     integration.slackOptions?.experimentCardFormat ?? "compact",
   );
-  const [experimentDigestFrequency, setExperimentDigestFrequency] = useState(
-    integration.slackOptions?.experimentDigest?.frequency ?? "off",
+  const [experimentDigest, setExperimentDigest] = useState<SlackDigestConfig>(
+    integration.slackOptions?.experimentDigest ?? { frequency: "off" },
   );
-  const [featureDigestFrequency, setFeatureDigestFrequency] = useState(
-    integration.slackOptions?.featureDigest?.frequency ?? "off",
+  const [featureDigest, setFeatureDigest] = useState<SlackDigestConfig>(
+    integration.slackOptions?.featureDigest ?? { frequency: "off" },
+  );
+  const [coalesceNotifications, setCoalesceNotifications] = useState(
+    integration.slackOptions?.coalesceNotifications ?? false,
   );
   const [filterProjects, setFilterProjects] = useState(
     integration.projects || [],
@@ -157,8 +267,9 @@ export default function SlackChannelSettings({
           tags: filterTags,
           slackOptions: {
             experimentCardFormat: cardFormat,
-            experimentDigest: { frequency: experimentDigestFrequency },
-            featureDigest: { frequency: featureDigestFrequency },
+            experimentDigest,
+            featureDigest,
+            coalesceNotifications,
           },
         }),
       });
@@ -296,32 +407,44 @@ export default function SlackChannelSettings({
             Digests
           </Heading>
           <Text as="p" color="text-mid" mb="3">
-            Send a scheduled summary of experiment and feature flag activity.
+            Send a scheduled summary of experiment and Feature Flag activity.
           </Text>
           <Grid columns={{ initial: "1", sm: "2" }} gap="4">
-            <RadioGroup
-              value={experimentDigestFrequency}
-              options={DIGEST_FREQUENCIES.map((value) => ({
-                value,
-                label: `Experiments: ${value}`,
-              }))}
-              setValue={(value) => {
-                setExperimentDigestFrequency(value as DigestFrequency);
+            <DigestSettings
+              label="Experiment digest"
+              value={experimentDigest}
+              onChange={(value) => {
+                setExperimentDigest(value);
                 setSaved(false);
               }}
             />
-            <RadioGroup
-              value={featureDigestFrequency}
-              options={DIGEST_FREQUENCIES.map((value) => ({
-                value,
-                label: `Features: ${value}`,
-              }))}
-              setValue={(value) => {
-                setFeatureDigestFrequency(value as DigestFrequency);
+            <DigestSettings
+              label="Feature Flag digest"
+              value={featureDigest}
+              onChange={(value) => {
+                setFeatureDigest(value);
                 setSaved(false);
               }}
             />
           </Grid>
+          <HelperText status="info" mt="3">
+            Digests include events matching this channel’s subscriptions and
+            filters. They are additional summaries; individual notifications
+            remain enabled. Delivery may occur after the selected hour while
+            queued work is processed.
+          </HelperText>
+        </Box>
+
+        <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
+          <Switch
+            label="Group related notifications"
+            description="Combine updates for the same experiment into a summary after about a minute. Grouped summaries are text-only."
+            value={coalesceNotifications}
+            onChange={(value) => {
+              setCoalesceNotifications(value);
+              setSaved(false);
+            }}
+          />
         </Box>
 
         <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
@@ -329,8 +452,9 @@ export default function SlackChannelSettings({
             Experiment Cards
           </Heading>
           <Text as="p" color="text-mid" mb="3">
-            Choose how SRM warnings appear. Significance notifications and other
-            events remain text-only.
+            Choose how supported experiment updates appear. Start, stop, SRM,
+            and significance events with sufficient saved results can include
+            cards. Unsupported events remain text-only.
           </Text>
           <RadioGroup
             gap="3"

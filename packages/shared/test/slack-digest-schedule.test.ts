@@ -1,5 +1,7 @@
 import {
   slackDigestNextRunAt,
+  slackDigestWindowStart,
+  slackDigestScheduleChanges,
   slackDigestNextRunAts,
   type ResolvedSlackDigest,
 } from "../src/validators/event-webhook";
@@ -72,4 +74,60 @@ describe("slack digest schedule", () => {
       feature: new Date("2026-03-16T14:00:00Z"),
     });
   });
+});
+
+it.each([
+  ["monthly", "2026-03-01T09:00:00Z", "2026-02-01T09:00:00Z"],
+  ["monthly", "2024-03-01T09:00:00Z", "2024-02-01T09:00:00Z"],
+  ["monthly", "2026-02-01T09:00:00Z", "2026-01-01T09:00:00Z"],
+  ["quarterly", "2026-01-01T09:00:00Z", "2025-10-01T09:00:00Z"],
+  ["quarterly", "2026-07-01T09:00:00Z", "2026-04-01T09:00:00Z"],
+] as const)(
+  "uses exact %s calendar boundaries ending %s",
+  (frequency, end, start) => {
+    const digest = make({ frequency });
+    expect(slackDigestWindowStart(digest, new Date(end))).toEqual(
+      new Date(start),
+    );
+    expect(slackDigestNextRunAt(digest, new Date(start))).toEqual(
+      new Date(end),
+    );
+  },
+);
+
+it("does not reset schedules when only card format or coalescing changes", () => {
+  expect(
+    slackDigestScheduleChanges(
+      { experimentDigest: { frequency: "weekly" } },
+      {
+        experimentDigest: { frequency: "weekly", hourUtc: 14 },
+        experimentCardFormat: "detailed",
+        coalesceNotifications: true,
+      },
+      new Date(),
+    ),
+  ).toEqual({});
+});
+it("reschedules only the changed kind, including disabling it", () => {
+  expect(
+    slackDigestScheduleChanges(
+      {
+        experimentDigest: { frequency: "daily" },
+        featureDigest: { frequency: "weekly" },
+      },
+      {
+        experimentDigest: { frequency: "off" },
+        featureDigest: { frequency: "weekly" },
+      },
+      new Date(),
+    ),
+  ).toEqual({ experiment: null });
+});
+it("honors the selected hour for custom intervals", () => {
+  expect(
+    slackDigestNextRunAt(
+      make({ frequency: "custom", intervalDays: 3 }),
+      new Date("2026-03-10T18:35:00Z"),
+    ),
+  ).toEqual(new Date("2026-03-13T09:00:00Z"));
 });

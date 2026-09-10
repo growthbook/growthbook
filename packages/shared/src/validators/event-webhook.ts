@@ -26,55 +26,36 @@ export const slackEventWebHookMetadata = z
   })
   .strict();
 
+export const slackDigestFrequencies = [
+  "off",
+  "daily",
+  "weekly",
+  "monthly",
+  "quarterly",
+  "custom",
+] as const;
+export const slackDigestConfig = z
+  .object({
+    frequency: z.enum(slackDigestFrequencies),
+    hourUtc: z.number().int().min(0).max(23).optional(),
+    dayOfWeekUtc: z.number().int().min(0).max(6).optional(),
+    dayOfMonth: z.number().int().min(1).max(28).optional(),
+    intervalDays: z.number().int().min(1).max(90).optional(),
+  })
+  .strict();
+export type SlackDigestConfig = z.infer<typeof slackDigestConfig>;
 export const slackEventWebHookOptions = z
   .object({
     experimentCardFormat: z.enum(experimentCardFormats).optional(),
-    experimentDigest: z
-      .object({
-        frequency: z.enum([
-          "off",
-          "daily",
-          "weekly",
-          "monthly",
-          "quarterly",
-          "custom",
-        ]),
-        hourUtc: z.number().int().min(0).max(23).optional(),
-        dayOfWeekUtc: z.number().int().min(0).max(6).optional(),
-        dayOfMonth: z.number().int().min(1).max(28).optional(),
-        intervalDays: z.number().int().min(1).max(90).optional(),
-      })
-      .strict()
-      .optional(),
-    featureDigest: z
-      .object({
-        frequency: z.enum([
-          "off",
-          "daily",
-          "weekly",
-          "monthly",
-          "quarterly",
-          "custom",
-        ]),
-        hourUtc: z.number().int().min(0).max(23).optional(),
-        dayOfWeekUtc: z.number().int().min(0).max(6).optional(),
-        dayOfMonth: z.number().int().min(1).max(28).optional(),
-        intervalDays: z.number().int().min(1).max(90).optional(),
-      })
-      .strict()
-      .optional(),
+    coalesceNotifications: z.boolean().optional(),
+    experimentDigest: slackDigestConfig.optional(),
+    featureDigest: slackDigestConfig.optional(),
   })
   .strict();
 
 export type SlackEventWebHookOptions = z.infer<typeof slackEventWebHookOptions>;
 
-export type ResolvedSlackDigest = {
-  frequency: "off" | "daily" | "weekly" | "monthly" | "quarterly" | "custom";
-  hourUtc: number;
-  dayOfWeekUtc: number;
-  dayOfMonth: number;
-  intervalDays: number;
-};
+export type ResolvedSlackDigest = Required<SlackDigestConfig>;
 
 const OFF_DIGEST: ResolvedSlackDigest = {
   frequency: "off",
@@ -123,7 +104,9 @@ export const slackDigestNextRunAt = (
       ),
     );
   if (digest.frequency === "custom") {
-    return new Date(from.getTime() + Math.max(1, digest.intervalDays) * DAY_MS);
+    return atHour(
+      new Date(from.getTime() + Math.max(1, digest.intervalDays) * DAY_MS),
+    );
   }
   let day = new Date(
     Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()),
@@ -155,21 +138,44 @@ export const slackDigestNextRunAts = (
   feature: slackDigestNextRunAt(resolveFeatureDigest(options), from),
 });
 
-export const slackDigestWindowMs = (digest: ResolvedSlackDigest): number => {
-  switch (digest.frequency) {
-    case "daily":
-      return DAY_MS;
-    case "weekly":
-      return 7 * DAY_MS;
-    case "monthly":
-      return 30 * DAY_MS;
-    case "quarterly":
-      return 90 * DAY_MS;
-    case "custom":
-      return Math.max(1, digest.intervalDays) * DAY_MS;
-    case "off":
-      return 7 * DAY_MS;
+export const slackDigestScheduleChanges = (
+  previous: SlackEventWebHookOptions | undefined,
+  next: SlackEventWebHookOptions,
+  from: Date,
+): Partial<Record<"experiment" | "feature", Date | null>> => {
+  const changes: Partial<Record<"experiment" | "feature", Date | null>> = {};
+  for (const kind of ["experiment", "feature"] as const) {
+    const resolve =
+      kind === "experiment" ? resolveExperimentDigest : resolveFeatureDigest;
+    if (JSON.stringify(resolve(previous)) !== JSON.stringify(resolve(next))) {
+      changes[kind] = slackDigestNextRunAt(resolve(next), from);
+    }
   }
+  return changes;
+};
+
+// Calendar schedules use their previous scheduled boundary, not fixed 30/90-day windows.
+export const slackDigestWindowStart = (
+  digest: ResolvedSlackDigest,
+  dueAt: Date,
+): Date => {
+  if (digest.frequency === "monthly" || digest.frequency === "quarterly") {
+    return new Date(
+      Date.UTC(
+        dueAt.getUTCFullYear(),
+        dueAt.getUTCMonth() - (digest.frequency === "monthly" ? 1 : 3),
+        dueAt.getUTCDate(),
+        dueAt.getUTCHours(),
+      ),
+    );
+  }
+  const days =
+    digest.frequency === "weekly"
+      ? 7
+      : digest.frequency === "custom"
+        ? digest.intervalDays
+        : 1;
+  return new Date(dueAt.getTime() - days * DAY_MS);
 };
 
 // Matches multi-level wildcard patterns like "feature.*", "feature.revision.*",

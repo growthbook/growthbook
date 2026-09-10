@@ -1,6 +1,6 @@
 import Agenda from "agenda";
 import {
-  slackDigestWindowMs,
+  slackDigestWindowStart,
   resolveExperimentDigest,
   resolveFeatureDigest,
   slackDigestNextRunAt,
@@ -8,6 +8,7 @@ import {
 import { EventModel } from "back-end/src/models/EventModel";
 import {
   claimSlackDigestRun,
+  isSlackDigestRunCurrent,
   completeSlackDigestRun,
   releaseSlackDigestRun,
   getSlackWebhooksMissingDigestSchedule,
@@ -15,13 +16,13 @@ import {
   syncSlackDigestSchedule,
   type SlackDigestKind,
 } from "back-end/src/models/EventWebhookModel";
-import { postSlackMessage } from "back-end/src/services/slack/slackWebApi";
+import {
+  postSlackMessage,
+  isSlackWorkspacePlaceholderUrl,
+} from "back-end/src/services/slack/slackWebApi";
 import { getSlackWorkspaceTokenForTeam } from "back-end/src/services/slackIntegration";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import {
-  digestEventMatchesSubscription,
-  digestEventPassesFilters,
-} from "back-end/src/services/slack/digestFilters";
+import { summarizeDigestEvents } from "back-end/src/services/slack/digestFilters";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "eventWebhookWeeklyDigest";
@@ -36,6 +37,7 @@ const runDigest = async (
       ? webhook.nextExperimentDigestAt
       : webhook.nextFeatureDigestAt;
   if (
+    !isSlackWorkspacePlaceholderUrl(webhook.url) ||
     !dueAt ||
     dueAt > now ||
     !webhook.slack?.teamId ||
@@ -46,36 +48,41 @@ const runDigest = async (
     kind === "experiment"
       ? resolveExperimentDigest(webhook.slackOptions)
       : resolveFeatureDigest(webhook.slackOptions);
+  if (digest.frequency === "off") return;
   const claimed = await claimSlackDigestRun({
     eventWebHookId: webhook.id,
     organizationId: webhook.organizationId,
     kind,
     now,
+    dueAt,
+    dateUpdated: webhook.dateUpdated,
   });
   if (!claimed) return;
   try {
-    const since = new Date(dueAt.getTime() - slackDigestWindowMs(digest));
+    const since = slackDigestWindowStart(digest, dueAt);
     const object = kind === "experiment" ? "experiment" : "feature";
-    const events = await EventModel.find({
+    const events = EventModel.find({
       organizationId: webhook.organizationId,
       object,
-      dateCreated: { $gte: since, $lte: dueAt },
+      dateCreated: { $gte: since, $lt: dueAt },
     })
       .sort({ dateCreated: -1 })
-      .lean();
+      .lean()
+      .cursor({ batchSize: 100 });
     const filters = {
       projects: webhook.projects || [],
       tags: webhook.tags || [],
       environments: webhook.environments || [],
       ids: [],
     };
-    const matchingEvents = events.filter(
-      (event) =>
-        digestEventMatchesSubscription(event, webhook.events) &&
-        digestEventPassesFilters(event, filters),
+    const summary = await summarizeDigestEvents(
+      events,
+      webhook.events,
+      filters,
+      claimed.leaseUntil,
     );
     const nextRunAt = slackDigestNextRunAt(digest, dueAt);
-    if (!matchingEvents.length) {
+    if (!summary.count) {
       await completeSlackDigestRun({
         eventWebHookId: webhook.id,
         organizationId: webhook.organizationId,
@@ -91,34 +98,22 @@ const runDigest = async (
       context,
       teamId: webhook.slack.teamId,
     });
-    const lines = matchingEvents.slice(0, 20).map((event) => {
-      const data =
-        typeof event.data === "object" && event.data !== null
-          ? (event.data as Record<string, unknown>)
-          : {};
-      const nested =
-        typeof data.data === "object" && data.data !== null
-          ? (data.data as Record<string, unknown>)
-          : {};
-      const object =
-        typeof data.object === "object" && data.object !== null
-          ? (data.object as Record<string, unknown>)
-          : {};
-      const nestedObject =
-        typeof nested.object === "object" && nested.object !== null
-          ? (nested.object as Record<string, unknown>)
-          : {};
-      const name =
-        (typeof object.name === "string" && object.name) ||
-        (typeof nestedObject.name === "string" && nestedObject.name) ||
-        (typeof object.id === "string" && object.id) ||
-        "Unnamed";
-      return `• ${escapeSlackText(event.event)} — ${escapeSlackText(name)}`;
-    });
+    if (!(await isSlackDigestRunCurrent(webhook, kind, claimed.leaseUntil))) {
+      await releaseSlackDigestRun({
+        eventWebHookId: webhook.id,
+        organizationId: webhook.organizationId,
+        kind,
+        leaseUntil: claimed.leaseUntil,
+      });
+      return;
+    }
+    const lines = summary.lines;
+    if (summary.count > lines.length)
+      lines.push(`… and ${summary.count - lines.length} more updates`);
     const posted = await postSlackMessage({
       token,
       channel: webhook.slack.channelId,
-      text: `${kind === "experiment" ? "Experiment" : "Feature flag"} digest: ${matchingEvents.length} update${matchingEvents.length === 1 ? "" : "s"}`,
+      text: `${kind === "experiment" ? "Experiment" : "Feature flag"} digest: ${summary.count} update${summary.count === 1 ? "" : "s"}`,
       blocks: [
         {
           type: "header",
@@ -127,7 +122,10 @@ const runDigest = async (
             text: `${kind === "experiment" ? "Experiment" : "Feature flag"} digest`,
           },
         },
-        { type: "section", text: { type: "mrkdwn", text: lines.join("\n") } },
+        {
+          type: "section",
+          text: { type: "plain_text", text: lines.join("\n") },
+        },
       ],
     });
     if (!posted) throw new Error("Slack digest delivery failed");
@@ -149,9 +147,6 @@ const runDigest = async (
   }
 };
 
-const escapeSlackText = (value: string) =>
-  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
 export default function addEventWebhookWeeklyDigestJob(agenda: Agenda) {
   agenda.define(JOB_NAME, async () => {
     const now = new Date();
@@ -166,7 +161,7 @@ export default function addEventWebhookWeeklyDigestJob(agenda: Agenda) {
     for (const webhook of await getSlackWebhooksWithDigestDue(now)) {
       for (const kind of ["experiment", "feature"] as const) {
         try {
-          await runDigest(webhook, kind, now);
+          await runDigest(webhook, kind, new Date());
         } catch (error) {
           logger.error(error, `Slack ${kind} digest failed for ${webhook.id}`);
         }

@@ -29,6 +29,7 @@ import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
+import addSlackNotificationCoalescing from "back-end/src/jobs/slackNotificationCoalescing";
 import addEventWebhookWeeklyDigestJob from "back-end/src/jobs/eventWebhookWeeklyDigest";
 
 export async function queueInit() {
@@ -67,6 +68,7 @@ export async function queueInit() {
     });
   deleteOldAgendaJobs(agenda);
   addEventWebhookWeeklyDigestJob(agenda);
+  addSlackNotificationCoalescing(agenda);
 
   if (CRON_ENABLED) {
     await agenda.start();

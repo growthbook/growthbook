@@ -93,6 +93,7 @@ import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderCon
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
+import { SlackNotificationBatchModel } from "back-end/src/models/SlackNotificationBatchModel";
 import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
@@ -149,6 +150,7 @@ export type ModelName =
   | "revisions"
   | "watch"
   | "figmaConnections"
+  | "slackNotificationBatches"
   | "slackWorkspaceConnections"
   | "apiKeys"
   | "oauthAuthCodes"
@@ -206,6 +208,7 @@ export const modelClasses = {
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
+  slackNotificationBatches: SlackNotificationBatchModel,
   slackWorkspaceConnections: SlackWorkspaceConnectionModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
@@ -366,6 +369,7 @@ export class ReqContextClass {
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
+      slackNotificationBatches: new SlackNotificationBatchModel(this),
       slackWorkspaceConnections: new SlackWorkspaceConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),

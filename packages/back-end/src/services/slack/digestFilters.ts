@@ -5,7 +5,7 @@ type DigestFilterConfig = {
   ids: string[];
 };
 
-type DigestEvent = {
+export type DigestEvent = {
   event?: string;
   objectId?: string;
   data?: unknown;
@@ -66,4 +66,41 @@ export const digestEventPassesFilters = (
     overlaps(filters.tags, tags) &&
     overlaps(filters.environments, environments)
   );
+};
+
+export const digestEventLine = (event: DigestEvent): string => {
+  const payload = isRecord(event.data) ? event.data : {};
+  const data = isRecord(payload.data) ? payload.data : payload;
+  const object = isRecord(data.object) ? data.object : {};
+  const name = [
+    object.experimentName,
+    object.name,
+    object.experimentId,
+    object.id,
+    event.objectId,
+  ].find((value) => typeof value === "string" && value.length);
+  return `• ${event.event || "Update"} — ${name || "Unnamed"}`
+    .replace(/[\r\n\t]/g, " ")
+    .slice(0, 130);
+};
+
+export const summarizeDigestEvents = async (
+  events: AsyncIterable<DigestEvent>,
+  subscriptions: string[],
+  filters: DigestFilterConfig,
+  deadline: Date,
+): Promise<{ count: number; lines: string[] }> => {
+  const summary = { count: 0, lines: [] as string[] };
+  for await (const event of events) {
+    if (Date.now() >= deadline.getTime())
+      throw new Error("Digest scan exceeded its delivery lease");
+    if (
+      !digestEventMatchesSubscription(event, subscriptions) ||
+      !digestEventPassesFilters(event, filters)
+    )
+      continue;
+    summary.count++;
+    if (summary.lines.length < 20) summary.lines.push(digestEventLine(event));
+  }
+  return summary;
 };

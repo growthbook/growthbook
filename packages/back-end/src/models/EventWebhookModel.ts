@@ -15,6 +15,7 @@ import {
   getWildcardPatternsForEvent,
   NotificationEventNameOrWildcard,
   slackDigestNextRunAts,
+  slackDigestScheduleChanges,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -389,23 +390,39 @@ export const updateEventWebHook = async (
   { eventWebHookId, organizationId }: UpdateEventWebHookQueryOptions,
   updates: UpdateEventWebHookAttributes,
 ): Promise<boolean> => {
+  const existing = await EventWebHookModel.findOne({
+    id: eventWebHookId,
+    organizationId,
+  });
+  if (!existing) return false;
+  const schedule: Record<string, Date> = {};
+  const unset: Record<string, ""> = {};
+  if (updates.slackOptions !== undefined) {
+    const changes = slackDigestScheduleChanges(
+      existing.slackOptions,
+      updates.slackOptions,
+      new Date(),
+    );
+    for (const kind of ["experiment", "feature"] as const) {
+      const date = changes[kind];
+      if (date === undefined) continue;
+      const field = DIGEST_FIELD[kind];
+      if (date) schedule[field] = date;
+      else unset[field] = "";
+    }
+  }
+  // Invalidate in-flight delivery when settings or filters change.
+  unset.experimentDigestLeaseUntil = "";
+  unset.featureDigestLeaseUntil = "";
   const result = await EventWebHookModel.updateOne(
-    { id: eventWebHookId, organizationId },
+    { id: eventWebHookId, organizationId, dateUpdated: existing.dateUpdated },
     {
-      $set: {
-        ...updates,
-        dateUpdated: new Date(),
-      },
+      $set: { ...updates, ...schedule, dateUpdated: new Date() },
+      $unset: unset,
     },
   );
-
-  if (updates.slackOptions !== undefined) {
-    await syncSlackDigestSchedule({
-      eventWebHookId,
-      organizationId,
-      slackOptions: updates.slackOptions,
-    });
-  }
+  if (!result.matchedCount)
+    throw new Error("Webhook settings changed; reload and try again");
 
   return result.modifiedCount === 1;
 };
@@ -476,20 +493,21 @@ export const syncSlackDigestSchedule = async ({
   from?: Date;
 }) => {
   const next = slackDigestNextRunAts(slackOptions, from);
-  const set: Record<string, Date> = {};
-  const unset: Record<string, ""> = {};
-  (["experiment", "feature"] as SlackDigestKind[]).forEach((kind) => {
-    const field = DIGEST_FIELD[kind];
-    if (next[kind]) set[field] = next[kind] as Date;
-    else unset[field] = "";
-  });
-  await EventWebHookModel.updateOne(
-    { id: eventWebHookId, organizationId },
-    {
-      ...(Object.keys(set).length ? { $set: set } : {}),
-      ...(Object.keys(unset).length ? { $unset: unset } : {}),
-    },
-  );
+  for (const kind of ["experiment", "feature"] as const) {
+    const date = next[kind];
+    if (!date) continue;
+    await EventWebHookModel.updateOne(
+      {
+        id: eventWebHookId,
+        organizationId,
+        enabled: true,
+        payloadType: "slack",
+        slackOptions,
+        [DIGEST_FIELD[kind]]: { $exists: false },
+      },
+      { $set: { [DIGEST_FIELD[kind]]: date } },
+    );
+  }
 };
 
 export const getSlackWebhooksWithDigestDue = async (now: Date) => {
@@ -509,8 +527,17 @@ export const getSlackWebhooksMissingDigestSchedule = async () => {
     enabled: true,
     payloadType: "slack",
     $or: [
-      { "slackOptions.experimentDigest.frequency": { $exists: true, $ne: "off" }, nextExperimentDigestAt: { $exists: false } },
-      { "slackOptions.featureDigest.frequency": { $exists: true, $ne: "off" }, nextFeatureDigestAt: { $exists: false } },
+      {
+        "slackOptions.experimentDigest.frequency": {
+          $exists: true,
+          $ne: "off",
+        },
+        nextExperimentDigestAt: { $exists: false },
+      },
+      {
+        "slackOptions.featureDigest.frequency": { $exists: true, $ne: "off" },
+        nextFeatureDigestAt: { $exists: false },
+      },
     ],
   }).limit(500);
   return docs.map(toInterface);
@@ -521,11 +548,15 @@ export const claimSlackDigestRun = async ({
   organizationId,
   kind,
   now,
+  dueAt,
+  dateUpdated,
 }: {
   eventWebHookId: string;
   organizationId: string;
   kind: SlackDigestKind;
   now: Date;
+  dueAt: Date;
+  dateUpdated: Date;
 }) => {
   const field = DIGEST_FIELD[kind];
   const leaseField = DIGEST_LEASE_FIELD[kind];
@@ -536,7 +567,8 @@ export const claimSlackDigestRun = async ({
       organizationId,
       enabled: true,
       payloadType: "slack",
-      [field]: { $lte: now },
+      [field]: dueAt,
+      dateUpdated,
       $or: [
         { [leaseField]: { $exists: false } },
         { [leaseField]: { $lte: now } },
@@ -545,6 +577,22 @@ export const claimSlackDigestRun = async ({
     { $set: { [leaseField]: leaseUntil } },
   );
   return result.modifiedCount === 1 ? { leaseUntil } : null;
+};
+
+export const isSlackDigestRunCurrent = async (
+  webhook: EventWebHookInterface,
+  kind: SlackDigestKind,
+  leaseUntil: Date,
+) => {
+  if (leaseUntil <= new Date()) return false;
+  return !!(await EventWebHookModel.exists({
+    id: webhook.id,
+    organizationId: webhook.organizationId,
+    enabled: true,
+    payloadType: "slack",
+    dateUpdated: webhook.dateUpdated,
+    [DIGEST_LEASE_FIELD[kind]]: leaseUntil,
+  }));
 };
 
 export const completeSlackDigestRun = async ({
