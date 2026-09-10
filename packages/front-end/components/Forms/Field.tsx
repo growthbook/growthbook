@@ -1,9 +1,21 @@
 import clsx from "clsx";
-import { ReactElement, ReactNode, useState, forwardRef } from "react";
+import {
+  ChangeEvent,
+  FocusEvent,
+  ReactElement,
+  ReactNode,
+  useState,
+  forwardRef,
+} from "react";
 import TextareaAutosize, {
   TextareaAutosizeProps,
 } from "react-textarea-autosize";
 import HelperText from "@/ui/HelperText";
+import {
+  RESOURCE_TITLE_HTML_NAME,
+  eventForRegisteredName,
+  shouldDisableNameAutofill,
+} from "@/components/Forms/withHtmlName";
 
 export type FieldSize = "sm" | "md" | "legacy" | "lg";
 
@@ -66,6 +78,10 @@ const Field = forwardRef(
       // Destructured out of the rest so it isn't spread onto the <input>, which
       // React rejects as an unknown DOM attribute. The counter below uses it.
       currentLength,
+      name,
+      autoComplete,
+      onChange,
+      onBlur,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -85,6 +101,26 @@ const Field = forwardRef(
       className,
     );
 
+    const disableNameAutofill = shouldDisableNameAutofill(name, autoComplete);
+    const htmlName = disableNameAutofill ? RESOURCE_TITLE_HTML_NAME : name;
+    const htmlAutoComplete = disableNameAutofill ? "off" : autoComplete;
+    const htmlOnChange = onChange
+      ? (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+          const forwarded = disableNameAutofill
+            ? eventForRegisteredName(event, name ?? "name")
+            : event;
+          onChange(forwarded as ChangeEvent<HTMLInputElement>);
+        }
+      : undefined;
+    const htmlOnBlur = onBlur
+      ? (event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+          const forwarded = disableNameAutofill
+            ? eventForRegisteredName(event, name ?? "name")
+            : event;
+          onBlur(forwarded as FocusEvent<HTMLInputElement>);
+        }
+      : undefined;
+
     let component: ReactElement;
     if (render) {
       component = render(fieldId, ref);
@@ -94,6 +130,10 @@ const Field = forwardRef(
           {...(otherProps as unknown as TextareaAutosizeProps)}
           ref={ref}
           id={fieldId}
+          name={htmlName}
+          autoComplete={htmlAutoComplete}
+          onChange={htmlOnChange}
+          onBlur={htmlOnBlur}
           className={cn}
           minRows={minRows || 2}
           maxRows={maxRows || 6}
@@ -105,6 +145,10 @@ const Field = forwardRef(
           {...otherProps}
           ref={ref}
           id={fieldId}
+          name={htmlName}
+          autoComplete={htmlAutoComplete}
+          onChange={htmlOnChange}
+          onBlur={htmlOnBlur}
           type={type}
           className={cn}
         />

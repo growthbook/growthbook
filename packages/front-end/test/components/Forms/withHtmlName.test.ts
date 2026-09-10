@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { UseFormRegisterReturn } from "react-hook-form";
-import { withHtmlName } from "@/components/Forms/withHtmlName";
+import {
+  eventForRegisteredName,
+  shouldDisableNameAutofill,
+  withHtmlName,
+} from "@/components/Forms/withHtmlName";
 
 function fakeRegistration(
   overrides: Partial<UseFormRegisterReturn> = {},
@@ -13,6 +17,39 @@ function fakeRegistration(
     ...overrides,
   };
 }
+
+describe("shouldDisableNameAutofill", () => {
+  it("disables contact autofill for resource name fields", () => {
+    expect(shouldDisableNameAutofill("name", undefined)).toBe(true);
+    expect(shouldDisableNameAutofill("name", "off")).toBe(true);
+  });
+
+  it("keeps autofill when the caller passes an autocomplete token", () => {
+    expect(shouldDisableNameAutofill("name", "name")).toBe(false);
+    expect(shouldDisableNameAutofill("email", undefined)).toBe(false);
+  });
+});
+
+describe("eventForRegisteredName", () => {
+  it("rewrites the DOM name back to the registered field name", () => {
+    expect(
+      eventForRegisteredName(
+        {
+          type: "change",
+          target: {
+            name: "resourceTitle",
+            type: "text",
+            value: "Checkout CTA",
+          },
+        },
+        "name",
+      ),
+    ).toEqual({
+      type: "change",
+      target: { name: "name", type: "text", value: "Checkout CTA" },
+    });
+  });
+});
 
 describe("withHtmlName", () => {
   it("sets the DOM name and forwards events under the registered field name", async () => {

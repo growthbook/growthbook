@@ -60,7 +60,6 @@ import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Field from "@/components/Forms/Field";
-import { withHtmlName } from "@/components/Forms/withHtmlName";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -739,12 +738,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   }
   const trackingEventModalType = kebabCase(header);
 
-  const nameFieldHandlers = withHtmlName(
-    form.register("name", {
-      setValueAs: (s) => s?.trim(),
-    }),
-    isBandit ? "banditTitle" : "experimentTitle",
-  );
+  const nameFieldHandlers = form.register("name", {
+    setValueAs: (s) => s?.trim(),
+  });
   const trackingKeyFieldHandlers = form.register("trackingKey");
 
   const checkForSimilar = useCallback(async () => {
@@ -974,7 +970,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               label={isBandit ? "Bandit Name" : "Experiment Name"}
               required
               minLength={2}
-              autoComplete="off"
               {...nameFieldHandlers}
               onChange={async (e) => {
                 // Ensure the name field is updated and then sync with trackingKey if possible

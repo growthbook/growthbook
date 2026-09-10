@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import { withHtmlName } from "@/components/Forms/withHtmlName";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsInput from "@/components/Tags/TagsInput";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -65,8 +64,7 @@ export default function EditExperimentInfoModal({
         size="legacy"
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
-        autoComplete="off"
-        {...withHtmlName(form.register("name"), "experimentTitle")}
+        {...form.register("name")}
         required
       />
       <Field
