@@ -34,6 +34,10 @@ import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
+  assertNamespaceHashAttributeChangeAllowed,
+  assertNamespaceNotInUse,
+} from "back-end/src/services/namespaces";
+import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
@@ -1258,9 +1262,16 @@ export async function putNamespaces(
   const namespaces = org.settings?.namespaces || [];
 
   // Make sure this namespace exists
-  if (namespaces.filter((n) => n.name === name).length === 0) {
+  const target = namespaces.find((n) => n.name === name);
+  if (!target) {
     throw new Error("Namespace not found.");
   }
+
+  await assertNamespaceHashAttributeChangeAllowed(
+    context,
+    target,
+    hashAttribute,
+  );
 
   const updatedNamespaces = namespaces.map((n) => {
     if (n.name !== name) return n;
@@ -1329,6 +1340,8 @@ export async function deleteNamespace(
   if (namespaces.length === updatedNamespaces.length) {
     throw new Error("Namespace not found.");
   }
+
+  await assertNamespaceNotInUse(context, name, "delete");
 
   await updateOrganization(org.id, {
     settings: {

@@ -2,7 +2,11 @@ import { each, isEqual, pick, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import {
+  includeExperimentInPayload,
+  hasVisualChanges,
+  experimentHasLinkedChanges,
+} from "shared/util";
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
@@ -562,6 +566,59 @@ export async function getAllExperiments(
   }
 
   return await findExperiments(context, query, limit, sortBy);
+}
+
+// Experiments that currently allocate traffic inside a namespace: not
+// archived, contributing to SDK payloads (linked changes; if stopped, still
+// rolled out), and with the namespace enabled on the LATEST phase. This is a
+// referential-integrity check for namespace deletes / re-hashing, so it is
+// deliberately NOT filtered by the caller's project read access and only
+// projects the fields the check needs.
+export async function countActiveExperimentsUsingNamespace(
+  context: ReqContext | ApiReqContext,
+  namespaceId: string,
+): Promise<number> {
+  const docs = (await getCollection(COLLECTION)
+    .find(
+      {
+        organization: context.org.id,
+        archived: { $ne: true },
+        "phases.namespace.name": namespaceId,
+      },
+      {
+        projection: {
+          _id: 0,
+          status: 1,
+          hasVisualChangesets: 1,
+          hasURLRedirects: 1,
+          linkedFeatures: 1,
+          excludeFromPayload: 1,
+          releasedVariationId: 1,
+          "phases.namespace": 1,
+        },
+      },
+    )
+    .toArray()) as unknown as Pick<
+    ExperimentInterface,
+    | "status"
+    | "hasVisualChangesets"
+    | "hasURLRedirects"
+    | "linkedFeatures"
+    | "excludeFromPayload"
+    | "releasedVariationId"
+    | "phases"
+  >[];
+  return docs.filter((e) => {
+    if (!experimentHasLinkedChanges(e as ExperimentInterface)) return false;
+    if (
+      e.status === "stopped" &&
+      (e.excludeFromPayload || !e.releasedVariationId)
+    ) {
+      return false;
+    }
+    const phase = e.phases?.[e.phases.length - 1];
+    return !!phase?.namespace?.enabled && phase.namespace.name === namespaceId;
+  }).length;
 }
 
 /**

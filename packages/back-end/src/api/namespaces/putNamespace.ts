@@ -8,6 +8,7 @@ import {
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { buildNamespace } from "back-end/src/util/namespaces";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { assertNamespaceHashAttributeChangeAllowed } from "back-end/src/services/namespaces";
 import { orgNamespaceToApi } from "./namespaceApiUtils";
 
 export const putNamespace = createApiRequestHandler(putNamespaceValidator)(
@@ -46,6 +47,12 @@ export const putNamespace = createApiRequestHandler(putNamespaceValidator)(
       target.format === "multiRange" ? target.hashAttribute : undefined;
     const existingSeed =
       target.format === "multiRange" ? target.seed : undefined;
+
+    await assertNamespaceHashAttributeChangeAllowed(
+      req.context,
+      target,
+      hashAttribute,
+    );
 
     const updated = buildNamespace({
       name: target.name,
