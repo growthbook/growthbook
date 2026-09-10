@@ -52,6 +52,7 @@ export {
   clearInapplicableShowAs,
   getEffectiveMetricValue,
   getSharedUnit,
+  getDefaultValueAxisName,
   showAsAppliesTo,
   getIsRatioByIndex,
   buildExplorationColumns,
@@ -73,8 +74,7 @@ export type ExplorerDraftConfig = ExplorationConfig & {
  * compare fields, and — for raw tables — the dimensions and values the draft
  * keeps so switching back to a visualization is reversible. Raw tables return
  * unaggregated rows, so the server rejects a config that still carries them.
- * Blank axis labels are dropped so an untouched Chart Settings form doesn't
- * read as a config change.
+ * Axis labels are trimmed but never dropped: blank means the user hid the label.
  */
 export function stripExplorerDraftFields(
   config: ExplorerDraftConfig,
@@ -952,12 +952,48 @@ export function removeIncompleteInputs(
 function cleanChartSettings(
   chartSettings: ProductAnalyticsChartSettings | undefined,
 ): ProductAnalyticsChartSettings | undefined {
-  const categoryAxisLabel = chartSettings?.categoryAxisLabel?.trim() ?? "";
-  const valueAxisLabel = chartSettings?.valueAxisLabel?.trim() ?? "";
-  if (!categoryAxisLabel && !valueAxisLabel) return undefined;
+  if (!chartSettings) return undefined;
+  const next: ProductAnalyticsChartSettings = {};
+  // Preserve empty strings: they mean "hide this label", not "use the default".
+  if (chartSettings.categoryAxisLabel !== undefined) {
+    next.categoryAxisLabel = chartSettings.categoryAxisLabel.trim();
+  }
+  if (chartSettings.valueAxisLabel !== undefined) {
+    next.valueAxisLabel = chartSettings.valueAxisLabel.trim();
+  }
+  return Object.keys(next).length ? next : undefined;
+}
+
+/** Dataset fields the inferred value-axis label depends on. */
+function getValueAxisLabelSource(config: ExplorerDraftConfig) {
+  const { dataset, showAs } = config;
+  if (dataset.type === "funnel") {
+    return { type: dataset.type, showAs };
+  }
   return {
-    ...(categoryAxisLabel ? { categoryAxisLabel } : {}),
-    ...(valueAxisLabel ? { valueAxisLabel } : {}),
+    type: dataset.type,
+    showAs,
+    values: dataset.values.map((v) => omit(v, ["name", "rowFilters"])),
+  };
+}
+
+/** Drop a custom value-axis label when the values it described have changed. */
+export function resetValueAxisLabelOnDatasetChange(
+  previous: ExplorerDraftConfig,
+  next: ExplorerDraftConfig,
+): ExplorerDraftConfig {
+  if (next.chartSettings?.valueAxisLabel === undefined) return next;
+  if (
+    isEqual(getValueAxisLabelSource(previous), getValueAxisLabelSource(next))
+  ) {
+    return next;
+  }
+  const chartSettings = omit(next.chartSettings, "valueAxisLabel");
+  return {
+    ...next,
+    chartSettings: Object.keys(chartSettings).length
+      ? chartSettings
+      : undefined,
   };
 }
 
