@@ -1005,7 +1005,7 @@ export default function RuleModal({
   const rampImpactKey = rampStartImpact
     ? rampStartImpact.kind === "coverage-drop"
       ? `drop:${rampStartImpact.fromPct}:${rampStartImpact.toPct}`
-      : `delayed:${rampStartImpact.liveCoveragePct}`
+      : `delayed:${rampStartImpact.liveCoveragePct}:${rampSectionState.startDate}:${rampSectionState.requiresStartApproval}`
     : "";
   const [rampAcknowledgedKey, setRampAcknowledgedKey] = useState(() =>
     ruleRampSchedule || pendingCreateActionTyped ? rampImpactKey : "",
