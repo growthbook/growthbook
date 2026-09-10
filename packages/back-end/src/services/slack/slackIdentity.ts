@@ -8,16 +8,13 @@ import { getCollection } from "back-end/src/util/mongo.util";
 import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 import { logger } from "back-end/src/util/logger";
 
-// Minimal shape we read off the lean Slack Event Webhook docs. `botAccessToken`
-// is intentionally absent from the public EventWebHookInterface, so we read it
-// through a narrow cast (like getSlackBotAccessTokenForWebhook does).
+// Minimal shape we read off the lean Slack Event Webhook docs.
 interface SlackWebhookDoc {
   id: string;
   organizationId: string;
   slack?: {
     teamId?: string;
     channelId?: string;
-    botAccessToken?: string;
   };
   slackOptions?: {
     assistantEnabled?: boolean;
@@ -61,9 +58,6 @@ export async function getSlackWorkspaceOrganizationIds(
   const webhooks = await findSlackWebhooksByTeam(teamId);
   return [...new Set(webhooks.map((w) => w.organizationId))];
 }
-
-const readBotToken = (w: SlackWebhookDoc): string | undefined =>
-  w.slack?.botAccessToken || undefined;
 
 async function getWorkspaceBotToken(
   teamId: string | undefined,
@@ -208,11 +202,9 @@ export async function resolveSlackAssistantTarget({
     };
   }
 
-  // Any of the workspace's bot tokens can look up the user and post replies —
-  // they all belong to the same Slack team.
-  const botToken =
-    (await getWorkspaceBotToken(teamId)) ||
-    webhooks.map(readBotToken).find((t): t is string => !!t);
+  // Workspace OAuth credentials are authoritative. Legacy webhook credentials
+  // are deliberately not used for assistant traffic.
+  const botToken = await getWorkspaceBotToken(teamId);
   if (!botToken) {
     logger.warn(
       { teamId, webhookCount: webhooks.length },
@@ -298,7 +290,7 @@ export async function resolveSlackAssistantTarget({
     eventWebHookId: target.webhook.id,
     botToken: (await getWorkspaceBotToken(teamId, organizationId)) || botToken,
     // Settings are read from the connection belonging to the resolved org.
-    assistantEnabled: slackOptions?.assistantEnabled !== false,
-    unfurlEnabled: slackOptions?.unfurlEnabled !== false,
+    assistantEnabled: slackOptions?.assistantEnabled === true,
+    unfurlEnabled: slackOptions?.unfurlEnabled === true,
   };
 }

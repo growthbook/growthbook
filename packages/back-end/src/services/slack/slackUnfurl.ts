@@ -1,3 +1,4 @@
+import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
@@ -7,7 +8,25 @@ import { unfurlSlackLinks } from "back-end/src/services/slack/slackWebApi";
 // summary. Text-only because unfurls can't carry a private uploaded image (a
 // slack_file block is rejected) and we never host results at a public URL.
 
-const EXPERIMENT_URL_RE = /\/experiment\/([a-zA-Z0-9_-]+)/;
+export function parseGrowthBookExperimentUrl(
+  value: string,
+): string | undefined {
+  try {
+    const expected = new URL(APP_ORIGIN);
+    const url = new URL(value);
+    if (url.origin !== expected.origin) return undefined;
+    return url.pathname.match(/^\/experiment\/([a-zA-Z0-9_-]+)\/?$/)?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
+export function escapeSlackMrkdwnText(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
 
 export interface SlackLinkShared {
   teamId: string;
@@ -24,7 +43,7 @@ export async function handleSlackLinkShared(
   const experimentLinks = evt.links
     .map((l) => ({
       url: l.url || "",
-      experimentId: (l.url || "").match(EXPERIMENT_URL_RE)?.[1],
+      experimentId: parseGrowthBookExperimentUrl(l.url || ""),
     }))
     .filter(
       (x): x is { url: string; experimentId: string } => !!x.experimentId,
@@ -79,10 +98,12 @@ export async function handleSlackLinkShared(
       }
       const row = card.rows[0];
       const summary = [
-        card.goal ? `*Goal:* ${card.goal}` : null,
+        card.goal ? `*Goal:* ${escapeSlackMrkdwnText(card.goal)}` : null,
         row?.chg
-          ? `${row.dir === "up" ? "▲" : "▼"} ${row.chg}${
-              row.ctw ? ` · ${row.ctw} chance to win` : ""
+          ? `${row.dir === "up" ? "▲" : "▼"} ${escapeSlackMrkdwnText(row.chg)}${
+              row.ctw
+                ? ` · ${escapeSlackMrkdwnText(row.ctw)} chance to win`
+                : ""
             }`
           : null,
       ]
@@ -91,14 +112,16 @@ export async function handleSlackLinkShared(
       // Show the tracking key only when it differs from the name — many
       // experiments use the same string for both, which reads as a duplicate.
       const keyPart =
-        card.key && card.key !== card.name ? `  \`${card.key}\`` : "";
+        card.key && card.key !== card.name
+          ? `  \`${escapeSlackMrkdwnText(card.key)}\``
+          : "";
       unfurls[url] = {
         blocks: [
           {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: `*${card.name}*${keyPart}${summary ? `\n${summary}` : ""}`,
+              text: `*${escapeSlackMrkdwnText(card.name)}*${keyPart}${summary ? `\n${summary}` : ""}`,
             },
           },
         ],

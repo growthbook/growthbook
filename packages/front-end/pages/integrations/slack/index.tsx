@@ -245,7 +245,9 @@ const SlackWorkspacePage: NextPage = () => {
   const [installing, setInstalling] = useState(false);
   const [addChannelTeamId, setAddChannelTeamId] = useState<string | null>(null);
   const [disconnectTeamId, setDisconnectTeamId] = useState<string | null>(null);
-  const [updatingAssistantTeamId, setUpdatingAssistantTeamId] = useState<string | null>(null);
+  const [updatingAssistantTeamId, setUpdatingAssistantTeamId] = useState<
+    string | null
+  >(null);
 
   const {
     data,
@@ -698,7 +700,7 @@ const SlackWorkspacePage: NextPage = () => {
                       size="sm"
                       label="AI assistant"
                       description="Answer mentions in connected channels"
-                      value={group.workspace.assistantEnabled !== false}
+                      value={group.workspace.assistantEnabled === true}
                       disabled={updatingAssistantTeamId === group.teamId}
                       onChange={async (enabled) => {
                         setUpdatingAssistantTeamId(group.teamId);
