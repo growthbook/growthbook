@@ -14,7 +14,7 @@ want to have an experimentation development culture, and determining the impact 
 Feature flag experiments use an experiment override rule. Saving and publishing the rule makes it available to the SDK.
 A user is enrolled when your application evaluates the feature (for example with `isOn` or `getFeatureValue`) and they
 qualify. That is when `trackingCallback` runs so the exposure can be tracked in your data warehouse. If they are not
-included, you still get a value and `trackingCallback` does not run.
+included, you still get the default (or the next matching rule), and `trackingCallback` does not run.
 
 Here's what an Experiment rule looks like in the GrowthBook UI:
 
