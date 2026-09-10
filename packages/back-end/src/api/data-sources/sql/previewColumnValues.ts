@@ -24,12 +24,18 @@ export const previewColumnValues = createApiRequestHandler(
     ...req.body,
     limit: req.body.limit ?? 20,
   });
-  const typed = result as {
-    table: string;
-    columns: string[];
-    rows: Record<string, unknown>[];
-    rowCount: number;
-  };
+  const typed = result as
+    | {
+        status: "success";
+        table: string;
+        columns: string[];
+        rows: Record<string, unknown>[];
+        rowCount: number;
+      }
+    | { status: "error"; message: string };
+
+  if (typed.status === "error") return typed;
+
   return {
     ...typed,
     ...(datasource.type === "bigquery"

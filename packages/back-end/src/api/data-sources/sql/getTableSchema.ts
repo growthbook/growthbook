@@ -19,12 +19,11 @@ export const getTableSchema = createApiRequestHandler(getTableSchemaValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    const result = await getWarehouseTableSchema(
+    return (await getWarehouseTableSchema(
       req.context,
       datasource,
       req.body,
-    );
-    return result as {
+    )) as {
       tables: Array<{
         database: string;
         schema: string;

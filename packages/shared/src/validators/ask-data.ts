@@ -106,15 +106,24 @@ export const previewColumnValuesValidator = {
   }),
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: z
-    .object({
-      table: z.string(),
-      columns: z.array(z.string()),
-      rows: z.array(z.record(z.string(), z.unknown())),
-      rowCount: z.number(),
-      warning: z.string().optional(),
-    })
-    .strict(),
+  responseSchema: z.union([
+    z
+      .object({
+        status: z.literal("success"),
+        table: z.string(),
+        columns: z.array(z.string()),
+        rows: z.array(z.record(z.string(), z.unknown())),
+        rowCount: z.number(),
+        warning: z.string().optional(),
+      })
+      .strict(),
+    z
+      .object({
+        status: z.literal("error"),
+        message: z.string(),
+      })
+      .strict(),
+  ]),
   summary: "Preview distinct column values",
   operationId: "previewWarehouseColumnValues",
   tags: ["data-sources"],

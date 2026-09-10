@@ -19537,28 +19537,47 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  table:
-                    type: string
-                  columns:
-                    type: array
-                    items:
-                      type: string
-                  rows:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/rows'
-                  rowCount:
-                    type: number
-                  warning:
-                    type: string
-                required:
-                  - table
-                  - columns
-                  - rows
-                  - rowCount
-                additionalProperties: false
+                anyOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        const: success
+                      table:
+                        type: string
+                      columns:
+                        type: array
+                        items:
+                          type: string
+                      rows:
+                        type: array
+                        items:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties: {}
+                      rowCount:
+                        type: number
+                      warning:
+                        type: string
+                    required:
+                      - status
+                      - table
+                      - columns
+                      - rows
+                      - rowCount
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        const: error
+                      message:
+                        type: string
+                    required:
+                      - status
+                      - message
+                    additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -74073,11 +74092,6 @@ components:
         - table
         - columnCount
       additionalProperties: false
-    rows:
-      type: object
-      propertyNames:
-        type: string
-      additionalProperties: {}
     savedGroups:
       type: object
       properties:

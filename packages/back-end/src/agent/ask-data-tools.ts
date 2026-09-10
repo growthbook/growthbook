@@ -205,9 +205,7 @@ export async function getWarehouseTableSchema(
 ): Promise<unknown> {
   const integration = getSourceIntegrationObject(ctx, datasource);
   if (!integration.getTableData) {
-    return {
-      error: "This datasource does not support table schema retrieval.",
-    };
+    throw new Error("This datasource does not support table schema retrieval.");
   }
 
   const factTables = await getFactTablesForDatasource(ctx, datasource.id);
@@ -246,9 +244,10 @@ export async function previewWarehouseColumnValues(
     input.limit,
   );
 
-  if (error) return { error };
+  if (error) return { status: "error" as const, message: error };
 
   return {
+    status: "success" as const,
     table: tablePath,
     columns: input.columns,
     rows: (results ?? []).slice(0, input.limit),
