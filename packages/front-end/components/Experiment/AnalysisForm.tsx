@@ -432,20 +432,24 @@ const AnalysisForm: FC<{
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
-          phaseStartDate: string;
+          phaseStartDate?: string;
           phaseEndDate?: string;
           currentPhase?: number;
         } = {
           ...values,
           currentPhase: phase,
-          phaseStartDate: dateStarted,
           skipPartialData: skipPartialData === "strict",
         };
 
         fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
-        if (experiment.status === "stopped") {
-          body.phaseEndDate = dateEnded;
+        // Only include phase dates when editDates is true to avoid triggering
+        // runExperiments permission for pure analysis-setting changes
+        if (editDates) {
+          body.phaseStartDate = dateStarted;
+          if (experiment.status === "stopped") {
+            body.phaseEndDate = dateEnded;
+          }
         }
         // Include lookbackOverride; use undefined to clear when user selects "None"
         if (value.lookbackOverride !== undefined) {
