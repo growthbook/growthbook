@@ -43,6 +43,8 @@ import TokenHoverCard, {
   readHoveredToken,
   type HoveredToken,
 } from "./TokenHoverCard";
+import DictationButton from "./DictationButton";
+import { useDictation } from "./useDictation";
 import SuggestionList, {
   SUGGESTION_LISTBOX_ID,
   suggestionOptionId,
@@ -374,6 +376,20 @@ function ChatComposer(
     onSend(readSubmission(editor.state.doc));
   }, [editor, onSend]);
 
+  // Dictated text lands at the cursor like typing would, so it can be edited
+  // before sending rather than submitted straight from the mic.
+  const dictation = useDictation(
+    useCallback(
+      (text: string) => {
+        if (!editor) return;
+        const needsSpace = /\S$/.test(editorToText(editor));
+        editor.commands.insertContent(needsSpace ? ` ${text}` : text);
+        editor.commands.focus("end");
+      },
+      [editor],
+    ),
+  );
+
   const canSend = value.trim().length > 0 && !loading && !disabled;
   const isCompact = variant === "compact";
   const isHero = variant === "hero";
@@ -408,9 +424,14 @@ function ChatComposer(
     </Button>
   );
 
+  const dictateButton = (
+    <DictationButton dictation={dictation} disabled={loading || disabled} />
+  );
+
   const boxClasses = [
     styles.box,
     isHero ? styles.heroBox : styles.inlineBox,
+    !isHero && dictation.available ? styles.boxWithDictation : "",
     isHero ? "" : isCompact ? styles.compactBox : styles.wideBox,
     focused
       ? isHero
@@ -442,6 +463,7 @@ function ChatComposer(
           }
         />
       )}
+      {!isHero && dictateButton}
       <EditorContent
         editor={editor}
         className={`${styles.editor}${loading || disabled ? ` ${styles.readOnly}` : ""}`}
@@ -450,7 +472,10 @@ function ChatComposer(
         onBlur={handleBlur}
       />
       {isHero ? (
-        <div className={styles.heroSendButton}>{sendButton}</div>
+        <>
+          <div className={styles.heroDictateButton}>{dictateButton}</div>
+          <div className={styles.heroSendButton}>{sendButton}</div>
+        </>
       ) : (
         sendButton
       )}

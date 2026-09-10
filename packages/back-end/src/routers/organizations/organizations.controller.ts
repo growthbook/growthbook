@@ -979,7 +979,7 @@ export async function getOrganization(
 
   // Returned here so every page can gate AI affordances off the org's real key
   // state without a second request. The keys never leave the back end.
-  const { keySource } = await getAISettingsForOrg(context);
+  const { keySource, sttModel } = await getAISettingsForOrg(context);
   const aiKeyProviders = AI_PROVIDERS.filter((p) => keySource[p] !== "none");
 
   // Teams were already loaded (unfiltered) by the auth middleware
@@ -1024,6 +1024,10 @@ export async function getOrganization(
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
     aiKeyProviders,
+    // Resolved server-side rather than re-derived in the front-end: the
+    // settings dropdown only filters by key on Cloud, so a front-end guess
+    // would disagree with what the transcribe route actually does.
+    sttModel,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],

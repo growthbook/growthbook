@@ -39,6 +39,9 @@ import {
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   EmbeddingModel,
+  CLOUD_MANAGED_STT_MODEL,
+  SELF_HOSTED_DEFAULT_STT_MODELS,
+  STTModel,
   getProviderForAIModel,
 } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
@@ -311,6 +314,12 @@ export async function getAISettingsForOrg(
   keySource: Record<AIProvider, AIKeySource>;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
+  // Transcription model for voice dictation, or null when no provider with a
+  // key serves one. Unlike embeddingModel this is nullable on purpose: the
+  // embedding default is only reached by an explicit "Regenerate" click that
+  // surfaces its own error, while a mic button that renders and then fails
+  // after the user has spoken is worse than no mic button.
+  sttModel: STTModel | null;
   // Resolved Visual Editor overrides — both already fall back to a
   // sensible default so callers don't need their own resolution logic.
   visualEditorAIModel: AIModel;
@@ -376,6 +385,16 @@ export async function getAISettingsForOrg(
       ? CLOUD_MANAGED_IMAGE_MODEL
       : GEMINI_IMAGE_MODEL);
 
+  // Cloud prefers the managed Grok STT model; both Cloud and self-hosted then
+  // walk the provider list so a missing key degrades to another provider.
+  const sttModel: STTModel | null =
+    getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
+    (IS_CLOUD && keySource.xai !== "none" ? CLOUD_MANAGED_STT_MODEL : null) ||
+    SELF_HOSTED_DEFAULT_STT_MODELS.find(
+      ([provider]) => keySource[provider] !== "none",
+    )?.[1] ||
+    null;
+
   return {
     aiEnabled,
     openAIAPIKey: includeKey ? resolvedKeys.openai.key : "",
@@ -391,6 +410,7 @@ export async function getAISettingsForOrg(
         context.org.settings?.embeddingModel,
         keySource,
       ) || DEFAULT_EMBEDDING_MODEL,
+    sttModel,
     visualEditorAIModel,
     visualEditorImageModel,
     visualEditorAIContext: (

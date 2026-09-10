@@ -27,6 +27,8 @@ import {
   secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import { runAIEnabledGates } from "back-end/src/enterprise/services/ai-access";
+import { transcribeAudio } from "back-end/src/enterprise/services/stt";
 import { getTokensUsedByOrganization } from "back-end/src/models/AITokenUsageModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
@@ -311,4 +313,29 @@ export async function postReformat(
       output: aiResults,
     },
   });
+}
+
+/**
+ * Transcribe a dictated audio clip. The body is raw audio bytes (see the
+ * route's bodyParser.raw), so there is nothing for a Zod validator to check —
+ * the model choice is resolved server-side from org settings.
+ */
+export async function postTranscribe(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  if (!(await runAIEnabledGates(context, res))) return;
+
+  const audio = req.body;
+  if (!Buffer.isBuffer(audio) || !audio.length) {
+    return res.status(400).json({
+      status: 400,
+      message: "No audio was uploaded",
+    });
+  }
+
+  const text = await transcribeAudio(
+    context,
+    audio,
+    req.headers["content-type"] || "audio/webm",
+  );
+  return res.status(200).json({ status: 200, text });
 }

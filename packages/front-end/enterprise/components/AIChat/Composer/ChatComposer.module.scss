@@ -164,6 +164,15 @@
   z-index: 1;
 }
 
+// Mirrors .heroSendButton on the leading edge, so dictation is bottom-left in
+// every variant. The 40px bottom padding on .heroBox is the gutter both sit in.
+.heroDictateButton {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1;
+}
+
 // --- Buttons -----------------------------------------------------------------
 
 // `@/ui/Button` wraps its children in a Radix `<Text>` span, so an icon passed
@@ -224,4 +233,60 @@
   &:hover:not(:disabled) {
     background: var(--gray-a6);
   }
+}
+
+// --- Dictation button --------------------------------------------------------
+
+// Sits at the leading edge of the inline variants' flex row, mirroring
+// .sendButton's geometry so both align on the same baseline as the editor grows.
+.dictateButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  line-height: 0;
+  border: none;
+  border-radius: var(--radius-3);
+  background: transparent;
+  color: var(--gray-11);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+
+  svg {
+    display: block;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--gray-a3);
+    color: var(--gray-12);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// Recording. Tinted rather than pulsing: the panel already animates during a
+// turn, and a second moving thing competes with it.
+.dictateButtonActive {
+  background: var(--red-a4);
+  color: var(--red-11);
+
+  &:hover:not(:disabled) {
+    background: var(--red-a5);
+    color: var(--red-11);
+  }
+}
+
+// The row's left padding exists to inset the text from the border; the button
+// carries its own, so drop it back to the button gutter when one is present.
+.boxWithDictation {
+  padding-left: 4px;
 }

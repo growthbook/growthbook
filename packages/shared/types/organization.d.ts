@@ -18,7 +18,7 @@ import {
   OrgLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
+import { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
   AgreementType,
   environment,
@@ -283,6 +283,10 @@ export interface OrganizationSettings {
   aiEnabled?: boolean;
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
+  // Voice dictation in AI chat. Unset resolves per getAISettingsForOrg, which
+  // returns null when no provider with a key serves transcription — that null
+  // is what hides the mic button.
+  sttModel?: STTModel;
   /** @deprecated */
   openAIDefaultModel?: AIModel;
   // Per-surface overrides for the Visual Editor. Image model is a free
@@ -554,6 +558,8 @@ export type GetOrganizationResponse = {
   // Providers with a usable key, stored or inherited from the environment.
   // Non-secret, and rides along here so AI gating needs no separate request.
   aiKeyProviders: AIProvider[];
+  // Resolved transcription model for voice dictation, null when unavailable.
+  sttModel: STTModel | null;
 };
 
 export type DailyUsage = {

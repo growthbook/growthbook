@@ -1,4 +1,5 @@
 import {
+  AI_PROVIDER_STT_MODEL_MAP,
   formatAIRateLimitRetryMessage,
   getAIModelSettingsUsingProvider,
   getProviderForAIModel,
@@ -41,11 +42,31 @@ describe("getProviderForAIModel", () => {
     ).toBe("google");
   });
 
+  it("resolves transcription models from their own registry", () => {
+    expect(getProviderForAIModel("stt", "grok-stt-1.0")).toBe("xai");
+    expect(getProviderForAIModel("stt", "gpt-transcribe")).toBe("openai");
+    expect(getProviderForAIModel("stt", "voxtral-mini-latest")).toBe("mistral");
+    // Transcription ids are not text models and vice versa.
+    expect(getProviderForAIModel("text", "grok-stt-1.0")).toBeNull();
+    expect(getProviderForAIModel("stt", "grok-4.6")).toBeNull();
+  });
+
+  it("has no transcription model for Anthropic or Google", () => {
+    // Claude takes no audio input, and gemini-3.5-transcribe needs the
+    // Files API + /v1beta/interactions rather than an inline POST.
+    for (const model of Object.values(AI_PROVIDER_STT_MODEL_MAP).flat()) {
+      expect(["anthropic", "google"]).not.toContain(
+        getProviderForAIModel("stt", model),
+      );
+    }
+  });
+
   it("returns null for an unknown id rather than throwing", () => {
     // Read off saved org settings, so a stale value must not throw.
     expect(getProviderForAIModel("text", "not-a-model")).toBeNull();
     expect(getProviderForAIModel("embedding", "not-a-model")).toBeNull();
     expect(getProviderForAIModel("image", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("stt", "not-a-model")).toBeNull();
     expect(getProviderForAIModel("text", "")).toBeNull();
   });
 });
@@ -211,6 +232,19 @@ describe("getAIModelSettingsUsingProvider", () => {
 
   it("returns nothing for a provider no setting uses", () => {
     expect(getAIModelSettingsUsingProvider(settings, "mistral")).toEqual([]);
+  });
+
+  it("finds the dictation setting", () => {
+    // Removing the key behind a stored dictation model has to clear it, or
+    // transcription keeps pointing at a provider with no credentials.
+    expect(
+      getAIModelSettingsUsingProvider({ sttModel: "grok-stt-1.0" }, "xai").map(
+        (s) => s.key,
+      ),
+    ).toEqual(["sttModel"]);
+    expect(
+      getAIModelSettingsUsingProvider({ sttModel: "grok-stt-1.0" }, "openai"),
+    ).toEqual([]);
   });
 
   it("catches the legacy openAIDefaultModel field", () => {

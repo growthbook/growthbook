@@ -548,9 +548,59 @@ export function getProviderFromEmbeddingModel(
   throw new Error(`Embedding model ${model} is not supported.`);
 }
 
-// Text, embedding and image models each have their own registry, so callers
-// holding an org setting must say which one it came from.
-export type AIModelKind = "text" | "embedding" | "image";
+// Speech-to-text models, for voice dictation in AI chat.
+//
+// Batch (file-POST) transcription only. Each provider also ships a realtime id
+// — gpt-live-transcribe, voxtral-mini-transcribe-realtime-2602, xAI's
+// wss://api.x.ai/v1/stt — and those need a socket, not a POST.
+//
+// Two providers are deliberately absent:
+//   Anthropic — no Claude model accepts audio input at all.
+//   Google — gemini-3.5-transcribe won't take inline audio. It needs a Files
+//     API upload first, then a POST to /v1beta/interactions (not
+//     generateContent) with its own request and response shape: two
+//     round-trips and an adapter as large as the other three providers
+//     combined, for a preview model. Add it if a Google-only org asks.
+export const AI_PROVIDER_STT_MODEL_MAP = {
+  openai: [
+    "gpt-transcribe",
+    "gpt-4o-transcribe",
+    "gpt-4o-mini-transcribe",
+    "whisper-1",
+  ],
+  xai: ["grok-stt-1.0"],
+  mistral: ["voxtral-mini-latest"],
+} as const;
+
+export type STTModel =
+  (typeof AI_PROVIDER_STT_MODEL_MAP)[keyof typeof AI_PROVIDER_STT_MODEL_MAP][number];
+
+// Which provider serves an STT model.
+export function getProviderFromSTTModel(model: STTModel): AIProvider {
+  for (const [provider, models] of Object.entries(AI_PROVIDER_STT_MODEL_MAP)) {
+    if (models.includes(model as never)) {
+      return provider as AIProvider;
+    }
+  }
+  throw new Error(`Transcription model ${model} is not supported.`);
+}
+
+export const CLOUD_MANAGED_STT_MODEL: STTModel = "grok-stt-1.0";
+
+// Self-hosted has no managed key, so the default follows whichever provider
+// the admin configured. Cloud walks this too when the managed model's provider
+// has no key, so dictation degrades to another provider instead of vanishing.
+export const SELF_HOSTED_DEFAULT_STT_MODELS: ReadonlyArray<
+  [AIProvider, STTModel]
+> = [
+  ["openai", "gpt-transcribe"],
+  ["xai", "grok-stt-1.0"],
+  ["mistral", "voxtral-mini-latest"],
+];
+
+// Text, embedding, image and transcription models each have their own
+// registry, so callers holding an org setting must say which one it came from.
+export type AIModelKind = "text" | "embedding" | "image" | "stt";
 
 // Provider that serves `model`, or null when the id isn't in that registry.
 // Null rather than a throw: a stale org setting should read as "not selectable",
@@ -563,6 +613,7 @@ export function getProviderForAIModel(
     if (kind === "text") return getProviderFromModel(model as AIModel);
     if (kind === "embedding")
       return getProviderFromEmbeddingModel(model as EmbeddingModel);
+    if (kind === "stt") return getProviderFromSTTModel(model as STTModel);
     return getImageModelMeta(model)?.provider ?? null;
   } catch {
     return null;
@@ -603,6 +654,12 @@ export const AI_MODEL_SETTINGS = [
     kind: "embedding",
     label: "Embedding model",
     fallback: DEFAULT_EMBEDDING_MODEL,
+  },
+  {
+    key: "sttModel",
+    kind: "stt",
+    label: "Dictation model",
+    fallback: CLOUD_MANAGED_STT_MODEL,
   },
 ] as const;
 

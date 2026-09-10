@@ -18,6 +18,7 @@ import {
   getAvailableEmbeddingModelOptions,
   getAvailableImageModelOptions,
   getAvailablePromptModelOptions,
+  getAvailableSTTModelOptions,
   getModelDisplayLabel,
   GROWTHBOOK_DEFAULT_MODEL_OPTION,
   USE_DEFAULT_MODEL_OPTION,
@@ -171,6 +172,23 @@ const EmbeddingKeyWarning: React.FC<{
     <Box mt="2">
       <Callout status="warning">
         This embedding model needs a {AI_PROVIDER_META[provider].label} API key.
+        Add one under AI providers above.
+      </Callout>
+    </Box>
+  );
+};
+
+const SttKeyWarning: React.FC<{
+  sttModel: string;
+  hasKey: (provider: AIProvider) => boolean;
+}> = ({ sttModel, hasKey }) => {
+  const provider = getProviderForAIModel("stt", sttModel);
+  if (provider === null) return null;
+  if (hasKey(provider)) return null;
+  return (
+    <Box mt="2">
+      <Callout status="warning">
+        This dictation model needs a {AI_PROVIDER_META[provider].label} API key.
         Add one under AI providers above.
       </Callout>
     </Box>
@@ -432,6 +450,36 @@ export default function AISettings({
                       }
                       hasKey={hasKeyForProvider}
                     />
+                  </Box>
+                  <Box mb="6" width="100%">
+                    <Text
+                      as="label"
+                      htmlFor="sttModel"
+                      size="3"
+                      className="font-weight-semibold"
+                    >
+                      Dictation model
+                    </Text>
+                    <SelectField
+                      size="medium"
+                      id="sttModel"
+                      disabled={!canEdit}
+                      helpText="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral — Anthropic and Google are not available for transcription. The dictation button is hidden when none of these has a key."
+                      value={form.watch("sttModel") || ""}
+                      onChange={(v) => form.setValue("sttModel", v)}
+                      options={getAvailableSTTModelOptions(
+                        isCloud() ? availableProviders : undefined,
+                        form.watch("sttModel") || "",
+                      )}
+                    />
+                    {/* Only a chosen model can be wrong: the default resolves
+                        to a provider that already has a key, or to nothing. */}
+                    {form.watch("sttModel") && (
+                      <SttKeyWarning
+                        sttModel={form.watch("sttModel")}
+                        hasKey={hasKeyForProvider}
+                      />
+                    )}
                   </Box>
                 </>
               )}
