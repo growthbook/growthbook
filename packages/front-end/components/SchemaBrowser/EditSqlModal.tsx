@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import { TestQueryRow } from "shared/types/integrations";
 import { TemplateVariables } from "shared/types/sql";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiPlayFill, PiWarningFill } from "react-icons/pi";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import { parseIntWithDefault } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -13,7 +13,6 @@ import { validateSQL } from "@/services/datasources";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Modal from "@/components/Modal";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 import {
   usesEventName,
@@ -248,7 +247,7 @@ export default function EditSqlModal({
       cta="Confirm Changes"
       closeCta="Back"
       secondaryCTA={
-        <Box mx="4">
+        <Box style={{ marginLeft: 16, marginRight: 24 }}>
           <Checkbox
             value={testQueryBeforeSaving}
             setValue={setTestQueryBeforeSaving}
@@ -278,7 +277,7 @@ export default function EditSqlModal({
                       <Flex gap="3" align="center">
                         {formatError && (
                           <Tooltip body={formatError}>
-                            <FaExclamationTriangle className="text-danger" />
+                            <PiWarningFill style={{ color: "var(--red-11)" }} />
                           </Tooltip>
                         )}
 
@@ -312,19 +311,16 @@ export default function EditSqlModal({
                           body="You do not have permission to run test queries"
                           shouldDisplay={!canRunQueries}
                         >
-                          <Button
-                            color="primary"
-                            className="btn-sm"
+                          <RadixButton
+                            size="sm"
                             onClick={handleTestQuery}
                             loading={testingQuery}
                             disabled={!canRunQueries}
                             type="button"
+                            icon={<PiPlayFill />}
                           >
-                            <span className="pr-2">
-                              <FaPlay />
-                            </span>
                             Test Query
-                          </Button>
+                          </RadixButton>
                         </Tooltip>
                         <DropdownMenu
                           trigger={
