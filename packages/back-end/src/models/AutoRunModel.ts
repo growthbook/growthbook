@@ -143,20 +143,31 @@ export class AutoRunModel extends BaseClass {
     id: string,
     incoming: Omit<AutoRunArtifact, "dateCreated">[],
   ) {
-    const run = await this.updateWithCas(id, ["artifacts"], (existing) => {
-      const artifacts = [...existing.artifacts];
-      for (const a of incoming) {
-        const index = artifacts.findIndex(
-          (x) => x.kind === a.kind && x.id === a.id,
-        );
-        if (index >= 0) {
-          artifacts[index] = { ...artifacts[index], ...a };
-        } else {
-          artifacts.push({ ...a, dateCreated: new Date() });
+    const run = await this.updateWithCas(
+      id,
+      ["artifacts"],
+      (existing) => {
+        const artifacts = [...existing.artifacts];
+        for (const a of incoming) {
+          const index = artifacts.findIndex(
+            (x) => x.kind === a.kind && x.id === a.id,
+          );
+          if (index >= 0) {
+            artifacts[index] = { ...artifacts[index], ...a };
+          } else {
+            artifacts.push({ ...a, dateCreated: new Date() });
+          }
         }
-      }
-      return { artifacts };
-    });
+        return { artifacts };
+      },
+      // Every write to this array invalidates the others' guard, and an agent
+      // recording a run's attributes fires more than the default five at once.
+      // Exhausting the budget throws, and the client sends artifacts
+      // best-effort, so the artifact would vanish from the report with nothing
+      // said. Each attempt is one read and one guarded write on a short array,
+      // and the append is idempotent, so a generous budget costs little.
+      { maxAttempts: 25 },
+    );
     if (!run) throw new Error(`Auto Run ${id} not found`);
     return run;
   }
