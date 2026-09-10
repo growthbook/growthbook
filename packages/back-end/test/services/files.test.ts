@@ -1,5 +1,11 @@
 import path from "path";
-import { getUploadsDir, resolveUploadPath } from "back-end/src/services/files";
+import fs from "fs";
+import {
+  deleteFile,
+  getUploadsDir,
+  resolveUploadPath,
+  uploadFile,
+} from "back-end/src/services/files";
 
 describe("resolveUploadPath", () => {
   const root = getUploadsDir();
@@ -29,5 +35,18 @@ describe("resolveUploadPath", () => {
     expect(() => resolveUploadPath(key)).toThrow(
       "Path must not escape out of the 'uploads' directory.",
     );
+  });
+});
+
+describe("deleteFile", () => {
+  it("deletes a local upload", async () => {
+    const key = "org_test/2025-06/img_delete-test.jpeg";
+    const fullPath = resolveUploadPath(key);
+
+    await uploadFile(key, "image/jpeg", Buffer.from("test"));
+    expect(fs.existsSync(fullPath)).toBe(true);
+
+    await deleteFile(key);
+    expect(fs.existsSync(fullPath)).toBe(false);
   });
 });

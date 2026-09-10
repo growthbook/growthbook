@@ -10,6 +10,7 @@ import {
   getProjectsByParentId,
 } from "back-end/src/services/discussions";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { cleanupDeletedDiscussionUploads } from "back-end/src/services/discussionFiles";
 
 export async function postDiscussions(
   req: AuthRequest<
@@ -70,7 +71,7 @@ export async function deleteComment(
       context.permissions.throwPermissionError();
     }
 
-    const i = parseInt(index);
+    const i = Number(index);
 
     const discussion = await getDiscussionByParent(
       org.id,
@@ -84,8 +85,20 @@ export async function deleteComment(
       });
     }
 
-    const current = discussion.comments[parseInt(index)];
-    if (current && current?.userId !== userId) {
+    if (
+      !/^\d+$/.test(index) ||
+      !Number.isInteger(i) ||
+      i < 0 ||
+      i >= discussion.comments.length
+    ) {
+      return res.status(404).json({
+        status: 404,
+        message: "Comment not found",
+      });
+    }
+
+    const current = discussion.comments[i];
+    if (current.userId !== userId) {
       return res.status(403).json({
         status: 403,
         message: "Only the original author can delete a comment",
@@ -96,6 +109,11 @@ export async function deleteComment(
     discussion.markModified("comments");
 
     await discussion.save();
+    await cleanupDeletedDiscussionUploads({
+      content: current.content,
+      organization: org.id,
+      localOrigin: `${req.protocol}://${req.get("host") ?? ""}`,
+    });
     return res.status(200).json({
       status: 200,
     });
