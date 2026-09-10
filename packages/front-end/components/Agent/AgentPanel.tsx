@@ -378,9 +378,16 @@ export default function AgentPanel({
     prevLoadingRef.current = loading;
   }, [loading, open, focusInput]);
 
+  const wasOpenRef = useRef(false);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, activeTurnItems]);
+    if (!open) {
+      wasOpenRef.current = false;
+      return;
+    }
+    const behavior = wasOpenRef.current ? "smooth" : "auto";
+    wasOpenRef.current = true;
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, [messages, activeTurnItems, open]);
 
   const trackMessageSent = useCallback(() => {
     track("AI Assistant Message Sent", {
