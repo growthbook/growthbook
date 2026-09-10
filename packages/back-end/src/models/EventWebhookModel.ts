@@ -531,6 +531,26 @@ export const claimSlackDigestRun = async ({
   return result.modifiedCount === 1;
 };
 
+export const releaseSlackDigestRun = async ({
+  eventWebHookId,
+  organizationId,
+  kind,
+  claimedAt,
+  dueAt,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  kind: SlackDigestKind;
+  claimedAt: Date;
+  dueAt: Date;
+}) => {
+  const field = DIGEST_FIELD[kind];
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId, [field]: { $gt: claimedAt } },
+    { $set: { [field]: dueAt } },
+  );
+};
+
 export const findSlackChannelEventWebhook = async ({
   organizationId,
   teamId,

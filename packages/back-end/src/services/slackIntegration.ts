@@ -336,6 +336,22 @@ const getSlackWorkspaceToken = (
   return token;
 };
 
+export const getSlackWorkspaceTokenForTeam = async ({
+  context,
+  teamId,
+}: {
+  context: ReqContext;
+  teamId: string;
+}): Promise<string> => {
+  const connection = await context.models.slackWorkspaceConnections.getByTeamId(
+    teamId,
+  );
+  if (!connection) {
+    throw new Error("Slack workspace connection not found.");
+  }
+  return getSlackWorkspaceToken(connection);
+};
+
 export const getSlackChannelEventWebhookId = ({
   organizationId,
   teamId,
