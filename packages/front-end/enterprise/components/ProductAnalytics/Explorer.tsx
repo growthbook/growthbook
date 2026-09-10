@@ -119,7 +119,7 @@ export function ExplorerContent({
   const {
     managedWarehouseUnavailable,
     draftExploreState,
-    ensureDefaultSqlValue,
+    ensureDefaultSqlExploreConfig,
   } = useExplorerContext();
   const sqlEditorContext = useOptionalSqlEditorContext();
   const isSql = draftExploreState.type === "sql";
@@ -208,7 +208,7 @@ export function ExplorerContent({
             onValueChange={(value) => {
               if (value === "dataset" || value === "explore") {
                 if (value === "explore") {
-                  ensureDefaultSqlValue();
+                  ensureDefaultSqlExploreConfig();
                   sqlEditorContext.markExploreSeen();
                 }
                 sqlEditorContext.setViewMode(value);
@@ -428,7 +428,7 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     ...(type === "journey"
       ? { chartType: "bar" as const }
       : type === "sql"
-        ? { chartType: "table" as const }
+        ? { chartType: "rawTable" as const }
         : {}),
   } as ExplorerDraftConfig;
 

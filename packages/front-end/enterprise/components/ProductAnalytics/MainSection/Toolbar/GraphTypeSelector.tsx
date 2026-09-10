@@ -8,6 +8,7 @@ import {
   PiChartBarHorizontalDuotone,
   PiChartLine,
   PiHash,
+  PiListBullets,
   PiTable,
 } from "react-icons/pi";
 import {
@@ -27,6 +28,7 @@ import {
 
 const chartTypes: {
   groupLabel: string;
+  sqlOnly?: boolean;
   items: {
     value: (typeof chartTypeValues)[number];
     label: string;
@@ -60,11 +62,19 @@ const chartTypes: {
       { value: "bigNumber", label: "Big Numbers", icon: PiHash },
     ],
   },
+  {
+    groupLabel: "No Aggregation",
+    sqlOnly: true,
+    items: [{ value: "rawTable", label: "Table", icon: PiListBullets }],
+  },
 ];
 
 export default function GraphTypeSelector() {
   const { draftExploreState, changeChartType } = useExplorerContext();
   const timelessSql = isTimelessSqlExploration(draftExploreState);
+  const groups = chartTypes.filter(
+    (group) => !group.sqlOnly || draftExploreState.dataset.type === "sql",
+  );
 
   return (
     <Select
@@ -73,7 +83,7 @@ export default function GraphTypeSelector() {
       placeholder="Select value"
       setValue={(v) => changeChartType(v as (typeof chartTypeValues)[number])}
     >
-      {chartTypes.map((group, groupIndex) => (
+      {groups.map((group, groupIndex) => (
         <div key={group.groupLabel}>
           {groupIndex > 0 && <SelectSeparator />}
           <SelectGroup>

@@ -48,6 +48,7 @@ export interface Props {
   save: (sql: string) => Promise<void>;
   close: () => void;
   requiredColumns: Set<string>;
+  timestampColumn?: string;
   placeholder?: string;
   validateResponseOverride?: (response: TestQueryRow) => void;
   setTemplateVariables?: (templateVariables: TemplateVariables) => void;
@@ -74,6 +75,7 @@ export default function EditSqlModal({
   save,
   close,
   requiredColumns,
+  timestampColumn,
   placeholder = "",
   datasourceId,
   validateResponseOverride,
@@ -137,9 +139,9 @@ export default function EditSqlModal({
           datasourceId: datasourceId,
           templateVariables: templateVariables,
           limit: apply5RowLimit ? 5 : undefined,
-          timestampColumn: requiredColumns.has("timestamp")
-            ? "timestamp"
-            : undefined,
+          timestampColumn:
+            timestampColumn ??
+            (requiredColumns.has("timestamp") ? "timestamp" : undefined),
         }),
       });
 
@@ -160,6 +162,7 @@ export default function EditSqlModal({
       validateRequiredColumns,
       validateResponseOverride,
       apply5RowLimit,
+      timestampColumn,
       // eslint-disable-next-line
       JSON.stringify(templateVariables),
     ],

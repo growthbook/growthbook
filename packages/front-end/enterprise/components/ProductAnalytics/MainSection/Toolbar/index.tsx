@@ -25,6 +25,9 @@ export default function Toolbar() {
   } = useExplorerContext();
   const isFunnel = draftExploreState.dataset?.type === "funnel";
   const isJourney = draftExploreState.dataset?.type === "journey";
+  const isRawTable =
+    draftExploreState.dataset?.type === "sql" &&
+    draftExploreState.chartType === "rawTable";
   const viewMode = useOptionalSqlEditorContext()?.viewMode ?? "explore";
   const dateControlsDisabled = isTimelessSqlExploration(draftExploreState);
   const [dateTooltipArmed, setDateTooltipArmed] = useState(false);
@@ -111,7 +114,7 @@ export default function Toolbar() {
 
   const dateRangeDropdown = (
     <DateRangeCompareDropdown
-      showCompare={!isJourney}
+      showCompare={!isJourney && !isRawTable}
       showGranularity={showGranularity}
       value={dateRangeValue}
       onChange={applyDateRange}
@@ -145,7 +148,11 @@ export default function Toolbar() {
       >
         {dateControlsDisabled && viewMode !== "dataset" ? (
           <Tooltip
-            body="Update your SQL query to return a date or timestamp column to compare date ranges."
+            body={
+              isRawTable
+                ? "Update your SQL query to return a date or timestamp column to filter by date."
+                : "Update your SQL query to return a date or timestamp column to compare date ranges."
+            }
             shouldDisplay={dateTooltipArmed}
             ignoreMouseEvents={!dateTooltipArmed}
             usePortal

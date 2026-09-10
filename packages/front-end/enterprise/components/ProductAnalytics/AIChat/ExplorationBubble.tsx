@@ -5,7 +5,9 @@ import {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import { z } from "zod";
 import { encodeExplorationConfig } from "shared/enterprise";
+import { parseToolResult } from "shared/ai-chat";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
@@ -15,13 +17,13 @@ import SimpleExplorationTable from "@/enterprise/components/ProductAnalytics/Mai
 import SaveToDashboardModal, {
   canSaveToDashboard,
 } from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
+import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
+import { isTableChartType } from "@/enterprise/components/ProductAnalytics/util";
 
 export interface ChartData {
   config: ExplorationConfig;
   exploration: ProductAnalyticsExploration | null;
 }
-
-const TABLE_CHART_TYPES: readonly string[] = ["table", "timeseries-table"];
 
 const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
   metric: "/product-analytics/explore/metrics",
@@ -33,21 +35,8 @@ const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
 };
 
 export function chartDataFromToolResult(result: unknown): ChartData | null {
-  if (typeof result === "string") {
-    try {
-      const parsed = JSON.parse(result) as unknown;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return chartDataFromRecord(parsed as Record<string, unknown>);
-      }
-    } catch {
-      return null;
-    }
-    return null;
-  }
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    return null;
-  }
-  return chartDataFromRecord(result as Record<string, unknown>);
+  const record = parseToolResult(result, z.record(z.string(), z.unknown()));
+  return record ? chartDataFromRecord(record) : null;
 }
 
 export function chartDataFromRecord(
@@ -76,7 +65,7 @@ export default function ExplorationBubble({
 }: ExplorationBubbleProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const explorerUrl = `${EXPLORER_PATHS[chartData.config.type]}?config=${encodeExplorationConfig(chartData.config)}`;
-  const isTable = TABLE_CHART_TYPES.includes(chartData.config.chartType);
+  const isTable = isTableChartType(chartData.config.chartType);
 
   return (
     <AssistantBubble wide>
@@ -113,7 +102,16 @@ export default function ExplorationBubble({
           </LinkButton>
         </Flex>
       </Flex>
-      {isTable ? (
+      {chartData.config.chartType === "rawTable" ? (
+        <Flex style={{ height: 360, minHeight: 260 }}>
+          <ExplorerDataTable
+            exploration={chartData.exploration}
+            error={chartData.exploration?.error ?? null}
+            submittedExploreState={chartData.config}
+            loading={false}
+          />
+        </Flex>
+      ) : isTable ? (
         <SimpleExplorationTable
           exploration={chartData.exploration}
           config={chartData.config}
