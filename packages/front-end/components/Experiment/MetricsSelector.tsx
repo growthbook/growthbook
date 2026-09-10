@@ -1,8 +1,5 @@
 import { FC, ReactNode, useCallback, useMemo } from "react";
-import {
-  isProjectListValidForProject,
-  isProjectListValidForProjects,
-} from "shared/util";
+import { isAvailableInProject, coversAllRequiredProjects } from "shared/util";
 import {
   ExperimentMetricDefinition,
   getFactMetricFactTableIds,
@@ -94,15 +91,15 @@ export const MetricsSelectorTooltip = ({
 
 const MetricsSelector: FC<{
   datasource?: string;
-  project?: string;
-  projects?: string[];
+  contextProject?: string;
+  requiredProjects?: string[];
   exposureQueryId?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
   includeFacts?: boolean;
   includeGroups?: boolean;
-  preserveSelectedMetrics?: boolean;
+  preserveSelectedUnavailableMetrics?: boolean;
   excludeQuantiles?: boolean;
   allowedFactMetricTypes?: FactMetricType[];
   forceSingleMetric?: boolean;
@@ -122,15 +119,15 @@ const MetricsSelector: FC<{
   requireDatasource?: boolean;
 }> = ({
   datasource,
-  project,
-  projects,
+  contextProject,
+  requiredProjects,
   exposureQueryId,
   selected,
   onChange,
   autoFocus,
   includeFacts,
   includeGroups = true,
-  preserveSelectedMetrics = false,
+  preserveSelectedUnavailableMetrics = false,
   excludeQuantiles,
   allowedFactMetricTypes,
   forceSingleMetric = false,
@@ -275,14 +272,14 @@ const MetricsSelector: FC<{
         datasource ? m.datasource === datasource : !requireDatasource,
       )
       .filter((m) => m.joinable)
-      .filter((m) => isProjectListValidForProject(m.projects, project))
+      .filter((m) => isAvailableInProject(m.projects, contextProject))
       .filter(
         (m) =>
-          projects === undefined ||
-          isProjectListValidForProjects(m.projects, projects),
+          requiredProjects === undefined ||
+          coversAllRequiredProjects(m.projects, requiredProjects),
       );
     // Keep existing members visible and removable without offering them as additions.
-    if (preserveSelectedMetrics) {
+    if (preserveSelectedUnavailableMetrics) {
       const optionIds = new Set(filtered.map((m) => m.id));
       for (const id of selected) {
         if (optionIds.has(id)) continue;
@@ -312,8 +309,8 @@ const MetricsSelector: FC<{
     datasource,
     datasourceSettings,
     userIdType,
-    project,
-    projects,
+    contextProject,
+    requiredProjects,
     noLegacyMetrics,
     noManual,
     includeFacts,
@@ -323,7 +320,7 @@ const MetricsSelector: FC<{
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
     requireDatasource,
-    preserveSelectedMetrics,
+    preserveSelectedUnavailableMetrics,
     selected,
     getExperimentMetricById,
   ]);

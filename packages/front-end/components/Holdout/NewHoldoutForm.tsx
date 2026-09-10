@@ -8,7 +8,7 @@ import { OrganizationSettings } from "shared/types/organization";
 import {
   coverageToHoldoutSize,
   holdoutSizeToCoverage,
-  isProjectListValidForProject,
+  isAvailableInProject,
   MAX_HOLDOUT_SIZE,
   validateAndFixCondition,
 } from "shared/util";
@@ -84,7 +84,7 @@ export function getNewExperimentDatasourceDefaults(
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project),
+      isAvailableInProject(d.projects, project),
   );
 
   if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };

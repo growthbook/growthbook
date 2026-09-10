@@ -20,7 +20,7 @@ import {
   getDefaultProjectsForNewResource,
   isDemoDatasourceProject,
 } from "shared/demo-datasource";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { isBinomialMetric } from "shared/experiments";
 import Link from "@/ui/Link";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -272,8 +272,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const validDatasources = datasources.filter(
     (d) =>
-      d.id === current.datasource ||
-      isProjectListValidForProject(d.projects, project),
+      d.id === current.datasource || isAvailableInProject(d.projects, project),
   );
 
   useEffect(() => {

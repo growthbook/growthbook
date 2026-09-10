@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { date, datetime } from "shared/dates";
-import { isProjectListValidForProject, truncateString } from "shared/util";
+import { isAvailableInProject, truncateString } from "shared/util";
 import Link from "next/link";
 import {
   SavedGroupInterface,
@@ -63,9 +63,7 @@ export default function IdLists({ groups, mutate }: Props) {
   const filteredIdLists = useMemo(
     () =>
       project
-        ? idLists.filter((list) =>
-            isProjectListValidForProject(list.projects, project),
-          )
+        ? idLists.filter((list) => isAvailableInProject(list.projects, project))
         : idLists,
     [idLists, project],
   );

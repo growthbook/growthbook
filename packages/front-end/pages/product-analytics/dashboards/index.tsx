@@ -11,7 +11,7 @@ import { FaArrowRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDashboards } from "@/hooks/useDashboards";
 import { useSearch } from "@/services/search";
@@ -73,7 +73,7 @@ export default function DashboardsPage() {
   // Filter dashboards by project
   const filteredDashboards = project
     ? dashboards.filter((dashboard) =>
-        isProjectListValidForProject(dashboard.projects, project),
+        isAvailableInProject(dashboard.projects, project),
       )
     : dashboards;
 

@@ -9,7 +9,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { config, FullModalPowerCalculationParams } from "shared/power";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
@@ -105,7 +105,7 @@ export const SelectStep = ({
   const availableSegments = useMemo(
     () =>
       appSegments.filter((s) => {
-        if (!isProjectListValidForProject(s.projects, project)) {
+        if (!isAvailableInProject(s.projects, project)) {
           return false;
         }
         const datasource = datasources.find((d) => d.id === s.datasource);
@@ -122,7 +122,7 @@ export const SelectStep = ({
   const availableFactTables = useMemo(
     () =>
       appFactTables.filter((ft) => {
-        if (!isProjectListValidForProject(ft.projects, project)) {
+        if (!isAvailableInProject(ft.projects, project)) {
           return false;
         }
         const datasource = datasources.find((d) => d.id === ft.datasource);

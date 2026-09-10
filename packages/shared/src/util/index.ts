@@ -534,39 +534,39 @@ export function naiveFlattenV1Rules(input: unknown): FeatureRule[] {
   return [];
 }
 
-export function isProjectListValidForProject(
-  projects?: string[],
+export function isAvailableInProject(
+  documentProjects?: string[],
   project?: string,
 ) {
   // If project list is empty, it's always valid no matter what
-  if (!projects || !projects.length) return true;
+  if (!documentProjects || !documentProjects.length) return true;
 
   // If there is no selected project, it's always valid
   if (!project) return true;
 
   // Otherwise, it's valid only if the project list contains the selected project
-  return projects.includes(project);
+  return documentProjects.includes(project);
 }
 
-export function isProjectListValidForProjects(
-  itemProjects?: string[],
+export function coversAllRequiredProjects(
+  documentProjects?: string[],
   requiredProjects?: string[],
 ) {
   // If the item has no project restrictions, it's valid for all projects
-  if (!itemProjects || !itemProjects.length) return true;
+  if (!documentProjects || !documentProjects.length) return true;
 
   // An unrestricted resource can only contain unrestricted items.
   if (!requiredProjects || !requiredProjects.length) return false;
 
-  // Otherwise, the item must be available in every required project
-  return requiredProjects.every((p) => itemProjects.includes(p));
+  // Otherwise, the document must be available in every required project
+  return requiredProjects.every((p) => documentProjects.includes(p));
 }
 
 export function isProjectScopeUnchangedOrExpanded(
   previousProjects: string[] | undefined,
   newProjects: string[] | undefined,
 ): boolean {
-  return isProjectListValidForProjects(newProjects, previousProjects);
+  return coversAllRequiredProjects(newProjects, previousProjects);
 }
 
 export function getInvalidMetricGroupMetrics(
@@ -577,7 +577,7 @@ export function getInvalidMetricGroupMetrics(
   return group.metrics.filter((id) => {
     const metric = metricMap.get(id);
     return (
-      !metric || !isProjectListValidForProjects(metric.projects, group.projects)
+      !metric || !coversAllRequiredProjects(metric.projects, group.projects)
     );
   });
 }
@@ -611,8 +611,8 @@ export function doesMetricProjectChangeReduceGroupAvailability(
 
   return groupProjects.some(
     (project) =>
-      isProjectListValidForProject(previousProjects, project) &&
-      !isProjectListValidForProject(newProjects, project),
+      isAvailableInProject(previousProjects, project) &&
+      !isAvailableInProject(newProjects, project),
   );
 }
 

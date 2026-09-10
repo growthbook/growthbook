@@ -7,7 +7,7 @@ import {
   FunnelStep,
 } from "shared/types/fact-table";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import { getInitialInlineFilters } from "@/services/metrics";
@@ -233,7 +233,7 @@ export default function FunnelStepsInput({
 
   const factTableOptions = factTables
     .filter((t) => t.datasource === datasource)
-    .filter((t) => isProjectListValidForProject(t.projects, project))
+    .filter((t) => isAvailableInProject(t.projects, project))
     .map((t) => ({ label: t.name, value: t.id }));
 
   const updateStep = (index: number, updates: Partial<FunnelStep>) => {

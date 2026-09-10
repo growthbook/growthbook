@@ -5,7 +5,7 @@ import {
 } from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Collapsible from "react-collapsible";
@@ -64,7 +64,7 @@ export default function FactTableModal({
     settings.topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE;
 
   const validDatasources = datasources
-    .filter((d) => isProjectListValidForProject(d.projects, project))
+    .filter((d) => isAvailableInProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql");
 
   const form = useForm<CreateFactTableProps>({

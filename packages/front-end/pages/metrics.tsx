@@ -1,5 +1,5 @@
 import React from "react";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
@@ -18,14 +18,14 @@ const MetricsPage = (): React.ReactElement => {
     useDefinitions();
 
   const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project),
+    isAvailableInProject(d.projects, project),
   );
   const hasMetrics =
-    metrics.some((m) => isProjectListValidForProject(m.projects, project)) ||
-    factMetrics.some((m) => isProjectListValidForProject(m.projects, project));
+    metrics.some((m) => isAvailableInProject(m.projects, project)) ||
+    factMetrics.some((m) => isAvailableInProject(m.projects, project));
 
   const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project),
+    isAvailableInProject(f.projects, project),
   );
 
   const permissionsUtil = usePermissionsUtil();

@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { ConstantWithoutValue } from "shared/types/constant";
-import { isProjectListValidForProject, truncateString } from "shared/util";
+import { isAvailableInProject, truncateString } from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -95,7 +95,7 @@ export default function ConstantsPage(): React.ReactElement {
   const visibleConstants = useMemo(
     () =>
       allConstants.filter((c) =>
-        isProjectListValidForProject(c.project ? [c.project] : [], project),
+        isAvailableInProject(c.project ? [c.project] : [], project),
       ),
     [allConstants, project],
   );

@@ -1,69 +1,65 @@
 import {
-  isProjectListValidForProject,
-  isProjectListValidForProjects,
+  isAvailableInProject,
+  coversAllRequiredProjects,
   isProjectScopeUnchangedOrExpanded,
   getInvalidMetricGroupMetrics,
   getMetricGroupMetricsToValidate,
   doesMetricProjectChangeReduceGroupAvailability,
 } from "../../src/util";
 
-describe("isProjectListValidForProject", () => {
+describe("isAvailableInProject", () => {
   it("should return true when item has no project restrictions", () => {
-    expect(isProjectListValidForProject([], "project-a")).toBe(true);
-    expect(isProjectListValidForProject(undefined, "project-a")).toBe(true);
+    expect(isAvailableInProject([], "project-a")).toBe(true);
+    expect(isAvailableInProject(undefined, "project-a")).toBe(true);
   });
 
   it("should return true when no project is selected", () => {
-    expect(isProjectListValidForProject(["project-a"], undefined)).toBe(true);
-    expect(isProjectListValidForProject(["project-a"], "")).toBe(true);
+    expect(isAvailableInProject(["project-a"], undefined)).toBe(true);
+    expect(isAvailableInProject(["project-a"], "")).toBe(true);
   });
 
   it("should return true when item includes the selected project", () => {
-    expect(isProjectListValidForProject(["project-a"], "project-a")).toBe(true);
-    expect(
-      isProjectListValidForProject(["project-a", "project-b"], "project-a"),
-    ).toBe(true);
+    expect(isAvailableInProject(["project-a"], "project-a")).toBe(true);
+    expect(isAvailableInProject(["project-a", "project-b"], "project-a")).toBe(
+      true,
+    );
   });
 
   it("should return false when item does not include the selected project", () => {
-    expect(isProjectListValidForProject(["project-a"], "project-b")).toBe(
+    expect(isAvailableInProject(["project-a"], "project-b")).toBe(false);
+    expect(isAvailableInProject(["project-a", "project-c"], "project-b")).toBe(
       false,
     );
-    expect(
-      isProjectListValidForProject(["project-a", "project-c"], "project-b"),
-    ).toBe(false);
   });
 });
 
-describe("isProjectListValidForProjects", () => {
+describe("coversAllRequiredProjects", () => {
   it("requires unrestricted metrics for All Projects", () => {
-    expect(isProjectListValidForProjects(["project-a"], [])).toBe(false);
-    expect(isProjectListValidForProjects(["project-a"], undefined)).toBe(false);
-    expect(isProjectListValidForProjects([], [])).toBe(true);
-    expect(isProjectListValidForProjects(undefined, [])).toBe(true);
-    expect(isProjectListValidForProjects([], undefined)).toBe(true);
+    expect(coversAllRequiredProjects(["project-a"], [])).toBe(false);
+    expect(coversAllRequiredProjects(["project-a"], undefined)).toBe(false);
+    expect(coversAllRequiredProjects([], [])).toBe(true);
+    expect(coversAllRequiredProjects(undefined, [])).toBe(true);
+    expect(coversAllRequiredProjects([], undefined)).toBe(true);
   });
 
   it("should return true when item has no project restrictions", () => {
-    expect(isProjectListValidForProjects([], ["project-a"])).toBe(true);
-    expect(isProjectListValidForProjects(undefined, ["project-a"])).toBe(true);
-    expect(isProjectListValidForProjects([], ["project-a", "project-b"])).toBe(
+    expect(coversAllRequiredProjects([], ["project-a"])).toBe(true);
+    expect(coversAllRequiredProjects(undefined, ["project-a"])).toBe(true);
+    expect(coversAllRequiredProjects([], ["project-a", "project-b"])).toBe(
       true,
     );
   });
 
   it("should return true when item is available in all required projects", () => {
-    expect(isProjectListValidForProjects(["project-a"], ["project-a"])).toBe(
-      true,
-    );
+    expect(coversAllRequiredProjects(["project-a"], ["project-a"])).toBe(true);
     expect(
-      isProjectListValidForProjects(
+      coversAllRequiredProjects(
         ["project-a", "project-b"],
         ["project-a", "project-b"],
       ),
     ).toBe(true);
     expect(
-      isProjectListValidForProjects(
+      coversAllRequiredProjects(
         ["project-a", "project-b", "project-c"],
         ["project-a", "project-b"],
       ),
@@ -71,14 +67,12 @@ describe("isProjectListValidForProjects", () => {
   });
 
   it("should return false when item is missing any required project", () => {
-    expect(isProjectListValidForProjects(["project-a"], ["project-b"])).toBe(
-      false,
-    );
+    expect(coversAllRequiredProjects(["project-a"], ["project-b"])).toBe(false);
     expect(
-      isProjectListValidForProjects(["project-a"], ["project-a", "project-b"]),
+      coversAllRequiredProjects(["project-a"], ["project-a", "project-b"]),
     ).toBe(false);
     expect(
-      isProjectListValidForProjects(
+      coversAllRequiredProjects(
         ["project-a", "project-c"],
         ["project-a", "project-b"],
       ),

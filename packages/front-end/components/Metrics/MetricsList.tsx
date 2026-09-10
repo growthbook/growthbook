@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -420,17 +420,17 @@ const MetricsList = (): React.ReactElement => {
     [getDatasourceById, getOwnerDisplay],
   );
   const filteredMetrics = project
-    ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
+    ? metrics.filter((m) => isAvailableInProject(m.projects, project))
     : metrics;
 
   const hasLegacyMetrics = legacyMetrics.some(
     (f) =>
-      isProjectListValidForProject(f.projects, project) &&
+      isAvailableInProject(f.projects, project) &&
       f.datasource !== demoDataSourceId,
   ); // Don't factor in demo datasource metrics
 
   const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project),
+    isAvailableInProject(f.projects, project),
   );
 
   // Show the create fact table button if there are no legacy metrics and no fact tables

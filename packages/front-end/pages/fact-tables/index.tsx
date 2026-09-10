@@ -1,4 +1,4 @@
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { date } from "shared/dates";
 import { getFactMetricFactTableIds } from "shared/experiments";
@@ -62,7 +62,7 @@ export default function FactTablesPage() {
   const hasDatasource = datasources.some(
     (d) =>
       d.properties?.queryLanguage === "sql" &&
-      isProjectListValidForProject(d.projects, project),
+      isAvailableInProject(d.projects, project),
   );
 
   const { apiCall } = useAuth();
@@ -75,7 +75,7 @@ export default function FactTablesPage() {
     if (factTables.length > 0) return null;
 
     for (const datasource of datasources) {
-      if (isProjectListValidForProject(datasource.projects, project)) {
+      if (isAvailableInProject(datasource.projects, project)) {
         const resources = getInitialDatasourceResources({
           datasource,
           attributeSchema: settings.attributeSchema,
@@ -106,9 +106,7 @@ export default function FactTablesPage() {
   });
 
   const filteredFactTables = project
-    ? factTables.filter((t) =>
-        isProjectListValidForProject(t.projects, project),
-      )
+    ? factTables.filter((t) => isAvailableInProject(t.projects, project))
     : factTables;
 
   const canCreate = permissionsUtil.canViewCreateFactTableModal(

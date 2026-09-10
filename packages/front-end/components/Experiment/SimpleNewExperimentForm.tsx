@@ -7,7 +7,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import {
   getManagedWarehouseExposureQueryIdForAttribute,
-  isProjectListValidForProject,
+  isAvailableInProject,
 } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -65,8 +65,7 @@ export function getAutoDatasourceId({
 }): string {
   const validDatasources = datasources.filter(
     (d) =>
-      d.id !== demoDataSourceId &&
-      isProjectListValidForProject(d.projects, project),
+      d.id !== demoDataSourceId && isAvailableInProject(d.projects, project),
   );
 
   if (templateDatasource) {
@@ -218,10 +217,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
     .filter((t) =>
-      isProjectListValidForProject(
-        t.project ? [t.project] : [],
-        selectedProject,
-      ),
+      isAvailableInProject(t.project ? [t.project] : [], selectedProject),
     )
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 

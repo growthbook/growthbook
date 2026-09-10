@@ -10,10 +10,7 @@ import { date, datetime, getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
 import { getProviderFromEmbeddingModel } from "shared/ai";
-import {
-  isProjectListValidForProject,
-  validateAndFixCondition,
-} from "shared/util";
+import { isAvailableInProject, validateAndFixCondition } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { kebabCase, debounce } from "lodash";
@@ -149,7 +146,7 @@ export function getNewExperimentDatasourceDefaults({
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project),
+      isAvailableInProject(d.projects, project),
   );
 
   if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
@@ -662,9 +659,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .sort((a, b) =>
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
-    .filter((t) =>
-      isProjectListValidForProject(t.project ? [t.project] : [], project),
-    )
+    .filter((t) => isAvailableInProject(t.project ? [t.project] : [], project))
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();

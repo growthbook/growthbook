@@ -35,6 +35,7 @@ import { validateAggregationSpecification } from "back-end/src/services/factMetr
 import { healPriorSettings } from "back-end/src/util/priors";
 import { Context, MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
+import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
 import { getFactTableMap } from "./FactTableModel";
 
 const BaseClass = MakeModelClass({
@@ -461,19 +462,20 @@ export class FactMetricModel extends BaseClass {
     }
 
     validateReplaces(data);
+
+    if (previousData) {
+      await context.models.metricGroups.validateMetricProjectChange(
+        data.id,
+        data.projects,
+        previousData.projects,
+      );
+    }
   }
 
   protected async customValidation(
     data: FactMetricInterface,
     previousData?: FactMetricInterface,
   ): Promise<void> {
-    if (previousData) {
-      await this.context.models.metricGroups.validateMetricProjectChange(
-        data.id,
-        data.projects,
-        previousData.projects,
-      );
-    }
     await FactMetricModel.validateFactMetric(
       data,
       previousData ?? null,
@@ -761,6 +763,18 @@ export class FactMetricModel extends BaseClass {
       ),
       5,
     );
+  }
+
+  public async removeProjectIdFromAll(projectId: string): Promise<void> {
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, projects: projectId },
+      {
+        $pull: { projects: projectId },
+        $set: { dateUpdated: new Date() },
+      },
+    );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 
   public static addLegacyFiltersToColumnRef(

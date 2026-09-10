@@ -5,7 +5,7 @@ import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowElbowDownRight } from "react-icons/pi";
 import {
-  isProjectListValidForProject,
+  isAvailableInProject,
   isScopedConfig,
   orderConfigsByLineage,
   truncateString,
@@ -106,7 +106,7 @@ export default function ConfigsPage(): React.ReactElement {
           // Env/project flavors are variants of another config, browsed via the
           // env tabs on their parent — never listed as top-level configs.
           !isScopedConfig(c) &&
-          isProjectListValidForProject(c.project ? [c.project] : [], project),
+          isAvailableInProject(c.project ? [c.project] : [], project),
       ),
     [allConfigs, project],
   );

@@ -13,7 +13,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -648,10 +648,7 @@ const AnalysisForm: FC<{
                 .filter(
                   (ds) =>
                     ds.id === experiment.datasource ||
-                    isProjectListValidForProject(
-                      ds.projects,
-                      experiment.project,
-                    ),
+                    isAvailableInProject(ds.projects, experiment.project),
                 )
                 .map((d) => ({
                   value: d.id,

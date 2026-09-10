@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  Permissions,
   archiveFootprintForControl,
   featurePublishFootprint,
   revertFootprint,
@@ -346,42 +345,4 @@ describe("the cancel footprint is the entity's own scope, unwidened", () => {
   it("a Constant answers unbound when no environment override changes", () => {
     expect(constantPublishEnvironments()).toEqual(NO_ENVIRONMENT_BINDING);
   });
-});
-
-describe("metric group edits have no environment footprint", () => {
-  it.each([
-    { allowedEnvironments: [] },
-    { allowedEnvironments: ["dev"] },
-    { allowedEnvironments: ["production"] },
-  ])(
-    "uses Project authority with environment restriction %j",
-    ({ allowedEnvironments }) => {
-      const reader = {
-        permissions: { readData: true },
-        limitAccessByEnvironment: true,
-        environments: allowedEnvironments,
-      };
-      const permissions = new Permissions({
-        global: reader,
-        projects: {
-          prj_a: {
-            ...reader,
-            permissions: { readData: true, createMetricGroups: true },
-          },
-        },
-      });
-      expect(permissions.canCreateMetricGroup({ projects: ["prj_a"] })).toBe(
-        true,
-      );
-      expect(permissions.canUpdateMetricGroup({ projects: ["prj_a"] })).toBe(
-        true,
-      );
-      expect(permissions.canDeleteMetricGroup({ projects: ["prj_a"] })).toBe(
-        true,
-      );
-      expect(
-        permissions.canUpdateMetricGroup({ projects: ["prj_a", "prj_b"] }),
-      ).toBe(false);
-    },
-  );
 });

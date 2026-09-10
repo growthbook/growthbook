@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { useRouter } from "next/router";
 import { PiCursor, PiCursorClick } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
@@ -129,9 +129,7 @@ const DataSourcesPage: FC = () => {
   const router = useRouter();
 
   const filteredDatasources = project
-    ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project),
-      )
+    ? datasources.filter((ds) => isAvailableInProject(ds.projects, project))
     : // "All Projects" — hide the sample datasource so it doesn't muddle the view
       datasources.filter((ds) => !ds.projects?.includes(demoProjectId || ""));
 

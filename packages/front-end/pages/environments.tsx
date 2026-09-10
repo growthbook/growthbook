@@ -1,6 +1,6 @@
 import { useState, FC, useMemo } from "react";
 import { Environment } from "shared/types/organization";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { BiShow } from "react-icons/bi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
@@ -40,9 +40,7 @@ const EnvironmentsPage: FC = () => {
 
   const environments = useEnvironments();
   const filteredEnvironments = project
-    ? environments.filter((env) =>
-        isProjectListValidForProject(env.projects, project),
-      )
+    ? environments.filter((env) => isAvailableInProject(env.projects, project))
     : environments;
 
   const { data: sdkConnectionData } = useSDKConnections();

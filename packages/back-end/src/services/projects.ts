@@ -34,6 +34,14 @@ export async function cleanupProjectReferences(
       () => removeProjectFromDatasources(projectId, context.org.id),
     ],
     ["metrics", () => removeProjectFromMetrics(projectId, context.org.id)],
+    [
+      "fact metrics",
+      () => context.models.factMetrics.removeProjectIdFromAll(projectId),
+    ],
+    [
+      "metric groups",
+      () => context.models.metricGroups.removeProjectIdFromAllGroups(projectId),
+    ],
     ["features", () => removeProjectFromFeatures(context, projectId)],
     ["experiments", () => removeProjectFromExperiments(context, projectId)],
     [

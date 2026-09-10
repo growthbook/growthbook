@@ -7,7 +7,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import {
   FactMetricInterface,
   ColumnRef,
@@ -1512,13 +1512,13 @@ function StandardFactMetricModal({
   const { apiCall } = useAuth();
 
   const validDatasources = datasources
-    .filter((d) => isProjectListValidForProject(d.projects, project))
+    .filter((d) => isAvailableInProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql")
     .filter((d) => !datasource || d.id === datasource);
 
   const filteredMetrics = metrics
     .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project))
+    .filter((f) => isAvailableInProject(f.projects, project))
     .filter((f) => f.datasource !== demoDataSourceId); // Don't factor in demo datasource metrics
 
   const showSwitchToLegacy =

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import {
   MetricDefinitionInterface,
   MetricInterface,
@@ -147,7 +147,7 @@ export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
 
   const filteredFactTables = factTables
     .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project));
+    .filter((f) => isAvailableInProject(f.projects, project));
 
   // Determine the most appropriate default type based on what the org has already created
   // - If there are no fact tables, default to legacy

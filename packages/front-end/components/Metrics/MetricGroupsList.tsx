@@ -4,7 +4,7 @@ import router from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { canCreateInSelectedScope } from "shared/permissions";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -47,7 +47,7 @@ const MetricGroupsList: FC = () => {
     () =>
       project
         ? metricGroups.filter((mg) =>
-            isProjectListValidForProject(mg.projects, project),
+            isAvailableInProject(mg.projects, project),
           )
         : metricGroups,
     [metricGroups, project],

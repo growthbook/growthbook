@@ -3,7 +3,7 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { DimensionInterface } from "shared/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import { validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -24,8 +24,7 @@ const DimensionForm: FC<{
 
   const validDatasources = datasources.filter(
     (d) =>
-      d.id === current.datasource ||
-      isProjectListValidForProject(d.projects, project),
+      d.id === current.datasource || isAvailableInProject(d.projects, project),
   );
 
   const form = useForm({

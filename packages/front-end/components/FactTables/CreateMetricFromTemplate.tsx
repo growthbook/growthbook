@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { isProjectListValidForProject } from "shared/util";
+import { isAvailableInProject } from "shared/util";
 import {
   columnRefValidator,
   metricTypeValidator,
@@ -34,11 +34,11 @@ export default function CreateMetricFromTemplate() {
   const router = useRouter();
 
   const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project),
+    isAvailableInProject(d.projects, project),
   );
 
   const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project),
+    isAvailableInProject(f.projects, project),
   );
 
   const { hasCommercialFeature } = useUser();

@@ -11,7 +11,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   filterEnvironmentsByFeature,
   generateVariationId,
-  isProjectListValidForProject,
+  isAvailableInProject,
   getReviewSetting,
   getAttributeScopeProjectIds,
   getTargetingProjectIds,
@@ -818,10 +818,7 @@ export default function RuleModal({
 
   const availableTemplates = currentProject
     ? allTemplates.filter((t) =>
-        isProjectListValidForProject(
-          t.project ? [t.project] : [],
-          currentProject,
-        ),
+        isAvailableInProject(t.project ? [t.project] : [], currentProject),
       )
     : allTemplates;
 

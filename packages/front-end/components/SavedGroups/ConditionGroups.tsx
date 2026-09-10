@@ -5,7 +5,7 @@ import {
   SavedGroupInterface,
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
-import { isProjectListValidForProject, truncateString } from "shared/util";
+import { isAvailableInProject, truncateString } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -61,7 +61,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     () =>
       project
         ? conditionGroups.filter((group) =>
-            isProjectListValidForProject(group.projects, project),
+            isAvailableInProject(group.projects, project),
           )
         : conditionGroups,
     [conditionGroups, project],

@@ -4,7 +4,7 @@ import { MetricInterface } from "shared/types/metric";
 import { UpdateProps } from "shared/types/base-model";
 import { isFactMetricId } from "shared/experiments";
 import {
-  isProjectListValidForProjects,
+  coversAllRequiredProjects,
   getInvalidMetricGroupMetrics,
   getMetricGroupMetricsToValidate,
   doesMetricProjectChangeReduceGroupAvailability,
@@ -106,7 +106,7 @@ export class MetricGroupModel extends BaseClass {
     projects: MetricInterface["projects"],
     previousProjects: MetricInterface["projects"],
   ): Promise<void> {
-    if (isProjectListValidForProjects(projects, previousProjects)) {
+    if (coversAllRequiredProjects(projects, previousProjects)) {
       return;
     }
     // Membership must hold even for groups the metric editor cannot read.
@@ -141,6 +141,19 @@ export class MetricGroupModel extends BaseClass {
       {
         // @ts-expect-error - not sure why $pull is complaining, but it works
         $pull: { metrics: metricId },
+        $set: { dateUpdated: new Date() },
+      },
+    );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
+  }
+
+  async removeProjectIdFromAllGroups(projectId: string): Promise<void> {
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, projects: projectId },
+      {
+        // @ts-expect-error - not sure why $pull is complaining, but it works
+        $pull: { projects: projectId },
         $set: { dateUpdated: new Date() },
       },
     );
