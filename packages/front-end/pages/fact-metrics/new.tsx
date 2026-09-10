@@ -11,7 +11,8 @@ import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspac
 
 export default function NewFactMetricPage() {
   const router = useRouter();
-  const { project, ready, mutateDefinitions } = useDefinitions();
+  const { project, ready, mutateDefinitions, getFactMetricById } =
+    useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
   const returnUrl =
@@ -20,6 +21,28 @@ export default function NewFactMetricPage() {
       : "/metrics";
 
   if (!ready) return <LoadingOverlay />;
+
+  const duplicateSource =
+    typeof router.query.duplicate === "string"
+      ? getFactMetricById(router.query.duplicate)
+      : null;
+  // Matches the old modal's duplicate normalization (FactMetricList.tsx,
+  // pre-migration): only "admin" managedBy carries over, and only if this
+  // user could create it themselves - otherwise a copy of an API-managed or
+  // admin-managed metric would be rejected outright by the backend instead
+  // of saving as an ordinary metric.
+  const duplicatedManagedBy: "" | "admin" =
+    duplicateSource?.managedBy === "admin" &&
+    permissionsUtil.canCreateOfficialResources(duplicateSource)
+      ? "admin"
+      : "";
+  const duplicateFrom = duplicateSource
+    ? {
+        ...duplicateSource,
+        name: duplicateSource.name + " (copy)",
+        managedBy: duplicatedManagedBy,
+      }
+    : null;
 
   const canCreate = permissionsUtil.canCreateFactMetric({
     projects: project ? [project] : [],
@@ -45,6 +68,7 @@ export default function NewFactMetricPage() {
       ) : (
         <MetricWorkspace
           existing={null}
+          duplicateFrom={duplicateFrom}
           isEditing={true}
           mutate={mutateDefinitions}
           onSaved={(metric: FactMetricInterface) =>
