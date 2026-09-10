@@ -10,12 +10,9 @@ function firstIdentifierType(query: ExposureQueryIdentity): string {
 }
 
 /**
- * Assignment queries whose *first* identifier type changed between two settings
- * revisions — removed, or reordered so a different type is first. The first
- * identifier is what experiments configured before multi-identifier support
- * implicitly analyze on, so a change repoints them. Callers pin dependent legacy
- * experiments to `previousIdentifierType` to preserve their analysis unit.
- * Queries added or deleted between revisions are ignored (nothing to pin).
+ * Queries whose first identifier type changed — the one experiments configured
+ * before multi-identifier support implicitly analyze on. Callers pin dependent
+ * legacy experiments to `previousIdentifierType` so they don't silently repoint.
  */
 export function getExposureQueriesWithChangedBaseIdentifier(
   previous: ExposureQueryIdentity[],
@@ -33,4 +30,28 @@ export function getExposureQueriesWithChangedBaseIdentifier(
     }
   }
   return changed;
+}
+
+/**
+ * Queries that violate `EAQ.projects ⊆ datasource.projects`. Empty
+ * `datasourceProjects` means all projects (nothing out of scope); a query with no
+ * projects inherits the data source scope.
+ */
+export function getExposureQueriesOutsideProjectScope(
+  exposureQueries: Pick<ExposureQuery, "id" | "name" | "projects">[],
+  datasourceProjects: string[],
+): { id: string; name: string; invalidProjects: string[] }[] {
+  if (!datasourceProjects.length) return [];
+  const allowed = new Set(datasourceProjects);
+  const violations: { id: string; name: string; invalidProjects: string[] }[] =
+    [];
+  for (const query of exposureQueries) {
+    const invalidProjects = (query.projects ?? []).filter(
+      (project) => !allowed.has(project),
+    );
+    if (invalidProjects.length) {
+      violations.push({ id: query.id, name: query.name, invalidProjects });
+    }
+  }
+  return violations;
 }

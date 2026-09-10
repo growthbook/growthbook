@@ -1186,15 +1186,11 @@ export async function deleteExperimentSegment(
 }
 
 /**
- * When an assignment query's first identifier type changes (removed, or
- * reordered so a different type is first), experiments configured before
- * multi-identifier support — those with no stored `exposureQueryIdentifierType`,
- * which implicitly analyze on the query's first identifier — would silently
- * repoint to the new first identifier. Called at the datasource-edit choke point
- * (before the change is applied) to pin such experiments to the pre-edit
- * identifier, preserving their analysis unit. If that identifier was removed,
- * the drift then surfaces as an `exposureQueryIdentifierType` outdated reason
- * instead of a silent change. Returns the number of experiments pinned.
+ * Legacy experiments (no stored `exposureQueryIdentifierType`) implicitly analyze
+ * on their assignment query's first identifier. When that identifier changes, pin
+ * them to `identifierType` (the pre-edit one) so they don't silently repoint; if
+ * it was removed, the drift then surfaces as an outdated reason. Returns the
+ * number pinned.
  */
 export async function pinLegacyExposureQueryIdentifierType({
   organization,

@@ -1,4 +1,7 @@
-import { getExposureQueriesWithChangedBaseIdentifier } from "shared/util";
+import {
+  getExposureQueriesOutsideProjectScope,
+  getExposureQueriesWithChangedBaseIdentifier,
+} from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
 function query(
@@ -88,5 +91,45 @@ describe("getExposureQueriesWithChangedBaseIdentifier", () => {
       [query({ id: "q1", userIdType: "anonymous_id", userIdTypes: [] })],
     );
     expect(result).toEqual([{ id: "q1", previousIdentifierType: "user_id" }]);
+  });
+});
+
+describe("getExposureQueriesOutsideProjectScope", () => {
+  it("flags a query scoped to a project the data source is not", () => {
+    const result = getExposureQueriesOutsideProjectScope(
+      [{ id: "q1", name: "Q1", projects: ["p1", "p3"] }],
+      ["p1", "p2"],
+    );
+    expect(result).toEqual([{ id: "q1", name: "Q1", invalidProjects: ["p3"] }]);
+  });
+
+  it("allows a query whose projects are a subset of the data source's", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [{ id: "q1", name: "Q1", projects: ["p1"] }],
+        ["p1", "p2"],
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats an empty data source project list as all projects", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [{ id: "q1", name: "Q1", projects: ["p1"] }],
+        [],
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats a query with no projects as inheriting the data source scope", () => {
+    expect(
+      getExposureQueriesOutsideProjectScope(
+        [
+          { id: "q1", name: "Q1", projects: [] },
+          { id: "q2", name: "Q2", projects: undefined },
+        ],
+        ["p1"],
+      ),
+    ).toEqual([]);
   });
 });
