@@ -351,11 +351,14 @@ export function useCombinedMetrics({
           : undefined,
         onDuplicate:
           canDuplicate && enableRowActions
-            ? () => router.push(`/fact-metrics/new?duplicate=${m.id}`)
+            ? () =>
+                router.push(
+                  `/fact-metrics/new?${new URLSearchParams({ duplicate: m.id, returnUrl: router.asPath }).toString()}`,
+                )
             : undefined,
         onEdit:
           canEdit && enableRowActions
-            ? () => router.push(`/fact-metrics/${m.id}`)
+            ? () => router.push(`/fact-metrics/${m.id}?edit=true`)
             : undefined,
         onDelete: canDelete
           ? async () => {
@@ -571,18 +574,19 @@ const MetricsList = (): React.ReactElement => {
                 !permissionsUtil.canCreateMetric({ projects: [project] })
               }
             >
-              <Button
-                disabled={
-                  !permissionsUtil.canCreateMetric({ projects: [project] })
-                }
-                onClick={() =>
-                  skipModalForFactMetricCreation
-                    ? router.push("/fact-metrics/new")
-                    : setModalData({ mode: "new" })
-                }
-              >
-                Add Metric
-              </Button>
+              {skipModalForFactMetricCreation &&
+              permissionsUtil.canCreateMetric({ projects: [project] }) ? (
+                <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
+              ) : (
+                <Button
+                  disabled={
+                    !permissionsUtil.canCreateMetric({ projects: [project] })
+                  }
+                  onClick={() => setModalData({ mode: "new" })}
+                >
+                  Add metric
+                </Button>
+              )}
             </Tooltip>
           </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
