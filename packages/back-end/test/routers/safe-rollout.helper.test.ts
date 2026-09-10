@@ -1,6 +1,7 @@
 import { FeatureInterface } from "shared/types/feature";
 import {
   getSafeRolloutRuleFromFeature,
+  isOrphanedSafeRollout,
   shouldSkipScheduledSafeRolloutSnapshot,
 } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 
@@ -110,5 +111,35 @@ describe("shouldSkipScheduledSafeRolloutSnapshot", () => {
     expect(
       shouldSkipScheduledSafeRolloutSnapshot(feature, { id: "sr_1" }),
     ).toBe(true);
+  });
+});
+
+describe("isOrphanedSafeRollout", () => {
+  const sr = { id: "sr_1" };
+
+  it("is orphaned when the feature is gone", () => {
+    expect(isOrphanedSafeRollout(null, sr, null)).toBe(true);
+  });
+
+  it("is not orphaned while any safe-rollout rule points at it, even disabled", () => {
+    const feature = makeFeature({
+      rules: [classicSafeRolloutRule(false)],
+    } as Partial<FeatureInterface>);
+    expect(isOrphanedSafeRollout(feature, sr, null)).toBe(false);
+  });
+
+  it("is orphaned when no rule references it and no ramp is linked", () => {
+    expect(isOrphanedSafeRollout(makeFeature(), sr, null)).toBe(true);
+  });
+
+  it("follows the ramp schedule when ramp-linked", () => {
+    const linked = { id: "sr_1", rampScheduleId: "ramp_1" };
+    expect(
+      isOrphanedSafeRollout(makeFeature(), linked, { status: "running" }),
+    ).toBe(false);
+    expect(
+      isOrphanedSafeRollout(makeFeature(), linked, { status: "completed" }),
+    ).toBe(true);
+    expect(isOrphanedSafeRollout(makeFeature(), linked, null)).toBe(true);
   });
 });

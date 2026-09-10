@@ -4,7 +4,10 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { logger } from "back-end/src/util/logger";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { shouldSkipScheduledSafeRolloutSnapshot } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
+import {
+  isOrphanedSafeRollout,
+  shouldSkipScheduledSafeRolloutSnapshot,
+} from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { COLLECTION_NAME } from "back-end/src/models/SafeRolloutModel";
 
@@ -68,7 +71,23 @@ const updateSingleSafeRolloutSnapshot = async (
 
   const context = await getContextForAgendaJobByOrgId(organization);
   const feature = await getFeature(context, featureId);
-  if (!feature || feature.archived) return;
+  if (feature?.archived) return;
+
+  const rampSchedule = safeRollout.rampScheduleId
+    ? await context.models.rampSchedules.getById(safeRollout.rampScheduleId)
+    : null;
+  if (isOrphanedSafeRollout(feature, safeRollout, rampSchedule)) {
+    // Nothing serves it any more: stop it instead of re-queueing it forever.
+    await context.models.safeRollout.update(safeRollout, {
+      status: "stopped",
+      autoSnapshots: false,
+    });
+    logger.warn(
+      `SafeRollout ${id}: no rule or live ramp schedule references it; marked stopped`,
+    );
+    return;
+  }
+  if (!feature) return;
 
   if (shouldSkipScheduledSafeRolloutSnapshot(feature, safeRollout)) return;
 

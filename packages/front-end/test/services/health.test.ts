@@ -51,7 +51,7 @@ describe("getFeatureHealthSearchTokens", () => {
         stale: false,
         health: [{ signal: "old-temp-rollout", count: 1 }],
       }),
-    ).toEqual(["old-temp-rollout", "temp-rollout", "low"]);
+    ).toEqual(["old-temp-rollout", "temp-rollout", "medium"]);
   });
 
   it("does not duplicate temp-rollout when both tiers are present", () => {
@@ -63,7 +63,7 @@ describe("getFeatureHealthSearchTokens", () => {
           { signal: "temp-rollout", count: 1 },
         ],
       }),
-    ).toEqual(["old-temp-rollout", "temp-rollout", "low"]);
+    ).toEqual(["old-temp-rollout", "temp-rollout", "medium", "low"]);
   });
 });
 
@@ -72,7 +72,7 @@ describe("entryMatchesHealthFilter", () => {
     const old = { signal: "old-temp-rollout" as const, count: 1 };
     expect(entryMatchesHealthFilter(old, ["old-temp-rollout"])).toBe(true);
     expect(entryMatchesHealthFilter(old, ["temp-rollout"])).toBe(true);
-    expect(entryMatchesHealthFilter(old, ["low"])).toBe(true);
+    expect(entryMatchesHealthFilter(old, ["medium"])).toBe(true);
     expect(entryMatchesHealthFilter(old, ["high", "ramp-paused"])).toBe(false);
     expect(entryMatchesHealthFilter(old, [])).toBe(false);
   });
@@ -83,7 +83,8 @@ describe("severity", () => {
     expect(getFeatureHealthSeverity("invalid-value")).toBe("high");
     expect(getFeatureHealthSeverity("unreachable-rule")).toBe("medium");
     expect(getFeatureHealthSeverity("ramp-paused")).toBe("medium");
-    expect(getFeatureHealthSeverity("old-temp-rollout")).toBe("low");
+    expect(getFeatureHealthSeverity("old-temp-rollout")).toBe("medium");
+    expect(getFeatureHealthSeverity("temp-rollout")).toBe("low");
     expect(
       getFeatureOverallHealthSeverity({
         stale: false,

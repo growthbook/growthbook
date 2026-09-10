@@ -55,13 +55,49 @@ describe("computeFeatureHealth", () => {
     expect(compute(feature([force("true", '{"a":1}')]))).toEqual([]);
   });
 
-  it("dedupes temp rollouts across environments and keeps the tier", () => {
+  it("counts a temp rollout once per rule, not once per environment", () => {
+    const stopped = {
+      id: "exp_done",
+      status: "stopped",
+      excludeFromPayload: false,
+      releasedVariationId: "v1",
+      linkedFeatures: ["f"],
+      phases: [{ dateStarted: "2023-01-01", dateEnded: "2023-02-01" }],
+    } as unknown as ExperimentInterfaceStringDates;
+    const f = feature([
+      {
+        type: "experiment-ref",
+        experimentId: "exp_done",
+        variations: [{ variationId: "v1", value: "true" }],
+      } as Partial<FeatureRule>,
+    ]);
     const envResults: Record<string, EnvStaleResult> = {
       prod: { stale: false, tempRollout: "old-temp-rollout" },
       dev: { stale: false, tempRollout: "old-temp-rollout" },
     };
+    expect(
+      compute(f, {
+        envResults,
+        experimentMap: new Map([["exp_done", stopped]]),
+      }),
+    ).toEqual([
+      {
+        signal: "old-temp-rollout",
+        count: 1,
+        environments: ["dev", "prod"],
+        details: [
+          { label: "exp_done", since: new Date("2023-02-01").toISOString() },
+        ],
+      },
+    ]);
+  });
+
+  it("still reports a temp rollout when the rule cannot be resolved", () => {
+    const envResults: Record<string, EnvStaleResult> = {
+      prod: { stale: false, tempRollout: "temp-rollout" },
+    };
     expect(compute(feature([]), { envResults })).toEqual([
-      { signal: "old-temp-rollout", count: 2, environments: ["dev", "prod"] },
+      { signal: "temp-rollout", count: 1, environments: ["prod"] },
     ]);
   });
 
@@ -108,12 +144,14 @@ describe("computeFeatureHealth", () => {
 
   it("collapses several ramps needing approval into one entry", () => {
     const needsApproval = {
+      name: "Ramp A",
       status: "running",
       currentStepIndex: 0,
       steps: [{ holdConditions: { requiresApproval: true } }],
       stepApproval: null,
     } as unknown as RampScheduleInterface;
     const paused = {
+      name: "Ramp B",
       status: "paused",
       steps: [],
     } as unknown as RampScheduleInterface;
@@ -122,27 +160,95 @@ describe("computeFeatureHealth", () => {
         rampSchedules: [needsApproval, needsApproval, needsApproval, paused],
       }),
     ).toEqual([
-      { signal: "ramp-needs-approval", count: 3 },
-      { signal: "ramp-paused", count: 1 },
+      {
+        signal: "ramp-needs-approval",
+        count: 3,
+        details: [
+          { label: "Ramp A" },
+          { label: "Ramp A" },
+          { label: "Ramp A" },
+        ],
+      },
+      { signal: "ramp-paused", count: 1, details: [{ label: "Ramp B" }] },
     ]);
   });
 
   it("reports a running safe rollout with no data after a day", () => {
     const safeRollout = {
+      id: "sr_1",
       status: "running",
       environment: "prod",
       startedAt: new Date(Date.now() - 48 * 3600 * 1000),
       guardrailMetricIds: ["m"],
       analysisSummary: undefined,
     } as unknown as SafeRolloutInterface;
-    expect(compute(feature([]), { safeRollouts: [safeRollout] })).toEqual([
+    const f = feature([
+      {
+        type: "safe-rollout",
+        safeRolloutId: "sr_1",
+        controlValue: "false",
+        variationValue: "true",
+      } as Partial<FeatureRule>,
+    ]);
+    expect(compute(f, { safeRollouts: [safeRollout] })).toEqual([
       { signal: "safe-rollout-no-data", count: 1, environments: ["prod"] },
     ]);
   });
 
-  it("flags values that fail the feature's type or schema", () => {
-    const f = feature([force("maybe")], { defaultValue: "nope" });
-    expect(compute(f)).toEqual([{ signal: "invalid-value", count: 2 }]);
+  it("counts a ramp-monitored safe rollout while its ramp is live", () => {
+    const monitor = {
+      id: "sr_ramp",
+      rampScheduleId: "ramp_1",
+      status: "running",
+      environment: "prod",
+      startedAt: new Date(Date.now() - 48 * 3600 * 1000),
+      guardrailMetricIds: ["m"],
+    } as unknown as SafeRolloutInterface;
+    const ramp = {
+      id: "ramp_1",
+      name: "Ramp",
+      status: "running",
+      steps: [],
+    } as unknown as RampScheduleInterface;
+    expect(
+      compute(feature([]), { safeRollouts: [monitor], rampSchedules: [ramp] }),
+    ).toEqual([
+      { signal: "safe-rollout-no-data", count: 1, environments: ["prod"] },
+    ]);
+  });
+
+  it("ignores safe rollouts no rule points at any more", () => {
+    const orphan = {
+      id: "sr_orphan",
+      status: "running",
+      environment: "prod",
+      startedAt: new Date(Date.now() - 48 * 3600 * 1000),
+      guardrailMetricIds: ["m"],
+    } as unknown as SafeRolloutInterface;
+    expect(compute(feature([]), { safeRollouts: [orphan] })).toEqual([]);
+  });
+
+  it("flags invalid values once per rule and once for the default", () => {
+    const f = feature(
+      [
+        force("maybe", '{"a":1}'),
+        {
+          type: "experiment-ref",
+          experimentId: "exp_ok",
+          variations: [
+            { variationId: "a", value: "bad" },
+            { variationId: "b", value: "worse" },
+          ],
+        } as Partial<FeatureRule>,
+      ],
+      { defaultValue: "nope" },
+    );
+    const experimentMap = new Map([
+      ["exp_ok", { id: "exp_ok" } as ExperimentInterfaceStringDates],
+    ]);
+    expect(compute(f, { experimentMap })).toEqual([
+      { signal: "invalid-value", count: 3 },
+    ]);
   });
 
   it("orders entries most urgent first", () => {

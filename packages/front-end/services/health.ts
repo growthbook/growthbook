@@ -38,7 +38,7 @@ export const TEMP_ROLLOUT_HEALTH: Record<
   "temp-rollout": { label: "Temp rollout", color: "yellow" },
   "old-temp-rollout": {
     label: `Temp rollout (${OLD_TEMP_ROLLOUT_DAYS}d+)`,
-    color: "yellow",
+    color: "amber",
   },
 };
 

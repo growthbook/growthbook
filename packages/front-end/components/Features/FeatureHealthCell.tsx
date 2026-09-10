@@ -1,4 +1,5 @@
 import { FC } from "react";
+import { ago } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import { Popover } from "@/ui/Popover";
 import Badge from "@/ui/Badge";
@@ -12,8 +13,8 @@ import {
 } from "@/services/health";
 
 // The feature list's Health column: the most severe signal (plus any signal the
-// user is filtering on), a "+N" chip for the rest, and a hover popover listing
-// everything. Staleness has its own Stale column.
+// user is filtering on), a "+N" chip for every other occurrence, and a hover
+// popover listing everything. Staleness has its own Stale column.
 const FeatureHealthCell: FC<{
   staleData?: StaleStateEntry;
   // Active `health:` filter values; matching signals always render in full.
@@ -24,7 +25,10 @@ const FeatureHealthCell: FC<{
   const shown = entries.filter(
     (entry, i) => i === 0 || entryMatchesHealthFilter(entry, healthFilter),
   );
-  const hidden = entries.length - shown.length;
+  // Each visible line stands for one occurrence; everything else, including
+  // repeats of a shown signal, is counted in the chip.
+  const hidden =
+    entries.reduce((sum, entry) => sum + entry.count, 0) - shown.length;
 
   const details = (
     <Flex direction="column" gap="2" style={{ maxWidth: 360 }}>
@@ -38,6 +42,12 @@ const FeatureHealthCell: FC<{
             </strong>
           </Flex>
           <span>{describeFeatureHealthEntry(entry)}</span>
+          {entry.details?.map((detail, i) => (
+            <span key={i} style={{ color: "var(--gray-11)" }}>
+              {detail.label}
+              {detail.since ? ` · stopped ${ago(detail.since)}` : ""}
+            </span>
+          ))}
         </Flex>
       ))}
     </Flex>
