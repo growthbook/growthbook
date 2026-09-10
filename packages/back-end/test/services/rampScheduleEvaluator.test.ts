@@ -29,6 +29,13 @@ jest.mock("back-end/src/util/logger", () => ({
   },
 }));
 
+// The post-snapshot evaluator swaps to the org's job context; hand it the
+// test's own mocked context so assertions keep seeing the same models.
+let mockLastContext: unknown;
+jest.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgObject: jest.fn(() => mockLastContext),
+}));
+
 const mockCreateSafeRolloutSnapshot =
   createSafeRolloutSnapshot as jest.MockedFunction<
     typeof createSafeRolloutSnapshot
@@ -129,7 +136,7 @@ function makeContext({
   snapshotAnalysis?: SafeRolloutSnapshotAnalysis;
   schedule?: RampScheduleInterface;
 }) {
-  return {
+  const context = {
     org: { id: "org_1", settings: {} },
     models: {
       rampSchedules: {
@@ -163,6 +170,8 @@ function makeContext({
       },
     },
   };
+  mockLastContext = context;
+  return context;
 }
 
 describe("evaluateCurrentStep: 0-step simple schedules", () => {
