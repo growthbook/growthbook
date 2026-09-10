@@ -18,12 +18,9 @@ const STT_ENDPOINTS: Partial<Record<AIProvider, string>> = {
  * Transcribe a recorded clip with the org's resolved dictation model.
  * `mimeType` is the browser's container choice (Safari mp4, Chrome webm).
  *
- * Posted as multipart directly rather than through the AI SDK's transcribe():
- * that helper ignores a caller-supplied media type and sniffs the bytes, and
- * its signature table has no webm entry and matches mp4's `ftyp` at offset 0
- * (real files carry it at offset 4). Both fall through to a hardcoded
- * audio/wav, so every container a browser can record is uploaded as
- * `audio.wav` and rejected by the provider.
+ * Multipart directly, not the AI SDK's transcribe(): it ignores the caller's
+ * media type, and its sniffer misses both webm and mp4, defaulting them to
+ * audio/wav — which every provider then rejects.
  *
  * Callers must gate on secondsUntilAICanBeUsedAgainForSTT first; this records
  * the usage that gate reads, on success only.
@@ -58,7 +55,7 @@ export async function transcribeAudio(
   const form = new FormData();
   // Providers key off the extension, so it has to match the actual container.
   form.append("file", audio, {
-    filename: `dictation.${extensionFor(mimeType)}`,
+    filename: `dictation.${mimeType.split(";")[0].split("/")[1] || "webm"}`,
     contentType: mimeType,
   });
   // xAI's /v1/stt serves one model and documents no `model` field.
@@ -74,16 +71,8 @@ export async function transcribeAudio(
   }
   const text = ((await res.json()) as { text?: string }).text ?? "";
 
-  // Charged only after the provider accepted the audio. A rejection costs
-  // GrowthBook nothing, so billing the org's shared quota for one would let
-  // junk uploads deny the org its own legitimate AI use.
+  // Success only: a rejection costs nothing, so billing for it would let junk
+  // uploads deny the org its own AI use.
   await recordSTTUsage(context, audio.length, provider);
   return text;
-}
-
-// "audio/webm;codecs=opus" -> "webm". Keep in sync with the recorder's
-// preference list in useDictation.ts, which only offers containers every
-// endpoint above accepts.
-function extensionFor(mimeType: string): string {
-  return mimeType.split(";")[0].split("/")[1] || "webm";
 }

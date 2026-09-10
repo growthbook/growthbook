@@ -28,11 +28,7 @@ export default function DictationButton({
       ? "Transcribing…"
       : "Dictate a message";
 
-  // Recording gets its own glyph, not just the red tint: state communicated by
-  // color alone fails WCAG 1.4.1, and this control can hold the mic open for
-  // five minutes. PiStop is already this composer's vocabulary for "stop", and
-  // can't collide with the send button's stop state — the mic is disabled
-  // while a turn is streaming.
+  // Recording gets its own glyph, not just red: color-only state fails WCAG 1.4.1.
   const Icon = error
     ? PiMicrophoneSlash
     : transcribing

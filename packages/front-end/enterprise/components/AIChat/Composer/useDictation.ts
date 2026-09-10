@@ -2,10 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 
-// Containers in preference order, narrowed to what every transcription
-// endpoint accepts. OpenAI's list is the binding one (mp3, mp4, mpeg, mpga,
-// m4a, wav, webm) — notably it rejects ogg, so offering ogg/opus guaranteed a
-// failure on Firefox. Safari records mp4; Chrome and Firefox record webm.
+// Narrowed to what every transcription endpoint accepts. OpenAI's list is the
+// binding one, and it rejects ogg — offering ogg/opus failed on Firefox.
 const MIME_TYPES = ["audio/mp4", "audio/webm;codecs=opus"];
 
 // A forgotten open mic is a memory and a billing problem.
@@ -29,30 +27,24 @@ export interface Dictation {
 /** Record a clip and hand the transcript to `onTranscript`. */
 export function useDictation(onTranscript: (text: string) => void): Dictation {
   const { apiCall } = useAuth();
-  // Resolved server-side, and already null when AI is off or no provider with
-  // a key serves transcription — so there is nothing to re-derive here.
+  // Already null when AI is off or no provider with a key serves transcription.
   const { sttModel } = useUser();
 
-  // Set after mount: MediaRecorder doesn't exist during SSR, and deciding
-  // during render would make the server and first client render disagree.
-  const [canRecord, setCanRecord] = useState(false);
-  useEffect(() => setCanRecord(!!pickMimeType()), []);
-
-  const [recording, setRecording] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
+  const [status, setStatus] = useState<"idle" | "recording" | "transcribing">(
+    "idle",
+  );
   const [error, setError] = useState<string | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const timeoutRef = useRef<number | null>(null);
-  // Set before awaiting the permission prompt, so a double-click can't open a
-  // second stream that orphans the first and leaves the mic live.
-  const startingRef = useRef(false);
-  const unmountedRef = useRef(false);
-  // Read inside the recorder's callbacks, which outlive a render.
-  const onTranscriptRef = useRef(onTranscript);
-  onTranscriptRef.current = onTranscript;
+  // Non-null while a permission prompt is open. Doubles as the re-entrancy
+  // guard (a double-click would otherwise orphan the first stream) and the
+  // cancel signal, since release() aborts it.
+  const startAbortRef = useRef<AbortController | null>(null);
 
   const release = useCallback(() => {
+    startAbortRef.current?.abort();
+    startAbortRef.current = null;
     recorderRef.current?.stream.getTracks().forEach((t) => t.stop());
     recorderRef.current = null;
     if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current);
@@ -60,27 +52,17 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
   }, []);
 
   // The browser shows a recording indicator for as long as a track is live.
-  // Reset on mount too, or a StrictMode double-mount leaves the flag set and
-  // every later start() bails out.
-  useEffect(() => {
-    unmountedRef.current = false;
-    return () => {
-      unmountedRef.current = true;
-      release();
-    };
-  }, [release]);
+  useEffect(() => release, [release]);
 
-  // setState bails when the value is unchanged, so calling this per keystroke
-  // costs nothing.
   const clearError = useCallback(() => setError(null), []);
 
   const stop = useCallback(() => {
     recorderRef.current?.stop();
-    setRecording(false);
+    setStatus("idle");
   }, []);
 
   const start = useCallback(async () => {
-    if (startingRef.current || recorderRef.current) return;
+    if (startAbortRef.current || recorderRef.current) return;
     setError(null);
     const mimeType = pickMimeType();
     if (!mimeType) {
@@ -88,7 +70,8 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
       return;
     }
 
-    startingRef.current = true;
+    const abort = new AbortController();
+    startAbortRef.current = abort;
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -97,11 +80,12 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
       setError("Microphone access was blocked.");
       return;
     } finally {
-      startingRef.current = false;
+      // Identity-checked: release() may already have cleared it for a newer start.
+      if (startAbortRef.current === abort) startAbortRef.current = null;
     }
 
     // The prompt can outlive the component; don't start a mic nobody owns.
-    if (unmountedRef.current) {
+    if (abort.signal.aborted) {
       stream.getTracks().forEach((t) => t.stop());
       return;
     }
@@ -118,7 +102,7 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
       const audio = new Blob(chunks, { type: mimeType });
       if (!audio.size) return;
 
-      setTranscribing(true);
+      setStatus("transcribing");
       try {
         const res = await apiCall<{ text: string }>("/ai/transcribe", {
           method: "POST",
@@ -126,26 +110,26 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
           headers: { "Content-Type": mimeType },
         });
         const text = res?.text?.trim();
-        if (text) onTranscriptRef.current(text);
+        if (text) onTranscript(text);
         else setError("Nothing was transcribed. Try again.");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Transcription failed.");
       } finally {
-        setTranscribing(false);
+        setStatus("idle");
       }
     };
 
     recorder.start();
-    setRecording(true);
+    setStatus("recording");
     timeoutRef.current = window.setTimeout(stop, MAX_RECORDING_MS);
-  }, [apiCall, release, stop]);
+  }, [apiCall, onTranscript, release, stop]);
 
   return {
-    available: !!sttModel && canRecord,
-    recording,
-    transcribing,
+    available: !!sttModel && !!pickMimeType(),
+    recording: status === "recording",
+    transcribing: status === "transcribing",
     error,
-    toggle: () => (recording ? stop() : start()),
+    toggle: () => (status === "recording" ? stop() : start()),
     clearError,
   };
 }
