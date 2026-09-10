@@ -280,6 +280,7 @@ export interface OrganizationSettings {
   regressionAdjustmentDays?: number;
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
+  noDataAlertGracePeriodHours?: number;
   aiEnabled?: boolean;
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;

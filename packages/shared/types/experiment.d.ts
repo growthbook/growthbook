@@ -333,6 +333,7 @@ export type ExperimentHealthSettings = {
   srmThreshold: number;
   multipleExposureMinPercent: number;
   experimentMinLengthDays: number;
+  noDataAlertGracePeriodHours: number;
 };
 
 export type ExperimentDataForStatusStringDates = Omit<
