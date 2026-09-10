@@ -67,6 +67,9 @@ const REQUIRED_SCOPES = [
   "assistant:write",
   "im:history",
   "app_mentions:read",
+  "commands",
+  "links:read",
+  "links:write",
 ];
 
 const getQueryStringValue = (value: string | string[] | undefined) =>
@@ -614,9 +617,10 @@ const SlackWorkspacePage: NextPage = () => {
             <code>chat:write</code>, <code>files:write</code>,{" "}
             <code>channels:read</code>, <code>groups:read</code>,{" "}
             <code>channels:join</code>, <code>assistant:write</code>,{" "}
-            <code>im:history</code>, and <code>app_mentions:read</code> bot
-            scopes. A Slack signing secret is not required for outgoing
-            notifications.
+            <code>im:history</code>, <code>app_mentions:read</code>,{" "}
+            <code>commands</code>, <code>links:read</code>, and{" "}
+            <code>links:write</code> bot scopes. A Slack signing secret is not
+            required for outgoing notifications.
           </Callout>
         )}
 
