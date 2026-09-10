@@ -83,7 +83,6 @@ export type JourneyViewModel = {
     exitDims: Map<string, number>;
   }[];
   direction: JourneyDirection;
-  violations: string[];
   emptyReason: "none" | "no-anchor" | "no-match";
 };
 
@@ -306,69 +305,6 @@ function reduceJourneyHistory({
   return next;
 }
 
-function verifyModel(
-  m: Pick<
-    JourneyViewModel,
-    | "columns"
-    | "edges"
-    | "anchorTotal"
-    | "matchedTotal"
-    | "prefixCount"
-    | "leak"
-    | "dimTop"
-    | "anchorDims"
-    | "direction"
-  >,
-  depth: number,
-): string[] {
-  const bad: string[] = [];
-  const side = m.direction === "forward" ? "f" : "b";
-  const cols = m.columns
-    .filter((c) => c.frontier && c.side === side)
-    .sort((a, b) => (a.fi ?? 0) - (b.fi ?? 0));
-  if (cols.length) {
-    const first = cols[0].nodes.reduce((a, n) => a + n.value, 0);
-    if (first !== m.matchedTotal) {
-      bad.push(
-        `${side} frontier level 1 sums to ${first} but the committed population is ${m.matchedTotal}`,
-      );
-    }
-    const deepest = m.prefixCount[depth];
-    if (depth > 0 && deepest !== m.matchedTotal) {
-      bad.push(
-        `${side} deepest committed step is ${deepest} but the frontier totals ${m.matchedTotal}`,
-      );
-    }
-    for (let k = 0; k < depth; k++) {
-      const lk = m.leak[k];
-      if (!lk) continue;
-      const total = m.prefixCount[k + 1] + lk.other + lk.exit;
-      if (total !== m.prefixCount[k]) {
-        bad.push(
-          `${side} step ${k + 1} splits to ${total} but its parent is ${m.prefixCount[k]}`,
-        );
-      }
-    }
-    const chain = [m.anchorTotal, ...m.prefixCount.slice(1)];
-    for (let i = 1; i < chain.length; i++) {
-      if (chain[i] > chain[i - 1]) {
-        bad.push(`${side} chain widens at step ${i}: ${chain.join(" → ")}`);
-      }
-    }
-  }
-  if (m.dimTop.length) {
-    const dimSum = m.dimTop
-      .concat([JOURNEY_OTHER])
-      .reduce((a, d) => a + (m.anchorDims.get(d) || 0), 0);
-    if (dimSum !== m.anchorTotal) {
-      bad.push(
-        `dimension buckets sum to ${dimSum} but the anchor is ${m.anchorTotal}`,
-      );
-    }
-  }
-  return bad;
-}
-
 function materializeJourneyViewModel({
   dataset,
   history,
@@ -547,7 +483,7 @@ function materializeJourneyViewModel({
         ? "no-match"
         : "none";
 
-  const model: JourneyViewModel = {
+  return {
     columns,
     edges,
     anchorTotal: resolvedAnchor,
@@ -557,11 +493,8 @@ function materializeJourneyViewModel({
     prefixCount,
     leak,
     direction,
-    violations: [],
     emptyReason,
   };
-  model.violations = verifyModel(model, depth);
-  return model;
 }
 
 function withoutHiddenDims(

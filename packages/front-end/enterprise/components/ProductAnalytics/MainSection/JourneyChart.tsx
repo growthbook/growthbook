@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import type {
   ExplorationConfig,
   JourneyDataset,
@@ -18,14 +18,14 @@ import {
   withJourneyOptionsAt,
 } from "shared/journeys";
 import { PiArrowRight, PiX } from "react-icons/pi";
-import { useRouter } from "next/router";
 import { encodeExplorationConfig } from "shared/enterprise";
-import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import {
   journeyToFunnel,
   selectedJourneySteps,
 } from "@/enterprise/components/ProductAnalytics/journeyFunnel";
 import Badge from "@/ui/Badge";
+import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import Frame from "@/ui/Frame";
 import TextUI from "@/ui/Text";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -45,7 +45,6 @@ export default function JourneyChart({
   exploration: ProductAnalyticsExploration | null;
   submittedExploreState: ExplorationConfig;
 }) {
-  const router = useRouter();
   const {
     draftExploreState,
     clearJourneyAnchor,
@@ -165,10 +164,6 @@ export default function JourneyChart({
       </Flex>
     );
   }
-  if (process.env.NODE_ENV !== "production" && model.violations.length) {
-    console.warn("[journeys] INVARIANT VIOLATIONS:", model.violations);
-  }
-
   return (
     <Flex direction="column" style={{ flex: 1, minHeight: 0 }}>
       <Frame px="3" py="2" mt="3" mb="4">
@@ -179,34 +174,23 @@ export default function JourneyChart({
               <Fragment key={index}>
                 {position > 0 && <PiArrowRight aria-hidden="true" />}
                 <Badge
-                  title={label}
                   radius="full"
                   label={
                     <Flex align="center" gap="2">
-                      <span>
-                        {label.length > 30
-                          ? `${label.slice(0, 12)}…${label.slice(-17)}`
-                          : label}
-                      </span>
-                      <button
-                        type="button"
+                      <TruncateMiddleWithTooltip text={label} maxChars={30} />
+                      <IconButton
+                        size="1"
+                        variant="ghost"
+                        radius="full"
                         aria-label={`Remove ${label} and ${(draftDataset ?? dataset).direction === "backward" ? "preceding" : "following"} steps`}
                         disabled={loading}
-                        style={{
-                          border: 0,
-                          background: "transparent",
-                          color: "inherit",
-                          cursor: "pointer",
-                          display: "flex",
-                          padding: 2,
-                        }}
                         onClick={() => {
                           if (index > 0) popJourneyPath(index - 1);
                           else clearJourneyAnchor();
                         }}
                       >
-                        <PiX />
-                      </button>
+                        <PiX size={12} />
+                      </IconButton>
                     </Flex>
                   }
                 />
@@ -215,21 +199,20 @@ export default function JourneyChart({
           )}
           {(draftDataset ?? dataset).path.length > 0 && (
             <Box style={{ marginLeft: "auto", flexShrink: 0 }}>
-              <Button
+              <LinkButton
                 size="sm"
-                onClick={async () => {
-                  const funnel = journeyToFunnel(
-                    draftExploreState.type === "journey"
-                      ? draftExploreState
-                      : submittedExploreState,
-                  );
-                  await router.push(
-                    `/product-analytics/explore/funnel?config=${encodeURIComponent(encodeExplorationConfig(funnel))}`,
-                  );
-                }}
+                href={`/product-analytics/explore/funnel?config=${encodeURIComponent(
+                  encodeExplorationConfig(
+                    journeyToFunnel(
+                      draftExploreState.type === "journey"
+                        ? draftExploreState
+                        : submittedExploreState,
+                    ),
+                  ),
+                )}`}
               >
                 Explore this funnel
-              </Button>
+              </LinkButton>
             </Box>
           )}
         </Flex>

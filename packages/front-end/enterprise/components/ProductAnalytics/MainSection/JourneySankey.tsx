@@ -6,6 +6,7 @@ import { Group } from "@visx/group";
 import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { JOURNEY_OTHER, JOURNEY_TERMINALS } from "shared/journeys";
 import type { JourneyHeightScale } from "shared/validators";
+import { formatNumber, formatPercent } from "@/services/metrics";
 import { CHART_COLORS } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import {
   type JourneyColumn,
@@ -23,14 +24,9 @@ const ANIM_MS = 320;
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
-function fmt(n: number): string {
-  return Math.round(n).toLocaleString("en-US");
-}
-function pct(a: number, b: number): string {
-  if (b <= 0) return "—";
-  const p = (100 * a) / b;
-  return `${p.toFixed(p >= 10 ? 0 : 1)}%`;
-}
+const fmt = (n: number) => formatNumber(n, { maximumFractionDigits: 0 });
+const pct = (a: number, b: number) =>
+  b <= 0 ? "—" : formatPercent(a / b, { maximumSignificantDigits: 2 });
 
 function ribbonPath(
   x0: number,
@@ -239,30 +235,6 @@ function edgeKey(e: JourneyEdge, cols: JourneyColumn[]): string {
 
 function laid(n: JourneyNode): LaidNode {
   return n as LaidNode;
-}
-
-function dimSig(dims: Map<string, number> | null): string {
-  if (!dims?.size) return "";
-  return Array.from(dims, ([k, v]) => `${k}:${v.toFixed(1)}`).join(",");
-}
-
-function layoutSignature(L: Layout): string {
-  return (
-    L.cols
-      .map(
-        (c) =>
-          `${colKey(c)}@${c.x.toFixed(1)}:` +
-          c.nodes
-            .map((n) => {
-              const ln = laid(n);
-              return `${animKey(n)}:${ln.y.toFixed(1)}:${ln.h.toFixed(1)}`;
-            })
-            .join(","),
-      )
-      .join("|") +
-    "#" +
-    L.edges.map((e) => `${edgeKey(e, L.cols)}:${dimSig(e.dims)}`).join(";")
-  );
 }
 
 function lerpDimMap(
@@ -597,7 +569,7 @@ function SankeySvg({
     const reduce = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
-    if (reduce || layoutSignature(from) === layoutSignature(target)) {
+    if (reduce || from === target) {
       visualRef.current = target;
       setDrawn(target);
       return;
@@ -605,8 +577,10 @@ function SankeySvg({
     let raf = 0;
     let safety = 0;
     const t0 = performance.now();
+    // t === 1 snaps to `target` itself, so the resting layout is always the
+    // canonical object and the next identical target short-circuits above.
     const apply = (t: number) => {
-      const next = lerpLayout(from, target, t);
+      const next = t >= 1 ? target : lerpLayout(from, target, t);
       visualRef.current = next;
       setDrawn(next);
     };

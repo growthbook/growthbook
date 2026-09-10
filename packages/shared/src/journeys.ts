@@ -114,10 +114,9 @@ export function journeyFamilyIdentity(dataset: JourneyDataset) {
 }
 
 export function journeyOptionsAt(
-  optionsPerStep: number[] | number | undefined,
+  optionsPerStep: number[] | undefined,
   levelIndex: number,
 ): number {
-  if (typeof optionsPerStep === "number") return optionsPerStep;
   return optionsPerStep?.[levelIndex] ?? DEFAULT_JOURNEY_OPTIONS_PER_STEP;
 }
 
@@ -144,12 +143,7 @@ export function journeyTerminal(
   return direction === "forward" ? JOURNEY_EXIT : JOURNEY_ENTRY;
 }
 
-const globRegExpCache = new Map<string, RegExp>();
-const MAX_GLOB_CACHE_ENTRIES = 1000;
-
 function globToRegExp(glob: string): RegExp {
-  const cached = globRegExpCache.get(glob);
-  if (cached) return cached;
   const source = glob
     .split(/([*?])/)
     .map((chunk) => {
@@ -158,12 +152,7 @@ function globToRegExp(glob: string): RegExp {
       return chunk.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     })
     .join("");
-  const compiled = new RegExp(`^${source}$`);
-  // Editing a pattern in the sidebar compiles one glob per keystroke, so cap
-  // the cache rather than letting it grow with the session.
-  if (globRegExpCache.size >= MAX_GLOB_CACHE_ENTRIES) globRegExpCache.clear();
-  globRegExpCache.set(glob, compiled);
-  return compiled;
+  return new RegExp(`^${source}$`);
 }
 
 export function matchesGlob(value: string, glob: string): boolean {
@@ -327,11 +316,10 @@ export function suggestJourneyStepGroups(
  * tₖ = tₖ₋₁ + aₖ₋₁   // terminated prefixes contribute exactly one (none) tail
  * pathRows = (a_depth + t_depth) · (dimValues + 1)
  *
- * A number is treated as the same N at every frontier level. An array is
- * indexed from the anchor (`pathLength` + frontier offset).
+ * `optionsPerStep` is indexed from the anchor (`pathLength` + frontier offset).
  */
 export function maxJourneyPathRows(
-  optionsPerStep: number | number[],
+  optionsPerStep: number[],
   lookaheadDepth: number,
   dimValues: number,
   pathLength = 0,
@@ -349,7 +337,7 @@ export function maxJourneyPathRows(
 }
 
 function maxJourneyCommittedRows(
-  optionsPerStep: number | number[],
+  optionsPerStep: number[],
   pathLength: number,
   dimValues: number,
 ): number {
@@ -367,7 +355,7 @@ export function maxJourneyResultRows({
   pathLength,
   dimValues,
 }: {
-  optionsPerStep: number | number[];
+  optionsPerStep: number[];
   lookaheadDepth: number;
   pathLength: number;
   dimValues: number;
@@ -419,21 +407,14 @@ function pathRowsContainStep(
   );
 }
 
-function journeyOptionsLength(
-  optionsPerStep: number[] | number | undefined,
-): number {
-  if (typeof optionsPerStep === "number") return 1;
-  return optionsPerStep?.length ?? 0;
-}
-
 /** Cached SQL must already have at least as many named buckets at every step. */
 function journeyOptionsCoverRequested(
   cached: JourneyDataset,
   requested: JourneyDataset,
 ): boolean {
   const last = Math.max(
-    journeyOptionsLength(cached.optionsPerStep),
-    journeyOptionsLength(requested.optionsPerStep),
+    cached.optionsPerStep.length,
+    requested.optionsPerStep.length,
     requested.path.length + 1,
   );
   for (let i = 0; i < last; i++) {
@@ -522,7 +503,7 @@ export function journeyResultCanServe({
     .map((row) => row.journey)
     .filter(
       (j): j is Extract<NonNullable<typeof j>, { kind: "path" }> =>
-        j != null && j.kind === "path",
+        j !== undefined && j !== null && j.kind === "path",
     );
   const extraPrefix: JourneyPathStep[] = [];
   for (const step of requestedPath.slice(cachedPath.length)) {
@@ -761,7 +742,7 @@ export function journeyDimValueCount(
 }
 
 function journeyConfigExceedsRowCap(params: {
-  optionsPerStep: number | number[];
+  optionsPerStep: number[];
   lookaheadDepth: number;
   pathLength: number;
   dimValues: number;

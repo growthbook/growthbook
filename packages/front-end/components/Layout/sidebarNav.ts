@@ -115,7 +115,7 @@ export const navlinks: SidebarLinkProps[] = [
         name: "User Journeys",
         href: "/product-analytics/explore/journey",
         path: /^product-analytics\/explore\/journey/,
-        filter: ({ gb }) => !!gb?.isOn("product-analytics-journeys"),
+        beta: true,
       },
       {
         name: "SQL Explorer",

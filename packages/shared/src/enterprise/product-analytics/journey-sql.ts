@@ -139,7 +139,12 @@ function stepExpression(
 // Journeys are scoped to one unit-day: a session boundary the warehouse can
 // derive without a sessionization step.
 const JOURNEY_PARTITION = "journey_unit, journey_day";
-const JOURNEY_WINDOW = `(PARTITION BY ${JOURNEY_PARTITION} ORDER BY ts)`;
+// `ts` is not a total order — fact tables allow duplicate timestamps and give
+// us no event key to fall back on. Left as `ORDER BY ts`, the warehouse could
+// break ties differently in each window and scramble the path, so tie-break on
+// `step` to make dedup, LEAD/LAG and first-anchor selection deterministic.
+const JOURNEY_ORDER = "ts, step";
+const JOURNEY_WINDOW = `(PARTITION BY ${JOURNEY_PARTITION} ORDER BY ${JOURNEY_ORDER})`;
 const JOURNEY_CARRY = `${JOURNEY_PARTITION}, ts, step, dim_1`;
 
 /** Shares every rule with the API layer via `validateJourneyDataset`, and adds
@@ -214,69 +219,42 @@ function bucketChain(
     const other = lit(dialect, JOURNEY_OTHER);
     const termLit = lit(dialect, term);
 
-    if (fi === 0) {
-      ctes.push({
-        name: topName,
-        sql: `
-          SELECT value FROM (
-            SELECT ${col} AS value,
-              ROW_NUMBER() OVER (ORDER BY c DESC, ${col}) AS rn
-            FROM (
-              SELECT ${col}, SUM(journey_count) AS c
-              FROM ${prev}
-              WHERE ${col} IS NOT NULL
-              GROUP BY ${col}
-            ) agg
-          ) r
-          WHERE rn <= ${n}
-        `,
-      });
-      ctes.push({
-        name: chainName,
-        sql: `
-          SELECT s.*,
-            CASE WHEN s.${col} IS NULL THEN ${termLit}
-                 WHEN s.${col} IN (SELECT value FROM ${topName}) THEN s.${col}
-                 ELSE ${other} END AS ${lvl}
-          FROM ${prev} s
-        `,
-      });
-    } else {
-      const prefix = Array.from({ length: fi }, (_, q) => `lvl_${q + 1}`);
-      const pcols = prefix.map((c, q) => `${c} AS p${q + 1}`);
-      const joinOn = prefix.map((c, q) => `t.p${q + 1} = b.${c}`);
-      const prevLvl = `lvl_${fi}`;
-      ctes.push({
-        name: topName,
-        sql: `
-          SELECT ${prefix.map((_, q) => `p${q + 1}`).join(", ")}, value FROM (
-            SELECT ${prefix.map((_, q) => `p${q + 1}`).join(", ")}, value,
-              ROW_NUMBER() OVER (PARTITION BY ${prefix.map((_, q) => `p${q + 1}`).join(", ")} ORDER BY c DESC, value) AS rn
-            FROM (
-              SELECT ${pcols.join(", ")}, ${col} AS value, SUM(journey_count) AS c
-              FROM ${prev}
-              WHERE ${col} IS NOT NULL
-                AND ${prevLvl} NOT IN (${termLit}, ${none})
-              GROUP BY ${prefix.join(", ")}, ${col}
-            ) agg
-          ) r
-          WHERE rn <= ${n}
-        `,
-      });
-      ctes.push({
-        name: chainName,
-        sql: `
-          SELECT b.*,
-            CASE WHEN b.${prevLvl} IN (${termLit}, ${none}) THEN ${none}
-                 WHEN b.${col} IS NULL THEN ${termLit}
-                 WHEN t.value IS NOT NULL THEN b.${col}
-                 ELSE ${other} END AS ${lvl}
-          FROM ${chainName.replace(`lvl${fi + 1}`, `lvl${fi}`)} b
-          LEFT JOIN ${topName} t
-            ON ${joinOn.join(" AND ")} AND t.value = b.${col}
-        `,
-      });
-    }
+    // Level 1 ranks its options globally; deeper levels rank them within the
+    // prefix of buckets already chosen, so `prefix` is empty on the first pass
+    // and every clause that mentions it drops out.
+    const prefix = Array.from({ length: fi }, (_, q) => `lvl_${q + 1}`);
+    const pAliases = prefix.map((_, q) => `p${q + 1}`).join(", ");
+    const prevLvl = `lvl_${fi}`;
+    const topSelect = prefix.length ? `${pAliases}, value` : "value";
+
+    ctes.push({
+      name: topName,
+      sql: `
+        SELECT ${topSelect} FROM (
+          SELECT ${topSelect},
+            ROW_NUMBER() OVER (${prefix.length ? `PARTITION BY ${pAliases} ` : ""}ORDER BY c DESC, value) AS rn
+          FROM (
+            SELECT ${prefix.map((c, q) => `${c} AS p${q + 1}, `).join("")}${col} AS value, SUM(journey_count) AS c
+            FROM ${prev}
+            WHERE ${col} IS NOT NULL${prefix.length ? `\n              AND ${prevLvl} NOT IN (${termLit}, ${none})` : ""}
+            GROUP BY ${[...prefix, col].join(", ")}
+          ) agg
+        ) r
+        WHERE rn <= ${n}
+      `,
+    });
+    ctes.push({
+      name: chainName,
+      sql: `
+        SELECT b.*,
+          CASE ${prefix.length ? `WHEN b.${prevLvl} IN (${termLit}, ${none}) THEN ${none}\n               ` : ""}WHEN b.${col} IS NULL THEN ${termLit}
+               WHEN t.value IS NOT NULL THEN b.${col}
+               ELSE ${other} END AS ${lvl}
+        FROM ${prev} b
+        LEFT JOIN ${topName} t
+          ON ${[...prefix.map((c, q) => `t.p${q + 1} = b.${c}`), `t.value = b.${col}`].join(" AND ")}
+      `,
+    });
     prev = chainName;
   }
 
@@ -443,6 +421,9 @@ export function buildJourneySql(
     journeyFactTable,
     dialect,
   );
+  // Without this, every event missing the unit id collapses into one synthetic
+  // unit-day journey and inflates whatever paths those events happen to form.
+  filterParts.push(`${unitExpr} IS NOT NULL`);
   if (dimension?.dimensionType === "static" && dimension.values.length > 0) {
     const dimCol = columnExpr(dimension.column, factTable, dialect);
     filterParts.push(
@@ -503,7 +484,7 @@ export function buildJourneySql(
     name: "__journey_anchor_events",
     sql: `
       SELECT * FROM (
-        SELECT *, ROW_NUMBER() OVER (PARTITION BY ${JOURNEY_PARTITION} ORDER BY ts) AS rn
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY ${JOURNEY_PARTITION} ORDER BY ${JOURNEY_ORDER}) AS rn
         FROM __journey_neighbourhood
         WHERE step = ${lit(dialect, anchor)}
       ) a

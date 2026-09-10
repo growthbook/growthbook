@@ -21,25 +21,11 @@ function stepFilters(dataset: JourneyDataset, values: string[]): RowFilter[] {
     const groupIndex = groups.findIndex((group) => group.pattern === value);
     if (groupIndex < 0) return [{ column, operator: "=", values: [value] }];
 
-    let operator: RowFilter["operator"] = "matches_pattern";
-    let filterValue = value;
-    if (!/[?]/.test(value)) {
-      if (/^[^*]+\*$/.test(value)) {
-        operator = "starts_with";
-        filterValue = value.slice(0, -1);
-      } else if (/^\*[^*]+$/.test(value)) {
-        operator = "ends_with";
-        filterValue = value.slice(1);
-      } else if (/^\*[^*]+\*$/.test(value)) {
-        operator = "contains";
-        filterValue = value.slice(1, -1);
-      } else if (!value.includes("*")) {
-        operator = "=";
-      }
-    }
     // Match the first applicable grouping rule, just like the journey SQL CASE.
+    // `matches_pattern` compiles the glob straight to the same LIKE clause a
+    // starts_with/ends_with/contains filter would produce.
     return [
-      { column, operator, values: [filterValue] },
+      { column, operator: "matches_pattern", values: [value] },
       ...groups.slice(0, groupIndex).map(
         (group): RowFilter => ({
           column,

@@ -160,7 +160,6 @@ function baseJourneyConfig(
 
 describe("journey row bound", () => {
   it("N=5, depth=3, no dimension → 259 path rows", () => {
-    expect(maxJourneyPathRows(5, 3, 0)).toBe(259);
     expect(maxJourneyPathRows([], 3, 0)).toBe(259);
   });
 
@@ -285,13 +284,24 @@ describe("buildJourneySql", () => {
     expect(sql).toContain("(entry)");
   });
 
-  it("partitions daily journeys by unit and day", () => {
+  it("partitions journeys by unit and day", () => {
     const config = baseJourneyConfig();
-    if (config.dataset.type !== "journey") throw new Error("expected journey");
-    config.dataset.dailyJourneys = true;
     const { sql } = buildJourneySql(config, factTableMap, helpers);
     expect(sql).toContain("PARTITION BY journey_unit, journey_day");
     expect(sql).toContain("journey_day");
+  });
+
+  it("drops rows with no unit id instead of merging them into one journey", () => {
+    const config = baseJourneyConfig();
+    const { sql } = buildJourneySql(config, factTableMap, helpers);
+    expect(sql).toContain("user_id IS NOT NULL");
+  });
+
+  it("tie-breaks the journey ordering so equal timestamps are deterministic", () => {
+    const config = baseJourneyConfig();
+    const { sql } = buildJourneySql(config, factTableMap, helpers);
+    expect(sql).toContain("ORDER BY ts, step");
+    expect(sql).not.toMatch(/ORDER BY ts\)/);
   });
 
   it("emits a dynamic-dimension top-N CTE", () => {

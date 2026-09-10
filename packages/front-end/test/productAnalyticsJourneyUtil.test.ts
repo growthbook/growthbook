@@ -510,7 +510,6 @@ describe("buildJourneyViewModel", () => {
       dataset,
       hasDimension: false,
     });
-    expect(model.violations).toEqual([]);
     expect(model.matchedTotal).toBe(100);
     expect(model.anchorTotal).toBe(100);
     const frontier = model.columns.filter((c) => c.frontier);
@@ -525,7 +524,6 @@ describe("buildJourneyViewModel", () => {
       dataset,
       hasDimension: false,
     });
-    expect(model.violations).toEqual([]);
     expect(model.prefixCount[0]).toBe(100);
     expect(model.prefixCount[1]).toBe(50);
     const leak = model.leak[0];

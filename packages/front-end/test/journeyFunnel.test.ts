@@ -50,8 +50,8 @@ describe("journeyToFunnel", () => {
     }
     expect(funnel.dataset.steps[0].rowFilters[1]).toEqual({
       column: "url",
-      operator: "starts_with",
-      values: ["/items/"],
+      operator: "matches_pattern",
+      values: ["/items/*"],
     });
     expect(funnel.dataset.steps[1].rowFilters[1]).toEqual({
       column: "url",
@@ -96,7 +96,7 @@ describe("journeyToFunnel", () => {
     );
     expect(funnel.dataset.steps[0].rowFilters.slice(1)).toEqual([
       { column: "event", operator: "=", values: ["view"] },
-      { column: "url", operator: "starts_with", values: ["/items/"] },
+      { column: "url", operator: "matches_pattern", values: ["/items/*"] },
       {
         column: "url",
         operator: "not_matches_pattern",
