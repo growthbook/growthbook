@@ -1,4 +1,8 @@
-import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
+import {
+  includeExperimentInPayload,
+  getSnapshotAnalysis,
+  snapshotHasResults,
+} from "shared/util";
 import {
   expandMetricGroups,
   getMetricResultStatus,
@@ -349,7 +353,7 @@ export const notifyNoData = async ({
   // the default analysis returned no variation rows.
   const analysis = getSnapshotAnalysis(snapshot);
   const triggered =
-    snapshot.status === "success" &&
+    snapshotHasResults(snapshot.status) &&
     (analysis?.results?.[0]?.variations?.length ?? 0) === 0;
 
   await memoizeNotification({

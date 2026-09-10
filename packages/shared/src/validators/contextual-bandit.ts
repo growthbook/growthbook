@@ -558,7 +558,7 @@ export const getContextualBanditResultsValidator = {
       latest: z
         .object({
           id: z.string(),
-          status: z.enum(["running", "success", "error"]),
+          status: z.enum(["running", "success", "partial-success", "error"]),
           error: z.string(),
           queries: z.array(z.unknown()),
           runStarted: z.string().nullable(),

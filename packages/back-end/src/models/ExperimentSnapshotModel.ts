@@ -7,9 +7,11 @@ import {
   DashboardInterface,
 } from "shared/enterprise";
 import {
+  analysisIsDegraded,
   findAnalysisComputeFailure,
   getSnapshotAnalysis,
   isString,
+  snapshotHasResults,
 } from "shared/util";
 import {
   SnapshotType,
@@ -540,7 +542,7 @@ export async function updateSnapshot({
 
     const shouldUpdateExperimentAnalysisSummary =
       experimentSnapshot.type === "standard" &&
-      experimentSnapshot.status === "success" &&
+      snapshotHasResults(experimentSnapshot.status) &&
       findAnalysisComputeFailure(getSnapshotAnalysis(experimentSnapshot)) ===
         null;
 
@@ -651,7 +653,7 @@ export async function updateSnapshot({
   };
 
   if (
-    experimentSnapshot.status === "success" &&
+    snapshotHasResults(experimentSnapshot.status) &&
     // Only use main snapshots or those triggered automatically for dashboards
     experimentSnapshot.triggeredBy !== "manual-dashboard" &&
     (experimentSnapshot.triggeredBy === "update-dashboards" ||
@@ -672,6 +674,24 @@ export type AddOrUpdateSnapshotAnalysisParams = {
   id: string;
   analysis: ExperimentSnapshotAnalysis;
 };
+
+// Analyses can be added or recomputed after a snapshot has completed (eager
+// dimension analyses, ad-hoc analyses). A degraded one flips the parent from
+// success to partial-success so snapshot consumers see the failed metric. The
+// flip is one-directional on purpose: this writer only holds a stale copy of
+// the sibling analyses, so it cannot prove they are all clean, and two
+// concurrent writers could otherwise overwrite a fresh partial-success with
+// success. Recovery to success is the query runner's rollup on the next run.
+// A running/error snapshot is still owned by its query runner and is left
+// alone.
+function snapshotStatusUpdateForAnalysisWrite(
+  snapshot: Pick<ExperimentSnapshotInterface, "status">,
+  analysis: Pick<ExperimentSnapshotAnalysis, "status">,
+): Partial<Pick<ExperimentSnapshotInterface, "status">> {
+  return snapshot.status === "success" && analysisIsDegraded(analysis.status)
+    ? { status: "partial-success" }
+    : {};
+}
 
 export async function addOrUpdateSnapshotAnalysis(
   params: AddOrUpdateSnapshotAnalysisParams,
@@ -704,6 +724,10 @@ export async function addOrUpdateSnapshotAnalysis(
     ...analysis,
     analysisKey,
   };
+  const snapshotStatusUpdate = snapshotStatusUpdateForAnalysisWrite(
+    existingInterface,
+    analysis,
+  );
 
   // Write the analysis's chunk sub-path atomically. Scoped to
   // `data.<analysisKey>` so concurrent writers for other analyses never
@@ -742,7 +766,7 @@ export async function addOrUpdateSnapshotAnalysis(
     });
     const updateDoc: Record<string, unknown> = {
       $push: { analyses: strippedAnalysis },
-      $set: setOps,
+      $set: { ...setOps, ...snapshotStatusUpdate },
     };
     if (Object.keys(unsetOps).length) updateDoc.$unset = unsetOps;
     const pushRes = await ExperimentSnapshotModel.updateOne(
@@ -777,7 +801,11 @@ export async function addOrUpdateSnapshotAnalysis(
     clearAllMeta,
   });
   const updateDoc: Record<string, unknown> = {
-    $set: { "analyses.$": strippedAnalysis, ...setOps },
+    $set: {
+      "analyses.$": strippedAnalysis,
+      ...setOps,
+      ...snapshotStatusUpdate,
+    },
   };
   if (Object.keys(unsetOps).length) updateDoc.$unset = unsetOps;
   await ExperimentSnapshotModel.updateOne(
@@ -838,6 +866,10 @@ export async function updateSnapshotAnalysis({
     ...analysis,
     analysisKey,
   };
+  const snapshotStatusUpdate = snapshotStatusUpdateForAnalysisWrite(
+    existingInterface,
+    analysis,
+  );
 
   const hasResults = keyedAnalysis.results.length > 0;
   const { metaEntry } =
@@ -861,7 +893,11 @@ export async function updateSnapshotAnalysis({
     clearAllMeta,
   });
   const updateDoc: Record<string, unknown> = {
-    $set: { "analyses.$": strippedAnalysis, ...setOps },
+    $set: {
+      "analyses.$": strippedAnalysis,
+      ...setOps,
+      ...snapshotStatusUpdate,
+    },
   };
   if (Object.keys(unsetOps).length) updateDoc.$unset = unsetOps;
 
@@ -956,11 +992,12 @@ export async function findSnapshotsByExperiment(
     dateCreated: { $gte: dateStart, $lte: dateEnd },
     // `status` is derived at read time by migrateSnapshot, so snapshots
     // written before the field existed need the legacy results check too.
-    // Both branches pin `status` so the index below can bound them; without
-    // that, `status` stops being an equality match and the dateCreated range
-    // and sort fall out of the index.
+    // Both branches constrain `status` (an `$in` set, or its absence) so the
+    // index below can still bound them; without that, `status` stops being an
+    // indexable predicate and the dateCreated range and sort fall out of the
+    // index.
     $or: [
-      { status: "success" },
+      { status: { $in: ["success", "partial-success"] } },
       {
         status: { $exists: false },
         results: { $exists: true, $type: "array", $ne: [] },
@@ -1101,7 +1138,7 @@ export async function getLatestSuccessfulSnapshot({
   let all = await ExperimentSnapshotModel.find(
     {
       ...query,
-      status: "success",
+      status: { $in: ["success", "partial-success"] },
       ...(beforeSnapshot
         ? { dateCreated: { $lt: beforeSnapshot.dateCreated } }
         : {}),
@@ -1204,7 +1241,7 @@ export async function getLatestSnapshotStatus({
   const mostRecent = await ExperimentSnapshotModel.findOne(
     {
       ...query,
-      status: { $in: ["success", "running", "error"] },
+      status: { $in: ["success", "partial-success", "running", "error"] },
     },
     snapshotStatusProjection,
     { sort: { dateCreated: -1 } },
@@ -1260,7 +1297,7 @@ export async function getLatestSnapshotMultipleExperiments(
     ...(withResults
       ? {
           $or: [
-            { status: "success" },
+            { status: { $in: ["success", "partial-success"] } },
             // get old snapshots if status field is missing
             { results: { $exists: true, $type: "array", $ne: [] } },
           ],

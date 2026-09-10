@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime, getValidDate } from "shared/dates";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { getSnapshotAnalysis } from "shared/util";
+import { analysisHasResults, getSnapshotAnalysis } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -222,7 +222,7 @@ export function scaleImpactAndSetMissingExperiments({
             }
           });
         } else {
-          if (defaultAnalysis && defaultAnalysis.status === "success") {
+          if (defaultAnalysis && analysisHasResults(defaultAnalysis.status)) {
             ei.error =
               "No snapshot with scaled impact available. Click calculate button above.";
             experimentsWithNoImpact.push(e.id);

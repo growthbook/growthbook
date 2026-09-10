@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import { postExperimentSnapshotValidator } from "shared/validators";
+import { analysisHasResults } from "shared/util";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
@@ -123,7 +124,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
       plan.snapshot.analyses.every(({ settings }) =>
         latestDimensionSnapshot.analyses?.some(
           (analysis) =>
-            analysis.status === "success" &&
+            analysisHasResults(analysis.status) &&
             isEqual(analysis.settings, settings),
         ),
       )

@@ -8,11 +8,16 @@ import {
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotAnalysisStatus,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  ExperimentSnapshotStatus,
 } from "shared/types/experiment-snapshot";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { ExperimentReportVariation } from "shared/types/report";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "shared/types/report";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { VisualChange } from "shared/types/visual-changeset";
@@ -139,6 +144,75 @@ export function findAnalysisComputeFailure(
     }
   }
   return null;
+}
+
+// Compute failures are per metric, so an analysis whose results carry one is
+// "partial" rather than "success". Fresh results from the stats engine always
+// carry every field the types declare, so no legacy fallbacks here.
+export function analysisStatusFromResults(
+  results: ExperimentReportResultDimension[],
+): "success" | "partial" {
+  const anyComputeFailed = results.some((dimension) =>
+    dimension.variations.some((variation) =>
+      Object.values(variation.metrics).some((metric) => metric.computeFailed),
+    ),
+  );
+  return anyComputeFailed ? "partial" : "success";
+}
+
+export function analysisIsDegraded(
+  status: ExperimentSnapshotAnalysisStatus,
+): boolean {
+  switch (status) {
+    case "partial":
+    case "error":
+      return true;
+    case "success":
+    case "running":
+      return false;
+    default:
+      status satisfies never;
+      return false;
+  }
+}
+
+// A degraded analysis makes an otherwise successful snapshot partial.
+export function snapshotStatusFromAnalyses(
+  analyses: Pick<ExperimentSnapshotAnalysis, "status">[],
+): "success" | "partial-success" {
+  return analyses.some((a) => analysisIsDegraded(a.status))
+    ? "partial-success"
+    : "success";
+}
+
+export function snapshotHasResults(status: ExperimentSnapshotStatus): boolean {
+  switch (status) {
+    case "success":
+    case "partial-success":
+      return true;
+    case "running":
+    case "error":
+      return false;
+    default:
+      status satisfies never;
+      return false;
+  }
+}
+
+export function analysisHasResults(
+  status: ExperimentSnapshotAnalysisStatus,
+): boolean {
+  switch (status) {
+    case "success":
+    case "partial":
+      return true;
+    case "running":
+    case "error":
+      return false;
+    default:
+      status satisfies never;
+      return false;
+  }
 }
 
 export function getSafeRolloutSnapshotAnalysis(

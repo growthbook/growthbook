@@ -1,5 +1,9 @@
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  analysisStatusFromResults,
+  snapshotStatusFromAnalyses,
+} from "shared/util";
 import { omit } from "lodash";
 import { ExperimentAggregateUnitsQueryResponseRows } from "shared/types/integrations";
 import { Queries, QueryStatus } from "shared/types/query";
@@ -96,7 +100,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       if (!analysis) return;
 
       analysis.results = results.dimensions || [];
-      analysis.status = "success";
+      analysis.status = analysisStatusFromResults(analysis.results);
       analysis.error = "";
 
       // TODO: do this once, not per analysis
@@ -174,7 +178,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
           ? "running"
           : status === "failed"
             ? "error"
-            : "success",
+            : snapshotStatusFromAnalyses(this.model.analyses),
     };
     await this.context.models.safeRolloutSnapshots.updateById(
       this.model.id,

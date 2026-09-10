@@ -8,7 +8,11 @@ import {
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import {
+  buildUnitsQuerySettingsFromSnapshot,
+  analysisStatusFromResults,
+  snapshotStatusFromAnalyses,
+} from "shared/util";
 import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
@@ -554,7 +558,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       if (!analysis) return;
 
       analysis.results = results.dimensions || [];
-      analysis.status = "success";
+      analysis.status = analysisStatusFromResults(analysis.results);
       analysis.error = "";
 
       // TODO: do this once, not per analysis
@@ -676,7 +680,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           ? "running"
           : status === "failed"
             ? "error"
-            : "success",
+            : snapshotStatusFromAnalyses(this.model.analyses),
     };
     await updateSnapshot({
       context: this.context,
