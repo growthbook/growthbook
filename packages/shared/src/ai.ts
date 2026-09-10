@@ -590,6 +590,25 @@ export const SELF_HOSTED_DEFAULT_STT_MODELS: ReadonlyArray<
   ["mistral", "voxtral-mini-latest"],
 ];
 
+/**
+ * Which model "use default" resolves to, given the providers that have a key.
+ * Shared so the settings dropdown can name the default without re-deriving a
+ * chain that could disagree with what the transcribe route actually picks.
+ */
+export function resolveDefaultSTTModel(
+  providersWithKeys: readonly AIProvider[],
+  isCloud: boolean,
+): STTModel | null {
+  if (isCloud && providersWithKeys.includes("xai")) {
+    return CLOUD_MANAGED_STT_MODEL;
+  }
+  return (
+    SELF_HOSTED_DEFAULT_STT_MODELS.find(([provider]) =>
+      providersWithKeys.includes(provider),
+    )?.[1] ?? null
+  );
+}
+
 // Text, embedding, image and transcription models each have their own
 // registry, so callers holding an org setting must say which one it came from.
 export type AIModelKind = "text" | "embedding" | "image" | "stt";

@@ -268,3 +268,26 @@
 .boxWithDictation {
   padding-left: 4px;
 }
+
+// Anchors the error bubble and gives the tooltip an enabled trigger to hover.
+.dictateWrapper,
+.dictateTrigger {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+// Floats above the composer like the suggestion list, so the flex row keeps
+// its geometry whether or not there's an error to show.
+.dictateError {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 2;
+  width: max-content;
+  max-width: 240px;
+  padding: 6px 8px;
+  border-radius: var(--radius-3);
+  background: var(--color-panel-solid);
+  box-shadow: var(--shadow-3);
+}

@@ -382,9 +382,16 @@ function ChatComposer(
     useCallback(
       (text: string) => {
         if (!editor) return;
-        const needsSpace = /\S$/.test(editorToText(editor));
-        editor.commands.insertContent(needsSpace ? ` ${text}` : text);
-        editor.commands.focus("end");
+        // Space off the character before the cursor, not the end of the doc —
+        // dictation can land mid-message. insertContent leaves the cursor
+        // after the inserted text, so don't move it.
+        const { from } = editor.state.selection;
+        const before = editor.state.doc.textBetween(
+          Math.max(0, from - 1),
+          from,
+        );
+        editor.commands.insertContent(/\S/.test(before) ? ` ${text}` : text);
+        editor.commands.focus();
       },
       [editor],
     ),

@@ -1,5 +1,6 @@
 import {
   AI_PROVIDER_STT_MODEL_MAP,
+  resolveDefaultSTTModel,
   formatAIRateLimitRetryMessage,
   getAIModelSettingsUsingProvider,
   getProviderForAIModel,
@@ -260,5 +261,33 @@ describe("getAIModelSettingsUsingProvider", () => {
         "openai",
       ),
     ).toEqual([]);
+  });
+});
+
+describe("resolveDefaultSTTModel", () => {
+  it("prefers the managed Grok model on Cloud", () => {
+    expect(resolveDefaultSTTModel(["openai", "xai"], true)).toBe(
+      "grok-stt-1.0",
+    );
+  });
+
+  it("falls through to the next provider when Cloud has no xAI key", () => {
+    // The managed key isn't guaranteed, so dictation degrades rather than
+    // disappearing — this is the case a live Cloud org hits.
+    expect(resolveDefaultSTTModel(["openai"], true)).toBe("gpt-transcribe");
+    expect(resolveDefaultSTTModel(["mistral"], true)).toBe(
+      "voxtral-mini-latest",
+    );
+  });
+
+  it("ignores the managed model when self-hosted", () => {
+    expect(resolveDefaultSTTModel(["xai", "openai"], false)).toBe(
+      "gpt-transcribe",
+    );
+  });
+
+  it("returns null when no provider serves transcription", () => {
+    expect(resolveDefaultSTTModel(["anthropic", "google"], true)).toBeNull();
+    expect(resolveDefaultSTTModel([], false)).toBeNull();
   });
 });

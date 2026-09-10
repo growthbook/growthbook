@@ -11,6 +11,7 @@ import {
   AIProvider,
   formatAIRateLimitRetryMessage,
   getProviderForAIModel,
+  resolveDefaultSTTModel,
 } from "shared/ai";
 import {
   EMBEDDING_MODEL_OPTIONS,
@@ -225,7 +226,7 @@ export default function AISettings({
   const [loading, setLoading] = useState(false);
   const [embeddingMsg, setEmbeddingMsg] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, aiKeyProviders } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const aiProviderAccess = useAIProviderKeys();
   const {
@@ -240,6 +241,12 @@ export default function AISettings({
     : null;
   const orgDefaultNote = isCloud()
     ? { value: "", note: getModelDisplayLabel(defaultAIModel) }
+    : null;
+  // Unlike the fields above, the dictation sentinel is offered in both
+  // deployments, so name the resolved model in both.
+  const sttDefault = resolveDefaultSTTModel(aiKeyProviders, isCloud());
+  const sttDefaultNote = sttDefault
+    ? { value: "", note: getModelDisplayLabel(sttDefault) }
     : null;
 
   const clearModelSettings = (keys: AIModelSettingKey[]) => {
@@ -464,13 +471,16 @@ export default function AISettings({
                       size="medium"
                       id="sttModel"
                       disabled={!canEdit}
-                      helpText="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral. The mic button is hidden when none of them has a key."
+                      helpText="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral."
                       value={form.watch("sttModel") || ""}
                       onChange={(v) => form.setValue("sttModel", v)}
                       options={getAvailableSTTModelOptions(
                         isCloud() ? availableProviders : undefined,
                         form.watch("sttModel") || "",
                       )}
+                      formatOptionLabel={(option, { context }) =>
+                        modelOptionLabel(option, context, sttDefaultNote)
+                      }
                     />
                     {/* Only a chosen model can be wrong — the default always
                         resolves to a provider that has a key, or to nothing. */}

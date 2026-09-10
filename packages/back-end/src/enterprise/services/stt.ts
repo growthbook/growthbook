@@ -1,43 +1,32 @@
-import { experimental_transcribe as transcribe } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import FormData from "form-data";
-import { getProviderFromSTTModel } from "shared/ai";
+import { AIProvider, getProviderFromSTTModel } from "shared/ai";
 import type { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";
+import { recordSTTUsage } from "back-end/src/enterprise/services/ai";
 import { fetch } from "back-end/src/util/http.util";
 
-// xAI serves STT from /v1/stt with its own multipart contract rather than an
-// OpenAI-compatible /v1/audio/transcriptions.
-async function transcribeWithXai(
-  apiKey: string,
-  audio: Buffer,
-  mimeType: string,
-): Promise<string> {
-  const form = new FormData();
-  // The extension is cosmetic (xAI sniffs the bytes) but the part needs a name.
-  form.append("file", audio, {
-    filename: `dictation.${mimeType.split(";")[0].split("/")[1] || "webm"}`,
-    contentType: mimeType,
-  });
-
-  const res = await fetch("https://api.x.ai/v1/stt", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: form,
-  });
-  if (!res.ok) {
-    throw new Error(`Transcription failed (xAI returned HTTP ${res.status})`);
-  }
-  return ((await res.json()) as { text?: string }).text ?? "";
-}
+// OpenAI and Mistral share OpenAI's /v1/audio/transcriptions contract; xAI
+// serves its own /v1/stt. All three answer with `{ text }`.
+const STT_ENDPOINTS: Partial<Record<AIProvider, string>> = {
+  openai: "https://api.openai.com/v1/audio/transcriptions",
+  mistral: "https://api.mistral.ai/v1/audio/transcriptions",
+  xai: "https://api.x.ai/v1/stt",
+};
 
 /**
  * Transcribe a recorded clip with the org's resolved dictation model.
  * `mimeType` is the browser's container choice (Safari mp4, Chrome webm).
  *
- * ponytail: no usage accounting — the org AI cap counts tokens, and audio
- * minutes aren't tokens. Add a minutes counter if dictation cost shows up.
+ * Posted as multipart directly rather than through the AI SDK's transcribe():
+ * that helper ignores a caller-supplied media type and sniffs the bytes, and
+ * its signature table has no webm entry and matches mp4's `ftyp` at offset 0
+ * (real files carry it at offset 4). Both fall through to a hardcoded
+ * audio/wav, so every container a browser can record is uploaded as
+ * `audio.wav` and rejected by the provider.
+ *
+ * Callers must gate on secondsUntilAICanBeUsedAgainForSTT first; this records
+ * the usage that gate reads.
  */
 export async function transcribeAudio(
   context: ReqContext,
@@ -61,16 +50,36 @@ export async function transcribeAudio(
     throw new Error(missingAIKeyMessage(provider));
   }
 
-  if (provider === "xai") return transcribeWithXai(apiKey, audio, mimeType);
+  const url = STT_ENDPOINTS[provider];
+  if (!url) {
+    throw new Error(`${sttModel} cannot be used for transcription.`);
+  }
 
-  // Mistral's endpoint is a drop-in for OpenAI's, so only the base URL differs.
-  const openai = createOpenAI({
-    apiKey,
-    ...(provider === "mistral" ? { baseURL: "https://api.mistral.ai/v1" } : {}),
+  await recordSTTUsage(context, audio.length, provider);
+
+  const form = new FormData();
+  // Providers key off the extension, so it has to match the actual container.
+  form.append("file", audio, {
+    filename: `dictation.${extensionFor(mimeType)}`,
+    contentType: mimeType,
   });
-  const { text } = await transcribe({
-    model: openai.transcription(sttModel),
-    audio,
+  // xAI's /v1/stt serves one model and documents no `model` field.
+  if (provider !== "xai") form.append("model", sttModel);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
   });
-  return text;
+  if (!res.ok) {
+    throw new Error(`Transcription failed (HTTP ${res.status})`);
+  }
+  return ((await res.json()) as { text?: string }).text ?? "";
+}
+
+// "audio/webm;codecs=opus" -> "webm". Keep in sync with the recorder's
+// preference list in useDictation.ts, which only offers containers every
+// endpoint above accepts.
+function extensionFor(mimeType: string): string {
+  return mimeType.split(";")[0].split("/")[1] || "webm";
 }

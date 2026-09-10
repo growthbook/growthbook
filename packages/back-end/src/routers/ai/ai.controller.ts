@@ -25,6 +25,7 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   secondsUntilAICanBeUsedAgainForPrompt,
+  secondsUntilAICanBeUsedAgainForSTT,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { runAIEnabledGates } from "back-end/src/enterprise/services/ai-access";
@@ -325,6 +326,17 @@ export async function postTranscribe(req: AuthRequest, res: Response) {
     return res.status(400).json({
       status: 400,
       message: "No audio was uploaded",
+    });
+  }
+
+  // Managed Cloud keys are GrowthBook's spend, so the org's daily cap applies
+  // before we call a provider.
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForSTT(context);
+  if (secondsUntilReset > 0) {
+    return res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
     });
   }
 

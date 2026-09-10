@@ -39,9 +39,8 @@ import {
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   EmbeddingModel,
-  CLOUD_MANAGED_STT_MODEL,
-  SELF_HOSTED_DEFAULT_STT_MODELS,
   STTModel,
+  resolveDefaultSTTModel,
   getProviderForAIModel,
 } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
@@ -383,16 +382,13 @@ export async function getAISettingsForOrg(
       ? CLOUD_MANAGED_IMAGE_MODEL
       : GEMINI_IMAGE_MODEL);
 
-  // Cloud prefers the managed Grok model, then both deployments walk the
-  // provider list so a missing key degrades instead of disabling dictation.
   const sttModel: STTModel | null = !aiEnabled
     ? null
     : getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
-      (IS_CLOUD && keySource.xai !== "none" ? CLOUD_MANAGED_STT_MODEL : null) ||
-      SELF_HOSTED_DEFAULT_STT_MODELS.find(
-        ([provider]) => keySource[provider] !== "none",
-      )?.[1] ||
-      null;
+      resolveDefaultSTTModel(
+        AI_PROVIDERS.filter((p) => keySource[p] !== "none"),
+        IS_CLOUD,
+      );
 
   return {
     aiEnabled,

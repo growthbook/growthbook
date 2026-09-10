@@ -2,14 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 
-// Containers in preference order. xAI's STT doesn't list WebM among its
-// accepted formats, so try what every provider names before falling back to
-// it. Safari records mp4, Chrome records webm.
-const MIME_TYPES = [
-  "audio/mp4",
-  "audio/ogg;codecs=opus",
-  "audio/webm;codecs=opus",
-];
+// Containers in preference order, narrowed to what every transcription
+// endpoint accepts. OpenAI's list is the binding one (mp3, mp4, mpeg, mpga,
+// m4a, wav, webm) — notably it rejects ogg, so offering ogg/opus guaranteed a
+// failure on Firefox. Safari records mp4; Chrome and Firefox record webm.
+const MIME_TYPES = ["audio/mp4", "audio/webm;codecs=opus"];
 
 // A forgotten open mic is a memory and a billing problem.
 const MAX_RECORDING_MS = 5 * 60 * 1000;
@@ -45,6 +42,10 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const timeoutRef = useRef<number | null>(null);
+  // Set before awaiting the permission prompt, so a double-click can't open a
+  // second stream that orphans the first and leaves the mic live.
+  const startingRef = useRef(false);
+  const unmountedRef = useRef(false);
   // Read inside the recorder's callbacks, which outlive a render.
   const onTranscriptRef = useRef(onTranscript);
   onTranscriptRef.current = onTranscript;
@@ -57,7 +58,15 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
   }, []);
 
   // The browser shows a recording indicator for as long as a track is live.
-  useEffect(() => release, [release]);
+  // Reset on mount too, or a StrictMode double-mount leaves the flag set and
+  // every later start() bails out.
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      release();
+    };
+  }, [release]);
 
   const stop = useCallback(() => {
     recorderRef.current?.stop();
@@ -65,6 +74,7 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
   }, []);
 
   const start = useCallback(async () => {
+    if (startingRef.current || recorderRef.current) return;
     setError(null);
     const mimeType = pickMimeType();
     if (!mimeType) {
@@ -72,12 +82,21 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
       return;
     }
 
+    startingRef.current = true;
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       // Denied, dismissed, or no input device — same outcome to the user.
       setError("Microphone access was blocked.");
+      return;
+    } finally {
+      startingRef.current = false;
+    }
+
+    // The prompt can outlive the component; don't start a mic nobody owns.
+    if (unmountedRef.current) {
+      stream.getTracks().forEach((t) => t.stop());
       return;
     }
 
