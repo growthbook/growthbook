@@ -54,6 +54,7 @@ interface ExplorationBubbleProps {
   toolTransparency?: React.ReactNode;
   animate?: boolean;
   compact?: boolean;
+  showSaveAction?: boolean;
 }
 
 export default function ExplorationBubble({
@@ -61,6 +62,7 @@ export default function ExplorationBubble({
   toolTransparency,
   animate = true,
   compact = false,
+  showSaveAction = true,
 }: ExplorationBubbleProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const explorerUrl = `${EXPLORER_PATHS[chartData.config.type]}?config=${encodeExplorationConfig(chartData.config)}`;
@@ -83,14 +85,16 @@ export default function ExplorationBubble({
           </Text>
         </Flex>
         <Flex ml="auto" gap="1" wrap="wrap">
-          <Button
-            variant="ghost"
-            size="sm"
-            color="violet"
-            onClick={() => setShowSaveModal(true)}
-          >
-            Save to Dashboard
-          </Button>
+          {showSaveAction && (
+            <Button
+              variant="ghost"
+              size="sm"
+              color="violet"
+              onClick={() => setShowSaveModal(true)}
+            >
+              Save to Dashboard
+            </Button>
+          )}
           <LinkButton
             href={explorerUrl}
             variant="ghost"
