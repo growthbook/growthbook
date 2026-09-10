@@ -1,6 +1,5 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
-import { FaChartLine } from "react-icons/fa";
 import { isFactFunnelMetric } from "shared/experiments";
 
 import { Flex, IconButton } from "@radix-ui/themes";
@@ -23,7 +22,6 @@ import Tooltip from "@/ui/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
-import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import HistoryTable from "@/components/HistoryTable";
@@ -61,8 +59,10 @@ export default function FactMetricPage() {
 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
-    "analysis",
+    "overview",
   );
+  const activeTab =
+    tab === "experiments" || tab === "bandits" ? tab : "overview";
   const { apiCall } = useAuth();
 
   const { hasCommercialFeature, getOwnerDisplay } = useUser();
@@ -239,7 +239,10 @@ export default function FactMetricPage() {
               <Button
                 variant="soft"
                 disabled={!canEdit || editViaApiOnly}
-                onClick={() => setIsEditing(true)}
+                onClick={() => {
+                  setTab("overview");
+                  setIsEditing(true);
+                }}
               >
                 Edit metric
               </Button>
@@ -283,6 +286,7 @@ export default function FactMetricPage() {
             <DropdownMenuItem
               onClick={() => {
                 setOpenDropdown(false);
+                setTab("overview");
                 setIsEditing(true);
               }}
               disabled={!canEdit || editViaApiOnly}
@@ -414,19 +418,9 @@ export default function FactMetricPage() {
         <ReplacesMetadata replaces={factMetric.replaces} />
       </Flex>
 
-      <MetricWorkspace
-        existing={factMetric}
-        isEditing={isEditing}
-        setIsEditing={setIsEditing}
-        mutate={mutateDefinitions}
-      />
-
-      <Tabs value={tab ?? undefined} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="analysis">
-            <FaChartLine className="mr-1" size={16} />
-            Metric Analysis
-          </TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setTab} mt="4">
+        <TabsList aria-label="Metric navigation" mb="4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="experiments">
             <GBExperiment className="mr-1" />
             Experiments
@@ -437,14 +431,14 @@ export default function FactMetricPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="analysis">
-          {datasource ? (
-            <MetricAnalysis
-              factMetric={factMetric}
-              datasource={datasource}
-              className="tabbed-content"
-            />
-          ) : null}
+        {/* Keep the form mounted so navigating tabs preserves unsaved edits. */}
+        <TabsContent value="overview" forceMount>
+          <MetricWorkspace
+            existing={factMetric}
+            isEditing={isEditing}
+            setIsEditing={setIsEditing}
+            mutate={mutateDefinitions}
+          />
         </TabsContent>
 
         <TabsContent value="experiments">
