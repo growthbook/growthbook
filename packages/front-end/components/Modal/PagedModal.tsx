@@ -43,6 +43,7 @@ type Props = {
   step: number;
   setStep: (step: number) => void;
   secondaryCTA?: ReactElement;
+  aboveFooterContent?: ReactNode;
   className?: string;
   bodyClassName?: string;
   stickyFooter?: boolean;
@@ -59,7 +60,6 @@ type Props = {
   // Currently the allowlist for what event props are valid is controlled outside of the codebase.
   // Make sure you've checked that any props you pass here are in the list!
   allowlistedTrackingEventProps?: TrackEventProps;
-  useRadixButton?: boolean;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -80,6 +80,7 @@ const PagedModal: FC<Props> = (props) => {
     forceCtaText,
     inline,
     secondaryCTA,
+    aboveFooterContent,
     size,
     className,
     bodyClassName,
@@ -348,6 +349,7 @@ const PagedModal: FC<Props> = (props) => {
         )
       }
       ctaEnabled={ctaEnabled}
+      aboveFooterContent={aboveFooterContent}
       trackingEventModalType={trackingEventModalType}
       trackingEventModalSource={trackingEventModalSource}
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}

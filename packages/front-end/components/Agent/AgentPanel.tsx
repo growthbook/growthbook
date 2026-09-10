@@ -32,6 +32,10 @@ import {
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
+import { extractExplorationResultData } from "@/enterprise/hooks/useAIChat/extractExplorationResultData";
+import ExplorationBubble, {
+  chartDataFromRecord,
+} from "@/enterprise/components/ProductAnalytics/AIChat/ExplorationBubble";
 import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
 import ChatComposer, {
   type ChatComposerHandle,
@@ -57,11 +61,13 @@ const STORAGE_KEY = "growthbook.agent.conversationId";
 const CALL_API_LABEL = "Calling GrowthBook API…";
 const ASK_USER_LABEL = "Asking you a question…";
 const LOAD_SKILL_LABEL = "Loading skill…";
+const WAIT_LABEL = "Waiting…";
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
   askUser: ASK_USER_LABEL,
   loadSkill: LOAD_SKILL_LABEL,
+  wait: WAIT_LABEL,
 };
 
 interface AgentPanelProps {
@@ -102,22 +108,30 @@ function preWorkToSteps(
       return [{ key: msg.id, kind: "text", label: text }];
     }
     if (msg.role === "tool") {
-      return msg.content.map((part, i) => {
+      return msg.content.flatMap((part, i): CollapsedStepItem[] => {
         const pairedCall = findToolCallPart(allMessages, part);
-        return {
-          key: `${msg.id}-r${i}`,
-          kind: "tool" as const,
-          label: persistedToolLabel(part.toolName),
-          status: (part.isError ? "error" : "done") as "done" | "error",
-          details: (
-            <ToolUsageDetails
-              toolInput={pairedCall?.args}
-              toolOutput={part.result}
-              toolCallId={part.toolCallId}
-              openStateRef={openStateRef}
-            />
-          ),
-        };
+        const resultData = extractExplorationResultData(
+          part.toolName,
+          pairedCall?.args,
+          part.result,
+        );
+        if (resultData && chartDataFromRecord(resultData)) return [];
+        return [
+          {
+            key: `${msg.id}-r${i}`,
+            kind: "tool" as const,
+            label: persistedToolLabel(part.toolName),
+            status: (part.isError ? "error" : "done") as "done" | "error",
+            details: (
+              <ToolUsageDetails
+                toolInput={pairedCall?.args}
+                toolOutput={part.result}
+                toolCallId={part.toolCallId}
+                openStateRef={openStateRef}
+              />
+            ),
+          },
+        ];
       });
     }
     return [];
@@ -339,6 +353,13 @@ export default function AgentPanel({
   const { collapsedItems, visibleItems } = useCollapsibleActiveTurnItems(
     activeTurnItems,
     displayedTextMap,
+    {
+      isPinned: (item) =>
+        item.kind === "tool-status" &&
+        item.status === "done" &&
+        !!item.toolResultData &&
+        chartDataFromRecord(item.toolResultData) !== null,
+    },
   );
 
   // Focus the composer after a short delay so any layout transition settles
@@ -359,9 +380,16 @@ export default function AgentPanel({
     prevLoadingRef.current = loading;
   }, [loading, open, focusInput]);
 
+  const wasOpenRef = useRef(false);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, activeTurnItems]);
+    if (!open) {
+      wasOpenRef.current = false;
+      return;
+    }
+    const behavior = wasOpenRef.current ? "smooth" : "auto";
+    wasOpenRef.current = true;
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, [messages, activeTurnItems, open]);
 
   const trackMessageSent = useCallback(() => {
     track("AI Assistant Message Sent", {
@@ -569,6 +597,7 @@ export default function AgentPanel({
                 item={item}
                 displayedTextMap={displayedTextMap}
                 onInternalLinkClick={navigateInApp}
+                toolDetailsOpenRef={toolDetailsOpenRef}
               />
             );
             const key = item.kind === "tool-status" ? item.toolCallId : item.id;
@@ -674,12 +703,37 @@ function ActiveTurnItemRow({
   item,
   displayedTextMap,
   onInternalLinkClick,
+  toolDetailsOpenRef,
 }: {
   item: ActiveTurnItem;
   displayedTextMap: Map<string, string>;
   onInternalLinkClick?: (href: string) => void;
+  toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
 }) {
   if (item.kind === "tool-status") {
+    const chartData = item.toolResultData
+      ? chartDataFromRecord(item.toolResultData)
+      : null;
+    if (chartData && item.status === "done") {
+      return (
+        <ExplorationBubble
+          chartData={chartData}
+          compact
+          showSaveAction={false}
+          toolTransparency={
+            <ToolUsageDetails
+              embedded
+              summaryLabel="Query & tool response"
+              toolInput={item.toolInput}
+              argsTextPreview={item.argsTextPreview}
+              toolOutput={item.toolOutput}
+              toolCallId={item.toolCallId}
+              openStateRef={toolDetailsOpenRef}
+            />
+          }
+        />
+      );
+    }
     return (
       <Flex align="center" gap="2">
         <ToolStatusIcon status={item.status} />
@@ -732,6 +786,38 @@ function PersistedTurn({
 }) {
   const { preWork, replyContent, replyMessageId } = classifyTurn(turn.rest);
   const steps = preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef);
+  const charts = preWork.flatMap((msg) => {
+    if (msg.role !== "tool") return [];
+    return msg.content.flatMap((part, i) => {
+      const pairedCall = findToolCallPart(turn.rest, part);
+      const resultData = extractExplorationResultData(
+        part.toolName,
+        pairedCall?.args,
+        part.result,
+      );
+      const chartData = resultData ? chartDataFromRecord(resultData) : null;
+      if (!chartData) return [];
+      return [
+        <ExplorationBubble
+          key={`${msg.id}-chart-${i}`}
+          chartData={chartData}
+          animate={false}
+          compact
+          showSaveAction={false}
+          toolTransparency={
+            <ToolUsageDetails
+              embedded
+              summaryLabel="Query & tool response"
+              toolInput={pairedCall?.args}
+              toolOutput={part.result}
+              toolCallId={part.toolCallId}
+              openStateRef={toolDetailsOpenRef}
+            />
+          }
+        />,
+      ];
+    });
+  });
   const hasReply = replyContent !== null && replyContent.trim().length > 0;
 
   return (
@@ -753,6 +839,8 @@ function PersistedTurn({
       {steps.length > 0 && (
         <CollapsedSteps count={steps.length} items={steps} />
       )}
+
+      {charts}
 
       {hasReply && (
         <AssistantBubble>
