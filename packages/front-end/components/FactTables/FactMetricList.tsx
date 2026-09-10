@@ -31,6 +31,7 @@ import RecommendedFactMetricsModal, {
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -358,17 +359,15 @@ export default function FactMetricList({
             content={`You don't have permission to add metrics to this fact table`}
             enabled={!canCreateMetrics}
           >
-            <Button
-              onClick={() => {
-                if (!canCreateMetrics) return;
-                router.push(
-                  `/fact-metrics/new?${new URLSearchParams({ factTable: factTable.id, returnUrl }).toString()}`,
-                );
-              }}
-              disabled={!canCreateMetrics}
-            >
-              Add Metric
-            </Button>
+            {canCreateMetrics ? (
+              <LinkButton
+                href={`/fact-metrics/new?${new URLSearchParams({ factTable: factTable.id, returnUrl }).toString()}`}
+              >
+                Add metric
+              </LinkButton>
+            ) : (
+              <Button disabled>Add metric</Button>
+            )}
           </Tooltip>
         </Box>
       </Flex>
@@ -491,7 +490,9 @@ export default function FactMetricList({
                       canEdit={canEdit(metric)}
                       canDelete={canDelete(metric)}
                       canDuplicate={canCreateMetrics}
-                      onEdit={() => router.push(`/fact-metrics/${metric.id}`)}
+                      onEdit={() =>
+                        router.push(`/fact-metrics/${metric.id}?edit=true`)
+                      }
                       editDisabledReason={
                         isMergeAggregationMetric(metric)
                           ? REST_API_ONLY_EDIT_MESSAGE
