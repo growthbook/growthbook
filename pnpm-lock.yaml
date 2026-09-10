@@ -197,8 +197,8 @@ importers:
         specifier: ^3.1031.0
         version: 3.1031.0
       '@clickhouse/client':
-        specifier: ^1.0.1
-        version: 1.0.1
+        specifier: ^1.23.1
+        version: 1.23.1
       '@databricks/sql':
         specifier: ^2.0.0
         version: 2.0.0(encoding@0.1.13)
@@ -2596,13 +2596,9 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@clickhouse/client-common@1.0.1':
-    resolution: {integrity: sha512-3L6e0foP6VOktScoi6XWMjJyOpKCWgLUYgPVxP2c7gm6Kotq+iRmmmXtXTSg7B7uozcLZycTtPfIw2d80SYsYw==}
-    deprecated: 'Deprecated: import from @clickhouse/client or @clickhouse/client-web instead.'
-
-  '@clickhouse/client@1.0.1':
-    resolution: {integrity: sha512-fluUNnE2R7COJ6rn6DorYfi4D+AQn3t2qeBtEq37bQV3pD4EbKrBfKAwJ13e1lmMWdQ2B9bJUTMqGsRIDdWhJw==}
-    engines: {node: '>=16'}
+  '@clickhouse/client@1.23.1':
+    resolution: {integrity: sha512-vs3/Zc1dHvT171btW5nMoPsPCJ6QVJ5pp7obxzO5sjqwFx/jjz9wwCAqcFOdc2DhprugDBaVn+4dVY8hG3A9nw==}
+    engines: {node: '>=20'}
 
   '@colors/colors@1.6.0':
     resolution: {integrity: sha512-Ir+AOibqzrIsL6ajt3Rz3LskB7OiMVHqltZmspbW/TJuTVuyOMirVqAkjfY6JISiLHgyNqicAC8AyHHGzNd/dA==}
@@ -16147,11 +16143,7 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@clickhouse/client-common@1.0.1': {}
-
-  '@clickhouse/client@1.0.1':
-    dependencies:
-      '@clickhouse/client-common': 1.0.1
+  '@clickhouse/client@1.23.1': {}
 
   '@colors/colors@1.6.0': {}
 
