@@ -278,6 +278,11 @@ export default function FactMetricPage() {
           )}
           <OpenInExplorerButton
             enabled={canOpenInExplorer}
+            disabledReason={
+              isEditing
+                ? "Save or discard your changes before opening Explorer."
+                : null
+            }
             // Funnel metrics open in the Funnel Builder, which understands
             // steps; every other type goes to the Metric Explorer as before.
             href={
