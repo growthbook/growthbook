@@ -33,6 +33,8 @@ function getReasonText(statusData: NonDecisiveStatusData): string {
       return statusData.tooltip
         ? `${statusData.tooltip}.`
         : "There is no data yet.";
+    case "data-incomplete":
+      return "Some metrics could not be computed, so no decision recommendation is available.";
     case "scheduled-end-review":
       return statusData.tooltip ?? "No decision recommendation is available.";
     case "days-left":
