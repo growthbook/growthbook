@@ -20,12 +20,9 @@ export default defineConfig({
     globals: true,
     // Keep parameterized snapshot names distinct instead of truncating long IDs.
     chaiConfig: { truncateThreshold: 0 },
-    hookTimeout: 5000,
     environment: "node",
     include: ["**/test/**/*.test.{ts,js}"],
     setupFiles: ["./test/setup.ts"],
-    pool: "forks",
-    isolate: true,
     ...(process.env.CI ? {} : { maxWorkers: "50%" }),
     sequence: { hooks: "list" },
   },

@@ -17,11 +17,8 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    hookTimeout: 5000,
     environment: "node",
     include: ["**/test/**/*.test.{ts,js}"],
-    pool: "forks",
-    isolate: true,
     ...(process.env.CI ? {} : { maxWorkers: "50%" }),
     sequence: { hooks: "list" },
   },

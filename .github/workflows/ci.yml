@@ -162,7 +162,8 @@ jobs:
   # The 2 vCPU base runner drops each shard to one worker, so pay for 4 here.
   test-back-end:
     runs-on: depot-ubuntu-24.04-4
-    # A silently killed Vitest worker leaves the parent waiting on the 6h default.
+    # Cap the job so a hung mongod launch or test file fails fast instead of
+    # waiting on the 6h default. A killed Vitest fork does not hang the parent.
     timeout-minutes: 15
     env:
       # mongodb-memory-server's own default, pinned so the cache key is exact.
