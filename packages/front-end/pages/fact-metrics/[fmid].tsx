@@ -439,16 +439,12 @@ export default function FactMetricPage() {
           <TabsTrigger value="experiments">
             <GBExperiment className="mr-1" />
             Experiments
-            {experimentCount > 0 && (
-              <Badge label={String(experimentCount)} color="gray" ml="2" />
-            )}
+            <Badge label={String(experimentCount)} color="gray" ml="2" />
           </TabsTrigger>
           <TabsTrigger value="bandits">
             <GBBandit className="mr-1" />
             Bandits
-            {banditCount > 0 && (
-              <Badge label={String(banditCount)} color="gray" ml="2" />
-            )}
+            <Badge label={String(banditCount)} color="gray" ml="2" />
           </TabsTrigger>
         </TabsList>
 
