@@ -10,22 +10,19 @@ import {
   DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
 } from "shared/constants";
 import { OrganizationSettings } from "shared/types/organization";
-import {
-  ColumnInterface,
-  FactTableColumnType,
-  FactTableInterface,
-} from "shared/types/fact-table";
+import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
 import {
   columnNamesMatch,
-  type DetectedJSONFields,
-  determineColumnTypes,
   getColumnByName,
   mergeJsonFields,
 } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { normalizePersistedColumn } from "back-end/src/util/factTable";
+import {
+  buildColumnTypeMaps,
+  normalizePersistedColumn,
+} from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
@@ -65,13 +62,15 @@ function getTopValuesLookbackDays(
 export function selectColumnsForTopValues({
   columns,
   userIdTypes,
+  userIdColumns,
   maxColumns = MAX_COLUMNS_WITH_TOP_VALUES,
 }: {
   columns: ColumnInterface[];
   userIdTypes: string[];
+  userIdColumns?: Record<string, string>;
   maxColumns?: number;
 }): ColumnInterface[] {
-  const factTableLike = { columns, userIdTypes };
+  const factTableLike = { columns, userIdTypes, userIdColumns };
 
   const eligible = columns.filter(
     (col) =>
@@ -100,6 +99,10 @@ export async function runColumnsTopValuesQuery(
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">,
   columns: ColumnInterface[],
+  options?: {
+    limit?: number;
+    searchTerm?: string;
+  },
 ): Promise<Record<string, string[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -121,11 +124,13 @@ export async function runColumnsTopValuesQuery(
   const sql = integration.getColumnsTopValuesQuery({
     factTable,
     columns,
-    limit: Math.max(
-      100,
-      context.org.settings?.maxMetricSliceLevels ??
-        DEFAULT_MAX_METRIC_SLICE_LEVELS,
-    ),
+    limit:
+      options?.limit ??
+      Math.max(
+        100,
+        context.org.settings?.maxMetricSliceLevels ??
+          DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      ),
     lookbackDays: getTopValuesLookbackDays(
       context.org.settings?.topValuesLookbackValue ??
         DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
@@ -133,6 +138,7 @@ export async function runColumnsTopValuesQuery(
         DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
     ),
     maxValueLength: MAX_TOP_VALUE_LENGTH,
+    searchTerm: options?.searchTerm,
   });
   const result = await integration.runColumnsTopValuesQuery(sql);
 
@@ -176,10 +182,12 @@ export function populateAutoSlices(
 export function mergeRefreshedTopValues({
   currentColumns,
   currentUserIdTypes,
+  currentUserIdColumns,
   refreshedColumns,
 }: {
   currentColumns: ColumnInterface[];
   currentUserIdTypes: string[];
+  currentUserIdColumns?: Record<string, string>;
   refreshedColumns: ColumnInterface[];
 }): ColumnInterface[] {
   const refreshedColumnsById = new Map(
@@ -189,6 +197,7 @@ export function mergeRefreshedTopValues({
     selectColumnsForTopValues({
       columns: currentColumns,
       userIdTypes: currentUserIdTypes,
+      userIdColumns: currentUserIdColumns,
     }).map((column) => column.column),
   );
 
@@ -257,49 +266,7 @@ export async function runColumnDetectionQuery(
     "factTableValidation",
   );
 
-  const typeMap = new Map<string, FactTableColumnType>();
-  const jsonMap = new Map<string, DetectedJSONFields>();
-  const warehouseTypeMap = new Map<string, FactTableColumnType>();
-
-  result.columns?.forEach((col) => {
-    // If the underlying SQL engine returned the datatype, use it
-    if (col.dataType !== undefined) {
-      warehouseTypeMap.set(col.name, col.dataType);
-      // For JSON, only return if we have the field information, otherwise skip
-      // so we can infer from the returned data
-      if (
-        col.dataType === "json" &&
-        col.fields !== undefined &&
-        col.fields.length > 0
-      ) {
-        typeMap.set(col.name, "json");
-        jsonMap.set(col.name, {
-          source: "querySchema",
-          fields: col.fields.reduce(
-            (acc, field) => ({
-              ...acc,
-              [field.name]: {
-                datatype: field.dataType,
-              },
-            }),
-            {},
-          ),
-        });
-      } else if (col.dataType !== "json") {
-        typeMap.set(col.name, col.dataType);
-      }
-    }
-  });
-
-  determineColumnTypes(result.results, typeMap).forEach((col) => {
-    typeMap.set(col.column, col.datatype);
-    if (col.jsonFields) {
-      jsonMap.set(col.column, {
-        source: "sampledValues",
-        fields: col.jsonFields,
-      });
-    }
-  });
+  const { jsonMap, warehouseTypeMap, datatypes } = buildColumnTypeMaps(result);
 
   const columns = cloneDeep(factTable.columns || []);
 
@@ -312,7 +279,10 @@ export async function runColumnDetectionQuery(
       return;
     }
 
-    const type = getColumnByName(typeMap, col.column, caseSensitive);
+    // `datatypes`, not `typeMap` -- a column the engine named but neither it
+    // nor the sampled rows could type still exists, and marking it deleted
+    // would drop columns the create flow saved from a schema-only detection.
+    const type = getColumnByName(datatypes, col.column, caseSensitive);
     const jsonFields = getColumnByName(jsonMap, col.column, caseSensitive);
 
     // Column no longer exists, mark as deleted
@@ -362,7 +332,7 @@ export async function runColumnDetectionQuery(
   });
 
   // Add new columns that don't exist yet
-  typeMap.forEach((datatype, column) => {
+  datatypes.forEach((datatype, column) => {
     if (
       !columns.some((c) => columnNamesMatch(c.column, column, caseSensitive))
     ) {
@@ -401,7 +371,7 @@ export async function refreshColumnTopValues(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "userIdTypes" | "timestampColumn"
+    "sql" | "eventName" | "userIdTypes" | "userIdColumns" | "timestampColumn"
   >,
   columns: ColumnInterface[],
 ): Promise<ColumnInterface[]> {
@@ -409,6 +379,7 @@ export async function refreshColumnTopValues(
   const columnsNeedingTopValues = selectColumnsForTopValues({
     columns,
     userIdTypes: factTable.userIdTypes,
+    userIdColumns: factTable.userIdColumns,
   });
 
   // Batch query for all columns that need top values. Datasources
