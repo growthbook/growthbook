@@ -1,5 +1,9 @@
 import { subDays } from "date-fns";
-import { createClient, ResponseJSON } from "@clickhouse/client";
+import {
+  ClickHouseLogLevel,
+  createClient,
+  ResponseJSON,
+} from "@clickhouse/client";
 import {
   FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
@@ -100,6 +104,8 @@ export default class ClickHouse extends SqlIntegration {
       database: this.params.database,
       application: "GrowthBook",
       request_timeout: 3620_000,
+      // The client warns per instance when request_timeout > 60s without progress headers; we create one per query.
+      log: { level: ClickHouseLogLevel.ERROR },
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,

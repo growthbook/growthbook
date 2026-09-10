@@ -24,7 +24,12 @@ export function AssistantBubble({ children, wide }: AssistantBubbleProps) {
         background: "var(--color-panel-solid)",
         border: "1px solid var(--slate-a5)",
         ...(wide
-          ? { width: "min(920px, 100%)", paddingBottom: 12 }
+          ? {
+              width: "min(920px, 100%)",
+              maxWidth: "100%",
+              minWidth: 0,
+              paddingBottom: 12,
+            }
           : { maxWidth: "85%" }),
       }}
       className={aiChatStyles.bubble}

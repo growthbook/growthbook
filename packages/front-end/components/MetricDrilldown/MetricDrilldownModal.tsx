@@ -579,7 +579,6 @@ const MetricDrilldownModal = ({
       }
     >
       <Modal
-        useRadixButton={false}
         open={true}
         close={close}
         borderlessHeader={true}

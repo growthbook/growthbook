@@ -99,7 +99,6 @@ export default function ManagedWarehouseModal({
 
   return (
     <Modal
-      useRadixButton={false}
       open={true}
       header={
         <>
