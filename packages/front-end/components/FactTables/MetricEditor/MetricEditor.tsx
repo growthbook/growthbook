@@ -1,7 +1,7 @@
 import { UseFormReturn } from "react-hook-form";
 import { useEffect } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
-import { ColumnRef } from "shared/types/fact-table";
+import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -65,7 +65,9 @@ export default function MetricEditor({
   form,
   canEdit,
   onRepresentableChange,
+  existingMetric,
 }: {
+  existingMetric?: FactMetricInterface | null;
   form: UseFormReturn<CreateFactMetricFormProps>;
   canEdit: boolean;
   // Lets MetricWorkspace gate its Save button on the same representable
@@ -227,17 +229,21 @@ export default function MetricEditor({
     form.setValue("numerator", { ...numerator, ...v });
   const valueShape = shapeForValueType(formType);
 
-  // Funnel has no single numerator/denominator to preview - each step owns
-  // its own fact table and filters, a shape this simple row-level preview
-  // isn't built for.
   const previewParts: PreviewPart[] = isFunnel
-    ? []
+    ? (funnelSettings?.steps ?? []).map((step, index) => ({
+        key: `step-${index}`,
+        label: step.name || `Step ${index + 1}`,
+        factTable: getFactTableById(step.factTableId) ?? null,
+        rowFilters: step.rowFilters,
+        column: "$$count",
+      }))
     : [
         {
           key: "numerator",
           label: formType === "ratio" ? "Numerator" : "Metric",
           factTable: getFactTableById(numerator.factTableId) ?? null,
           rowFilters: numerator.rowFilters || [],
+          column: numerator.column,
         },
         ...(formType === "ratio" && denominator
           ? [
@@ -246,6 +252,7 @@ export default function MetricEditor({
                 label: "Denominator",
                 factTable: getFactTableById(denominator.factTableId) ?? null,
                 rowFilters: denominator.rowFilters || [],
+                column: denominator.column,
               },
             ]
           : []),
@@ -253,7 +260,7 @@ export default function MetricEditor({
 
   return (
     <Grid
-      columns={{ initial: "1", md: "minmax(0, 2fr) minmax(0, 1fr)" }}
+      columns={{ initial: "1", md: "minmax(0, 3fr) minmax(0, 2fr)" }}
       gap="4"
     >
       <Flex direction="column" gap="4" minWidth="0">
@@ -497,7 +504,11 @@ export default function MetricEditor({
       </Flex>
 
       <Flex direction="column" gap="4" minWidth="0">
-        <PreviewPanel parts={previewParts} previewSql={previewSql} />
+        <PreviewPanel
+          parts={previewParts}
+          previewSql={previewSql}
+          metric={canEdit ? null : existingMetric}
+        />
 
         <AdvancedSettings
           form={form}
