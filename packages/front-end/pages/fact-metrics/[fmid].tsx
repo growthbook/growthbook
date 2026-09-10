@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isFactFunnelMetric } from "shared/experiments";
 import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
 
@@ -93,9 +93,34 @@ export default function FactMetricPage() {
     metricExperiments?.data.filter((e) => e.type === "multi-armed-bandit")
       .length ?? 0;
 
-  if (!ready) return <LoadingOverlay />;
-
   const factMetric = getFactMetricById(fmid as string);
+  const externallyManaged = ["api", "config"].includes(
+    factMetric?.managedBy || "",
+  );
+  const canEdit =
+    !!factMetric &&
+    !externallyManaged &&
+    permissionsUtil.canUpdateFactMetric(factMetric, {});
+  const canDelete =
+    !!factMetric &&
+    !externallyManaged &&
+    permissionsUtil.canDeleteFactMetric(factMetric);
+  const editViaApiOnly = !!factMetric && isMergeAggregationMetric(factMetric);
+
+  useEffect(() => {
+    if (!router.isReady || !ready || router.query.edit !== "true") return;
+    if (canEdit && !editViaApiOnly) {
+      setTab("overview");
+      setIsEditing(true);
+    }
+    const { edit, ...query } = router.query;
+    void edit;
+    void router.replace({ pathname: router.pathname, query }, undefined, {
+      shallow: true,
+    });
+  }, [router, ready, canEdit, editViaApiOnly, setTab]);
+
+  if (!ready) return <LoadingOverlay />;
 
   if (!factMetric) {
     return (
@@ -104,18 +129,6 @@ export default function FactMetricPage() {
         <Link href="/metrics">Back to all metrics</Link>
       </Callout>
     );
-  }
-
-  let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
-  let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
-  const editViaApiOnly = isMergeAggregationMetric(factMetric);
-
-  if (
-    factMetric.managedBy &&
-    ["api", "config"].includes(factMetric.managedBy)
-  ) {
-    canEdit = false;
-    canDelete = false;
   }
 
   const datasource = factMetric.datasource
@@ -283,8 +296,10 @@ export default function FactMetricPage() {
             }
           />
           <DropdownMenu
+            disabled={isEditing}
             trigger={
               <IconButton
+                disabled={isEditing}
                 variant="ghost"
                 color="gray"
                 radius="full"
@@ -310,7 +325,7 @@ export default function FactMetricPage() {
                 content={REST_API_ONLY_EDIT_MESSAGE}
                 enabled={editViaApiOnly}
               >
-                <span>Edit Metric</span>
+                <span>Edit metric</span>
               </Tooltip>
             </DropdownMenuItem>
             {canEdit &&
@@ -382,7 +397,7 @@ export default function FactMetricPage() {
                     All Projects
                   </Text>
                 )}
-                {canEdit ? (
+                {canEdit && !isEditing ? (
                   <Link
                     onClick={(e) => {
                       e.preventDefault();
@@ -407,7 +422,7 @@ export default function FactMetricPage() {
               <Text weight="regular" color="text-mid">
                 {getOwnerDisplay(factMetric.owner) || "None"}
               </Text>
-              {canEdit ? (
+              {canEdit && !isEditing ? (
                 <Link onClick={() => setEditOwnerModal(true)}>
                   <GBEdit />
                 </Link>
