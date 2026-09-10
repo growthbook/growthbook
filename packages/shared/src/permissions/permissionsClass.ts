@@ -1,6 +1,7 @@
 import { DashboardInterface } from "shared/enterprise";
 import { FeatureInterface } from "shared/types/feature";
 import { MetricInterface } from "shared/types/metric";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   EnvScopedPermission,
   Environment,
@@ -164,16 +165,27 @@ export class Permissions {
     return this.checkGlobalPermission("manageTeam");
   };
 
-  public canCreateMetricGroup = (): boolean => {
-    return this.checkGlobalPermission("createMetricGroups");
+  public canCreateMetricGroup = (
+    group: Pick<MetricGroupInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(group, "createMetricGroups");
   };
 
-  public canUpdateMetricGroup = (): boolean => {
-    return this.checkGlobalPermission("createMetricGroups");
+  public canUpdateMetricGroup = (
+    existing: Pick<MetricGroupInterface, "projects">,
+    updates?: Partial<Pick<MetricGroupInterface, "projects">>,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "createMetricGroups",
+    );
   };
 
-  public canDeleteMetricGroup = (): boolean => {
-    return this.checkGlobalPermission("createMetricGroups");
+  public canDeleteMetricGroup = (
+    group: Pick<MetricGroupInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(group, "createMetricGroups");
   };
 
   public canViewSessionReplay = (

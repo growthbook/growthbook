@@ -17,6 +17,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { VisualChange } from "shared/types/visual-changeset";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { MetricInterface } from "shared/types/metric";
 import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
@@ -544,6 +546,74 @@ export function isProjectListValidForProject(
 
   // Otherwise, it's valid only if the project list contains the selected project
   return projects.includes(project);
+}
+
+export function isProjectListValidForProjects(
+  itemProjects?: string[],
+  requiredProjects?: string[],
+) {
+  // If the item has no project restrictions, it's valid for all projects
+  if (!itemProjects || !itemProjects.length) return true;
+
+  // An unrestricted resource can only contain unrestricted items.
+  if (!requiredProjects || !requiredProjects.length) return false;
+
+  // Otherwise, the item must be available in every required project
+  return requiredProjects.every((p) => itemProjects.includes(p));
+}
+
+export function isProjectScopeUnchangedOrExpanded(
+  previousProjects: string[] | undefined,
+  newProjects: string[] | undefined,
+): boolean {
+  return isProjectListValidForProjects(newProjects, previousProjects);
+}
+
+export function getInvalidMetricGroupMetrics(
+  group: Pick<MetricGroupInterface, "projects" | "metrics">,
+  metrics: Pick<MetricInterface, "id" | "projects">[],
+): string[] {
+  const metricMap = new Map(metrics.map((metric) => [metric.id, metric]));
+  return group.metrics.filter((id) => {
+    const metric = metricMap.get(id);
+    return (
+      !metric || !isProjectListValidForProjects(metric.projects, group.projects)
+    );
+  });
+}
+
+export function getMetricGroupMetricsToValidate(
+  group: Pick<MetricGroupInterface, "projects" | "metrics">,
+  previousGroup: Pick<MetricGroupInterface, "projects" | "metrics"> | null,
+): string[] {
+  if (
+    !previousGroup ||
+    !isEqual(
+      [...new Set(group.projects)].sort(),
+      [...new Set(previousGroup.projects)].sort(),
+    )
+  ) {
+    return group.metrics;
+  }
+
+  const previousMetrics = new Set(previousGroup.metrics);
+  return group.metrics.filter((id) => !previousMetrics.has(id));
+}
+
+export function doesMetricProjectChangeReduceGroupAvailability(
+  previousProjects: MetricInterface["projects"],
+  newProjects: MetricInterface["projects"],
+  groupProjects: MetricGroupInterface["projects"],
+): boolean {
+  if (!groupProjects.length) {
+    return !isProjectScopeUnchangedOrExpanded(previousProjects, newProjects);
+  }
+
+  return groupProjects.some(
+    (project) =>
+      isProjectListValidForProject(previousProjects, project) &&
+      !isProjectListValidForProject(newProjects, project),
+  );
 }
 
 export function stringToBoolean(

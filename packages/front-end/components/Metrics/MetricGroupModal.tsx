@@ -18,7 +18,8 @@ const MetricGroupModal: FC<{
   close: () => void;
   mutate: () => void;
 }> = ({ existingMetricGroup = null, close, mutate }) => {
-  const { projects, datasources, getDatasourceById } = useDefinitions();
+  const { projects, project, datasources, getDatasourceById } =
+    useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
@@ -29,16 +30,23 @@ const MetricGroupModal: FC<{
       name: existingMetricGroup?.name || "",
       description: existingMetricGroup?.description || "",
       datasource: existingMetricGroup?.datasource || "",
-      projects: existingMetricGroup?.projects || [],
+      projects: existingMetricGroup?.projects || (project ? [project] : []),
       metrics: existingMetricGroup?.metrics || [],
     },
   });
   const datasource = getDatasourceById(form.watch("datasource"));
 
   const projectOptions = useProjectOptions(
-    () => permissionsUtil.canCreateMetricGroup(),
+    (project) => permissionsUtil.canCreateMetricGroup({ projects: [project] }),
     form.watch("projects") || [],
   );
+
+  const selectedProjects = form.watch("projects");
+  const canSave = existingMetricGroup
+    ? permissionsUtil.canUpdateMetricGroup(existingMetricGroup, {
+        projects: selectedProjects,
+      })
+    : permissionsUtil.canCreateMetricGroup({ projects: selectedProjects });
 
   return (
     <ModalStandard
@@ -90,6 +98,7 @@ const MetricGroupModal: FC<{
 
         await mutate();
       })}
+      ctaEnabled={canSave}
       cta="Save"
       close={close}
     >
@@ -150,11 +159,13 @@ const MetricGroupModal: FC<{
           </p>
           <MetricsSelector
             datasource={form.watch("datasource")}
+            projects={form.watch("projects")}
             includeFacts={true}
             includeGroups={false}
+            preserveSelectedMetrics={true}
             selected={form.watch("metrics")}
             onChange={(value) => {
-              form.setValue("metrics", value || "");
+              form.setValue("metrics", value);
             }}
           />
         </div>

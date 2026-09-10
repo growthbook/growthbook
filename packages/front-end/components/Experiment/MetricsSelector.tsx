@@ -1,18 +1,18 @@
-import { FC, ReactNode, useCallback, useMemo, useState } from "react";
-import { isProjectListValidForProject } from "shared/util";
+import { FC, ReactNode, useCallback, useMemo } from "react";
+import {
+  isProjectListValidForProject,
+  isProjectListValidForProjects,
+} from "shared/util";
 import {
   ExperimentMetricDefinition,
   getFactMetricFactTableIds,
   isFactMetric,
   isFactMetricJoinable,
-  isMetricGroupId,
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
-import { Flex } from "@radix-ui/themes";
 import { FactMetricType } from "shared/types/fact-table";
 import { PiInfo } from "react-icons/pi";
-import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField, {
@@ -21,9 +21,6 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
-import { useUser } from "@/services/UserContext";
-import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
-import Link from "@/ui/Link";
 
 type MetricOption = {
   id: string;
@@ -98,12 +95,14 @@ export const MetricsSelectorTooltip = ({
 const MetricsSelector: FC<{
   datasource?: string;
   project?: string;
+  projects?: string[];
   exposureQueryId?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
   includeFacts?: boolean;
   includeGroups?: boolean;
+  preserveSelectedMetrics?: boolean;
   excludeQuantiles?: boolean;
   allowedFactMetricTypes?: FactMetricType[];
   forceSingleMetric?: boolean;
@@ -124,12 +123,14 @@ const MetricsSelector: FC<{
 }> = ({
   datasource,
   project,
+  projects,
   exposureQueryId,
   selected,
   onChange,
   autoFocus,
   includeFacts,
   includeGroups = true,
+  preserveSelectedMetrics = false,
   excludeQuantiles,
   allowedFactMetricTypes,
   forceSingleMetric = false,
@@ -142,7 +143,6 @@ const MetricsSelector: FC<{
   getMetricDisabledInfo,
   requireDatasource = false,
 }) => {
-  const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
     metrics,
     metricGroups,
@@ -150,13 +150,7 @@ const MetricsSelector: FC<{
     getExperimentMetricById,
     getFactTableById,
     getDatasourceById,
-    mutateDefinitions,
   } = useDefinitions();
-  const { hasCommercialFeature } = useUser();
-
-  const metricListContainsGroup = selected.some((metric) =>
-    isMetricGroupId(metric),
-  );
 
   // get data to help filter metrics to those with joinable userIdTypes to
   // the experiment assignment table
@@ -276,12 +270,40 @@ const MetricsSelector: FC<{
         : []),
     ];
 
-    return options
+    const filtered = options
       .filter((m) =>
         datasource ? m.datasource === datasource : !requireDatasource,
       )
       .filter((m) => m.joinable)
-      .filter((m) => isProjectListValidForProject(m.projects, project));
+      .filter((m) => isProjectListValidForProject(m.projects, project))
+      .filter(
+        (m) =>
+          projects === undefined ||
+          isProjectListValidForProjects(m.projects, projects),
+      );
+    // Keep existing members visible and removable without offering them as additions.
+    if (preserveSelectedMetrics) {
+      const optionIds = new Set(filtered.map((m) => m.id));
+      for (const id of selected) {
+        if (optionIds.has(id)) continue;
+        const metric = getExperimentMetricById(id);
+        filtered.push({
+          id,
+          name: metric?.name || id,
+          description: metric?.description || "",
+          datasource: metric?.datasource || "",
+          tags: metric?.tags || [],
+          projects: metric?.projects || [],
+          factTables: [],
+          joinable: true,
+          isGroup: false,
+          disabled: true,
+          disabledReason:
+            "This metric is already in the group but is unavailable for new selections.",
+        });
+      }
+    }
+    return filtered;
   }, [
     metrics,
     factMetrics,
@@ -291,6 +313,7 @@ const MetricsSelector: FC<{
     datasourceSettings,
     userIdType,
     project,
+    projects,
     noLegacyMetrics,
     noManual,
     includeFacts,
@@ -300,6 +323,9 @@ const MetricsSelector: FC<{
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
     requireDatasource,
+    preserveSelectedMetrics,
+    selected,
+    getExperimentMetricById,
   ]);
 
   // O(1) lookup map for filteredOptions by id
@@ -333,16 +359,6 @@ const MetricsSelector: FC<{
     });
     return counts;
   }, [filteredOptions, selected]);
-
-  let showMetricGroupHelper =
-    hasCommercialFeature("metric-groups") &&
-    selected.length >= 2 &&
-    !metricListContainsGroup &&
-    datasource;
-
-  // Disable this for now since it is making the UI too cluttered
-  // We will revisit when we re-design the metric selector
-  showMetricGroupHelper = false;
 
   // Pre-compute joinable status for all metric groups once, not per-render of each option
   const groupMetricsJoinableMap = useMemo(() => {
@@ -522,41 +538,6 @@ const MetricsSelector: FC<{
       helpText={
         <>
           {helpText}
-          {showMetricGroupHelper && datasource ? (
-            <Flex align="center">
-              {createMetricGroup ? (
-                <MetricGroupInlineForm
-                  selectedMetricIds={selected}
-                  datasource={datasource}
-                  mutateDefinitions={mutateDefinitions}
-                  onChange={onChange}
-                  cancel={() => setCreateMetricGroup(false)}
-                />
-              ) : (
-                <>
-                  <Flex
-                    align="center"
-                    gap="1"
-                    style={{ color: "var(--violet-11)" }}
-                  >
-                    <PiInfo color="var(--color-text-low)" className="mr-1" />
-                    <Text size="sm">
-                      Create a Metric Group so you can easily re-use this set of
-                      metrics in other experiments.
-                    </Text>
-                    <Link
-                      role="button"
-                      onClick={() => setCreateMetricGroup(true)}
-                    >
-                      <strong style={{ textDecoration: "underline" }}>
-                        Convert now
-                      </strong>
-                    </Link>
-                  </Flex>
-                </>
-              )}
-            </Flex>
-          ) : null}
           <div className="d-flex align-items-center justify-content-end">
             <div>
               {!forceSingleMetric &&

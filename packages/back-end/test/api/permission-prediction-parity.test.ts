@@ -283,3 +283,50 @@ describe("a relocating draft is predicted against the destination", () => {
     ).toBe(true);
   });
 });
+
+describe("metric group controls use project authority", () => {
+  const readOnly = {
+    permissions: { readData: true },
+    limitAccessByEnvironment: false,
+    environments: [],
+  };
+  const permissions = new Permissions({
+    global: readOnly,
+    projects: {
+      prj_a: {
+        ...readOnly,
+        permissions: { readData: true, createMetricGroups: true },
+      },
+      prj_b: readOnly,
+    },
+  });
+
+  it.each([
+    { projects: ["prj_a"], allowed: true },
+    { projects: ["prj_b"], allowed: false },
+    { projects: ["prj_a", "prj_b"], allowed: false },
+    { projects: [], allowed: false },
+  ])(
+    "predicts create, edit, archive and delete for $projects",
+    ({ projects, allowed }) => {
+      expect(permissions.canCreateMetricGroup({ projects })).toBe(allowed);
+      expect(permissions.canUpdateMetricGroup({ projects })).toBe(allowed);
+      expect(permissions.canDeleteMetricGroup({ projects })).toBe(allowed);
+    },
+  );
+
+  it("refuses both adding and removing an unauthorized Project", () => {
+    expect(
+      permissions.canUpdateMetricGroup(
+        { projects: ["prj_a"] },
+        { projects: ["prj_a", "prj_b"] },
+      ),
+    ).toBe(false);
+    expect(
+      permissions.canUpdateMetricGroup(
+        { projects: ["prj_a", "prj_b"] },
+        { projects: ["prj_a"] },
+      ),
+    ).toBe(false);
+  });
+});
