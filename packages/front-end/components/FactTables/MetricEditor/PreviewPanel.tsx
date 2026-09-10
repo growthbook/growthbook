@@ -160,7 +160,7 @@ export default function PreviewPanel({
               </Flex>
             ) : (
               <Text color="text-mid" as="div">
-                Configure a metric definition to see a preview.
+                Configure a metric definition to see the illustrative SQL.
               </Text>
             )}
           </TabsContent>
