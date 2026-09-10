@@ -44,7 +44,7 @@ Besides the Client Key, there are some additional settings you can define with `
 
 - `data-api-host` - Defaults to GrowthBook Cloud's https://cdn.growthbook.io. This must be set to your own domain instead if self-hosting or using the GrowthBook Proxy.
 - `data-decryption-key` - Required if you enabled encryption in your SDK Connection settings in GrowthBook
-- `data-tracking` - Set to `growthbook` to send experiment view events that already fired to GrowthBook's warehouse. This does not enroll users.
+- `data-tracking` - Set to `growthbook` to send experiment view events that already fired to GrowthBook's warehouse. This does not enroll users in an experiment.
 
 All other settings can be defined with a `window.growthbook_config` object BEFORE you load the script tag. This accepts the same settings as our [JavaScript SDK](/lib/js). Here's an example:
 
