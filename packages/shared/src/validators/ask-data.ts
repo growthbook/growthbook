@@ -110,6 +110,7 @@ export const previewColumnValuesValidator = {
       columns: z.array(z.string()),
       rows: z.array(z.record(z.string(), z.unknown())),
       rowCount: z.number(),
+      warning: z.string().optional(),
     })
     .strict(),
   summary: "Preview distinct column values",
@@ -167,6 +168,7 @@ export const runSqlQueryValidator = {
         sql: z.string(),
         explorationUrl: z.string().optional(),
         explorationId: z.string().optional(),
+        notice: z.string().optional(),
       })
       .strict(),
     z

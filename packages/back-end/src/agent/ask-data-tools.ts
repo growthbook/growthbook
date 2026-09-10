@@ -14,6 +14,7 @@ import type { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { createCompletedQuery } from "back-end/src/models/QueryModel";
 import {
+  getIntegrationIdentifierQuote,
   getSourceIntegrationObject,
   runFreeFormQuery,
 } from "back-end/src/services/datasource";
@@ -307,7 +308,9 @@ export async function previewWarehouseColumnValues(
   datasource: DataSourceInterface,
   input: { table: string; columns: string[]; limit: number },
 ): Promise<unknown> {
-  const colList = input.columns.map((c) => `"${c}"`).join(", ");
+  const integration = getSourceIntegrationObject(ctx, datasource);
+  const q = getIntegrationIdentifierQuote(integration);
+  const colList = input.columns.map((c) => `${q}${c}${q}`).join(", ");
   const sql = `SELECT DISTINCT ${colList} FROM ${input.table} LIMIT ${input.limit}`;
 
   const { results, error } = await runFreeFormQuery(

@@ -19543,6 +19543,8 @@ paths:
                       $ref: '#/components/schemas/rows'
                   rowCount:
                     type: number
+                  warning:
+                    type: string
                 required:
                   - table
                   - columns
@@ -19666,6 +19668,8 @@ paths:
                       explorationUrl:
                         type: string
                       explorationId:
+                        type: string
+                      notice:
                         type: string
                     required:
                       - status

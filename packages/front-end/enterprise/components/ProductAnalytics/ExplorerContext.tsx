@@ -1214,6 +1214,7 @@ export function ExplorerProvider({
           datasourceId={draftExploreState.datasource}
           sql={draftExploreState.dataset.sql}
           initialViewMode={
+            hasExistingResults &&
             draftExploreState.dataset.sql.trim().length > 0 &&
             Object.keys(draftExploreState.dataset.columnTypes).length > 0
               ? "explore"

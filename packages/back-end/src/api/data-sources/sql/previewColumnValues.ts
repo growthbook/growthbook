@@ -24,10 +24,19 @@ export const previewColumnValues = createApiRequestHandler(
     ...req.body,
     limit: req.body.limit ?? 20,
   });
-  return result as {
+  const typed = result as {
     table: string;
     columns: string[];
     rows: Record<string, unknown>[];
     rowCount: number;
+  };
+  return {
+    ...typed,
+    ...(datasource.type === "bigquery"
+      ? {
+          warning:
+            "BigQuery scans full columns for DISTINCT queries regardless of LIMIT. This query may incur scan costs.",
+        }
+      : {}),
   };
 });

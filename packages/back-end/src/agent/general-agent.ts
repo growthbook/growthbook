@@ -256,6 +256,23 @@ function isExplorationPath(path: string): boolean {
 const SQL_QUERY_PATH_RE =
   /^\/api\/v[12]\/data-sources\/[^/]+\/sql\/(search-tables|table-schema|preview-values|run-query)\/?$/;
 
+// Strips `confirm` from agent-initiated SQL run-query bodies to prevent the
+// model from bypassing the cost confirmation gate.
+function stripConfirmFromSqlBody(path: string, body: unknown): unknown {
+  if (
+    !SQL_QUERY_PATH_RE.test(normalizePath(path)) ||
+    !body ||
+    typeof body !== "object"
+  ) {
+    return body;
+  }
+  const bodyObj = body as Record<string, unknown>;
+  if (!("confirm" in bodyObj)) return body;
+  return Object.fromEntries(
+    Object.entries(bodyObj).filter(([k]) => k !== "confirm"),
+  );
+}
+
 function requiresMutationConfirmation(input: DispatchInput): boolean {
   if (input.method === "GET") return false;
   const path = normalizePath(input.path);
@@ -543,7 +560,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
             method: input.method,
             path: input.path,
             query,
-            body: coerceBody(input.body),
+            body: stripConfirmFromSqlBody(input.path, coerceBody(input.body)),
           };
 
           // Deterministic mutation gate: never execute a mutating call here.
@@ -686,3 +703,4 @@ export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
 export const _buildGeneralAgentSystemPrompt = buildGeneralAgentSystemPrompt;
 export const _coerceBody = coerceBody;
 export const _requiresMutationConfirmation = requiresMutationConfirmation;
+export const _stripConfirmFromSqlBody = stripConfirmFromSqlBody;

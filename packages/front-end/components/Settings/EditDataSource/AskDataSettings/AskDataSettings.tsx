@@ -14,12 +14,11 @@ import Button from "@/ui/Button";
 
 const GIB = 1073741824;
 
-type RunPolicy = "auto-below-threshold" | "always-confirm" | "auto-always";
+type RunPolicy = "auto-below-threshold" | "always-confirm";
 
 const POLICY_LABELS: Record<RunPolicy, string> = {
   "auto-below-threshold": "Auto-execute below threshold",
   "always-confirm": "Always confirm before executing",
-  "auto-always": "Always auto-execute",
 };
 
 type Props = Omit<DataSourceQueryEditingModalBaseProps, "onCancel">;
@@ -169,7 +168,6 @@ function EditAskDataModal({
                     value: "always-confirm",
                     label: "Always confirm before executing",
                   },
-                  { value: "auto-always", label: "Always auto-execute" },
                 ]}
                 helpText="Controls whether the agent must confirm before running SQL queries"
               />
@@ -191,7 +189,9 @@ function EditAskDataModal({
         </Modal.Body>
         <Modal.Footer>
           <Modal.Close>
-            <Button variant="ghost">Cancel</Button>
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
           </Modal.Close>
           <Button type="submit">Save</Button>
         </Modal.Footer>
