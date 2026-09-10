@@ -61,7 +61,6 @@ export default function NewFactMetricPage() {
     );
   }
 
-
   // ?addMetric=<json> (crafted externally - docs, support, onboarding,
   // nothing in this repo generates the link) pre-fills a metric from a
   // template; MetricWorkspace completes the mapping itself (its numerator
