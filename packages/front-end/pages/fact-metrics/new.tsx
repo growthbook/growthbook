@@ -158,7 +158,8 @@ export default function NewFactMetricPage() {
         </Callout>
       ) : templateError ? (
         <Callout status="error" mb="3">
-          Failed to parse metric template: {templateError}
+          Failed to parse metric template: {templateError}{" "}
+          <Link href={returnUrl}>Go back</Link>
         </Callout>
       ) : missingCommercialFeature ? (
         <UpgradeMessage
