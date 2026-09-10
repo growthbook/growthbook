@@ -111,7 +111,7 @@ const runDigest = async (
       const name =
         (typeof object.name === "string" && object.name) ||
         (typeof nestedObject.name === "string" && nestedObject.name) ||
-        event.objectId ||
+        (typeof object.id === "string" && object.id) ||
         "Unnamed";
       return `• ${escapeSlackText(event.event)} — ${escapeSlackText(name)}`;
     });

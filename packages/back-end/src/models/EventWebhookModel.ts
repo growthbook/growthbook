@@ -509,8 +509,8 @@ export const getSlackWebhooksMissingDigestSchedule = async () => {
     enabled: true,
     payloadType: "slack",
     $or: [
-      { nextExperimentDigestAt: { $exists: false } },
-      { nextFeatureDigestAt: { $exists: false } },
+      { "slackOptions.experimentDigest.frequency": { $exists: true, $ne: "off" }, nextExperimentDigestAt: { $exists: false } },
+      { "slackOptions.featureDigest.frequency": { $exists: true, $ne: "off" }, nextFeatureDigestAt: { $exists: false } },
     ],
   }).limit(500);
   return docs.map(toInterface);
@@ -534,6 +534,8 @@ export const claimSlackDigestRun = async ({
     {
       id: eventWebHookId,
       organizationId,
+      enabled: true,
+      payloadType: "slack",
       [field]: { $lte: now },
       $or: [
         { [leaseField]: { $exists: false } },
