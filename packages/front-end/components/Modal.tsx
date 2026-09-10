@@ -16,6 +16,7 @@ import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ErrorDisplay from "@/ui/ErrorDisplay";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import UITooltip from "@/ui/Tooltip";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -347,11 +348,10 @@ const Modal: FC<ModalProps> = ({
               ) : null}
               {secondaryCTA}
               {submit && !isSuccess ? (
-                <Tooltip
-                  body={disabledMessage || ""}
-                  shouldDisplay={!ctaEnabled && !!disabledMessage}
-                  tipPosition="top"
-                  className={fullWidthSubmit ? "w-100" : ""}
+                <UITooltip
+                  content={disabledMessage || ""}
+                  enabled={!ctaEnabled && !!disabledMessage}
+                  side="top"
                 >
                   {useRadixButton ? (
                     <Button
@@ -373,7 +373,7 @@ const Modal: FC<ModalProps> = ({
                       {cta}
                     </button>
                   )}
-                </Tooltip>
+                </UITooltip>
               ) : null}
               {tertiaryCTA}
             </ConditionalWrapper>
