@@ -52,7 +52,11 @@ import {
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields, validateRuleAttributes } from "./validations";
+import {
+  validateCustomFields,
+  validateRuleAttributes,
+  validateRulesReferences,
+} from "./validations";
 import {
   canBypassReviewChecks,
   canUseRestApiBypassSetting,
@@ -284,6 +288,32 @@ export const updateFeatureV2 = createApiRequestHandler(
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
     await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    // Same condition / saved-group reference checks the per-rule endpoints
+    // run. Like the per-rule PUT, only fields that differ from the stored rule
+    // with the same id are checked, so resending a stored rule unchanged (or
+    // editing only its condition) does not re-validate saved groups the caller
+    // did not touch — the groups visible to the check are those the caller can
+    // read.
+    const storedRulesById = new Map(
+      (feature.rules ?? []).map((r) => [r.id, r]),
+    );
+    await validateRulesReferences(
+      inboundFlatRules.flatMap((rule) => {
+        const stored = rule.id ? storedRulesById.get(rule.id) : undefined;
+        const conditionChanged =
+          !stored || (stored.condition || "{}") !== (rule.condition || "{}");
+        const savedGroupsChanged =
+          !stored || !isEqual(stored.savedGroups ?? [], rule.savedGroups ?? []);
+        if (!conditionChanged && !savedGroupsChanged) return [];
+        return [
+          {
+            condition: conditionChanged ? rule.condition : undefined,
+            savedGroups: savedGroupsChanged ? rule.savedGroups : [],
+          },
+        ];
+      }),
+      req.context,
+    );
     // Request-supplied config keys must exist, be live, and belong to the
     // default config's family — same gate as the revision rule endpoints.
     await assertValidRuleConfigKeys(

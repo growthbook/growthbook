@@ -198,16 +198,45 @@ export const validateCustomFields = async (
   });
 };
 
+type SavedGroupMap = Awaited<ReturnType<typeof getSavedGroupMap>>;
+
 // Verify saved-group and prerequisite references in a rule exist. Call on
 // the final rule — saved groups are loaded once.
 export async function validateRuleReferences(
   rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
   context: ApiReqContext,
 ): Promise<void> {
-  const allSavedGroups = await context.models.savedGroups.getAll();
-  const groupMap = await getSavedGroupMap(context, allSavedGroups);
-  const savedGroupIds = new Set(allSavedGroups.map((sg) => sg.id));
+  return validateRuleReferencesWithGroups(
+    rule,
+    await getSavedGroupMap(context),
+    context,
+  );
+}
 
+// Bulk form for endpoints that accept a whole rules array (v2 feature
+// create/update): the same reference checks as the per-rule endpoints —
+// condition (parsed with the saved-group map, so JSON errors, unknown
+// $inGroup/$notInGroup ids and unknown $savedGroups are all caught), targeted
+// saved groups, prerequisite conditions and prerequisite features — with the
+// organization's saved groups loaded once for the whole array.
+export async function validateRulesReferences(
+  rules: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">[],
+  context: ApiReqContext,
+): Promise<void> {
+  if (!rules.length) return;
+  const groupMap = await getSavedGroupMap(context);
+  for (const rule of rules) {
+    validatePrerequisiteConditions(rule.prerequisites ?? []);
+    await validateRuleReferencesWithGroups(rule, groupMap, context);
+  }
+}
+
+async function validateRuleReferencesWithGroups(
+  rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
+  groupMap: SavedGroupMap,
+  context: ApiReqContext,
+): Promise<void> {
+  const savedGroupIds = new Set(groupMap.keys());
   for (const sg of rule.savedGroups ?? []) {
     for (const id of sg.ids) {
       if (!savedGroupIds.has(id)) {
