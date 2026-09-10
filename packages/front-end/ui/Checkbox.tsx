@@ -11,6 +11,9 @@ export type Size = SharedSize<"sm" | "md" | "lg">;
 
 export type Props = {
   label?: string | ReactElement;
+  // Vertical alignment of the box against the label. Defaults to the flex
+  // default (stretch); "center" suits single-line labels in toolbars/banners.
+  align?: "start" | "center";
   labelSize?: SharedSize<"sm" | "md" | "lg">;
   id?: string;
   disabled?: boolean;
@@ -30,6 +33,7 @@ export type Props = {
 export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
   {
     label,
+    align,
     labelSize = "md",
     id,
     disabled,
@@ -78,7 +82,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
       )}
       {...containerProps}
     >
-      <Flex gap="2" align={description || error ? undefined : "center"}>
+      <Flex gap="2" align={align}>
         {checkboxTooltip && !disabled ? (
           <RadixTooltip content={checkboxTooltip} side="top" maxWidth="240px">
             {checkboxEl}

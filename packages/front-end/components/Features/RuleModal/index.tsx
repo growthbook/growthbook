@@ -265,6 +265,7 @@ function RampImpactBanner({
             setValue={setAcknowledged}
             label="Acknowledge"
             weight="medium"
+            align="center"
             containerClassName="mb-0"
           />
         </Box>
