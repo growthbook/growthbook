@@ -113,12 +113,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<
 
   const saveEnabled = userEnteredUserIdTypes.length >= 1 && !!userEnteredQuery;
 
-  // Warn when editing an existing query removes an identifier type, or changes
-  // which one is first. The first identifier is load-bearing: experiments
-  // configured before multi-identifier support implicitly analyze on it, so
-  // changing it repoints them. On save, such legacy experiments are pinned to
-  // the pre-edit identifier automatically; experiments with an explicit choice
-  // that reference a removed identifier are flagged for review.
+  // The first identifier is load-bearing (legacy experiments implicitly analyze
+  // on it), so warn when an edit removes or reorders it. Legacy experiments are
+  // pinned automatically on save; explicit ones on a removed identifier are flagged.
   const savedUserIdTypes =
     mode === "edit" && exposureQuery
       ? exposureQuery.userIdTypes?.length
