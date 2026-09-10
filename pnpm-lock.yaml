@@ -73,6 +73,9 @@ patchedDependencies:
   presto-client@1.1.0:
     hash: 9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb
     path: patches/presto-client@1.1.0.patch
+  snowflake-sdk@2.4.3:
+    hash: df74b2d22666153fae9d71ad5052777589b603398953cac2de4acb50e8a056a8
+    path: patches/snowflake-sdk@2.4.3.patch
 
 importers:
 
@@ -191,8 +194,8 @@ importers:
         specifier: ^3.1031.0
         version: 3.1031.0
       '@clickhouse/client':
-        specifier: ^1.0.1
-        version: 1.0.1
+        specifier: ^1.23.1
+        version: 1.23.1
       '@databricks/sql':
         specifier: ^2.0.0
         version: 2.0.0(encoding@0.1.13)
@@ -438,7 +441,7 @@ importers:
         version: link:../shared
       snowflake-sdk:
         specifier: ^2.4.3
-        version: 2.4.3(asn1.js@5.4.1)
+        version: 2.4.3(patch_hash=df74b2d22666153fae9d71ad5052777589b603398953cac2de4acb50e8a056a8)(asn1.js@5.4.1)
       stats-ts:
         specifier: workspace:*
         version: link:../stats-ts
@@ -2584,13 +2587,9 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@clickhouse/client-common@1.0.1':
-    resolution: {integrity: sha512-3L6e0foP6VOktScoi6XWMjJyOpKCWgLUYgPVxP2c7gm6Kotq+iRmmmXtXTSg7B7uozcLZycTtPfIw2d80SYsYw==}
-    deprecated: 'Deprecated: import from @clickhouse/client or @clickhouse/client-web instead.'
-
-  '@clickhouse/client@1.0.1':
-    resolution: {integrity: sha512-fluUNnE2R7COJ6rn6DorYfi4D+AQn3t2qeBtEq37bQV3pD4EbKrBfKAwJ13e1lmMWdQ2B9bJUTMqGsRIDdWhJw==}
-    engines: {node: '>=16'}
+  '@clickhouse/client@1.23.1':
+    resolution: {integrity: sha512-vs3/Zc1dHvT171btW5nMoPsPCJ6QVJ5pp7obxzO5sjqwFx/jjz9wwCAqcFOdc2DhprugDBaVn+4dVY8hG3A9nw==}
+    engines: {node: '>=20'}
 
   '@colors/colors@1.6.0':
     resolution: {integrity: sha512-Ir+AOibqzrIsL6ajt3Rz3LskB7OiMVHqltZmspbW/TJuTVuyOMirVqAkjfY6JISiLHgyNqicAC8AyHHGzNd/dA==}
@@ -15936,11 +15935,7 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@clickhouse/client-common@1.0.1': {}
-
-  '@clickhouse/client@1.0.1':
-    dependencies:
-      '@clickhouse/client-common': 1.0.1
+  '@clickhouse/client@1.23.1': {}
 
   '@colors/colors@1.6.0': {}
 
@@ -28435,7 +28430,7 @@ snapshots:
       dot-case: 3.0.4
       tslib: 2.8.1
 
-  snowflake-sdk@2.4.3(asn1.js@5.4.1):
+  snowflake-sdk@2.4.3(patch_hash=df74b2d22666153fae9d71ad5052777589b603398953cac2de4acb50e8a056a8)(asn1.js@5.4.1):
     dependencies:
       '@aws-crypto/sha256-js': 5.2.0
       '@aws-sdk/client-s3': 3.1051.0

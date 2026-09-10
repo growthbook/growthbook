@@ -33,6 +33,7 @@ import {
   getConfigDatasources,
 } from "back-end/src/init/config";
 import { upgradeDatasourceObject } from "back-end/src/util/migrations";
+import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
@@ -295,6 +296,10 @@ export async function deleteDatasource(
     organization: context.org.id,
   });
 
+  // Eviction is synchronous; socket teardown can take up to the driver's
+  // connect timeout, so don't make the request wait on it
+  void closeMssqlPool(datasource.id);
+
   await audit.logDelete(context, datasource);
   await touchDefinitionsVersion(
     context.org.id,
@@ -343,6 +348,10 @@ export async function deleteAllDataSourcesForAProject({
     organization: organizationId,
     projects: [projectId],
   });
+
+  for (const doc of docs) {
+    void closeMssqlPool(doc.id);
+  }
   // Only datasources whose sole project is projectId are deleted here, so only
   // that project's readers are affected.
   await touchDefinitionsVersion(organizationId, definitionsScope([projectId]));

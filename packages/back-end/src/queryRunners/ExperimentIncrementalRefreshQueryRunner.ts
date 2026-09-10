@@ -1,8 +1,8 @@
 import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
+  getFactMetricFactTableIds,
   isFactMetric,
-  isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
@@ -61,7 +61,7 @@ import {
   filterRegressionAdjustedMetrics,
   planMetricFanOut,
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
-import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
+import { buildMultiSourceSubGroups } from "back-end/src/services/experimentQueries/multiSourceSubGroups";
 import {
   conversionWindowMinutesKey,
   conversionWindowQueryNameSuffix,
@@ -69,6 +69,7 @@ import {
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
+import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
@@ -228,6 +229,22 @@ export function getIncrementalRefreshMetricSources({
   });
 
   return finalGroups;
+}
+
+// MAX() is NULL on an empty table; both fields are null then.
+function parseMaxTimestampRow(row: Record<string, unknown> | undefined): {
+  maxTimestamp: Date | null;
+  maxTimestampRaw: string | null;
+} {
+  const parsed = row?.max_timestamp
+    ? new Date(row.max_timestamp as string)
+    : null;
+  const maxTimestamp =
+    parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
+  return {
+    maxTimestamp,
+    maxTimestampRaw: rawWatermark(maxTimestamp, row?.max_timestamp_raw),
+  };
 }
 
 const startExperimentIncrementalRefreshQueries = async (
@@ -431,6 +448,7 @@ const startExperimentIncrementalRefreshQueries = async (
     incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     factTableMap: params.factTableMap,
     lastMaxTimestamp: lastMaxTimestamp || null,
+    lastMaxTimestampRaw: incrementalRefreshModel?.unitsMaxTimestampRaw ?? null,
   };
 
   let createUnitsTableQuery: QueryPointer | null = null;
@@ -535,11 +553,7 @@ const startExperimentIncrementalRefreshQueries = async (
     onSuccess: async (rows) => {
       // MAX() is NULL on an empty units table; persist null so a prior
       // watermark cannot survive a full refresh that matched no one.
-      const parsed = rows[0]?.max_timestamp
-        ? new Date(rows[0].max_timestamp as string)
-        : null;
-      const maxTimestamp =
-        parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
+      const watermark = parseMaxTimestampRow(rows[0]);
 
       const lockHeld =
         await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
@@ -547,7 +561,8 @@ const startExperimentIncrementalRefreshQueries = async (
           executionId,
           {
             unitsTableFullName: unitsTableFullName,
-            unitsMaxTimestamp: maxTimestamp,
+            unitsMaxTimestamp: watermark.maxTimestamp,
+            unitsMaxTimestampRaw: watermark.maxTimestampRaw,
             experimentSettingsHash:
               getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
             unitsDimensions: eligibleDimensions.map((d) => d.id),
@@ -653,15 +668,12 @@ const startExperimentIncrementalRefreshQueries = async (
 
     // Same-FT analysis only runs over metrics whose data is fully present in
     // this cache — both numerator and denominator column refs point at this
-    // FT. Cross-FT ratio metrics have one side in this cache and one side in
-    // another cache; their stats are computed in the cross-FT pair pass
-    // below, so running them here would either double-count or read
-    // half-populated columns.
-    const sameFtMetrics = group.metrics.filter(
-      (m) =>
-        m.numerator?.factTableId === group.factTableId &&
-        (!isRatioMetric(m) || m.denominator?.factTableId === group.factTableId),
-    );
+    // FT. Cross-FT ratio metrics and multifact funnels have data spread
+    // across caches; their stats are computed in dedicated passes below.
+    const sameFtMetrics = group.metrics.filter((m) => {
+      const ftIds = getFactMetricFactTableIds(m);
+      return ftIds.length === 1 && ftIds[0] === group.factTableId;
+    });
 
     let createMetricsSourceQuery: QueryPointer | null = null;
     if (!existingSource) {
@@ -699,6 +711,8 @@ const startExperimentIncrementalRefreshQueries = async (
       unitsSourceTableFullName: unitsTableFullName,
       metrics: group.metrics,
       lastMaxTimestamp: existingSource?.maxTimestamp || null,
+      lastMaxTimestampRaw: existingSource?.maxTimestampRaw ?? null,
+      incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     };
 
     const insertMetricsSourceDataQuery = await startQuery({
@@ -841,15 +855,19 @@ const startExperimentIncrementalRefreshQueries = async (
             );
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
+          const lastSuccessfulMaxTimestampRaw =
+            incrementalRefresh?.unitsMaxTimestampRaw ?? null;
           const updatedCovariateSource: IncrementalRefreshMetricCovariateSourceInterface =
             existingCovariateSource
               ? {
                   ...existingCovariateSource,
                   lastSuccessfulMaxTimestamp,
+                  lastSuccessfulMaxTimestampRaw,
                 }
               : {
                   groupId: group.groupId,
                   lastSuccessfulMaxTimestamp,
+                  lastSuccessfulMaxTimestampRaw,
                   tableFullName: metricSourceCovariateTableFullName,
                 };
           if (!existingCovariateSource) {
@@ -889,6 +907,8 @@ const startExperimentIncrementalRefreshQueries = async (
         metrics: regressionAdjustedMetrics,
         lastCovariateSuccessfulMaxTimestamp:
           existingCovariateSource?.lastSuccessfulMaxTimestamp || null,
+        lastCovariateSuccessfulMaxTimestampRaw:
+          existingCovariateSource?.lastSuccessfulMaxTimestampRaw ?? null,
       };
 
       if (covariatePath.path === "aggregated") {
@@ -951,53 +971,54 @@ const startExperimentIncrementalRefreshQueries = async (
           );
       },
       onSuccess: async (rows) => {
-        const maxTimestamp = new Date(rows[0].max_timestamp as string);
-        if (maxTimestamp) {
-          // TODO(incremental-refresh): Clean up metadata handling in query runner
-          const updatedSource: IncrementalRefreshMetricSourceInterface =
-            existingSource
-              ? { ...existingSource, maxTimestamp }
-              : {
-                  groupId: group.groupId,
-                  factTableId: group.factTableId,
-                  maxTimestamp,
-                  // (factTableId, metricId) is the persisted key. Which side
-                  // of the metric this cache materializes is derived at read
-                  // time by comparing the metric's column refs to
-                  // `factTableId` (see metric-source-table-schema.ts).
-                  metrics: group.metrics.map((m) => ({
-                    id: m.id,
-                    settingsHash: getMetricSettingsHashForIncrementalRefresh({
-                      factMetric: m,
-                      factTableMap: params.factTableMap,
-                      metricSettings: insertParams.settings.metricSettings.find(
-                        (ms) => ms.id === m.id,
-                      ),
-                    }),
-                  })),
-                  tableFullName: metricSourceTableFullName,
-                };
-          if (!existingSource) {
-            runningSourceData = runningSourceData.concat(updatedSource);
-          } else {
-            runningSourceData = runningSourceData.map((s) =>
-              s.groupId === group.groupId ? updatedSource : s,
-            );
-          }
-          const lockHeld =
-            await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+        // MAX() is NULL on an empty cache; persist null rather than skip
+        // the source so the table isn't rebuilt on the next refresh.
+        const { maxTimestamp, maxTimestampRaw } = parseMaxTimestampRow(rows[0]);
+        // TODO(incremental-refresh): Clean up metadata handling in query runner
+        const updatedSource: IncrementalRefreshMetricSourceInterface =
+          existingSource
+            ? { ...existingSource, maxTimestamp, maxTimestampRaw }
+            : {
+                groupId: group.groupId,
+                factTableId: group.factTableId,
+                maxTimestamp,
+                maxTimestampRaw,
+                // (factTableId, metricId) is the persisted key. Which side
+                // of the metric this cache materializes is derived at read
+                // time by comparing the metric's column refs to
+                // `factTableId` (see metric-source-table-schema.ts).
+                metrics: group.metrics.map((m) => ({
+                  id: m.id,
+                  settingsHash: getMetricSettingsHashForIncrementalRefresh({
+                    factMetric: m,
+                    factTableMap: params.factTableMap,
+                    metricSettings: insertParams.settings.metricSettings.find(
+                      (ms) => ms.id === m.id,
+                    ),
+                  }),
+                })),
+                tableFullName: metricSourceTableFullName,
+              };
+        if (!existingSource) {
+          runningSourceData = runningSourceData.concat(updatedSource);
+        } else {
+          runningSourceData = runningSourceData.map((s) =>
+            s.groupId === group.groupId ? updatedSource : s,
+          );
+        }
+        const lockHeld =
+          await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+            experimentId,
+            executionId,
+            {
+              metricSources: runningSourceData,
+            },
+          );
+        if (lockHeld !== true) {
+          context.logger.warn(
+            "Incremental refresh execution lock lost for experiment: " +
               experimentId,
-              executionId,
-              {
-                metricSources: runningSourceData,
-              },
-            );
-          if (lockHeld !== true) {
-            context.logger.warn(
-              "Incremental refresh execution lock lost for experiment: " +
-                experimentId,
-            );
-          }
+          );
         }
       },
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
@@ -1081,24 +1102,20 @@ const startExperimentIncrementalRefreshQueries = async (
     }
   }
 
-  // Cross-FT pair pass: for every unordered pair of fact tables that hosts
-  // at least one cross-FT ratio metric, schedule a single joined stats
-  // query. The query reads both caches and computes per-metric ratios using
-  // each metric's correct orientation. Same-FT metrics that happen to share
-  // a cache with these cross-FT halves are NOT included here — they ran in
-  // the per-FT loop above.
-  const crossFtSubGroups = buildCrossFtSubGroups<SourcePipeline>({
-    crossFtPairs: desiredFanOut.crossFtPairs,
+  // Multi-source pass: for every group of metrics that needs 2+ fact table
+  // caches joined (cross-FT ratios, multi-FT funnels, or both), schedule a
+  // single stats query. Metrics sharing the same sorted FT set are grouped
+  // together so they share one joined query.
+  const multiSourceSubGroups = buildMultiSourceSubGroups<SourcePipeline>({
+    multiSourceGroups: desiredFanOut.multiSourceGroups,
     metricSourceGroups,
     pipelineByGroupId,
-    // Main runner: the per-FT pass above must have built every pipeline a
-    // cross-FT metric needs. A missing pipeline indicates a fan-out bug.
     onMissingPipeline: "throw",
     getWindowKey: (m) =>
       snapshotSettings.skipPartialData
         ? conversionWindowMinutesKey(
             getOverriddenMetricConversionWindowHours(
-              m.metric,
+              m,
               activationMetric,
               snapshotSettings,
             ),
@@ -1106,68 +1123,50 @@ const startExperimentIncrementalRefreshQueries = async (
         : null,
   });
 
-  for (const subGroup of crossFtSubGroups) {
-    const [pipelineA, pipelineB] = subGroup.pipelines;
-    const ftA = params.factTableMap.get(pipelineA.group.factTableId);
-    const ftB = params.factTableMap.get(pipelineB.group.factTableId);
-    const sourceName = ftA && ftB ? `(${ftA.name} x ${ftB.name})` : "";
+  for (const subGroup of multiSourceSubGroups) {
+    const ftNames = subGroup.pipelines
+      .map(
+        (p) =>
+          params.factTableMap.get(p.group.factTableId)?.name ??
+          p.group.factTableId,
+      )
+      .join(" x ");
+    const sourceName = `(${ftNames})`;
+    const queryNameParts = subGroup.pipelines
+      .map((p) => p.group.groupId)
+      .join("__");
 
-    // Quantile metrics cannot be cross-FT ratios, so this set is always
-    // non-quantile and supports pre-computed dimensions.
     const dimensionsForPrecomputation = org.settings
       ?.disablePrecomputedDimensions
       ? []
       : eligibleDimensionsWithSlicesUnderMaxCells;
 
-    const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
-      displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
+    const multiSourceStatsQuery = await startQuery({
+      name: `statistics_multi_${queryNameParts}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
+      displayTitle: `Compute Multi-Source Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
         exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         factTableMap: params.factTableMap,
         unitsSourceTableFullName: unitsTableFullName,
-        metrics: subGroup.metrics.map((m) => m.metric),
-        // The earliest of the two caches' max timestamps gates which rows
-        // we can trust as fully populated. For simplicity we just pass
-        // null; the stats query reads whatever each cache holds and the
-        // ratio aggregation works regardless of catch-up state.
+        metrics: subGroup.metrics,
         lastMaxTimestamp: null,
         dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
-        // Cross-FT CUPED uses one covariate cache per pipeline — the
-        // numerator FT's cache carries `_value` covariates, the
-        // denominator FT's cache carries `_denominator_value` covariates,
-        // and the per-source covariate LEFT JOIN inside each
-        // `__joinedData{i}` picks the right side from each side's cache.
-        // Pipelines with no RA metrics omit `covariateTableFullName`.
-        metricSources: [
-          {
-            factTableId: pipelineA.group.factTableId,
-            tableFullName: pipelineA.tableFullName,
-            ...(pipelineA.covariateTableFullName
-              ? { covariateTableFullName: pipelineA.covariateTableFullName }
-              : {}),
-          },
-          {
-            factTableId: pipelineB.group.factTableId,
-            tableFullName: pipelineB.tableFullName,
-            ...(pipelineB.covariateTableFullName
-              ? { covariateTableFullName: pipelineB.covariateTableFullName }
-              : {}),
-          },
-        ],
+        metricSources: subGroup.pipelines.map((p) => ({
+          factTableId: p.group.factTableId,
+          tableFullName: p.tableFullName,
+          ...(p.covariateTableFullName
+            ? { covariateTableFullName: p.covariateTableFullName }
+            : {}),
+        })),
       }),
       dependencies: [
-        pipelineA.insertQuery.query,
-        pipelineB.insertQuery.query,
-        ...(pipelineA.covariateInsertQuery
-          ? [pipelineA.covariateInsertQuery.query]
-          : []),
-        ...(pipelineB.covariateInsertQuery
-          ? [pipelineB.covariateInsertQuery.query]
-          : []),
+        ...subGroup.pipelines.map((p) => p.insertQuery.query),
+        ...subGroup.pipelines.flatMap((p) =>
+          p.covariateInsertQuery ? [p.covariateInsertQuery.query] : [],
+        ),
       ],
       run: (query, setExternalId, queryMetadata) =>
         integration.runIncrementalRefreshStatisticsQuery(
@@ -1177,8 +1176,9 @@ const startExperimentIncrementalRefreshQueries = async (
         ),
       queryType: "experimentIncrementalRefreshStatistics",
     });
-    queries.push(crossStatsQuery);
+    queries.push(multiSourceStatsQuery);
   }
+
   const runTrafficQuery = shouldRunHealthTrafficQuery({
     snapshotType: params.snapshotType,
     snapshotDimensions: snapshotSettings.dimensions,

@@ -18,6 +18,37 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
   <HoverTooltipProvider>{children}</HoverTooltipProvider>
 );
 
+// Triggers must be real connected elements: the hook refuses to show a
+// tooltip whose trigger is no longer in the DOM.
+let createdTriggers: HTMLElement[] = [];
+
+function createTrigger(): HTMLElement {
+  const el = document.createElement("div");
+  document.body.appendChild(el);
+  createdTriggers.push(el);
+  return el;
+}
+
+afterEach(() => {
+  createdTriggers.forEach((el) => el.remove());
+  createdTriggers = [];
+});
+
+function makeMouseEvent(el: HTMLElement, x = 50, y = 50): React.MouseEvent {
+  return {
+    clientX: x,
+    clientY: y,
+    currentTarget: el,
+    stopPropagation: () => {},
+  } as unknown as React.MouseEvent;
+}
+
+function makeLeaveEvent(): React.MouseEvent {
+  return {
+    stopPropagation: () => {},
+  } as unknown as React.MouseEvent;
+}
+
 describe("HoverTooltipProvider", () => {
   it("should allow opening a tooltip when none is open", () => {
     const { result } = renderHook(() => useHoverTooltipContext(), { wrapper });
@@ -104,23 +135,14 @@ describe("useHoverTooltip - element mode", () => {
   });
 
   it("should become visible after delay when mouse enters", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(
       () => useHoverTooltip({ positioning: "element", delayMs: 100 }),
       { wrapper },
     );
 
     act(() => {
-      result.current.triggerProps.onMouseEnter({
-        currentTarget: {
-          getBoundingClientRect: () => ({
-            left: 100,
-            top: 200,
-            width: 50,
-            height: 20,
-          }),
-        },
-        stopPropagation: () => {},
-      } as unknown as React.MouseEvent);
+      result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
     });
 
     expect(result.current.isVisible).toBe(false);
@@ -133,23 +155,14 @@ describe("useHoverTooltip - element mode", () => {
   });
 
   it("should not become visible if mouse leaves before delay", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(
       () => useHoverTooltip({ positioning: "element", delayMs: 100 }),
       { wrapper },
     );
 
     act(() => {
-      result.current.triggerProps.onMouseEnter({
-        currentTarget: {
-          getBoundingClientRect: () => ({
-            left: 100,
-            top: 200,
-            width: 50,
-            height: 20,
-          }),
-        },
-        stopPropagation: () => {},
-      } as unknown as React.MouseEvent);
+      result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
     });
 
     act(() => {
@@ -157,9 +170,7 @@ describe("useHoverTooltip - element mode", () => {
     });
 
     act(() => {
-      result.current.triggerProps.onMouseLeave({
-        stopPropagation: () => {},
-      } as unknown as React.MouseEvent);
+      result.current.triggerProps.onMouseLeave(makeLeaveEvent());
     });
 
     act(() => {
@@ -170,6 +181,7 @@ describe("useHoverTooltip - element mode", () => {
   });
 
   it("should hide after delay when mouse leaves visible tooltip", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(
       () => useHoverTooltip({ positioning: "element", delayMs: 100 }),
       { wrapper },
@@ -177,17 +189,7 @@ describe("useHoverTooltip - element mode", () => {
 
     // Show tooltip
     act(() => {
-      result.current.triggerProps.onMouseEnter({
-        currentTarget: {
-          getBoundingClientRect: () => ({
-            left: 100,
-            top: 200,
-            width: 50,
-            height: 20,
-          }),
-        },
-        stopPropagation: () => {},
-      } as unknown as React.MouseEvent);
+      result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
     });
 
     act(() => {
@@ -198,9 +200,7 @@ describe("useHoverTooltip - element mode", () => {
 
     // Leave trigger
     act(() => {
-      result.current.triggerProps.onMouseLeave({
-        stopPropagation: () => {},
-      } as unknown as React.MouseEvent);
+      result.current.triggerProps.onMouseLeave(makeLeaveEvent());
     });
 
     // Still visible during hide delay
@@ -214,30 +214,15 @@ describe("useHoverTooltip - element mode", () => {
   });
 
   it("should stay visible when re-entering trigger during hide delay", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(
       () => useHoverTooltip({ positioning: "element", delayMs: 100 }),
       { wrapper },
     );
 
-    const mockEnterEvent = {
-      currentTarget: {
-        getBoundingClientRect: () => ({
-          left: 100,
-          top: 200,
-          width: 50,
-          height: 20,
-        }),
-      },
-      stopPropagation: () => {},
-    } as unknown as React.MouseEvent;
-
-    const mockLeaveEvent = {
-      stopPropagation: () => {},
-    } as unknown as React.MouseEvent;
-
     // Show tooltip
     act(() => {
-      result.current.triggerProps.onMouseEnter(mockEnterEvent);
+      result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
     });
 
     act(() => {
@@ -248,7 +233,7 @@ describe("useHoverTooltip - element mode", () => {
 
     // Leave trigger (starts hide timer)
     act(() => {
-      result.current.triggerProps.onMouseLeave(mockLeaveEvent);
+      result.current.triggerProps.onMouseLeave(makeLeaveEvent());
     });
 
     // Still visible during hide delay
@@ -260,7 +245,7 @@ describe("useHoverTooltip - element mode", () => {
     });
 
     act(() => {
-      result.current.triggerProps.onMouseEnter(mockEnterEvent);
+      result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
     });
 
     // Should still be visible
@@ -276,6 +261,7 @@ describe("useHoverTooltip - element mode", () => {
   });
 
   it("should allow programmatic close", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(
       () => useHoverTooltip({ positioning: "element", delayMs: 100 }),
       { wrapper },
@@ -283,17 +269,7 @@ describe("useHoverTooltip - element mode", () => {
 
     // Show tooltip
     act(() => {
-      result.current.triggerProps.onMouseEnter({
-        currentTarget: {
-          getBoundingClientRect: () => ({
-            left: 100,
-            top: 200,
-            width: 50,
-            height: 20,
-          }),
-        },
-        stopPropagation: () => {},
-      } as unknown as React.MouseEvent);
+      result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
     });
 
     act(() => {
@@ -320,29 +296,15 @@ describe("useHoverTooltip - cursor mode", () => {
   });
 
   it("should reset timer on mouse movement", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(
       () => useHoverTooltip({ positioning: "cursor", delayMs: 100 }),
       { wrapper },
     );
 
-    const mockEvent = (x: number, y: number) =>
-      ({
-        clientX: x,
-        clientY: y,
-        currentTarget: {
-          getBoundingClientRect: () => ({
-            left: 0,
-            top: 0,
-            width: 200,
-            height: 200,
-          }),
-        },
-        stopPropagation: () => {},
-      }) as unknown as React.MouseEvent;
-
     // First movement
     act(() => {
-      result.current.triggerProps.onMouseEnter(mockEvent(50, 50));
+      result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger, 50, 50));
     });
 
     act(() => {
@@ -351,7 +313,7 @@ describe("useHoverTooltip - cursor mode", () => {
 
     // Second movement - should reset timer
     act(() => {
-      result.current.triggerProps.onMouseMove(mockEvent(60, 60));
+      result.current.triggerProps.onMouseMove(makeMouseEvent(trigger, 60, 60));
     });
 
     act(() => {
@@ -370,25 +332,16 @@ describe("useHoverTooltip - cursor mode", () => {
   });
 
   it("should position at cursor location", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(
       () => useHoverTooltip({ positioning: "cursor", delayMs: 100 }),
       { wrapper },
     );
 
     act(() => {
-      result.current.triggerProps.onMouseEnter({
-        clientX: 150,
-        clientY: 250,
-        currentTarget: {
-          getBoundingClientRect: () => ({
-            left: 0,
-            top: 0,
-            width: 200,
-            height: 200,
-          }),
-        },
-        stopPropagation: () => {},
-      } as unknown as React.MouseEvent);
+      result.current.triggerProps.onMouseEnter(
+        makeMouseEvent(trigger, 150, 250),
+      );
     });
 
     act(() => {
@@ -399,6 +352,7 @@ describe("useHoverTooltip - cursor mode", () => {
   });
 
   it("should close immediately on mouse leave (no delay)", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(
       () => useHoverTooltip({ positioning: "cursor", delayMs: 100 }),
       { wrapper },
@@ -406,19 +360,9 @@ describe("useHoverTooltip - cursor mode", () => {
 
     // Show tooltip
     act(() => {
-      result.current.triggerProps.onMouseEnter({
-        clientX: 150,
-        clientY: 250,
-        currentTarget: {
-          getBoundingClientRect: () => ({
-            left: 0,
-            top: 0,
-            width: 200,
-            height: 200,
-          }),
-        },
-        stopPropagation: () => {},
-      } as unknown as React.MouseEvent);
+      result.current.triggerProps.onMouseEnter(
+        makeMouseEvent(trigger, 150, 250),
+      );
     });
 
     act(() => {
@@ -429,9 +373,112 @@ describe("useHoverTooltip - cursor mode", () => {
 
     // Leave - should close immediately
     act(() => {
-      result.current.triggerProps.onMouseLeave({
-        stopPropagation: () => {},
-      } as unknown as React.MouseEvent);
+      result.current.triggerProps.onMouseLeave(makeLeaveEvent());
+    });
+
+    expect(result.current.isVisible).toBe(false);
+  });
+});
+
+describe("useHoverTooltip - stale pointer guards (cursor mode)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("should not show if the trigger is covered when the show timer fires", () => {
+    const trigger = createTrigger();
+    const overlay = createTrigger();
+    const originalElementFromPoint = document.elementFromPoint;
+    document.elementFromPoint = () => overlay;
+
+    try {
+      const { result } = renderHook(
+        () => useHoverTooltip({ positioning: "cursor", delayMs: 100 }),
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      expect(result.current.isVisible).toBe(false);
+    } finally {
+      document.elementFromPoint = originalElementFromPoint;
+    }
+  });
+
+  it("should not show if the trigger was removed before the show timer fires", () => {
+    const trigger = createTrigger();
+    const { result } = renderHook(
+      () => useHoverTooltip({ positioning: "cursor", delayMs: 100 }),
+      { wrapper },
+    );
+
+    act(() => {
+      result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
+    });
+
+    trigger.remove();
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    expect(result.current.isVisible).toBe(false);
+  });
+
+  it("should show if the pointer is still over the trigger when the show timer fires", () => {
+    const trigger = createTrigger();
+    const originalElementFromPoint = document.elementFromPoint;
+    document.elementFromPoint = () => trigger;
+
+    try {
+      const { result } = renderHook(
+        () => useHoverTooltip({ positioning: "cursor", delayMs: 100 }),
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      expect(result.current.isVisible).toBe(true);
+    } finally {
+      document.elementFromPoint = originalElementFromPoint;
+    }
+  });
+
+  it("should close on any document mouse movement while visible", () => {
+    const trigger = createTrigger();
+    const { result } = renderHook(
+      () => useHoverTooltip({ positioning: "cursor", delayMs: 100 }),
+      { wrapper },
+    );
+
+    act(() => {
+      result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    expect(result.current.isVisible).toBe(true);
+
+    act(() => {
+      document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
     });
 
     expect(result.current.isVisible).toBe(false);
@@ -455,23 +502,14 @@ describe("useHoverTooltip - single tooltip at a time", () => {
   };
 
   it("should prevent second tooltip from opening while first is visible", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(() => useTwoTooltips(), { wrapper });
-
-    const mockEnterEvent = {
-      currentTarget: {
-        getBoundingClientRect: () => ({
-          left: 100,
-          top: 200,
-          width: 50,
-          height: 20,
-        }),
-      },
-      stopPropagation: () => {},
-    } as unknown as React.MouseEvent;
 
     // Open first tooltip
     act(() => {
-      result.current.tooltip1.triggerProps.onMouseEnter(mockEnterEvent);
+      result.current.tooltip1.triggerProps.onMouseEnter(
+        makeMouseEvent(trigger),
+      );
     });
 
     act(() => {
@@ -482,7 +520,9 @@ describe("useHoverTooltip - single tooltip at a time", () => {
 
     // Try to open second tooltip
     act(() => {
-      result.current.tooltip2.triggerProps.onMouseEnter(mockEnterEvent);
+      result.current.tooltip2.triggerProps.onMouseEnter(
+        makeMouseEvent(trigger),
+      );
     });
 
     act(() => {
@@ -495,27 +535,14 @@ describe("useHoverTooltip - single tooltip at a time", () => {
   });
 
   it("should allow second tooltip after first closes", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(() => useTwoTooltips(), { wrapper });
-
-    const mockEnterEvent = {
-      currentTarget: {
-        getBoundingClientRect: () => ({
-          left: 100,
-          top: 200,
-          width: 50,
-          height: 20,
-        }),
-      },
-      stopPropagation: () => {},
-    } as unknown as React.MouseEvent;
-
-    const mockLeaveEvent = {
-      stopPropagation: () => {},
-    } as unknown as React.MouseEvent;
 
     // Open first tooltip
     act(() => {
-      result.current.tooltip1.triggerProps.onMouseEnter(mockEnterEvent);
+      result.current.tooltip1.triggerProps.onMouseEnter(
+        makeMouseEvent(trigger),
+      );
     });
 
     act(() => {
@@ -526,7 +553,7 @@ describe("useHoverTooltip - single tooltip at a time", () => {
 
     // Close first tooltip
     act(() => {
-      result.current.tooltip1.triggerProps.onMouseLeave(mockLeaveEvent);
+      result.current.tooltip1.triggerProps.onMouseLeave(makeLeaveEvent());
     });
 
     act(() => {
@@ -537,7 +564,9 @@ describe("useHoverTooltip - single tooltip at a time", () => {
 
     // Now open second tooltip
     act(() => {
-      result.current.tooltip2.triggerProps.onMouseEnter(mockEnterEvent);
+      result.current.tooltip2.triggerProps.onMouseEnter(
+        makeMouseEvent(trigger),
+      );
     });
 
     act(() => {
@@ -602,6 +631,7 @@ describe("useHoverTooltip - scroll behavior", () => {
   });
 
   it("should close tooltip on scroll", () => {
+    const trigger = createTrigger();
     const { result } = renderHook(
       () => useHoverTooltip({ positioning: "element", delayMs: 100 }),
       { wrapper },
@@ -609,17 +639,7 @@ describe("useHoverTooltip - scroll behavior", () => {
 
     // Show tooltip
     act(() => {
-      result.current.triggerProps.onMouseEnter({
-        currentTarget: {
-          getBoundingClientRect: () => ({
-            left: 100,
-            top: 200,
-            width: 50,
-            height: 20,
-          }),
-        },
-        stopPropagation: () => {},
-      } as unknown as React.MouseEvent);
+      result.current.triggerProps.onMouseEnter(makeMouseEvent(trigger));
     });
 
     act(() => {
