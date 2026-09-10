@@ -42,6 +42,13 @@ import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVe
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Text from "@/ui/Text";
 
+type SimpleExperimentFormValues = Omit<
+  Partial<ExperimentInterfaceStringDates>,
+  "name"
+> & {
+  experimentName: string;
+};
+
 export type SimpleNewExperimentFormProps = {
   onClose?: () => void;
   source: string;
@@ -173,10 +180,10 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const initialHashAttribute =
     initialHashAttributes.length === 1 ? initialHashAttributes[0] : "";
 
-  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+  const form = useForm<SimpleExperimentFormValues>({
     defaultValues: {
       project: initialProject,
-      name: "",
+      experimentName: "",
       hypothesis: "",
       hashAttribute: initialHashAttribute,
       templateId: "",
@@ -304,7 +311,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     !wouldAutoSelectExposureQuery;
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
-    const name = (rawValue.name || "").trim();
+    const name = (rawValue.experimentName || "").trim();
     if (name.length < 1) {
       throw new Error("Name must not be empty");
     }
@@ -480,7 +487,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         label="Experiment Name"
         required
         minLength={2}
-        {...form.register("name")}
+        {...form.register("experimentName")}
       />
 
       {projects.length >= 1 && (
