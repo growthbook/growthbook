@@ -1024,9 +1024,7 @@ export async function getOrganization(
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
     aiKeyProviders,
-    // Resolved server-side rather than re-derived in the front-end: the
-    // settings dropdown only filters by key on Cloud, so a front-end guess
-    // would disagree with what the transcribe route actually does.
+    // Resolved here so the front-end can't disagree with the transcribe route.
     sttModel,
     watching: {
       experiments: watch?.experiments || [],

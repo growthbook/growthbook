@@ -314,11 +314,9 @@ export async function getAISettingsForOrg(
   keySource: Record<AIProvider, AIKeySource>;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
-  // Transcription model for voice dictation, or null when no provider with a
-  // key serves one. Unlike embeddingModel this is nullable on purpose: the
-  // embedding default is only reached by an explicit "Regenerate" click that
-  // surfaces its own error, while a mic button that renders and then fails
-  // after the user has spoken is worse than no mic button.
+  // Dictation model, or null when unavailable. Nullable unlike embeddingModel
+  // because it gates a visible button: a mic that renders and then fails after
+  // the user has spoken is worse than no mic.
   sttModel: STTModel | null;
   // Resolved Visual Editor overrides — both already fall back to a
   // sensible default so callers don't need their own resolution logic.
@@ -385,15 +383,16 @@ export async function getAISettingsForOrg(
       ? CLOUD_MANAGED_IMAGE_MODEL
       : GEMINI_IMAGE_MODEL);
 
-  // Cloud prefers the managed Grok STT model; both Cloud and self-hosted then
-  // walk the provider list so a missing key degrades to another provider.
-  const sttModel: STTModel | null =
-    getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
-    (IS_CLOUD && keySource.xai !== "none" ? CLOUD_MANAGED_STT_MODEL : null) ||
-    SELF_HOSTED_DEFAULT_STT_MODELS.find(
-      ([provider]) => keySource[provider] !== "none",
-    )?.[1] ||
-    null;
+  // Cloud prefers the managed Grok model, then both deployments walk the
+  // provider list so a missing key degrades instead of disabling dictation.
+  const sttModel: STTModel | null = !aiEnabled
+    ? null
+    : getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
+      (IS_CLOUD && keySource.xai !== "none" ? CLOUD_MANAGED_STT_MODEL : null) ||
+      SELF_HOSTED_DEFAULT_STT_MODELS.find(
+        ([provider]) => keySource[provider] !== "none",
+      )?.[1] ||
+      null;
 
   return {
     aiEnabled,

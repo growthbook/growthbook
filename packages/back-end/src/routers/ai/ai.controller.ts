@@ -315,11 +315,7 @@ export async function postReformat(
   });
 }
 
-/**
- * Transcribe a dictated audio clip. The body is raw audio bytes (see the
- * route's bodyParser.raw), so there is nothing for a Zod validator to check —
- * the model choice is resolved server-side from org settings.
- */
+/** Transcribe a dictated clip. Raw audio body, so no Zod validator applies. */
 export async function postTranscribe(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
   if (!(await runAIEnabledGates(context, res))) return;
@@ -332,10 +328,7 @@ export async function postTranscribe(req: AuthRequest, res: Response) {
     });
   }
 
-  const text = await transcribeAudio(
-    context,
-    audio,
-    req.headers["content-type"] || "audio/webm",
-  );
+  const contentType = req.headers["content-type"] || "audio/webm";
+  const text = await transcribeAudio(context, audio, contentType);
   return res.status(200).json({ status: 200, text });
 }

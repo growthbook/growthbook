@@ -79,10 +79,9 @@ router.post(
   AIController.postReformat,
 );
 
-// Raw audio in, transcript out. The app-level bodyParser.json only claims
-// `application/json`, so an `audio/*` body reaches this parser untouched — the
-// same arrangement the upload router uses for images. 25mb is OpenAI's file
-// limit, the tightest of the three providers.
+// The app-level bodyParser.json only claims `application/json`, so an
+// `audio/*` body reaches this parser untouched — same as the upload router.
+// 25mb is OpenAI's file limit, the tightest of the three providers.
 router.post(
   "/transcribe",
   bodyParser.raw({ type: "audio/*", limit: "25mb" }),

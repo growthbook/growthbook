@@ -464,7 +464,7 @@ export default function AISettings({
                       size="medium"
                       id="sttModel"
                       disabled={!canEdit}
-                      helpText="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral — Anthropic and Google are not available for transcription. The dictation button is hidden when none of these has a key."
+                      helpText="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral. The mic button is hidden when none of them has a key."
                       value={form.watch("sttModel") || ""}
                       onChange={(v) => form.setValue("sttModel", v)}
                       options={getAvailableSTTModelOptions(
@@ -472,8 +472,8 @@ export default function AISettings({
                         form.watch("sttModel") || "",
                       )}
                     />
-                    {/* Only a chosen model can be wrong: the default resolves
-                        to a provider that already has a key, or to nothing. */}
+                    {/* Only a chosen model can be wrong — the default always
+                        resolves to a provider that has a key, or to nothing. */}
                     {form.watch("sttModel") && (
                       <SttKeyWarning
                         sttModel={form.watch("sttModel")}

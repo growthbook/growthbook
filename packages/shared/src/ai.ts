@@ -548,19 +548,13 @@ export function getProviderFromEmbeddingModel(
   throw new Error(`Embedding model ${model} is not supported.`);
 }
 
-// Speech-to-text models, for voice dictation in AI chat.
+// Speech-to-text models for voice dictation. Batch (file-POST) only: the
+// realtime ids each provider also ships need a socket, not a POST.
 //
-// Batch (file-POST) transcription only. Each provider also ships a realtime id
-// — gpt-live-transcribe, voxtral-mini-transcribe-realtime-2602, xAI's
-// wss://api.x.ai/v1/stt — and those need a socket, not a POST.
-//
-// Two providers are deliberately absent:
-//   Anthropic — no Claude model accepts audio input at all.
-//   Google — gemini-3.5-transcribe won't take inline audio. It needs a Files
-//     API upload first, then a POST to /v1beta/interactions (not
-//     generateContent) with its own request and response shape: two
-//     round-trips and an adapter as large as the other three providers
-//     combined, for a preview model. Add it if a Google-only org asks.
+// Anthropic is absent because no Claude model accepts audio input. Google is
+// absent because gemini-3.5-transcribe won't take inline audio — it needs a
+// Files API upload, then /v1beta/interactions with its own request and
+// response shape, which is more adapter than the other three combined.
 export const AI_PROVIDER_STT_MODEL_MAP = {
   openai: [
     "gpt-transcribe",
@@ -575,7 +569,6 @@ export const AI_PROVIDER_STT_MODEL_MAP = {
 export type STTModel =
   (typeof AI_PROVIDER_STT_MODEL_MAP)[keyof typeof AI_PROVIDER_STT_MODEL_MAP][number];
 
-// Which provider serves an STT model.
 export function getProviderFromSTTModel(model: STTModel): AIProvider {
   for (const [provider, models] of Object.entries(AI_PROVIDER_STT_MODEL_MAP)) {
     if (models.includes(model as never)) {
@@ -587,9 +580,8 @@ export function getProviderFromSTTModel(model: STTModel): AIProvider {
 
 export const CLOUD_MANAGED_STT_MODEL: STTModel = "grok-stt-1.0";
 
-// Self-hosted has no managed key, so the default follows whichever provider
-// the admin configured. Cloud walks this too when the managed model's provider
-// has no key, so dictation degrades to another provider instead of vanishing.
+// Walked in order by both deployments, so a missing key degrades to the next
+// provider rather than disabling dictation.
 export const SELF_HOSTED_DEFAULT_STT_MODELS: ReadonlyArray<
   [AIProvider, STTModel]
 > = [

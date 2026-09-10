@@ -3,27 +3,24 @@ import Tooltip from "@/ui/Tooltip";
 import type { Dictation } from "./useDictation";
 import styles from "./ChatComposer.module.scss";
 
-/**
- * Mic toggle for the composer. Renders nothing when the org has no
- * transcription model available — see useDictation.
- */
+/** Mic toggle. Renders nothing when dictation isn't available to the org. */
 export default function DictationButton({
-  dictation,
+  dictation: { available, recording, transcribing, error, toggle },
   disabled = false,
 }: {
   dictation: Dictation;
   disabled?: boolean;
 }) {
-  const { available, recording, transcribing, error, toggle } = dictation;
   if (!available) return null;
 
-  const label = error
-    ? error
-    : recording
+  // The tooltip doubles as the error surface, paired with the slashed icon.
+  const label =
+    error ??
+    (recording
       ? "Stop dictating"
       : transcribing
         ? "Transcribing…"
-        : "Dictate a message";
+        : "Dictate a message");
 
   const Icon = error
     ? PiMicrophoneSlash

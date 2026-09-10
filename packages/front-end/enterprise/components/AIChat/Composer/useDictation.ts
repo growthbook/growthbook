@@ -1,32 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import { useAISettings } from "@/hooks/useOrgSettings";
 
 // Containers in preference order. xAI's STT doesn't list WebM among its
-// accepted formats (though it does list MKV, which WebM is a subset of), so
-// prefer the containers every provider names before falling back to it.
-// Safari produces mp4, Chrome produces webm.
-const PREFERRED_MIME_TYPES = [
+// accepted formats, so try what every provider names before falling back to
+// it. Safari records mp4, Chrome records webm.
+const MIME_TYPES = [
   "audio/mp4",
   "audio/ogg;codecs=opus",
   "audio/webm;codecs=opus",
-  "audio/webm",
 ];
 
-// A forgotten open mic is a memory and a billing problem, so cap the clip.
+// A forgotten open mic is a memory and a billing problem.
 const MAX_RECORDING_MS = 5 * 60 * 1000;
 
-function pickMimeType(): string | null {
-  if (typeof MediaRecorder === "undefined") return null;
-  return (
-    PREFERRED_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type)) ??
-    null
-  );
-}
+const pickMimeType = () =>
+  typeof MediaRecorder === "undefined"
+    ? null
+    : (MIME_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? null);
 
 export interface Dictation {
-  /** False when the org has no transcription model or the browser can't record. */
   available: boolean;
   recording: boolean;
   transcribing: boolean;
@@ -34,18 +27,12 @@ export interface Dictation {
   toggle: () => void;
 }
 
-/**
- * Record a clip from the microphone and hand the transcript to `onTranscript`.
- *
- * `sttModel` is resolved server-side and arrives on the org payload, so this
- * doesn't re-derive availability from the provider key list — the settings
- * dropdown only filters by key on Cloud, and a second guess here could
- * disagree with what the transcribe route actually does.
- */
+/** Record a clip and hand the transcript to `onTranscript`. */
 export function useDictation(onTranscript: (text: string) => void): Dictation {
   const { apiCall } = useAuth();
+  // Resolved server-side, and already null when AI is off or no provider with
+  // a key serves transcription — so there is nothing to re-derive here.
   const { sttModel } = useUser();
-  const { aiEnabled } = useAISettings();
 
   // Set after mount: MediaRecorder doesn't exist during SSR, and deciding
   // during render would make the server and first client render disagree.
@@ -58,22 +45,19 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const timeoutRef = useRef<number | null>(null);
-  // Read in the recorder's async callbacks, which outlive a render.
+  // Read inside the recorder's callbacks, which outlive a render.
   const onTranscriptRef = useRef(onTranscript);
   onTranscriptRef.current = onTranscript;
 
-  const stopTracks = useCallback(() => {
+  const release = useCallback(() => {
     recorderRef.current?.stream.getTracks().forEach((t) => t.stop());
     recorderRef.current = null;
-    if (timeoutRef.current !== null) {
-      window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
+    if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
   }, []);
 
-  // Releasing the mic on unmount matters — the browser shows a recording
-  // indicator for as long as the track is live.
-  useEffect(() => stopTracks, [stopTracks]);
+  // The browser shows a recording indicator for as long as a track is live.
+  useEffect(() => release, [release]);
 
   const stop = useCallback(() => {
     recorderRef.current?.stop();
@@ -92,7 +76,7 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      // Denied, dismissed, or no input device — all the same to the user.
+      // Denied, dismissed, or no input device — same outcome to the user.
       setError("Microphone access was blocked.");
       return;
     }
@@ -105,7 +89,7 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
     };
 
     recorder.onstop = async () => {
-      stopTracks();
+      release();
       const audio = new Blob(chunks, { type: mimeType });
       if (!audio.size) return;
 
@@ -129,10 +113,10 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
     recorder.start();
     setRecording(true);
     timeoutRef.current = window.setTimeout(stop, MAX_RECORDING_MS);
-  }, [apiCall, stop, stopTracks]);
+  }, [apiCall, release, stop]);
 
   return {
-    available: !!sttModel && aiEnabled && canRecord,
+    available: !!sttModel && canRecord,
     recording,
     transcribing,
     error,

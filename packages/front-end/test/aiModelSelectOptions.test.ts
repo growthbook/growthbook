@@ -211,8 +211,7 @@ describe("getAvailableSTTModelOptions", () => {
   });
 
   it("does not expose transcription models for an incompatible provider list", () => {
-    // Neither Anthropic nor Google serves a batch transcription model we
-    // support, so only the sentinel is left — which is what hides the button.
+    // Neither Anthropic nor Google serves one, so only the sentinel is left.
     expect(
       values(getAvailableSTTModelOptions(["anthropic", "google"])).filter(
         Boolean,
@@ -232,8 +231,7 @@ describe("getAvailableSTTModelOptions", () => {
   });
 
   it("labels every transcription model", () => {
-    // getModelDisplayLabel feeds the key-removal dialog, which prints the
-    // dictation fallback; an unlabeled id would surface as a raw model string.
+    // Feeds the key-removal dialog; an unlabeled id shows as a raw model id.
     for (const { value, label } of STT_MODEL_OPTIONS) {
       expect(getModelDisplayLabel(value)).toBe(label);
     }

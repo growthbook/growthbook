@@ -115,8 +115,7 @@ export const EMBEDDING_MODEL_OPTIONS =
 
 /** Transcription models for voice dictation, labeled with their provider. */
 export const STT_MODEL_OPTIONS = ensureValuesExactlyMatchUnion<STTModel>()([
-  // OpenAI. gpt-transcribe supersedes the gpt-4o pair; whisper-1 is the
-  // legacy floor, kept for proxies that only expose it.
+  // gpt-transcribe supersedes the gpt-4o pair; whisper-1 is the legacy floor.
   { value: "gpt-transcribe", label: "OpenAI: GPT Transcribe" },
   { value: "gpt-4o-transcribe", label: "OpenAI: GPT-4o Transcribe" },
   { value: "gpt-4o-mini-transcribe", label: "OpenAI: GPT-4o Mini Transcribe" },
@@ -196,9 +195,8 @@ export const USE_DEFAULT_EMBEDDING_MODEL_OPTION = {
 };
 
 /**
- * Names no model on purpose: which transcription model the default resolves to
- * depends on which provider keys exist, so naming one here would be wrong for
- * most orgs.
+ * Names no model: which one the default resolves to depends on which provider
+ * keys exist, so naming one here would be wrong for most orgs.
  */
 export const USE_DEFAULT_STT_MODEL_OPTION = {
   value: "",
@@ -294,9 +292,8 @@ export function getAvailableEmbeddingModelOptions(
 }
 
 /**
- * Transcription model options, filtered like the embedding ones. Providers that
- * serve no transcription model (Anthropic, Google) filter everything out and
- * leave only the sentinel — which is the honest answer: nothing to pick.
+ * Filtered like the embedding options. A provider list with no transcription
+ * model (Anthropic, Google) leaves only the sentinel — nothing to pick.
  */
 export function getAvailableSTTModelOptions(
   availableProviders: readonly AIProvider[] | undefined,

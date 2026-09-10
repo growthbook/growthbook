@@ -52,8 +52,6 @@ describe("getProviderForAIModel", () => {
   });
 
   it("has no transcription model for Anthropic or Google", () => {
-    // Claude takes no audio input, and gemini-3.5-transcribe needs the
-    // Files API + /v1beta/interactions rather than an inline POST.
     for (const model of Object.values(AI_PROVIDER_STT_MODEL_MAP).flat()) {
       expect(["anthropic", "google"]).not.toContain(
         getProviderForAIModel("stt", model),
@@ -235,8 +233,7 @@ describe("getAIModelSettingsUsingProvider", () => {
   });
 
   it("finds the dictation setting", () => {
-    // Removing the key behind a stored dictation model has to clear it, or
-    // transcription keeps pointing at a provider with no credentials.
+    // Removing the key behind a stored dictation model has to clear it.
     expect(
       getAIModelSettingsUsingProvider({ sttModel: "grok-stt-1.0" }, "xai").map(
         (s) => s.key,

@@ -157,20 +157,20 @@
   box-shadow: 0 0 0 1px var(--violet-8);
 }
 
-.heroSendButton {
+// The 40px bottom padding on .heroBox is the gutter these sit in.
+.heroSendButton,
+.heroDictateButton {
   position: absolute;
-  right: 12px;
   bottom: 12px;
   z-index: 1;
 }
 
-// Mirrors .heroSendButton on the leading edge, so dictation is bottom-left in
-// every variant. The 40px bottom padding on .heroBox is the gutter both sit in.
+.heroSendButton {
+  right: 12px;
+}
+
 .heroDictateButton {
-  position: absolute;
   left: 12px;
-  bottom: 12px;
-  z-index: 1;
 }
 
 // --- Buttons -----------------------------------------------------------------
@@ -189,7 +189,8 @@
   line-height: 0;
 }
 
-.sendButton {
+.sendButton,
+.dictateButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -200,11 +201,10 @@
   line-height: 0;
   border: none;
   border-radius: var(--radius-3);
-  background: var(--violet-10);
-  color: #fff;
   cursor: pointer;
   transition:
     background-color 120ms ease,
+    color 120ms ease,
     opacity 120ms ease;
 
   // The icon defaults to inline (baseline) layout, which leaves descender
@@ -214,13 +214,18 @@
     display: block;
   }
 
-  &:hover:not(:disabled) {
-    background: var(--violet-11);
-  }
-
   &:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+}
+
+.sendButton {
+  background: var(--violet-10);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: var(--violet-11);
   }
 }
 
@@ -235,41 +240,14 @@
   }
 }
 
-// --- Dictation button --------------------------------------------------------
-
-// Sits at the leading edge of the inline variants' flex row, mirroring
-// .sendButton's geometry so both align on the same baseline as the editor grows.
+// Quiet by default — the send button is the primary action.
 .dictateButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  line-height: 0;
-  border: none;
-  border-radius: var(--radius-3);
   background: transparent;
   color: var(--gray-11);
-  cursor: pointer;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease,
-    opacity 120ms ease;
-
-  svg {
-    display: block;
-  }
 
   &:hover:not(:disabled) {
     background: var(--gray-a3);
     color: var(--gray-12);
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
   }
 }
 
@@ -285,8 +263,8 @@
   }
 }
 
-// The row's left padding exists to inset the text from the border; the button
-// carries its own, so drop it back to the button gutter when one is present.
+// The row's left padding insets the text from the border; the mic carries its
+// own, so drop back to the button gutter when it's present.
 .boxWithDictation {
   padding-left: 4px;
 }

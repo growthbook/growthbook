@@ -215,8 +215,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultAIModel:
         settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
-      // Left unset rather than seeded: the resolved model depends on which
-      // provider keys exist, so there is no correct value to pre-fill.
+      // Unset, not seeded: the resolved model depends on which keys exist.
       sttModel: settings.sttModel,
       visualEditorAIModel: settings.visualEditorAIModel,
       visualEditorImageModel: settings.visualEditorImageModel || "",

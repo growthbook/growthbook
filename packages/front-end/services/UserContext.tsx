@@ -129,8 +129,7 @@ export interface UserContextValue {
   // AI providers with a usable API key, from the org's own stored keys or the
   // host's environment variables.
   aiKeyProviders: AIProvider[];
-  // Resolved transcription model for voice dictation, or null when no provider
-  // with a key serves one. Null is what hides the dictation button.
+  // Resolved dictation model, null when unavailable. Hides the mic button.
   sttModel: STTModel | null;
   seatsInUse: number;
   roles: Role[];

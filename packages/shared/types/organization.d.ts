@@ -283,9 +283,7 @@ export interface OrganizationSettings {
   aiEnabled?: boolean;
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
-  // Voice dictation in AI chat. Unset resolves per getAISettingsForOrg, which
-  // returns null when no provider with a key serves transcription — that null
-  // is what hides the mic button.
+  // Voice dictation. Unset resolves in getAISettingsForOrg.
   sttModel?: STTModel;
   /** @deprecated */
   openAIDefaultModel?: AIModel;
@@ -558,7 +556,7 @@ export type GetOrganizationResponse = {
   // Providers with a usable key, stored or inherited from the environment.
   // Non-secret, and rides along here so AI gating needs no separate request.
   aiKeyProviders: AIProvider[];
-  // Resolved transcription model for voice dictation, null when unavailable.
+  // Resolved dictation model, null when unavailable. Hides the mic button.
   sttModel: STTModel | null;
 };
 
