@@ -16,6 +16,7 @@ import {
   getQueriesByIds,
   getRecentQuery,
   markPendingQueriesAsFailed,
+  setQueryExternalId,
   touchQueuedQueriesHeartbeat,
   updateQuery,
   updateQueryIfPending,
@@ -1129,10 +1130,22 @@ export abstract class QueryRunner<
       id: string,
       metadata?: Record<string, string>,
     ) => {
-      await updateQuery(this.context, doc, {
-        externalId: id,
-        ...(metadata ? { externalIdMetadata: metadata } : {}),
-      });
+      const status = await setQueryExternalId(this.context, doc, id, metadata);
+      if (!this.integration.cancelQuery) return;
+
+      // In case the query was cancelled before externalId was set, detect that and cancel
+      // the external job here
+      if (status === null || status === "failed") {
+        await cancelQueryAndConfirm(
+          this.integration,
+          { externalId: id, metadata },
+          {
+            datasourceId: this.integration.datasource.id,
+            modelId: this.model.id,
+            queryId: doc.id,
+          },
+        );
+      }
     };
 
     run(doc.query, setExternalId, { queryType: doc.queryType || "unknown" })

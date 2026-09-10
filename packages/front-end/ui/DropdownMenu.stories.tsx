@@ -32,6 +32,14 @@ export default function DropdownMenuStories() {
         <DropdownMenuItem>Create New Experiment</DropdownMenuItem>
         <DropdownMenuItem>Import Existing Experiment</DropdownMenuItem>
       </DropdownMenu>
+
+      {/* menuMaxHeight caps the menu and lets Radix's own viewport scroll, so
+          long lists need no scrolling wrapper around the items. */}
+      <DropdownMenu trigger="Long list" menuMaxHeight={200}>
+        {Array.from({ length: 20 }, (_, i) => (
+          <DropdownMenuItem key={i}>Item {i + 1}</DropdownMenuItem>
+        ))}
+      </DropdownMenu>
     </Flex>
   );
 }
