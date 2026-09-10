@@ -78,7 +78,13 @@ export default function TemplateFieldMapping({
     setStringMap((prev) => rebuild(prev, false));
   }
 
+  const hasSqlDatasource = datasources.some(
+    (d) => d.properties?.queryLanguage === "sql",
+  );
+  const canSelectFactTable = hasSqlDatasource && factTables.length > 0;
+
   const canContinue =
+    canSelectFactTable &&
     !!factTableId &&
     Object.values(numericMap).every(Boolean) &&
     Object.values(stringMap).every(Boolean);
@@ -156,7 +162,7 @@ export default function TemplateFieldMapping({
         <strong>{template.name || "New metric"}</strong>
         {template.description ? ` — ${template.description}` : ""}
       </Text>
-      {!datasources.some((d) => d.properties?.queryLanguage === "sql") ? (
+      {!hasSqlDatasource ? (
         <Callout status="info" mb="3">
           Connect a SQL Data Source before adding a metric.{" "}
           <Link href="/datasources">View Data Sources</Link>
@@ -170,6 +176,7 @@ export default function TemplateFieldMapping({
       <Flex direction="column" gap="3">
         <Select
           label="Fact table"
+          disabled={!canSelectFactTable}
           value={factTableId}
           setValue={changeFactTable}
           placeholder="Select..."
