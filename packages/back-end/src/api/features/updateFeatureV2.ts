@@ -52,7 +52,11 @@ import {
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields, validateRuleAttributes } from "./validations";
+import {
+  assertValidRuleEnvironments,
+  validateCustomFields,
+  validateRuleAttributes,
+} from "./validations";
 import {
   canBypassReviewChecks,
   canUseRestApiBypassSetting,
@@ -283,6 +287,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
+    assertValidRuleEnvironments(req.context, inboundFlatRules);
     await assertValidRuleProjectIds(inboundFlatRules, req.context);
     // Request-supplied config keys must exist, be live, and belong to the
     // default config's family — same gate as the revision rule endpoints.

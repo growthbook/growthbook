@@ -30,7 +30,11 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import type { ApiFeatureEnvSettings } from "./postFeature";
-import { validateCustomFields, validateRuleAttributes } from "./validations";
+import {
+  assertValidRuleEnvironments,
+  validateCustomFields,
+  validateRuleAttributes,
+} from "./validations";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertConfigSchemaCompat,
@@ -148,6 +152,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     feature.rules = (req.body.rules ?? []).map((rule) =>
       mapV2ApiRuleToFeatureRule(rule),
     );
+    assertValidRuleEnvironments(req.context, feature.rules);
     await assertValidRuleProjectIds(feature.rules, req.context);
 
     // Config backing comes through dedicated fields — reject a raw `@config:`

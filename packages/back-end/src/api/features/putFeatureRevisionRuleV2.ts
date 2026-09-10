@@ -29,6 +29,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  assertValidRuleEnvironments,
   discardIfJustCreated,
   isDraftStatus,
   normalizeInlineRampSchedule,
@@ -65,6 +66,8 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       "rampSchedule and schedule are mutually exclusive. Provide one or the other, not both.",
     );
   }
+  // Same environment-id check as the add endpoint, before a draft is created.
+  assertValidRuleEnvironments(req.context, [patch]);
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,

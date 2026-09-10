@@ -1,4 +1,7 @@
-import { validateRuleAttributes } from "back-end/src/api/features/validations";
+import {
+  assertValidRuleEnvironments,
+  validateRuleAttributes,
+} from "back-end/src/api/features/validations";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 
@@ -149,6 +152,54 @@ describe("validateRuleAttributes (V2 helper)", () => {
     // the registered-attributes check off.
     expect(() =>
       validateRuleAttributes({ hashAttribute: "userID" }, ctx, "proj_two"),
+    ).toThrow(BadRequestError);
+  });
+});
+
+// v2 rule / feature write paths: a rule's `environments` list may only name
+// environments the organization has (v1 checks its single `environment` the
+// same way).
+describe("assertValidRuleEnvironments", () => {
+  const ctx = {
+    org: {
+      settings: {
+        environments: [{ id: "production" }, { id: "qa" }],
+      },
+    },
+  } as unknown as ApiReqContext;
+
+  it("accepts rules that list known environments or none", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { environments: ["production", "qa"] },
+        { environments: [] },
+        {},
+      ]),
+    ).not.toThrow();
+  });
+
+  it("rejects a rule that lists an environment the organization does not have", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { environments: ["production"] },
+        { environments: ["prodution"] },
+      ]),
+    ).toThrow(BadRequestError);
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [{ environments: ["prodution"] }]),
+    ).toThrow('Invalid environment: "prodution"');
+  });
+
+  it("ignores the list on a rule scoped to all environments", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { allEnvironments: true, environments: ["prodution"] },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { allEnvironments: false, environments: ["prodution"] },
+      ]),
     ).toThrow(BadRequestError);
   });
 });

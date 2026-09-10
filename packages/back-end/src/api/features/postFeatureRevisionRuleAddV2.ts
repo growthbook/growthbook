@@ -43,6 +43,7 @@ import {
   isDraftStatus,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
+  assertValidRuleEnvironments,
   resolveOrCreateRevision,
   validateRuleAttributes,
   validateRuleConditions,
@@ -88,6 +89,9 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       "rampSchedule and schedule are mutually exclusive. Provide one or the other, not both.",
     );
   }
+  // v1 validates its single `environment`; do the same for the v2 list
+  // before a draft is created.
+  assertValidRuleEnvironments(req.context, [ruleInput]);
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,

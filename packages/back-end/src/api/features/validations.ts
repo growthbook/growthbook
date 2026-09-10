@@ -146,6 +146,20 @@ export function assertValidEnvironment(
   }
 }
 
+// Same check for the `environments` list a v2 rule is scoped to. A rule with
+// `allEnvironments: true` is skipped, since its list is discarded.
+export function assertValidRuleEnvironments(
+  context: ApiReqContext,
+  rules: { allEnvironments?: boolean; environments?: string[] }[],
+): void {
+  for (const rule of rules) {
+    if (rule.allEnvironments === true) continue;
+    for (const environment of rule.environments ?? []) {
+      assertValidEnvironment(context, environment);
+    }
+  }
+}
+
 // Build a RevisionRampCreateAction from start/end dates (enable/disable).
 // `environment` is intentionally absent — new actions target by `ruleId` only.
 //
