@@ -18,7 +18,7 @@ This page is a checklist of everything you need in place before running your fir
 ## Requirements at a glance
 
 - **An Enterprise plan** — Contextual Bandits are an Enterprise-only beta feature.
-- **A supported SDK on a compatible version** — currently JavaScript, React, and Node.js (see below).
+- **A supported SDK on a compatible version** — currently JavaScript, React, Node.js, and Python (see below).
 - **A Fact Metric to use as the Decision Metric** — legacy (non-fact) metrics are not supported as decision metrics.
 
 ## 1. Install or upgrade to a compatible SDK
@@ -30,6 +30,7 @@ Contextual Bandit support ships in the following SDKs:
 | JavaScript | `@growthbook/growthbook`       | 1.7.0 or higher     |
 | React      | `@growthbook/growthbook-react` | 1.7.0 or higher     |
 | Node.js    | `@growthbook/growthbook`       | 1.7.0 or higher     |
+| Python     | `growthbook`                   | 3.1.0 or higher     |
 
 Install or upgrade to a compatible version with your package manager:
 
@@ -37,6 +38,8 @@ Install or upgrade to a compatible version with your package manager:
 npm install --save @growthbook/growthbook
 # React apps
 npm install --save @growthbook/growthbook-react
+# Python apps
+pip install --upgrade growthbook
 ```
 
 Note: for JS-based SDKs, 1.7 is a backwards-compatible release.
@@ -44,7 +47,7 @@ Note: for JS-based SDKs, 1.7 is a backwards-compatible release.
 <Note>
 **What happens on older SDKs?**
 
-Contextual bandit rules degrade gracefully. SDKs below 1.7.0 (and all SDK languages without the capability) skip contextual bandit rules entirely and serve the feature's default value — they never bucket users with stale or global weights. This makes it safe to roll out a contextual bandit while part of your fleet is still on older SDK versions, but users on those versions won't enter the bandit.
+Contextual bandit rules degrade gracefully. SDKs below the versions listed above (and all SDK languages without the capability) skip contextual bandit rules entirely and serve the feature's default value — they never bucket users with stale or global weights. This makes it safe to roll out a contextual bandit while part of your fleet is still on older SDK versions, but users on those versions won't enter the bandit.
 
 </Note>
 
@@ -52,7 +55,7 @@ Contextual bandit rules degrade gracefully. SDKs below 1.7.0 (and all SDK langua
 
 Two things to verify on your SDK Connection, under **SDK Configuration → SDK Connections** in the GrowthBook app:
 
-1. **Language and version** — make sure the connection's SDK language is JavaScript, React, or Node.js and its version is set to 1.7.0 or higher. GrowthBook only includes contextual bandit definitions in the SDK payload for connections that support them.
+1. **Language and version** — make sure the connection's SDK language is one of the languages listed above and its version is set to a compatible version. GrowthBook only includes contextual bandit definitions in the SDK payload for connections that support them.
 2. **Cache TTL** — contextual bandits change variation weights while running. If your SDK caches the payload longer than the bandit's update cadence, users will be bucketed with stale weights, which slows learning and can trigger SRM warnings. Make sure your SDK's `maxAge` / TTL settings refresh the payload significantly more often than the bandit reweights (or use streaming updates).
 
 ## 3. Update your tracking callback
