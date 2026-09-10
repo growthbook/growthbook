@@ -1,6 +1,7 @@
 import React, { FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { RxDesktop } from "react-icons/rx";
+import { Flex } from "@radix-ui/themes";
 import { BsFlag } from "react-icons/bs";
 import { PiShuffle } from "react-icons/pi";
 import { ComputedExperimentInterface } from "shared/types/experiment";
@@ -8,8 +9,12 @@ import { date, datetime } from "shared/dates";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import WatchButton from "@/components/WatchButton";
 import SortedTags from "@/components/Tags/SortedTags";
-import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import {
+  ExperimentDot,
+  ExperimentStatusDetailsWithDot,
+} from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Pagination from "@/ui/Pagination";
+import UITooltip from "@/ui/Tooltip";
 import Table, {
   TableHeader,
   TableBody,
@@ -18,7 +23,12 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
-import { isHealthDetailedStatus } from "@/services/experiments";
+import {
+  EXPERIMENT_HEALTH_STATE_LABELS,
+  getHealthStateFromDetailedStatus,
+  isTempRolloutHealthState,
+  TEMP_ROLLOUT_HEALTH_STATES,
+} from "@/services/experiments";
 
 interface ExperimentsListTableProps {
   tab: string;
@@ -56,9 +66,9 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
     tab === "stopped" || tab === "running" || tab === "all";
   // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && filtered.some((e) => e.project);
-  // State column surfaces signals like "No data", "Unhealthy", or
-  // "Temp Rollout" — things that need attention beyond the lifecycle status.
-  const showHealthColumn = filtered.some((e) => e.healthStatus !== "");
+  // Health column surfaces signals like "No data", "Unhealthy", or
+  // "Temp rollout" — things that need attention beyond the lifecycle status.
+  const showHealthColumn = filtered.some((e) => e.healthState !== null);
 
   // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
@@ -106,8 +116,8 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
               </SortableTableColumnHeader>
             )}
             {showHealthColumn && (
-              <SortableTableColumnHeader field="healthStatus">
-                State
+              <SortableTableColumnHeader field="healthSortOrder">
+                Health
               </SortableTableColumnHeader>
             )}
           </TableRow>
@@ -240,7 +250,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
               ) : null}
               {needsResultColumn ? (
                 <TableCell>
-                  {isHealthDetailedStatus(
+                  {getHealthStateFromDetailedStatus(
                     e.statusIndicator.detailedStatus,
                   ) ? null : (
                     <ExperimentStatusDetailsWithDot
@@ -251,36 +261,25 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
               ) : null}
               {showHealthColumn ? (
                 <TableCell style={{ whiteSpace: "nowrap" }}>
-                  {isHealthDetailedStatus(e.statusIndicator.detailedStatus) ? (
+                  {isTempRolloutHealthState(e.healthState) ? (
+                    <UITooltip
+                      content={
+                        TEMP_ROLLOUT_HEALTH_STATES[e.healthState].tooltip
+                      }
+                    >
+                      <Flex gap="1" align="center">
+                        <ExperimentDot
+                          color={
+                            TEMP_ROLLOUT_HEALTH_STATES[e.healthState].color
+                          }
+                        />
+                        {EXPERIMENT_HEALTH_STATE_LABELS[e.healthState]}
+                      </Flex>
+                    </UITooltip>
+                  ) : e.healthState ? (
                     <ExperimentStatusDetailsWithDot
                       statusIndicatorData={e.statusIndicator}
                     />
-                  ) : e.hasTempRollout ? (
-                    <Tooltip
-                      flipTheme={false}
-                      body="This stopped experiment still has its temporary rollout enabled. Ready for cleanup."
-                    >
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        <span
-                          aria-label="Temporary rollout"
-                          style={{
-                            display: "inline-block",
-                            width: 8,
-                            height: 8,
-                            borderRadius: 8,
-                            backgroundColor: "var(--orange-9)",
-                          }}
-                        />
-                        Temp Rollout
-                      </span>
-                    </Tooltip>
                   ) : null}
                 </TableCell>
               ) : null}

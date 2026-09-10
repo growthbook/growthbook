@@ -231,12 +231,18 @@ export type ComputedExperimentInterface = ExperimentInterfaceStringDates & {
   statusSortOrder: number;
   statusIndicator: StatusIndicatorData;
   isWatched?: boolean;
-  hasTempRollout: boolean;
-  // Display string for the "State" column (e.g. "No data", "Unhealthy",
-  // "Temp Rollout"), or "" when there's no health-related signal. Used for
-  // both rendering and alphabetical sorting.
-  healthStatus: string;
+  // Machine-readable signal for the "Health" column and `is:` search filters.
+  // null when the experiment has nothing that needs attention.
+  healthState: ExperimentHealthState | null;
+  // Higher = more urgent; 0 when healthState is null.
+  healthSortOrder: number;
 };
+
+export type ExperimentHealthState =
+  | "no-data"
+  | "unhealthy"
+  | "temp-rollout"
+  | "old-temp-rollout";
 
 export type Changeset = Partial<ExperimentInterface>;
 

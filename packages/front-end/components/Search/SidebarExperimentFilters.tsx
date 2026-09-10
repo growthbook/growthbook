@@ -35,6 +35,7 @@ export const EXPERIMENT_FILTER_KEYS = [
   "status",
   "tag",
   "has",
+  "health",
 ];
 
 type FilterCategory = {
@@ -100,6 +101,7 @@ const CATEGORY_ORDER = [
   "status",
   "tag",
   "has",
+  "health",
 ];
 
 /**
@@ -180,6 +182,7 @@ const SidebarExperimentFilters: FC<Props> = ({
     resultItems,
     statusItems,
     typeItems,
+    healthItems,
   } = useExperimentFilterCategories({ experiments, allowDrafts });
 
   const categories = useMemo<FilterCategory[]>(() => {
@@ -218,6 +221,7 @@ const SidebarExperimentFilters: FC<Props> = ({
       })),
     });
     add({ key: "has", heading: "Type", items: typeItems });
+    add({ key: "health", heading: "Health", items: healthItems });
 
     return CATEGORY_ORDER.map((key) => byKey.get(key)).filter(
       (c): c is FilterCategory => !!c,
@@ -231,6 +235,7 @@ const SidebarExperimentFilters: FC<Props> = ({
     resultItems,
     statusItems,
     typeItems,
+    healthItems,
     availableTags,
     showStatusFilter,
   ]);

@@ -11,13 +11,14 @@ import {
   ExperimentStatus,
   ExperimentTemplateInterface,
   MetricOverride,
+  ExperimentHealthState,
 } from "shared/types/experiment";
 import {
   DataSourceInterfaceWithParams,
   DataSourcePipelineSettings,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { getValidDate } from "shared/dates";
+import { daysBetween, getValidDate } from "shared/dates";
 import { includeExperimentInPayload } from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
@@ -428,8 +429,82 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
   return { newMetric, overrideFields };
 }
 
+export const OLD_TEMP_ROLLOUT_DAYS = 30;
+
+type TempRolloutHealthState = Extract<
+  ExperimentHealthState,
+  "temp-rollout" | "old-temp-rollout"
+>;
+
+// Ordered as shown in filter UIs. Keys double as `health:` search tokens.
+export const EXPERIMENT_HEALTH_STATE_LABELS: Record<
+  ExperimentHealthState,
+  string
+> = {
+  "no-data": "No data",
+  unhealthy: "Unhealthy",
+  "temp-rollout": "Temp rollout",
+  "old-temp-rollout": "Old temp rollout",
+};
+
+export const TEMP_ROLLOUT_HEALTH_STATES: Record<
+  TempRolloutHealthState,
+  { color: "yellow" | "orange"; tooltip: string }
+> = {
+  "temp-rollout": {
+    color: "yellow",
+    tooltip:
+      "This stopped experiment still has its temporary rollout enabled. Ready for cleanup.",
+  },
+  "old-temp-rollout": {
+    color: "orange",
+    tooltip: `This experiment stopped over ${OLD_TEMP_ROLLOUT_DAYS} days ago and still has its temporary rollout enabled. Ready for cleanup.`,
+  },
+};
+
+const HEALTH_SORT_ORDER: Record<ExperimentHealthState, number> = {
+  "temp-rollout": 1,
+  "old-temp-rollout": 2,
+  "no-data": 3,
+  unhealthy: 4,
+};
+
+// Detailed statuses from `statusIndicatorData.ts` that describe a data or
+// setup problem with a running experiment rather than a result.
+const DETAILED_STATUS_HEALTH_STATES: Record<string, ExperimentHealthState> = {
+  "No data": "no-data",
+  Unhealthy: "unhealthy",
+};
+
+export function getHealthStateFromDetailedStatus(
+  detailedStatus?: string,
+): ExperimentHealthState | null {
+  if (!detailedStatus) return null;
+  return DETAILED_STATUS_HEALTH_STATES[detailedStatus] ?? null;
+}
+
+export function isTempRolloutHealthState(
+  state: ExperimentHealthState | null,
+): state is TempRolloutHealthState {
+  return state === "temp-rollout" || state === "old-temp-rollout";
+}
+
+type ExperimentForTempRollout = Pick<
+  ExperimentInterfaceStringDates,
+  | "status"
+  | "archived"
+  | "excludeFromPayload"
+  | "releasedVariationId"
+  | "hasVisualChangesets"
+  | "hasURLRedirects"
+  | "linkedFeatures"
+  | "phases"
+>;
+
 /**
- * True when a stopped experiment still has its temporary rollout turned on.
+ * Which temp-rollout state a stopped experiment is in, or null when its
+ * temporary rollout is off. "old-temp-rollout" once the experiment has been
+ * stopped for more than OLD_TEMP_ROLLOUT_DAYS.
  *
  * Delegates to `includeExperimentInPayload` for the experiment-level guards —
  * archived, missing released variation, no phases, no linked changes all
@@ -439,65 +514,42 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
  * list does not load. That skips the published-rule check inside
  * `includeExperimentInPayload`, so an experiment whose experiment-ref rules are
  * all disabled, in a disabled environment, or present only in an unpublished
- * draft still reports true. That is the intent here: the rollout setting is
- * still on and wants turning off, which is precisely the cleanup signal the
- * "State" column exists to surface. It does mean this is NOT a guarantee that a
- * live rule is currently serving the released variation — use
- * `includeExperimentInPayload` with the linked features for that.
+ * draft still counts. That is the intent here: the rollout setting is still on
+ * and wants turning off, which is precisely the cleanup signal the "Health"
+ * column exists to surface. It is NOT a guarantee that a live rule is
+ * currently serving the released variation — use `includeExperimentInPayload`
+ * with the linked features for that.
  */
-export function hasTempRollout(
-  exp: Pick<
-    ExperimentInterfaceStringDates,
-    | "status"
-    | "archived"
-    | "excludeFromPayload"
-    | "releasedVariationId"
-    | "hasVisualChangesets"
-    | "hasURLRedirects"
-    | "linkedFeatures"
-    | "phases"
-  >,
-): boolean {
-  return (
-    exp.status === "stopped" &&
-    includeExperimentInPayload(exp as ExperimentInterfaceStringDates)
-  );
+export function getTempRolloutHealthState(
+  exp: ExperimentForTempRollout,
+  now: Date = new Date(),
+): TempRolloutHealthState | null {
+  if (exp.status !== "stopped") return null;
+  if (!includeExperimentInPayload(exp as ExperimentInterfaceStringDates)) {
+    return null;
+  }
+  const dateEnded = exp.phases?.[exp.phases.length - 1]?.dateEnded;
+  if (dateEnded && daysBetween(dateEnded, now) > OLD_TEMP_ROLLOUT_DAYS) {
+    return "old-temp-rollout";
+  }
+  return "temp-rollout";
 }
 
-// Detailed-status values that belong in the "State" column (data/setup
-// problems with a running experiment) rather than the "Result" column.
-// Kept in sync with the cases in `statusIndicatorData.ts`.
-export const HEALTH_DETAILED_STATUSES = ["No data", "Unhealthy"] as const;
-
-export function isHealthDetailedStatus(detailedStatus?: string): boolean {
-  if (!detailedStatus) return false;
-  return (HEALTH_DETAILED_STATUSES as readonly string[]).includes(
-    detailedStatus,
-  );
-}
-
-/**
- * Display string for the "State" column. Returns the experiment's health
- * `detailedStatus` (e.g. "No data", "Unhealthy") when one is set, otherwise
- * "Temp Rollout" when the experiment is a temp rollout, otherwise "".
- */
-export function getHealthStatus(
-  exp: Pick<
-    ExperimentInterfaceStringDates,
-    | "status"
-    | "archived"
-    | "excludeFromPayload"
-    | "releasedVariationId"
-    | "hasVisualChangesets"
-    | "hasURLRedirects"
-    | "linkedFeatures"
-    | "phases"
-  >,
+export function getExperimentHealthState(
+  exp: ExperimentForTempRollout,
   detailedStatus?: string,
-): string {
-  if (isHealthDetailedStatus(detailedStatus)) return detailedStatus ?? "";
-  if (hasTempRollout(exp)) return "Temp Rollout";
-  return "";
+  now: Date = new Date(),
+): ExperimentHealthState | null {
+  return (
+    getHealthStateFromDetailedStatus(detailedStatus) ??
+    getTempRolloutHealthState(exp, now)
+  );
+}
+
+export function getHealthSortOrder(
+  state: ExperimentHealthState | null,
+): number {
+  return state ? HEALTH_SORT_ORDER[state] : 0;
 }
 
 export function pValueFormatter(pValue: number, digits: number = 3): string {
@@ -553,6 +605,10 @@ export function useExperimentSearch({
       const rawSavedGroup = lastPhase?.savedGroups || [];
       const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
       const isWatched = watchedExperimentIds?.includes(exp.id) ?? false;
+      const healthState = getExperimentHealthState(
+        exp,
+        statusIndicator.detailedStatus,
+      );
 
       return {
         ownerName: getOwnerDisplay(exp.owner),
@@ -575,8 +631,8 @@ export function useExperimentSearch({
         statusIndicator,
         statusSortOrder,
         isWatched,
-        hasTempRollout: hasTempRollout(exp),
-        healthStatus: getHealthStatus(exp, statusIndicator.detailedStatus),
+        healthState,
+        healthSortOrder: getHealthSortOrder(healthState),
       };
     },
     [getExperimentMetricById, getOwnerDisplay, getProjectById],
@@ -589,6 +645,9 @@ export function useExperimentSearch({
     defaultSortDir,
     updateSearchQueryOnChange: controlledSearchValue === undefined,
     controlledSearchValue,
+    // 0 is falsy and would otherwise fall through to undefined in the sort
+    // comparator, leaving healthy rows unordered against the rest.
+    defaultMappings: { healthSortOrder: 0 },
     searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
@@ -627,7 +686,7 @@ export function useExperimentSearch({
         ) {
           has.push("screenshots");
         }
-        if (item.hasTempRollout) {
+        if (isTempRolloutHealthState(item.healthState)) {
           has.push("rollout", "tempRollout");
         }
         return has;
@@ -641,6 +700,7 @@ export function useExperimentSearch({
       trackingKey: (item) => item.trackingKey,
       id: (item) => [item.id, item.trackingKey],
       status: (item) => item.status,
+      health: (item) => item.healthState,
       result: (item) =>
         item.status === "stopped" ? item.results || "unfinished" : "unfinished",
       owner: (item) => [item.owner, item.ownerName],

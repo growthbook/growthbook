@@ -43,6 +43,7 @@ const ExperimentSearchFilters: FC<
     resultItems,
     statusItems,
     typeItems,
+    healthItems,
   } = useExperimentFilterCategories({ experiments, allowDrafts });
 
   return (
@@ -122,6 +123,15 @@ const ExperimentSearchFilters: FC<
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
         items={typeItems}
+        updateQuery={updateQuery}
+      />
+      <FilterDropdown
+        filter="health"
+        heading="Health"
+        syntaxFilters={syntaxFilters}
+        open={dropdownFilterOpen}
+        setOpen={setDropdownFilterOpen}
+        items={healthItems}
         updateQuery={updateQuery}
       />
       {/*<DropdownMenu*/}
