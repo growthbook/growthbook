@@ -1,7 +1,7 @@
 import type { ApiReqContext } from "back-end/types/api";
 import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
-import { getSlackUserLink } from "back-end/src/models/SlackUserLinkModel";
+import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
 import { getCollection } from "back-end/src/util/mongo.util";
@@ -237,7 +237,10 @@ export async function resolveSlackAssistantTarget({
   // login), NOT the Slack profile email — which is user-settable/spoofable in
   // non-SSO workspaces and can be unset.
   const link = teamId
-    ? await getSlackUserLink({ slackTeamId: teamId, slackUserId })
+    ? await SlackUserLinkModel.dangerousFindBySlackIdentity({
+        slackTeamId: teamId,
+        slackUserId,
+      })
     : null;
   if (!link) {
     return {

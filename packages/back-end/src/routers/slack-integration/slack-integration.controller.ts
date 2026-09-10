@@ -15,7 +15,6 @@ import {
   getContextForUserIdInOrg,
 } from "back-end/src/services/organizations";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
-import { upsertSlackUserLink } from "back-end/src/models/SlackUserLinkModel";
 import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
 import { getSlackWorkspaceOrganizationIds } from "back-end/src/services/slack/slackIdentity";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
@@ -363,29 +362,21 @@ export const postSlackLink = async (
     });
   }
   const orgIds = await getSlackWorkspaceOrganizationIds(parsed.slackTeamId);
-  const memberOrgIds: string[] = [];
   for (const organizationId of orgIds) {
     const organization = await findOrganizationById(organizationId);
-    if (
-      organization &&
-      (await getContextForUserIdInOrg(organization, context.userId))
-    ) {
-      memberOrgIds.push(organizationId);
-    }
+    if (!organization) continue;
+    const memberContext = await getContextForUserIdInOrg(
+      organization,
+      context.userId,
+    );
+    if (!memberContext) continue;
+    await memberContext.models.slackUserLinks.linkCurrentUser(req.body.state);
+    return res.json({ linked: true });
   }
-  if (memberOrgIds.length === 0) {
-    return res.status(400).json({
-      message:
-        "Your GrowthBook account isn't a member of an organization connected to this Slack workspace.",
-    });
-  }
-  await upsertSlackUserLink({
-    slackTeamId: parsed.slackTeamId,
-    slackUserId: parsed.slackUserId,
-    organizationId: memberOrgIds[0],
-    growthbookUserId: context.userId,
+  return res.status(400).json({
+    message:
+      "Your GrowthBook account isn't a member of an organization connected to this Slack workspace.",
   });
-  return res.json({ linked: true });
 };
 
 export const postSlackAssistant = async (

@@ -23,6 +23,19 @@ login. Requests run with their current organization permissions. Mutations requi
 confirmation from the conversation owner. Notification delivery is independent of
 the assistant switch.
 
+## Account-link storage
+
+Slack user links use BaseModel with a globally unique workspace/user pair. The
+stored organization is audit context, not an authorization boundary for that
+identity. A narrow static lookup resolves identity before an organization is
+known; each assistant request still resolves the destination organization and
+checks current membership and permissions. Authenticated relinking verifies the
+signed Slack consent token and a real workspace connection before updating that
+same global pair. Generic create/update operations are disabled so they cannot
+bypass consent. Ordinary model reads/deletes retain BaseModel's organization
+scope. Existing Mongoose records using `organizationId` remain readable and are
+normalized when relinked.
+
 ## Queue recovery
 
 Slack event and interaction requests are acknowledged only after Agenda accepts
