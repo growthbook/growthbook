@@ -164,7 +164,8 @@ function validateSavedFilterIds({
 }
 
 type WriteOptions = {
-  // Set by fact-table column cascades; see removeAutoSlices.
+  // Set by removeAutoSlices: a metricAutoSlices-only write that maintains
+  // derived state and is exempt from the API-managed channel guard.
   autoSliceCascade?: boolean;
 };
 
@@ -414,12 +415,17 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     newDoc: FactMetricInterface,
     writeOptions?: WriteOptions,
   ) {
-    // Check the admin permission here?
+    // A fact-table column cascade only maintains derived state, so that write
+    // is exempt from the channel guard below. See removeAutoSlices.
     if (
-      existing.managedBy === "api" &&
-      !this.context.isApiRequest &&
-      !writeOptions?.autoSliceCascade
+      writeOptions?.autoSliceCascade &&
+      Object.keys(updates).every((k) => k === "metricAutoSlices")
     ) {
+      return;
+    }
+    // API-managed metrics are only editable through the API so their
+    // definition can't drift from the caller's source of truth.
+    if (existing.managedBy === "api" && !this.context.isApiRequest) {
       throw new Error(
         "Cannot update fact metric managed by API if the request isn't from the API.",
       );
