@@ -9,7 +9,7 @@ import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiDotsThreeVertical, PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -102,7 +102,8 @@ const DataSourcePage: FC = () => {
 
   const { apiCall, orgId } = useAuth();
   const { hasCommercialFeature } = useUser();
-  const contextualBanditsEnabled = useFeatureIsOn("contextual-bandits");
+  // Default ON; the remote flag only turns this off for specific orgs.
+  const contextualBanditsEnabled = useFeatureValue("contextual-bandits", true);
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   // Only the never-provisioned state replaces the settings UI with the onboarding
