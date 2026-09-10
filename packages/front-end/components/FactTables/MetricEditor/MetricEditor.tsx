@@ -235,7 +235,6 @@ export default function MetricEditor({
         label: step.name || `Step ${index + 1}`,
         factTable: getFactTableById(step.factTableId) ?? null,
         rowFilters: step.rowFilters,
-        column: "$$count",
       }))
     : [
         {
@@ -243,7 +242,6 @@ export default function MetricEditor({
           label: formType === "ratio" ? "Numerator" : "Metric",
           factTable: getFactTableById(numerator.factTableId) ?? null,
           rowFilters: numerator.rowFilters || [],
-          column: numerator.column,
         },
         ...(formType === "ratio" && denominator
           ? [
@@ -252,7 +250,6 @@ export default function MetricEditor({
                 label: "Denominator",
                 factTable: getFactTableById(denominator.factTableId) ?? null,
                 rowFilters: denominator.rowFilters || [],
-                column: denominator.column,
               },
             ]
           : []),

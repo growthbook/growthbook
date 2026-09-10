@@ -295,7 +295,8 @@ async function previewMetricRowsQuery(
     templateVariables: {
       eventName: factTable.eventName,
     },
-    testDays: context.org.settings?.testQueryDays,
+    testDays: 30,
+    limit: 20,
     timestampColumn,
   });
 
