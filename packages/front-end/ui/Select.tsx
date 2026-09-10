@@ -55,7 +55,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
   }: SelectProps,
   ref,
 ) {
-  const labelId = useId();
+  const triggerId = useId();
   return (
     <Flex
       direction="column"
@@ -64,11 +64,14 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       className={`gb-select--${size}`}
     >
       {typeof label === "string" ? (
-        <label id={labelId}>
-          <Text size={labelSize ?? "md"} weight={labelWeight}>
-            {label}
-          </Text>
-        </label>
+        <Text
+          as="label"
+          htmlFor={triggerId}
+          size={labelSize ?? "md"}
+          weight={labelWeight}
+        >
+          {label}
+        </Text>
       ) : label !== undefined ? (
         label
       ) : null}
@@ -80,10 +83,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         onValueChange={setValue}
       >
         <RadixSelect.Trigger
+          id={triggerId}
           aria-label={ariaLabel}
-          aria-labelledby={
-            !ariaLabel && typeof label === "string" ? labelId : undefined
-          }
           autoFocus={autoFocus}
           placeholder={placeholder}
           className={clsx(triggerClassName, { error: error })}
