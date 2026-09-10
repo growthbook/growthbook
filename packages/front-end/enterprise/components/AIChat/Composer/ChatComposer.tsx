@@ -440,8 +440,10 @@ function ChatComposer(
   }, [value, clearDictationError]);
 
   // With nothing to send, the mic takes the send button's place as the filled
-  // primary action rather than sitting next to a dead arrow.
-  const micIsPrimary = !canSend && !isLocalStream;
+  // primary action rather than sitting next to a dead arrow. Compact only:
+  // there the two are the same 30px button, so it's a swap. Wide and hero send
+  // through `@/ui/Button`, where it would also change the control's size.
+  const micIsPrimary = isCompact && !canSend && !isLocalStream;
   const dictateButton = (
     <DictationButton
       dictation={dictation}
