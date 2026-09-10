@@ -140,7 +140,6 @@ export default function SafeRolloutStatusModal({
 
   return (
     <Modal
-      useRadixButton={false}
       open={open}
       close={() => setStatusModalOpen(false)}
       header={`End Safe Rollout`}
