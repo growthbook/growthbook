@@ -6,7 +6,7 @@ import {
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { useEffect, useState } from "react";
-import { Flex, Box } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -14,8 +14,8 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
-import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
+import Checkbox from "@/ui/Checkbox";
+import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import TargetingForm from "./TargetingForm";
 
 export type ChangeType =
@@ -154,38 +154,24 @@ export default function MakeChangesFlow({
           setStep(i);
         }
       }}
-      secondaryCTA={
+      aboveFooterContent={
         step === lastStepNumber ? (
-          <Box style={{ minWidth: 520 }}>
-            <Callout status="warning">
-              <Flex align="center" justify="between" gap="3">
-                <Text>
-                  <Text weight="semibold">Warning:</Text> Changes made will
-                  apply to linked Feature Flags, Visual Changes, and URL
-                  Redirects immediately upon publishing
-                </Text>
-                <Box>
-                  <label
-                    htmlFor="confirm-changes"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Text weight="semibold">Confirm</Text>
-                    <input
-                      id="confirm-changes"
-                      type="checkbox"
-                      checked={changesConfirmed}
-                      onChange={(e) => setChangesConfirmed(e.target.checked)}
-                    />
-                  </label>
-                </Box>
-              </Flex>
-            </Callout>
-          </Box>
+          <ModalWarningBanner
+            controls={
+              <Box style={{ color: "var(--violet-11)" }}>
+                <Checkbox
+                  value={changesConfirmed}
+                  setValue={setChangesConfirmed}
+                  label="Confirm"
+                  weight="medium"
+                  align="center"
+                />
+              </Box>
+            }
+          >
+            Changes made will apply to linked Feature Flags, Visual Changes, and
+            URL Redirects immediately upon publishing.
+          </ModalWarningBanner>
         ) : undefined
       }
     >

@@ -248,22 +248,17 @@ export default function EditSqlModal({
       cta="Confirm Changes"
       closeCta="Back"
       secondaryCTA={
-        <Tooltip
-          body="You do not have permission to run test queries"
-          shouldDisplay={!canRunQueries}
-          tipPosition="top"
-        >
-          <label className="mx-4 mb-0">
-            <input
-              type="checkbox"
-              disabled={!canRunQueries}
-              className="form-check-input"
-              checked={testQueryBeforeSaving}
-              onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
-            />
-            Test query before confirming
-          </label>
-        </Tooltip>
+        <Box mx="4">
+          <Checkbox
+            value={testQueryBeforeSaving}
+            setValue={setTestQueryBeforeSaving}
+            label="Test query before confirming"
+            weight="medium"
+            align="center"
+            disabled={!canRunQueries}
+            disabledMessage="You do not have permission to run test queries"
+          />
+        </Box>
       }
     >
       <Box p="2" style={{ height: "calc(93vh - 140px)" }}>

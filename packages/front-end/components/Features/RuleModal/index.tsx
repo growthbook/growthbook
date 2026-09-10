@@ -19,7 +19,7 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
-import { PiCaretDown, PiCaretRight, PiWarningFill } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
@@ -79,6 +79,7 @@ import {
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -219,56 +220,44 @@ function RampImpactBanner({
   onRampToNewValue?: () => void;
 }) {
   return (
-    <Flex
-      align="center"
-      justify="between"
-      gap="4"
-      px="4"
-      py="2"
-      style={{
-        background: "var(--amber-a3)",
-        borderTop: "1px solid var(--amber-a5)",
-      }}
-    >
-      <Flex align="center" gap="2" style={{ color: "var(--amber-11)" }}>
-        <PiWarningFill size={15} style={{ flexShrink: 0 }} />
-        <Text as="div">
-          This ramp-up will override an already-published rule.{" "}
-          {impact.kind === "coverage-drop" ? (
-            <>
-              Unenrolled users ({100 - impact.toPct}%) will fall through to{" "}
-              {fallthroughPhrase}.
-            </>
-          ) : (
-            <>
-              This rule will be disabled until the ramp-up starts; until then,
-              all traffic will fall through to {fallthroughPhrase}.
-            </>
+    <ModalWarningBanner
+      controls={
+        <>
+          {onRampToNewValue && (
+            <Tooltip
+              content="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
+              side="top"
+            >
+              <Button variant="outline" size="md" onClick={onRampToNewValue}>
+                Ramp to new value
+              </Button>
+            </Tooltip>
           )}
-        </Text>
-      </Flex>
-      <Flex align="center" gap="4" flexShrink="0">
-        {onRampToNewValue && (
-          <Tooltip
-            content="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
-            side="top"
-          >
-            <Button variant="outline" size="md" onClick={onRampToNewValue}>
-              Ramp to new value
-            </Button>
-          </Tooltip>
-        )}
-        <Box style={{ color: "var(--violet-11)" }}>
-          <Checkbox
-            value={acknowledged}
-            setValue={setAcknowledged}
-            label="Acknowledge"
-            weight="medium"
-            align="center"
-          />
-        </Box>
-      </Flex>
-    </Flex>
+          <Box style={{ color: "var(--violet-11)" }}>
+            <Checkbox
+              value={acknowledged}
+              setValue={setAcknowledged}
+              label="Acknowledge"
+              weight="medium"
+              align="center"
+            />
+          </Box>
+        </>
+      }
+    >
+      This ramp-up will override an already-published rule.{" "}
+      {impact.kind === "coverage-drop" ? (
+        <>
+          Unenrolled users ({100 - impact.toPct}%) will fall through to{" "}
+          {fallthroughPhrase}.
+        </>
+      ) : (
+        <>
+          This rule will be disabled until the ramp-up starts; until then, all
+          traffic will fall through to {fallthroughPhrase}.
+        </>
+      )}
+    </ModalWarningBanner>
   );
 }
 
