@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Code from "@/components/SyntaxHighlighting/Code";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import { MetricPreviewSql } from "@/components/FactTables/MetricEditor/previewSql";
+import styles from "./PreviewPanel.module.scss";
 
 export type PreviewPart = {
   key: string;
@@ -109,7 +110,7 @@ export default function PreviewPanel({
             overflow: "auto",
           }}
         >
-          <TabsContent value="sql">
+          <TabsContent value="sql" className={styles.sqlPreview}>
             {previewSql?.sql ? (
               <Flex direction="column" gap="4">
                 <Text size="sm" color="text-mid" as="div">
@@ -120,7 +121,12 @@ export default function PreviewPanel({
                   <Text weight="semibold" as="div" mb="1">
                     Metric value (per user)
                   </Text>
-                  <Code language="sql" code={previewSql.sql} expandable />
+                  <Code
+                    language="sql"
+                    code={previewSql.sql}
+                    expandable
+                    showLineNumbers={false}
+                  />
                 </div>
                 {previewSql.denominatorSQL && (
                   <div>
@@ -131,6 +137,7 @@ export default function PreviewPanel({
                       language="sql"
                       code={previewSql.denominatorSQL}
                       expandable
+                      showLineNumbers={false}
                     />
                   </div>
                 )}
@@ -148,6 +155,7 @@ export default function PreviewPanel({
                       language="sql"
                       code={previewSql.experimentSQL}
                       expandable
+                      showLineNumbers={false}
                     />
                   )}
                 </div>
