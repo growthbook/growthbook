@@ -779,6 +779,7 @@ export function toDataSourceApiInterface(
         includesNameColumns: !!q.hasNameCol,
         dimensionColumns: q.dimensions,
         error: q.error,
+        projects: q.projects || [],
       };
     }),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(

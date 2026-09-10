@@ -188,6 +188,12 @@ export interface ExposureQuery {
   error?: string;
   /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
+  /**
+   * Projects this assignment query is available for. Empty/absent = all of the
+   * data source's projects (inherits the data source scope). When set, must be a
+   * subset of the data source's `projects`.
+   */
+  projects?: string[];
 }
 
 export interface FeatureUsageQuery {
