@@ -216,6 +216,9 @@ export function formatCurrency(
   return currencyFormatter.format(value);
 }
 export function formatDurationSeconds(value: number) {
+  if (value < 0) {
+    return "-" + formatDurationSeconds(-value);
+  }
   // < 1 second
   if (value < 1) {
     return Math.round(value * 1000) + "ms";
