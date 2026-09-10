@@ -11,7 +11,7 @@ import { Popover } from "@/ui/Popover";
 import Modal from "@/components/Modal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
+import { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { isPartiallyStale } from "@/services/health";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -60,7 +60,7 @@ export default function StaleFeatureIcon({
 }: {
   neverStale?: boolean;
   valueType?: FeatureValueType;
-  staleData?: StaleStateEntry;
+  staleData?: FeatureHealthStateEntry;
   fetchStaleData?: () => Promise<void>;
   onDisable?: () => void;
   context?: "list" | "detail";

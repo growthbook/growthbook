@@ -48,7 +48,7 @@ import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
-import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
+import { useFeatureHealthStates } from "@/hooks/useFeatureHealthStates";
 import {} from "@/components/Reviews/RevisionStatusBadge";
 import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
 import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
@@ -137,7 +137,7 @@ export default function FeaturesPage() {
 
   const statusHook = useFeaturesStatus();
   const draftHook = useFeatureDraftStates();
-  const staleHook = useFeatureStaleStates();
+  const healthHook = useFeatureHealthStates();
   const rampHook = useFeatureRampStates();
   const dependencyHook = useFeatureDependencyIndex();
 
@@ -163,7 +163,7 @@ export default function FeaturesPage() {
     environments,
     environmentStatus: statusHook.environmentStatus,
     draftStates: draftHook.draftStates,
-    staleStates: staleHook.staleStates,
+    healthStates: healthHook.healthStates,
     rampStates: rampHook.rampStates,
     dependencyIndex: dependencyHook.dependencyIndex,
     filterResults: archivedFilter,
@@ -258,7 +258,7 @@ export default function FeaturesPage() {
   }, [hasDraftFilter]);
 
   useEffect(() => {
-    if (hasStaleFilter) staleHook.fetchAll();
+    if (hasStaleFilter) healthHook.fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStaleFilter]);
 
@@ -277,14 +277,14 @@ export default function FeaturesPage() {
     const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
     if (!ids.length) return;
     if (!hasEnvFilter) statusHook.fetchSome(ids);
-    if (!hasStaleFilter) staleHook.fetchSome(ids);
+    if (!hasStaleFilter) healthHook.fetchSome(ids);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
 
   const searchLoading = !!(
     statusHook.loading ||
     draftHook.loading ||
-    staleHook.loading ||
+    healthHook.loading ||
     rampHook.loading ||
     dependencyHook.loading ||
     contentSearch.loading
@@ -524,10 +524,10 @@ export default function FeaturesPage() {
                           context="list"
                           neverStale={feature.neverStale}
                           valueType={feature.valueType}
-                          staleData={staleHook.getStaleState(feature.id)}
+                          staleData={healthHook.getHealthState(feature.id)}
                           fetchStaleData={async () => {
-                            staleHook.invalidate([feature.id]);
-                            await staleHook.fetchSome([feature.id]);
+                            healthHook.invalidate([feature.id]);
+                            await healthHook.fetchSome([feature.id]);
                           }}
                         />
                       )}
@@ -535,7 +535,7 @@ export default function FeaturesPage() {
                     <TableCell style={{ textAlign: "left" }}>
                       {!feature.archived && (
                         <FeatureHealthCell
-                          staleData={staleHook.getStaleState(feature.id)}
+                          staleData={healthHook.getHealthState(feature.id)}
                           healthFilter={healthFilterValues}
                         />
                       )}

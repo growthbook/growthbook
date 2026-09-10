@@ -2,7 +2,7 @@ import { FC } from "react";
 import { FeatureValueType } from "shared/types/feature";
 import Badge from "@/ui/Badge";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
-import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
+import { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
 
 type FeatureStatus = "live" | "off" | "archived";
 
@@ -44,7 +44,7 @@ const FeatureStatusBadge: FC<{
     neverStale?: boolean;
     valueType?: FeatureValueType;
   };
-  staleData?: StaleStateEntry;
+  staleData?: FeatureHealthStateEntry;
   fetchStaleData?: () => Promise<void>;
   onDisable?: () => void;
   open?: boolean;

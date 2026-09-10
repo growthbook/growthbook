@@ -216,7 +216,7 @@ export function useFeatureSearch({
   localStorageKey = "features",
   environmentStatus,
   draftStates,
-  staleStates,
+  healthStates,
   rampStates,
   dependencyIndex,
   contentSearchPrefixes = [],
@@ -234,7 +234,7 @@ export function useFeatureSearch({
   localStorageKey?: string;
   environmentStatus?: Record<string, Record<string, boolean>>;
   draftStates?: Record<string, unknown>;
-  staleStates?: Record<
+  healthStates?: Record<
     string,
     {
       stale: boolean;
@@ -288,7 +288,7 @@ export function useFeatureSearch({
     searchTermFilterDeps: [
       environmentStatus,
       draftStates,
-      staleStates,
+      healthStates,
       rampStates,
       dependencyIndex,
       projects,
@@ -305,7 +305,7 @@ export function useFeatureSearch({
         if (item.valueType === "boolean") is.push("boolean");
         is.push(
           ...getFeatureStaleSearchTokens(
-            staleStates?.[item.id],
+            healthStates?.[item.id],
             item.neverStale,
           ),
         );
@@ -326,7 +326,7 @@ export function useFeatureSearch({
         if (dependencyIndex?.has(item.id)) has.push("dependents");
         return has;
       },
-      health: (item) => getFeatureHealthSearchTokens(staleStates?.[item.id]),
+      health: (item) => getFeatureHealthSearchTokens(healthStates?.[item.id]),
       key: (item) => item.id,
       // Match the governance project plus any targeting projects (all
       // projects when targetingAllProjects), by id and resolved name, so

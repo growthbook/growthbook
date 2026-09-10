@@ -4,7 +4,7 @@ import { Flex } from "@radix-ui/themes";
 import { Popover } from "@/ui/Popover";
 import Badge from "@/ui/Badge";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
+import { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
 import {
   describeFeatureHealthEntry,
   entryMatchesHealthFilter,
@@ -16,7 +16,7 @@ import {
 // user is filtering on), a "+N" chip for every other occurrence, and a hover
 // popover listing everything. Staleness has its own Stale column.
 const FeatureHealthCell: FC<{
-  staleData?: StaleStateEntry;
+  staleData?: FeatureHealthStateEntry;
   // Active `health:` filter values; matching signals always render in full.
   healthFilter?: string[];
 }> = ({ staleData, healthFilter = [] }) => {
