@@ -265,7 +265,6 @@ function RampImpactBanner({
             label="Acknowledge"
             weight="medium"
             align="center"
-            containerClassName="mb-0"
           />
         </Box>
       </Flex>
