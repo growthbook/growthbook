@@ -396,7 +396,12 @@ export default function RoleForm({
           width="100%"
           style={{ borderTop: "1px solid var(--border-color-200)" }}
         >
-          <Flex className="container-fluid pagecontents" align="center" gap="3">
+          <Flex
+            className="container-fluid pagecontents"
+            align="center"
+            gap="3"
+            style={{ paddingRight: "80px" }}
+          >
             {error ? (
               <Callout status="error">
                 <strong>Error: {error}</strong>

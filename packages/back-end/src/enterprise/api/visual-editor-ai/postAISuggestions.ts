@@ -46,18 +46,30 @@ const MIN_SUGGESTIONS = 3;
 const MAX_SUGGESTIONS = 4;
 const MAX_SUGGESTION_LENGTH = 140;
 
-// Deliberately free of size constraints. Anthropic's structured-output
-// (`output_format`) JSON Schema subset rejects `minItems` values other than
-// 0 or 1, so an `.array(...).min(3)` here fails the whole request with
-// "output_format.schema: For 'array' type, 'minItems' values other than 0
-// or 1 are not supported" before the model ever runs. The 3-to-4 count and
-// the length limit are already stated in the instructions and the
-// description below, and we enforce them on the response instead — that
-// keeps the schema inside every provider's supported subset. Matches the
-// plain-`z.string()`/`z.array(z.string())` shape the AI edit endpoint uses.
+// No size constraints in the schema: Anthropic's output_format subset
+// rejects minItems > 1, so count and length are enforced on the response.
+// preprocess recovers the case where a model serializes the whole answer
+// into `suggestions` as a JSON string; the emitted schema stays array-only.
+const unwrapSerialized = (v: unknown): unknown => {
+  if (typeof v !== "string") return v;
+  try {
+    const parsed = JSON.parse(v);
+    if (Array.isArray(parsed)) return parsed;
+    if (
+      parsed &&
+      Array.isArray((parsed as { suggestions?: unknown }).suggestions)
+    ) {
+      return (parsed as { suggestions: unknown }).suggestions;
+    }
+  } catch {
+    // not JSON — let validation reject it
+  }
+  return v;
+};
+
 const outputSchema = z.object({
   suggestions: z
-    .array(z.string())
+    .preprocess(unwrapSerialized, z.array(z.string()))
     .describe(
       "3 to 4 short, action-oriented test ideas for the current page. Each is a single imperative sentence under 14 words.",
     ),
@@ -138,8 +150,22 @@ function buildPrompt({
       }`
     : "";
 
+  // Plain list, not fenced JSON: models were mirroring the JSON back and
+  // returning the whole answer as a serialized string in `suggestions`.
   const pastBlock = pastExperiments.length
-    ? `\nPast experiments in this organization (most recent first):\n\`\`\`json\n${JSON.stringify(pastExperiments, null, 2)}\n\`\`\`\n`
+    ? `\nPast experiments in this organization (most recent first):\n${pastExperiments
+        .map((e) =>
+          [
+            `- Name: ${e.name}`,
+            `  Status: ${e.status}`,
+            e.hypothesis ? `  Hypothesis: ${e.hypothesis}` : "",
+            e.description ? `  Description: ${e.description}` : "",
+            e.analysis ? `  Analysis: ${e.analysis}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        )
+        .join("\n")}\n`
     : "\n(No past experiments to ground suggestions in — generate sensible defaults.)\n";
 
   return `${currentBlock}${pageBlock}${pastBlock}

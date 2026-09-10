@@ -1,5 +1,5 @@
 import chunk from "lodash/chunk";
-import { cloneDeep } from "lodash";
+import cloneDeep from "lodash/cloneDeep";
 import {
   canInlineFilterColumn,
   getFactTableTimestampColumn,
@@ -19,13 +19,14 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
 import {
   columnNamesMatch,
-  type DetectedJSONFields,
-  determineColumnTypes,
   getColumnByName,
   mergeJsonFields,
 } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { normalizePersistedColumn } from "back-end/src/util/factTable";
+import {
+  buildColumnTypeMaps,
+  normalizePersistedColumn,
+} from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
@@ -65,13 +66,15 @@ function getTopValuesLookbackDays(
 export function selectColumnsForTopValues({
   columns,
   userIdTypes,
+  userIdColumns,
   maxColumns = MAX_COLUMNS_WITH_TOP_VALUES,
 }: {
   columns: ColumnInterface[];
   userIdTypes: string[];
+  userIdColumns?: Record<string, string>;
   maxColumns?: number;
 }): ColumnInterface[] {
-  const factTableLike = { columns, userIdTypes };
+  const factTableLike = { columns, userIdTypes, userIdColumns };
 
   const eligible = columns.filter(
     (col) =>
@@ -100,6 +103,10 @@ export async function runColumnsTopValuesQuery(
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">,
   columns: ColumnInterface[],
+  options?: {
+    limit?: number;
+    searchTerm?: string;
+  },
 ): Promise<Record<string, string[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -121,11 +128,13 @@ export async function runColumnsTopValuesQuery(
   const sql = integration.getColumnsTopValuesQuery({
     factTable,
     columns,
-    limit: Math.max(
-      100,
-      context.org.settings?.maxMetricSliceLevels ??
-        DEFAULT_MAX_METRIC_SLICE_LEVELS,
-    ),
+    limit:
+      options?.limit ??
+      Math.max(
+        100,
+        context.org.settings?.maxMetricSliceLevels ??
+          DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      ),
     lookbackDays: getTopValuesLookbackDays(
       context.org.settings?.topValuesLookbackValue ??
         DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
@@ -133,6 +142,7 @@ export async function runColumnsTopValuesQuery(
         DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
     ),
     maxValueLength: MAX_TOP_VALUE_LENGTH,
+    searchTerm: options?.searchTerm,
   });
   const result = await integration.runColumnsTopValuesQuery(sql);
 
@@ -176,10 +186,12 @@ export function populateAutoSlices(
 export function mergeRefreshedTopValues({
   currentColumns,
   currentUserIdTypes,
+  currentUserIdColumns,
   refreshedColumns,
 }: {
   currentColumns: ColumnInterface[];
   currentUserIdTypes: string[];
+  currentUserIdColumns?: Record<string, string>;
   refreshedColumns: ColumnInterface[];
 }): ColumnInterface[] {
   const refreshedColumnsById = new Map(
@@ -189,6 +201,7 @@ export function mergeRefreshedTopValues({
     selectColumnsForTopValues({
       columns: currentColumns,
       userIdTypes: currentUserIdTypes,
+      userIdColumns: currentUserIdColumns,
     }).map((column) => column.column),
   );
 
@@ -257,51 +270,9 @@ export async function runColumnDetectionQuery(
     "factTableValidation",
   );
 
-  const typeMap = new Map<string, FactTableColumnType>();
-  const jsonMap = new Map<string, DetectedJSONFields>();
-  const warehouseTypeMap = new Map<string, FactTableColumnType>();
+  const { jsonMap, warehouseTypeMap, datatypes } = buildColumnTypeMaps(result);
 
-  result.columns?.forEach((col) => {
-    // If the underlying SQL engine returned the datatype, use it
-    if (col.dataType !== undefined) {
-      warehouseTypeMap.set(col.name, col.dataType);
-      // For JSON, only return if we have the field information, otherwise skip
-      // so we can infer from the returned data
-      if (
-        col.dataType === "json" &&
-        col.fields !== undefined &&
-        col.fields.length > 0
-      ) {
-        typeMap.set(col.name, "json");
-        jsonMap.set(col.name, {
-          source: "querySchema",
-          fields: col.fields.reduce(
-            (acc, field) => ({
-              ...acc,
-              [field.name]: {
-                datatype: field.dataType,
-              },
-            }),
-            {},
-          ),
-        });
-      } else if (col.dataType !== "json") {
-        typeMap.set(col.name, col.dataType);
-      }
-    }
-  });
-
-  determineColumnTypes(result.results, typeMap).forEach((col) => {
-    typeMap.set(col.column, col.datatype);
-    if (col.jsonFields) {
-      jsonMap.set(col.column, {
-        source: "sampledValues",
-        fields: col.jsonFields,
-      });
-    }
-  });
-
-  const columns = factTable.columns || [];
+  const columns = cloneDeep(factTable.columns || []);
 
   // Update existing column
   columns.forEach((col) => {
@@ -312,7 +283,10 @@ export async function runColumnDetectionQuery(
       return;
     }
 
-    const type = getColumnByName(typeMap, col.column, caseSensitive);
+    // `datatypes`, not `typeMap` -- a column the engine named but neither it
+    // nor the sampled rows could type still exists, and marking it deleted
+    // would drop columns the create flow saved from a schema-only detection.
+    const type = getColumnByName(datatypes, col.column, caseSensitive);
     const jsonFields = getColumnByName(jsonMap, col.column, caseSensitive);
 
     // Column no longer exists, mark as deleted
@@ -362,7 +336,7 @@ export async function runColumnDetectionQuery(
   });
 
   // Add new columns that don't exist yet
-  typeMap.forEach((datatype, column) => {
+  datatypes.forEach((datatype, column) => {
     if (
       !columns.some((c) => columnNamesMatch(c.column, column, caseSensitive))
     ) {
@@ -401,7 +375,7 @@ export async function refreshColumnTopValues(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "userIdTypes" | "timestampColumn"
+    "sql" | "eventName" | "userIdTypes" | "userIdColumns" | "timestampColumn"
   >,
   columns: ColumnInterface[],
 ): Promise<ColumnInterface[]> {
@@ -409,6 +383,7 @@ export async function refreshColumnTopValues(
   const columnsNeedingTopValues = selectColumnsForTopValues({
     columns,
     userIdTypes: factTable.userIdTypes,
+    userIdColumns: factTable.userIdColumns,
   });
 
   // Batch query for all columns that need top values. Datasources
@@ -456,7 +431,6 @@ export async function refreshColumnTopValues(
   return refreshedColumns;
 }
 
-// Helper to merge existing columns with new type map from LIMIT 0
 function mergeColumnsWithTypeMap(
   existingColumns: ColumnInterface[],
   typeMap: Map<string, FactTableColumnType>,
@@ -464,7 +438,6 @@ function mergeColumnsWithTypeMap(
 ): ColumnInterface[] {
   const columns = cloneDeep(existingColumns);
 
-  // Update existing columns
   columns.forEach((col) => {
     // Virtual columns are user-defined and never appear in the SQL output
     // schema, so preserve them instead of marking them deleted.
@@ -480,7 +453,6 @@ function mergeColumnsWithTypeMap(
         col.deleted = false;
         col.dateUpdated = new Date();
       }
-      // Only update datatype if it was previously empty (preserve rich types)
       if (col.datatype === "" && type !== "") {
         col.datatype = type;
         col.dateUpdated = new Date();
@@ -488,7 +460,6 @@ function mergeColumnsWithTypeMap(
     }
   });
 
-  // Add new columns
   typeMap.forEach((datatype, column) => {
     if (
       !columns.some((c) => columnNamesMatch(c.column, column, caseSensitive))
@@ -509,17 +480,11 @@ function mergeColumnsWithTypeMap(
   return columns;
 }
 
-// Result type for the unified refreshColumns function
 export type RefreshColumnsResult = {
   columns: ColumnInterface[];
-  needsBackgroundRefresh: boolean; // True if LIMIT 0 was used and background job needed
+  needsBackgroundRefresh: boolean;
 };
 
-/**
- * Unified function to refresh columns that handles both LIMIT 0 (fast) and LIMIT 20 (full) paths.
- * - For datasources supporting LIMIT 0: Returns basic columns from metadata, signals background refresh needed
- * - For other datasources: Returns full columns with type inference, no background refresh needed
- */
 export async function refreshColumns(
   context: ReqContext,
   datasource: DataSourceInterface,
@@ -539,14 +504,9 @@ export async function refreshColumns(
     throw new Error("Testing not supported on this data source");
   }
 
-  // Check if datasource supports LIMIT 0 for fast column metadata
-  if (
-    !forceColumnRefresh &&
-    integration.supportsLimitZeroColumnValidation?.()
-  ) {
+  if (!forceColumnRefresh) {
     const timestampColumn = getFactTableTimestampColumn(factTable);
 
-    // Fast path: LIMIT 0 query
     const sql = integration.getTestQuery({
       query: factTable.sql,
       templateVariables: { eventName: factTable.eventName },
@@ -565,28 +525,17 @@ export async function refreshColumns(
       throw new Error("SQL did not return any columns");
     }
 
-    // Build type map from metadata (includes "json" without fields)
-    const typeMap = new Map<string, FactTableColumnType>();
-    result.columns.forEach((col) => {
-      typeMap.set(col.name, col.dataType || "");
-    });
-
-    // Merge with existing columns (preserve rich types like json with jsonFields)
+    const { datatypes } = buildColumnTypeMaps(result);
     const columns = mergeColumnsWithTypeMap(
       factTable.columns || [],
-      typeMap,
+      datatypes,
       integration.columnNamesAreCaseSensitive,
     );
 
     return { columns, needsBackgroundRefresh: true };
-  } else {
-    // Slow path runs full detection plus top values inline
-    const columns = await runColumnDetectionQuery(
-      context,
-      datasource,
-      factTable,
-    );
-    await refreshColumnTopValues(context, datasource, factTable, columns);
-    return { columns, needsBackgroundRefresh: false };
   }
+
+  const columns = await runColumnDetectionQuery(context, datasource, factTable);
+  await refreshColumnTopValues(context, datasource, factTable, columns);
+  return { columns, needsBackgroundRefresh: false };
 }
