@@ -130,7 +130,7 @@ function queryItems({
     ...(windowOk(formType) && windowSettings.delayValue
       ? [
           {
-            label: "Metric Delay",
+            label: "Metric delay",
             value: `${windowSettings.delayValue} ${windowSettings.delayUnit} after experiment exposure`,
           },
         ]
@@ -144,7 +144,7 @@ function queryItems({
     ...(formType !== "quantile"
       ? [
           {
-            label: "Regression Adjustment (CUPED)",
+            label: "Regression adjustment (CUPED)",
             value: cupedItemValue(
               {
                 override: form.watch("regressionAdjustmentOverride"),
