@@ -33,6 +33,9 @@ const REQUIRED_SCOPES = [
   "assistant:write",
   "im:history",
   "app_mentions:read",
+  "commands",
+  "links:read",
+  "links:write",
 ];
 
 const CARD_FORMAT_LABELS: Record<

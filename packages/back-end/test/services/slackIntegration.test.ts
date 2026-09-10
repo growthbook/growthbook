@@ -49,9 +49,12 @@ describe("Slack OAuth validation", () => {
       "channels:join",
       "channels:read",
       "chat:write",
+      "commands",
       "files:write",
       "groups:read",
       "im:history",
+      "links:read",
+      "links:write",
     ]);
     expect(url.searchParams.has("user_scope")).toBe(false);
   });
