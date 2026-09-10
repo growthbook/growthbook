@@ -93,6 +93,7 @@ import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderCon
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
+import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
@@ -148,6 +149,7 @@ export type ModelName =
   | "revisions"
   | "watch"
   | "figmaConnections"
+  | "slackWorkspaceConnections"
   | "apiKeys"
   | "oauthAuthCodes"
   | "oauthGrants"
@@ -204,6 +206,7 @@ export const modelClasses = {
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
+  slackWorkspaceConnections: SlackWorkspaceConnectionModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   oauthGrants: OAuthGrantModel,
@@ -363,6 +366,7 @@ export class ReqContextClass {
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
+      slackWorkspaceConnections: new SlackWorkspaceConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       oauthGrants: new OAuthGrantModel(this),

@@ -26,6 +26,19 @@ jobs:
       - name: Check formatting
         run: pnpm pretty:check
 
+  licenses:
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-workspace
+        with:
+          build-deps: "false"
+
+      - name: Check dependency licenses
+        run: pnpm check-licenses
+
   # The whole-monorepo type-aware eslint run peaks near 4.5GB, so it needs 16GB.
   lint:
     runs-on: depot-ubuntu-24.04-4
@@ -242,6 +255,7 @@ jobs:
       [
         format,
         lint,
+        licenses,
         stats,
         openapi,
         type-check,

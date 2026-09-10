@@ -19,9 +19,14 @@ import {
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import {
+  isSlackWorkspacePlaceholderUrl,
+  postSlackMessageResult,
+} from "back-end/src/services/slack/slackWebApi";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
+import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -104,6 +109,14 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
+    if (!eventWebHook.enabled) {
+      logger.info(
+        { eventWebHookId, organizationId: event.organizationId },
+        "EventWebHook: skipping delivery, webhook disabled after it was queued",
+      );
+      return;
+    }
+
     const organization = await findOrganizationById(event.organizationId);
     if (!organization) {
       throw new Error(
@@ -162,8 +175,83 @@ export class EventWebHookNotifier implements Notifier {
     }
 
     const method = eventWebHook.method || "POST";
-
+    const logPayload = payload as Record<string, unknown>;
     const context = getContextForAgendaJobByOrgObject(organization);
+
+    if (
+      (eventWebHook.payloadType || "raw") === "slack" &&
+      isSlackWorkspacePlaceholderUrl(eventWebHook.url)
+    ) {
+      const teamId = eventWebHook.slack?.teamId;
+      const connection = teamId
+        ? await context.models.slackWorkspaceConnections.getByTeamId(teamId)
+        : null;
+      const botToken = connection
+        ? decryptSlackBotToken(connection.encryptedBotAccessToken)
+        : null;
+      const channelId = eventWebHook.slack?.channelId;
+
+      if (botToken && channelId) {
+        const text =
+          typeof logPayload.text === "string" ? logPayload.text : null;
+        if (!text) return;
+        const blocks = Array.isArray(logPayload.blocks)
+          ? logPayload.blocks
+          : undefined;
+
+        const result = await postSlackMessageResult({
+          token: botToken,
+          channel: channelId,
+          text,
+          blocks,
+        });
+
+        if (result.ok) {
+          return EventWebHookNotifier.handleWebHookSuccess({
+            job,
+            webHookResult: {
+              result: "success",
+              statusCode: 200,
+              responseBody: result.ts || "ok",
+            },
+            organizationId: organization.id,
+            event: event.event,
+            url: eventWebHook.url,
+            method,
+            payload: logPayload,
+          });
+        }
+
+        return EventWebHookNotifier.handleWebHookError({
+          job,
+          webHookResult: {
+            result: "error",
+            statusCode: null,
+            error: `Slack delivery failed: ${result.error}`,
+          },
+          organizationId: organization.id,
+          event: event.event,
+          url: eventWebHook.url,
+          method,
+          payload: logPayload,
+        });
+      }
+
+      return EventWebHookNotifier.handleWebHookError({
+        job,
+        webHookResult: {
+          result: "error",
+          statusCode: null,
+          error:
+            "Slack delivery failed: no bot token or channel for this connection (reconnect the Slack workspace)",
+        },
+        organizationId: organization.id,
+        event: event.event,
+        url: eventWebHook.url,
+        method,
+        payload: logPayload,
+      });
+    }
 
     const origin = new URL(eventWebHook.url).origin;
 
@@ -186,7 +274,7 @@ export class EventWebHookNotifier implements Notifier {
           event: event.event,
           url: eventWebHook.url,
           method,
-          payload,
+          payload: logPayload,
         });
 
       case "error":
@@ -197,7 +285,7 @@ export class EventWebHookNotifier implements Notifier {
           event: event.event,
           url: eventWebHook.url,
           method,
-          payload,
+          payload: logPayload,
         });
     }
   }

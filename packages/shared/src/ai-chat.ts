@@ -2,6 +2,7 @@
  * Persisted AI chat messages: content parts shaped like the AI SDK’s model messages,
  * plus id/ts for storage and UI. Convert to ModelMessage[] via toModelMessages (back-end).
  */
+import type { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Roles & content parts (mirror @ai-sdk/provider-utils names where possible)
@@ -104,6 +105,17 @@ export function tryParseToolResultJson(resultJson: string): unknown {
   } catch {
     return undefined;
   }
+}
+
+/** Tool results arrive as a JSON string or already parsed. Null on a mismatch. */
+export function parseToolResult<T>(
+  result: unknown,
+  schema: z.ZodType<T>,
+): T | null {
+  const value =
+    typeof result === "string" ? tryParseToolResultJson(result) : result;
+  const parsed = schema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 /** Snapshot id inside a JSON tool result (e.g. product analytics), if any. */
