@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "1.2.3",
+      "capabilities": ["contextualBandits"]
+    },
+    {
       "version": "1.2.2"
     },
     {
