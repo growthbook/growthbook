@@ -46,6 +46,19 @@ function getSqlQueryPanelPercent(sql: string, groupHeightPx: number): number {
     Math.max(SQL_QUERY_PANEL_MIN_PERCENT, percent),
   );
 }
+function useSlowJourneyLoading() {
+  const { loading, draftExploreState } = useExplorerContext();
+  const active = loading && draftExploreState.type === "journey";
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    setSlow(false);
+    if (!active) return;
+    const timer = setTimeout(() => setSlow(true), 10000);
+    return () => clearTimeout(timer);
+  }, [active]);
+  return active && slow;
+}
+
 function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
   const {
     exploration,
@@ -66,6 +79,7 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
     submittedComparisonMode,
   } = useExplorerContext();
 
+  const slowJourneyLoading = useSlowJourneyLoading();
   const { showChart, showTable } = explorerMainPresentation({
     draftType: draftExploreState.type,
     chartType: draftExploreState.chartType,
@@ -207,7 +221,7 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
             style={{
               position: "absolute",
               zIndex: 1000,
-              top: 15,
+              top: draftExploreState.type === "journey" && showChart ? 100 : 15,
               right: 15,
               width: "auto",
               backgroundColor: "var(--color-panel-solid)",
@@ -243,7 +257,11 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
               }
             >
               {loading ? (
-                "Loading..."
+                slowJourneyLoading ? (
+                  "Taking longer than expected…"
+                ) : (
+                  "Loading..."
+                )
               ) : (
                 <Text title="Some configuration changes require running a new SQL query against your data source">
                   Latest changes not applied
@@ -271,6 +289,7 @@ export default function ExplorerMainSection({
     collapseFunnelStepsForAnalyze,
   } = useExplorerContext();
 
+  const slowJourneyLoading = useSlowJourneyLoading();
   const isSql = draftExploreState.type === "sql";
   const isJourney = draftExploreState.type === "journey";
   const isRawTable = isSql && draftExploreState.chartType === "rawTable";
@@ -396,7 +415,9 @@ export default function ExplorerMainSection({
         <>
           <LoadingSpinner />
           <Text size="lg" weight="medium">
-            Loading journey…
+            {slowJourneyLoading
+              ? "Taking longer than expected…"
+              : "Loading journey…"}
           </Text>
         </>
       ) : journeyMainEmpty ? (

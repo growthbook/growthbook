@@ -59,6 +59,8 @@ function reindexAfterRemoval<T>(
 export default function GroupBySection() {
   const { draftExploreState, setDraftExploreState, commonColumns } =
     useExplorerContext();
+  const defaultMaxValues =
+    draftExploreState.type === "journey" ? 3 : DEFAULT_MAX_VALUES;
   const { getFactTableById, getFactMetricById } = useDefinitions();
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(
     Array(draftExploreState.dimensions.length).fill(false),
@@ -132,7 +134,7 @@ export default function GroupBySection() {
         {
           dimensionType: "dynamic",
           column: null,
-          maxValues: DEFAULT_MAX_VALUES,
+          maxValues: defaultMaxValues,
         },
       ],
     }));
@@ -164,7 +166,7 @@ export default function GroupBySection() {
         return {
           dimensionType: "dynamic",
           column,
-          maxValues: DEFAULT_MAX_VALUES,
+          maxValues: defaultMaxValues,
         };
       }),
     }));
@@ -190,7 +192,7 @@ export default function GroupBySection() {
         return {
           dimensionType: "dynamic",
           column: d.column,
-          maxValues: DEFAULT_MAX_VALUES,
+          maxValues: defaultMaxValues,
         };
       }),
     }));

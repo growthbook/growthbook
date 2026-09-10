@@ -222,7 +222,7 @@ function bucketChain(
             SELECT ${col} AS value,
               ROW_NUMBER() OVER (ORDER BY c DESC, ${col}) AS rn
             FROM (
-              SELECT ${col}, COUNT(*) AS c
+              SELECT ${col}, SUM(journey_count) AS c
               FROM ${prev}
               WHERE ${col} IS NOT NULL
               GROUP BY ${col}
@@ -253,7 +253,7 @@ function bucketChain(
             SELECT ${prefix.map((_, q) => `p${q + 1}`).join(", ")}, value,
               ROW_NUMBER() OVER (PARTITION BY ${prefix.map((_, q) => `p${q + 1}`).join(", ")} ORDER BY c DESC, value) AS rn
             FROM (
-              SELECT ${pcols.join(", ")}, ${col} AS value, COUNT(*) AS c
+              SELECT ${pcols.join(", ")}, ${col} AS value, SUM(journey_count) AS c
               FROM ${prev}
               WHERE ${col} IS NOT NULL
                 AND ${prevLvl} NOT IN (${termLit}, ${none})
@@ -315,7 +315,7 @@ function committedOptionCtes(
           SELECT ${col} AS value,
             ROW_NUMBER() OVER (ORDER BY c DESC, ${col}) AS rn
           FROM (
-            SELECT ${col}, COUNT(*) AS c
+            SELECT ${col}, SUM(journey_count) AS c
             FROM ${eligible}
             WHERE ${col} IS NOT NULL
             GROUP BY ${col}
@@ -331,7 +331,8 @@ function committedOptionCtes(
           CASE WHEN ${col} IS NULL THEN ${termLit}
                WHEN ${col} IN (SELECT value FROM ${top}) THEN ${col}
                ELSE ${other} END AS value,
-          ${dimBucket} AS dim_1
+          ${dimBucket} AS dim_1,
+          journey_count
         FROM ${eligible}
       `,
     });
@@ -499,7 +500,7 @@ export function buildJourneySql(
   });
 
   ctes.push({
-    name: "__journey_anchored",
+    name: "__journey_anchor_events",
     sql: `
       SELECT * FROM (
         SELECT *, ROW_NUMBER() OVER (PARTITION BY ${JOURNEY_PARTITION} ORDER BY ts) AS rn
@@ -507,6 +508,20 @@ export function buildJourneySql(
         WHERE step = ${lit(dialect, anchor)}
       ) a
       WHERE rn = 1
+    `,
+  });
+
+  // Downstream rankings only need path/dimension counts, not individual units.
+  const anchoredColumns = [
+    ...Array.from({ length: neighbourhoodCount }, (_, i) => `nb_${i + 1}`),
+    "dim_1",
+  ].join(", ");
+  ctes.push({
+    name: "__journey_anchored",
+    sql: `
+      SELECT ${anchoredColumns}, COUNT(*) AS journey_count
+      FROM __journey_anchor_events
+      GROUP BY ${anchoredColumns}
     `,
   });
 
@@ -536,7 +551,7 @@ export function buildJourneySql(
           SELECT dim_1 AS value,
             ROW_NUMBER() OVER (ORDER BY c DESC, dim_1) AS rn
           FROM (
-            SELECT dim_1, COUNT(*) AS c
+            SELECT dim_1, SUM(journey_count) AS c
             FROM ${src}
             WHERE dim_1 IS NOT NULL
             GROUP BY dim_1
@@ -571,7 +586,8 @@ export function buildJourneySql(
     name: "__journey_path_bucketed",
     sql: `
       SELECT ${lvlCols.join(", ")},
-        ${dimBucketSql(dialect, hasDimension)} AS dim_1
+        ${dimBucketSql(dialect, hasDimension)} AS dim_1,
+        journey_count
       FROM ${chain.last}
     `,
   });
@@ -583,7 +599,7 @@ export function buildJourneySql(
     SELECT
       ${pathStepSelects.join(",\n      ")},
       dim_1,
-      COUNT(*) AS journeys
+      SUM(journey_count) AS journeys
     FROM __journey_path_bucketed
     GROUP BY ${pathGroup.join(", ")}
   `;
@@ -602,7 +618,7 @@ export function buildJourneySql(
     SELECT
       ${commitSteps.join(",\n      ")},
       dim_1,
-      COUNT(*) AS journeys
+      SUM(journey_count) AS journeys
     FROM __journey_commit_${k}
     GROUP BY value, dim_1
       `);

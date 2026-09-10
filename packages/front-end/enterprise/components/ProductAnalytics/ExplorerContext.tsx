@@ -124,6 +124,7 @@ export interface ExplorerContextValue {
   collapseFunnelStepsForAnalyze: () => void;
   commitJourneyStep: (value: string) => void;
   popJourneyPath: (index: number) => void;
+  clearJourneyAnchor: () => void;
 
   // ─── Funnel metric link ────────────────────────────────────────────────
   /** Funnel fact metric this funnel was loaded from, if any. Cleared when the
@@ -1081,6 +1082,36 @@ export function ExplorerProvider({
     [setDraftExploreState],
   );
 
+  const clearJourneyAnchor = useCallback(() => {
+    // Ignore pending results from the path that is being cleared.
+    submitRequestIdRef.current += 1;
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    setPolling(false);
+    setIsStale(false);
+    hasEverFetchedRef.current = false;
+    skipNextAutoSubmitRef.current = false;
+    setExplorerState((prev) => {
+      if (prev.draftState.type !== "journey") return prev;
+      return {
+        draftState: {
+          ...prev.draftState,
+          dataset: {
+            ...prev.draftState.dataset,
+            anchorStepValues: null,
+            path: [],
+          },
+        },
+        submittedState: null,
+        exploration: null,
+        error: null,
+        query: null,
+      };
+    });
+  }, []);
+
   const popJourneyPath = useCallback(
     (index: number) => {
       setDraftExploreState((prev) => {
@@ -1213,6 +1244,7 @@ export function ExplorerProvider({
       collapseFunnelStepsForAnalyze,
       commitJourneyStep,
       popJourneyPath,
+      clearJourneyAnchor,
       linkedFunnelMetricId,
       setLinkedFunnelMetricId,
       funnelLinkIsDirty,
@@ -1260,6 +1292,7 @@ export function ExplorerProvider({
       collapseFunnelStepsForAnalyze,
       commitJourneyStep,
       popJourneyPath,
+      clearJourneyAnchor,
       linkedFunnelMetricId,
       funnelLinkIsDirty,
       updateTimestampColumn,

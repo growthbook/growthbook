@@ -28122,6 +28122,8 @@ paths:
                                   - is_false
                                   - contains
                                   - not_contains
+                                  - matches_pattern
+                                  - not_matches_pattern
                                   - starts_with
                                   - ends_with
                                   - sql_expr
@@ -28241,6 +28243,8 @@ paths:
                               - is_false
                               - contains
                               - not_contains
+                              - matches_pattern
+                              - not_matches_pattern
                               - starts_with
                               - ends_with
                               - sql_expr
@@ -28357,6 +28361,8 @@ paths:
                                     - is_false
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - sql_expr
@@ -28802,6 +28808,8 @@ paths:
                                   - is_false
                                   - contains
                                   - not_contains
+                                  - matches_pattern
+                                  - not_matches_pattern
                                   - starts_with
                                   - ends_with
                                   - sql_expr
@@ -28921,6 +28929,8 @@ paths:
                               - is_false
                               - contains
                               - not_contains
+                              - matches_pattern
+                              - not_matches_pattern
                               - starts_with
                               - ends_with
                               - sql_expr
@@ -29037,6 +29047,8 @@ paths:
                                     - is_false
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - sql_expr
@@ -29798,6 +29810,8 @@ paths:
                                             - is_false
                                             - contains
                                             - not_contains
+                                            - matches_pattern
+                                            - not_matches_pattern
                                             - starts_with
                                             - ends_with
                                             - sql_expr
@@ -29922,6 +29936,8 @@ paths:
                                         - is_false
                                         - contains
                                         - not_contains
+                                        - matches_pattern
+                                        - not_matches_pattern
                                         - starts_with
                                         - ends_with
                                         - sql_expr
@@ -30044,6 +30060,8 @@ paths:
                                               - is_false
                                               - contains
                                               - not_contains
+                                              - matches_pattern
+                                              - not_matches_pattern
                                               - starts_with
                                               - ends_with
                                               - sql_expr
@@ -36625,6 +36643,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -36743,6 +36763,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -37001,6 +37023,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -37123,6 +37147,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -37386,6 +37412,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -37522,6 +37550,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -37788,6 +37818,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -37913,6 +37945,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -38190,6 +38224,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -38326,6 +38362,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -40013,6 +40051,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -40131,6 +40171,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -40395,6 +40437,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -40517,6 +40561,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -40786,6 +40832,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -40922,6 +40970,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -41194,6 +41244,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -41330,6 +41382,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -41605,6 +41659,8 @@ paths:
                                                             - not_in
                                                             - contains
                                                             - not_contains
+                                                            - matches_pattern
+                                                            - not_matches_pattern
                                                             - starts_with
                                                             - ends_with
                                                             - is_null
@@ -41730,6 +41786,8 @@ paths:
                                                       - not_in
                                                       - contains
                                                       - not_contains
+                                                      - matches_pattern
+                                                      - not_matches_pattern
                                                       - starts_with
                                                       - ends_with
                                                       - is_null
@@ -43522,6 +43580,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -43640,6 +43700,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -43898,6 +43960,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -44020,6 +44084,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -44283,6 +44349,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -44419,6 +44487,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -44685,6 +44755,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -44810,6 +44882,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -45087,6 +45161,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -45223,6 +45299,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -47776,6 +47854,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -47894,6 +47974,8 @@ paths:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -48193,6 +48275,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -48311,6 +48395,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -48508,6 +48594,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -48630,6 +48718,8 @@ paths:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -48934,6 +49024,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -49056,6 +49148,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -49258,6 +49352,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -49394,6 +49490,8 @@ paths:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -49701,6 +49799,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -49837,6 +49937,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -50042,6 +50144,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -50178,6 +50282,8 @@ paths:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -50488,6 +50594,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -50624,6 +50732,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -50832,6 +50942,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -50957,6 +51069,8 @@ paths:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -51271,6 +51385,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -51396,6 +51512,8 @@ paths:
                                                   - not_in
                                                   - contains
                                                   - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
                                                   - starts_with
                                                   - ends_with
                                                   - is_null
@@ -51608,6 +51726,8 @@ paths:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -51757,6 +51877,8 @@ paths:
                               - not_in
                               - contains
                               - not_contains
+                              - matches_pattern
+                              - not_matches_pattern
                               - starts_with
                               - ends_with
                               - is_null
@@ -52069,6 +52191,8 @@ paths:
                                                         - not_in
                                                         - contains
                                                         - not_contains
+                                                        - matches_pattern
+                                                        - not_matches_pattern
                                                         - starts_with
                                                         - ends_with
                                                         - is_null
@@ -52218,6 +52342,8 @@ paths:
                                             - not_in
                                             - contains
                                             - not_contains
+                                            - matches_pattern
+                                            - not_matches_pattern
                                             - starts_with
                                             - ends_with
                                             - is_null
@@ -64179,6 +64305,8 @@ components:
                       - is_false
                       - contains
                       - not_contains
+                      - matches_pattern
+                      - not_matches_pattern
                       - starts_with
                       - ends_with
                       - sql_expr
@@ -64271,6 +64399,8 @@ components:
                       - is_false
                       - contains
                       - not_contains
+                      - matches_pattern
+                      - not_matches_pattern
                       - starts_with
                       - ends_with
                       - sql_expr
@@ -64383,6 +64513,8 @@ components:
                             - is_false
                             - contains
                             - not_contains
+                            - matches_pattern
+                            - not_matches_pattern
                             - starts_with
                             - ends_with
                             - sql_expr
@@ -68134,6 +68266,8 @@ components:
                                                 - not_in
                                                 - contains
                                                 - not_contains
+                                                - matches_pattern
+                                                - not_matches_pattern
                                                 - starts_with
                                                 - ends_with
                                                 - is_null
@@ -68252,6 +68386,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -68516,6 +68652,8 @@ components:
                                                 - not_in
                                                 - contains
                                                 - not_contains
+                                                - matches_pattern
+                                                - not_matches_pattern
                                                 - starts_with
                                                 - ends_with
                                                 - is_null
@@ -68638,6 +68776,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -68907,6 +69047,8 @@ components:
                                                 - not_in
                                                 - contains
                                                 - not_contains
+                                                - matches_pattern
+                                                - not_matches_pattern
                                                 - starts_with
                                                 - ends_with
                                                 - is_null
@@ -69043,6 +69185,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -69315,6 +69459,8 @@ components:
                                                 - not_in
                                                 - contains
                                                 - not_contains
+                                                - matches_pattern
+                                                - not_matches_pattern
                                                 - starts_with
                                                 - ends_with
                                                 - is_null
@@ -69451,6 +69597,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -69726,6 +69874,8 @@ components:
                                                 - not_in
                                                 - contains
                                                 - not_contains
+                                                - matches_pattern
+                                                - not_matches_pattern
                                                 - starts_with
                                                 - ends_with
                                                 - is_null
@@ -69851,6 +70001,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -70874,6 +71026,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -70992,6 +71146,8 @@ components:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -71138,6 +71294,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -71260,6 +71418,8 @@ components:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -71411,6 +71571,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -71547,6 +71709,8 @@ components:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -71701,6 +71865,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -71837,6 +72003,8 @@ components:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -71994,6 +72162,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -72119,6 +72289,8 @@ components:
                                     - not_in
                                     - contains
                                     - not_contains
+                                    - matches_pattern
+                                    - not_matches_pattern
                                     - starts_with
                                     - ends_with
                                     - is_null
@@ -72280,6 +72452,8 @@ components:
                                           - not_in
                                           - contains
                                           - not_contains
+                                          - matches_pattern
+                                          - not_matches_pattern
                                           - starts_with
                                           - ends_with
                                           - is_null
@@ -72429,6 +72603,8 @@ components:
                               - not_in
                               - contains
                               - not_contains
+                              - matches_pattern
+                              - not_matches_pattern
                               - starts_with
                               - ends_with
                               - is_null

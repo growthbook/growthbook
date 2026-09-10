@@ -32,11 +32,21 @@ export function createLikeStringMatchFn({
   emitEscapeClause,
 }: LikeMatchOptions): StringMatchFn {
   return (columnExpr, operator, value) => {
-    const pattern = escapeStringLiteral(escapeWildcards(value));
+    const isPattern =
+      operator === "matches_pattern" || operator === "not_matches_pattern";
+    const pattern = escapeStringLiteral(
+      isPattern
+        ? globToLikePattern(value, escapeWildcards)
+        : escapeWildcards(value),
+    );
     const escapeClause = emitEscapeClause
       ? ` ESCAPE '${escapeStringLiteral("\\")}'`
       : "";
     switch (operator) {
+      case "matches_pattern":
+        return `${columnExpr} LIKE '${pattern}'${escapeClause}`;
+      case "not_matches_pattern":
+        return `${columnExpr} NOT LIKE '${pattern}'${escapeClause}`;
       case "starts_with":
         return `${columnExpr} LIKE '${pattern}%'${escapeClause}`;
       case "ends_with":

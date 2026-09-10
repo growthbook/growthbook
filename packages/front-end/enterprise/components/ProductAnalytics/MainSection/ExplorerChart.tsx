@@ -864,18 +864,19 @@ export default function ExplorerChart({
         direction="column"
         position="relative"
         style={{
-          border: "1px solid var(--gray-a3)",
           borderRadius: "var(--radius-4)",
           flex: 1,
           minHeight: 0,
         }}
       >
         {error ? (
-          <Box p="4" pb={exploration?.result?.rows?.length ? "0" : "4"}>
+          <Box mb="3" width="100%">
             {isManagedWarehousePendingQueryError(error) ? (
               <ManagedWarehouseNoEventsCallout />
             ) : (
-              <Callout status="error">{error}</Callout>
+              <Callout status="error" size="sm">
+                {error}
+              </Callout>
             )}
           </Box>
         ) : null}

@@ -319,7 +319,9 @@ describe("buildJourneySql", () => {
     // distinct value — all labeled (other) — which breaks the row-count bound.
     // So the aggregating branches must select a plain, already-bucketed dim_1.
     const aggregatingSelects =
-      sql.match(/SELECT((?:(?!SELECT)[\s\S])*?)COUNT\(\*\) AS journeys/g) ?? [];
+      sql.match(
+        /SELECT((?:(?!SELECT)[\s\S])*?)SUM\(journey_count\) AS journeys/g,
+      ) ?? [];
     expect(aggregatingSelects).toHaveLength(2); // path + one committed step
     for (const branch of aggregatingSelects) {
       expect(branch).not.toContain("__journey_top_dim");

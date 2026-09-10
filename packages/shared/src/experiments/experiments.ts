@@ -1043,6 +1043,8 @@ export function getRowFilterSQL({
         ? `(${comparisonColumn} IN ${list})`
         : `(${comparisonColumn} NOT IN ${list})`;
     }
+    case "matches_pattern":
+    case "not_matches_pattern":
     case "starts_with":
     case "ends_with":
     case "contains":

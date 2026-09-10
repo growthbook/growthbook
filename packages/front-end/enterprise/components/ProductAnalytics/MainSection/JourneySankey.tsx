@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { PiArrowRight } from "react-icons/pi";
 import { Box } from "@radix-ui/themes";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
@@ -13,8 +14,8 @@ import {
   type JourneyViewModel,
 } from "./useJourneyModel";
 
-const NODE_W = 13;
-const NODE_GAP = 7;
+const NODE_W = 9;
+const NODE_GAP = 16;
 const PAD_T = 34;
 const PAD_B = 12;
 const ANIM_MS = 320;
@@ -46,8 +47,8 @@ function ribbonPath(
 }
 
 export function dimColor(dimTop: string[], v: string): string {
-  const i = dimTop.indexOf(v);
-  return i >= 0 && i < CHART_COLORS.length ? CHART_COLORS[i] : "var(--gray-8)";
+  const i = dimTop.concat([JOURNEY_OTHER]).indexOf(v);
+  return CHART_COLORS[Math.max(0, i) % CHART_COLORS.length];
 }
 
 const RIBBON_OPACITY = 0.55;
@@ -74,7 +75,14 @@ function ribbonParts(
   e: JourneyEdge,
   dimTop: string[],
   toExit: boolean,
-): { y0: number; y1: number; h0: number; h1: number; fill: string }[] {
+): {
+  y0: number;
+  y1: number;
+  h0: number;
+  h1: number;
+  fill: string;
+  dimension?: string;
+}[] {
   if (toExit) {
     return [
       {
@@ -88,9 +96,11 @@ function ribbonParts(
   }
   if (e.dims && e.dims.size) {
     const order = dimTop.concat([JOURNEY_OTHER]).filter((d) => e.dims?.has(d));
-    const gaps = Math.max(0, order.length - 1) * 2;
-    const usable0 = Math.max(0.5, e.h0 - gaps);
-    const usable1 = Math.max(0.5, e.h1 - gaps);
+    const gapCount = Math.max(0, order.length - 1);
+    const gap0 = gapCount ? Math.min(3, e.h0 / (2 * gapCount)) : 0;
+    const gap1 = gapCount ? Math.min(3, e.h1 / (2 * gapCount)) : 0;
+    const usable0 = Math.max(0, e.h0 - gapCount * gap0);
+    const usable1 = Math.max(0, e.h1 - gapCount * gap1);
     let a0 = e.y0;
     let a1 = e.y1;
     return order.map((d) => {
@@ -101,9 +111,10 @@ function ribbonParts(
         h0: usable0 * frac,
         h1: usable1 * frac,
         fill: dimColor(dimTop, d),
+        dimension: d,
       };
-      a0 += part.h0 + 2;
-      a1 += part.h1 + 2;
+      a0 += part.h0 + gap0;
+      a1 += part.h1 + gap1;
       return part;
     });
   }
@@ -326,7 +337,7 @@ function columnFillScale(
   height: number,
 ): number {
   const gaps = Math.max(0, nodeCount - 1) * NODE_GAP;
-  const availC = height - PAD_T - PAD_B - gaps;
+  const availC = Math.max(0, height - PAD_T - PAD_B - gaps);
   return total > 0 ? availC / total : 0;
 }
 
@@ -418,6 +429,8 @@ function layout(
 }
 
 type TipContent = {
+  hoveredDimension?: string;
+  action?: string;
   title: string;
   lines: string[];
   dimRows: { label: string; n: number; color: string }[];
@@ -458,12 +471,14 @@ function JourneyTooltip({
         color: "var(--gray-12)",
         border: "1px solid var(--gray-a6)",
         borderRadius: 8,
-        padding: "8px 10px",
+        padding: "16px 18px",
         fontSize: 12,
-        maxWidth: 280,
+        maxWidth: 360,
+        lineHeight: 1.5,
+        overflowWrap: "anywhere",
       }}
     >
-      <div style={{ fontWeight: 640, marginBottom: 2 }}>
+      <div style={{ fontWeight: 640, fontSize: 16, marginBottom: 10 }}>
         {tooltipData.title}
       </div>
       {tooltipData.lines.map((line) => (
@@ -478,7 +493,14 @@ function JourneyTooltip({
             display: "flex",
             gap: 8,
             alignItems: "center",
-            marginTop: 3,
+            marginTop: 8,
+            padding: "4px 6px",
+            borderRadius: 4,
+            background:
+              r.label === tooltipData.hoveredDimension
+                ? "var(--accent-a3)"
+                : undefined,
+            fontWeight: r.label === tooltipData.hoveredDimension ? 700 : 400,
           }}
         >
           <span
@@ -503,14 +525,32 @@ function JourneyTooltip({
       <div
         style={{
           display: "flex",
-          marginTop: 6,
+          marginTop: 12,
+          paddingTop: tooltipData.dimRows.length ? 12 : 0,
+          borderTop: tooltipData.dimRows.length
+            ? "1px solid var(--gray-a6)"
+            : undefined,
           fontVariantNumeric: "tabular-nums",
           fontWeight: 600,
         }}
       >
-        <span style={{ color: "var(--gray-11)" }}>total</span>
+        <strong>Total</strong>
         <span style={{ marginLeft: "auto" }}>{fmt(tooltipData.total)}</span>
       </div>
+      {tooltipData.action && (
+        <div
+          style={{
+            marginTop: 12,
+            color: "var(--gray-11)",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          {tooltipData.action}
+          <PiArrowRight aria-hidden="true" />
+        </div>
+      )}
     </TooltipWithBounds>
   );
 }
@@ -622,8 +662,6 @@ function SankeySvg({
       >
         <Group>
           {L.cols.map((c, ci) => {
-            const commitIndex = c.commitIndex;
-            const canPop = c.committed && !c.anchor && commitIndex != null;
             return (
               <text
                 key={`h-${ci}`}
@@ -633,24 +671,6 @@ function SankeySvg({
                 fontWeight={600}
                 fill="var(--gray-12)"
                 textAnchor={ci === L.cols.length - 1 ? "end" : "start"}
-                role={canPop ? "button" : undefined}
-                tabIndex={canPop ? 0 : undefined}
-                aria-label={canPop ? `Return to ${c.label}` : undefined}
-                style={{ cursor: canPop ? "pointer" : "default" }}
-                onClick={
-                  !canPop || commitIndex == null
-                    ? undefined
-                    : () => onPop(commitIndex)
-                }
-                onKeyDown={
-                  !canPop || commitIndex == null
-                    ? undefined
-                    : (ev) => {
-                        if (ev.key !== "Enter" && ev.key !== " ") return;
-                        ev.preventDefault();
-                        onPop(commitIndex);
-                      }
-                }
               >
                 {c.anchor
                   ? model.direction === "backward"
@@ -711,27 +731,6 @@ function SankeySvg({
                         : undefined
                 }
                 style={{ cursor: clickable ? "pointer" : "default" }}
-                onPointerEnter={(ev) => {
-                  showTip(ev, {
-                    title: `${e.from} → ${e.to}`,
-                    lines: [
-                      `${pct(e.value, model.anchorTotal)} of ${
-                        model.direction === "backward"
-                          ? "ending step"
-                          : "starting step"
-                      }`,
-                    ],
-                    dimRows: model.dimTop
-                      .concat([JOURNEY_OTHER])
-                      .filter((d) => e.dims?.has(d))
-                      .map((d) => ({
-                        label: d,
-                        n: e.dims?.get(d) ?? 0,
-                        color: dimColor(model.dimTop, d),
-                      })),
-                    total: e.value,
-                  });
-                }}
                 onPointerLeave={hideTooltip}
                 onClick={() => {
                   if (expandsOther && optionsLevel != null) {
@@ -755,6 +754,36 @@ function SankeySvg({
                     d={ribbonPath(x0, p.y0, p.h0, x1, p.y1, p.h1)}
                     fill={p.fill}
                     fillOpacity={op}
+                    onPointerEnter={(ev) => {
+                      showTip(ev, {
+                        title: `${e.from} → ${e.to}`,
+                        lines: [
+                          `${pct(e.value, model.anchorTotal)} of ${
+                            model.direction === "backward"
+                              ? "ending step"
+                              : "starting step"
+                          }`,
+                        ],
+                        dimRows: model.dimTop
+                          .concat([JOURNEY_OTHER])
+                          .filter((d) => e.dims?.has(d))
+                          .map((d) => ({
+                            label: d,
+                            n: e.dims?.get(d) ?? 0,
+                            color: dimColor(model.dimTop, d),
+                          })),
+                        total: e.value,
+                        hoveredDimension: p.dimension,
+                        action: expandsOther
+                          ? "Click to expand"
+                          : commitKeys
+                            ? "Click to advance"
+                            : popIndex !== null
+                              ? "Click to return to this step"
+                              : undefined,
+                      });
+                    }}
+                    onPointerLeave={hideTooltip}
                   />
                 ))}
               </g>
@@ -767,7 +796,7 @@ function SankeySvg({
               const term = isExitNode(n) || n.terminal === true;
               const fill = term ? EXIT_RIBBON_FILL : STEP_BAR_FILL;
               const hitH = Math.max(24, ln.h + 4);
-              const lx = lastCol ? c.x - 7 : c.x + NODE_W + 7;
+              const lx = lastCol ? c.x - 18 : c.x + NODE_W + 18;
               const anch = lastCol ? "end" : "start";
               const moreLoading =
                 c.optionsLevel != null && viewMoreLoading(c.optionsLevel);
@@ -855,6 +884,13 @@ function SankeySvg({
                             color: dimColor(model.dimTop, d),
                           })),
                         total: n.value,
+                        action: canExpandOther
+                          ? "Click to expand"
+                          : canCommit
+                            ? "Click to advance"
+                            : canPop
+                              ? "Click to return to this step"
+                              : undefined,
                       });
                     }}
                     onPointerLeave={hideTooltip}

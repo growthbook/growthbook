@@ -5,7 +5,9 @@ export type StringMatchOperator =
   | "starts_with"
   | "ends_with"
   | "contains"
-  | "not_contains";
+  | "not_contains"
+  | "matches_pattern"
+  | "not_matches_pattern";
 
 export type StringMatchFn = (
   columnExpr: string,

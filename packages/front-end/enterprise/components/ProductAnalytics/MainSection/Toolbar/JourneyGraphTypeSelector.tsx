@@ -1,22 +1,36 @@
 import { Flex } from "@radix-ui/themes";
 import { PiShareNetwork, PiTable, PiWarningBold } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { journeyPreferredView } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  hasSubmittablePayload,
+  journeyPreferredView,
+} from "@/enterprise/components/ProductAnalytics/util";
 import ExplorerViewSelector, {
   type ExplorerViewOption,
 } from "./ExplorerViewSelector";
 import JourneyHeightScaleSelector from "./JourneyHeightScaleSelector";
 
 const JOURNEY_GRAPH_ITEMS: ExplorerViewOption[] = [
-  { value: "bar", label: "Visualization", icon: PiShareNetwork },
-  { value: "table", label: "Results / SQL", icon: PiTable },
+  { value: "bar", label: "Sankey Diagram", icon: PiShareNetwork },
+  { value: "table", label: "Table", icon: PiTable },
 ];
 
 export default function JourneyGraphTypeSelector() {
-  const { draftExploreState, changeChartType, exploration, error, loading } =
-    useExplorerContext();
+  const {
+    draftExploreState,
+    submittedExploreState,
+    changeChartType,
+    exploration,
+    error,
+    loading,
+  } = useExplorerContext();
 
   const hasData = (exploration?.result?.rows?.length ?? 0) > 0;
+  const hasDiagram =
+    submittedExploreState?.type === "journey" &&
+    hasSubmittablePayload(submittedExploreState) &&
+    (exploration?.result?.rows.some((row) => (row.journey?.count ?? 0) > 0) ??
+      false);
   const hasError = !!error && !loading;
   const showQueryError = hasData && hasError;
   const activeValue = journeyPreferredView({
@@ -42,7 +56,9 @@ export default function JourneyGraphTypeSelector() {
           ) : null
         }
       />
-      {activeValue === "bar" && <JourneyHeightScaleSelector />}
+      {activeValue === "bar" && (
+        <JourneyHeightScaleSelector disabled={!hasDiagram} />
+      )}
     </Flex>
   );
 }

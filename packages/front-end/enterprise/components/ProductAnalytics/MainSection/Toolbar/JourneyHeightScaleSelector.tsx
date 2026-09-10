@@ -14,11 +14,15 @@ const HEIGHT_SCALE_ITEMS: {
   label: string;
   icon: ComponentType<{ size?: number }>;
 }[] = [
-  { value: "relative", label: "Relative", icon: PiRows },
-  { value: "absolute", label: "Absolute", icon: PiAlignTop },
+  { value: "relative", label: "Relative Height", icon: PiRows },
+  { value: "absolute", label: "Absolute Height", icon: PiAlignTop },
 ];
 
-export default function JourneyHeightScaleSelector() {
+export default function JourneyHeightScaleSelector({
+  disabled,
+}: {
+  disabled: boolean;
+}) {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
 
   if (draftExploreState.dataset?.type !== "journey") return null;
@@ -38,6 +42,7 @@ export default function JourneyHeightScaleSelector() {
 
   return (
     <Select
+      disabled={disabled}
       size="md"
       value={activeValue}
       placeholder="Select height"
