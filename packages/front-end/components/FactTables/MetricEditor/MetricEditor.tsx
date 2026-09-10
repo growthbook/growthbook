@@ -541,8 +541,10 @@ export default function MetricEditor({
             data={[
               { label: "Owner", value: form.watch("owner") || "—" },
               {
-                label: "Directionality",
-                value: form.watch("inverse") ? "Decrease" : "Increase",
+                label: "Metric goal",
+                value: form.watch("inverse")
+                  ? "Decrease the metric value"
+                  : "Increase the metric value",
               },
             ]}
           />
