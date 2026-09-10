@@ -312,7 +312,7 @@ export default function EditSqlModal({
                           shouldDisplay={!canRunQueries}
                         >
                           <RadixButton
-                            size="sm"
+                            size="md"
                             onClick={handleTestQuery}
                             loading={testingQuery}
                             disabled={!canRunQueries}
