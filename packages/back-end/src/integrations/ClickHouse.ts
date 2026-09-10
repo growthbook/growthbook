@@ -1,5 +1,9 @@
 import { subDays } from "date-fns";
-import { createClient, ResponseJSON } from "@clickhouse/client";
+import {
+  ClickHouseLogLevel,
+  createClient,
+  ResponseJSON,
+} from "@clickhouse/client";
 import {
   FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
@@ -16,6 +20,7 @@ import {
 import { SqlDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
+import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseColumnTypes";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 import { clickHouseDialect } from "./dialects/clickhouse";
@@ -99,6 +104,8 @@ export default class ClickHouse extends SqlIntegration {
       database: this.params.database,
       application: "GrowthBook",
       request_timeout: 3620_000,
+      // The client warns per instance when request_timeout > 60s without progress headers; we create one per query.
+      log: { level: ClickHouseLogLevel.ERROR },
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,
@@ -127,6 +134,10 @@ export default class ClickHouse extends SqlIntegration {
       }
       return {
         rows,
+        columns: data.meta?.map((col) => {
+          const dataType = getFactTableTypeFromClickHouseType(col.type);
+          return { name: col.name, ...(dataType && { dataType }) };
+        }),
         statistics: data.statistics
           ? {
               executionDurationMs: data.statistics.elapsed,
