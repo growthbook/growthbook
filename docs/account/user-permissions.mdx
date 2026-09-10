@@ -131,6 +131,20 @@ If you need to apply these rules to many users at once, you can create a Team wi
 
 So to hide a specific project from a user, make sure no explicit project-level role grants them access to it: set their own project-level role for that project to `No Access`, and do the same for any team they are on that would otherwise grant access to it.
 
+To hide a project from everyone except the people working on it, you don't need to assign `No Access` roles user by user — restrict access on the project itself (see below).
+
+### Restricting access to a Project
+
+<CommercialFeature feature="advanced-permissions" />
+
+By default, a user's global role applies to every project they don't have an explicit project-level role on. If you want a project to be private — visible only to the people granted a role on it — enable **Restrict access** on the project's **Roles & Permissions** tab.
+
+When a project restricts access, members can only see or act on it if they have an explicit role on that project, assigned directly or through a team. Everyone else is treated as `No Access` for that project: it disappears from their project list, and its feature flags, experiments, and other resources are hidden. Members whose global role includes the `manageTeam` permission (such as Admins) always keep access, and SDKs continue to receive the project's feature flags as normal.
+
+The **Roles & Permissions** tab shows each member's effective role on the project, so you can see exactly who retains access, and lets project admins grant project roles without needing org-wide permissions. If you enable Restrict access before granting yourself a role and you are not an Admin, you will lose access to the project too — GrowthBook warns you before saving.
+
+The setting is also available on the [REST API](/api#tag/projects) as the `restrictAccess` field on projects.
+
 ### How does the Project Admin role work?
 
 <CommercialFeature feature="project-admin-role" />

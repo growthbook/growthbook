@@ -84,16 +84,23 @@ export async function getQueriesByIds(
 export async function getQueryStatusesByIds(
   organization: string,
   ids: string[],
-): Promise<Pick<QueryInterface, "id" | "status" | "finishedAt">[]> {
+): Promise<
+  Pick<
+    QueryInterface,
+    "id" | "status" | "finishedAt" | "heartbeat" | "createdAt"
+  >[]
+> {
   if (!ids.length) return [];
   const docs = await QueryModel.find(
     { organization, id: { $in: ids } },
-    { id: 1, status: 1, finishedAt: 1, _id: 0 },
+    { id: 1, status: 1, finishedAt: 1, heartbeat: 1, createdAt: 1, _id: 0 },
   );
   return docs.map((d) => ({
     id: d.id,
     status: d.status,
     finishedAt: d.finishedAt,
+    heartbeat: d.heartbeat,
+    createdAt: d.createdAt,
   }));
 }
 
@@ -130,6 +137,29 @@ export async function countRunningQueries(
     datasource,
     status: "running",
   }).count();
+}
+
+export async function setQueryExternalId(
+  context: ReqContext,
+  query: QueryInterface,
+  externalId: string,
+  metadata?: QueryInterface["externalIdMetadata"],
+): Promise<QueryInterface["status"] | null> {
+  if (query.organization !== context.org.id) {
+    throw new Error("Cannot update query from different organization");
+  }
+
+  const doc = await QueryModel.findOneAndUpdate(
+    { organization: context.org.id, id: query.id },
+    {
+      $set: {
+        externalId,
+        ...(metadata ? { externalIdMetadata: metadata } : {}),
+      },
+    },
+    { new: true, projection: { status: 1 } },
+  );
+  return doc?.status ?? null;
 }
 
 export async function updateQuery(
@@ -254,6 +284,27 @@ export async function markPendingQueriesAsFailed(
         error,
       },
     },
+  );
+  return result.modifiedCount;
+}
+
+/**
+ * Prove the owning runner is still alive for queries it hasn't started yet.
+ * Returns the number affected.
+ */
+export async function touchQueuedQueriesHeartbeat(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<number> {
+  if (!ids.length) return 0;
+
+  const result = await QueryModel.updateMany(
+    {
+      organization: context.org.id,
+      id: { $in: ids },
+      status: "queued",
+    },
+    { $set: { heartbeat: new Date() } },
   );
   return result.modifiedCount;
 }

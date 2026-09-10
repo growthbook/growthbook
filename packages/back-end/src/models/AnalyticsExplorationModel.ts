@@ -9,6 +9,7 @@ import md5 from "md5";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
+  hasTimestampColumn,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
 import {
@@ -25,8 +26,19 @@ import analyticsExplorationApiSpec, {
   postMetricExplorationEndpoint,
   postFactTableExplorationEndpoint,
   postDataSourceExplorationEndpoint,
+  postSqlExplorationEndpoint,
   postFunnelExplorationEndpoint,
+  searchProductAnalyticsResourcesEndpoint,
+  getProductAnalyticsColumnsEndpoint,
+  getProductAnalyticsColumnValuesEndpoint,
+  getProductAnalyticsExplorationEndpoint,
 } from "back-end/src/api/specs/analytics-exploration.spec";
+import {
+  getProductAnalyticsColumns,
+  getProductAnalyticsColumnValues,
+  searchProductAnalyticsResources,
+} from "back-end/src/services/product-analytics-tools";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { MakeModelClass } from "./BaseModel";
 
 function toApiInterface(
@@ -96,7 +108,57 @@ const BaseClass = MakeModelClass({
       makeExplorationHandler(postMetricExplorationEndpoint),
       makeExplorationHandler(postFactTableExplorationEndpoint),
       makeExplorationHandler(postDataSourceExplorationEndpoint),
+      makeExplorationHandler(postSqlExplorationEndpoint),
       makeExplorationHandler(postFunnelExplorationEndpoint),
+      defineCustomApiHandler({
+        ...searchProductAnalyticsResourcesEndpoint,
+        reqHandler: async (req) => {
+          const result = await searchProductAnalyticsResources(
+            req.context,
+            req.query,
+          );
+          return {
+            ...result,
+            matches: await resolveOwnerEmails(result.matches, req.context),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...getProductAnalyticsColumnsEndpoint,
+        reqHandler: (req) => getProductAnalyticsColumns(req.context, req.query),
+      }),
+      defineCustomApiHandler({
+        ...getProductAnalyticsColumnValuesEndpoint,
+        reqHandler: (req) =>
+          getProductAnalyticsColumnValues(req.context, req.body),
+      }),
+      defineCustomApiHandler({
+        ...getProductAnalyticsExplorationEndpoint,
+        reqHandler: async (req) => {
+          // Avoid a recursive type dependency through RequestContext while this
+          // model's BaseClass initializer is being inferred.
+          const { analyticsExplorations } = req.context.models as unknown as {
+            analyticsExplorations: {
+              getById(id: string): Promise<ProductAnalyticsExploration | null>;
+            };
+          };
+          const exploration = await analyticsExplorations.getById(
+            req.params.id,
+          );
+          if (!exploration) return req.context.throwNotFoundError();
+          const queryId = exploration.queries?.[0]?.query;
+          const query = queryId
+            ? await getQueryById(req.context, queryId)
+            : null;
+          return {
+            exploration: toApiInterface(exploration),
+            query: query ? toQueryApiInterface(query) : null,
+            explorationUrl: getProductAnalyticsExplorationUrl(
+              exploration.config,
+            ),
+          };
+        },
+      }),
     ],
   },
 });
@@ -143,8 +205,12 @@ export class AnalyticsExplorationModel extends BaseClass {
         factTableId: dataset.type === "fact_table" ? dataset.factTableId : null,
         table: dataset.type === "data_source" ? dataset.table : null,
         path: dataset.type === "data_source" ? dataset.path : null,
+        sql: dataset.type === "sql" ? dataset.sql : null,
+        rawTable: config.chartType === "rawTable",
         timestampColumn:
-          dataset.type === "data_source" ? dataset.timestampColumn : null,
+          dataset.type === "data_source" || dataset.type === "sql"
+            ? dataset.timestampColumn
+            : null,
         // Funnel-specific keys: unit and concurrency window affect query
         // results but live at the dataset level rather than per-step.
         funnelUnit: dataset.type === "funnel" ? dataset.unit : null,
@@ -162,7 +228,9 @@ export class AnalyticsExplorationModel extends BaseClass {
     const valueHashes =
       dataset.type === "funnel"
         ? [md5(JSON.stringify(dataset.steps))]
-        : dataset.values.map((value) => md5(JSON.stringify(value)));
+        : config.chartType === "rawTable"
+          ? []
+          : dataset.values.map((value) => md5(JSON.stringify(value)));
 
     return {
       generalSettingsHash,
@@ -204,7 +272,10 @@ export class AnalyticsExplorationModel extends BaseClass {
   protected canCreate(doc: ProductAnalyticsExploration): boolean {
     const { datasource } = this.getForeignRefs(doc);
     if (!datasource) return false;
-    return this.context.permissions.canRunTestQueries(datasource);
+    return this.context.permissions.canRunProductAnalyticsExplorationQueries(
+      datasource,
+      doc.config.dataset.type,
+    );
   }
   protected canUpdate(existing: ProductAnalyticsExploration): boolean {
     return this.canCreate(existing);
@@ -230,6 +301,13 @@ export class AnalyticsExplorationModel extends BaseClass {
       },
       { sort: { dateCreated: -1 }, limit: 5 },
     );
+
+    if (
+      dataset.type === "sql" &&
+      !hasTimestampColumn(dataset.timestampColumn)
+    ) {
+      return matches[0] ?? null;
+    }
 
     const requestedDates = calculateProductAnalyticsDateRange(config.dateRange);
 

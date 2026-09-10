@@ -8,6 +8,8 @@ import {
   RowFilter,
 } from "shared/types/fact-table";
 import { ExposureQuery } from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
+import { Dimension } from "shared/types/integrations";
 import { SqlDialect } from "shared/types/sql";
 import { getRowFilterSQL } from "shared/experiments";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
@@ -509,6 +511,77 @@ describe("bigquery integration", () => {
       "WHERE m.event_time >= '2023-01-01 00:00:00' AND m.event_time <= '2023-01-31 00:00:00'",
     );
     expect(result).not.toContain("m.timestamp");
+  });
+
+  it("maps identifier columns and aliases them back to the id type", () => {
+    const factTable = factTableFactory.build({
+      sql: "SELECT userId, anonId, props, timestamp, value FROM events",
+      userIdColumns: { user_id: "userId", anonymous_id: "anonId" },
+    });
+    const factMetric = factMetricFactory.build({
+      metricType: "mean",
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const params = {
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
+      factTable,
+      startDate: new Date("2023-01-01"),
+      endDate: new Date("2023-01-31"),
+    };
+
+    // Base id type is on the fact table: select the mapped column directly.
+    const result = getFactMetricCTE(bigQueryDialect, {
+      ...params,
+      baseIdType: "user_id",
+      idJoinMap: {},
+    });
+    expect(result).toContain("userId as user_id");
+    expect(result).not.toContain("user_id as user_id");
+
+    // Base id type isn't on the fact table: join on the mapped column instead.
+    const joined = getFactMetricCTE(bigQueryDialect, {
+      ...params,
+      baseIdType: "device_id",
+      idJoinMap: { anonymous_id: "__identities" },
+    });
+    expect(joined).toContain(
+      "JOIN __identities i ON (i.anonymous_id = m.anonId)",
+    );
+
+    // A mapped virtual column inlines its expression in the identifier position.
+    const virtual = getFactMetricCTE(bigQueryDialect, {
+      ...params,
+      factTable: factTableFactory.build({
+        id: factTable.id,
+        sql: "SELECT userId, anonId, timestamp, value FROM events",
+        userIdColumns: { user_id: "combined_id" },
+        columns: [
+          {
+            column: "combined_id",
+            name: "combined_id",
+            description: "",
+            datatype: "string",
+            numberFormat: "",
+            deleted: false,
+            dateCreated: new Date(0),
+            dateUpdated: new Date(0),
+            isVirtual: true,
+            sql: "COALESCE(userId, anonId)",
+          },
+        ],
+      }),
+      baseIdType: "user_id",
+      idJoinMap: {},
+    });
+    // No alias prefix here: the expression sits directly in the SELECT over
+    // the fact table subquery, same as the plain mapped column above.
+    expect(virtual).toContain("(COALESCE(userId, anonId)) as user_id");
+    expect(virtual).toContain("m.value as m0_value");
   });
 
   it("substitutes {{experimentId}} in fact table SQL when experimentId is provided", () => {
@@ -1845,5 +1918,136 @@ describe("getFeatureEvalDiagnosticsQuery", () => {
     expect(sql).toMatch(
       /BETWEEN '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z' AND '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z'/,
     );
+  });
+});
+
+describe("custom dimensions (cutoff & combo) - bigquery", () => {
+  const testExposureQuery: ExposureQuery = {
+    id: "anonymous_id",
+    name: "Exposure",
+    description: "Exposure",
+    query: "*",
+    userIdType: "user_id",
+    dimensions: ["country", "browser"],
+  };
+
+  const ordersFactTable = factTableFactory.build({
+    id: "orders",
+    name: "Orders Fact Table",
+    sql: "*",
+  });
+  const factTableMap = new Map([[ordersFactTable.id, ordersFactTable]]);
+
+  // @ts-expect-error -- context not needed for test
+  const datasourceIntegration = new BigQuery("", {
+    settings: { queries: { exposure: [testExposureQuery] } },
+  });
+
+  const metric = factMetricFactory.build({
+    id: "fact_custom_dim",
+    metricType: "mean",
+    numerator: {
+      factTableId: "orders",
+      column: "amount",
+      aggregation: "sum",
+    },
+  });
+
+  const settings = {
+    manual: false,
+    dimensions: [],
+    metricSettings: [],
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    activationMetric: null,
+    defaultMetricPriorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: 0,
+    },
+    regressionAdjustmentEnabled: false,
+    attributionModel: "firstExposure" as const,
+    experimentId: "",
+    queryFilter: "",
+    segment: "",
+    skipPartialData: false,
+    datasourceId: "",
+    exposureQueryId: "",
+    startDate: new Date("2023-01-01"),
+    endDate: new Date("2023-01-31"),
+    variations: [],
+  };
+
+  const buildSql = (dimensions: Dimension[]): string =>
+    getExperimentFactMetricsQuery(
+      bigQueryDialect,
+      datasourceIntegration.datasource,
+      {
+        settings,
+        unitsSource: "exposureQuery",
+        unitsSettings: buildUnitsQuerySettingsFromSnapshot(
+          { ...settings, dimensions },
+          {
+            query: testExposureQuery.query,
+            userIdType: testExposureQuery.userIdType,
+          },
+        ),
+        activationMetric: null,
+        dimensions,
+        segment: null,
+        metrics: [metric],
+        factTableMap,
+      },
+    );
+
+  it("emits a before/after CASE over first_exposure_timestamp for a datecutoff dimension", () => {
+    const cutoff = new Date("2023-01-15T00:12:00.000Z");
+    const sql = buildSql([{ type: "datecutoff", cutoff }]);
+
+    expect(sql).toContain("AS dim_cutoff");
+    expect(sql).toContain("'Before 2023-01-15 00:12 UTC'");
+    expect(sql).toContain("'After 2023-01-15 00:12 UTC'");
+    expect(sql).toMatch(/first_exposure_timestamp\s*</);
+    // Computed at analysis time from first_exposure_timestamp; the units
+    // query must not materialize a cutoff column
+    expect(sql).not.toContain("dim_exp_");
+  });
+
+  it("emits a labeled CONCAT and materializes constituents for a combo dimension", () => {
+    const userDimension: DimensionInterface = {
+      id: "dim_u1",
+      organization: "org1",
+      owner: "",
+      datasource: "ds1",
+      userIdType: "user_id",
+      name: "Browser",
+      sql: "SELECT user_id, browser AS value FROM users",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = buildSql([
+      {
+        type: "combo",
+        dimensions: [
+          { type: "experiment", id: "country" },
+          { type: "user", dimension: userDimension },
+        ],
+      },
+    ]);
+
+    // Constituent columns materialized on the units source
+    expect(sql).toContain("dim_exp_country");
+    expect(sql).toContain("__dim_unit_dim_u1");
+
+    // The analysis column is the labeled concat, not the constituents.
+    // Nested binary CONCAT — Redshift/Vertica/Presto reject 3+ arguments.
+    expect(sql).toContain("AS dim_combo");
+    expect(sql).toMatch(/CONCAT\(\s*CONCAT\(/);
+    expect(sql).toMatch(/CONCAT\(\s*'country: ',\s*COALESCE\(/);
+    expect(sql).toContain("' & '");
+    expect(sql).toContain("'Browser: '");
+    expect(sql).toContain("'__NULL_DIMENSION'");
   });
 });

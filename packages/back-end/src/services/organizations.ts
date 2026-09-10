@@ -34,6 +34,7 @@ import {
   AIProvider,
   AI_PROVIDERS,
   CLOUD_MANAGED_AI_MODEL,
+  SELF_HOSTED_DEFAULT_AI_MODELS,
   CLOUD_MANAGED_IMAGE_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
@@ -123,6 +124,7 @@ import {
 } from "back-end/src/enterprise";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   encryptParams,
@@ -226,6 +228,7 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     },
     teams: req.teams,
     req: req as Request,
+    restrictedProjects: req.restrictedProjects,
   });
 }
 
@@ -344,8 +347,13 @@ export async function getAISettingsForOrg(
       context.org.settings?.openAIDefaultModel,
     keySource,
   );
+  const selfHostedDefaultAIModel: AIModel =
+    SELF_HOSTED_DEFAULT_AI_MODELS.find(
+      ([provider]) => keySource[provider] !== "none",
+    )?.[1] ?? SELF_HOSTED_DEFAULT_AI_MODELS[0][1];
   const defaultAIModel: AIModel =
-    orgDefaultAIModel || (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : "gpt-5.4-mini");
+    orgDefaultAIModel ||
+    (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : selfHostedDefaultAIModel);
 
   // Cloud stays on Sonnet unless the Visual Editor's own setting overrides it:
   // its structured-output + vision workload fails schema adherence on Haiku.
@@ -1672,6 +1680,13 @@ export async function getContextForAgendaJobByOrgId(
 export async function getContextForUserIdInOrg(
   org: OrganizationInterface,
   userId: string,
+  {
+    // Deferred and scheduled executions err permissive: they run on the
+    // authority the user held when they enabled the action, so a project
+    // restricting access later must not strand them. Live request contexts
+    // (e.g. OAuth) keep the default and apply restrictions.
+    applyProjectRestrictions = true,
+  }: { applyProjectRestrictions?: boolean } = {},
 ): Promise<ApiReqContext | null> {
   const user = await getUserById(userId);
   if (!user) return null;
@@ -1679,7 +1694,12 @@ export async function getContextForUserIdInOrg(
   const isMember = org.members.some((m) => m.id === user.id);
   if (!isMember) return null;
 
-  const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
+  const [teams, restrictedProjects] = await Promise.all([
+    TeamModel.dangerousGetTeamsForOrganization(org.id),
+    applyProjectRestrictions
+      ? ProjectModel.dangerousGetRestrictedProjectIds(org.id)
+      : [],
+  ]);
 
   return new ReqContextClass({
     org,
@@ -1696,5 +1716,6 @@ export async function getContextForUserIdInOrg(
       superAdmin: user.superAdmin,
     },
     teams,
+    restrictedProjects,
   });
 }

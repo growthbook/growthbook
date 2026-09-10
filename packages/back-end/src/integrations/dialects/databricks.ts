@@ -71,10 +71,18 @@ export const databricksDialect: SqlDialect = {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // Databricks isn't an incremental target today; defined for
+        // exhaustiveness. Identity castUserDateCol → TIMESTAMP.
+        return "TIMESTAMP";
       case "hll":
         return "BINARY";
       case "quantileSketch":
         return "BINARY";
+      // Spark array type. Databricks isn't an incremental target today, so this
+      // is defined for exhaustiveness/forward-compat rather than active use.
+      case "arrayTimestamp":
+        return "ARRAY<TIMESTAMP>";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);
