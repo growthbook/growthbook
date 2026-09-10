@@ -124,7 +124,7 @@ const GetStartedAndHomePage = ({
   showMarketingBanner = false,
 }: {
   showMarketingBanner?: boolean;
-} = {}): React.ReactElement => {
+}): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
@@ -163,15 +163,15 @@ const GetStartedAndHomePage = ({
     organization?.demographicData,
   );
 
-  const [showGettingStarted, setShowGettingStarted] = useState<boolean>(
-    !orgIsUsingFeatureOrExperiment,
-  );
+  // null until the reader opens or closes the section themselves, so the usage
+  // data arriving late cannot undo their click.
+  const [showGettingStartedOverride, setShowGettingStartedOverride] = useState<
+    boolean | null
+  >(null);
+  const showGettingStarted =
+    showGettingStartedOverride ?? !orgIsUsingFeatureOrExperiment;
   const [openNewFeatureFlagModal, setOpenNewFeatureFlagModal] =
     useState<boolean>(false);
-
-  useEffect(() => {
-    setShowGettingStarted(!orgIsUsingFeatureOrExperiment);
-  }, [orgIsUsingFeatureOrExperiment]);
 
   const { data: sdkConnectionData } = useSDKConnections();
   const orgHasConnectedSDK =
@@ -198,9 +198,14 @@ const GetStartedAndHomePage = ({
         docSection: "managedWarehouseTracking",
       });
     }
-    return advancedFeatureListWithAnalytics
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
+    // A random comparator is not a valid ordering, and the engine's sort turned
+    // it into a heavy bias toward the first few entries. Shuffle properly.
+    const shuffled = [...advancedFeatureListWithAnalytics];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, 3);
   }, []);
 
   return (
@@ -332,7 +337,9 @@ const GetStartedAndHomePage = ({
                 {orgIsUsingFeatureOrExperiment && (
                   <Button
                     variant="ghost"
-                    onClick={() => setShowGettingStarted(!showGettingStarted)}
+                    onClick={() =>
+                      setShowGettingStartedOverride(!showGettingStarted)
+                    }
                   >
                     {showGettingStarted ? "Hide Details" : "Show Details"}
                   </Button>

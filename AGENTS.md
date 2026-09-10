@@ -52,7 +52,7 @@ pnpm --filter back-end test path/to/test.ts
 
 ### Monorepo Structure (pnpm workspaces)
 
-- **`packages/front-end`** — Next.js 14 app (pages router), Vitest for tests, port 3000
+- **`packages/front-end`** — Next.js 16 app (Pages Router), Vitest for tests, port 3000
 - **`packages/back-end`** — Express API server, Jest for tests, MongoDB via Mongoose, port 3100
 - **`packages/shared`** — Types, Zod validators, utilities shared between front-end and back-end
 - **`packages/sdk-js`** — Published as `@growthbook/growthbook`, zero-dependency JS SDK

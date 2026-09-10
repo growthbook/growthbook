@@ -1,6 +1,8 @@
 import { Box, Flex, IconButton, Tooltip } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import { useFeatureValue } from "@growthbook/growthbook-react";
+import { JSONValue } from "@growthbook/growthbook";
+import { z } from "zod";
 import { PiX } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
@@ -116,22 +118,37 @@ export default function MarketingBanner({
 // Flat on purpose: the flag's Simple Schema only supports primitive fields, so
 // a nested `button` object would force the raw-JSON editor. Keeping the CTA as
 // two top-level strings lets editors fill the banner in via form inputs.
-type MarketingBannerConfig = {
-  title: string;
-  subheader?: string;
-  pill?: string;
-  buttonCopy: string;
-  buttonLink: string;
-  dismissible?: boolean;
-};
+//
+// The flag is authored by hand, so the payload is whatever someone typed. It is
+// validated rather than cast: a title that arrives as a number used to throw
+// from slugify and blank the page it sits on.
+const marketingBannerConfig = z.object({
+  title: z.string().min(1),
+  subheader: z.string().optional(),
+  pill: z.string().optional(),
+  buttonCopy: z.string().min(1),
+  // Relative paths and http(s) only — a link is rendered as an anchor, so a
+  // javascript: URL from the flag would be executable.
+  buttonLink: z
+    .string()
+    .min(1)
+    .refine(
+      (link) => link.startsWith("/") || /^https?:\/\//i.test(link),
+      "must be a relative path or an http(s) URL",
+    ),
+  dismissible: z.boolean().optional(),
+});
 
 // Slug derived from the title so changing the banner copy re-shows it to users
-// who dismissed the previous one.
+// who dismissed the previous one. A title of only punctuation or non-Latin
+// characters leaves nothing behind, so fall back to an encoded form rather than
+// letting every such title share one dismissal key.
 function slugify(value: string): string {
-  return value
+  const slug = value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+  return slug || encodeURIComponent(value.trim().toLowerCase());
 }
 
 /**
@@ -142,17 +159,17 @@ function slugify(value: string): string {
  * Returns null when a required field is missing or the flag is unset.
  */
 export function HomeMarketingBanner() {
-  const config = useFeatureValue<MarketingBannerConfig | null>(
+  // Typed only as JSON — the shape is whatever the flag holds, so zod decides.
+  const raw = useFeatureValue<Record<string, JSONValue> | null>(
     "home-marketing-banner",
     null,
   );
 
-  const cta =
-    config?.buttonCopy && config?.buttonLink
-      ? { copy: config.buttonCopy, link: config.buttonLink }
-      : undefined;
+  const parsed = marketingBannerConfig.safeParse(raw);
+  if (!parsed.success) return null;
+  const config = parsed.data;
 
-  if (!config?.title || !cta) return null;
+  const cta = { copy: config.buttonCopy, link: config.buttonLink };
 
   // Identity changes when the banner copy changes. The `key` forces a
   // remount so useLocalStorage re-reads the dismissed state from the new

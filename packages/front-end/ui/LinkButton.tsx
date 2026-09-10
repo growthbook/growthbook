@@ -12,7 +12,11 @@ export default forwardRef<HTMLButtonElement, Props>(function LinkButton(
   ref,
 ) {
   return (
-    <Link href={href} target={external ? "_blank" : "_self"}>
+    <Link
+      href={href}
+      target={external ? "_blank" : "_self"}
+      rel={external ? "noopener noreferrer" : undefined}
+    >
       <Button {...otherProps} ref={ref} />
     </Link>
   );
