@@ -67,7 +67,9 @@ const ExperimentsPage = (): React.ReactElement => {
     loading,
     hasArchived,
     tempRolloutExperimentIds,
-  } = useExperiments(project, activeTab === "archived", "multi-armed-bandit");
+  } = useExperiments(project, activeTab === "archived", "multi-armed-bandit", {
+    includeTempRollouts: true,
+  });
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 

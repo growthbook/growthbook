@@ -190,6 +190,9 @@ export async function getExperiments(
       project?: string;
       includeArchived?: boolean;
       type?: ExperimentType;
+      // Only the list pages need the served-temp-rollout ids; it costs a
+      // feature query, so callers opt in.
+      includeTempRollouts?: boolean;
     }
   >,
   res: Response,
@@ -201,6 +204,7 @@ export async function getExperiments(
   }
 
   const includeArchived = !!req.query?.includeArchived;
+  const includeTempRollouts = !!req.query?.includeTempRollouts;
   const type: ExperimentType | undefined = req.query?.type || undefined;
 
   const experiments = await getAllExperiments(context, {
@@ -211,7 +215,9 @@ export async function getExperiments(
 
   const [holdouts, tempRolloutExperimentIds] = await Promise.all([
     context.models.holdout.getAll(),
-    getServedTempRolloutExperimentIds(context, experiments),
+    includeTempRollouts
+      ? getServedTempRolloutExperimentIds(context, experiments)
+      : undefined,
   ]);
 
   const hasArchived = includeArchived
@@ -223,7 +229,7 @@ export async function getExperiments(
     experiments,
     hasArchived,
     holdouts,
-    tempRolloutExperimentIds,
+    ...(tempRolloutExperimentIds ? { tempRolloutExperimentIds } : {}),
   });
 }
 
