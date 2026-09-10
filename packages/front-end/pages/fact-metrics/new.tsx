@@ -36,6 +36,15 @@ export default function NewFactMetricPage() {
   };
 
   const initialFactTable = fromQuery("factTable", getFactTableById);
+  if (router.query.factTable && !initialFactTable) {
+    return (
+      <Callout status="error">
+        Could not find the requested fact table.{" "}
+        <Link href={returnUrl}>Go back</Link>
+      </Callout>
+    );
+  }
+
   const duplicateSource = fromQuery("duplicate", getFactMetricById);
   if (router.query.duplicate && !router.query.addMetric && !duplicateSource) {
     return (
