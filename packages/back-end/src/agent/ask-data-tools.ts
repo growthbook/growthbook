@@ -9,6 +9,7 @@ import { createCompletedQuery } from "back-end/src/models/QueryModel";
 import {
   getIntegrationIdentifierQuote,
   getSourceIntegrationObject,
+  quoteIdentifier,
   runFreeFormQuery,
 } from "back-end/src/services/datasource";
 import { getFactTablesForDatasource } from "back-end/src/models/FactTableModel";
@@ -216,12 +217,27 @@ export async function getWarehouseTableSchema(
 export async function previewWarehouseColumnValues(
   ctx: ReqContext,
   datasource: DataSourceInterface,
-  input: { table: string; columns: string[]; limit: number },
+  input: {
+    databaseName: string;
+    tableSchema: string;
+    tableName: string;
+    columns: string[];
+    limit: number;
+  },
 ): Promise<unknown> {
   const integration = getSourceIntegrationObject(ctx, datasource);
   const q = getIntegrationIdentifierQuote(integration);
-  const colList = input.columns.map((c) => `${q}${c}${q}`).join(", ");
-  const sql = `SELECT DISTINCT ${colList} FROM ${input.table} LIMIT ${input.limit}`;
+  const colList = input.columns.map((c) => quoteIdentifier(c, q)).join(", ");
+
+  const tablePath = integration.generateTablePath
+    ? integration.generateTablePath(
+        input.tableName,
+        input.tableSchema,
+        input.databaseName,
+      )
+    : input.tableName;
+
+  const sql = `SELECT DISTINCT ${colList} FROM ${tablePath} LIMIT ${input.limit}`;
 
   const { results, error } = await runFreeFormQuery(
     ctx,
@@ -233,7 +249,7 @@ export async function previewWarehouseColumnValues(
   if (error) return { error };
 
   return {
-    table: input.table,
+    table: tablePath,
     columns: input.columns,
     rows: (results ?? []).slice(0, input.limit),
     rowCount: (results ?? []).length,

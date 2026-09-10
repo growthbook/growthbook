@@ -19505,8 +19505,14 @@ paths:
             schema:
               type: object
               properties:
-                table:
-                  description: Fully-qualified table name.
+                databaseName:
+                  description: Database or project name.
+                  type: string
+                tableSchema:
+                  description: Schema or dataset name.
+                  type: string
+                tableName:
+                  description: Table name (unqualified).
                   type: string
                 columns:
                   minItems: 1
@@ -19520,7 +19526,9 @@ paths:
                   minimum: 1
                   maximum: 20
               required:
-                - table
+                - databaseName
+                - tableSchema
+                - tableName
                 - columns
               additionalProperties: false
       responses:

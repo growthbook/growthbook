@@ -92,7 +92,9 @@ export const getTableSchemaValidator = {
 
 export const previewColumnValuesValidator = {
   bodySchema: z.object({
-    table: z.string().describe("Fully-qualified table name."),
+    databaseName: z.string().describe("Database or project name."),
+    tableSchema: z.string().describe("Schema or dataset name."),
+    tableName: z.string().describe("Table name (unqualified)."),
     columns: z.array(z.string()).min(1).max(3),
     limit: z
       .number()
