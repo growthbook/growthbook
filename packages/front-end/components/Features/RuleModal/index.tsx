@@ -79,7 +79,7 @@ import {
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
 import {
@@ -228,10 +228,9 @@ function RampImpactBanner({
       style={{
         background: "var(--amber-a3)",
         borderTop: "1px solid var(--amber-a5)",
-        color: "var(--amber-11)",
       }}
     >
-      <Flex align="center" gap="2">
+      <Flex align="center" gap="2" style={{ color: "var(--amber-11)" }}>
         <PiWarningFill size={15} style={{ flexShrink: 0 }} />
         <Text as="div">
           This ramp-up will override an already-published rule.{" "}
@@ -251,8 +250,8 @@ function RampImpactBanner({
       <Flex align="center" gap="4" flexShrink="0">
         {onRampToNewValue && (
           <Tooltip
-            body="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
-            tipPosition="top"
+            content="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
+            side="top"
           >
             <Button variant="outline" size="md" onClick={onRampToNewValue}>
               Ramp to new value
