@@ -62,10 +62,14 @@ function getDefaultStatusAndText(
         defaultStatus: "rolled-back",
         text: "The Safe Rollout has failing guardrails. We recommend reverting to Control.",
       };
+    case "data-incomplete":
+      return {
+        defaultStatus: "",
+        text: "Some guardrail metrics could not be computed, so no ship recommendation is available.",
+      };
     case "before-min-duration":
     case "days-left":
     case "no-data":
-    case "data-incomplete":
       return {
         defaultStatus: "",
         text: "The Safe Rollout is still collecting data. Are you sure you want to stop early?",

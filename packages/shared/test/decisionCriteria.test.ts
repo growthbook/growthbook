@@ -14,9 +14,11 @@ import {
   getEarlyStoppingVariationDecisions,
   resolveScheduledShipDecision,
   getExperimentResultStatus,
+  getSafeRolloutResultStatus,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
 import { MetricGroupInterface } from "../types/metric-groups";
+import { SafeRolloutInterface } from "../types/safe-rollout";
 
 function shipNow(variationIds: string[]): ExperimentResultStatusData {
   return {
@@ -54,6 +56,110 @@ function setMetricsOnResultsStatus({
     ],
   };
 }
+
+describe("getSafeRolloutResultStatus with failed guardrails", () => {
+  const healthSettings: ExperimentHealthSettings = {
+    decisionFrameworkEnabled: true,
+    experimentMinLengthDays: 7,
+    srmThreshold: 0.001,
+    multipleExposureMinPercent: 0.01,
+  };
+
+  function makeSafeRollout(
+    guardrailMetrics: NonNullable<
+      ExperimentAnalysisSummaryVariationStatus["guardrailMetrics"]
+    >,
+    srm = 1,
+  ): SafeRolloutInterface {
+    return {
+      id: "sfr_test",
+      organization: "org_test",
+      dateCreated: new Date("2020-01-01"),
+      dateUpdated: new Date("2020-01-01"),
+      startedAt: new Date("2020-01-01"),
+      featureId: "feature_test",
+      datasourceId: "ds_test",
+      exposureQueryId: "exposure_test",
+      status: "running",
+      guardrailMetricIds: Object.keys(guardrailMetrics),
+      maxDuration: { amount: 7, unit: "days" },
+      autoRollback: true,
+      autoSnapshots: true,
+      rampUpSchedule: {
+        enabled: false,
+        step: 0,
+        steps: [],
+        rampUpCompleted: true,
+      },
+      analysisSummary: {
+        snapshotId: "snapshot_test",
+        health: { srm, totalUsers: 2000, multipleExposures: 0 },
+        resultsStatus: {
+          settings: { sequentialTesting: true },
+          variations: [{ variationId: "1", guardrailMetrics }],
+        },
+      },
+    };
+  }
+
+  it.each([2, 0, -1])(
+    "preserves incomplete data with %s days left",
+    (daysLeft) => {
+      const result = getSafeRolloutResultStatus({
+        safeRollout: makeSafeRollout({
+          failedGuardrail: { status: "failed" },
+          safeGuardrail: { status: "safe" },
+        }),
+        healthSettings,
+        daysLeft,
+      });
+
+      expect(result).toEqual({
+        status: "data-incomplete",
+        failedMetrics: ["failedGuardrail"],
+      });
+    },
+  );
+
+  it.each([
+    { daysLeft: 2, status: "days-left" },
+    { daysLeft: 0, status: "ship-now" },
+  ])("keeps healthy rollout status $status", ({ daysLeft, status }) => {
+    const result = getSafeRolloutResultStatus({
+      safeRollout: makeSafeRollout({ guardrail: { status: "safe" } }),
+      healthSettings,
+      daysLeft,
+    });
+
+    expect(result?.status).toBe(status);
+  });
+
+  it("rolls back a losing guardrail even when another failed to compute", () => {
+    const result = getSafeRolloutResultStatus({
+      safeRollout: makeSafeRollout({
+        failedGuardrail: { status: "failed" },
+        losingGuardrail: { status: "lost" },
+      }),
+      healthSettings,
+      daysLeft: 0,
+    });
+
+    expect(result?.status).toBe("rollback-now");
+  });
+
+  it("keeps unhealthy status ahead of incomplete data", () => {
+    const result = getSafeRolloutResultStatus({
+      safeRollout: makeSafeRollout({ guardrail: { status: "failed" } }, 0),
+      healthSettings,
+      daysLeft: 0,
+    });
+
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: { srm: true },
+    });
+  });
+});
 
 describe("default decision tree is correct", () => {
   const resultsStatus: ExperimentAnalysisSummaryResultsStatus = {

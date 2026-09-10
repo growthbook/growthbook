@@ -66,6 +66,8 @@ const DecisionCTA = ({
   } else if (decisionStatus?.status === "ship-now") {
     buttonCopy = "Ship Now";
     variant = "solid";
+  } else if (decisionStatus?.status === "data-incomplete") {
+    buttonCopy = "Review rollout";
   }
 
   return (

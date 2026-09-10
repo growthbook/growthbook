@@ -868,6 +868,10 @@ export function getSafeRolloutResultStatus({
     };
   }
 
+  if (decisionStatus?.status === "data-incomplete") {
+    return decisionStatus;
+  }
+
   // If no decision status, return days left status
   if (daysLeft > 0) {
     return {
