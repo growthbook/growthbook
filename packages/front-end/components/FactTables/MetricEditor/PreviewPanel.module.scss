@@ -1,4 +1,8 @@
 .sqlPreview {
+  pre {
+    padding-left: var(--space-5) !important;
+  }
+
   pre,
   code {
     white-space: pre-wrap !important;
