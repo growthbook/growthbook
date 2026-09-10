@@ -122,6 +122,7 @@ export default function RetentionFields({
           </>
         )}
         <Select
+          aria-label="Time unit"
           value={windowSettings.delayUnit}
           setValue={(unit) =>
             onWindowSettingsChange({
