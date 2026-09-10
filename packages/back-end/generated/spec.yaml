@@ -27654,6 +27654,7 @@ paths:
                     - ''
                     - currency
                     - time:seconds
+                    - time:milliseconds
                     - memory:bytes
                     - memory:kilobytes
                 datatype:
@@ -27726,6 +27727,7 @@ paths:
                     - ''
                     - currency
                     - time:seconds
+                    - time:milliseconds
                     - memory:bytes
                     - memory:kilobytes
                 datatype:
@@ -62838,6 +62840,7 @@ components:
             - ''
             - currency
             - time:seconds
+            - time:milliseconds
             - memory:bytes
             - memory:kilobytes
         jsonFields:
@@ -62962,6 +62965,7 @@ components:
             - ''
             - currency
             - time:seconds
+            - time:milliseconds
             - memory:bytes
             - memory:kilobytes
         jsonFields:
