@@ -225,6 +225,8 @@ export const eventWebHookInterface = z
     slackOptions: slackEventWebHookOptions.optional(),
     nextExperimentDigestAt: z.date().optional(),
     nextFeatureDigestAt: z.date().optional(),
+    experimentDigestLeaseUntil: z.date().optional(),
+    featureDigestLeaseUntil: z.date().optional(),
     signingKey: z.string().min(2),
     lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),

@@ -53,6 +53,16 @@ const CARD_FORMAT_LABELS: Record<
   },
 };
 
+const DIGEST_FREQUENCIES = [
+  "off",
+  "daily",
+  "weekly",
+  "monthly",
+  "quarterly",
+  "custom",
+] as const;
+type DigestFrequency = (typeof DIGEST_FREQUENCIES)[number];
+
 export const getSlackChannelLabel = (
   integration: SlackOAuthIntegrationInterface,
 ) => {
@@ -288,21 +298,23 @@ export default function SlackChannelSettings({
           <Grid columns={{ initial: "1", sm: "2" }} gap="4">
             <RadioGroup
               value={experimentDigestFrequency}
-              options={["off", "daily", "weekly", "monthly", "quarterly", "custom"].map(
-                (value) => ({ value, label: `Experiments: ${value}` }),
-              )}
+              options={DIGEST_FREQUENCIES.map((value) => ({
+                value,
+                label: `Experiments: ${value}`,
+              }))}
               setValue={(value) => {
-                setExperimentDigestFrequency(value);
+                setExperimentDigestFrequency(value as DigestFrequency);
                 setSaved(false);
               }}
             />
             <RadioGroup
               value={featureDigestFrequency}
-              options={["off", "daily", "weekly", "monthly", "quarterly", "custom"].map(
-                (value) => ({ value, label: `Features: ${value}` }),
-              )}
+              options={DIGEST_FREQUENCIES.map((value) => ({
+                value,
+                label: `Features: ${value}`,
+              }))}
               setValue={(value) => {
-                setFeatureDigestFrequency(value);
+                setFeatureDigestFrequency(value as DigestFrequency);
                 setSaved(false);
               }}
             />

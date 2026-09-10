@@ -343,9 +343,8 @@ export const getSlackWorkspaceTokenForTeam = async ({
   context: ReqContext;
   teamId: string;
 }): Promise<string> => {
-  const connection = await context.models.slackWorkspaceConnections.getByTeamId(
-    teamId,
-  );
+  const connection =
+    await context.models.slackWorkspaceConnections.getByTeamId(teamId);
   if (!connection) {
     throw new Error("Slack workspace connection not found.");
   }

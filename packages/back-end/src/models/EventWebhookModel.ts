@@ -50,6 +50,8 @@ const eventWebHookSchema = new mongoose.Schema({
   slackOptions: { type: mongoose.Schema.Types.Mixed, required: false },
   nextExperimentDigestAt: { type: Date, required: false },
   nextFeatureDigestAt: { type: Date, required: false },
+  experimentDigestLeaseUntil: { type: Date, required: false },
+  featureDigestLeaseUntil: { type: Date, required: false },
   method: {
     type: String,
     required: false,
@@ -457,6 +459,10 @@ const DIGEST_FIELD: Record<SlackDigestKind, string> = {
   experiment: "nextExperimentDigestAt",
   feature: "nextFeatureDigestAt",
 };
+const DIGEST_LEASE_FIELD: Record<SlackDigestKind, string> = {
+  experiment: "experimentDigestLeaseUntil",
+  feature: "featureDigestLeaseUntil",
+};
 
 export const syncSlackDigestSchedule = async ({
   eventWebHookId,
@@ -515,39 +521,68 @@ export const claimSlackDigestRun = async ({
   organizationId,
   kind,
   now,
-  nextRunAt,
 }: {
   eventWebHookId: string;
   organizationId: string;
   kind: SlackDigestKind;
   now: Date;
+}) => {
+  const field = DIGEST_FIELD[kind];
+  const leaseField = DIGEST_LEASE_FIELD[kind];
+  const leaseUntil = new Date(now.getTime() + 10 * 60 * 1000);
+  const result = await EventWebHookModel.updateOne(
+    {
+      id: eventWebHookId,
+      organizationId,
+      [field]: { $lte: now },
+      $or: [
+        { [leaseField]: { $exists: false } },
+        { [leaseField]: { $lte: now } },
+      ],
+    },
+    { $set: { [leaseField]: leaseUntil } },
+  );
+  return result.modifiedCount === 1 ? { leaseUntil } : null;
+};
+
+export const completeSlackDigestRun = async ({
+  eventWebHookId,
+  organizationId,
+  kind,
+  leaseUntil,
+  nextRunAt,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  kind: SlackDigestKind;
+  leaseUntil: Date;
   nextRunAt: Date | null;
 }) => {
   const field = DIGEST_FIELD[kind];
-  const result = await EventWebHookModel.updateOne(
-    { id: eventWebHookId, organizationId, [field]: { $lte: now } },
-    nextRunAt ? { $set: { [field]: nextRunAt } } : { $unset: { [field]: "" } },
+  const leaseField = DIGEST_LEASE_FIELD[kind];
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId, [leaseField]: leaseUntil },
+    nextRunAt
+      ? { $set: { [field]: nextRunAt }, $unset: { [leaseField]: "" } }
+      : { $unset: { [field]: "", [leaseField]: "" } },
   );
-  return result.modifiedCount === 1;
 };
 
 export const releaseSlackDigestRun = async ({
   eventWebHookId,
   organizationId,
   kind,
-  claimedAt,
-  dueAt,
+  leaseUntil,
 }: {
   eventWebHookId: string;
   organizationId: string;
   kind: SlackDigestKind;
-  claimedAt: Date;
-  dueAt: Date;
+  leaseUntil: Date;
 }) => {
-  const field = DIGEST_FIELD[kind];
+  const leaseField = DIGEST_LEASE_FIELD[kind];
   await EventWebHookModel.updateOne(
-    { id: eventWebHookId, organizationId, [field]: { $gt: claimedAt } },
-    { $set: { [field]: dueAt } },
+    { id: eventWebHookId, organizationId, [leaseField]: leaseUntil },
+    { $unset: { [leaseField]: "" } },
   );
 };
 
