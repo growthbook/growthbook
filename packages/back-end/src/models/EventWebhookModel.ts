@@ -11,10 +11,10 @@ import {
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
-  experimentCardFormats,
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
   NotificationEventNameOrWildcard,
+  slackDigestNextRunAts,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -47,12 +47,9 @@ const eventWebHookSchema = new mongoose.Schema({
     channelId: String,
     configurationUrl: String,
   },
-  slackOptions: {
-    experimentCardFormat: {
-      type: String,
-      enum: experimentCardFormats,
-    },
-  },
+  slackOptions: { type: mongoose.Schema.Types.Mixed, required: false },
+  nextExperimentDigestAt: { type: Date, required: false },
+  nextFeatureDigestAt: { type: Date, required: false },
   method: {
     type: String,
     required: false,
@@ -183,6 +180,8 @@ const eventWebHookSchema = new mongoose.Schema({
 });
 
 eventWebHookSchema.index({ organizationId: 1 });
+eventWebHookSchema.index({ payloadType: 1, nextExperimentDigestAt: 1 });
+eventWebHookSchema.index({ payloadType: 1, nextFeatureDigestAt: 1 });
 
 type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
 
@@ -293,6 +292,13 @@ export const createEventWebHook = async ({
     lastRunAt: null,
     lastState: "none",
     lastResponseBody: null,
+    ...(() => {
+      const next = slackDigestNextRunAts(slackOptions, now);
+      return {
+        ...(next.experiment ? { nextExperimentDigestAt: next.experiment } : {}),
+        ...(next.feature ? { nextFeatureDigestAt: next.feature } : {}),
+      };
+    })(),
   });
 
   return toInterface(doc);
@@ -391,6 +397,14 @@ export const updateEventWebHook = async (
     },
   );
 
+  if (updates.slackOptions !== undefined) {
+    await syncSlackDigestSchedule({
+      eventWebHookId,
+      organizationId,
+      slackOptions: updates.slackOptions,
+    });
+  }
+
   return result.modifiedCount === 1;
 };
 
@@ -436,6 +450,85 @@ export const getAllEventWebHooks = async (
   ]);
 
   return docs.map(toInterface);
+};
+
+export type SlackDigestKind = "experiment" | "feature";
+const DIGEST_FIELD: Record<SlackDigestKind, string> = {
+  experiment: "nextExperimentDigestAt",
+  feature: "nextFeatureDigestAt",
+};
+
+export const syncSlackDigestSchedule = async ({
+  eventWebHookId,
+  organizationId,
+  slackOptions,
+  from = new Date(),
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  slackOptions: EventWebHookInterface["slackOptions"];
+  from?: Date;
+}) => {
+  const next = slackDigestNextRunAts(slackOptions, from);
+  const set: Record<string, Date> = {};
+  const unset: Record<string, ""> = {};
+  (["experiment", "feature"] as SlackDigestKind[]).forEach((kind) => {
+    const field = DIGEST_FIELD[kind];
+    if (next[kind]) set[field] = next[kind] as Date;
+    else unset[field] = "";
+  });
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId },
+    {
+      ...(Object.keys(set).length ? { $set: set } : {}),
+      ...(Object.keys(unset).length ? { $unset: unset } : {}),
+    },
+  );
+};
+
+export const getSlackWebhooksWithDigestDue = async (now: Date) => {
+  const docs = await EventWebHookModel.find({
+    enabled: true,
+    payloadType: "slack",
+    $or: [
+      { nextExperimentDigestAt: { $lte: now } },
+      { nextFeatureDigestAt: { $lte: now } },
+    ],
+  });
+  return docs.map(toInterface);
+};
+
+export const getSlackWebhooksMissingDigestSchedule = async () => {
+  const docs = await EventWebHookModel.find({
+    enabled: true,
+    payloadType: "slack",
+    $or: [
+      { nextExperimentDigestAt: { $exists: false } },
+      { nextFeatureDigestAt: { $exists: false } },
+    ],
+  }).limit(500);
+  return docs.map(toInterface);
+};
+
+export const claimSlackDigestRun = async ({
+  eventWebHookId,
+  organizationId,
+  kind,
+  now,
+  nextRunAt,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  kind: SlackDigestKind;
+  now: Date;
+  nextRunAt: Date | null;
+}) => {
+  const field = DIGEST_FIELD[kind];
+  const result = await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId, [field]: { $lte: now } },
+    nextRunAt ? { $set: { [field]: nextRunAt } } : { $unset: { [field]: "" } },
+  );
+  return result.modifiedCount === 1;
 };
 
 export const findSlackChannelEventWebhook = async ({

@@ -29,6 +29,7 @@ import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
+import addEventWebhookWeeklyDigestJob from "back-end/src/jobs/eventWebhookWeeklyDigest";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
@@ -65,6 +66,7 @@ export async function queueInit() {
       logger.error("Error creating index needed for deleteOldAgendaJobs: " + e);
     });
   deleteOldAgendaJobs(agenda);
+  addEventWebhookWeeklyDigestJob(agenda);
 
   if (CRON_ENABLED) {
     await agenda.start();

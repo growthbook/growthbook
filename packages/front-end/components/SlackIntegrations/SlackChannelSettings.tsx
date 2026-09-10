@@ -91,6 +91,12 @@ export default function SlackChannelSettings({
   const [cardFormat, setCardFormat] = useState(
     integration.slackOptions?.experimentCardFormat ?? "compact",
   );
+  const [experimentDigestFrequency, setExperimentDigestFrequency] = useState(
+    integration.slackOptions?.experimentDigest?.frequency ?? "off",
+  );
+  const [featureDigestFrequency, setFeatureDigestFrequency] = useState(
+    integration.slackOptions?.featureDigest?.frequency ?? "off",
+  );
   const [filterProjects, setFilterProjects] = useState(
     integration.projects || [],
   );
@@ -136,7 +142,11 @@ export default function SlackChannelSettings({
           projects: filterProjects,
           environments: filterEnvironments,
           tags: filterTags,
-          slackOptions: { experimentCardFormat: cardFormat },
+          slackOptions: {
+            experimentCardFormat: cardFormat,
+            experimentDigest: { frequency: experimentDigestFrequency },
+            featureDigest: { frequency: featureDigestFrequency },
+          },
         }),
       });
       await onSaved();
@@ -266,6 +276,37 @@ export default function SlackChannelSettings({
               Select at least one event before saving.
             </Callout>
           )}
+        </Box>
+
+        <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
+          <Heading as="h3" size="sm" mb="1">
+            Digests
+          </Heading>
+          <Text as="p" color="text-mid" mb="3">
+            Send a scheduled summary of experiment and feature flag activity.
+          </Text>
+          <Grid columns={{ initial: "1", sm: "2" }} gap="4">
+            <RadioGroup
+              value={experimentDigestFrequency}
+              options={["off", "daily", "weekly", "monthly", "quarterly", "custom"].map(
+                (value) => ({ value, label: `Experiments: ${value}` }),
+              )}
+              setValue={(value) => {
+                setExperimentDigestFrequency(value);
+                setSaved(false);
+              }}
+            />
+            <RadioGroup
+              value={featureDigestFrequency}
+              options={["off", "daily", "weekly", "monthly", "quarterly", "custom"].map(
+                (value) => ({ value, label: `Features: ${value}` }),
+              )}
+              setValue={(value) => {
+                setFeatureDigestFrequency(value);
+                setSaved(false);
+              }}
+            />
+          </Grid>
         </Box>
 
         <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>

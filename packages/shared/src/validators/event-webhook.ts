@@ -29,10 +29,148 @@ export const slackEventWebHookMetadata = z
 export const slackEventWebHookOptions = z
   .object({
     experimentCardFormat: z.enum(experimentCardFormats).optional(),
+    experimentDigest: z
+      .object({
+        frequency: z.enum([
+          "off",
+          "daily",
+          "weekly",
+          "monthly",
+          "quarterly",
+          "custom",
+        ]),
+        hourUtc: z.number().int().min(0).max(23).optional(),
+        dayOfWeekUtc: z.number().int().min(0).max(6).optional(),
+        dayOfMonth: z.number().int().min(1).max(28).optional(),
+        intervalDays: z.number().int().min(1).max(90).optional(),
+      })
+      .strict()
+      .optional(),
+    featureDigest: z
+      .object({
+        frequency: z.enum([
+          "off",
+          "daily",
+          "weekly",
+          "monthly",
+          "quarterly",
+          "custom",
+        ]),
+        hourUtc: z.number().int().min(0).max(23).optional(),
+        dayOfWeekUtc: z.number().int().min(0).max(6).optional(),
+        dayOfMonth: z.number().int().min(1).max(28).optional(),
+        intervalDays: z.number().int().min(1).max(90).optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
 export type SlackEventWebHookOptions = z.infer<typeof slackEventWebHookOptions>;
+
+export type ResolvedSlackDigest = {
+  frequency: "off" | "daily" | "weekly" | "monthly" | "quarterly" | "custom";
+  hourUtc: number;
+  dayOfWeekUtc: number;
+  dayOfMonth: number;
+  intervalDays: number;
+};
+
+const OFF_DIGEST: ResolvedSlackDigest = {
+  frequency: "off",
+  hourUtc: 14,
+  dayOfWeekUtc: 1,
+  dayOfMonth: 1,
+  intervalDays: 14,
+};
+
+const resolveDigest = (
+  config: SlackEventWebHookOptions["experimentDigest"],
+): ResolvedSlackDigest =>
+  config
+    ? {
+        frequency: config.frequency,
+        hourUtc: config.hourUtc ?? 14,
+        dayOfWeekUtc: config.dayOfWeekUtc ?? 1,
+        dayOfMonth: config.dayOfMonth ?? 1,
+        intervalDays: config.intervalDays ?? 14,
+      }
+    : OFF_DIGEST;
+
+export const resolveExperimentDigest = (
+  options: SlackEventWebHookOptions | undefined,
+) => resolveDigest(options?.experimentDigest);
+
+export const resolveFeatureDigest = (
+  options: SlackEventWebHookOptions | undefined,
+) => resolveDigest(options?.featureDigest);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export const slackDigestNextRunAt = (
+  digest: ResolvedSlackDigest,
+  from: Date,
+): Date | null => {
+  if (digest.frequency === "off") return null;
+  const hour = Math.max(0, Math.min(23, digest.hourUtc));
+  const atHour = (date: Date) =>
+    new Date(
+      Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        hour,
+      ),
+    );
+  if (digest.frequency === "custom") {
+    return new Date(from.getTime() + Math.max(1, digest.intervalDays) * DAY_MS);
+  }
+  let day = new Date(
+    Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()),
+  );
+  for (let i = 0; i < 400; i++) {
+    const candidate = atHour(day);
+    const daysInMonth = new Date(
+      Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + 1, 0),
+    ).getUTCDate();
+    const matches =
+      digest.frequency === "daily" ||
+      (digest.frequency === "weekly" &&
+        day.getUTCDay() === digest.dayOfWeekUtc) ||
+      ((digest.frequency === "monthly" || digest.frequency === "quarterly") &&
+        day.getUTCDate() === Math.min(digest.dayOfMonth, daysInMonth) &&
+        (digest.frequency === "monthly" ||
+          [0, 3, 6, 9].includes(day.getUTCMonth())));
+    if (candidate.getTime() > from.getTime() && matches) return candidate;
+    day = new Date(day.getTime() + DAY_MS);
+  }
+  return null;
+};
+
+export const slackDigestNextRunAts = (
+  options: SlackEventWebHookOptions | undefined,
+  from: Date,
+) => ({
+  experiment: slackDigestNextRunAt(resolveExperimentDigest(options), from),
+  feature: slackDigestNextRunAt(resolveFeatureDigest(options), from),
+});
+
+export const slackDigestWindowMs = (digest: ResolvedSlackDigest): number => {
+  switch (digest.frequency) {
+    case "daily":
+      return DAY_MS;
+    case "weekly":
+      return 7 * DAY_MS;
+    case "monthly":
+      return 30 * DAY_MS;
+    case "quarterly":
+      return 90 * DAY_MS;
+    case "custom":
+      return Math.max(1, digest.intervalDays) * DAY_MS;
+    case "off":
+      return 7 * DAY_MS;
+  }
+};
 
 // Matches multi-level wildcard patterns like "feature.*", "feature.revision.*",
 // or "savedGroup.revision.*" (resource names may be camelCase).
@@ -85,6 +223,8 @@ export const eventWebHookInterface = z
     headers: z.record(z.string(), z.string()),
     slack: slackEventWebHookMetadata.optional(),
     slackOptions: slackEventWebHookOptions.optional(),
+    nextExperimentDigestAt: z.date().optional(),
+    nextFeatureDigestAt: z.date().optional(),
     signingKey: z.string().min(2),
     lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),
