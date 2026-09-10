@@ -17,7 +17,6 @@ const ChangePasswordModal: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       header="Change Password"
       open={true}

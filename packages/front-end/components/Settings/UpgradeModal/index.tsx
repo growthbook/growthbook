@@ -677,7 +677,6 @@ export default function UpgradeModal({
   if (accountPlan === "enterprise") {
     return (
       <Modal
-        useRadixButton={false}
         trackingEventModalType="upgrade-modal"
         allowlistedTrackingEventProps={trackContext}
         open={true}
@@ -769,7 +768,6 @@ export default function UpgradeModal({
         </StripeProvider>
       ) : orgIsManagedByVercel ? (
         <Modal
-          useRadixButton={false}
           trackingEventModalType="upgrade-modal"
           allowlistedTrackingEventProps={trackContext}
           open={true}
@@ -813,7 +811,6 @@ export default function UpgradeModal({
         </Modal>
       ) : (
         <Modal
-          useRadixButton={false}
           trackingEventModalType="upgrade-modal"
           allowlistedTrackingEventProps={trackContext}
           open={true}
