@@ -49,10 +49,7 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
-import {
-  draftStatusDots,
-  draftStatusTooltip,
-} from "@/components/Reviews/RevisionStatusBadge";
+import {} from "@/components/Reviews/RevisionStatusBadge";
 import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
 import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
 import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
@@ -226,7 +223,16 @@ export default function FeaturesPage() {
       (f.field === "is" && f.values.includes("draft")) ||
       (f.field === "has" && f.values.includes("draft")),
   );
-  const hasStaleFilter = syntaxFilters.some((f) => f.field === "health");
+  // Both the Stale (`is:`) and Health (`health:`) filters need every
+  // feature's stale data, not just the visible page.
+  const hasStaleFilter = syntaxFilters.some(
+    (f) =>
+      f.field === "health" ||
+      (f.field === "is" &&
+        f.values.some((v) =>
+          ["stale", "partially-stale", "stale-detection-off"].includes(v),
+        )),
+  );
   const hasRampFilter = syntaxFilters.some(
     (f) => f.field === "has" && f.values.includes("ramp-schedule"),
   );
@@ -264,7 +270,6 @@ export default function FeaturesPage() {
     const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
     if (!ids.length) return;
     if (!hasEnvFilter) statusHook.fetchSome(ids);
-    if (!hasDraftFilter) draftHook.fetchSome(ids);
     if (!hasStaleFilter) staleHook.fetchSome(ids);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
@@ -334,9 +339,6 @@ export default function FeaturesPage() {
                   </TableColumnHeader>
                 ))}
                 <TableColumnHeader>Data Type</TableColumnHeader>
-                <TableColumnHeader style={{ textAlign: "center" }}>
-                  Draft Status
-                </TableColumnHeader>
                 <SortableTableColumnHeader field="dateUpdated">
                   Last Modified
                 </SortableTableColumnHeader>
@@ -350,13 +352,12 @@ export default function FeaturesPage() {
                   </TableColumnHeader>
                 )}
                 <TableColumnHeader>Status</TableColumnHeader>
+                <TableColumnHeader>Stale</TableColumnHeader>
                 <TableColumnHeader>Health</TableColumnHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
               {featureItems.map((feature) => {
-                const draftEntry = draftHook.draftStates[feature.id];
-
                 return (
                   <TableRow
                     key={feature.id}
@@ -474,58 +475,18 @@ export default function FeaturesPage() {
                     <TableCell
                       style={{
                         minWidth: FEATURE_TABLE_COLUMN_WIDTH.DATA_TYPE_MIN,
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      <Box style={{ marginRight: -40 }}>
-                        <FeatureValueTypeDisplay
-                          valueType={feature.valueType}
-                          configBackingKey={
-                            (feature as unknown as FeatureMetaInfo)
-                              .configBackingKey
-                          }
-                          link={false}
-                          maxWidth={120}
-                        />
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      {draftEntry
-                        ? (() => {
-                            const dots = draftStatusDots(draftEntry);
-                            if (!dots.length) return null;
-                            return (
-                              <Tooltip
-                                flipTheme={false}
-                                body={draftStatusTooltip(draftEntry)}
-                              >
-                                <Flex
-                                  align="center"
-                                  justify="center"
-                                  gap="1"
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    padding: "0 4px",
-                                  }}
-                                >
-                                  {dots.map((bg) => (
-                                    <span
-                                      key={bg}
-                                      style={{
-                                        display: "block",
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: "50%",
-                                        flexShrink: 0,
-                                        background: bg,
-                                      }}
-                                    />
-                                  ))}
-                                </Flex>
-                              </Tooltip>
-                            );
-                          })()
-                        : null}
+                      <FeatureValueTypeDisplay
+                        valueType={feature.valueType}
+                        configBackingKey={
+                          (feature as unknown as FeatureMetaInfo)
+                            .configBackingKey
+                        }
+                        link={false}
+                        maxWidth={120}
+                      />
                     </TableCell>
                     <TableCell title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
@@ -545,25 +506,30 @@ export default function FeaturesPage() {
                       </TableCell>
                     )}
                     <TableCell style={{ textAlign: "left" }}>
-                      <FeatureLifecycleStatus archived={feature.archived} />
+                      <FeatureLifecycleStatus
+                        archived={feature.archived}
+                        envStatus={statusHook.environmentStatus[feature.id]}
+                      />
                     </TableCell>
                     <TableCell style={{ textAlign: "left" }}>
                       {!feature.archived && (
-                        <Flex direction="column" gap="1" align="start">
-                          <StaleFeatureIcon
-                            context="list"
-                            neverStale={feature.neverStale}
-                            valueType={feature.valueType}
-                            staleData={staleHook.getStaleState(feature.id)}
-                            fetchStaleData={async () => {
-                              staleHook.invalidate([feature.id]);
-                              await staleHook.fetchSome([feature.id]);
-                            }}
-                          />
-                          <FeatureHealthCell
-                            staleData={staleHook.getStaleState(feature.id)}
-                          />
-                        </Flex>
+                        <StaleFeatureIcon
+                          context="list"
+                          neverStale={feature.neverStale}
+                          valueType={feature.valueType}
+                          staleData={staleHook.getStaleState(feature.id)}
+                          fetchStaleData={async () => {
+                            staleHook.invalidate([feature.id]);
+                            await staleHook.fetchSome([feature.id]);
+                          }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell style={{ textAlign: "left" }}>
+                      {!feature.archived && (
+                        <FeatureHealthCell
+                          staleData={staleHook.getStaleState(feature.id)}
+                        />
                       )}
                     </TableCell>
                   </TableRow>

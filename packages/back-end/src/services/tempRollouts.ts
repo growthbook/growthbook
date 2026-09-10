@@ -44,13 +44,8 @@ export function getTempRolloutCandidateFeatureIds(
   return Array.from(ids);
 }
 
-/**
- * Ids of stopped experiments whose temporary rollout is actually being served:
- * released variation set, not excluded from the payload, and — for
- * feature-flag experiments — at least one linked feature still has an enabled
- * experiment-ref rule in an enabled environment. Same check the experiment
- * page's "Temporary Rollout Enabled" banner makes, so the list agrees with it.
- */
+// Stopped experiments whose temporary rollout is actually being served — the
+// same check as the experiment page's "Temporary Rollout Enabled" banner.
 export function selectServedTempRolloutExperimentIds(
   experiments: TempRolloutExperiment[],
   featuresById: Map<string, FeatureInterface>,

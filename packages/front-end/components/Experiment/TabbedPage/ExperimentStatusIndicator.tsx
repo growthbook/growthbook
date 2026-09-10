@@ -34,7 +34,6 @@ export function ExperimentDot({
   color,
 }: {
   color: StatusIndicatorData["color"] | "yellow" | "orange";
-  // Health dots (feature + experiment lists) reuse this primitive.
 }) {
   return (
     <div

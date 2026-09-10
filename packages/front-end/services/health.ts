@@ -2,7 +2,7 @@ import { OLD_TEMP_ROLLOUT_DAYS } from "shared/util";
 
 export type TempRolloutHealthState = "temp-rollout" | "old-temp-rollout";
 
-export type HealthDotColor = "yellow" | "orange" | "gray";
+export type HealthDotColor = "yellow" | "orange";
 
 export const TEMP_ROLLOUT_HEALTH: Record<
   TempRolloutHealthState,
@@ -21,10 +21,9 @@ export function isTempRolloutHealthState(
   return state === "temp-rollout" || state === "old-temp-rollout";
 }
 
-export type FeatureHealthState =
-  | "stale"
-  | TempRolloutHealthState
-  | "detection-off";
+// Health = rules to clean up while the flag stays. Staleness (can the flag be
+// removed?) is a separate column with its own `is:` filters.
+export type FeatureHealthState = TempRolloutHealthState;
 
 export const FEATURE_HEALTH_STATES: Record<
   FeatureHealthState,
@@ -34,20 +33,10 @@ export const FEATURE_HEALTH_STATES: Record<
     ...TEMP_ROLLOUT_HEALTH["old-temp-rollout"],
     description: `A stopped experiment's rollout has been served for ${OLD_TEMP_ROLLOUT_DAYS}+ days. Clean up the rule.`,
   },
-  stale: {
-    label: "Stale",
-    color: "yellow",
-    description: "Every enabled environment is stale.",
-  },
   "temp-rollout": {
     ...TEMP_ROLLOUT_HEALTH["temp-rollout"],
     description:
       "A stopped experiment's rollout is still being served. Clean up the rule.",
-  },
-  "detection-off": {
-    label: "Stale detection off",
-    color: "gray",
-    description: "Stale detection is disabled for this feature.",
   },
 };
 
@@ -66,22 +55,32 @@ export type FeatureStaleSummary = {
 
 export function getFeatureHealthStates(
   staleData: FeatureStaleSummary | undefined,
-  neverStale?: boolean,
 ): FeatureHealthState[] {
-  if (neverStale) return ["detection-off"];
   if (!staleData) return [];
   const found = new Set<FeatureHealthState>();
-  const envs = Object.values(staleData.envResults ?? {});
-  if (staleData.stale) found.add("stale");
-  for (const env of envs) {
+  for (const env of Object.values(staleData.envResults ?? {})) {
     if (isTempRolloutHealthState(env.tempRollout)) found.add(env.tempRollout);
   }
   return FEATURE_HEALTH_STATE_ORDER.filter((s) => found.has(s));
 }
 
-// Some environments stale while the feature as a whole is not. Searchable,
-// but deliberately not a displayed health state: "Not stale" is the verdict
-// and partial staleness is a footnote in the per-environment breakdown.
+// `health:` search tokens. An old temp rollout is still a temp rollout, so
+// `health:temp-rollout` matches both tiers.
+export function getFeatureHealthSearchTokens(
+  staleData: FeatureStaleSummary | undefined,
+): FeatureHealthState[] {
+  const tokens = getFeatureHealthStates(staleData);
+  if (tokens.includes("old-temp-rollout") && !tokens.includes("temp-rollout")) {
+    tokens.push("temp-rollout");
+  }
+  return tokens;
+}
+
+export const FEATURE_HEALTH_FILTER_OPTIONS = FEATURE_HEALTH_STATE_ORDER.map(
+  (state) => ({ value: state, label: FEATURE_HEALTH_STATES[state].label }),
+);
+
+// Some environments stale while the feature as a whole is not.
 export function isPartiallyStale(staleData: FeatureStaleSummary): boolean {
   return (
     !staleData.stale &&
@@ -89,44 +88,28 @@ export function isPartiallyStale(staleData: FeatureStaleSummary): boolean {
   );
 }
 
-export type FeatureHealthSearchToken = FeatureHealthState | "partially-stale";
+export type FeatureStaleSearchToken =
+  | "stale"
+  | "partially-stale"
+  | "stale-detection-off";
 
-// Filter UI order: staleness together, then temp rollouts.
-export const FEATURE_HEALTH_FILTER_OPTIONS: {
-  value: FeatureHealthSearchToken;
+export const FEATURE_STALE_FILTER_OPTIONS: {
+  value: FeatureStaleSearchToken;
   label: string;
 }[] = [
-  { value: "stale", label: FEATURE_HEALTH_STATES.stale.label },
+  { value: "stale", label: "Stale" },
   { value: "partially-stale", label: "Stale in some envs" },
-  {
-    value: "detection-off",
-    label: FEATURE_HEALTH_STATES["detection-off"].label,
-  },
-  {
-    value: "temp-rollout",
-    label: FEATURE_HEALTH_STATES["temp-rollout"].label,
-  },
-  {
-    value: "old-temp-rollout",
-    label: FEATURE_HEALTH_STATES["old-temp-rollout"].label,
-  },
+  { value: "stale-detection-off", label: "Stale detection off" },
 ];
 
-// `health:` search tokens. An old temp rollout is still a temp rollout, so
-// `health:temp-rollout` matches both tiers.
-export function getFeatureHealthSearchTokens(
+// `is:` search tokens for the Stale column. `neverStale` on the feature is
+// authoritative over the (possibly cached) stale data.
+export function getFeatureStaleSearchTokens(
   staleData: FeatureStaleSummary | undefined,
   neverStale?: boolean,
-): FeatureHealthSearchToken[] {
-  const tokens: FeatureHealthSearchToken[] = getFeatureHealthStates(
-    staleData,
-    neverStale,
-  );
-  if (tokens.includes("old-temp-rollout") && !tokens.includes("temp-rollout")) {
-    tokens.push("temp-rollout");
-  }
-  if (!neverStale && staleData && isPartiallyStale(staleData)) {
-    tokens.push("partially-stale");
-  }
-  return tokens;
+): FeatureStaleSearchToken[] {
+  if (neverStale) return ["stale-detection-off"];
+  if (!staleData) return [];
+  if (staleData.stale) return ["stale"];
+  return isPartiallyStale(staleData) ? ["partially-stale"] : [];
 }

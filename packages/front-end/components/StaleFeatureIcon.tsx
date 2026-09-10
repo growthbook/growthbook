@@ -13,7 +13,7 @@ import ValueDisplay from "@/components/Features/ValueDisplay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import { FEATURE_HEALTH_STATES, isPartiallyStale } from "@/services/health";
+import { isPartiallyStale } from "@/services/health";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import styles from "./StaleFeatureIcon.module.scss";
 
@@ -33,7 +33,6 @@ const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
   error: "Error evaluating staleness.",
 };
 
-// The staleness verdict always leads; other signals (temp rollouts) follow.
 function VerdictChip({
   color,
   label,
@@ -130,10 +129,7 @@ export default function StaleFeatureIcon({
           contentStyle={{ maxWidth: 600, textAlign: "left" }}
           trigger={
             <span className={styles.listTrigger}>
-              <VerdictChip
-                color="gray"
-                label={FEATURE_HEALTH_STATES["detection-off"].label}
-              />
+              <VerdictChip color="gray" label="Stale detection off" />
             </span>
           }
           content={neverStaleContent}

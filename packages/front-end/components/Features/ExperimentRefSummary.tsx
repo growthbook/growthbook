@@ -48,8 +48,7 @@ export function isExperimentRefRuleSkipped(
   return !includeExperimentInPayload(experiment);
 }
 
-// Rule-level notice for a stopped experiment still serving its released
-// variation. Rendered by Rule.tsx above the rule body, not inside targeting.
+// Rule-level notice for a stopped experiment still serving its released variation.
 export function TempRolloutCallout({
   experiment,
 }: {

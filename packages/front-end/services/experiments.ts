@@ -470,15 +470,9 @@ export function getHealthStateFromDetailedStatus(
   return DETAILED_STATUS_HEALTH_STATES[detailedStatus] ?? null;
 }
 
-/**
- * Which temp-rollout tier a stopped experiment is in, or null when its
- * temporary rollout is not being served. Whether it is served is decided
- * server-side (`tempRolloutExperimentIds` on the experiments list response),
- * using the same published-rule check as the experiment page's banner, so
- * the list never reports a rollout that no SDK is actually receiving.
- * "old-temp-rollout" once the experiment has been stopped for more than
- * OLD_TEMP_ROLLOUT_DAYS.
- */
+// Whether the rollout is actually served is decided server-side
+// (`tempRolloutExperimentIds` on the experiments list response) with the same
+// published-rule check the experiment page's banner uses.
 export function getTempRolloutHealthState(
   exp: Pick<ExperimentInterfaceStringDates, "status" | "phases">,
   hasLiveTempRollout: boolean,

@@ -742,8 +742,7 @@ export type TempRolloutStaleReason = Extract<
 >;
 
 // A stopped experiment still serving its released variation is a temporary
-// rollout. Once it has been stopped for more than OLD_TEMP_ROLLOUT_DAYS it is
-// an old one — the same rollout, but a more urgent cleanup candidate.
+// rollout; past OLD_TEMP_ROLLOUT_DAYS it is an old one.
 export function getTempRolloutStaleReason(
   exp: { phases?: { dateEnded?: string | Date }[] },
   now: Date = new Date(),
@@ -929,11 +928,9 @@ function buildEnvResults(
     }
 
     // Walk rules in order; an unconditional catcher shadows everything after it.
-    // A stopped experiment that's still in the payload is a temporary rollout.
-    // A recent one keeps the env non-stale (grace period). An old one serves a
-    // constant, so it counts as one-sided: if it is all the env does, the env
-    // is stale; other real logic keeps it alive. Either way the rollout is
-    // reported in `tempRollout` so it can be cleaned up.
+    // A recent temp rollout keeps the env non-stale (grace period). An old one
+    // serves a constant, so it counts as one-sided. Either way it is reported
+    // in `tempRollout` so it can be cleaned up.
     let activeExperimentReason: "active-experiment" | "temp-rollout" | null =
       null;
     let tempRollout: TempRolloutStaleReason | undefined;

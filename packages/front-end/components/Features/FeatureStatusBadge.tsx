@@ -4,28 +4,40 @@ import Badge from "@/ui/Badge";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
 
-type FeatureStatus = "live" | "archived";
+type FeatureStatus = "live" | "off" | "archived";
 
 const STATUS_CONFIG: Record<
   FeatureStatus,
-  { color: "green" | "gold"; label: string }
+  { color: "green" | "gray" | "gold"; label: string }
 > = {
   live: { color: "green", label: "Live" },
+  off: { color: "gray", label: "Off" },
   archived: { color: "gold", label: "Archived" },
 };
 
-function deriveStatus({ archived }: { archived?: boolean }): FeatureStatus {
-  return archived ? "archived" : "live";
+function deriveStatus({
+  archived,
+  envStatus,
+}: {
+  archived?: boolean;
+  // environment id → enabled, from the lazily loaded feature status endpoint.
+  envStatus?: Record<string, boolean>;
+}): FeatureStatus {
+  if (archived) return "archived";
+  const enabled = Object.values(envStatus ?? {});
+  if (enabled.length && enabled.every((on) => !on)) return "off";
+  return "live";
 }
 
-// Lifecycle only (Live / Archived) — health lives in its own column.
-export const FeatureLifecycleStatus: FC<{ archived?: boolean }> = ({
-  archived,
-}) => <>{STATUS_CONFIG[deriveStatus({ archived })].label}</>;
+// Lifecycle only (Live / Off / Archived) — health lives in its own column.
+export const FeatureLifecycleStatus: FC<{
+  archived?: boolean;
+  envStatus?: Record<string, boolean>;
+}> = ({ archived, envStatus }) => (
+  <>{STATUS_CONFIG[deriveStatus({ archived, envStatus })].label}</>
+);
 
-// Detail-page header. Archived is the only lifecycle state worth a badge;
-// live features show the staleness verdict. Temp rollout warnings live on the
-// rule itself (ExperimentRefSummary).
+// Detail-page header: Archived badge, or the staleness verdict for live flags.
 const FeatureStatusBadge: FC<{
   feature: {
     archived?: boolean;

@@ -55,7 +55,10 @@ import {
 } from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
-import { getFeatureHealthSearchTokens } from "@/services/health";
+import {
+  getFeatureHealthSearchTokens,
+  getFeatureStaleSearchTokens,
+} from "@/services/health";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -300,6 +303,12 @@ export function useFeatureSearch({
         if (item.valueType === "string") is.push("string");
         if (item.valueType === "number") is.push("number");
         if (item.valueType === "boolean") is.push("boolean");
+        is.push(
+          ...getFeatureStaleSearchTokens(
+            staleStates?.[item.id],
+            item.neverStale,
+          ),
+        );
         return is;
       },
       has: (item) => {
@@ -317,10 +326,7 @@ export function useFeatureSearch({
         if (dependencyIndex?.has(item.id)) has.push("dependents");
         return has;
       },
-      // item.neverStale is authoritative — overrides the staleStates cache
-      // immediately after toggling detection.
-      health: (item) =>
-        getFeatureHealthSearchTokens(staleStates?.[item.id], item.neverStale),
+      health: (item) => getFeatureHealthSearchTokens(staleStates?.[item.id]),
       key: (item) => item.id,
       // Match the governance project plus any targeting projects (all
       // projects when targetingAllProjects), by id and resolved name, so

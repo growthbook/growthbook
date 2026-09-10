@@ -2,7 +2,10 @@ import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton, TextField } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
 import Text from "@/ui/Text";
-import { FEATURE_HEALTH_FILTER_OPTIONS } from "@/services/health";
+import {
+  FEATURE_HEALTH_FILTER_OPTIONS,
+  FEATURE_STALE_FILTER_OPTIONS,
+} from "@/services/health";
 import { useEnvironments, useAttributeSchema } from "@/services/features";
 import Tag from "@/components/Tags/Tag";
 import Button from "@/ui/Button";
@@ -740,6 +743,26 @@ const FeatureSearchFilters: FC<
             exists={doesFilterExist("has", "draft", "")}
           />
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Stale</DropdownMenuLabel>
+        {FEATURE_STALE_FILTER_OPTIONS.map(({ value, label }) => (
+          <DropdownMenuItem
+            key={value}
+            onClick={() => {
+              updateQuery({
+                field: "is",
+                values: [value],
+                operator: "",
+                negated: false,
+              });
+            }}
+          >
+            <FilterItem
+              item={label}
+              exists={doesFilterExist("is", value, "")}
+            />
+          </DropdownMenuItem>
+        ))}
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Health</DropdownMenuLabel>
         {FEATURE_HEALTH_FILTER_OPTIONS.map(({ value, label }) => (

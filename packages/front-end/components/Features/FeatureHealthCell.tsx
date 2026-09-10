@@ -6,18 +6,14 @@ import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
 import {
   FEATURE_HEALTH_STATES,
   getFeatureHealthStates,
-  isTempRolloutHealthState,
 } from "@/services/health";
 
-// Cleanup signals rendered under the staleness verdict in the feature list's
-// Health column. Staleness asks "can the flag be removed?"; these are rules
-// that want cleaning up while the flag itself stays: temp rollouts.
+// The feature list's Health column: rules that want cleaning up while the
+// flag itself stays (temp rollouts). Staleness has its own Stale column.
 const FeatureHealthCell: FC<{ staleData?: StaleStateEntry }> = ({
   staleData,
 }) => {
-  const states = getFeatureHealthStates(staleData).filter(
-    isTempRolloutHealthState,
-  );
+  const states = getFeatureHealthStates(staleData);
   if (!states.length) return null;
   return (
     <Flex direction="column" gap="1" align="start">

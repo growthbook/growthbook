@@ -10,11 +10,9 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const ERROR_RETRY_MS = 30_000;
 
 export interface UseFeatureDraftStatesReturn {
-  // featureId → status counts; absent if no active draft.
+  // featureId → status counts; absent if no active draft. Empty until
+  // fetchAll runs (only the `is:draft` / `has:draft` filters need it).
   draftStates: DraftStateCache;
-  // Skips already-cached IDs; no-op if fetchAll has already run.
-  fetchSome: (featureIds: string[]) => Promise<void>;
-  // Fetches all org features, overwriting the cache.
   fetchAll: () => Promise<void>;
   loading: boolean;
   mutate: () => Promise<void>;
@@ -23,60 +21,29 @@ export interface UseFeatureDraftStatesReturn {
 export function useFeatureDraftStates(): UseFeatureDraftStatesReturn {
   const { apiCall } = useAuth();
   const [draftStates, setDraftStates] = useState<DraftStateCache>({});
-  const cachedIds = useRef(new Set<string>());
-  const hasFetchedAll = useRef(false);
+  const hasFetched = useRef(false);
   const [loading, setLoading] = useState(false);
   // Prevents concurrent duplicate fetches (e.g. React Strict Mode double-invocation).
-  const inflightKey = useRef<string | null>(null);
+  const inflight = useRef(false);
 
-  // Internal: always hits the API regardless of cache state.
-  // ids = undefined → fetch all; ids = [] → no-op.
-  const doFetch = useCallback(
-    async (ids?: string[]) => {
-      if (ids !== undefined && !ids.length) return;
-      const key = ids === undefined ? "__all__" : [...ids].sort().join(",");
-      if (inflightKey.current === key) return;
-      inflightKey.current = key;
-      const url =
-        ids !== undefined
-          ? `/features/draft-states?ids=${ids.join(",")}`
-          : "/features/draft-states";
-      setLoading(true);
-      try {
-        const res = await apiCall<{ features: DraftStateCache }>(url);
-        const incoming = res.features ?? {};
-        if (ids === undefined) {
-          hasFetchedAll.current = true;
-          Object.keys(incoming).forEach((id) => cachedIds.current.add(id));
-          setDraftStates(incoming);
-        } else {
-          // Mark ALL requested IDs as cached, not just ones that returned data.
-          // Features absent from the response simply have no active draft.
-          ids.forEach((id) => cachedIds.current.add(id));
-          setDraftStates((prev) => ({ ...prev, ...incoming }));
-        }
-      } finally {
-        setLoading(false);
-        inflightKey.current = null;
-      }
-    },
-    [apiCall],
-  );
+  const fetchAll = useCallback(async () => {
+    if (inflight.current) return;
+    inflight.current = true;
+    setLoading(true);
+    try {
+      const res = await apiCall<{ features: DraftStateCache }>(
+        "/features/draft-states",
+      );
+      hasFetched.current = true;
+      setDraftStates(res.features ?? {});
+    } finally {
+      setLoading(false);
+      inflight.current = false;
+    }
+  }, [apiCall]);
 
-  const fetchSome = useCallback(
-    async (featureIds: string[]) => {
-      if (hasFetchedAll.current) return;
-      const uncached = featureIds.filter((id) => !cachedIds.current.has(id));
-      await doFetch(uncached);
-    },
-    [doFetch],
-  );
-
-  const fetchAll = useCallback(() => doFetch(), [doFetch]);
-
-  // Periodically refresh whatever has already been loaded.
-  // Recursive setTimeout so slow requests don't stack.
-  // cancelled flag prevents rescheduling after unmount, even if a fetch was in-flight.
+  // Periodically refresh once loaded. Recursive setTimeout so slow requests
+  // don't stack; the cancelled flag prevents rescheduling after unmount.
   useEffect(() => {
     let id: ReturnType<typeof setTimeout>;
     let cancelled = false;
@@ -84,11 +51,9 @@ export function useFeatureDraftStates(): UseFeatureDraftStatesReturn {
       id = setTimeout(async () => {
         if (cancelled) return;
         let failed = false;
-        if (cachedIds.current.size) {
+        if (hasFetched.current) {
           try {
-            await (hasFetchedAll.current
-              ? doFetch()
-              : doFetch([...cachedIds.current]));
+            await fetchAll();
           } catch {
             failed = true;
           }
@@ -101,7 +66,7 @@ export function useFeatureDraftStates(): UseFeatureDraftStatesReturn {
       cancelled = true;
       clearTimeout(id);
     };
-  }, [doFetch]);
+  }, [fetchAll]);
 
-  return { draftStates, fetchSome, fetchAll, loading, mutate: fetchAll };
+  return { draftStates, fetchAll, loading, mutate: fetchAll };
 }

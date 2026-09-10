@@ -22,8 +22,7 @@ const ERROR_RETRY_MS = 30_000;
 
 export interface UseFeatureStaleStatesReturn {
   // Skips already-loaded IDs whose TTL hasn't expired. After a fetchAll, only
-  // IDs missing from that snapshot (e.g. newly created features) are fetched;
-  // the periodic refresh keeps the rest current.
+  // IDs missing from that snapshot (e.g. newly created features) are fetched.
   fetchSome: (featureIds: string[]) => Promise<void>;
   // Fetches all org features, overwriting the current data.
   fetchAll: () => Promise<void>;
