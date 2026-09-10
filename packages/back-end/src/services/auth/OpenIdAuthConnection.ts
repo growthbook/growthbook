@@ -38,6 +38,7 @@ import {
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import {
   createNonce,
+  RetriableAuthError,
   deriveAuthChecks,
   isNonceExpired,
   nonceFromState,
@@ -134,12 +135,12 @@ export class OpenIdAuthConnection implements AuthConnection {
 
     const secret = AuthSecretCookie.getValue(req);
     if (!secret) {
-      throw new Error("Missing auth secret cookie");
+      throw new RetriableAuthError("Missing auth secret cookie");
     }
 
     const nonce = nonceFromState(params.state);
     if (isNonceExpired(nonce)) {
-      throw new Error("Login attempt expired");
+      throw new RetriableAuthError("Login attempt expired");
     }
 
     // A wrong connection or forged state fails the HMAC comparison inside callback()

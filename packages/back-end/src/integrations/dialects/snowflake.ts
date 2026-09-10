@@ -15,6 +15,8 @@ const snowflakeEscapeStringLiteral = (value: string) =>
 export const snowflakeDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "snowflake",
+  // Result metadata is lowercased, but unquoted Snowflake identifiers are UPPER.
+  unquotedIdentifierFold: "upper",
   escapeStringLiteral: snowflakeEscapeStringLiteral,
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral: snowflakeEscapeStringLiteral,
@@ -23,6 +25,10 @@ export const snowflakeDialect: SqlDialect = {
   formatDate: (col: string) => `TO_VARCHAR(${col}, 'YYYY-MM-DD')`,
   formatDateTimeString: (col: string) =>
     `TO_VARCHAR(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`,
+  // TIMESTAMP holds nanoseconds; the session's default output format only
+  // prints milliseconds, so the precision has to be spelled out.
+  formatTimestampExact: (col: string) =>
+    `TO_VARCHAR(${col}, 'YYYY-MM-DD HH24:MI:SS.FF9')`,
   castToString: (col: string) => `TO_VARCHAR(${col})`,
   castToFloat: (col: string) => `CAST(${col} AS DOUBLE)`,
   hasCountDistinctHLL: () => true,
@@ -80,6 +86,10 @@ export const snowflakeDialect: SqlDialect = {
   // by ARRAY_AGG by default, so no extra IGNORE NULLS needed.
   arrayAggSorted: (col: string) =>
     `ARRAY_AGG(${col}) WITHIN GROUP (ORDER BY ${col})`,
+  // Collect each row's array into an array-of-arrays (ARRAY_AGG) then flatten
+  // one level (ARRAY_FLATTEN) → the group's concatenated array. Incremental
+  // funnel read-step merge of per-day step arrays.
+  arrayConcatAgg: (col: string) => `ARRAY_FLATTEN(ARRAY_AGG(${col}))`,
   // MIN_BY has shipped on Snowflake since 2023 — picks `valueCol` from the
   // row with the minimum `tsCol` (NULL timestamps are skipped).
   argMinByTimestamp: (valueCol: string, tsCol: string) =>
@@ -112,6 +122,10 @@ export const snowflakeDialect: SqlDialect = {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // Snowflake inherits the identity castUserDateCol, so event timestamps
+        // are stored as TIMESTAMP (same as the `timestamp` type).
+        return "TIMESTAMP";
       case "hll":
         return "BINARY";
       case "quantileSketch":
@@ -119,6 +133,8 @@ export const snowflakeDialect: SqlDialect = {
         // The round-trip via INSERT/SELECT preserves the OBJECT shape that
         // APPROX_PERCENTILE_COMBINE/ESTIMATE expect.
         return "OBJECT";
+      case "arrayTimestamp":
+        return "ARRAY";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);

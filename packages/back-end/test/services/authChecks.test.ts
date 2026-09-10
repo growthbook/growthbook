@@ -28,13 +28,17 @@ describe("deriveAuthChecks", () => {
   });
 
   it("expires stale, future, and malformed nonces", () => {
-    const twoHours = 2 * 60 * 60 * 1000;
-    expect(isNonceExpired(`${(Date.now() - twoHours).toString(36)}.x`)).toBe(
-      true,
-    );
-    expect(isNonceExpired(`${(Date.now() + twoHours).toString(36)}.x`)).toBe(
-      true,
-    );
+    const twentyThreeHours = 23 * 60 * 60 * 1000;
+    const twentyFiveHours = 25 * 60 * 60 * 1000;
+    expect(
+      isNonceExpired(`${(Date.now() - twentyThreeHours).toString(36)}.x`),
+    ).toBe(false);
+    expect(
+      isNonceExpired(`${(Date.now() - twentyFiveHours).toString(36)}.x`),
+    ).toBe(true);
+    expect(
+      isNonceExpired(`${(Date.now() + twentyFiveHours).toString(36)}.x`),
+    ).toBe(true);
     expect(isNonceExpired("")).toBe(true);
     expect(isNonceExpired(".x")).toBe(true);
   });
