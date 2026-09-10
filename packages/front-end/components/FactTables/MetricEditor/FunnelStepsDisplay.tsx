@@ -27,7 +27,7 @@ export default function FunnelStepsDisplay({
       {funnelSettings.steps.map((step, i) => {
         const items = [
           {
-            label: "Fact Table",
+            label: "Fact table",
             value: <FactTableLink id={step.factTableId} />,
           },
         ];
