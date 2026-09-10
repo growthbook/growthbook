@@ -290,8 +290,12 @@ export class RevisionModel extends BaseClass {
     }
   }
 
+  // Judged on the write itself — `existing` as approved against `proposed` as
+  // it will be stored — so a gated change added under a standing approval is
+  // seen even when the approved content was not gated.
   private resetApprovalIfNeeded(
     existing: Revision,
+    proposed: Revision,
     userId: string,
   ): { status?: Revision["status"]; resetEntry?: ActivityLogEntry } {
     if (existing.status !== "approved") return {};
@@ -302,7 +306,7 @@ export class RevisionModel extends BaseClass {
     // approval-flow toggle.
     const adapter = getAdapter(existing.target.type);
     const shouldReset = adapter.shouldResetReviewOnChange
-      ? adapter.shouldResetReviewOnChange(this.context, existing)
+      ? adapter.shouldResetReviewOnChange(this.context, existing, proposed)
       : !!getApprovalFlowSettings(
           this.context.org.settings?.approvalFlows,
           existing.target.type,
@@ -1626,6 +1630,7 @@ export class RevisionModel extends BaseClass {
         const { target, entry } = await build(existing);
         const { status, resetEntry } = this.resetApprovalIfNeeded(
           existing,
+          { ...existing, target },
           userId,
         );
         return {

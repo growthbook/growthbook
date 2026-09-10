@@ -106,11 +106,12 @@ export async function postReportFromSnapshot(
     ...pick(reportArgs, [
       "userIdType",
       "differenceType",
-      "dimension",
       "dateStarted",
       "dateEnded",
       "customMetricSlices",
     ]),
+    // Not every caller sends a dimension
+    dimension: reportArgs.dimension ?? snapshot.dimension ?? undefined,
   } as ExperimentReportAnalysisSettings;
   if (!_experimentAnalysisSettings.dateStarted) {
     _experimentAnalysisSettings.dateStarted =
@@ -625,10 +626,10 @@ export async function cancelReport(
   }
 
   if (report.type === "experiment-snapshot") {
-    const snapshot = report.snapshot
-      ? (await findLatestRunningSnapshotByReportId(context, report.id)) ||
-        undefined
-      : undefined;
+    const snapshot = await findLatestRunningSnapshotByReportId(
+      context,
+      report.id,
+    );
     if (!snapshot) {
       return res.status(400).json({
         status: 400,
