@@ -22,6 +22,7 @@ const TagsInput: FC<{
   onChange: (tags: string[]) => void;
   value: string[];
   autoFocus?: boolean;
+  label?: string;
   closeMenuOnSelect?: boolean;
   tagOptions?: TagInterface[];
   prompt?: string;
@@ -31,6 +32,7 @@ const TagsInput: FC<{
   onChange,
   value,
   autoFocus = true,
+  label,
   closeMenuOnSelect = false,
   tagOptions,
   prompt = "Tags...",
@@ -119,6 +121,7 @@ const TagsInput: FC<{
 
   return (
     <MultiSelectField
+      label={label}
       legacyHeight
       options={
         tagOptions.map((t) => {
