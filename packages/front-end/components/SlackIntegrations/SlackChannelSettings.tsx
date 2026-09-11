@@ -841,11 +841,32 @@ export default function SlackChannelSettings({
                                         />
                                       </span>
                                     </Tooltip>
+                                  ) : option.tooltip ? (
+                                    <Tooltip content={option.tooltip}>
+                                      <span
+                                        tabIndex={0}
+                                        style={{
+                                          borderBottom:
+                                            "1px dotted var(--gray-8)",
+                                        }}
+                                      >
+                                        {option.label}
+                                      </span>
+                                    </Tooltip>
                                   ) : (
                                     option.label
                                   )
                                 }
-                                description={option.description}
+                                description={
+                                  option.description ? (
+                                    <span
+                                      className="text-muted"
+                                      style={{ fontSize: "var(--font-size-1)" }}
+                                    >
+                                      {option.description}
+                                    </span>
+                                  ) : undefined
+                                }
                                 value={slackEventSelection(
                                   events,
                                   option.events,

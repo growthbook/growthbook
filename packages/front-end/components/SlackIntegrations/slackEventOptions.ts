@@ -6,6 +6,7 @@ export interface SlackEventOption {
   id: string;
   label: string;
   description?: string;
+  tooltip?: string;
   category: SlackEventCategory;
   group: string;
   // Concrete events this option controls; all must be subscribed to read as "on".
@@ -26,8 +27,7 @@ const originalOptions: SlackEventOption[] = [
   {
     id: "exp-stopped",
     label: "Experiment stopped",
-    description:
-      "When an experiment stops, including its result and any temporary rollout.",
+    description: "Includes the result and any temporary rollout.",
     category: "experiment",
     group: "Lifecycle",
     events: ["experiment.stopped"],
@@ -36,7 +36,6 @@ const originalOptions: SlackEventOption[] = [
   {
     id: "exp-created",
     label: "New experiment (draft)",
-    description: "When an experiment is first created, before it starts.",
     category: "experiment",
     group: "Lifecycle",
     events: ["experiment.created"],
@@ -164,7 +163,6 @@ const originalOptions: SlackEventOption[] = [
   {
     id: "feat-published",
     label: "New version published",
-    description: "A draft revision is published live.",
     category: "feature",
     group: "Feature changes",
     events: ["feature.revision.published"],
@@ -299,6 +297,52 @@ const originalOptions: SlackEventOption[] = [
   },
 ];
 
+const eventCopy: Partial<
+  Record<string, Pick<SlackEventOption, "label" | "description" | "tooltip">>
+> = {
+  "feature.revision.reviewRetracted": {
+    label: "Review retracted",
+    description: "Triggered when a reviewer retracts their own verdict.",
+    tooltip:
+      "The review status reflects the remaining verdicts. The draft content is unchanged.",
+  },
+  "feature.revision.recalled": {
+    label: "Review request withdrawn",
+    tooltip:
+      "Returns the revision to draft. Reopening instead restores a discarded revision.",
+  },
+  "feature.revision.reopened": {
+    label: "Discarded draft reopened",
+  },
+  "feature.revision.publishScheduleChanged": {
+    label: "Publish schedule changed",
+    description: "Publishing is scheduled, rescheduled, or cancelled.",
+  },
+  "feature.revision.publishFailed": {
+    label: "Scheduled publishing failed",
+    description: "The draft needs attention before it can be published.",
+    tooltip:
+      "Scheduled or automatic publishing failed and will not be retried. The draft remains open.",
+  },
+  "feature.revision.rebased": {
+    label: "Draft rebased",
+    description: "Updated to include the latest published version.",
+  },
+  "feature.rampSchedule.actions.awaitingStartApproval": {
+    label: "Ramp start approval requested",
+    tooltip:
+      "The ramp schedule is published but waits for approval before starting.",
+  },
+  "feature.rampSchedule.actions.startApproved": {
+    label: "Ramp start approved",
+  },
+  "experiment.info.scheduled-status-update": {
+    label: "Scheduled start or stop applied",
+    tooltip:
+      "Includes the automatic ship outcome when an experiment ends on schedule.",
+  },
+};
+
 const availableEvents = notificationEventNames.filter((name) => {
   const [resource, ...parts] = name.split(".");
   const definitions: Record<
@@ -337,8 +381,10 @@ for (const category of ["experiment", "feature"] as const) {
       id: event,
       category,
       group: "Other events",
-      label: words.charAt(0).toUpperCase() + words.slice(1),
-      description: definitions[category][name].description,
+      ...(eventCopy[event] ?? {
+        label: words.charAt(0).toUpperCase() + words.slice(1),
+        tooltip: definitions[category][name].description,
+      }),
       events: [event],
       defaultOn: false,
     });
