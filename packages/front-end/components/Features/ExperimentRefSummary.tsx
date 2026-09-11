@@ -103,10 +103,10 @@ export default function ExperimentRefSummary({
   if (experiment.archived) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is archived and will be
+        This {isBandit ? "Bandit" : "experiment"} is archived and will be
         skipped.{" "}
         <Link href={`/experiment/${experiment.id}`}>
-          View {isBandit ? "Bandit" : "Experiment"}
+          View {isBandit ? "Bandit" : "experiment"}
         </Link>
       </Callout>
     );
@@ -116,10 +116,10 @@ export default function ExperimentRefSummary({
   if (!phase) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is not running and rule will
-        be skipped.{" "}
+        This {isBandit ? "Bandit" : "experiment"} is not running and this rule
+        will be skipped.{" "}
         <Link href={`/experiment/${experiment.id}`}>
-          View {isBandit ? "Bandit" : "Experiment"}
+          View {isBandit ? "Bandit" : "experiment"}
         </Link>
       </Callout>
     );
@@ -135,9 +135,9 @@ export default function ExperimentRefSummary({
   if (experiment.status === "stopped" && !releasedValue) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is stopped and does not have a{" "}
-        <strong>Temporary Rollout</strong> enabled. This rule will be skipped.{" "}
-        <Link href={`/experiment/${experiment.id}#results`}>View Results</Link>
+        This {isBandit ? "Bandit" : "experiment"} is stopped and does not have a{" "}
+        temporary rollout enabled. This rule will be skipped.{" "}
+        <Link href={`/experiment/${experiment.id}#results`}>View results</Link>
       </Callout>
     );
   }
@@ -156,7 +156,7 @@ export default function ExperimentRefSummary({
     <Box>
       {experiment.status === "draft" && !isDraft && (
         <Callout status="warning" mb="3">
-          This {isBandit ? "Bandit" : "Experiment"} is in a{" "}
+          This {isBandit ? "Bandit" : "experiment"} is in a{" "}
           <strong>draft</strong> state and has not been started yet. This rule
           will be skipped.
         </Callout>
@@ -212,7 +212,7 @@ export default function ExperimentRefSummary({
             </Text>
           }
         />
-        of units in the {isBandit ? "Bandit" : "Experiment"}
+        of units in the {isBandit ? "Bandit" : "experiment"}
         {hasNamespace && (
           <>
             (
