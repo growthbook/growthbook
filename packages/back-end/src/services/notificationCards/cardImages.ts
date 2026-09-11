@@ -260,14 +260,12 @@ export interface ExperimentCardData {
   health?: { status: "healthy" | "unhealthy"; issues: [string, string][] };
   // started-only
   metrics?: { goal: string; secondary: string[]; guardrail: string[] };
-  target?: number;
   // warning-only
   srm?: string;
   p?: string;
   // compact-card-only: the notification *event* the card announces (distinct
   // from `state`/status). When unset, the compact card derives it from state.
   event?: CompactEvent;
-  daysToPower?: number; // "started" compact hero: est. days to reach power
   winningVariation?: string;
   winningVariationIndex?: number;
   compactLine?: string; // one-line conclusion fallback for outcome events
@@ -1281,12 +1279,7 @@ function buildCard(exp: ExperimentCardData): El {
 
   if (exp.state === "started") {
     body = startedBody(exp);
-    footerItems = [
-      exp.variants.join(" · "),
-      exp.target ? `Target ~${exp.target.toLocaleString()} users` : undefined,
-      exp.dates,
-      exp.ds,
-    ];
+    footerItems = [exp.variants.join(" · "), exp.dates, exp.ds];
   } else if (exp.state === "warning") {
     body = warningBody(exp);
     footerItems = [
@@ -1623,7 +1616,6 @@ function compactHero(
   const r = exp.rows[0];
 
   if (event === "started") {
-    const days = exp.daysToPower ?? 14;
     return el(
       "div",
       { display: "flex", flexDirection: "column", gap: 14, width: "100%" },
@@ -1648,22 +1640,6 @@ function compactHero(
             el("div", { display: "flex", flexDirection: "column" }, [
               capLabel("Goal metric", 4),
               txt(exp.goal, { fontSize: 14.5, fontWeight: 500, color: P.text }),
-            ]),
-            el("div", { display: "flex", flexDirection: "column" }, [
-              capLabel("Target", 4),
-              txt(
-                `~${exp.target ? exp.target.toLocaleString() : "—"}`,
-                { fontSize: 14, fontWeight: 500, color: P.text },
-                true,
-              ),
-            ]),
-            el("div", { display: "flex", flexDirection: "column" }, [
-              capLabel("To power", 4),
-              txt(
-                `~${days} days`,
-                { fontSize: 14, fontWeight: 500, color: accentText },
-                true,
-              ),
             ]),
           ],
         ),
@@ -2121,7 +2097,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         goal: "Checkout completion rate",
         variants: ["Control", "Treatment A"],
         tags: ["revenue", "checkout"],
-        target: 40000,
         dates: "Jun 28, 2026",
         ds: "Snowflake · Prod",
         hypothesis:
