@@ -5,7 +5,6 @@ import {
   slackEventWebHookOptions,
   zodNotificationEventNamesEnum,
 } from "shared/validators";
-import { normalizeLegacySlackEvent } from "back-end/src/services/slack/legacyEventSubscriptions";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawSlackIntegrationController from "./slack-integration.controller";
@@ -18,7 +17,6 @@ const slackIntegrationController = wrapController(
 
 const eventNameOrWildcard = z
   .string()
-  .transform(normalizeLegacySlackEvent)
   .refine(
     (value) =>
       zodNotificationEventNamesEnum.includes(value as never) ||

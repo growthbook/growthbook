@@ -10,11 +10,11 @@ import {
   zodNotificationEventNamesEnum,
   isEventWebhookWildcard,
   NotificationEventNameOrWildcard,
+  getWildcardPatternsForEvent,
 } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { getSlackEventSubscriptionNames } from "back-end/src/services/slack/legacyEventSubscriptions";
 
 const slackIntegrationSchema = new mongoose.Schema({
   id: {
@@ -236,10 +236,11 @@ export const getSlackIntegrationsForFilters = async ({
   tags,
   projects,
 }: GetForEventOptions): Promise<SlackIntegrationInterface[] | null> => {
-  const subscriptionNames = getSlackEventSubscriptionNames(eventName);
+  const wildcardPatterns = getWildcardPatternsForEvent(eventName);
   const includesEvent = (slackIntegration: SlackIntegrationDocument) =>
     slackIntegration.events.length === 0 ||
-    subscriptionNames.some((name) => slackIntegration.events.includes(name));
+    slackIntegration.events.includes(eventName) ||
+    wildcardPatterns.some((w) => slackIntegration.events.includes(w));
 
   const includesTags = (slackIntegration: SlackIntegrationDocument) =>
     slackIntegration.tags.length === 0 ||

@@ -307,7 +307,6 @@ export const notifyExperimentUpdateFailed = async ({
   await memoizeNotification({
     context,
     experiment,
-    // Retain the existing marker so queued failures do not notify twice after upgrading.
     type: "query-failed",
     triggered,
     dispatch: async () => {
@@ -315,7 +314,7 @@ export const notifyExperimentUpdateFailed = async ({
       await dispatchEvent({
         context,
         experiment,
-        event: "health.updateFailure",
+        event: "warning",
         data: {
           object: {
             type: "update-failed",
@@ -354,7 +353,7 @@ export const notifySrm = async ({
       await dispatchEvent({
         context,
         experiment,
-        event: "health.srm",
+        event: "warning",
         data: {
           object: {
             type: "srm",
@@ -395,7 +394,7 @@ export const notifyMultipleExposures = async ({
       await dispatchEvent({
         context,
         experiment,
-        event: "health.multipleExposures",
+        event: "warning",
         data: {
           object: {
             type: "multiple-exposures",
@@ -698,14 +697,9 @@ type ExperimentSignificanceChange = {
   variationName: string;
   metricId: string;
   metricName: string;
-  snapshotId?: string;
-  differenceType?: string;
-  metricRole?: "goal" | "secondary" | "guardrail";
   statsEngine: StatsEngine;
   criticalValue: number;
   winning: boolean;
-  uplift?: number;
-  ci?: [number, number];
 };
 
 const sendSignificanceEmail = async (
@@ -784,23 +778,6 @@ export const computeExperimentChanges = async ({
     experiment.goalMetrics,
     metricGroups,
   );
-  const expandedSecondaryMetrics = expandMetricGroups(
-    experiment.secondaryMetrics || [],
-    metricGroups,
-  );
-  const expandedGuardrailMetrics = expandMetricGroups(
-    experiment.guardrailMetrics || [],
-    metricGroups,
-  );
-  const getMetricRole = (
-    metricId: string,
-  ): ExperimentSignificanceChange["metricRole"] => {
-    if (expandedGoalMetrics.includes(metricId)) return "goal";
-    if (expandedGuardrailMetrics.includes(metricId)) return "guardrail";
-    if (expandedSecondaryMetrics.includes(metricId)) return "secondary";
-    return undefined;
-  };
-
   const currentResults = cloneDeep(currentAnalysis.results);
   setAdjustedPValuesOnResults(
     currentResults,
@@ -908,14 +885,9 @@ export const computeExperimentChanges = async ({
         variationName,
         metricId: m,
         metricName: metric.name,
-        snapshotId: currentSnapshot.id,
-        differenceType: currentAnalysis.settings.differenceType,
-        metricRole: getMetricRole(m),
         statsEngine,
         criticalValue,
         winning,
-        uplift: curMetric.uplift?.mean,
-        ci: curMetric.ciAdjusted || curMetric.ci,
       });
     }
   }

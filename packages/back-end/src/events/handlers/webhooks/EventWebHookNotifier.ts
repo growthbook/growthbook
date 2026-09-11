@@ -197,7 +197,6 @@ export class EventWebHookNotifier implements Notifier {
         const card = event.version
           ? await renderExperimentNotificationCard(
               event.data,
-              organization.id,
               eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
             )
           : null;

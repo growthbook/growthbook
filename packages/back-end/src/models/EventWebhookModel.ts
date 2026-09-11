@@ -17,7 +17,6 @@ import {
   NotificationEventNameOrWildcard,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
-import { getSlackEventSubscriptionNames } from "back-end/src/services/slack/legacyEventSubscriptions";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
@@ -526,15 +525,7 @@ export const getAllEventWebHooksForEvent = async ({
 }): Promise<EventWebHookInterface[]> => {
   const allDocs = await EventWebHookModel.find({
     organizationId,
-    $or: [
-      {
-        events: { $in: [eventName, ...getWildcardPatternsForEvent(eventName)] },
-      },
-      {
-        payloadType: "slack",
-        events: { $in: getSlackEventSubscriptionNames(eventName) },
-      },
-    ],
+    events: { $in: [eventName, ...getWildcardPatternsForEvent(eventName)] },
     enabled,
   });
 

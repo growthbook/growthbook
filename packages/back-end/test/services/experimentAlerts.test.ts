@@ -43,31 +43,6 @@ describe("experiment alert messages", () => {
       "Scheduled to end soon at 2026-09-14T00:00:00Z.",
     ],
     [
-      "experiment.health.updateFailure",
-      { type: "update-failed", cause: "query", errorMessage: "secret SQL" },
-      "Results failed to update because database queries failed.",
-    ],
-    [
-      "experiment.health.updateFailure",
-      { type: "update-failed", cause: "analysis" },
-      "Results failed to update because analysis failed.",
-    ],
-    [
-      "experiment.health.updateFailure",
-      { type: "update-failed", cause: "no-queries" },
-      "Results failed to update because no queries were generated.",
-    ],
-    [
-      "experiment.health.srm",
-      { type: "srm", threshold: 0.001 },
-      "Sample ratio mismatch detected (threshold: 0.001).",
-    ],
-    [
-      "experiment.health.multipleExposures",
-      { type: "multiple-exposures", usersCount: 50, percent: 0.025 },
-      "50 users (2.50%) were exposed to multiple variations.",
-    ],
-    [
       "experiment.metric.guardrailFailure",
       {
         type: "guardrail-failed",
@@ -104,22 +79,33 @@ describe("experiment alert messages", () => {
       });
     },
   );
-  it("does not send raw warehouse errors into Slack", () => {
-    const event = {
-      event: "experiment.health.updateFailure",
-      data: {
-        object: {
-          type: "update-failed",
-          cause: "query",
-          experimentId: "exp-1",
-          experimentName: "Checkout",
-          errorMessage: "secret SQL",
+  it.each([
+    ["query", "database queries failed"],
+    ["analysis", "analysis failed"],
+    ["no-queries", "no queries were generated"],
+  ])(
+    "describes an update failure caused by %s without raw warehouse errors",
+    async (cause, detail) => {
+      const event = {
+        event: "experiment.warning",
+        data: {
+          object: {
+            type: "update-failed",
+            cause,
+            experimentId: "exp-1",
+            experimentName: "Checkout",
+            errorMessage: "secret SQL",
+          },
         },
-      },
-    } as Extract<
-      NotificationEvent,
-      { event: "experiment.health.updateFailure" }
-    >;
-    expect(buildExperimentAlertMessage(event).text).not.toContain("secret SQL");
-  });
+      } as NotificationEvent;
+      const message = await getSlackMessageForNotificationEvent(
+        event,
+        "event_test",
+      );
+      expect(message?.text).toBe(
+        `Results for experiment Checkout failed to update because ${detail}.`,
+      );
+      expect(message?.text).not.toContain("secret SQL");
+    },
+  );
 });

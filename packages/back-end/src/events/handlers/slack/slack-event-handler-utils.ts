@@ -106,9 +106,6 @@ export const getSlackMessageForNotificationEvent = async (
     case "experiment.status.stopped":
     case "experiment.status.endingSoon":
     case "experiment.status.stale":
-    case "experiment.health.updateFailure":
-    case "experiment.health.srm":
-    case "experiment.health.multipleExposures":
     case "experiment.metric.guardrailFailure":
     case "experiment.bandit.weightsChanged":
       return buildExperimentAlertMessage(event);
@@ -1916,6 +1913,31 @@ const buildSlackMessageForExperimentWarningEvent = (
         : `Giving up after ${data.attempts} attempts; the schedule has been cleared and the experiment will not ${action} automatically.`;
       const text = (experimentName: string) =>
         `Scheduled ${action} for experiment ${experimentName} failed: ${data.reason}. ${tail}`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
+    case "update-failed": {
+      const cause = {
+        query: "database queries failed",
+        analysis: "analysis failed",
+        "no-queries": "no queries were generated",
+      }[data.cause];
+      const text = (experimentName: string) =>
+        `Results for experiment ${experimentName} failed to update because ${cause}.`;
 
       return {
         text: text(data.experimentName),

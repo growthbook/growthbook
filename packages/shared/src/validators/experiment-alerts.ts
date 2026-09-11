@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { queryRunnerFailureCause } from "./queries";
 import { experimentResultsType } from "./experiments";
 
 export const experimentStartedNotificationPayload = z
@@ -47,15 +46,6 @@ export const experimentStaleNotificationPayload = z
   })
   .strict();
 
-export const experimentUpdateFailedNotificationPayload = z
-  .object({
-    type: z.literal("update-failed"),
-    experimentId: z.string(),
-    experimentName: z.string(),
-    cause: queryRunnerFailureCause.exclude(["cancelled"]),
-  })
-  .strict();
-
 export const experimentGuardrailFailedNotificationPayload = z
   .object({
     type: z.literal("guardrail-failed"),
@@ -97,10 +87,6 @@ export type ExperimentEndingSoonNotificationPayload = z.infer<
 
 export type ExperimentStaleNotificationPayload = z.infer<
   typeof experimentStaleNotificationPayload
->;
-
-export type ExperimentUpdateFailedNotificationPayload = z.infer<
-  typeof experimentUpdateFailedNotificationPayload
 >;
 
 export type ExperimentGuardrailFailedNotificationPayload = z.infer<

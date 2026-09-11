@@ -248,7 +248,7 @@ export interface ExperimentCardData {
   note?: string;
   rows: CardGoalRow[];
   summary?: string[];
-  sentiment?: "positive" | "negative";
+  badgeLabel?: string; // overrides the state badge text, e.g. a stopped card with no outcome
   secondary?: CardCiMetric[];
   guardrail?: CardCiMetric[];
   // Shown above the conclusion for non-started states; and in the started body.
@@ -272,15 +272,9 @@ export interface ExperimentCardData {
 }
 
 // A compact notification announces an EVENT (distinct from the experiment's
-// status). started/significance fire while Running; won/lost/stopped once
+// status). started fires while Running; won/lost/stopped once
 // Stopped; warning is a health alert.
-export type CompactEvent =
-  | "started"
-  | "significance"
-  | "won"
-  | "lost"
-  | "stopped"
-  | "warning";
+export type CompactEvent = "started" | "won" | "lost" | "stopped" | "warning";
 
 // ---------------------------------------------------------------------------
 // Element helpers (Satori "without JSX" object form).
@@ -917,10 +911,7 @@ function headerEl(exp: ExperimentCardData): El {
             letterSpacing: "-0.01em",
           }),
           txt(exp.key, { fontSize: 12, color: P.subtle }, true),
-          badge(
-            exp.state,
-            exp.summary && exp.state === "stopped" ? "Stopped" : undefined,
-          ),
+          badge(exp.state, exp.badgeLabel),
         ],
       ),
       el(
@@ -1286,7 +1277,7 @@ function eventSummaryBody(lines: string[]): El {
 }
 
 function buildCard(exp: ExperimentCardData): El {
-  const hue = exp.sentiment === "negative" ? "red" : HUE[exp.state];
+  const hue = HUE[exp.state];
   let body: El;
   let footerItems: (string | undefined)[];
 
@@ -1359,7 +1350,7 @@ function cardShell(hue: Hue, column: El[]): El {
 
 // ---------------------------------------------------------------------------
 // Compact card — a glanceable single-hero-stat card for per-event
-// notifications (significance / stopped / started / warning). Reuses the same
+// notifications (stopped / started / warning). Reuses the same
 // header, rail, violin, badge, and tokens as the detailed card, condensed to
 // header + one hero row + slim footer (no full metrics table).
 // ---------------------------------------------------------------------------
@@ -1391,12 +1382,6 @@ const COMPACT_EVENT: Record<
     hue: "violet",
     status: "running",
     icon: "play",
-  },
-  significance: {
-    label: "Reached significance",
-    hue: "green",
-    status: "running",
-    icon: "check",
   },
   won: {
     label: "Declared a winner",
@@ -1493,9 +1478,8 @@ function compactEventFor(exp: ExperimentCardData): CompactEvent {
   if (exp.event) return exp.event;
   switch (exp.state) {
     case "started":
-      return "started";
     case "running":
-      return "significance";
+      return "started";
     case "winner":
       return "won";
     case "loser":
@@ -1624,40 +1608,6 @@ function compactHeaderEl(
   );
 }
 
-// A mini violin + axis labels + CI caption (compact significance hero).
-function compactViolin(r: CardGoalRow, width: number): El {
-  return el(
-    "div",
-    { display: "flex", flexDirection: "column", gap: 2 },
-    [
-      r.vio
-        ? svgImg(
-            violinSvg(width, 46, VIOLIN_DOMAIN, r.vio, { ci: r.ci }),
-            width,
-            46,
-          )
-        : null,
-      el("div", { display: "flex", justifyContent: "space-between", width }, [
-        txt(fmtPct(VIOLIN_DOMAIN[0]), { fontSize: 8.5, color: P.subtle }, true),
-        txt("0", { fontSize: 8.5, color: P.subtle }, true),
-        txt(fmtPct(VIOLIN_DOMAIN[1]), { fontSize: 8.5, color: P.subtle }, true),
-      ]),
-      r.ci
-        ? txt(
-            `95% CI [${fmtPct(r.ci.lo)}, ${fmtPct(r.ci.hi)}]`,
-            {
-              fontSize: 10.5,
-              color: P.subtle,
-              width,
-              justifyContent: "center",
-            },
-            true,
-          )
-        : null,
-    ].filter(Boolean) as El[],
-  );
-}
-
 function compactHero(
   exp: ExperimentCardData,
   event: CompactEvent,
@@ -1761,74 +1711,6 @@ function compactHero(
     );
   }
 
-  if (event === "significance" && r) {
-    return el(
-      "div",
-      {
-        display: "flex",
-        flexDirection: "row",
-        gap: 26,
-        alignItems: "center",
-        width: "100%",
-      },
-      [
-        el("div", { display: "flex", flexDirection: "column", width: 330 }, [
-          capLabel(exp.goal),
-          el(
-            "div",
-            {
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "flex-start",
-              gap: 4,
-              marginBottom: 5,
-            },
-            [
-              r.dir ? arrowImg(r.dir, accentText, 17) : null,
-              txt((r.chg ?? "").replace(/^[+-]/, ""), {
-                fontSize: 40,
-                fontWeight: 700,
-                color: accentText,
-                letterSpacing: "-0.02em",
-                lineHeight: 1,
-              }),
-              txt(r.v, {
-                fontSize: 14,
-                fontWeight: 500,
-                color: P.muted,
-                marginLeft: 6,
-                alignSelf: "flex-end",
-                marginBottom: 4,
-              }),
-            ].filter(Boolean) as El[],
-          ),
-          el(
-            "div",
-            {
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "baseline",
-              gap: 7,
-            },
-            [
-              txt(
-                r.ctw ?? "—",
-                { fontSize: 17, fontWeight: 600, color: ctwColor(r.ctw) },
-                true,
-              ),
-              txt("chance to beat control", {
-                fontSize: 12.5,
-                fontWeight: 500,
-                color: P.subtle,
-              }),
-            ],
-          ),
-        ]),
-        el("div", { display: "flex", flexGrow: 1 }, [compactViolin(r, 380)]),
-      ],
-    );
-  }
-
   // won / lost / stopped — outcome-forward.
   const line = exp.conclusion?.text
     ? plainClamp(exp.conclusion.text, 200)
@@ -1915,16 +1797,16 @@ function buildCompactCard(exp: ExperimentCardData): El {
   const event = compactEventFor(exp);
   const ev = COMPACT_EVENT[event];
   const r0 = exp.rows[0];
-  // Event hue drives the rail + eyebrow; win/significance tint by direction.
-  let hue = exp.sentiment === "negative" ? "red" : ev.hue;
-  if ((event === "significance" || event === "won") && r0?.dir === "down") {
+  // Event hue drives the rail + eyebrow; win tint by direction.
+  let hue = ev.hue;
+  if (event === "won" && r0?.dir === "down") {
     hue = "red";
   }
 
   const footerItems =
     event === "started"
       ? [exp.variants.join(" · "), exp.dates, exp.ds]
-      : event === "warning" || event === "significance"
+      : event === "warning"
         ? [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds]
         : [
             exp.days,

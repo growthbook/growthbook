@@ -8,9 +8,6 @@ type AlertName =
   | "experiment.status.stopped"
   | "experiment.status.endingSoon"
   | "experiment.status.stale"
-  | "experiment.health.updateFailure"
-  | "experiment.health.srm"
-  | "experiment.health.multipleExposures"
   | "experiment.metric.guardrailFailure"
   | "experiment.bandit.weightsChanged";
 
@@ -37,20 +34,6 @@ export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
       break;
     case "experiment.status.stale":
       detail = `Running for ${event.data.object.daysRunning} days. Review whether to stop or extend it.`;
-      break;
-    case "experiment.health.updateFailure":
-      detail = {
-        query: "Results failed to update because database queries failed.",
-        analysis: "Results failed to update because analysis failed.",
-        "no-queries":
-          "Results failed to update because no queries were generated.",
-      }[event.data.object.cause];
-      break;
-    case "experiment.health.srm":
-      detail = `Sample ratio mismatch detected (threshold: ${event.data.object.threshold}).`;
-      break;
-    case "experiment.health.multipleExposures":
-      detail = `${event.data.object.usersCount} users (${(event.data.object.percent * 100).toFixed(2)}%) were exposed to multiple variations.`;
       break;
     case "experiment.metric.guardrailFailure":
       detail = `Failing guardrails: ${event.data.object.failedMetrics.map((m) => `${m.name} (${m.variationName})`).join(", ")}.`;

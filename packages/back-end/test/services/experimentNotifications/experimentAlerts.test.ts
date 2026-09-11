@@ -282,7 +282,7 @@ describe("experiment alert producers", () => {
       await notifyExperimentUpdateFailed({ context, experiment, cause });
       expect(createEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: "health.updateFailure",
+          event: "warning",
           data: {
             object: {
               type: "update-failed",
@@ -356,7 +356,7 @@ describe("experiment alert producers", () => {
     await notifyMultipleExposures({ context, experiment, currentStatus });
     expect(
       jest.mocked(createEvent).mock.calls.map(([args]) => args.event),
-    ).toEqual(["health.srm", "health.multipleExposures"]);
+    ).toEqual(["warning", "warning"]);
     const notified = {
       ...experiment,
       pastNotifications: ["srm", "multiple-exposures"],

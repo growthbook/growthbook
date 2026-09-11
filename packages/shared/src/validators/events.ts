@@ -47,11 +47,7 @@ import {
   featureRevisionPublishFailedPayload,
 } from "./feature-revision-notifications";
 
-import {
-  experimentWarningNotificationPayload,
-  srm,
-  multipleExposures,
-} from "./experiment-warnings";
+import { experimentWarningNotificationPayload } from "./experiment-warnings";
 import {
   experimentInfoSignificance,
   experimentInfoScheduledStatusUpdate,
@@ -62,7 +58,6 @@ import {
   experimentStoppedNotificationPayload,
   experimentEndingSoonNotificationPayload,
   experimentStaleNotificationPayload,
-  experimentUpdateFailedNotificationPayload,
   experimentGuardrailFailedNotificationPayload,
   experimentBanditChangedNotificationPayload,
 } from "./experiment-alerts";
@@ -314,7 +309,7 @@ export const notificationEvents = {
     warning: {
       schema: experimentWarningNotificationPayload,
       description:
-        "Triggered when a warning condition is detected on an experiment",
+        "Triggered when a warning condition is detected on an experiment, such as a sample ratio mismatch, multiple exposures, low power, no data, or a failed results update. The `type` field identifies the condition.",
     },
     "status.started": {
       schema: experimentStartedNotificationPayload,
@@ -334,20 +329,6 @@ export const notificationEvents = {
       schema: experimentStaleNotificationPayload,
       description:
         "Triggered when a running experiment has been active for a long time without a decision.",
-    },
-    "health.updateFailure": {
-      schema: experimentUpdateFailedNotificationPayload,
-      description:
-        "Triggered when experiment results fail to update because queries failed, analysis failed, or no queries were generated. User cancellations are excluded.",
-    },
-    "health.srm": {
-      schema: srm,
-      description: "Triggered when an experiment has a sample ratio mismatch.",
-    },
-    "health.multipleExposures": {
-      schema: multipleExposures,
-      description:
-        "Triggered when too many users are exposed to multiple experiment variations.",
     },
     "metric.guardrailFailure": {
       schema: experimentGuardrailFailedNotificationPayload,

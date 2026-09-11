@@ -190,11 +190,11 @@ describe("Slack EventWebHook delivery compatibility", () => {
       const base = { experimentId: "exp-1", experimentName: "Checkout" };
       const events = [
         {
-          event: "experiment.health.srm",
+          event: "experiment.warning",
           data: { object: { ...base, type: "srm", threshold: 0.001 } },
         },
         {
-          event: "experiment.health.multipleExposures",
+          event: "experiment.warning",
           data: {
             object: {
               ...base,
@@ -205,7 +205,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
           },
         },
         {
-          event: "experiment.health.updateFailure",
+          event: "experiment.warning",
           data: {
             object: {
               ...base,
@@ -371,7 +371,6 @@ describe("Slack EventWebHook delivery compatibility", () => {
 
     expect(renderExperimentNotificationCard).toHaveBeenCalledWith(
       {},
-      "org-1",
       "detailed",
     );
     expect(uploadSlackImageFile).toHaveBeenCalledWith({

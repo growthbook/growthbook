@@ -212,7 +212,6 @@ describe("Experiment Significance notifications", () => {
       expect.objectContaining({
         variationId: expectedVariation.id,
         variationName: expectedVariation.name,
-        snapshotId: snapshots.base.id,
       }),
     ]);
   });

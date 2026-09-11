@@ -11,11 +11,6 @@ export const experimentInfoSignificance = z
     statsEngine: z.string(),
     criticalValue: z.number(),
     winning: z.boolean(),
-    snapshotId: z.string().optional(),
-    differenceType: z.string().optional(),
-    metricRole: z.enum(["goal", "secondary", "guardrail"]).optional(),
-    uplift: z.number().optional(),
-    ci: z.tuple([z.number(), z.number()]).optional(),
   })
   .strict();
 
