@@ -22,13 +22,15 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import { Select, SelectItem, SelectGroup, SelectLabel } from "@/ui/Select";
 import SlackEventPreview from "./SlackEventPreview";
 import {
   slackEventOptions,
+  slackNotificationLevel,
+  applySlackNotificationLevel,
+  SlackNotificationLevel,
   SlackEventCategory,
   slackEventSelection,
   toggleSlackEvents,
@@ -92,12 +94,18 @@ export default function SlackChannelSettings({
   onSaved,
   onDeleted,
   saveBarHost,
+  additionalDirty = false,
+  onSaveAdditionalSettings,
+  onDraftEnabledChange,
 }: {
   integration: SlackOAuthIntegrationInterface;
   workspace: SlackWorkspaceConnectionFrontEndInterface;
   onSaved: () => Promise<void>;
   onDeleted: () => Promise<void>;
   saveBarHost?: HTMLDivElement | null;
+  additionalDirty?: boolean;
+  onSaveAdditionalSettings?: () => Promise<void>;
+  onDraftEnabledChange?: (enabled: boolean) => void;
 }) {
   const { apiCall } = useAuth();
   const { data: previewEvents, error: previewEventsError } = useApi<{
@@ -157,6 +165,15 @@ export default function SlackChannelSettings({
   const environments = useEnvironments();
   const [enabled, setEnabled] = useState(integration.enabled);
   const [events, setEvents] = useState(integration.events);
+  const [presetLevels, setPresetLevels] = useState<
+    Partial<
+      Record<SlackEventCategory, Exclude<SlackNotificationLevel, "custom">>
+    >
+  >({});
+  const [manualLevels, setManualLevels] = useState<SlackEventCategory[]>([]);
+  const [pausedEvents, setPausedEvents] = useState<
+    Partial<Record<SlackEventCategory, string[]>>
+  >({});
   const [expandedCategories, setExpandedCategories] = useState<
     SlackEventCategory[]
   >([]);
@@ -252,6 +269,7 @@ export default function SlackChannelSettings({
     setSaveError(null);
     setSaved(false);
     try {
+      await onSaveAdditionalSettings?.();
       await apiCall(`/integrations/slack/oauth/${integration.id}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -312,7 +330,7 @@ export default function SlackChannelSettings({
       py="3"
       style={{
         position: saveBarHost ? "static" : "sticky",
-        paddingLeft: saveBarHost ? "calc(280px + var(--space-5))" : 0,
+        paddingLeft: saveBarHost ? "var(--space-5)" : 0,
         bottom: 0,
         background: "var(--color-panel-solid)",
         borderTop: "1px solid var(--gray-a4)",
@@ -322,12 +340,16 @@ export default function SlackChannelSettings({
       <Button
         onClick={save}
         loading={saving}
-        disabled={!dirty || events.length === 0}
+        disabled={!(dirty || additionalDirty) || events.length === 0}
       >
         Save settings
       </Button>
-      {dirty && <HelperText status="warning">Unsaved changes</HelperText>}
-      {saved && !dirty && <HelperText status="success">Saved.</HelperText>}
+      {(dirty || additionalDirty) && (
+        <HelperText status="warning">Unsaved changes</HelperText>
+      )}
+      {saved && !dirty && !additionalDirty && (
+        <HelperText status="success">Saved.</HelperText>
+      )}
       {saveError && <HelperText status="error">{saveError}</HelperText>}
     </Flex>
   );
@@ -399,19 +421,27 @@ export default function SlackChannelSettings({
                 : " · no runs yet"}
             </Text>
           </Box>
-          <Flex align="center" gap="4">
+          <Flex align="center" gap="3" wrap="wrap">
             <Checkbox
               label="Enabled"
               value={enabled}
               setValue={(value) => {
                 setEnabled(value);
+                onDraftEnabledChange?.(value);
                 markDirty();
               }}
               weight="medium"
             />
+            <Box
+              style={{
+                height: "var(--space-5)",
+                borderLeft: "1px solid var(--gray-a6)",
+              }}
+            />
             <Button
               variant="outline"
               color="gray"
+              size="sm"
               icon={<PiPaperPlaneTilt />}
               disabled={!previewEvents?.events.length}
               onClick={() => {
@@ -419,15 +449,17 @@ export default function SlackChannelSettings({
                 setShowSendTest(true);
               }}
             >
-              Send test message
+              Send test
             </Button>
             <Button
               variant="outline"
               color="red"
-              icon={<PiTrash />}
+              size="sm"
+              aria-label="Delete channel connection"
+              title="Delete channel connection"
               onClick={() => setConfirmingDelete(true)}
             >
-              Delete
+              <PiTrash />
             </Button>
           </Flex>
         </Flex>
@@ -481,7 +513,11 @@ export default function SlackChannelSettings({
             Limit what this channel hears. Leave a filter empty to include
             everything; non-empty filters combine.
           </Text>
-          <Grid columns={{ initial: "1", sm: "2" }} gap="4">
+          <Grid
+            columns={{ initial: "1", sm: "2" }}
+            gap="4"
+            style={{ maxWidth: 620 }}
+          >
             <MultiSelectField
               label="Projects"
               placeholder="All Projects"
@@ -512,7 +548,14 @@ export default function SlackChannelSettings({
             />
           </Grid>
           {showMoreFilters ? (
-            <Box mt="4">
+            <Box
+              mt="4"
+              style={{
+                maxWidth: 620,
+                paddingTop: "var(--space-4)",
+                borderTop: "1px solid var(--gray-a4)",
+              }}
+            >
               <Grid columns={{ initial: "1", sm: "2" }} gap="4">
                 <Box>
                   <Text as="label" size="md" weight="semibold">
@@ -553,6 +596,9 @@ export default function SlackChannelSettings({
                       markDirty();
                     }}
                   />
+                  <Text as="p" size="sm" color="text-mid" mt="1">
+                    Posts updates associated with any of these metrics.
+                  </Text>
                 </Box>
                 <Box>
                   <MultiSelectField
@@ -567,20 +613,22 @@ export default function SlackChannelSettings({
                   />
                 </Box>
               </Grid>
-              {filterTags.length +
-                filterExperiments.length +
-                filterMetrics.length +
-                filterFeatures.length ===
-                0 && (
-                <Button
-                  variant="ghost"
-                  color="gray"
-                  size="sm"
-                  onClick={() => setShowMoreFilters(false)}
-                >
-                  − Hide these filters
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                color="gray"
+                size="sm"
+                mt="3"
+                onClick={() => {
+                  setFilterTags([]);
+                  setFilterExperiments([]);
+                  setFilterMetrics([]);
+                  setFilterFeatures([]);
+                  setShowMoreFilters(false);
+                  markDirty();
+                }}
+              >
+                − Remove all filters
+              </Button>
             </Box>
           ) : (
             <Box>
@@ -605,19 +653,18 @@ export default function SlackChannelSettings({
               matchesSlackEvent(subscription, event),
             ),
           );
-          const customized =
-            selected &&
-            options.some(
-              (option) =>
-                slackEventSelection(events, option.events) !== option.defaultOn,
-            );
+          const level = manualLevels.includes(category)
+            ? "custom"
+            : (presetLevels[category] ??
+              (selected
+                ? slackNotificationLevel(events, category)
+                : pausedEvents[category]?.length
+                  ? slackNotificationLevel(pausedEvents[category], category)
+                  : "default"));
           const resetCategory = () => {
-            setEvents([
-              ...events.filter((event) => !event.startsWith(`${category}.`)),
-              ...options
-                .filter((option) => option.defaultOn)
-                .flatMap((option) => option.events),
-            ]);
+            setPresetLevels({ ...presetLevels, [category]: "default" });
+            setEvents(applySlackNotificationLevel(events, category, "default"));
+            setManualLevels(manualLevels.filter((item) => item !== category));
             markDirty();
           };
           const expanded = expandedCategories.includes(category);
@@ -632,72 +679,115 @@ export default function SlackChannelSettings({
                 What this channel hears about{" "}
                 {category === "experiment" ? "experiments" : "Feature Flags"}.
               </Text>
-              <Flex justify="between" align="start" gap="3">
-                <Checkbox
-                  weight="medium"
-                  label={
-                    <Flex asChild align="center" gap="2">
-                      <span>
-                        Event notifications
-                        {customized && (
-                          <Badge
-                            label="Customized"
-                            color="gray"
-                            variant="soft"
-                            title="Events differ from the recommended defaults"
-                          />
-                        )}
-                      </span>
-                    </Flex>
-                  }
-                  description={
-                    category === "experiment"
-                      ? "Launches, results, decisions, and health warnings."
-                      : "Published versions, safe rollouts, drafts, and reviews."
-                  }
-                  value={selected}
-                  setValue={(value) => {
-                    if (value) resetCategory();
-                    else {
-                      setEvents(
-                        events.filter(
+              <Checkbox
+                weight="medium"
+                label="Event notifications"
+                description={
+                  category === "experiment"
+                    ? "Launches, results, decisions, and health warnings."
+                    : "Published versions, safe rollouts, drafts, and reviews."
+                }
+                value={selected}
+                setValue={(value) => {
+                  if (value) {
+                    if (pausedEvents[category]?.length) {
+                      setEvents([
+                        ...events.filter(
                           (event) => !event.startsWith(`${category}.`),
                         ),
-                      );
+                        ...pausedEvents[category]!,
+                      ]);
                       markDirty();
-                    }
-                  }}
-                />
-                <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
-                  {customized && (
-                    <Button
-                      variant="ghost"
-                      color="gray"
-                      size="sm"
-                      onClick={resetCategory}
+                    } else resetCategory();
+                  } else {
+                    setPausedEvents({
+                      ...pausedEvents,
+                      [category]: events.filter((event) =>
+                        event.startsWith(`${category}.`),
+                      ),
+                    });
+                    setEvents(
+                      events.filter(
+                        (event) => !event.startsWith(`${category}.`),
+                      ),
+                    );
+                    markDirty();
+                  }
+                }}
+              />
+              <Flex
+                align="center"
+                justify="between"
+                gap="3"
+                mt="3"
+                wrap="wrap"
+                style={{
+                  paddingLeft: "calc(16px + var(--space-2))",
+                  maxWidth: 620,
+                  opacity: selected ? 1 : 0.5,
+                }}
+              >
+                <Flex align="center" gap="3">
+                  <Text size="sm" weight="medium">
+                    Level
+                  </Text>
+                  <Box style={{ width: 180 }}>
+                    <Select
+                      aria-label={`${title} notification level`}
+                      value={level}
+                      disabled={!selected}
+                      setValue={(value) => {
+                        if (value === "custom") {
+                          setManualLevels([...manualLevels, category]);
+                          setExpandedCategories([
+                            ...expandedCategories,
+                            category,
+                          ]);
+                          return;
+                        }
+                        setPresetLevels({
+                          ...presetLevels,
+                          [category]: value as Exclude<
+                            SlackNotificationLevel,
+                            "custom"
+                          >,
+                        });
+                        setEvents(
+                          applySlackNotificationLevel(
+                            events,
+                            category,
+                            value as Exclude<SlackNotificationLevel, "custom">,
+                          ),
+                        );
+                        setManualLevels(
+                          manualLevels.filter((item) => item !== category),
+                        );
+                        markDirty();
+                      }}
                     >
-                      Reset
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    color="gray"
-                    size="sm"
-                    onClick={() =>
-                      setExpandedCategories(
-                        expanded
-                          ? expandedCategories.filter(
-                              (item) => item !== category,
-                            )
-                          : [...expandedCategories, category],
-                      )
-                    }
-                  >
-                    {expanded ? "Hide events" : "Customize events"}
-                  </Button>
+                      <SelectItem value="important">Only important</SelectItem>
+                      <SelectItem value="default">Default</SelectItem>
+                      <SelectItem value="full">Full</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </Select>
+                  </Box>
                 </Flex>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!selected}
+                  onClick={() =>
+                    setExpandedCategories(
+                      expanded
+                        ? expandedCategories.filter((item) => item !== category)
+                        : [...expandedCategories, category],
+                    )
+                  }
+                >
+                  {expanded ? "Hide events" : "Customize events ›"}
+                </Button>
               </Flex>
-              {expanded && (
+              {expanded && selected && (
                 <Flex
                   direction="column"
                   gap="5"
@@ -759,6 +849,7 @@ export default function SlackChannelSettings({
                                       value,
                                     ),
                                   );
+                                  setManualLevels([...manualLevels, category]);
                                   markDirty();
                                 }}
                               />
@@ -826,9 +917,9 @@ export default function SlackChannelSettings({
                 </Select>
               </Box>{" "}
             </Box>
-            <Box style={{ width: 460, maxWidth: "100%" }}>
-              <Text as="div" weight="medium" color="text-mid" mb="2">
-                Preview
+            <Box style={{ width: 420, maxWidth: "100%" }}>
+              <Text as="div" size="sm" weight="medium" color="text-mid" mb="2">
+                PREVIEW
               </Text>
               <SlackEventPreview eventName={previewEvent} format={cardFormat} />
               <Box mt="3">

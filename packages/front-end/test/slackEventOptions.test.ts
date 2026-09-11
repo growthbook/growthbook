@@ -1,6 +1,9 @@
 import { notificationEventNames } from "shared/validators";
 import {
   slackEventOptions,
+  slackNotificationLevel,
+  slackEventsForLevel,
+  applySlackNotificationLevel,
   slackEventSelection,
   toggleSlackEvents,
 } from "@/components/SlackIntegrations/slackEventOptions";
@@ -89,5 +92,57 @@ describe("Slack event subscriptions", () => {
         true,
       ),
     ).toEqual(["experiment.decision.ship", "experiment.decision.review"]);
+  });
+});
+
+describe("Slack notification levels", () => {
+  it("applies a preset only to its subject", () => {
+    const original = ["experiment.*", "feature.*", "custom.future"];
+    const next = applySlackNotificationLevel(
+      original,
+      "experiment",
+      "important",
+    );
+    expect(next).toContain("feature.*");
+    expect(next).toContain("custom.future");
+    expect(next).not.toContain("experiment.*");
+    expect(next).toContain("experiment.info.significance");
+    expect(next).toContain("experiment.warning");
+    expect(original).toEqual(["experiment.*", "feature.*", "custom.future"]);
+  });
+  it("classifies exact defaults and custom partial groups", () => {
+    expect(
+      slackNotificationLevel(
+        slackEventsForLevel("feature", "default"),
+        "feature",
+      ),
+    ).toBe("default");
+    expect(
+      slackNotificationLevel(["experiment.decision.ship"], "experiment"),
+    ).toBe("custom");
+    expect(slackNotificationLevel(["experiment.*"], "experiment")).toBe(
+      "custom",
+    );
+  });
+  it("full contains every visible event for that subject without enabling other subjects", () => {
+    const full = slackEventsForLevel("experiment", "full");
+    expect(new Set(full)).toEqual(
+      new Set(
+        slackEventOptions
+          .filter((option) => option.category === "experiment")
+          .flatMap((option) => option.events),
+      ),
+    );
+    expect(full.every((event) => event.startsWith("experiment."))).toBe(true);
+  });
+  it("manual edits move a preset to custom and preserve the other subject", () => {
+    const presets = applySlackNotificationLevel(
+      ["feature.*"],
+      "experiment",
+      "full",
+    );
+    const edited = toggleSlackEvents(presets, ["experiment.warning"], false);
+    expect(slackNotificationLevel(edited, "experiment")).toBe("custom");
+    expect(edited).toContain("feature.*");
   });
 });

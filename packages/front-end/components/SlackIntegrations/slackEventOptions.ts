@@ -404,3 +404,63 @@ export function toggleSlackEvents(
     ),
   ];
 }
+
+export type SlackNotificationLevel =
+  | "important"
+  | "default"
+  | "full"
+  | "custom";
+export function slackEventsForLevel(
+  category: SlackEventCategory,
+  level: Exclude<SlackNotificationLevel, "custom">,
+): string[] {
+  return [
+    ...new Set(
+      slackEventOptions
+        .filter(
+          (option) =>
+            option.category === category &&
+            (level === "full" ||
+              (level === "default"
+                ? option.defaultOn
+                : category === "experiment"
+                  ? ["Results & decisions", "Health & warnings"].includes(
+                      option.group,
+                    )
+                  : option.group === "Safe rollouts" ||
+                    option.events.includes("feature.revision.published"))),
+        )
+        .flatMap((option) => option.events),
+    ),
+  ];
+}
+export function slackNotificationLevel(
+  events: string[],
+  category: SlackEventCategory,
+): SlackNotificationLevel {
+  const subscriptions = events.filter((event) =>
+    event.startsWith(`${category}.`),
+  );
+  // Keep wildcard subscriptions visibly custom: future events are also included.
+  if (subscriptions.some((event) => event.endsWith(".*"))) return "custom";
+  for (const level of ["default", "important", "full"] as const) {
+    const preset = slackEventsForLevel(category, level);
+    if (
+      subscriptions.length > 0 &&
+      preset.length === new Set(subscriptions).size &&
+      preset.every((event) => subscriptions.includes(event))
+    )
+      return level;
+  }
+  return "custom";
+}
+export function applySlackNotificationLevel(
+  events: string[],
+  category: SlackEventCategory,
+  level: Exclude<SlackNotificationLevel, "custom">,
+): string[] {
+  return [
+    ...events.filter((event) => !event.startsWith(`${category}.`)),
+    ...slackEventsForLevel(category, level),
+  ];
+}
