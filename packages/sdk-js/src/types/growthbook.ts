@@ -313,7 +313,7 @@ export type Options = {
   /** @deprecated */
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
@@ -340,7 +340,7 @@ export type ClientOptions = {
   streamingHostRequestHeaders?: Record<string, string>;
   clientKey?: string;
   decryptionKey?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
@@ -352,7 +352,7 @@ export type GlobalContext = {
   experiments?: AutoExperiment[];
   enabled?: boolean;
   qaMode?: boolean;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
@@ -489,7 +489,7 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
@@ -616,7 +616,29 @@ export interface StickyAssignmentsDocument {
   assignments: StickyAssignments;
 }
 
+// The v1 representation of a saved group: a bare array of the values in an ID
+// list. Retained under its original name because it is part of this package's
+// public API — widening it in place would break consumers who read from a
+// value declared as this type. New code should use SavedGroupsPayload.
 export type SavedGroupsValues = Record<string, (string | number)[]>;
+
+// The savedGroupReferencesV2 representation of a saved group, covering every
+// group type rather than just ID lists. The `type` discriminator lets a future
+// group kind be added without changing the payload shape or the operator that
+// references it; resolving an unrecognized type must fail closed rather than
+// throw, since the payload may be newer than this SDK.
+export type SavedGroupDefinition =
+  | { type: "list"; attributeKey: string; values: (string | number)[] }
+  | { type: "condition"; condition: ConditionInterface };
+
+// The savedGroups field as it arrives in a payload. Which representation each
+// entry uses depends on the connection's capabilities, and a single payload is
+// all one or all the other — but narrow per entry rather than assuming, since
+// a cached or hand-edited payload can disagree with what capabilities imply.
+export type SavedGroupsPayload = Record<
+  string,
+  (string | number)[] | SavedGroupDefinition
+>;
 
 export type BaseLog = {
   timestamp: string;

@@ -54,6 +54,8 @@ export type {
   Helpers,
   GrowthBookPayload,
   SavedGroupsValues,
+  SavedGroupsPayload,
+  SavedGroupDefinition,
   EventLogger,
   EventProperties,
   Plugin,
