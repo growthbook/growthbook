@@ -59,9 +59,14 @@ The current OAuth flow requests these bot scopes:
 - `assistant:write`
 - `im:history`
 - `app_mentions:read`
+- `commands`
+- `links:read`
+- `links:write`
 
-The last three scopes prepare for assistant functionality; granting them does
-not enable a Slack assistant in this release. Notifications do not require an
+The assistant, direct-message history, mention, command, and link scopes are
+requested ahead of the planned assistant and link-preview functionality to avoid
+another authorization step when those features land. Granting these scopes does
+not enable those features in this release. Notifications do not require an
 inbound events URL. `SLACK_SIGNING_SECRET` is not used by this outbound
 notification flow.
 
