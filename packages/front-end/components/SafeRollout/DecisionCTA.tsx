@@ -52,7 +52,7 @@ const DecisionCTA = ({
     return null;
   }
 
-  let buttonCopy = "Stop Early";
+  let buttonCopy = "End rollout";
   let variant: Variant = "soft";
   let color: Color = "violet";
 
@@ -66,8 +66,6 @@ const DecisionCTA = ({
   } else if (decisionStatus?.status === "ship-now") {
     buttonCopy = "Ship Now";
     variant = "solid";
-  } else if (decisionStatus?.status === "data-incomplete") {
-    buttonCopy = "Review rollout";
   }
 
   return (
