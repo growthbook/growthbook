@@ -204,6 +204,7 @@ function computeRemainingTime(
 import ExperimentSummary from "./ExperimentSummary";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
+  TempRolloutCallout,
 } from "./ExperimentRefSummary";
 
 interface SortableProps {
@@ -1572,6 +1573,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </Flex>
               </Callout>
             )}
+          {rule.type === "experiment-ref" && (
+            <TempRolloutCallout
+              rule={rule}
+              experiment={experimentsMap.get(rule.experimentId)}
+            />
+          )}
           <RuleEnvScopeBadges
             activeEnvironmentIds={
               rule.allEnvironments === true || rule.environments === undefined

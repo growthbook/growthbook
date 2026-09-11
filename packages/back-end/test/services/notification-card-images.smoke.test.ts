@@ -34,6 +34,7 @@ describe("renderExperimentCard", () => {
       const png = await renderExperimentCard(sampleCard(state));
       expect(isPng(png)).toBe(true);
       expect(png.length).toBeGreaterThan(2000);
+      expect(png.readUInt32BE(16)).toBe(2000);
     },
     30000,
   );
@@ -46,10 +47,30 @@ describe("renderExperimentCard", () => {
       const png = await renderExperimentCard(card, "compact");
       expect(isPng(png)).toBe(true);
       expect(png.length).toBeGreaterThan(2000);
+      expect(png.readUInt32BE(16)).toBe(1120);
+      expect(png.readUInt32BE(20)).toBeGreaterThanOrEqual(480);
     },
     30000,
   );
 });
+
+it.each(STATES)(
+  "renders compact dark %s without changing concurrent light renders",
+  async (state) => {
+    const card = sampleCard(state);
+    const lightBefore = await renderExperimentCard(card, "compact");
+    const [dark, light] = await Promise.all([
+      renderExperimentCard(card, "compact-dark"),
+      renderExperimentCard(card, "compact"),
+    ]);
+    expect(isPng(dark)).toBe(true);
+    expect(dark.readUInt32BE(16)).toBe(1120);
+    expect(dark.readUInt32BE(20)).toBe(light.readUInt32BE(20));
+    expect(dark.equals(light)).toBe(false);
+    expect(light.equals(lightBefore)).toBe(true);
+  },
+  30000,
+);
 
 describe("immutable event summary rendering", () => {
   it.each(eventSnapshotCardSamples)(
@@ -59,7 +80,7 @@ describe("immutable event summary rendering", () => {
       expect(card).not.toBeNull();
       if (!card) throw new Error("Missing event sample card");
       expect(card.rows).toEqual([]);
-      for (const style of ["compact", "detailed"] as const) {
+      for (const style of ["compact", "compact-dark", "detailed"] as const) {
         const png = await renderExperimentCard(card, style);
         expect(isPng(png)).toBe(true);
         expect(png.readUInt32BE(16)).toBeGreaterThan(500);

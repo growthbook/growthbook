@@ -49,7 +49,7 @@ describe("renderExperimentNotificationCard", () => {
     );
   });
 
-  it.each(["compact", "detailed"] as const)(
+  it.each(["compact", "compact-dark", "detailed"] as const)(
     "passes the %s format through to the renderer",
     async (format) => {
       await renderExperimentNotificationCard(srmWarning, format);
@@ -59,13 +59,6 @@ describe("renderExperimentNotificationCard", () => {
       );
     },
   );
-
-  it("renders nothing when cards are turned off", async () => {
-    await expect(
-      renderExperimentNotificationCard(srmWarning, "none"),
-    ).resolves.toBeNull();
-    expect(renderExperimentCard).not.toHaveBeenCalled();
-  });
 
   it.each(["no-data", "underpowered", "multiple-exposures"])(
     "leaves the %s warning as an accurate text notification",

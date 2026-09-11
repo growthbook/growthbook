@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  ExperimentCardFormat,
   experimentCardFormats,
+  experimentCardFormatSchema,
+  NotificationSettings,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -42,13 +46,14 @@ const CARD_FORMAT_LABELS: Record<
   (typeof experimentCardFormats)[number],
   { label: string; description: string }
 > = {
-  none: {
-    label: "No card — text only",
-    description: "Send a text message only.",
-  },
   compact: {
     label: "Compact card",
     description: "A short image highlighting the SRM warning.",
+  },
+  "compact-dark": {
+    label: "Compact dark",
+    description:
+      "A short image with a dark background and colored event header.",
   },
   detailed: {
     label: "Detailed card",
@@ -91,8 +96,15 @@ export default function SlackChannelSettings({
   const environments = useEnvironments();
   const [enabled, setEnabled] = useState(integration.enabled);
   const [events, setEvents] = useState(integration.events);
-  const [cardFormat, setCardFormat] = useState(
-    integration.slackOptions?.experimentCardFormat ?? "compact",
+  const initialNotificationSettings =
+    integration.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
+  const [notificationType, setNotificationType] = useState<
+    NotificationSettings["type"]
+  >(initialNotificationSettings.type);
+  const [cardFormat, setCardFormat] = useState<ExperimentCardFormat>(
+    initialNotificationSettings.type === "image"
+      ? initialNotificationSettings.cardFormat
+      : DEFAULT_NOTIFICATION_SETTINGS.cardFormat,
   );
   const [filterProjects, setFilterProjects] = useState(
     integration.projects || [],
@@ -139,7 +151,10 @@ export default function SlackChannelSettings({
           projects: filterProjects,
           environments: filterEnvironments,
           tags: filterTags,
-          slackOptions: { experimentCardFormat: cardFormat },
+          notificationSettings:
+            notificationType === "image"
+              ? { type: "image", cardFormat }
+              : { type: "text" },
         }),
       });
       await onSaved();
@@ -234,8 +249,7 @@ export default function SlackChannelSettings({
               }
             >
               Reconnect this workspace to grant the Slack permissions needed for
-              channel management, notifications, and posting experiment card
-              images.
+              channel management and notifications.
             </Callout>
             {reconnectError && (
               <HelperText status="error">{reconnectError}</HelperText>
@@ -273,7 +287,7 @@ export default function SlackChannelSettings({
 
         <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
           <Heading as="h3" size="sm" mb="1">
-            Experiment Cards
+            Notification Format
           </Heading>
           <Text as="p" color="text-mid" mb="3">
             Choose how SRM warnings appear. Significance notifications and other
@@ -281,16 +295,33 @@ export default function SlackChannelSettings({
           </Text>
           <RadioGroup
             gap="3"
-            value={cardFormat}
-            options={experimentCardFormats.map((format) => ({
-              value: format,
-              ...CARD_FORMAT_LABELS[format],
-            }))}
+            value={notificationType}
+            options={[
+              { value: "text", label: "Text only" },
+              { value: "image", label: "Image card" },
+            ]}
             setValue={(value) => {
-              setCardFormat(value as (typeof experimentCardFormats)[number]);
+              if (value !== "text" && value !== "image") return;
+              setNotificationType(value);
               setSaved(false);
             }}
           />
+          {notificationType === "image" && (
+            <Box mt="3">
+              <RadioGroup
+                gap="3"
+                value={cardFormat}
+                options={experimentCardFormats.map((format) => ({
+                  value: format,
+                  ...CARD_FORMAT_LABELS[format],
+                }))}
+                setValue={(value) => {
+                  setCardFormat(experimentCardFormatSchema.parse(value));
+                  setSaved(false);
+                }}
+              />
+            </Box>
+          )}
         </Box>
 
         <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>

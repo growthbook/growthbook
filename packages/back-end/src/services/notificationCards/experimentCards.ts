@@ -2,6 +2,7 @@ import {
   ExperimentCardData,
   renderDetailedCard,
   renderCompactCard,
+  renderCompactDarkCard,
 } from "back-end/src/services/notificationCards/cardImages";
 
 // A card style is one platform-neutral visual treatment for rendering
@@ -10,7 +11,7 @@ import {
 // the same model — so adding a style is purely a new renderer + registry entry,
 // with no change to how cards are built from an experiment.
 
-export type ExperimentCardStyle = "detailed" | "compact";
+export type ExperimentCardStyle = "detailed" | "compact" | "compact-dark";
 
 export const DEFAULT_CARD_STYLE: ExperimentCardStyle = "detailed";
 
@@ -24,6 +25,13 @@ export interface CardStyleDefinition {
 }
 
 const CARD_STYLES: Record<ExperimentCardStyle, CardStyleDefinition> = {
+  "compact-dark": {
+    id: "compact-dark",
+    label: "Compact dark",
+    description:
+      "A compact card with a dark background and the same colored event header.",
+    render: renderCompactDarkCard,
+  },
   detailed: {
     id: "detailed",
     label: "Detailed",

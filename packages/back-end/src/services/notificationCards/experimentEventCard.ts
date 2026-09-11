@@ -27,15 +27,11 @@ export async function renderExperimentNotificationCard(
   event: NotificationEvent,
   format: ExperimentNotificationCardFormat = "compact",
 ): Promise<RenderedExperimentNotificationCard | null> {
-  if (format === "none") return null;
   const card = buildEventSnapshotCard(event);
   if (!card?.event) return null;
 
   try {
-    const png = await renderExperimentCard(
-      card,
-      format === "detailed" ? "detailed" : "compact",
-    );
+    const png = await renderExperimentCard(card, format);
     return {
       png,
       altText: `${card.name} — experiment results`,
