@@ -68,7 +68,7 @@ patchedDependencies:
     hash: 20780fa0030ee3a8a3f0b1333ae07e63c6fc7e12fc1986b7c9fefefe0a9b42ef
     path: patches/@types__presto-client@1.0.2.patch
   agenda@5.0.0:
-    hash: 043b22bcd76baf271350e363692bb4b5c7422fd6943c70c61c23c1ed7cbc71d8
+    hash: 467f56d2fa2f35ad0833f9e5a483c80300ea26a5b6d2a6c4fe5ea488fa9e31a6
     path: patches/agenda@5.0.0.patch
   presto-client@1.1.0:
     hash: 9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb
@@ -267,7 +267,7 @@ importers:
         version: 1.0.2(patch_hash=20780fa0030ee3a8a3f0b1333ae07e63c6fc7e12fc1986b7c9fefefe0a9b42ef)
       agenda:
         specifier: ^5.0.0
-        version: 5.0.0(patch_hash=043b22bcd76baf271350e363692bb4b5c7422fd6943c70c61c23c1ed7cbc71d8)
+        version: 5.0.0(patch_hash=467f56d2fa2f35ad0833f9e5a483c80300ea26a5b6d2a6c4fe5ea488fa9e31a6)
       ai:
         specifier: ^6.0.6
         version: 6.0.6(zod@4.1.12)
@@ -21440,7 +21440,7 @@ snapshots:
 
   acorn@8.15.0: {}
 
-  agenda@5.0.0(patch_hash=043b22bcd76baf271350e363692bb4b5c7422fd6943c70c61c23c1ed7cbc71d8):
+  agenda@5.0.0(patch_hash=467f56d2fa2f35ad0833f9e5a483c80300ea26a5b6d2a6c4fe5ea488fa9e31a6):
     dependencies:
       cron-parser: 3.5.0
       date.js: 0.3.3

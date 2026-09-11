@@ -10,3 +10,29 @@ index 0ccf6a14d57b4bd9b15ea08638f7ceef16fcaa9e..f43245022ed24c6c8d8e1f20a03f8854
  export declare type Processor<T> = ((job: Job<T>) => Promise<void>) | ((job: Job<T>, done: () => void) => void);
  /**
   * Setup definition for job
+diff --git a/dist/job/run.js b/dist/job/run.js
+index 14f75cb522bf141df1f214f2f3d3c7cc84ff52e5..dd3e4b07928605334c0281ee6d7be3f8ccecc2db 100644
+--- a/dist/job/run.js
++++ b/dist/job/run.js
+@@ -28,6 +28,8 @@ const run = function () {
+         // eslint-disable-next-line no-async-promise-executor
+         return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+             this.attrs.lastRunAt = new Date();
++            // Renew after waiting in the queue, before the processor starts its heartbeat.
++            this.attrs.lockedAt = this.attrs.lastRunAt;
+             debug("[%s:%s] setting lastRunAt to: %s", this.attrs.name, this.attrs._id, this.attrs.lastRunAt.toISOString());
+             this.computeNextRunAt();
+             yield this.save();
+diff --git a/lib/job/run.ts b/lib/job/run.ts
+index 56ff5cafd88408010c39d26503cf1d848ea92ac9..d872d73f4cb9d2b546b98f565058c4879d1f1a1f 100644
+--- a/lib/job/run.ts
++++ b/lib/job/run.ts
+@@ -16,6 +16,8 @@ export const run = async function (this: Job): Promise<Job> {
+   // eslint-disable-next-line no-async-promise-executor
+   return new Promise(async (resolve, reject) => {
+     this.attrs.lastRunAt = new Date();
++    // Renew after waiting in the queue, before the processor starts its heartbeat.
++    this.attrs.lockedAt = this.attrs.lastRunAt;
+     debug(
+       "[%s:%s] setting lastRunAt to: %s",
+       this.attrs.name,
