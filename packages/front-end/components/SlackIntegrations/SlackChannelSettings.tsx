@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   experimentCardFormats,
@@ -21,9 +22,10 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
-import RadioGroup from "@/ui/RadioGroup";
+import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
-import Switch from "@/ui/Switch";
+import { Select, SelectItem } from "@/ui/Select";
 import {
   slackEventOptions,
   SlackEventCategory,
@@ -88,11 +90,13 @@ export default function SlackChannelSettings({
   workspace,
   onSaved,
   onDeleted,
+  saveBarHost,
 }: {
   integration: SlackOAuthIntegrationInterface;
   workspace: SlackWorkspaceConnectionFrontEndInterface;
   onSaved: () => Promise<void>;
   onDeleted: () => Promise<void>;
+  saveBarHost?: HTMLDivElement | null;
 }) {
   const { apiCall } = useAuth();
   const { projects, tags } = useDefinitions();
@@ -101,10 +105,7 @@ export default function SlackChannelSettings({
   const [events, setEvents] = useState(integration.events);
   const [expandedCategories, setExpandedCategories] = useState<
     SlackEventCategory[]
-  >(["experiment", "feature"]);
-  const previousCategoryEvents = useRef<
-    Partial<Record<SlackEventCategory, string[]>>
-  >({});
+  >([]);
   const [showOtherEvents, setShowOtherEvents] = useState(false);
   const [cardFormat, setCardFormat] = useState(
     integration.slackOptions?.experimentCardFormat ?? "compact",
@@ -119,6 +120,12 @@ export default function SlackChannelSettings({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [showMoreFilters, setShowMoreFilters] = useState(filterTags.length > 0);
+  const markDirty = () => {
+    setSaved(false);
+    setDirty(true);
+  };
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectError, setReconnectError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -159,6 +166,7 @@ export default function SlackChannelSettings({
       });
       await onSaved();
       setSaved(true);
+      setDirty(false);
     } catch (error) {
       setSaveError(
         error instanceof Error ? error.message : "Failed to save settings.",
@@ -195,6 +203,33 @@ export default function SlackChannelSettings({
     await onDeleted();
   };
 
+  const saveBar = (
+    <Flex
+      align="center"
+      gap="3"
+      py="3"
+      style={{
+        position: saveBarHost ? "static" : "sticky",
+        paddingLeft: saveBarHost ? "calc(280px + var(--space-5))" : 0,
+        bottom: 0,
+        background: "var(--color-panel-solid)",
+        borderTop: "1px solid var(--gray-a4)",
+        zIndex: 1,
+      }}
+    >
+      <Button
+        onClick={save}
+        loading={saving}
+        disabled={!dirty || events.length === 0}
+      >
+        Save settings
+      </Button>
+      {dirty && <HelperText status="warning">Unsaved changes</HelperText>}
+      {saved && !dirty && <HelperText status="success">Saved.</HelperText>}
+      {saveError && <HelperText status="error">{saveError}</HelperText>}
+    </Flex>
+  );
+
   return (
     <>
       {confirmingDelete && (
@@ -209,7 +244,7 @@ export default function SlackChannelSettings({
         />
       )}
 
-      <Flex direction="column" gap="5">
+      <Flex direction="column" gap="4">
         <Flex justify="between" align="start" gap="4" wrap="wrap">
           <Box>
             <Heading as="h2" size="md" mb="1">
@@ -223,7 +258,7 @@ export default function SlackChannelSettings({
               value={enabled}
               setValue={(value) => {
                 setEnabled(value);
-                setSaved(false);
+                markDirty();
               }}
               weight="medium"
             />
@@ -258,6 +293,86 @@ export default function SlackChannelSettings({
           </Flex>
         )}
 
+        <Frame mb="0">
+          <Heading as="h3" size="md" mb="1">
+            Scope
+          </Heading>
+          <Text as="p" color="text-mid" mb="3">
+            Limit what this channel hears. Leave a filter empty to include
+            everything; non-empty filters combine.
+          </Text>
+          <Grid columns={{ initial: "1", sm: "2" }} gap="4">
+            <MultiSelectField
+              label="Projects"
+              placeholder="All Projects"
+              value={filterProjects}
+              size="lg"
+              options={projects.map(({ id, name }) => ({
+                label: name,
+                value: id,
+              }))}
+              onChange={(value) => {
+                setFilterProjects(value);
+                markDirty();
+              }}
+            />
+            <MultiSelectField
+              label="Environments"
+              placeholder="All Environments"
+              value={filterEnvironments}
+              size="lg"
+              options={environments.map(({ id }) => ({
+                label: id,
+                value: id,
+              }))}
+              onChange={(value) => {
+                setFilterEnvironments(value);
+                markDirty();
+              }}
+            />
+          </Grid>
+          {showMoreFilters ? (
+            <Box mt="4">
+              <Box>
+                <Text as="label" size="md" weight="semibold">
+                  Tags
+                </Text>
+                <TagsInput
+                  tagOptions={tags}
+                  value={filterTags}
+                  onChange={(value) => {
+                    setFilterTags(value);
+                    markDirty();
+                  }}
+                  autoFocus={false}
+                  prompt="All tags"
+                  creatable={false}
+                />
+              </Box>
+              {filterTags.length === 0 && (
+                <Button
+                  variant="ghost"
+                  color="gray"
+                  size="sm"
+                  onClick={() => setShowMoreFilters(false)}
+                >
+                  − Hide these filters
+                </Button>
+              )}
+            </Box>
+          ) : (
+            <Box mt="3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowMoreFilters(true)}
+              >
+                + Add tag filter
+              </Button>
+            </Box>
+          )}
+        </Frame>
+
         {(["experiment", "feature"] as const).map((category) => {
           const options = slackEventOptions.filter(
             (option) => option.category === category,
@@ -268,78 +383,104 @@ export default function SlackChannelSettings({
               matchesSlackEvent(subscription, event),
             ),
           );
+          const customized =
+            selected &&
+            options.some(
+              (option) =>
+                slackEventSelection(events, option.events) !== option.defaultOn,
+            );
+          const resetCategory = () => {
+            setEvents([
+              ...events.filter((event) => !event.startsWith(`${category}.`)),
+              ...options
+                .filter((option) => option.defaultOn)
+                .flatMap((option) => option.events),
+            ]);
+            markDirty();
+          };
           const expanded = expandedCategories.includes(category);
           const title =
             category === "experiment" ? "Experiments" : "Feature Flags";
           return (
-            <Box
-              key={category}
-              pt="5"
-              style={{ borderTop: "1px solid var(--gray-a4)" }}
-            >
+            <Frame key={category} mb="0">
               <Heading as="h3" size="md" mb="2">
                 {title}
               </Heading>
-              <Text as="p" color="text-mid" mb="5">
+              <Text as="p" color="text-mid" mb="4">
                 What this channel hears about{" "}
                 {category === "experiment" ? "experiments" : "Feature Flags"}.
               </Text>
               <Flex justify="between" align="start" gap="3">
-                <Switch
-                  label="Event notifications"
+                <Checkbox
+                  weight="medium"
+                  label={
+                    <Flex asChild align="center" gap="2">
+                      <span>
+                        Event notifications
+                        {customized && (
+                          <Badge
+                            label="Customized"
+                            color="gray"
+                            variant="soft"
+                            title="Events differ from the recommended defaults"
+                          />
+                        )}
+                      </span>
+                    </Flex>
+                  }
                   description={
                     category === "experiment"
                       ? "Launches, results, decisions, and health warnings."
                       : "Published versions, safe rollouts, drafts, and reviews."
                   }
                   value={selected}
-                  onChange={(value) => {
-                    if (!value) {
-                      previousCategoryEvents.current[category] = events.filter(
-                        (event) => event.startsWith(`${category}.`),
-                      );
+                  setValue={(value) => {
+                    if (value) resetCategory();
+                    else {
                       setEvents(
                         events.filter(
                           (event) => !event.startsWith(`${category}.`),
                         ),
                       );
-                    } else {
-                      const previous = previousCategoryEvents.current[category];
-                      setEvents([
-                        ...new Set([
-                          ...events,
-                          ...(previous?.length
-                            ? previous
-                            : options
-                                .filter((option) => option.defaultOn)
-                                .flatMap((option) => option.events)),
-                        ]),
-                      ]);
+                      markDirty();
                     }
-                    setSaved(false);
                   }}
                 />
-                <Button
-                  variant="ghost"
-                  color="gray"
-                  size="sm"
-                  onClick={() =>
-                    setExpandedCategories(
-                      expanded
-                        ? expandedCategories.filter((item) => item !== category)
-                        : [...expandedCategories, category],
-                    )
-                  }
-                >
-                  {expanded ? "Hide events" : "Customize events"}
-                </Button>
+                <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
+                  {customized && (
+                    <Button
+                      variant="ghost"
+                      color="gray"
+                      size="sm"
+                      onClick={resetCategory}
+                    >
+                      Reset
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    color="gray"
+                    size="sm"
+                    onClick={() =>
+                      setExpandedCategories(
+                        expanded
+                          ? expandedCategories.filter(
+                              (item) => item !== category,
+                            )
+                          : [...expandedCategories, category],
+                      )
+                    }
+                  >
+                    {expanded ? "Hide events" : "Customize events"}
+                  </Button>
+                </Flex>
               </Flex>
               {expanded && (
                 <Flex
                   direction="column"
                   gap="5"
-                  mt="5"
-                  pl={{ initial: "0", sm: "6" }}
+                  mt="4"
+                  style={{ paddingLeft: "calc(16px + var(--space-2))" }}
                 >
                   {[...new Set(options.map((option) => option.group))].map(
                     (group) => (
@@ -363,7 +504,26 @@ export default function SlackChannelSettings({
                             .map((option) => (
                               <Checkbox
                                 key={option.id}
-                                label={option.label}
+                                label={
+                                  option.events.some((event) =>
+                                    ["experiment.warning"].includes(event),
+                                  ) ? (
+                                    <>
+                                      {option.label}
+                                      <span
+                                        title="Can include a results card when supported by the event data"
+                                        style={{
+                                          marginLeft: 5,
+                                          color: "var(--violet-11)",
+                                        }}
+                                      >
+                                        ▪
+                                      </span>
+                                    </>
+                                  ) : (
+                                    option.label
+                                  )
+                                }
                                 description={option.description}
                                 value={slackEventSelection(
                                   events,
@@ -377,13 +537,21 @@ export default function SlackChannelSettings({
                                       value,
                                     ),
                                   );
-                                  setSaved(false);
+                                  markDirty();
                                 }}
                               />
                             ))}
                         </Grid>
                       </Box>
                     ),
+                  )}
+                  {category === "experiment" && (
+                    <Text as="div" size="md" color="text-mid">
+                      <span style={{ color: "var(--violet-11)" }}>▪</span> Can
+                      include a results-card image when a card style is selected
+                      and the event supports it. Warning cards are limited to
+                      SRM warnings.
+                    </Text>
                   )}
                   {events.some(
                     (event) =>
@@ -396,7 +564,7 @@ export default function SlackChannelSettings({
                   )}
                 </Flex>
               )}
-            </Box>
+            </Frame>
           );
         })}
 
@@ -427,7 +595,7 @@ export default function SlackChannelSettings({
                 }
                 onChange={(value) => {
                   setEvents(value);
-                  setSaved(false);
+                  markDirty();
                 }}
               />
             </Box>
@@ -440,105 +608,33 @@ export default function SlackChannelSettings({
           )}
         </Box>
 
-        <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
-          <Heading as="h3" size="sm" mb="1">
-            Experiment Cards
+        <Frame mb="0">
+          <Heading as="h3" size="md" mb="1">
+            Results Card
           </Heading>
           <Text as="p" color="text-mid" mb="3">
             Choose how SRM warnings appear. Significance notifications and other
             events remain text-only.
           </Text>
-          <RadioGroup
-            gap="3"
-            value={cardFormat}
-            options={experimentCardFormats.map((format) => ({
-              value: format,
-              ...CARD_FORMAT_LABELS[format],
-            }))}
-            setValue={(value) => {
-              setCardFormat(value as (typeof experimentCardFormats)[number]);
-              setSaved(false);
-            }}
-          />
-        </Box>
-
-        <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
-          <Heading as="h3" size="sm" mb="1">
-            Filters
-          </Heading>
-          <Text as="p" color="text-mid" mb="3">
-            Leave a filter empty to include everything.
-          </Text>
-          <Grid columns={{ initial: "1", sm: "2" }} gap="4">
-            <MultiSelectField
-              label="Projects"
-              placeholder="All Projects"
-              value={filterProjects}
-              size="lg"
-              options={projects.map(({ id, name }) => ({
-                label: name,
-                value: id,
-              }))}
-              onChange={(value) => {
-                setFilterProjects(value);
-                setSaved(false);
+          <Box style={{ maxWidth: 420 }}>
+            <Select
+              label="Card style"
+              value={cardFormat}
+              setValue={(value) => {
+                setCardFormat(value as (typeof experimentCardFormats)[number]);
+                markDirty();
               }}
-            />
-            <MultiSelectField
-              label="Environments"
-              placeholder="All Environments"
-              value={filterEnvironments}
-              size="lg"
-              options={environments.map(({ id }) => ({
-                label: id,
-                value: id,
-              }))}
-              onChange={(value) => {
-                setFilterEnvironments(value);
-                setSaved(false);
-              }}
-            />
-            <Box>
-              <Text as="label" size="md" weight="semibold">
-                Tags
-              </Text>
-              <TagsInput
-                tagOptions={tags}
-                value={filterTags}
-                onChange={(value) => {
-                  setFilterTags(value);
-                  setSaved(false);
-                }}
-                autoFocus={false}
-                prompt="All tags"
-                creatable={false}
-              />
-            </Box>
-          </Grid>
-        </Box>
+            >
+              {experimentCardFormats.map((format) => (
+                <SelectItem key={format} value={format}>
+                  {CARD_FORMAT_LABELS[format].label}
+                </SelectItem>
+              ))}
+            </Select>
+          </Box>
+        </Frame>
 
-        <Flex
-          align="center"
-          gap="3"
-          py="3"
-          style={{
-            position: "sticky",
-            bottom: 0,
-            background: "var(--color-background)",
-            borderTop: "1px solid var(--gray-a4)",
-            zIndex: 1,
-          }}
-        >
-          <Button
-            onClick={save}
-            loading={saving}
-            disabled={events.length === 0}
-          >
-            Save settings
-          </Button>
-          {saved && <HelperText status="success">Saved.</HelperText>}
-          {saveError && <HelperText status="error">{saveError}</HelperText>}
-        </Flex>
+        {saveBarHost ? createPortal(saveBar, saveBarHost) : saveBar}
       </Flex>
     </>
   );

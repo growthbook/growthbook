@@ -234,6 +234,7 @@ function AddChannelModal({
 }
 
 const SlackWorkspacePage: NextPage = () => {
+  const [saveBarHost, setSaveBarHost] = useState<HTMLDivElement | null>(null);
   const permissionsUtils = usePermissionsUtil();
   const canManageIntegrations = permissionsUtils.canManageIntegrations();
   const router = useRouter();
@@ -772,6 +773,7 @@ const SlackWorkspacePage: NextPage = () => {
                 {selectedChannel && selectedChannelWorkspace ? (
                   <SlackChannelSettings
                     key={selectedChannel.id}
+                    saveBarHost={saveBarHost}
                     integration={selectedChannel}
                     workspace={selectedChannelWorkspace}
                     onSaved={async () => {
@@ -807,6 +809,10 @@ const SlackWorkspacePage: NextPage = () => {
                 )}
               </Box>
             </Flex>
+            <Box
+              ref={setSaveBarHost}
+              style={{ position: "sticky", bottom: 0, zIndex: 1 }}
+            />
           </Frame>
         )}
         <SlackIntegrationsListViewContainer key={orgId} legacyOnly />
