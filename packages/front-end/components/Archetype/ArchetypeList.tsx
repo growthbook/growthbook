@@ -15,6 +15,14 @@ import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+  TableRowHeaderCell,
+} from "@/ui/Table";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -78,21 +86,21 @@ export const ArchetypeList: FC<{
       </p>
       <div className="mb-3">
         <div className={`mb-3`}>
-          <table className="table gbtable appbox ">
-            <thead>
-              <tr>
-                <th>Archetype</th>
-                <th>Projects</th>
-                <th>Environments</th>
-                <th>Owner</th>
-                <th>Public</th>
-                <th style={{ width: "40px" }}></th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table variant="list">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>Archetype</TableColumnHeader>
+                <TableColumnHeader>Projects</TableColumnHeader>
+                <TableColumnHeader>Environments</TableColumnHeader>
+                <TableColumnHeader>Owner</TableColumnHeader>
+                <TableColumnHeader>Public</TableColumnHeader>
+                <TableColumnHeader style={{ width: 40 }} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {archetypes.length === 0 ? (
-                <tr>
-                  <td colSpan={6}>
+                <TableRow>
+                  <TableCell colSpan={6}>
                     <div className="text-center p-3 ">
                       No archetypes created. Click the &ldquo;Add
                       Archetype&rdquo; button to create one.
@@ -102,8 +110,8 @@ export const ArchetypeList: FC<{
                         </div>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 <></>
               )}
@@ -123,8 +131,8 @@ export const ArchetypeList: FC<{
                 }
                 const canDelete = permissionsUtil.canDeleteArchetype(archetype);
                 return (
-                  <tr key={archetype.id} className={``}>
-                    <td>
+                  <TableRow key={archetype.id}>
+                    <TableRowHeaderCell>
                       <Tooltip
                         body={
                           <>
@@ -145,8 +153,8 @@ export const ArchetypeList: FC<{
                           </>
                         )}
                       </Tooltip>
-                    </td>
-                    <td>
+                    </TableRowHeaderCell>
+                    <TableCell>
                       {archetype?.projects ? (
                         archetype.projects.map((project) => {
                           const pObj = getProjectById(project);
@@ -164,8 +172,8 @@ export const ArchetypeList: FC<{
                       ) : (
                         <></>
                       )}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {archetype.environments &&
                       archetype.environments.length > 0 ? (
                         archetype.environments.map((env, i) => (
@@ -179,16 +187,16 @@ export const ArchetypeList: FC<{
                       ) : (
                         <Badge label="All environments" color="gray" />
                       )}
-                    </td>
-                    <td>{getOwnerDisplay(archetype.owner)}</td>
-                    <td>
+                    </TableCell>
+                    <TableCell>{getOwnerDisplay(archetype.owner)}</TableCell>
+                    <TableCell>
                       {archetype.isPublic ? (
                         <span className="text-muted">Yes</span>
                       ) : (
                         <span className="text-muted">No</span>
                       )}
-                    </td>
-                    <td className={styles.showOnHover}>
+                    </TableCell>
+                    <TableCell className={styles.showOnHover}>
                       <MoreMenu useRadix={false}>
                         {canEdit ? (
                           <button
@@ -216,12 +224,12 @@ export const ArchetypeList: FC<{
                           />
                         ) : null}
                       </MoreMenu>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {editArchetype && (
             <ArchetypeAttributesModal
               close={async () => {

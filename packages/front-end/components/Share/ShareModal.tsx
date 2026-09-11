@@ -45,6 +45,14 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+  TableRowHeaderCell,
+} from "@/ui/Table";
 import Preview from "./Preview";
 
 export const presentationThemes = {
@@ -772,20 +780,33 @@ const ShareModal = ({
                               <TabsContent key={status} value={status}>
                                 {byStatus[status].length > 0 ? (
                                   <Box className="w-100 scrolly">
-                                    <table className="table table-hover experiment-table appbox">
-                                      <thead>
-                                        <tr>
-                                          <th></th>
-                                          <th style={{ width: "99%" }}>
+                                    <Table
+                                      variant="surface"
+                                      className="experiment-table table-hover"
+                                    >
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableColumnHeader />
+                                          <TableColumnHeader
+                                            style={{ width: "99%" }}
+                                          >
                                             Experiment
-                                          </th>
-                                          <th>Tags</th>
-                                          <th>Owner</th>
-                                          <th>Ended</th>
-                                          <th>Result</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
+                                          </TableColumnHeader>
+                                          <TableColumnHeader>
+                                            Tags
+                                          </TableColumnHeader>
+                                          <TableColumnHeader>
+                                            Owner
+                                          </TableColumnHeader>
+                                          <TableColumnHeader>
+                                            Ended
+                                          </TableColumnHeader>
+                                          <TableColumnHeader>
+                                            Result
+                                          </TableColumnHeader>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
                                         {byStatus[status]
                                           .sort(
                                             (a, b) =>
@@ -815,7 +836,7 @@ const ShareModal = ({
                                                 }
                                               });
                                               return (
-                                                <tr
+                                                <TableRow
                                                   key={e.id}
                                                   onClick={(event) => {
                                                     event.preventDefault();
@@ -829,12 +850,12 @@ const ShareModal = ({
                                                       : ""
                                                   }`}
                                                 >
-                                                  <td>
+                                                  <TableCell>
                                                     <span className="h3 mb-0 checkmark">
                                                       <FaCheck />
                                                     </span>
-                                                  </td>
-                                                  <td>
+                                                  </TableCell>
+                                                  <TableRowHeaderCell>
                                                     <div className="d-flex">
                                                       <h4 className="testname h5 mb-0">
                                                         {e.name}
@@ -849,19 +870,19 @@ const ShareModal = ({
                                                         )}
                                                       </h4>
                                                     </div>
-                                                  </td>
-                                                  <td className="nowrap">
+                                                  </TableRowHeaderCell>
+                                                  <TableCell className="nowrap">
                                                     <SortedTags
                                                       tags={Object.values(
                                                         e.tags,
                                                       )}
                                                       useFlex
                                                     />
-                                                  </td>
-                                                  <td className="nowrap">
+                                                  </TableCell>
+                                                  <TableCell className="nowrap">
                                                     {getOwnerDisplay(e.owner)}
-                                                  </td>
-                                                  <td
+                                                  </TableCell>
+                                                  <TableCell
                                                     className="nowrap"
                                                     title={datetime(
                                                       phase?.dateEnded ?? "",
@@ -870,8 +891,8 @@ const ShareModal = ({
                                                     {ago(
                                                       phase?.dateEnded ?? "",
                                                     )}
-                                                  </td>
-                                                  <td className="nowrap">
+                                                  </TableCell>
+                                                  <TableCell className="nowrap">
                                                     {e?.results ? (
                                                       <ResultsIndicator
                                                         results={
@@ -885,13 +906,13 @@ const ShareModal = ({
                                                         </Tooltip>
                                                       </span>
                                                     )}
-                                                  </td>
-                                                </tr>
+                                                  </TableCell>
+                                                </TableRow>
                                               );
                                             },
                                           )}
-                                      </tbody>
-                                    </table>
+                                      </TableBody>
+                                    </Table>
                                   </Box>
                                 ) : (
                                   <Callout status="info">

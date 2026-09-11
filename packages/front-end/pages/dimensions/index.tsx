@@ -187,12 +187,7 @@ const DimensionsPage: FC = () => {
             queries and are the preferred way to specify dimensions.
           </Text>
         </Box>
-        <Table
-          variant="list"
-          stickyHeader
-          roundedCorners
-          className="appbox responsive-table"
-        >
+        <Table variant="list" stickyHeader>
           <TableHeader>
             <TableRow>
               <SortableTableColumnHeaderExperiment field="dimension">
@@ -210,10 +205,7 @@ const DimensionsPage: FC = () => {
           <TableBody>
             {items.map((item) => {
               return (
-                <TableRow
-                  key={`${item.dimension}-${item.datasourceId}`}
-                  className="hover-highlight"
-                >
+                <TableRow key={`${item.dimension}-${item.datasourceId}`}>
                   <TableCell>{item.dimension}</TableCell>
                   <TableCell>
                     <Link href={`/datasources/${item.datasourceId}`}>
@@ -225,7 +217,7 @@ const DimensionsPage: FC = () => {
                   >
                     {item.identifierTypes.join(", ")}
                   </TableCell>
-                  <TableCell style={{ width: 30 }} className="text-right">
+                  <TableCell style={{ width: 30, textAlign: "right" }}>
                     <MoreMenu>
                       <NextLink
                         className="dropdown-item"
@@ -268,12 +260,7 @@ const DimensionsPage: FC = () => {
             will join these dimensions to your units in the exposure query to
             let you drill down into experiment results.
           </Text>
-          <Table
-            variant="list"
-            stickyHeader
-            roundedCorners
-            className="appbox responsive-table"
-          >
+          <Table variant="list" stickyHeader>
             <TableHeader>
               <TableRow>
                 <SortableTableColumnHeaderUnit field="name">
@@ -303,7 +290,7 @@ const DimensionsPage: FC = () => {
                 const language: Language =
                   datasource?.properties?.queryLanguage || "sql";
                 return (
-                  <TableRow key={s.id} className="hover-highlight">
+                  <TableRow key={s.id}>
                     <TableCell>
                       <>
                         <OfficialBadge

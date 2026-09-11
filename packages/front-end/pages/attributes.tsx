@@ -35,8 +35,10 @@ import Table, {
   TableRow,
   TableColumnHeader,
   TableCell,
+  TableRowHeaderCell,
 } from "@/ui/Table";
 import Heading from "@/ui/Heading";
+import Badge from "@/ui/Badge";
 
 const ATTRIBUTE_NAME_COLUMN_MAX_WIDTH = 200;
 const TAGS_COLUMN_MAX_WIDTH = 160;
@@ -233,13 +235,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
         className={v.archived ? "disabled" : ""}
         key={"attr-row-" + v.property}
       >
-        <TableCell
-          className="text-gray font-weight-bold"
+        <TableRowHeaderCell
           style={{ maxWidth: ATTRIBUTE_NAME_COLUMN_MAX_WIDTH }}
         >
           <Link
             href={`/attributes/${encodeURIComponent(v.property)}`}
-            style={{ color: "var(--gray-12)" }}
+            color="dark"
+            underline="hover"
+            weight="medium"
           >
             <TruncateMiddleWithTooltip
               text={v.property}
@@ -247,28 +250,24 @@ const FeatureAttributesPage = (): React.ReactElement => {
               maxWidth={ATTRIBUTE_NAME_COLUMN_MAX_WIDTH}
             />
           </Link>{" "}
-          {v.archived && (
-            <span className="badge badge-secondary" style={{ marginLeft: 8 }}>
-              archived
-            </span>
-          )}
-        </TableCell>
-        <TableCell
-          className="text-gray"
-          style={{ maxWidth: 200, overflow: "hidden" }}
-        >
+          {v.archived && <Badge label="Archived" color="gray" ml="2" />}
+        </TableRowHeaderCell>
+        <TableCell style={{ maxWidth: 200, overflow: "hidden" }}>
           {v.description ? (
             <Markdown className="mb-0">{v.description}</Markdown>
           ) : null}
         </TableCell>
-        <TableCell className="text-gray" style={{ wordWrap: "break-word" }}>
-          {v.datatype}
-          {v.datatype === "enum" && <>: ({v.enum})</>}
-          {v.format && (
-            <p className="my-0">
-              <small>(format: {v.format})</small>
-            </p>
-          )}
+        <TableCell style={{ wordWrap: "break-word" }}>
+          <Text color="text-low">
+            {v.datatype}
+            {v.datatype === "enum" && <>: ({v.enum})</>}
+            {v.format && (
+              <Text as="span" size="sm">
+                <br />
+                (format: {v.format})
+              </Text>
+            )}
+          </Text>
         </TableCell>
         <TableCell style={{ paddingRight: "1rem" }}>
           <ProjectBadges
@@ -298,7 +297,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             />
           </div>
         </TableCell>
-        <TableCell className="text-gray">
+        <TableCell>
           {numReferences > 0 ? (
             <Link
               onClick={() => {
@@ -326,7 +325,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </Tooltip>
           )}
         </TableCell>
-        <TableCell className="text-gray">
+        <TableCell>
           <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
         </TableCell>
         <TableCell>
@@ -415,7 +414,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     <PiInfo style={{ position: "relative", top: "-1px" }} />
                   </Tooltip>
                 </TableColumnHeader>
-                <TableColumnHeader className="text-center" />
+                <TableColumnHeader style={{ textAlign: "center" }} />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -424,7 +423,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   {filteredAttributes.map((v) => drawRow(v))}
                   {!filteredAttributes.length && isFiltered && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-gray">
+                      <TableCell
+                        colSpan={8}
+                        style={{
+                          textAlign: "center",
+                          color: "var(--color-text-low)",
+                        }}
+                      >
                         No matching attributes found.
                       </TableCell>
                     </TableRow>
@@ -432,7 +437,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 </>
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-gray">
+                  <TableCell
+                    colSpan={8}
+                    style={{
+                      textAlign: "center",
+                      color: "var(--color-text-low)",
+                    }}
+                  >
                     <em>No attributes defined.</em>
                   </TableCell>
                 </TableRow>

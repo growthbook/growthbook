@@ -43,6 +43,14 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import LinkButton from "@/ui/LinkButton";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+  TableRowHeaderCell,
+} from "@/ui/Table";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
@@ -77,13 +85,14 @@ export default function DashboardsPage() {
       )
     : dashboards;
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: filteredDashboards,
-    localStorageKey: "dashboards",
-    defaultSortField: "dateCreated",
-    defaultSortDir: -1,
-    searchFields: ["title"],
-  });
+  const { items, searchInputProps, isFiltered, SortableTableColumnHeader } =
+    useSearch({
+      items: filteredDashboards,
+      localStorageKey: "dashboards",
+      defaultSortField: "dateCreated",
+      defaultSortDir: -1,
+      searchFields: ["title"],
+    });
 
   // We prevent orgs without the feature from viewing dashboards
   const canViewDashboards = hasCommercialFeature(
@@ -321,192 +330,185 @@ export default function DashboardsPage() {
                     />
                   </Box>
                 </Flex>
-                <div className="row mb-0">
-                  <div className="col-12">
-                    <table className="table gbtable">
-                      <thead>
-                        <tr>
-                          <SortableTH field={"title"}>
-                            Dashboard Name
-                          </SortableTH>
-                          <SortableTH field={"shareLevel"}>Status</SortableTH>
-                          <th>Projects</th>
-                          <SortableTH field={"userId"}>Owner</SortableTH>
-                          <SortableTH field={"dateUpdated"}>
-                            Last Updated
-                          </SortableTH>
-                          <th />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((d) => {
-                          const isOwner = d.userId === userId;
-                          const isAdmin =
-                            permissionsUtil.canManageOrgSettings();
-                          let canEdit =
-                            permissionsUtil.canUpdateGeneralDashboards(d, {});
-                          let canDelete =
-                            permissionsUtil.canDeleteGeneralDashboards(d) &&
-                            (isOwner || isAdmin);
-                          const canDuplicate =
-                            permissionsUtil.canCreateGeneralDashboards(d);
-                          const canManageSharingAndEditLevels =
-                            canEdit && (isOwner || isAdmin);
+                <Table variant="list">
+                  <TableHeader>
+                    <TableRow>
+                      <SortableTableColumnHeader field="title">
+                        Dashboard Name
+                      </SortableTableColumnHeader>
+                      <SortableTableColumnHeader field="shareLevel">
+                        Status
+                      </SortableTableColumnHeader>
+                      <TableColumnHeader>Projects</TableColumnHeader>
+                      <SortableTableColumnHeader field="userId">
+                        Owner
+                      </SortableTableColumnHeader>
+                      <SortableTableColumnHeader field="dateUpdated">
+                        Last Updated
+                      </SortableTableColumnHeader>
+                      <TableColumnHeader />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((d) => {
+                      const isOwner = d.userId === userId;
+                      const isAdmin = permissionsUtil.canManageOrgSettings();
+                      let canEdit = permissionsUtil.canUpdateGeneralDashboards(
+                        d,
+                        {},
+                      );
+                      let canDelete =
+                        permissionsUtil.canDeleteGeneralDashboards(d) &&
+                        (isOwner || isAdmin);
+                      const canDuplicate =
+                        permissionsUtil.canCreateGeneralDashboards(d);
+                      const canManageSharingAndEditLevels =
+                        canEdit && (isOwner || isAdmin);
 
-                          // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
-                          if (
-                            d.editLevel === "private" &&
-                            !isOwner &&
-                            !isAdmin
-                          ) {
-                            canEdit = false;
-                            canDelete = false;
-                          }
+                      // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
+                      if (d.editLevel === "private" && !isOwner && !isAdmin) {
+                        canEdit = false;
+                        canDelete = false;
+                      }
 
-                          return (
-                            <tr key={d.id}>
-                              <td>
-                                {canViewDashboards ? (
-                                  <Link
-                                    href={`/product-analytics/dashboards/${d.id}`}
+                      return (
+                        <TableRow key={d.id}>
+                          <TableRowHeaderCell>
+                            {canViewDashboards ? (
+                              <Link
+                                href={`/product-analytics/dashboards/${d.id}`}
+                              >
+                                <span
+                                  style={{
+                                    color: "var(--color-text-high)",
+                                  }}
+                                >
+                                  {d.title}
+                                </span>
+                              </Link>
+                            ) : (
+                              <Tooltip body="Your plan does not support viewing/editing Product Analytics Dashboards.">
+                                <Text>{d.title}</Text>
+                              </Tooltip>
+                            )}
+                          </TableRowHeaderCell>
+                          <TableCell>
+                            <ShareStatusBadge
+                              shareLevel={
+                                d.shareLevel === "published"
+                                  ? "organization"
+                                  : "private"
+                              }
+                              editLevel={
+                                d.editLevel === "private"
+                                  ? "private"
+                                  : "organization"
+                              }
+                              isOwner={d.userId === userId}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {d && (d.projects || []).length > 0 ? (
+                              <ProjectBadges
+                                resourceType="dashboard"
+                                projectIds={d.projects || []}
+                              />
+                            ) : (
+                              <ProjectBadges resourceType="dashboard" />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Owner ownerId={d.userId} gap="1" />
+                          </TableCell>
+                          <TableCell>{ago(d.dateUpdated)}</TableCell>
+                          <TableCell style={{ width: 30 }}>
+                            {canViewDashboards ? (
+                              <Flex align="center">
+                                <DropdownMenu
+                                  trigger={
+                                    <IconButton
+                                      variant="ghost"
+                                      color="gray"
+                                      radius="full"
+                                      size="3"
+                                      highContrast
+                                    >
+                                      <BsThreeDotsVertical />
+                                    </IconButton>
+                                  }
+                                  menuPlacement="end"
+                                  variant="soft"
+                                  open={openDropdownId === d.id}
+                                  onOpenChange={(o) => {
+                                    setOpenDropdownId(o ? d.id : null);
+                                  }}
+                                >
+                                  {canEdit && (
+                                    <DropdownMenuItem
+                                      onClick={() => setShowEditModal(d)}
+                                    >
+                                      Edit Dashboard Settings
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canDuplicate && (
+                                    <DropdownMenuItem
+                                      onClick={() => setShowDuplicateModal(d)}
+                                    >
+                                      Duplicate
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    disabled={!canManageSharingAndEditLevels}
+                                    onClick={() => {
+                                      setSelectedDashboard(d);
+                                      setShareModalOpen(true);
+                                    }}
                                   >
-                                    <span
-                                      style={{
-                                        color: "var(--color-text-high)",
-                                      }}
-                                    >
-                                      {d.title}
-                                    </span>
-                                  </Link>
-                                ) : (
-                                  <Tooltip body="Your plan does not support viewing/editing Product Analytics Dashboards.">
-                                    <Text>{d.title}</Text>
-                                  </Tooltip>
-                                )}
-                              </td>
-                              <td>
-                                <ShareStatusBadge
-                                  shareLevel={
-                                    d.shareLevel === "published"
-                                      ? "organization"
-                                      : "private"
-                                  }
-                                  editLevel={
-                                    d.editLevel === "private"
-                                      ? "private"
-                                      : "organization"
-                                  }
-                                  isOwner={d.userId === userId}
-                                />
-                              </td>
-                              <td>
-                                {d && (d.projects || []).length > 0 ? (
-                                  <ProjectBadges
-                                    resourceType="dashboard"
-                                    projectIds={d.projects || []}
-                                  />
-                                ) : (
-                                  <ProjectBadges resourceType="dashboard" />
-                                )}
-                              </td>
-                              <td>
-                                <Owner ownerId={d.userId} gap="1" />
-                              </td>
-                              <td>{ago(d.dateUpdated)}</td>
-                              <td style={{ width: 30 }}>
-                                {canViewDashboards ? (
-                                  <Flex align="center">
-                                    <DropdownMenu
-                                      trigger={
-                                        <IconButton
-                                          variant="ghost"
-                                          color="gray"
-                                          radius="full"
-                                          size="3"
-                                          highContrast
-                                        >
-                                          <BsThreeDotsVertical />
-                                        </IconButton>
-                                      }
-                                      menuPlacement="end"
-                                      variant="soft"
-                                      open={openDropdownId === d.id}
-                                      onOpenChange={(o) => {
-                                        setOpenDropdownId(o ? d.id : null);
-                                      }}
-                                    >
-                                      {canEdit && (
-                                        <DropdownMenuItem
-                                          onClick={() => setShowEditModal(d)}
-                                        >
-                                          Edit Dashboard Settings
-                                        </DropdownMenuItem>
-                                      )}
-                                      {canDuplicate && (
-                                        <DropdownMenuItem
-                                          onClick={() =>
-                                            setShowDuplicateModal(d)
-                                          }
-                                        >
-                                          Duplicate
-                                        </DropdownMenuItem>
-                                      )}
+                                    Share...
+                                  </DropdownMenuItem>
+
+                                  {canDelete && (
+                                    <>
+                                      <DropdownMenuSeparator />
                                       <DropdownMenuItem
-                                        disabled={
-                                          !canManageSharingAndEditLevels
-                                        }
-                                        onClick={() => {
-                                          setSelectedDashboard(d);
-                                          setShareModalOpen(true);
+                                        color="red"
+                                        confirmation={{
+                                          confirmationTitle: `Delete Dashboard "${d.title}"?`,
+                                          cta: "Delete",
+                                          submit: async () => {
+                                            await apiCall(
+                                              `/dashboards/${d.id}`,
+                                              {
+                                                method: "DELETE",
+                                              },
+                                            );
+                                            mutateDashboards();
+                                          },
+                                          closeDropdown: () => {
+                                            setOpenDropdownId(null);
+                                          },
                                         }}
                                       >
-                                        Share...
+                                        Delete
                                       </DropdownMenuItem>
-
-                                      {canDelete && (
-                                        <>
-                                          <DropdownMenuSeparator />
-                                          <DropdownMenuItem
-                                            color="red"
-                                            confirmation={{
-                                              confirmationTitle: `Delete Dashboard "${d.title}"?`,
-                                              cta: "Delete",
-                                              submit: async () => {
-                                                await apiCall(
-                                                  `/dashboards/${d.id}`,
-                                                  {
-                                                    method: "DELETE",
-                                                  },
-                                                );
-                                                mutateDashboards();
-                                              },
-                                              closeDropdown: () => {
-                                                setOpenDropdownId(null);
-                                              },
-                                            }}
-                                          >
-                                            Delete
-                                          </DropdownMenuItem>
-                                        </>
-                                      )}
-                                    </DropdownMenu>
-                                  </Flex>
-                                ) : null}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {!items.length && isFiltered && (
-                          <tr>
-                            <td colSpan={5} align={"center"}>
-                              No matching dashboards
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                                    </>
+                                  )}
+                                </DropdownMenu>
+                              </Flex>
+                            ) : null}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {!items.length && isFiltered && (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center">
+                          No matching dashboards
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </>
             )}
           </>

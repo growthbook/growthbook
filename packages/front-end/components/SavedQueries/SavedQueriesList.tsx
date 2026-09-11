@@ -19,6 +19,14 @@ import Link from "@/ui/Link";
 import Modal from "@/components/Modal";
 import Tooltip from "@/ui/Tooltip";
 import DashboardReferencesList from "@/components/SavedQueries/DashboardReferencesList";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+  TableRowHeaderCell,
+} from "@/ui/Table";
 
 interface Props {
   savedQueries: SavedQuery[];
@@ -37,13 +45,14 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
     null,
   );
 
-  const { items, isFiltered, SortableTH, clear, pagination } = useSearch({
-    items: savedQueries,
-    defaultSortField: "dateUpdated",
-    localStorageKey: "savedqueries",
-    searchFields: ["name^3", "sql"],
-    pageSize: 20,
-  });
+  const { items, isFiltered, SortableTableColumnHeader, clear, pagination } =
+    useSearch({
+      items: savedQueries,
+      defaultSortField: "dateUpdated",
+      localStorageKey: "savedqueries",
+      searchFields: ["name^3", "sql"],
+      pageSize: 20,
+    });
 
   const handleDelete = useCallback(
     async (query: SavedQuery) => {
@@ -128,21 +137,32 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
 
       {items.length > 0 ? (
         <div className="mt-3">
-          <table className="table appbox gbtable">
-            <thead>
-              <tr>
-                <SortableTH field="name">Name</SortableTH>
-                <SortableTH field="datasourceId">Data Source</SortableTH>
-                <th style={{ width: 100 }}>Visualization</th>
-                <th style={{ width: 100 }}>Rows</th>
-                <th>References</th>
-                <SortableTH field="dateUpdated" style={{ width: 150 }}>
+          <Table variant="list">
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeader field="name">
+                  Name
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="datasourceId">
+                  Data Source
+                </SortableTableColumnHeader>
+                <TableColumnHeader style={{ width: 100 }}>
+                  Visualization
+                </TableColumnHeader>
+                <TableColumnHeader style={{ width: 100 }}>
+                  Rows
+                </TableColumnHeader>
+                <TableColumnHeader>References</TableColumnHeader>
+                <SortableTableColumnHeader
+                  field="dateUpdated"
+                  style={{ width: 150 }}
+                >
                   Updated
-                </SortableTH>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
+                </SortableTableColumnHeader>
+                <TableColumnHeader style={{ width: 30 }} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((query, i) => {
                 const datasource = getDatasourceById(query.datasourceId);
                 const datasourceName = datasource?.name || "Unknown";
@@ -160,23 +180,23 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                 const numReferences = activeReferences.length;
 
                 return (
-                  <tr key={query.id}>
-                    <td>
+                  <TableRow key={query.id}>
+                    <TableRowHeaderCell>
                       <Link
                         href={`/sql-explorer/${query.id}`}
                         className="d-block"
                       >
                         {query.name}
                       </Link>
-                    </td>
-                    <td>{datasourceName}</td>
-                    <td>
+                    </TableRowHeaderCell>
+                    <TableCell>{datasourceName}</TableCell>
+                    <TableCell>
                       {query.dataVizConfig && query.dataVizConfig.length > 0
                         ? "Yes"
                         : "No"}
-                    </td>
-                    <td>{query.results?.results?.length || 0}</td>
-                    <td
+                    </TableCell>
+                    <TableCell>{query.results?.results?.length || 0}</TableCell>
+                    <TableCell
                       onClick={(e) => {
                         e.stopPropagation();
                       }}
@@ -202,11 +222,11 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                           </span>
                         </Tooltip>
                       )}
-                    </td>
-                    <td title={datetime(query.dateUpdated)}>
+                    </TableCell>
+                    <TableCell title={datetime(query.dateUpdated)}>
                       {date(query.dateUpdated)}
-                    </td>
-                    <td
+                    </TableCell>
+                    <TableCell
                       onClick={(e) => e.stopPropagation()}
                       style={{ cursor: "initial" }}
                     >
@@ -270,12 +290,12 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                           </>
                         )}
                       </MoreMenu>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {pagination}
         </div>
       ) : isFiltered ? (
