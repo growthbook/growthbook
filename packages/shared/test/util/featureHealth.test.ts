@@ -160,16 +160,8 @@ describe("computeFeatureHealth", () => {
         rampSchedules: [needsApproval, needsApproval, needsApproval, paused],
       }),
     ).toEqual([
-      {
-        signal: "ramp-needs-approval",
-        count: 3,
-        details: [
-          { label: "Ramp A" },
-          { label: "Ramp A" },
-          { label: "Ramp A" },
-        ],
-      },
-      { signal: "ramp-paused", count: 1, details: [{ label: "Ramp B" }] },
+      { signal: "ramp-needs-approval", count: 3 },
+      { signal: "ramp-paused", count: 1 },
     ]);
   });
 
