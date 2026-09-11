@@ -544,18 +544,16 @@ export class DashboardModel extends BaseClass {
     const dashboard = await this.getById(id);
     if (!dashboard) req.context.throwNotFoundError();
 
+    const body = fillServerOwnedBlockKeys(req.body, dashboard.blocks);
     // Same reason as the create path: processApiUpdateBody runs the caller's
     // chart blocks, and updateById would only refuse afterwards. The block
     // list plays no part in canUpdate, so the cheap fields are enough.
-    const nonBlockUpdates = omit(
-      apiUpdateDashboardBody.parse(req.body),
-      "blocks",
-    );
+    const nonBlockUpdates = omit(apiUpdateDashboardBody.parse(body), "blocks");
     await this.assertApiWriteAllowed("update", dashboard, (existing) =>
       this.canUpdate(existing, nonBlockUpdates),
     );
 
-    const toUpdate = await this.processApiUpdateBody(req.body, dashboard);
+    const toUpdate = await this.processApiUpdateBody(body, dashboard);
     // CAS on the doc we read above, not a fresh one: `toUpdate` carries a whole
     // block list derived from that snapshot, and the warehouse queries in
     // between take long enough for someone else to have edited the dashboard.
@@ -695,6 +693,41 @@ export class DashboardModel extends BaseClass {
     }
     return updates;
   }
+}
+
+/**
+ * `uid` and `organization` belong to the server. A caller editing a saved block
+ * names it by `id` and sends the fields it means to change; requiring it to echo
+ * those two back rejects the obvious payload, and the only repair that looks like
+ * it works — dropping the `id` — silently replaces the tile with a new one.
+ */
+function fillServerOwnedBlockKeys(
+  rawBody: unknown,
+  savedBlocks: DashboardInterface["blocks"],
+): unknown {
+  if (!rawBody || typeof rawBody !== "object") return rawBody;
+  const body = rawBody as { blocks?: unknown };
+  if (!Array.isArray(body.blocks)) return rawBody;
+
+  const savedById = new Map(savedBlocks.map((block) => [block.id, block]));
+  return {
+    ...body,
+    blocks: body.blocks.map((raw) => {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+      const block = raw as Record<string, unknown>;
+      // A bare ref is already valid, and a block with no id is a new one.
+      if (typeof block.id !== "string" || Object.keys(block).length < 2) {
+        return raw;
+      }
+      const saved = savedById.get(block.id);
+      if (!saved) {
+        throw new BadRequestError(
+          `No block "${block.id}" on this dashboard. Reference one it already has, or send the block without an id to add it.`,
+        );
+      }
+      return { ...block, uid: saved.uid, organization: saved.organization };
+    }),
+  };
 }
 
 function getSavedQueryIds(doc: DashboardDocument): Set<string> {
