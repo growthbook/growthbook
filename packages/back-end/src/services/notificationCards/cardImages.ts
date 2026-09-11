@@ -2063,6 +2063,90 @@ export async function renderCompactCard(
   return rasterize(buildCompactCard(exp), COMPACT_WIDTH);
 }
 
+// Recolor the generated body tree, leaving the event banner and brand asset intact.
+// The tree is local to this render, so concurrent light/dark requests cannot mix palettes.
+const COMPACT_DARK_COLORS: Record<string, string> = {
+  "#ffffff": "#1D202A",
+  "#faf8ff": "#242833",
+  "#1f2d5c": "#EDEEF0",
+  "#60646c": "#B0B4BE",
+  "#80838d": "#989EAB",
+  "#dddee3": "#454B59",
+  "#edeef0": "#353B48",
+  "#fbfbfd": "#242833",
+  "#f1f2f4": "#303644",
+  "#5746af": "#B8A5FF",
+  "#006dcb": "#70B8FF",
+  "#00713f": "#6AD5A5",
+  "#c40006": "#FF8F95",
+  "#ab6400": "#FFD078",
+  "#c1c4cd": "#727B8F",
+  "#eceafb": "#353052",
+  "#e5f1ff": "#253B53",
+  "#0a4a9e": "#8BC4FF",
+  "#e3f5f1": "#234139",
+  "#0a6e62": "#74DCC8",
+  "#fceee6": "#473426",
+  "#944100": "#FFBD87",
+};
+
+function darkCompactBody(node: El): El {
+  const recolor = (value: string) =>
+    value.replace(
+      /#[0-9a-f]{6}/gi,
+      (color) => COMPACT_DARK_COLORS[color.toLowerCase()] ?? color,
+    );
+  const child = (value: El | string | null): El | string | null =>
+    value && typeof value === "object" ? darkCompactBody(value) : value;
+  const children = node.props.children;
+  const src = node.props.src;
+  const prefix = "data:image/svg+xml;base64,";
+  return {
+    ...node,
+    props: {
+      ...node.props,
+      style: Object.fromEntries(
+        Object.entries(node.props.style ?? {}).map(([key, value]) => [
+          key,
+          typeof value === "string" ? recolor(value) : value,
+        ]),
+      ),
+      ...(src?.startsWith(prefix) && src !== getLogoDataUri()
+        ? {
+            src:
+              prefix +
+              Buffer.from(
+                recolor(
+                  Buffer.from(src.slice(prefix.length), "base64").toString(
+                    "utf8",
+                  ),
+                ),
+              ).toString("base64"),
+          }
+        : {}),
+      children: Array.isArray(children)
+        ? children.map(child)
+        : children === undefined
+          ? undefined
+          : (child(children) ?? undefined),
+    },
+  };
+}
+
+export async function renderCompactDarkCard(
+  exp: ExperimentCardData,
+): Promise<Buffer> {
+  const light = buildCompactCard(exp);
+  const dark = darkCompactBody(light);
+  if (
+    Array.isArray(light.props.children) &&
+    Array.isArray(dark.props.children)
+  ) {
+    dark.props.children[0] = light.props.children[0];
+  }
+  return rasterize(dark, COMPACT_WIDTH);
+}
+
 /** Sample cards (from the design prototype) for eyeballing each state. */
 export function sampleCard(state: CardState = "winner"): ExperimentCardData {
   const secondary: CardCiMetric[] = [

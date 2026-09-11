@@ -69,7 +69,7 @@ describe("renderExperimentNotificationCard", () => {
     "keeps a delayed SRM event text-only when current results are %s",
     async (state) => {
       jest.mocked(buildExperimentCardData).mockResolvedValue(sampleCard(state));
-      for (const format of ["compact", "detailed"] as const) {
+      for (const format of ["compact", "compact-dark", "detailed"] as const) {
         await expect(
           renderExperimentNotificationCard(
             notification("experiment.warning", {

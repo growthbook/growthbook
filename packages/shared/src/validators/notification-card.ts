@@ -1,4 +1,9 @@
-export const experimentCardFormats = ["none", "compact", "detailed"] as const;
+export const experimentCardFormats = [
+  "none",
+  "compact",
+  "compact-dark",
+  "detailed",
+] as const;
 
 export const notificationCardKinds = [
   "started",

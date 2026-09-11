@@ -50,6 +50,11 @@ const CARD_FORMAT_LABELS: Record<
     label: "Compact card",
     description: "A short image highlighting the SRM warning.",
   },
+  "compact-dark": {
+    label: "Compact dark",
+    description:
+      "A short image with a dark background and colored event header.",
+  },
   detailed: {
     label: "Detailed card",
     description: "A larger image with the SRM warning and a results table.",
