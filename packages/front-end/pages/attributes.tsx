@@ -1,24 +1,17 @@
 import React, { useMemo, useState } from "react";
 import { PiInfo } from "react-icons/pi";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { BiShow } from "react-icons/bi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { SDKAttribute } from "shared/types/organization";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
 import Modal from "@/components/Modal";
-import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
+import AttributeRowMenu from "@/components/Features/AttributeRowMenu";
 import AttributeReferencesList from "@/components/Features/AttributeReferencesList";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -86,15 +79,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
 
   const hasArchived = attributeSchema.some((a) => a.archived);
 
-  const attributesWithIndex = useMemo(
-    () =>
-      attributesWithComputedFields.map((a, i) => ({
-        ...a,
-        originalIndex: i,
-      })),
-    [attributesWithComputedFields],
-  );
-
   const {
     items: filteredAttributes,
     searchInputProps,
@@ -102,10 +86,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
     syntaxFilters,
     isFiltered,
     SortableTableColumnHeader,
+    pagination,
   } = useSearch({
-    items: attributesWithIndex,
+    items: attributesWithComputedFields,
     localStorageKey: "attributes",
     defaultSortField: "property",
+    pageSize: 50,
     searchFields: [
       "property^3",
       "description",
@@ -129,97 +115,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
     },
   });
 
-  const [showReferencesModal, setShowReferencesModal] = useState<number | null>(
+  const [referencesProperty, setReferencesProperty] = useState<string | null>(
     null,
   );
-
-  function AttributeRowMenu({
-    v,
-    onEdit,
-  }: {
-    v: SDKAttribute;
-    onEdit: () => void;
-  }) {
-    const [menuOpen, setMenuOpen] = useState(false);
-    const { apiCall: rowApiCall } = useAuth();
-    const { refreshOrganization: rowRefresh } = useUser();
-    const rowPermissions = usePermissionsUtil();
-    if (!rowPermissions.canCreateAttribute(v)) return null;
-    return (
-      <DropdownMenu
-        trigger={
-          <IconButton
-            variant="ghost"
-            color="gray"
-            radius="full"
-            size="2"
-            highContrast
-          >
-            <BsThreeDotsVertical size={18} />
-          </IconButton>
-        }
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        menuPlacement="end"
-      >
-        {!v.archived && (
-          <DropdownMenuItem
-            onClick={() => {
-              onEdit();
-              setMenuOpen(false);
-            }}
-          >
-            Edit
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem
-          onClick={async () => {
-            const updatedAttribute: SDKAttribute = {
-              property: v.property,
-              datatype: v.datatype,
-              archived: !v.archived,
-            };
-            await rowApiCall<{ res: number }>("/attribute", {
-              method: "PUT",
-              body: JSON.stringify(updatedAttribute),
-            });
-            rowRefresh();
-            setMenuOpen(false);
-          }}
-        >
-          {v.archived ? "Unarchive" : "Archive"}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          color="red"
-          confirmation={{
-            submit: async () => {
-              await rowApiCall<{ status: number }>("/attribute/", {
-                method: "DELETE",
-                body: JSON.stringify({ id: v.property }),
-              });
-              rowRefresh();
-            },
-            confirmationTitle: "Delete Attribute",
-            cta: "Delete",
-            ctaColor: "red",
-            getConfirmationContent: async () => (
-              <>
-                Are you sure you want to delete the{" "}
-                {v.hashAttribute ? "identifier " : ""}
-                {v.datatype} attribute:{" "}
-                <code className="font-weight-bold">{v.property}</code>?
-                <br />
-                This action cannot be undone.
-              </>
-            ),
-          }}
-        >
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenu>
-    );
-  }
+  const referencesAttribute =
+    referencesProperty !== null
+      ? attributeSchema.find((a) => a.property === referencesProperty)
+      : undefined;
 
   const drawRow = (v: SDKAttribute) => {
     const refs = references?.[v.property];
@@ -301,12 +203,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         <TableCell className="text-gray">
           {numReferences > 0 ? (
             <Link
-              onClick={() => {
-                const schemaIndex = attributeSchema.findIndex(
-                  (a) => a.property === v.property,
-                );
-                if (schemaIndex >= 0) setShowReferencesModal(schemaIndex);
-              }}
+              onClick={() => setReferencesProperty(v.property)}
               style={{ whiteSpace: "nowrap" }}
             >
               <BiShow /> {numReferences} reference
@@ -330,7 +227,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
         </TableCell>
         <TableCell>
-          <AttributeRowMenu v={v} onEdit={() => setModalData(v.property)} />
+          <AttributeRowMenu
+            attribute={v}
+            onEdit={() => setModalData(v.property)}
+          />
         </TableCell>
       </TableRow>
     );
@@ -367,7 +267,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   />
                 </Box>
                 <AttributeSearchFilters
-                  attributes={attributesWithIndex}
+                  attributes={attributesWithComputedFields}
                   searchInputProps={searchInputProps}
                   setSearchValue={setSearchValue}
                   syntaxFilters={syntaxFilters}
@@ -439,37 +339,34 @@ const FeatureAttributesPage = (): React.ReactElement => {
               )}
             </TableBody>
           </Table>
+          {pagination}
         </Box>
       </Box>
-      {showReferencesModal !== null &&
-        attributeSchema?.[showReferencesModal] && (
-          <Modal
-            header={`'${attributeSchema[showReferencesModal].property}' References`}
-            trackingEventModalType="show-attribute-references"
-            close={() => setShowReferencesModal(null)}
-            open={true}
-            closeCta="Close"
-          >
-            <Text as="p" mb="3">
-              This attribute is referenced by the following features,
-              experiments, and condition groups.
-            </Text>
-            <AttributeReferencesList
-              features={
-                references?.[attributeSchema[showReferencesModal].property]
-                  ?.features ?? []
-              }
-              experiments={
-                references?.[attributeSchema[showReferencesModal].property]
-                  ?.experiments ?? []
-              }
-              conditionGroups={
-                references?.[attributeSchema[showReferencesModal].property]
-                  ?.savedGroups ?? []
-              }
-            />
-          </Modal>
-        )}
+      {referencesAttribute && (
+        <Modal
+          header={`'${referencesAttribute.property}' References`}
+          trackingEventModalType="show-attribute-references"
+          close={() => setReferencesProperty(null)}
+          open={true}
+          closeCta="Close"
+        >
+          <Text as="p" mb="3">
+            This attribute is referenced by the following features, experiments,
+            and condition groups.
+          </Text>
+          <AttributeReferencesList
+            features={
+              references?.[referencesAttribute.property]?.features ?? []
+            }
+            experiments={
+              references?.[referencesAttribute.property]?.experiments ?? []
+            }
+            conditionGroups={
+              references?.[referencesAttribute.property]?.savedGroups ?? []
+            }
+          />
+        </Modal>
+      )}
       {modalData !== null && (
         <AttributeModal
           close={() => setModalData(null)}
