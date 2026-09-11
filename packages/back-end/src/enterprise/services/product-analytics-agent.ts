@@ -22,6 +22,8 @@ import {
   buildExplorationColumns,
   getExplorationCellValue,
   getAvailableDimensionColumns,
+  getRelevantFactTableIds,
+  dimensionColumnIsAvailable,
 } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
@@ -766,61 +768,37 @@ async function normalizeConfigForExplorer(
   const metricById = new Map(referencedMetrics.map((m) => [m.id, m]));
   const getFactMetricByIdResolver = (id: string) => metricById.get(id) ?? null;
 
-  // Drop any static/dynamic dimension whose column doesn't resolve for this
-  // dataset — a hallucinated column, one deleted since, or (for a ratio
-  // metric) one the denominator's fact table can't share with the numerator.
-  // Uses the same shared resolvability logic as the front-end's dimension
-  // picker, so the agent can never author what a user couldn't have picked.
-  if (
-    dims.some(
-      (d) => d.dimensionType === "static" || d.dimensionType === "dynamic",
-    )
-  ) {
-    const dimensionFactTableIds = new Set<string>();
-    if (dataset.type === "fact_table") {
-      if (dataset.factTableId) dimensionFactTableIds.add(dataset.factTableId);
-    } else if (dataset.type === "metric") {
-      referencedMetrics.forEach((m) => {
-        if (m.numerator?.factTableId) {
-          dimensionFactTableIds.add(m.numerator.factTableId);
-        }
-        if (m.denominator?.factTableId) {
-          dimensionFactTableIds.add(m.denominator.factTableId);
-        }
-      });
-    } else if (dataset.type === "funnel") {
-      const initialStepFactTable = dataset.steps[0]?.factTableId;
-      if (initialStepFactTable) dimensionFactTableIds.add(initialStepFactTable);
-    }
+  const dimensionFactTableIdList = getRelevantFactTableIds(
+    dataset,
+    getFactMetricByIdResolver,
+  );
+  const dimensionFactTables = dimensionFactTableIdList.length
+    ? await Promise.all(
+        dimensionFactTableIdList.map((id) => getFactTable(ctx, id)),
+      )
+    : [];
+  const dimensionFtById = new Map(
+    dimensionFactTableIdList.map((id, i) => [id, dimensionFactTables[i]]),
+  );
+  const getDimensionFactTableById = (id: string) =>
+    dimensionFtById.get(id) ?? null;
 
-    const dimensionFactTableIdList = Array.from(dimensionFactTableIds);
-    const dimensionFactTables = await Promise.all(
-      dimensionFactTableIdList.map((id) => getFactTable(ctx, id)),
+  const availableDimensionColumns = getAvailableDimensionColumns(
+    dataset,
+    getDimensionFactTableById,
+    getFactMetricByIdResolver,
+  );
+  const invalidDims = dims.filter(
+    (d) => !dimensionColumnIsAvailable(d, availableDimensionColumns),
+  );
+  if (invalidDims.length) {
+    const invalidDimSet = new Set(invalidDims);
+    dims = dims.filter((d) => !invalidDimSet.has(d));
+    warnings.push(
+      `Removed ${invalidDims.length} dimension(s) referencing a column that isn't valid for this dataset (unknown, deleted, or — for a ratio metric — not shared between the numerator and denominator fact tables): ${invalidDims
+        .map((d) => `"${"column" in d ? d.column : ""}"`)
+        .join(", ")}.`,
     );
-    const dimensionFtById = new Map(
-      dimensionFactTableIdList.map((id, i) => [id, dimensionFactTables[i]]),
-    );
-    const availableDimensionColumns = getAvailableDimensionColumns(
-      dataset,
-      (id) => dimensionFtById.get(id) ?? null,
-      getFactMetricByIdResolver,
-    );
-
-    const invalidDims = dims.filter(
-      (d) =>
-        (d.dimensionType === "static" || d.dimensionType === "dynamic") &&
-        d.column !== null &&
-        !availableDimensionColumns.some((c) => c.column === d.column),
-    );
-    if (invalidDims.length) {
-      const invalidDimSet = new Set(invalidDims);
-      dims = dims.filter((d) => !invalidDimSet.has(d));
-      warnings.push(
-        `Removed ${invalidDims.length} dimension(s) referencing a column that isn't valid for this dataset (unknown, deleted, or — for a ratio metric — not shared between the numerator and denominator fact tables): ${invalidDims
-          .map((d) => `"${"column" in d ? d.column : ""}"`)
-          .join(", ")}.`,
-      );
-    }
   }
 
   // Backfill missing units for metric values so the SQL layer emits a
@@ -834,29 +812,12 @@ async function normalizeConfigForExplorer(
     );
 
     if (needsUnit) {
-      const factTableIds = Array.from(
-        new Set(
-          dataset.values
-            .filter((v) => !v.unit && v.metricId)
-            .map((v) => metricById.get(v.metricId!)?.numerator?.factTableId)
-            .filter((id): id is string => !!id),
-        ),
-      );
-      const factTables = await Promise.all(
-        factTableIds.map((id) => getFactTable(ctx, id)),
-      );
-      const factTableById = new Map(
-        factTables
-          .filter((ft): ft is FactTableInterface => !!ft)
-          .map((ft) => [ft.id, ft]),
-      );
-
       let filledCount = 0;
       const newValues = dataset.values.map((v) => {
         if (v.unit || !v.metricId) return v;
         const metric = metricById.get(v.metricId);
         if (!metric) return v;
-        const factTable = factTableById.get(
+        const factTable = getDimensionFactTableById(
           metric.numerator?.factTableId ?? "",
         );
         const defaultUnit = factTable?.userIdTypes?.[0];
@@ -1034,20 +995,26 @@ async function executeGetAvailableColumns(
       // Fetch both sides of every metric — a ratio metric's denominator can
       // live on a different fact table than its numerator, and columns must
       // resolve on both to be valid group-by candidates.
-      const ftIds = [
-        ...new Set(
-          metrics.flatMap((m) =>
-            [m.numerator?.factTableId, m.denominator?.factTableId].filter(
-              (id): id is string => !!id,
-            ),
-          ),
-        ),
-      ];
+      const metricMap = new Map(metrics.map((m) => [m.id, m]));
+      const metricDataset = {
+        type: "metric" as const,
+        values: metricIds.map((metricId) => ({
+          type: "metric" as const,
+          name: metricId,
+          rowFilters: [],
+          metricId,
+          unit: null,
+          denominatorUnit: null,
+        })),
+      };
+      const ftIds = getRelevantFactTableIds(
+        metricDataset,
+        (id) => metricMap.get(id) ?? null,
+      );
       const factTables = await Promise.all(
         ftIds.map((id) => getFactTable(ctx, id)),
       );
       const ftMap = new Map(ftIds.map((id, i) => [id, factTables[i]] as const));
-      const metricMap = new Map(metrics.map((m) => [m.id, m]));
 
       for (const m of metrics) {
         const needsUnit =
@@ -1074,17 +1041,7 @@ async function executeGetAvailableColumns(
       // picker — only offers columns (including nested JSON paths) resolvable
       // on every referenced metric's fact table(s), denominator included.
       const availableColumns = getAvailableDimensionColumns(
-        {
-          type: "metric",
-          values: metricIds.map((metricId) => ({
-            type: "metric" as const,
-            name: metricId,
-            rowFilters: [],
-            metricId,
-            unit: null,
-            denominatorUnit: null,
-          })),
-        },
+        metricDataset,
         (id) => ftMap.get(id) ?? null,
         (id) => metricMap.get(id) ?? null,
       );
