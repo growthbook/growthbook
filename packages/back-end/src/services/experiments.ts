@@ -4886,7 +4886,19 @@ export function updateExperimentApiPayloadToInterface(
           // An explicit user opt-in must also clear the system-managed flag,
           // otherwise PUT autoRefresh:true can't recover from a cron failure
           // or an org schedule of "never" (both set autoSnapshots:false).
-          ...(autoRefresh ? { autoSnapshots: true } : {}),
+          ...(autoRefresh
+            ? {
+                autoSnapshots: true,
+                ...(!experiment.pastNotifications?.includes("auto-update")
+                  ? {
+                      pastNotifications: [
+                        ...(experiment.pastNotifications || []),
+                        "auto-update",
+                      ],
+                    }
+                  : {}),
+              }
+            : {}),
         }
       : {}),
     ...(banditScheduleValue !== undefined ? { banditScheduleValue } : {}),
