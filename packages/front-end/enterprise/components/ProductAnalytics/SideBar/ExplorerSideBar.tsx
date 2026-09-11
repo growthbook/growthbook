@@ -44,6 +44,7 @@ import GroupBySection from "./GroupBySection";
 import SaveFunnelMetricAction from "./SaveFunnelMetricAction";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
+import ChartSettingsSection from "./ChartSettingsSection";
 import SchemaBrowserSection from "./SchemaBrowserSection";
 
 interface Props {
@@ -445,6 +446,7 @@ export default function ExplorerSideBar({
       {activeType === "funnel" && renderingInDashboardSidebar && (
         <SaveFunnelMetricAction />
       )}
+      {showChartControls && activeType !== "funnel" && <ChartSettingsSection />}
     </Flex>
   );
 }

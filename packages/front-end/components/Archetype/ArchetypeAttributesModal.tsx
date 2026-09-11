@@ -67,7 +67,6 @@ const ArchetypeAttributesModal: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="add-edit-archetype"
       trackingEventModalSource={source}
       open={true}

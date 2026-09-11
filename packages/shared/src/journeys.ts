@@ -694,6 +694,8 @@ export function toClientJourneyExploration(
       config: {
         ...exploration.config,
         chartType: requested.chartType,
+        showAs: requested.showAs,
+        chartSettings: requested.chartSettings,
         dateRange: requested.dateRange,
       },
     };
@@ -710,6 +712,8 @@ export function toClientJourneyExploration(
     config: {
       ...exploration.config,
       chartType: requested.chartType,
+      showAs: requested.showAs,
+      chartSettings: requested.chartSettings,
       dateRange: requested.dateRange,
       dataset: {
         ...cachedDataset,

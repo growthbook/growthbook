@@ -51,6 +51,7 @@ import {
   isSubmittableConfig,
   journeyDiffersOnlyByPath,
   normalizeTimelessSqlConfig,
+  resetValueAxisLabelOnDatasetChange,
   applyTimestampColumn,
   stripExplorerDraftFields,
   toFetchKey,
@@ -318,7 +319,10 @@ export function ExplorerProvider({
 
         return {
           ...prev,
-          draftState: validatedState,
+          draftState: resetValueAxisLabelOnDatasetChange(
+            currentDraft,
+            validatedState,
+          ),
         };
       });
     },
@@ -1191,11 +1195,11 @@ export function ExplorerProvider({
                 values: [createDefaultValue(type)],
               } as ExplorationConfig["dataset"]);
         return {
-          draftState: {
+          draftState: resetValueAxisLabelOnDatasetChange(prev.draftState, {
             ...stripExplorerDraftFields(initialConfig),
             datasource: datasourceId,
             dataset,
-          } as ExplorerDraftConfig,
+          } as ExplorerDraftConfig),
           submittedState: null,
           exploration: null,
           error: null,
