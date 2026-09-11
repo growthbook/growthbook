@@ -53,6 +53,8 @@ export default function FactMetricPage() {
   const { fmid } = router.query;
 
   const [isEditing, setIsEditing] = useState(false);
+  const [actionsContainer, setActionsContainer] =
+    useState<HTMLDivElement | null>(null);
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
@@ -268,13 +270,16 @@ export default function FactMetricPage() {
         </Callout>
       )}
       <ReplacedByCallout metricId={factMetric.id} />
-      <Flex align="start" justify="between" gap="2" mb="2">
-        <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
+      <Flex align="start" justify="between" gap="2" wrap="wrap" mb="2">
+        <Flex align="center" gap="3" wrap="wrap" style={{ marginTop: "-4px" }}>
           <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
             <MetricName id={factMetric.id} officialBadgePosition="right" />
           </Heading>
+          {isEditing && (
+            <Badge label="Editing" color="pink" variant="solid" radius="full" />
+          )}
         </Flex>
-        <Flex align="center" gap="2" pr="2">
+        <Flex align="center" gap="2" pr="2" wrap="wrap">
           {!isEditing && (
             <Tooltip
               content={REST_API_ONLY_EDIT_MESSAGE}
@@ -399,6 +404,7 @@ export default function FactMetricPage() {
               </DropdownMenuItem>
             )}
           </DropdownMenu>
+          <div ref={setActionsContainer} />
         </Flex>
       </Flex>
       <Flex gap="4" align="center" wrap="wrap">
@@ -503,6 +509,7 @@ export default function FactMetricPage() {
         {/* Keep the form mounted so navigating tabs preserves unsaved edits. */}
         <TabsContent value="overview" forceMount>
           <MetricWorkspace
+            actionsContainer={actionsContainer}
             existing={factMetric}
             isEditing={isEditing}
             setIsEditing={setIsEditing}
