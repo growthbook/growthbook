@@ -544,16 +544,23 @@ export class DashboardModel extends BaseClass {
     const dashboard = await this.getById(id);
     if (!dashboard) req.context.throwNotFoundError();
 
-    const body = fillServerOwnedBlockKeys(req.body, dashboard.blocks);
     // Same reason as the create path: processApiUpdateBody runs the caller's
     // chart blocks, and updateById would only refuse afterwards. The block
     // list plays no part in canUpdate, so the cheap fields are enough.
-    const nonBlockUpdates = omit(apiUpdateDashboardBody.parse(body), "blocks");
+    const nonBlockUpdates = omit(
+      apiUpdateDashboardBody.parse(req.body),
+      "blocks",
+    );
     await this.assertApiWriteAllowed("update", dashboard, (existing) =>
       this.canUpdate(existing, nonBlockUpdates),
     );
 
-    const toUpdate = await this.processApiUpdateBody(body, dashboard);
+    // After the permission check: this rejects an id the dashboard doesn't have,
+    // and a caller who may not write here should hear that before anything else.
+    const toUpdate = await this.processApiUpdateBody(
+      fillServerOwnedBlockKeys(req.body, dashboard.blocks),
+      dashboard,
+    );
     // CAS on the doc we read above, not a fresh one: `toUpdate` carries a whole
     // block list derived from that snapshot, and the warehouse queries in
     // between take long enough for someone else to have edited the dashboard.
