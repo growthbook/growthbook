@@ -3,7 +3,7 @@ import {
   eventWebHookInterface,
 } from "shared/validators";
 import { NotificationEvent } from "shared/types/events/base-types";
-import { serializeEvent } from "back-end/src/events/handlers/webhooks/serializeEvent";
+import { getJsonWebhookPayload } from "back-end/src/events/handlers/webhooks/getJsonWebhookPayload";
 
 const change = {
   metricId: "fact__revenue?dim:country=US",
@@ -41,9 +41,9 @@ const batch = {
 } satisfies NotificationEvent;
 
 it("keeps a batch intact for the new version and reconstructs complete legacy payloads", () => {
-  expect(serializeEvent(batch, "2026-09-11")).toEqual(batch);
-  expect(serializeEvent(batch, "2024-07-31", 0)).toEqual(scalar);
-  expect(serializeEvent(batch, "2024-07-31", 1)).toEqual({
+  expect(getJsonWebhookPayload(batch, "2026-09-11")).toEqual(batch);
+  expect(getJsonWebhookPayload(batch, "2024-07-31", 0)).toEqual(scalar);
+  expect(getJsonWebhookPayload(batch, "2024-07-31", 1)).toEqual({
     ...scalar,
     data: {
       object: {
@@ -56,8 +56,8 @@ it("keeps a batch intact for the new version and reconstructs complete legacy pa
 });
 
 it("preserves the original payload and version of stored scalar events", () => {
-  expect(serializeEvent(scalar, "2024-07-31")).toEqual(scalar);
-  expect(serializeEvent(scalar, "2026-09-11")).toEqual(scalar);
+  expect(getJsonWebhookPayload(scalar, "2024-07-31")).toEqual(scalar);
+  expect(getJsonWebhookPayload(scalar, "2026-09-11")).toEqual(scalar);
 });
 
 it("sets the selected version on other events without changing their data", () => {
@@ -68,7 +68,7 @@ it("sets the selected version on other events without changing their data", () =
     data: { object: { webhookId: "ewh_1" } },
   } satisfies NotificationEvent;
   for (const apiVersion of eventWebHookApiVersion.options) {
-    expect(serializeEvent(event, apiVersion)).toEqual({
+    expect(getJsonWebhookPayload(event, apiVersion)).toEqual({
       ...event,
       api_version: apiVersion,
     });

@@ -34,7 +34,7 @@ import {
   EventWebHookSuccessResult,
   getEventWebHookSignatureForPayload,
 } from "./event-webhooks-utils";
-import { serializeEvent } from "./serializeEvent";
+import { getJsonWebhookPayload } from "./getJsonWebhookPayload";
 
 let jobDefined = false;
 
@@ -147,7 +147,7 @@ export class EventWebHookNotifier implements Notifier {
           if (!event.version) throw new Error("Internal error");
           // Pre-upgrade jobs retain their original payload.
           return delivery
-            ? serializeEvent(
+            ? getJsonWebhookPayload(
                 event.data,
                 delivery.apiVersion,
                 delivery.changeIndex,

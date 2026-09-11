@@ -2,7 +2,7 @@ import { EventWebHookApiVersion } from "shared/validators";
 import { NotificationEvent } from "shared/types/events/base-types";
 
 // Adapt the stored event to the receiver's API version and selected result.
-export function serializeEvent(
+export function getJsonWebhookPayload(
   event: NotificationEvent,
   apiVersion: EventWebHookApiVersion,
   changeIndex = 0,

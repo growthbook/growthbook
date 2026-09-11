@@ -233,12 +233,12 @@ const EventWebHookAddEditSettings = ({
               { value: "2026-09-11", label: "2026-09-11" },
               { value: "2024-07-31", label: "2024-07-31" },
             ]}
+            helpText={
+              <DocLink useRadix={false} docSection="eventWebhookVersions">
+                View API version changes
+              </DocLink>
+            }
           />
-          <Text as="p" size="sm" color="text-low" mt="2">
-            <DocLink docSection="eventWebhookVersions">
-              View API version changes
-            </DocLink>
-          </Text>
         </Box>
       )}
 
