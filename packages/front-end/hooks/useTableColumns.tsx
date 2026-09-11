@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useRef } from "react";
 import {
   isLayoutCustomized,
   mergeLayoutForWrite,
+  minTableWidth,
   resolveTableColumns,
   ResolvedTableColumn,
   TableColumnDef,
@@ -16,6 +17,8 @@ export interface UseTableColumnsReturn<TRow> {
   colSpan: number;
   hiddenCount: number;
   isCustomized: boolean;
+  /** Pass to `<Table minTableWidth>` so a slack column can't starve to zero. */
+  minTableWidth: number;
   /** Apply order and visibility in a single write. */
   applySettings: (ordered: { id: string; visible: boolean }[]) => void;
   setWidth: (id: string, width: number | undefined) => void;
@@ -119,6 +122,7 @@ export function useTableColumns<TRow>({
     colSpan: visibleColumns.length,
     hiddenCount: columns.length - visibleColumns.length,
     isCustomized: isLayoutCustomized(defs, columns),
+    minTableWidth: minTableWidth(columns),
     applySettings,
     setWidth,
     reset,
