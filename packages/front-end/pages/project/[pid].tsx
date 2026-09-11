@@ -6,6 +6,7 @@ import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_CONFIDENCE_LEVEL } from "shared/constants";
+import { isProjectListValidForProject } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import Link from "@/ui/Link";
@@ -93,7 +94,7 @@ const ProjectPage: FC = () => {
   );
   const projectDashboards = useMemo(
     () =>
-      dashboards.filter((d) => !d.projects?.length || d.projects.includes(pid)),
+      dashboards.filter((d) => isProjectListValidForProject(d.projects, pid)),
     [dashboards, pid],
   );
   const noProjectDashboards =
@@ -120,6 +121,9 @@ const ProjectPage: FC = () => {
     const payload: ProjectSettings = { ...value };
     if (typeof payload.confidenceLevel === "number") {
       payload.confidenceLevel = payload.confidenceLevel / 100;
+    }
+    if (!payload.defaultDashboardId) {
+      delete payload.defaultDashboardId;
     }
     await apiCall(`/projects/${pid}/settings`, {
       method: "PUT",
