@@ -259,31 +259,18 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       return;
     }
     try {
-      const past = experiment.pastNotifications || [];
       await updateExperiment({
         context,
         experiment,
         changes: {
           autoSnapshots: false,
-          pastNotifications: past.includes("auto-update")
-            ? past
-            : [...past, "auto-update"],
         },
       });
     } catch (e) {
-      logger.error(
-        e,
-        "Failed to persist scheduled-refresh fail state: " + experimentId,
-      );
-      return;
+      logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
     }
     try {
-      await notifyAutoUpdate({
-        context,
-        experiment,
-        success: false,
-        persist: false,
-      });
+      await notifyAutoUpdate({ context, experiment, success: false });
     } catch (e) {
       logger.error(e, "Failed to notify auto-update failure: " + experimentId);
     }

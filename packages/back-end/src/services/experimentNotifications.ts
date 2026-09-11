@@ -107,41 +107,31 @@ export const notifyAutoUpdate = ({
   context,
   experiment,
   success,
-  persist = true,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   success: boolean;
-  persist?: boolean;
-}) => {
-  const dispatch = () =>
-    dispatchEvent({
-      context,
-      experiment,
-      event: "warning",
-      data: {
-        object: {
-          type: "auto-update",
-          success,
-          experimentId: experiment.id,
-          experimentName: experiment.name,
-        },
-      },
-    });
-
-  // Fail path persists autoSnapshots + the mark first, then calls with persist: false.
-  if (!persist) {
-    return dispatch();
-  }
-
-  return memoizeNotification({
+}) =>
+  memoizeNotification({
     context,
     experiment,
     type: "auto-update",
     triggered: !success,
-    dispatch,
+    dispatch: () =>
+      dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "auto-update",
+            success,
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      }),
   });
-};
 
 // Fires on every failed attempt of the scheduled-status-update job (not
 // memoized). Each event carries the attempt count and whether another retry
