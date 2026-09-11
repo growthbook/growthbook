@@ -397,6 +397,171 @@ describe("add/remove variation payload behavior (P5)", () => {
   });
 });
 
+describe("pending / deactivated leaf-weight alignment", () => {
+  // Leaf weights must positionalize over the same active list as the rule.
+  // Length mismatch → SDK falls back to equal weights (getBucketRanges).
+  const V0 = { id: "v0", name: "Control", key: "0", screenshots: [] };
+  const V1 = { id: "v1", name: "Treatment", key: "1", screenshots: [] };
+  const V2 = { id: "v2", name: "Added", key: "2", screenshots: [] };
+
+  const cbMapOf = (cb: ContextualBanditInterface) =>
+    new Map([[cb.id, cb]]) as Map<string, ContextualBanditInterface>;
+  const refFeatures: Record<string, FeatureDefinition> = {
+    f: { defaultValue: "x", rules: [{ contextualBanditRef: "cb_1" }] },
+  };
+
+  function featureWithValues(
+    pairs: { variationId: string; value: string }[],
+  ): FeatureInterface {
+    return makeFeature({
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              type: "contextual-bandit-ref",
+              id: "rule_1",
+              description: "",
+              enabled: true,
+              contextualBanditId: "cb_1",
+              variations: pairs,
+            },
+          ],
+        },
+      },
+    } as unknown as Partial<FeatureInterface>);
+  }
+
+  function ruleFor(cb: ContextualBanditInterface, feature: FeatureInterface) {
+    return getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      cbMap: cbMapOf(cb),
+    })?.rules?.[0];
+  }
+
+  it("middle-array pending arm: rule and leaf both length 2, split lands on v0/v2", () => {
+    const cb = makeCb({
+      variations: [V0, { ...V1, status: "pending" }, V2],
+      variationWeights: [
+        { variationId: "v0", weight: 0.4 },
+        { variationId: "v2", weight: 0.6 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.2 },
+            { variationId: "v2", weight: 0.8 },
+          ],
+        },
+      ],
+    } as unknown as Partial<ContextualBanditInterface>);
+
+    const rule = ruleFor(
+      cb,
+      featureWithValues([
+        { variationId: "v0", value: "control" },
+        { variationId: "v1", value: "treatment" },
+        { variationId: "v2", value: "added" },
+      ]),
+    );
+
+    expect(rule?.contextualVariations).toEqual(["control", "added"]);
+    expect(rule?.weights).toEqual([0.4, 0.6]);
+
+    const leaf = filterUsedContextualBandits(cbMapOf(cb), refFeatures)?.cb_1
+      ?.contexts?.[0];
+    expect(leaf?.weights?.length).toEqual(rule?.contextualVariations?.length);
+    expect(leaf?.weights).toEqual([0.2, 0.8]);
+  });
+
+  it("tail deactivated tombstone: length parity + values not shifted by the tombstone", () => {
+    const cb = makeCb({
+      variations: [V0, V2, { ...V1, status: "deactivated" }],
+      variationWeights: [
+        { variationId: "v0", weight: 0.5 },
+        { variationId: "v2", weight: 0.5 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.3 },
+            { variationId: "v2", weight: 0.7 },
+          ],
+        },
+      ],
+    } as unknown as Partial<ContextualBanditInterface>);
+
+    const rule = ruleFor(
+      cb,
+      featureWithValues([
+        { variationId: "v0", value: "control" },
+        { variationId: "v1", value: "treatment" },
+        { variationId: "v2", value: "added" },
+      ]),
+    );
+
+    expect(rule?.contextualVariations).toEqual(["control", "added"]);
+    expect(rule?.weights).toEqual([0.5, 0.5]);
+    expect(JSON.stringify(rule)).not.toContain("treatment");
+
+    const leaf = filterUsedContextualBandits(cbMapOf(cb), refFeatures)?.cb_1
+      ?.contexts?.[0];
+    expect(leaf?.weights?.length).toEqual(rule?.contextualVariations?.length);
+    expect(leaf?.weights).toEqual([0.3, 0.7]);
+  });
+
+  it("pending + deactivated combined: both drop cleanly", () => {
+    const V_OLD = { id: "v_old", name: "Old", key: "9", screenshots: [] };
+    const cb = makeCb({
+      variations: [
+        V0,
+        { ...V1, status: "pending" },
+        V2,
+        { ...V_OLD, status: "deactivated" },
+      ],
+      variationWeights: [
+        { variationId: "v0", weight: 0.4 },
+        { variationId: "v2", weight: 0.6 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 0,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.25 },
+            { variationId: "v2", weight: 0.75 },
+          ],
+        },
+      ],
+    } as unknown as Partial<ContextualBanditInterface>);
+
+    const rule = ruleFor(
+      cb,
+      featureWithValues([
+        { variationId: "v0", value: "control" },
+        { variationId: "v1", value: "treatment" },
+        { variationId: "v2", value: "added" },
+        { variationId: "v_old", value: "old" },
+      ]),
+    );
+
+    expect(rule?.contextualVariations).toEqual(["control", "added"]);
+
+    const leaf = filterUsedContextualBandits(cbMapOf(cb), refFeatures)?.cb_1
+      ?.contexts?.[0];
+    expect(leaf?.weights?.length).toEqual(rule?.contextualVariations?.length);
+    expect(leaf?.weights).toEqual([0.25, 0.75]);
+  });
+});
+
 describe("measureContextualBanditPayload", () => {
   const smallEntry = {
     banditVersion: 1,

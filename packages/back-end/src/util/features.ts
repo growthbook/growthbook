@@ -30,7 +30,10 @@ import {
   stemRuleId,
   stripConfigExtends,
 } from "shared/util";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getActiveVariations,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { cloneDeep, isNil, pick } from "lodash";
@@ -1372,11 +1375,8 @@ export function getFeatureDefinition({
             return null;
           }
 
-          // Only active arms are emitted; pending arms aren't live yet and
-          // deactivated ones are tombstones.
-          const cbActiveVariations = cb.variations.filter(
-            (v) => !v.status || v.status === "active",
-          );
+          // MUST match filterUsedContextualBandits so leaf-weight positions align.
+          const cbActiveVariations = getActiveVariations(cb.variations);
           // No active arms left: drop the rule instead of serving an empty experiment.
           if (cbActiveVariations.length === 0) {
             return null;
