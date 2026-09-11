@@ -1,5 +1,9 @@
 import { OrganizationInterface } from "shared/types/organization";
-import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import {
+  GroupMap,
+  SavedGroupInterface,
+  SavedGroupType,
+} from "shared/types/saved-group";
 import {
   getSavedGroupValueType,
   getTypedSavedGroupValues,
@@ -93,6 +97,19 @@ export const SAVED_GROUP_ERROR_MAX_DEPTH = "__sgMaxDepth__";
 export const SAVED_GROUP_ERROR_CYCLE = "__sgCycle__";
 export const SAVED_GROUP_ERROR_INVALID = "__sgInvalid__";
 export const SAVED_GROUP_ERROR_UNKNOWN = "__sgUnknown__";
+
+// Capability a connection must have before a saved group of this type may be
+// sent by reference. Keyed by SavedGroupType so adding a group type without
+// deciding how it is gated is a compile error rather than a silent omission:
+// SDKs fail closed on types they don't recognize, but failing to match is
+// still a wrong answer, so the payload must withhold what a client can't read.
+export const SAVED_GROUP_TYPE_CAPABILITY: Record<
+  SavedGroupType,
+  SDKCapability
+> = {
+  list: "savedGroupReferencesV2",
+  condition: "savedGroupReferencesV2",
+};
 
 export function conditionHasSavedGroupErrors(
   condition: unknown,
