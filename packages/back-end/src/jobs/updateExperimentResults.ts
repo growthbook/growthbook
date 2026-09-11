@@ -23,8 +23,6 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   notifyAutoUpdate,
   notifyBanditWeightsChanged,
-  notifyExperimentEndingSoon,
-  notifyExperimentStale,
 } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
@@ -116,13 +114,6 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
 
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
-
-  try {
-    await notifyExperimentEndingSoon({ context, experiment });
-    await notifyExperimentStale({ context, experiment });
-  } catch (error) {
-    logger.error(error, "Failed to notify experiment schedule alerts");
-  }
 
   let project = null;
   if (experiment.project) {

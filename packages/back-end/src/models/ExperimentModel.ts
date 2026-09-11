@@ -972,6 +972,34 @@ export async function getExperimentsToUpdateLegacy(
   }));
 }
 
+// Lifecycle reminders must include experiments without automatic result refreshes.
+// Also revisit previously notified experiments to clear their marker after stopping
+// or extending their schedule, so a later lifecycle can notify again.
+export async function* getExperimentsForLifecycleReminders(): AsyncGenerator<
+  Pick<ExperimentInterface, "id" | "organization">
+> {
+  const cursor = getCollection(COLLECTION)
+    .find({
+      archived: { $ne: true },
+      $or: [
+        { status: "running" },
+        { pastNotifications: { $in: ["ending-soon", "stale"] } },
+      ],
+    })
+    .project<Pick<ExperimentInterface, "id" | "organization">>({
+      id: 1,
+      organization: 1,
+      _id: 0,
+    })
+    .sort({ organization: 1, id: 1 })
+    .batchSize(100);
+  try {
+    for await (const experiment of cursor) yield experiment;
+  } finally {
+    await cursor.close();
+  }
+}
+
 export async function getExperimentsWithScheduledStatusUpdate(): Promise<
   Pick<ExperimentInterface, "id" | "organization">[]
 > {
