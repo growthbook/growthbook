@@ -250,6 +250,7 @@ export interface ExperimentCardData {
   note?: string;
   rows: CardGoalRow[];
   summary?: string[];
+  badgeLabel?: string; // overrides the state badge text, e.g. a stopped card with no outcome
   secondary?: CardCiMetric[];
   guardrail?: CardCiMetric[];
   // Shown above the conclusion for non-started states; and in the started body.
@@ -592,7 +593,7 @@ function arrowImg(dir: "up" | "down", color: string, size = 9): El {
 // Shared cells / primitives.
 // ---------------------------------------------------------------------------
 
-function badge(state: CardState): El {
+function badge(state: CardState, label = BADGE[state]): El {
   const hue = HUE[state];
   return el(
     "div",
@@ -612,7 +613,7 @@ function badge(state: CardState): El {
         borderRadius: 9999,
         backgroundColor: SOLID[hue],
       }),
-      txt(BADGE[state], { fontSize: 12, fontWeight: 600, color: P.st[hue] }),
+      txt(label, { fontSize: 12, fontWeight: 600, color: P.st[hue] }),
     ],
   );
 }
@@ -912,7 +913,7 @@ function headerEl(exp: ExperimentCardData): El {
             letterSpacing: "-0.01em",
           }),
           txt(exp.key, { fontSize: 12, color: P.subtle }, true),
-          badge(exp.state),
+          badge(exp.state, exp.badgeLabel),
         ],
       ),
       el(
