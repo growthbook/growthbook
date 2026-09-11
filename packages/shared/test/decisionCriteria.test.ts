@@ -57,7 +57,7 @@ function setMetricsOnResultsStatus({
   };
 }
 
-describe("getSafeRolloutResultStatus with failed guardrails", () => {
+describe("getSafeRolloutResultStatus with errored guardrails", () => {
   const healthSettings: ExperimentHealthSettings = {
     decisionFrameworkEnabled: true,
     experimentMinLengthDays: 7,
@@ -107,7 +107,7 @@ describe("getSafeRolloutResultStatus with failed guardrails", () => {
     (daysLeft) => {
       const result = getSafeRolloutResultStatus({
         safeRollout: makeSafeRollout({
-          failedGuardrail: { status: "failed" },
+          erroredGuardrail: { status: "errored" },
           safeGuardrail: { status: "safe" },
         }),
         healthSettings,
@@ -116,7 +116,7 @@ describe("getSafeRolloutResultStatus with failed guardrails", () => {
 
       expect(result).toEqual({
         status: "data-incomplete",
-        failedMetrics: ["failedGuardrail"],
+        erroredMetrics: ["erroredGuardrail"],
       });
     },
   );
@@ -134,10 +134,10 @@ describe("getSafeRolloutResultStatus with failed guardrails", () => {
     expect(result?.status).toBe(status);
   });
 
-  it("rolls back a losing guardrail even when another failed to compute", () => {
+  it("rolls back a losing guardrail even when another errored", () => {
     const result = getSafeRolloutResultStatus({
       safeRollout: makeSafeRollout({
-        failedGuardrail: { status: "failed" },
+        erroredGuardrail: { status: "errored" },
         losingGuardrail: { status: "lost" },
       }),
       healthSettings,
@@ -149,7 +149,7 @@ describe("getSafeRolloutResultStatus with failed guardrails", () => {
 
   it("keeps unhealthy status ahead of incomplete data", () => {
     const result = getSafeRolloutResultStatus({
-      safeRollout: makeSafeRollout({ guardrail: { status: "failed" } }, 0),
+      safeRollout: makeSafeRollout({ guardrail: { status: "errored" } }, 0),
       healthSettings,
       daysLeft: 0,
     });
@@ -825,7 +825,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
             goalMetrics: {
               goal1: { status: "lost", superStatSigStatus: "lost" },
             },
-            guardrailMetrics: { guardrail1: { status: "failed" } },
+            guardrailMetrics: { guardrail1: { status: "errored" } },
           },
           goalMetrics: ["goal1"],
           guardrailMetrics: ["guardrail1"],
@@ -858,7 +858,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
           goalMetrics: {
             goal1: { status: "won", superStatSigStatus: "won" },
           },
-          guardrailMetrics: { guardrail1: { status: "failed" } },
+          guardrailMetrics: { guardrail1: { status: "errored" } },
         },
         goalMetrics: ["goal1"],
         guardrailMetrics: ["guardrail1"],
@@ -1498,14 +1498,14 @@ describe("resolveScheduledShipDecision", () => {
   });
 });
 
-describe("compute-failed metrics are indeterminate, not false", () => {
+describe("computation errors make unresolved rules indeterminate", () => {
   const baseVariationStatus: ExperimentAnalysisSummaryVariationStatus = {
     variationId: "1",
     goalMetrics: {},
     guardrailMetrics: {},
   };
 
-  it("returns 'indeterminate' for a match:'none' ship guardrail when a guardrail failed", () => {
+  it("returns 'indeterminate' for a match:'none' ship guardrail when a guardrail errored", () => {
     const rule: DecisionCriteriaRule = {
       conditions: [
         {
@@ -1523,7 +1523,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
         ...baseVariationStatus,
         guardrailMetrics: {
           guardrail1: { status: "safe" },
-          guardrail2: { status: "failed" },
+          guardrail2: { status: "errored" },
         },
       },
       goalMetrics: [],
@@ -1533,7 +1533,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
     expect(result).toEqual("indeterminate");
   });
 
-  it("returns matched for match:'any' with a surviving winner despite another failing", () => {
+  it("returns matched for match:'any' with a surviving winner despite another errored metric", () => {
     const rule: DecisionCriteriaRule = {
       conditions: [
         {
@@ -1551,7 +1551,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
         ...baseVariationStatus,
         goalMetrics: {
           metric1: { status: "won", superStatSigStatus: "won" },
-          metric2: { status: "failed", superStatSigStatus: "failed" },
+          metric2: { status: "errored", superStatSigStatus: "errored" },
         },
       },
       goalMetrics: ["metric1", "metric2"],
@@ -1561,7 +1561,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
     expect(result).toEqual("matched");
   });
 
-  it("returns not-matched for match:'all' with a surviving loser despite a failed metric", () => {
+  it("returns not-matched for match:'all' with a surviving loser despite an errored metric", () => {
     const rule: DecisionCriteriaRule = {
       conditions: [
         {
@@ -1579,7 +1579,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
         ...baseVariationStatus,
         goalMetrics: {
           metric1: { status: "lost", superStatSigStatus: "lost" },
-          metric2: { status: "failed", superStatSigStatus: "failed" },
+          metric2: { status: "errored", superStatSigStatus: "errored" },
         },
       },
       goalMetrics: ["metric1", "metric2"],
@@ -1589,7 +1589,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
     expect(result).toEqual("not-matched");
   });
 
-  it("returns matched for a surviving losing guardrail while another failed", () => {
+  it("returns matched for a surviving losing guardrail while another errored", () => {
     const rule: DecisionCriteriaRule = {
       conditions: [
         {
@@ -1607,7 +1607,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
         ...baseVariationStatus,
         guardrailMetrics: {
           guardrail1: { status: "lost" },
-          guardrail2: { status: "failed" },
+          guardrail2: { status: "errored" },
         },
       },
       goalMetrics: [],
@@ -1617,7 +1617,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
     expect(result).toEqual("matched");
   });
 
-  it("rollback rule is indeterminate, not a no-match, when every guardrail failed", () => {
+  it("rollback rule is indeterminate, not a no-match, when every guardrail errored", () => {
     const rule: DecisionCriteriaRule = {
       conditions: [
         {
@@ -1634,8 +1634,8 @@ describe("compute-failed metrics are indeterminate, not false", () => {
       variationStatus: {
         ...baseVariationStatus,
         guardrailMetrics: {
-          guardrail1: { status: "failed" },
-          guardrail2: { status: "failed" },
+          guardrail1: { status: "errored" },
+          guardrail2: { status: "errored" },
         },
       },
       goalMetrics: [],
@@ -1645,7 +1645,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
     expect(result).toEqual("indeterminate");
   });
 
-  it("rollback match:'all' is indeterminate, not a vacuous match, when every guardrail failed", () => {
+  it("rollback match:'all' is indeterminate, not a vacuous match, when every guardrail errored", () => {
     const rule: DecisionCriteriaRule = {
       conditions: [
         {
@@ -1662,8 +1662,8 @@ describe("compute-failed metrics are indeterminate, not false", () => {
       variationStatus: {
         ...baseVariationStatus,
         guardrailMetrics: {
-          guardrail1: { status: "failed" },
-          guardrail2: { status: "failed" },
+          guardrail1: { status: "errored" },
+          guardrail2: { status: "errored" },
         },
       },
       goalMetrics: [],
@@ -1673,13 +1673,13 @@ describe("compute-failed metrics are indeterminate, not false", () => {
     expect(result).toEqual("indeterminate");
   });
 
-  it("getDecisionFrameworkStatus yields data-incomplete when a ship goal metric failed", () => {
+  it("getDecisionFrameworkStatus yields data-incomplete when a ship goal metric errored", () => {
     const resultsStatus: ExperimentAnalysisSummaryResultsStatus = {
       variations: [
         {
           variationId: "1",
           goalMetrics: {
-            metric1: { status: "failed", superStatSigStatus: "failed" },
+            metric1: { status: "errored", superStatSigStatus: "errored" },
           },
           guardrailMetrics: {},
         },
@@ -1697,11 +1697,11 @@ describe("compute-failed metrics are indeterminate, not false", () => {
 
     expect(decision).toEqual({
       status: "data-incomplete",
-      failedMetrics: ["metric1"],
+      erroredMetrics: ["metric1"],
     });
   });
 
-  it("getDecisionFrameworkStatus still rolls back on a surviving losing guardrail while another failed", () => {
+  it("getDecisionFrameworkStatus still rolls back on a surviving losing guardrail while another errored", () => {
     const resultsStatus: ExperimentAnalysisSummaryResultsStatus = {
       variations: [
         {
@@ -1709,7 +1709,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
           goalMetrics: {},
           guardrailMetrics: {
             guardrail1: { status: "lost" },
-            guardrail2: { status: "failed" },
+            guardrail2: { status: "errored" },
           },
         },
       ],
@@ -1770,7 +1770,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
           variationId: "1",
           goalMetrics: {
             goalA: { status: "won", superStatSigStatus: "won" },
-            goalB: { status: "failed", superStatSigStatus: "failed" },
+            goalB: { status: "errored", superStatSigStatus: "errored" },
           },
           guardrailMetrics: { guardrail1: { status: "lost" } },
         },
@@ -1788,11 +1788,11 @@ describe("compute-failed metrics are indeterminate, not false", () => {
 
     expect(decision).toEqual({
       status: "data-incomplete",
-      failedMetrics: ["goalB"],
+      erroredMetrics: ["goalB"],
     });
   });
 
-  it("withholds a lower ship rule when a higher rollback rule's only guardrail failed", () => {
+  it("withholds a lower ship rule when a higher rollback rule's only guardrail errored", () => {
     const criteria: DecisionCriteriaData = {
       id: "gbdeccrit_rollback_then_ship",
       name: "rollback-then-ship",
@@ -1821,7 +1821,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
           goalMetrics: {
             goalA: { status: "won", superStatSigStatus: "won" },
           },
-          guardrailMetrics: { guardrail1: { status: "failed" } },
+          guardrailMetrics: { guardrail1: { status: "errored" } },
         },
       ],
       settings: { sequentialTesting: false },
@@ -1837,7 +1837,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
 
     expect(decision).toEqual({
       status: "data-incomplete",
-      failedMetrics: ["guardrail1"],
+      erroredMetrics: ["guardrail1"],
     });
   });
 
@@ -1848,7 +1848,7 @@ describe("compute-failed metrics are indeterminate, not false", () => {
           {
             variationId: "1",
             goalMetrics: {
-              metric1: { status: "failed", superStatSigStatus: "failed" },
+              metric1: { status: "errored", superStatSigStatus: "errored" },
             },
             guardrailMetrics: {},
           },
@@ -2132,7 +2132,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
           {
             variationId: "1",
             goalMetrics: {
-              "metric-1": { status: "failed", superStatSigStatus: "failed" },
+              "metric-1": { status: "errored", superStatSigStatus: "errored" },
             },
             guardrailMetrics: {},
           },
@@ -2169,7 +2169,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     expect(result?.status).toBe("data-incomplete");
   });
 
-  it("expands metric groups so a failed group member is seen", () => {
+  it("expands metric groups so an errored group member is seen", () => {
     const result = getExperimentResultStatus({
       experimentData: makeExperimentData({
         dateStarted: daysAgo(30),
@@ -2185,7 +2185,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
 
     expect(result).toEqual({
       status: "data-incomplete",
-      failedMetrics: ["metric-1"],
+      erroredMetrics: ["metric-1"],
     });
   });
 });

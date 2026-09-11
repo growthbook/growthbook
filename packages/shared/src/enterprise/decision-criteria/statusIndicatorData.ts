@@ -33,7 +33,7 @@ export function getStatusIndicatorData({
   healthSettings: ExperimentHealthSettings;
   decisionCriteria: DecisionCriteriaData;
   metricGroups: MetricGroupInterface[];
-  // Failed metric ids are shown as-is when omitted.
+  // Errored metric ids are shown as-is when omitted.
   resolveMetricName?: MetricNameResolver;
 }): StatusIndicatorData {
   if (!skipArchived && experimentData.archived) {
@@ -187,11 +187,11 @@ function getDetailedRunningStatusIndicatorData(
         sortOrder: 10,
       };
     case "data-incomplete": {
-      const failedNames = decisionData.failedMetrics.map(
+      const erroredNames = decisionData.erroredMetrics.map(
         (id) => resolveMetricName?.(id) ?? id,
       );
-      const subject = failedNames.length
-        ? failedNames.join(", ")
+      const subject = erroredNames.length
+        ? erroredNames.join(", ")
         : "Some metrics";
       return {
         color: "amber",

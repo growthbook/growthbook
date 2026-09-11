@@ -43,7 +43,7 @@ import {
 
 export type MatchResult = "matched" | "not-matched" | "indeterminate";
 
-// Failed metrics make a condition indeterminate unless known metrics decide it.
+// Errored metrics make a condition indeterminate unless known metrics decide it.
 function evaluateConditionMatch({
   values,
   desiredStatus,
@@ -53,27 +53,27 @@ function evaluateConditionMatch({
   desiredStatus: string;
   match: DecisionCriteriaCondition["match"];
 }): MatchResult {
-  const known = values.filter((v) => v !== "failed");
-  const anyFailed = values.some((v) => v === "failed");
+  const known = values.filter((v) => v !== "errored");
+  const anyErrored = values.some((v) => v === "errored");
 
   switch (match) {
     case "all":
       if (known.some((v) => v !== desiredStatus)) {
         return "not-matched";
       }
-      return anyFailed ? "indeterminate" : "matched";
+      return anyErrored ? "indeterminate" : "matched";
 
     case "any":
       if (known.some((v) => v === desiredStatus)) {
         return "matched";
       }
-      return anyFailed ? "indeterminate" : "not-matched";
+      return anyErrored ? "indeterminate" : "not-matched";
 
     case "none":
       if (known.some((v) => v === desiredStatus)) {
         return "not-matched";
       }
-      return anyFailed ? "indeterminate" : "matched";
+      return anyErrored ? "indeterminate" : "matched";
   }
 }
 
@@ -292,7 +292,7 @@ export function getHealthSettings(
   };
 }
 
-function getFailedMetricIds({
+function getErroredMetricIds({
   resultsStatus,
   goalMetrics,
   guardrailMetrics,
@@ -301,19 +301,22 @@ function getFailedMetricIds({
   goalMetrics: string[];
   guardrailMetrics: string[];
 }): string[] {
-  const failed = new Set<string>();
+  const errored = new Set<string>();
   for (const variation of resultsStatus.variations) {
     for (const m of goalMetrics) {
       const goal = variation.goalMetrics?.[m];
-      if (goal?.status === "failed" || goal?.superStatSigStatus === "failed") {
-        failed.add(m);
+      if (
+        goal?.status === "errored" ||
+        goal?.superStatSigStatus === "errored"
+      ) {
+        errored.add(m);
       }
     }
     for (const m of guardrailMetrics) {
-      if (variation.guardrailMetrics?.[m]?.status === "failed") failed.add(m);
+      if (variation.guardrailMetrics?.[m]?.status === "errored") errored.add(m);
     }
   }
-  return [...failed];
+  return [...errored];
 }
 
 export function getDecisionFrameworkStatus({
@@ -364,7 +367,7 @@ export function getDecisionFrameworkStatus({
 
   const dataIncomplete = (): ExperimentResultStatusData => ({
     status: "data-incomplete",
-    failedMetrics: getFailedMetricIds({
+    erroredMetrics: getErroredMetricIds({
       resultsStatus,
       goalMetrics,
       guardrailMetrics,
