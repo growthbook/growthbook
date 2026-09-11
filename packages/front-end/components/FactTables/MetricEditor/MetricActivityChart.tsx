@@ -8,12 +8,14 @@ import {
   useExplorerContext,
 } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
-import Heading from "@/ui/Heading";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { cssColorToHex } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { getActivityChart } from "./activityChart";
 
 function ActivityChart({ revision }: { revision: number }) {
+  const { theme } = useAppearanceUITheme();
   const {
     exploration,
     loading,
@@ -38,15 +40,19 @@ function ActivityChart({ revision }: { revision: number }) {
     return <Text color="text-mid">Loading activity over the last 7 days…</Text>;
   if (error)
     return (
-      <Callout status="error">
+      <Callout
+        status="error"
+        action={
+          <Button
+            size="sm"
+            variant="soft"
+            onClick={() => handleSubmit({ force: true })}
+          >
+            Retry activity
+          </Button>
+        }
+      >
         {error}
-        <Button
-          size="sm"
-          variant="soft"
-          onClick={() => handleSubmit({ force: true })}
-        >
-          Retry activity
-        </Button>
       </Callout>
     );
   if (!isSubmittable)
@@ -59,13 +65,14 @@ function ActivityChart({ revision }: { revision: number }) {
   const chart = getActivityChart(exploration);
   return (
     <div>
-      <Heading as="h3" size="2xl" mb="0">
+      <Text as="div" size="xl" weight="semibold">
         {chart.total.toLocaleString()}
-      </Heading>
+      </Text>
       <Text as="div" size="sm" color="text-mid">
         Matching rows · last 7 days
       </Text>
       <EChartsReact
+        key={theme}
         notMerge
         option={{
           aria: { enabled: true },
@@ -82,7 +89,9 @@ function ActivityChart({ revision }: { revision: number }) {
                 value,
                 itemStyle: {
                   color:
-                    index === chart.counts.length - 1 ? "#7759df" : "#ddd3fa",
+                    index === chart.counts.length - 1
+                      ? cssColorToHex("var(--violet-9)")
+                      : cssColorToHex("var(--violet-4)"),
                   borderRadius: [2, 2, 0, 0],
                 },
               })),
