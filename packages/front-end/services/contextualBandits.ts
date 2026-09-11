@@ -11,6 +11,10 @@ import { useUser } from "@/services/UserContext";
  */
 export function contextualBanditStatusIndicatorData(
   cb: ApiContextualBanditInterface,
+  health?: {
+    srm: number | null;
+    totalUsers: number;
+  },
 ): ExperimentDataForStatusStringDates {
   return {
     type: "contextual-bandit",
@@ -18,7 +22,15 @@ export function contextualBanditStatusIndicatorData(
     status: cb.status,
     archived: cb.archived,
     results: undefined,
-    analysisSummary: undefined,
+    analysisSummary: health
+      ? {
+          snapshotId: "",
+          health: {
+            srm: health.srm,
+            totalUsers: health.totalUsers,
+          },
+        }
+      : undefined,
     phases: [
       {
         dateStarted: cb.dateStarted ?? cb.dateCreated,

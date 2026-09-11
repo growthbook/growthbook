@@ -153,7 +153,7 @@ export function isMultiStatementSQL(sql: string, backslashEscapes: boolean) {
   }
 }
 
-function stripCommentsAndStrings(
+export function stripCommentsAndStrings(
   sql: string,
   backslashEscapes: boolean,
 ): {

@@ -1,24 +1,20 @@
 import { BanditEvent } from "shared/validators";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { getSRMHealthData, getBanditSRMValue } from "shared/health";
-import {
-  DEFAULT_SRM_THRESHOLD,
-  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
-} from "shared/constants";
+import { getBanditSRMValue } from "shared/health";
+import { DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { useUser } from "@/services/UserContext";
 import BanditSRMGraph from "@/components/HealthTab/BanditSRMGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { pValueFormatter } from "@/services/experiments";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-import { StatusBadge } from "./StatusBadge";
+import SRMCardShell, { useSrmHealth } from "./SRMCardShell";
 import { IssueValue } from "./IssueTags";
 
 interface Props {
@@ -34,10 +30,6 @@ export default function BanditSRMCard({
   phase,
   onNotify,
 }: Props) {
-  const { settings } = useUser();
-
-  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
-
   const banditEvents: BanditEvent[] = phase?.banditEvents ?? [];
   const currentEvent = banditEvents?.[banditEvents.length - 1];
 
@@ -51,23 +43,13 @@ export default function BanditSRMCard({
   const [chartMode, setChartMode] = useState<"weights" | "users">("users");
 
   const numOfVariations = getLatestPhaseVariations(experiment).length;
-  const overallHealth = useMemo(
-    () =>
-      getSRMHealthData({
-        srm: srm ?? Infinity,
-        srmThreshold,
-        numOfVariations,
-        totalUsersCount: totalUsers,
-        minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
-      }),
-    [srm, srmThreshold, numOfVariations, totalUsers],
-  );
-
-  useEffect(() => {
-    if (overallHealth === "unhealthy") {
-      onNotify({ label: "Experiment Balance", value: "balanceCheck" });
-    }
-  }, [overallHealth, onNotify]);
+  const overallHealth = useSrmHealth({
+    srm: srm ?? Infinity,
+    numOfVariations,
+    totalUsersCount: totalUsers,
+    minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+    onNotify,
+  });
 
   if (srm === undefined) {
     return (
@@ -78,67 +60,58 @@ export default function BanditSRMCard({
   }
 
   return (
-    <div className="box container-fluid my-4 p-3">
-      <div className="row overflow-hidden" id="parent-container">
-        <div className="col-12">
-          <h2 className="d-inline">Experiment Balance Check</h2>{" "}
-          {overallHealth !== "healthy" && (
-            <StatusBadge status={overallHealth} />
-          )}
-          <p className="mt-1">
-            Shows actual unit split compared to percent selected for the
-            experiment
-          </p>
-          <hr />
-          <div>
-            <div className="mb-3">
-              <label className="uppercase-title">Chart</label>
-              <ButtonSelectField
-                value={chartMode}
-                setValue={(v) => setChartMode(v)}
-                options={[
-                  {
-                    label: "Actual & Expected Traffic",
-                    value: "users",
-                  },
-                  {
-                    label: "Actual & Expected Traffic Split",
-                    value: "weights",
-                  },
-                ]}
-              />
-            </div>
-            <BanditSRMGraph
-              experiment={experiment}
-              phase={phase}
-              mode={chartMode}
-            />
-          </div>
-          <div>
-            {overallHealth !== "not-enough-traffic" ? (
-              <>
-                <div className="text-muted mx-3 mb-2">
-                  p-value:{" "}
-                  {srm !== undefined ? pValueFormatter(srm, 4) : <em>n/a</em>}
-                </div>
-                <SRMWarning
-                  srm={srm ?? Infinity}
-                  users={users}
-                  showWhenHealthy
-                  isBandit={true}
-                />
-              </>
-            ) : (
-              <Callout status="info">
-                <Text weight="semibold">
-                  More traffic is required to detect a Sample Ratio Mismatch
-                  (SRM).
-                </Text>
-              </Callout>
-            )}
-          </div>
+    <SRMCardShell
+      title="Experiment Balance Check"
+      description="Shows actual unit split compared to percent selected for the experiment"
+      srmHealth={overallHealth}
+      className="box"
+    >
+      <div>
+        <div className="mb-3">
+          <label className="uppercase-title">Chart</label>
+          <ButtonSelectField
+            value={chartMode}
+            setValue={(v) => setChartMode(v)}
+            options={[
+              {
+                label: "Actual & Expected Traffic",
+                value: "users",
+              },
+              {
+                label: "Actual & Expected Traffic Split",
+                value: "weights",
+              },
+            ]}
+          />
         </div>
+        <BanditSRMGraph
+          experiment={experiment}
+          phase={phase}
+          mode={chartMode}
+        />
       </div>
-    </div>
+      <div>
+        {overallHealth !== "not-enough-traffic" ? (
+          <>
+            <Text as="div" color="text-low" mx="3" mb="2">
+              p-value:{" "}
+              {srm !== undefined ? pValueFormatter(srm, 4) : <em>n/a</em>}
+            </Text>
+            <SRMWarning
+              srm={srm ?? Infinity}
+              users={users}
+              showWhenHealthy
+              isBandit={true}
+            />
+          </>
+        ) : (
+          <Callout status="info">
+            <Text weight="semibold">
+              More traffic is required to detect a Sample Ratio Mismatch (SRM).
+            </Text>
+          </Callout>
+        )}
+      </div>
+    </SRMCardShell>
   );
 }
