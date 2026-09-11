@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { BiShow } from "react-icons/bi";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import RadixTooltip from "@/ui/Tooltip";
 import Modal from "@/components/Modal";
 import { useAttributeSchema } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
@@ -33,8 +34,69 @@ import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
 import { useTableColumns } from "@/hooks/useTableColumns";
 import { ResolvedTableColumn, TableColumnDef } from "@/services/tableColumns";
 
-const ATTRIBUTE_NAME_COLUMN_MAX_WIDTH = 200;
-const TAGS_COLUMN_MAX_WIDTH = 160;
+// Rough char budget for a column of `width` px. Only settles after a resize
+// commits, which is why it takes the committed width rather than a live one.
+function truncateCharsForWidth(width: number | undefined) {
+  return Math.max(12, Math.floor((width ?? 220) / 8));
+}
+
+/**
+ * Clamped content plus a tooltip that only appears once the text is actually
+ * clipped. Measured rather than guessed from a character count: these columns
+ * are resizable and one of them absorbs the table's slack, so the same string
+ * clips at one width and fits at another.
+ */
+const ClampedCell: FC<{
+  tooltip: string;
+  clampLines?: number;
+  children: ReactNode;
+}> = ({ tooltip, clampLines = 1, children }) => {
+  // A callback ref, not useRef: toggling `enabled` swaps a fragment for the
+  // tooltip trigger, which remounts this node. A held ref would keep measuring
+  // the detached one, read 0, and flip the tooltip straight back off.
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const [overflowing, setOverflowing] = useState(false);
+
+  useEffect(() => {
+    if (!node) return;
+    const measure = () =>
+      setOverflowing(
+        node.scrollHeight > node.clientHeight + 1 ||
+          node.scrollWidth > node.clientWidth + 1,
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    // The cell too: a line-clamped box keeps the same height whatever its
+    // content, so watching only this node would never re-fire on resize.
+    if (node.parentElement) observer.observe(node.parentElement);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node, tooltip, clampLines]);
+
+  return (
+    <RadixTooltip content={tooltip} enabled={overflowing}>
+      <div
+        ref={setNode}
+        style={
+          clampLines > 1
+            ? {
+                display: "-webkit-box",
+                WebkitLineClamp: clampLines,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }
+            : {
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }
+        }
+      >
+        {children}
+      </div>
+    </RadixTooltip>
+  );
+};
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -134,9 +196,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
         label: "Attribute",
         sortField: "property",
         hideable: false,
-        defaultWidth: ATTRIBUTE_NAME_COLUMN_MAX_WIDTH,
+        defaultWidth: 200,
+        minWidth: 120,
         cellProps: () => ({ className: "text-gray font-weight-bold" }),
-        render: (v) => (
+        render: (v, width) => (
           <>
             <Link
               href={`/attributes/${encodeURIComponent(v.property)}`}
@@ -144,8 +207,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
             >
               <TruncateMiddleWithTooltip
                 text={v.property}
-                maxChars={23}
-                maxWidth={ATTRIBUTE_NAME_COLUMN_MAX_WIDTH}
+                maxChars={truncateCharsForWidth(width)}
+                maxWidth="100%"
               />
             </Link>{" "}
             {v.archived && (
@@ -157,44 +220,59 @@ const FeatureAttributesPage = (): React.ReactElement => {
         ),
       },
       {
+        // The slack absorber: no defaultWidth, so it takes the remaining space.
         id: "description",
         label: "Description",
         sortField: "description",
-        defaultWidth: 200,
-        cellProps: () => ({
-          className: "text-gray",
-          style: { overflow: "hidden" },
-        }),
+        cellProps: () => ({ className: "text-gray" }),
         render: (v) =>
           v.description ? (
-            <Markdown className="mb-0">{v.description}</Markdown>
+            // Plain text in the tooltip: Radix wraps content in a <p>, so
+            // rendered Markdown would nest block elements inside it.
+            <ClampedCell tooltip={v.description} clampLines={2}>
+              <Markdown className="mb-0">{v.description}</Markdown>
+            </ClampedCell>
           ) : null,
       },
       {
         id: "datatype",
         label: "Data Type",
         sortField: "datatype",
-        cellProps: () => ({
-          className: "text-gray",
-          style: { wordWrap: "break-word" },
-        }),
-        render: (v) => (
-          <>
-            {v.datatype}
-            {v.datatype === "enum" && <>: ({v.enum})</>}
-            {v.format && (
-              <p className="my-0">
-                <small>(format: {v.format})</small>
-              </p>
-            )}
-          </>
-        ),
+        defaultWidth: 170,
+        cellProps: () => ({ className: "text-gray" }),
+        render: (v) => {
+          // Enum lists are unbounded, so the detail line gets one line plus a
+          // tooltip rather than wrapping and making every row taller.
+          const detail =
+            v.datatype === "enum" && v.enum
+              ? `(${v.enum})`
+              : v.format
+                ? `(format: ${v.format})`
+                : "";
+          return (
+            <>
+              <Text as="div" truncate>
+                {v.datatype}
+              </Text>
+              {detail && (
+                <ClampedCell tooltip={detail}>
+                  {/* Inline, so the clamp's text-overflow ellipsis applies — it
+                      doesn't act on an overflowing block child. whiteSpace is
+                      explicit because Text otherwise sets `normal` inline,
+                      which beats the clamp's nowrap and lets the text wrap. */}
+                  <Text as="span" size="sm" whiteSpace="nowrap">
+                    {detail}
+                  </Text>
+                </ClampedCell>
+              )}
+            </>
+          );
+        },
       },
       {
         id: "projects",
         label: "Projects",
-        headerProps: { style: { paddingRight: "1rem" } },
-        cellProps: () => ({ style: { paddingRight: "1rem" } }),
+        defaultWidth: 130,
         render: (v) => (
           <ProjectBadges
             resourceType="attribute"
@@ -205,9 +283,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
       {
         id: "tags",
         label: "Tags",
-        defaultWidth: TAGS_COLUMN_MAX_WIDTH,
-        cellProps: () => ({ style: { overflow: "hidden" } }),
+        defaultWidth: 130,
         render: (v) => (
+          // The inner div is the flex min-width: 0 fix for SortedTags useFlex;
+          // overflow must not go on the <td> (list cells stay visible so
+          // in-cell poppers aren't clipped).
           <div
             className="tags-cell-content"
             style={{ minWidth: 0, maxWidth: "100%", overflow: "hidden" }}
@@ -224,6 +304,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       {
         id: "references",
         label: "References",
+        defaultWidth: 130,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) => {
           const refs = references?.[v.property];
@@ -270,6 +351,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           </>
         ),
         align: "center",
+        defaultWidth: 90,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) => (
           <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
@@ -281,6 +363,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
         header: null,
         locked: true,
         resizable: false,
+        // Sized to the control it holds rather than to the shared padding,
+        // which would otherwise take more room than the icon itself.
+        defaultWidth: 40,
+        minWidth: 40,
+        headerProps: { style: { paddingLeft: 4, paddingRight: 4 } },
+        cellProps: () => ({ style: { paddingLeft: 4, paddingRight: 4 } }),
         render: (v) => (
           <Flex justify="center">
             <AttributeRowMenu
@@ -302,6 +390,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     isCustomized,
     applySettings,
     reset,
+    ColGroup,
   } = useTableColumns({ storageKey: "attributes", columns: columnDefs });
 
   // Lives in the empty row-actions header rather than the filter toolbar, which
@@ -374,12 +463,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </Flex>
             </Box>
           )}
-          <Table
-            variant="list"
-            stickyHeader
-            roundedCorners
-            style={{ tableLayout: "auto" }}
-          >
+          <Table variant="list" stickyHeader roundedCorners layout="fixed">
+            <ColGroup />
             <TableHeader>
               <TableRow>
                 {visibleColumns.map((col) =>
@@ -389,7 +474,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       field={col.sortField}
                       className={col.headerProps?.className}
                       style={{
-                        maxWidth: col.width,
                         textAlign: col.align,
                         ...col.headerProps?.style,
                       }}
@@ -401,7 +485,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       key={col.id}
                       className={col.headerProps?.className}
                       style={{
-                        maxWidth: col.width,
                         textAlign: col.align,
                         ...col.headerProps?.style,
                       }}
@@ -426,9 +509,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
                           <TableCell
                             key={col.id}
                             className={className}
-                            style={{ maxWidth: col.width, ...style }}
+                            style={style}
                           >
-                            {col.render(v)}
+                            {col.render(v, col.width)}
                           </TableCell>
                         );
                       })}
