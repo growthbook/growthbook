@@ -7,6 +7,18 @@ slug: /app/webhooks/event-webhooks/events
 
 import EventWebhookList from '/snippets/partials/event-webhook/_event-webhook-list.mdx';
 
+## API versions
+
+Configure the API version when creating or editing a JSON webhook under
+**Settings → Webhooks**. The setting applies to all events sent to that webhook.
+New webhooks default to `2026-09-11`; existing webhooks keep `2024-07-31` until updated.
+
+In `2026-09-11`, `experiment.info.significance` has a new format containing all
+newly significant metric/variation results for the refresh in `data.object.changes`,
+including slices. Version `2024-07-31` sends one result per event. Both formats are
+listed below. Update your receiver before changing versions; queued deliveries
+and retries keep their saved version.
+
 We currently support the following event types:
 
 <EventWebhookList />

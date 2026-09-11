@@ -5,6 +5,8 @@ import { z } from "zod";
 import {
   notificationEvents,
   notificationEventPayload,
+  experimentInfoSignificance,
+  legacyExperimentInfoSignificance,
 } from "shared/validators";
 
 const basePath = path.resolve(path.dirname(process.argv[1]), "../../../docs");
@@ -39,12 +41,7 @@ const eventTableEntry = ({ name, description }) =>
 
 const quote = "```";
 
-const eventEntry = async ({ name, description, payload }) => `
-### ${name}
-
-${description}
-
-<Accordion title="Payload">
+const payloadEntry = async (payload: z.ZodType) => `<Accordion title="Payload">
 
 ${quote}typescript
 ${await typeScriptSchema(payload)}
@@ -52,6 +49,27 @@ ${quote}
 
 </Accordion>
 `;
+
+const eventEntry = async ({ name, description, payload }) => {
+  const payloads =
+    name === "experiment.info.significance"
+      ? await Promise.all(
+          (
+            [
+              ["2026-09-11", experimentInfoSignificance],
+              ["2024-07-31", legacyExperimentInfoSignificance],
+            ] as const
+          ).map(async ([version, schema]) => {
+            const versionedPayload = payload.extend({
+              api_version: z.literal(version),
+              data: z.object({ object: schema }),
+            });
+            return `#### API version ${version}\n\n${await payloadEntry(versionedPayload)}`;
+          }),
+        )
+      : [await payloadEntry(payload)];
+  return `### ${name}\n\n${description}\n\n${payloads.join("\n")}`;
+};
 
 const content = async () => {
   const eventEntries = await Promise.all(events.map(eventEntry));

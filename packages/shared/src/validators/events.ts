@@ -45,6 +45,7 @@ import {
 import { experimentWarningNotificationPayload } from "./experiment-warnings";
 import {
   experimentInfoSignificance,
+  legacyExperimentInfoSignificance,
   experimentInfoScheduledStatusUpdate,
 } from "./experiment-info";
 import { experimentDecisionNotificationPayload } from "./experiment-decision";
@@ -299,7 +300,10 @@ export const notificationEvents = {
         "Triggered when a warning condition is detected on an experiment",
     },
     "info.significance": {
-      schema: experimentInfoSignificance,
+      schema: z.union([
+        experimentInfoSignificance,
+        legacyExperimentInfoSignificance,
+      ]),
       description: `Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.`,
     },
     "info.scheduled-status-update": {

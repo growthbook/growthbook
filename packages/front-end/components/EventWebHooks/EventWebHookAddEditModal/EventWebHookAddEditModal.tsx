@@ -4,7 +4,10 @@ import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowLeft, PiCaretRight, PiCheckCircleFill } from "react-icons/pi";
-import { isEventWebhookWildcard } from "shared/validators";
+import {
+  eventWebHookApiVersion,
+  isEventWebhookWildcard,
+} from "shared/validators";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -216,6 +219,28 @@ const EventWebHookAddEditSettings = ({
           handleFormValidation();
         }}
       />
+
+      {selectedPayloadType === "json" && (
+        <Box mt="4">
+          <SelectField
+            label="API version"
+            sort={false}
+            value={form.watch("apiVersion") ?? "2024-07-31"}
+            onChange={(value) =>
+              form.setValue("apiVersion", eventWebHookApiVersion.parse(value))
+            }
+            options={[
+              { value: "2026-09-11", label: "2026-09-11" },
+              { value: "2024-07-31", label: "2024-07-31" },
+            ]}
+          />
+          <Text as="p" size="sm" color="text-low" mt="2">
+            <DocLink docSection="eventWebhookVersions">
+              View API version changes
+            </DocLink>
+          </Text>
+        </Box>
+      )}
 
       <Box mt="4">
         <Field
@@ -482,7 +507,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const form = useForm<EventWebHookEditParams>({
     defaultValues:
       mode.mode === "edit"
-        ? mode.data
+        ? { ...mode.data, apiVersion: mode.data.apiVersion ?? "2024-07-31" }
         : {
             name: "",
             events: [],
@@ -492,6 +517,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             projects: [],
             tags: [],
             payloadType: "json",
+            apiVersion: "2026-09-11",
             method: "POST",
             headers: "{}",
           },
@@ -543,6 +569,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           : eventWebHookPayloadTypes,
       ),
       tags: z.array(z.string()),
+      apiVersion: eventWebHookApiVersion,
       projects: z.array(z.string()),
       environments: z.array(z.string()),
       method: z.enum(eventWebHookMethods),

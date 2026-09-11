@@ -1,9 +1,7 @@
 import { z } from "zod";
 
-export const experimentInfoSignificance = z
+export const experimentSignificanceChange = z
   .object({
-    experimentName: z.string(),
-    experimentId: z.string(),
     variationId: z.string(),
     variationName: z.string(),
     metricName: z.string(),
@@ -13,6 +11,29 @@ export const experimentInfoSignificance = z
     winning: z.boolean(),
   })
   .strict();
+
+export const experimentInfoSignificance = z
+  .object({
+    experimentName: z.string(),
+    experimentId: z.string(),
+    changes: z.array(experimentSignificanceChange).min(1),
+  })
+  .strict();
+
+export const legacyExperimentInfoSignificance = experimentSignificanceChange
+  .extend({
+    experimentName: z.string(),
+    experimentId: z.string(),
+  })
+  .strict();
+
+export type ExperimentSignificanceChange = z.infer<
+  typeof experimentSignificanceChange
+>;
+
+export type LegacyExperimentInfoSignificancePayload = z.infer<
+  typeof legacyExperimentInfoSignificance
+>;
 
 export type ExperimentInfoSignificancePayload = z.infer<
   typeof experimentInfoSignificance

@@ -24,7 +24,7 @@ import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 
-const API_VERSION = "2024-07-31" as const;
+const API_VERSION = "2026-09-11" as const;
 const MODEL_VERSION = 1 as const;
 
 const eventSchema = new mongoose.Schema({

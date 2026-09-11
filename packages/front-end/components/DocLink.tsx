@@ -29,6 +29,7 @@ const docSections = {
   powerCalculator: "/statistics/power",
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
+  eventWebhookVersions: "/app/webhooks/event-webhooks/events#api-versions",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
   productAnalytics: "/app/product-analytics",
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",

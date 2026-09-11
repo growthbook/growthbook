@@ -17,6 +17,14 @@ When logged into GrowthBook as an admin, navigate to **Settings → Webhooks**.
 
 There you can add a webhook endpoint and select which events you want to be notified about.
 
+## API version
+
+JSON webhooks have an API version setting for all subscribed events. New webhooks
+default to `2026-09-11`. Existing webhooks without a saved version use `2024-07-31`;
+updates that omit `apiVersion` keep the saved version.
+Currently, only significance events differ. See the
+[payload and migration details](/app/webhooks/event-webhooks/events).
+
 ## Supported Event Types
 
 See the [full list of events](/app/webhooks/event-webhooks/events).
