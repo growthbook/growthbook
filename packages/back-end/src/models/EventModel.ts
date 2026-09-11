@@ -139,7 +139,7 @@ export const createEventWithPayload = async <
       typeof MODEL_VERSION
     >;
 
-    new EventNotifier(event.id).perform();
+    await new EventNotifier(event.id).perform();
   } catch (e) {
     logger.error(e);
   }

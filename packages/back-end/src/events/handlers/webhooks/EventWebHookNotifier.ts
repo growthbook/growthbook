@@ -5,7 +5,7 @@ import {
 } from "shared/types/event-webhook";
 import { LegacyNotificationEvent } from "shared/types/events/notification-events";
 import { NotificationEventName } from "shared/types/events/event";
-import { getAgendaInstance } from "back-end/src/services/queueing";
+import { getEventAgendaInstance } from "back-end/src/services/queueing";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
   getEventWebHookById,
@@ -25,7 +25,7 @@ import {
 } from "back-end/src/services/slack/slackWebApi";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
-import { SecretsReplacer } from "back-end/src/util/secrets";
+import { EVENT_QUEUE_CONFIG, SecretsReplacer } from "back-end/src/util/secrets";
 import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 import {
   EventWebHookErrorResult,
@@ -34,10 +34,10 @@ import {
   getEventWebHookSignatureForPayload,
 } from "./event-webhooks-utils";
 
-let jobDefined = false;
+const definedAgendas = new WeakSet<Agenda>();
 
 interface Notifier {
-  enqueue(): void;
+  enqueue(): Promise<void>;
 }
 
 type EventWebHookNotificationHandlerOptions = {
@@ -53,15 +53,20 @@ type EventWebHookJobData = JobAttributesData &
 export class EventWebHookNotifier implements Notifier {
   constructor(
     private options: EventWebHookNotificationHandlerOptions,
-    private agenda: Agenda = getAgendaInstance(),
+    private agenda: Agenda = getEventAgendaInstance(),
   ) {
-    if (jobDefined) return;
+    EventWebHookNotifier.register(this.agenda);
+  }
 
-    this.agenda.define<EventWebHookJobData>(
+  static register(agenda: Agenda): void {
+    if (definedAgendas.has(agenda)) return;
+
+    agenda.define<EventWebHookJobData>(
       "eventWebHook",
+      EVENT_QUEUE_CONFIG.eventWebHook,
       EventWebHookNotifier.handleAgendaJob,
     );
-    jobDefined = true;
+    definedAgendas.add(agenda);
   }
 
   /**

@@ -1,16 +1,17 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
 import { EventInterface } from "shared/types/events/event";
-import { getAgendaInstance } from "back-end/src/services/queueing";
+import { getEventAgendaInstance } from "back-end/src/services/queueing";
+import { EVENT_QUEUE_CONFIG } from "back-end/src/util/secrets";
 import { webHooksEventHandler } from "back-end/src/events/handlers/webhooks/webHooksEventHandler";
 import { slackEventHandler } from "back-end/src/events/handlers/slack/slackEventHandler";
 import { getEvent } from "back-end/src/models/EventModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { Context } from "back-end/src/models/BaseModel";
 
-let jobDefined = false;
+const definedAgendas = new WeakSet<Agenda>();
 
 interface Notifier {
-  perform(): void;
+  perform(): Promise<void>;
 }
 
 interface EventNotificationData extends JobAttributesData {
@@ -26,17 +27,21 @@ export class EventNotifier implements Notifier {
 
   constructor(
     eventId: string,
-    private agenda: Agenda = getAgendaInstance(),
+    private agenda: Agenda = getEventAgendaInstance(),
   ) {
     this.eventId = eventId;
+    EventNotifier.register(this.agenda);
+  }
 
-    if (jobDefined) return;
+  static register(agenda: Agenda): void {
+    if (definedAgendas.has(agenda)) return;
 
-    this.agenda.define<EventNotificationData>(
+    agenda.define<EventNotificationData>(
       "eventCreated",
+      EVENT_QUEUE_CONFIG.eventCreated,
       EventNotifier.jobHandler,
     );
-    jobDefined = true;
+    definedAgendas.add(agenda);
   }
 
   private static async jobHandler(
@@ -52,8 +57,13 @@ export class EventNotifier implements Notifier {
 
     const context = await getContextForAgendaJobByOrgId(event.organizationId);
 
-    webHooksEventHandler(event, context);
-    slackEventHandler(event, context);
+    const results = await Promise.allSettled([
+      webHooksEventHandler(event, context),
+      slackEventHandler(event, context),
+    ]);
+    for (const result of results) {
+      if (result.status === "rejected") throw result.reason;
+    }
   }
 
   async perform() {
