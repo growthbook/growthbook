@@ -11,8 +11,13 @@ import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspac
 
 export default function NewFactMetricPage() {
   const router = useRouter();
-  const { project, ready, mutateDefinitions, getFactMetricById } =
-    useDefinitions();
+  const {
+    project,
+    ready,
+    mutateDefinitions,
+    getFactMetricById,
+    getFactTableById,
+  } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
   const returnUrl =
@@ -22,10 +27,25 @@ export default function NewFactMetricPage() {
 
   if (!ready || !router.isReady) return <LoadingOverlay />;
 
-  const duplicateSource =
-    typeof router.query.duplicate === "string"
-      ? getFactMetricById(router.query.duplicate)
-      : null;
+  const fromQuery = <T,>(
+    key: string,
+    lookup: (id: string) => T | null,
+  ): T | null => {
+    const v = router.query[key];
+    return typeof v === "string" ? lookup(v) : null;
+  };
+
+  const initialFactTable = fromQuery("factTable", getFactTableById);
+  if (router.query.factTable && !initialFactTable) {
+    return (
+      <Callout status="error">
+        Could not find the requested fact table.{" "}
+        <Link href={returnUrl}>Go back</Link>
+      </Callout>
+    );
+  }
+
+  const duplicateSource = fromQuery("duplicate", getFactMetricById);
   if (router.query.duplicate && !router.query.addMetric && !duplicateSource) {
     return (
       <Callout status="error">
@@ -77,6 +97,7 @@ export default function NewFactMetricPage() {
         <MetricWorkspace
           existing={null}
           duplicateFrom={duplicateFrom}
+          initialFactTable={initialFactTable}
           isEditing={true}
           mutate={mutateDefinitions}
           onSaved={(metric: FactMetricInterface) =>
