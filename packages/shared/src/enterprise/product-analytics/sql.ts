@@ -548,8 +548,8 @@ function generateRowFilterSQL(
 // dimension's filter to a group whose table can't actually resolve it,
 // rather than injecting a WHERE clause that references a nonexistent
 // column and fails at the warehouse.
-function factTableHasResolvableColumn(
-  factTable: MinimalFactTable,
+export function factTableHasResolvableColumn(
+  factTable: Pick<FactTableInterface, "columns">,
   column: string,
 ): boolean {
   const [baseColumn, ...rest] = column.split(".");
@@ -1890,22 +1890,37 @@ export function generateProductAnalyticsSQL(
 
   factTableGroups.forEach((factTableGroup, i) => {
     // Recomputed against this group's own fact table — a ratio metric's
-    // denominator can resolve a column differently, or not at all (NULL;
-    // getStaticDimensionFilters excludes such a group's rows entirely).
-    const groupDimensions: DimensionData[] = config.dimensions.map((d, di) => ({
-      alias: `dimension${di}`,
-      valueExpr:
-        d.dimensionType === "static" &&
-        !factTableHasResolvableColumn(factTableGroup.factTable, d.column)
-          ? "NULL"
-          : generateDimensionExpression(
-              d,
-              di,
-              factTableGroup,
-              dialect,
-              dateRange,
-            ),
-    }));
+    // denominator can resolve a column differently, or not at all. Static
+    // dimensions become NULL (getStaticDimensionFilters excludes such a
+    // group's rows entirely, since a pinned filter can't be evaluated at
+    // all). Dynamic dimensions fall into the same 'other' bucket already
+    // used for top-N truncation, since a breakdown should still account for
+    // this group's rows rather than dropping them or emitting an
+    // unresolvable column reference.
+    const groupDimensions: DimensionData[] = config.dimensions.map((d, di) => {
+      const unresolvable =
+        (d.dimensionType === "static" &&
+          !factTableHasResolvableColumn(factTableGroup.factTable, d.column)) ||
+        (d.dimensionType === "dynamic" &&
+          d.column !== null &&
+          !factTableHasResolvableColumn(factTableGroup.factTable, d.column));
+      if (unresolvable) {
+        return {
+          alias: `dimension${di}`,
+          valueExpr: d.dimensionType === "static" ? "NULL" : "'other'",
+        };
+      }
+      return {
+        alias: `dimension${di}`,
+        valueExpr: generateDimensionExpression(
+          d,
+          di,
+          factTableGroup,
+          dialect,
+          dateRange,
+        ),
+      };
+    });
     const staticDimensionFilters = getStaticDimensionFilters(
       config.dimensions,
       factTableGroup.factTable,
