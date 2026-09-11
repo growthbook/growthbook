@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { TestQueryRow } from "shared/types/integrations";
 import { TemplateVariables } from "shared/types/sql";
+import type { SqlDebugQueryKind } from "shared/sql-debug";
 import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiPlayFill, PiWarningFill } from "react-icons/pi";
@@ -39,6 +40,7 @@ export type TestQueryResults = {
   error?: string;
   results?: TestQueryRow[];
   sql?: string;
+  sourceSql?: string;
 };
 
 export interface Props {
@@ -68,6 +70,20 @@ export interface Props {
     objectName?: string;
   };
 }
+
+const SQL_DEBUG_KIND_BY_OBJECT_TYPE: Record<
+  Props["sqlObjectInfo"]["objectType"],
+  SqlDebugQueryKind
+> = {
+  Dimension: "dimension",
+  "Fact Table": "fact-table",
+  "Identity Join": "identity-join",
+  "Experiment Assignment Query": "experiment-assignment",
+  "Contextual Bandit Assignment Query": "contextual-bandit-assignment",
+  Metric: "metric",
+  Segment: "segment",
+  "Feature Usage Query": "feature-usage",
+};
 
 export default function EditSqlModal({
   value,
@@ -167,17 +183,31 @@ export default function EditSqlModal({
     ],
   );
 
+  const runAndDisplayTestQuery = useCallback(
+    async (sql: string) => {
+      setTestingQuery(true);
+      try {
+        const res = await runTestQuery(sql);
+        setTestQueryResults({
+          ...res,
+          error: res.error ? res.error : "",
+          sourceSql: sql,
+        });
+      } catch (e) {
+        setTestQueryResults({
+          sql,
+          sourceSql: sql,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+      setTestingQuery(false);
+    },
+    [runTestQuery],
+  );
+
   const handleTestQuery = useCallback(async () => {
-    setTestingQuery(true);
-    const sql = form.getValues("sql");
-    try {
-      const res = await runTestQuery(sql);
-      setTestQueryResults({ ...res, error: res.error ? res.error : "" });
-    } catch (e) {
-      setTestQueryResults({ sql: sql, error: e.message });
-    }
-    setTestingQuery(false);
-  }, [form, runTestQuery]);
+    await runAndDisplayTestQuery(form.getValues("sql"));
+  }, [form, runAndDisplayTestQuery]);
 
   const datasource = getDatasourceById(datasourceId);
   const canRunQueries = datasource
@@ -225,13 +255,17 @@ export default function EditSqlModal({
           try {
             res = await runTestQuery(value.sql);
           } catch (e) {
-            setTestQueryResults({ sql: value.sql, error: e.message });
+            setTestQueryResults({
+              sql: value.sql,
+              sourceSql: value.sql,
+              error: e instanceof Error ? e.message : String(e),
+            });
             // Rejecting with a blank error as we handle the error in the
             // DisplayTestQueryResults component rather than in the Modal component
             return Promise.reject(new Error());
           }
           if (res.error) {
-            setTestQueryResults(res);
+            setTestQueryResults({ ...res, sourceSql: value.sql });
             // Rejecting with a blank error as we handle the error in the
             // DisplayTestQueryResults component rather than in the Modal component
             return Promise.reject(new Error());
@@ -463,6 +497,35 @@ export default function EditSqlModal({
                       sql={testQueryResults.sql || ""}
                       error={testQueryResults.error || ""}
                       close={() => setTestQueryResults(null)}
+                      sqlDebug={
+                        testQueryResults.sourceSql === form.watch("sql")
+                          ? {
+                              datasourceId,
+                              queryKind:
+                                SQL_DEBUG_KIND_BY_OBJECT_TYPE[
+                                  modalInfo.objectType
+                                ],
+                              sourceSql: testQueryResults.sourceSql,
+                              context: {
+                                requiredColumns: Array.from(requiredColumns),
+                                userIdTypes:
+                                  datasource?.settings?.userIdTypes?.map(
+                                    ({ userIdType }) => userIdType,
+                                  ),
+                                timestampColumn,
+                                objectName: modalInfo.objectName,
+                              },
+                              onApplySql: (sql) => {
+                                form.setValue("sql", sql);
+                                setTestQueryResults(null);
+                              },
+                              onApplyAndRun: async (sql) => {
+                                form.setValue("sql", sql);
+                                await runAndDisplayTestQuery(sql);
+                              },
+                            }
+                          : undefined
+                      }
                     />
                   </Panel>
                 </>

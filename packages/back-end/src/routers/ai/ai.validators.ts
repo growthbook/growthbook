@@ -6,6 +6,8 @@ import {
   AIModel,
 } from "shared/ai";
 
+export { sqlDebugRequestValidator } from "shared/sql-debug";
+
 export const aiPromptTypeValidator = z.enum(AI_PROMPT_TYPES);
 
 export const aiProviderValidator = z.enum(AI_PROVIDERS);

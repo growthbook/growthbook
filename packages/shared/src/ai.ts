@@ -635,6 +635,7 @@ export const AI_PROMPT_TYPES = [
   "metric-description",
   "experiment-hypothesis",
   "generate-sql-query",
+  "debug-sql-query",
   "generate-experiment-keywords",
   "visual-changeset-copy-transform-energetic",
   "visual-changeset-copy-transform-concise",
@@ -674,6 +675,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "experiment-hypothesis":
     "A hypothesis is a statement that can be tested. It should be clear, concise, specific, and falsifiable. It should include how the user or product behavior is expected to change, and what metrics we're trying to move with this experiment. It does not need a title.",
   "generate-sql-query": "",
+  "debug-sql-query": "",
   "generate-experiment-keywords": "", // Always uses the default prompt set in ExperimentModel.ts
   "visual-changeset-copy-transform-energetic": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-concise": "", // Always uses the default prompt set in postCopyTransform.ts
@@ -692,6 +694,7 @@ export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
   (key) =>
     AI_PROMPT_DEFAULTS[key as AIPromptType] !== "" ||
     key === "generate-sql-query" ||
+    key === "debug-sql-query" ||
     key === "product-analytics-chat" ||
     key === "find-learnings-context",
 ) as AIPromptType[];

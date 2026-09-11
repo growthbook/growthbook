@@ -7,6 +7,7 @@ import {
   aiPromptTypeValidator,
   aiModelValidator,
   aiProviderValidator,
+  sqlDebugRequestValidator,
 } from "./ai.validators";
 
 const router = express.Router();
@@ -65,6 +66,14 @@ router.post(
     }),
   }),
   AIController.postAIPrompts,
+);
+
+router.post(
+  "/debug-sql",
+  validateRequestMiddleware({
+    body: sqlDebugRequestValidator,
+  }),
+  AIController.postDebugSql,
 );
 
 router.post(

@@ -33,6 +33,7 @@ export default function useSqlQueryPreview({
   const { localSql, setIsQueryRunning, setExploreReady } =
     useSqlEditorContext();
   const [state, setState] = useState<SqlQueryPreviewState>(idleState);
+  const [lastRunSql, setLastRunSql] = useState<string | null>(null);
   const lastPreviewedSqlRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -42,12 +43,14 @@ export default function useSqlQueryPreview({
       datasetSql !== lastPreviewedSqlRef.current
     ) {
       lastPreviewedSqlRef.current = null;
+      setLastRunSql(null);
       setState(idleState);
     }
   }, [dataset?.sql]);
 
   useEffect(() => {
     lastPreviewedSqlRef.current = null;
+    setLastRunSql(null);
     setState(idleState);
   }, [datasourceId]);
 
@@ -89,6 +92,7 @@ export default function useSqlQueryPreview({
       if (!sql.trim() || !datasourceId) return false;
 
       setIsQueryRunning(true);
+      setLastRunSql(sql);
       onRun?.();
       setState({ status: "loading", result: null, error: null });
 
@@ -146,6 +150,7 @@ export default function useSqlQueryPreview({
     loading: state.status === "loading",
     error: state.error,
     previewResult: state.result,
+    lastRunSql,
     runQuery,
   };
 }
