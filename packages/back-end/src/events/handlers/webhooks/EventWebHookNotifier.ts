@@ -5,6 +5,7 @@ import {
 } from "shared/types/event-webhook";
 import { LegacyNotificationEvent } from "shared/types/events/notification-events";
 import { NotificationEventName } from "shared/types/events/event";
+import { enqueueCoalescedEvent } from "back-end/src/services/slack/notificationCoalescing";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
@@ -45,6 +46,7 @@ interface Notifier {
 type EventWebHookNotificationHandlerOptions = {
   eventId: string;
   eventWebHookId: string;
+  bypassCoalescing?: boolean;
 };
 
 type EventWebHookJobData = JobAttributesData &
@@ -74,10 +76,16 @@ export class EventWebHookNotifier implements Notifier {
       ...this.options,
       retryCount: 0,
     });
-    job.unique({
-      "data.eventId": this.options.eventId,
-      "data.eventWebHookId": this.options.eventWebHookId,
-    });
+    job.unique(
+      {
+        "data.eventId": this.options.eventId,
+        "data.eventWebHookId": this.options.eventWebHookId,
+        "data.bypassCoalescing": this.options.bypassCoalescing
+          ? true
+          : { $ne: true },
+      },
+      { insertOnly: this.options.bypassCoalescing === true },
+    );
     job.schedule(new Date());
     await job.save();
   }
@@ -125,6 +133,18 @@ export class EventWebHookNotifier implements Notifier {
         `EventWebHookNotifier -> ImplementationError: No organization for ID: ${event.organizationId}`,
       );
     }
+
+    if (
+      !job.attrs.data.bypassCoalescing &&
+      job.attrs.data.retryCount === 0 &&
+      (await enqueueCoalescedEvent(
+        event,
+        eventWebHook,
+        getContextForAgendaJobByOrgObject(organization),
+        job.agenda,
+      ))
+    )
+      return;
 
     const payload = await (async () => {
       let invalidPayloadType: never;
