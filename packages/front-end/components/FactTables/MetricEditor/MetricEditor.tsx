@@ -336,16 +336,6 @@ export default function MetricEditor({
                   },
                 ]}
               />
-              <div>
-                <Text weight="semibold" as="div" mb="2">
-                  Tags
-                </Text>
-                {form.watch("tags")?.length ? (
-                  <SortedTags tags={form.watch("tags")} useFlex />
-                ) : (
-                  <Text>No tags</Text>
-                )}
-              </div>
             </Flex>
           )}
         </Frame>
