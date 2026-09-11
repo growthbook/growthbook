@@ -65,7 +65,11 @@ export default function SlackEventPreview({
   return preview.image ? (
     <img
       src={preview.image}
-      alt="Sample results card preview"
+      alt={
+        eventName.startsWith("digest:")
+          ? "Sample digest preview"
+          : "Sample results card preview"
+      }
       style={{ display: "block", width: "100%", borderRadius: 10 }}
     />
   ) : (

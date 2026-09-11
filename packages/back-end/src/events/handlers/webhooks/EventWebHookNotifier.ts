@@ -29,6 +29,7 @@ import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handle
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
 import { decryptSlackBotToken } from "back-end/src/util/slackToken";
+import { filterWebhooksByResources } from "./slackResourceFilters";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -118,6 +119,12 @@ export class EventWebHookNotifier implements Notifier {
       );
       return;
     }
+
+    if (
+      event.data.event !== "webhook.test" &&
+      !(await filterWebhooksByResources(event, [eventWebHook])).length
+    )
+      return;
 
     const organization = await findOrganizationById(event.organizationId);
     if (!organization) {

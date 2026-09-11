@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ago } from "shared/dates";
 import { createPortal } from "react-dom";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
@@ -12,7 +13,8 @@ import useApi from "@/hooks/useApi";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
-import { useEnvironments } from "@/services/features";
+import { useExperiments } from "@/hooks/useExperiments";
+import { useFeaturesList, useEnvironments } from "@/services/features";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
@@ -114,12 +116,27 @@ export default function SlackChannelSettings({
           {
             event,
             label:
-              option.label + (event === "experiment.warning" ? " (SRM)" : ""),
+              option.label +
+              (event === "experiment.warning" ? " (SRM, card)" : " (text)"),
             group: `${option.category === "experiment" ? "Experiments" : "Feature Flags"} · ${option.group}`,
           },
         ]
       : [];
   });
+  eventChoices.push(
+    ...[
+      {
+        event: "digest:scorecard",
+        label: "Experiment scorecard (image)",
+        group: "Digests",
+      },
+      {
+        event: "digest:feature",
+        label: "Feature Flag digest (image)",
+        group: "Digests",
+      },
+    ].filter((option) => previewEvents?.events.includes(option.event)),
+  );
   const previewChoiceItems = [
     ...new Set(eventChoices.map((option) => option.group)),
   ].map((group) => (
@@ -134,7 +151,9 @@ export default function SlackChannelSettings({
         ))}
     </SelectGroup>
   ));
-  const { projects, tags } = useDefinitions();
+  const { projects, tags, metrics, factMetrics } = useDefinitions();
+  const { experiments } = useExperiments();
+  const { features } = useFeaturesList();
   const environments = useEnvironments();
   const [enabled, setEnabled] = useState(integration.enabled);
   const [events, setEvents] = useState(integration.events);
@@ -151,11 +170,24 @@ export default function SlackChannelSettings({
     integration.environments || [],
   );
   const [filterTags, setFilterTags] = useState(integration.tags || []);
+  const [filterExperiments, setFilterExperiments] = useState(
+    integration.experiments || [],
+  );
+  const [filterMetrics, setFilterMetrics] = useState(integration.metrics || []);
+  const [filterFeatures, setFilterFeatures] = useState(
+    integration.features || [],
+  );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [showMoreFilters, setShowMoreFilters] = useState(filterTags.length > 0);
+  const [showMoreFilters, setShowMoreFilters] = useState(
+    filterTags.length +
+      filterExperiments.length +
+      filterMetrics.length +
+      filterFeatures.length >
+      0,
+  );
   const markDirty = () => {
     setSaved(false);
     setDirty(true);
@@ -163,6 +195,39 @@ export default function SlackChannelSettings({
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectError, setReconnectError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const experimentOptions = useMemo(() => {
+    const opts = experiments.map((e) => ({ label: e.name, value: e.id }));
+    const known = new Set(opts.map((o) => o.value));
+    return opts.concat(
+      filterExperiments
+        .filter((id) => !known.has(id))
+        .map((id) => ({ label: id, value: id })),
+    );
+  }, [experiments, filterExperiments]);
+
+  const metricOptions = useMemo(() => {
+    const opts = [...metrics, ...factMetrics].map((m) => ({
+      label: m.name,
+      value: m.id,
+    }));
+    const known = new Set(opts.map((o) => o.value));
+    return opts.concat(
+      filterMetrics
+        .filter((id) => !known.has(id))
+        .map((id) => ({ label: id, value: id })),
+    );
+  }, [metrics, factMetrics, filterMetrics]);
+
+  const featureOptions = useMemo(() => {
+    const opts = features.map((f) => ({ label: f.id, value: f.id }));
+    const known = new Set(opts.map((o) => o.value));
+    return opts.concat(
+      filterFeatures
+        .filter((id) => !known.has(id))
+        .map((id) => ({ label: id, value: id })),
+    );
+  }, [features, filterFeatures]);
 
   const grantedScopes = useMemo(
     () =>
@@ -195,6 +260,9 @@ export default function SlackChannelSettings({
           projects: filterProjects,
           environments: filterEnvironments,
           tags: filterTags,
+          experiments: filterExperiments,
+          metrics: filterMetrics,
+          features: filterFeatures,
           slackOptions: { experimentCardFormat: cardFormat },
         }),
       });
@@ -324,7 +392,12 @@ export default function SlackChannelSettings({
             <Heading as="h2" size="md" mb="1">
               {getSlackChannelLabel(integration)}
             </Heading>
-            <Text color="text-mid">{getSlackWorkspaceLabel(workspace)}</Text>
+            <Text color="text-mid">
+              {getSlackWorkspaceLabel(workspace)}
+              {integration.lastRunAt
+                ? ` · last run ${ago(integration.lastRunAt)}`
+                : " · no runs yet"}
+            </Text>
           </Box>
           <Flex align="center" gap="4">
             <Checkbox
@@ -440,23 +513,65 @@ export default function SlackChannelSettings({
           </Grid>
           {showMoreFilters ? (
             <Box mt="4">
-              <Box>
-                <Text as="label" size="md" weight="semibold">
-                  Tags
-                </Text>
-                <TagsInput
-                  tagOptions={tags}
-                  value={filterTags}
-                  onChange={(value) => {
-                    setFilterTags(value);
-                    markDirty();
-                  }}
-                  autoFocus={false}
-                  prompt="All tags"
-                  creatable={false}
-                />
-              </Box>
-              {filterTags.length === 0 && (
+              <Grid columns={{ initial: "1", sm: "2" }} gap="4">
+                <Box>
+                  <Text as="label" size="md" weight="semibold">
+                    Tags
+                  </Text>
+                  <TagsInput
+                    tagOptions={tags}
+                    value={filterTags}
+                    onChange={(value) => {
+                      setFilterTags(value);
+                      markDirty();
+                    }}
+                    autoFocus={false}
+                    prompt="All tags"
+                    creatable={false}
+                  />
+                </Box>
+                <Box>
+                  <MultiSelectField
+                    label="Experiments"
+                    placeholder="All experiments"
+                    value={filterExperiments}
+                    options={experimentOptions}
+                    onChange={(value) => {
+                      setFilterExperiments(value);
+                      markDirty();
+                    }}
+                  />
+                </Box>
+                <Box>
+                  <MultiSelectField
+                    label="Metrics"
+                    placeholder="All metrics"
+                    value={filterMetrics}
+                    options={metricOptions}
+                    onChange={(value) => {
+                      setFilterMetrics(value);
+                      markDirty();
+                    }}
+                  />
+                </Box>
+                <Box>
+                  <MultiSelectField
+                    label="Feature Flags"
+                    placeholder="All feature flags"
+                    value={filterFeatures}
+                    options={featureOptions}
+                    onChange={(value) => {
+                      setFilterFeatures(value);
+                      markDirty();
+                    }}
+                  />
+                </Box>
+              </Grid>
+              {filterTags.length +
+                filterExperiments.length +
+                filterMetrics.length +
+                filterFeatures.length ===
+                0 && (
                 <Button
                   variant="ghost"
                   color="gray"
@@ -468,13 +583,13 @@ export default function SlackChannelSettings({
               )}
             </Box>
           ) : (
-            <Box mt="3">
+            <Box>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowMoreFilters(true)}
               >
-                + Add tag filter
+                + Add tag, experiment, metric or feature filter
               </Button>
             </Box>
           )}

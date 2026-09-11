@@ -396,6 +396,9 @@ export const slackEventWebhookToIntegration = (
   projects: eventWebHook.projects,
   environments: eventWebHook.environments,
   tags: eventWebHook.tags,
+  experiments: eventWebHook.experiments || [],
+  metrics: eventWebHook.metrics || [],
+  features: eventWebHook.features || [],
   lastRunAt: eventWebHook.lastRunAt,
   lastState: eventWebHook.lastState,
   slackOptions: eventWebHook.slackOptions,
@@ -492,7 +495,15 @@ export const updateSlackOAuthIntegration = async ({
   id: string;
   updates: Pick<
     EventWebHookInterface,
-    "enabled" | "events" | "projects" | "environments" | "tags" | "slackOptions"
+    | "enabled"
+    | "events"
+    | "projects"
+    | "environments"
+    | "tags"
+    | "slackOptions"
+    | "experiments"
+    | "metrics"
+    | "features"
   >;
 }): Promise<SlackOAuthIntegrationInterface | null> => {
   const eventWebHook = await getEventWebHookById(id, context.org.id);

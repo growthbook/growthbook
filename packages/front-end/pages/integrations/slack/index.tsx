@@ -22,6 +22,10 @@ import SelectField from "@/components/Forms/SelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { isCloud } from "@/services/env";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import SlackAppSetup from "@/components/SlackIntegrations/SlackAppSetup";
+import { getSlackChannelSummary } from "@/components/SlackIntegrations/slackSetupUtils";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -234,6 +238,7 @@ function AddChannelModal({
 }
 
 const SlackWorkspacePage: NextPage = () => {
+  const { projects } = useDefinitions();
   const [saveBarHost, setSaveBarHost] = useState<HTMLDivElement | null>(null);
   const permissionsUtils = usePermissionsUtil();
   const canManageIntegrations = permissionsUtils.canManageIntegrations();
@@ -611,7 +616,7 @@ const SlackWorkspacePage: NextPage = () => {
             Failed to load Slack connections: {loadError.message}
           </Callout>
         )}
-        {data && !data.oauthConfigured && (
+        {data && !data.oauthConfigured && isCloud() && (
           <Callout status="warning">
             Slack OAuth is not configured. Set <code>SLACK_CLIENT_ID</code> and{" "}
             <code>SLACK_CLIENT_SECRET</code> for an app with the{" "}
@@ -628,6 +633,13 @@ const SlackWorkspacePage: NextPage = () => {
         {!data && !loadError ? (
           <Frame>
             <Text color="text-mid">Loading Slack connections…</Text>
+          </Frame>
+        ) : data &&
+          !data.oauthConfigured &&
+          !isCloud() &&
+          workspaceGroups.length === 0 ? (
+          <Frame>
+            <SlackAppSetup scopes={REQUIRED_SCOPES} />
           </Frame>
         ) : workspaceGroups.length === 0 ? (
           <Frame>
@@ -756,6 +768,9 @@ const SlackWorkspacePage: NextPage = () => {
                                 </Box>
                               )}
                             </Flex>
+                            <Text as="div" size="sm" color="text-mid" truncate>
+                              {getSlackChannelSummary(channel, projects)}
+                            </Text>
                           </Link>
                         );
                       })}

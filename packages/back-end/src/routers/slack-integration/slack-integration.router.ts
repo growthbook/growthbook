@@ -26,7 +26,10 @@ const eventNameOrWildcard = z
 
 const previewBody = z
   .object({
-    eventName: z.enum(zodNotificationEventNamesEnum),
+    eventName: z.union([
+      z.enum(zodNotificationEventNamesEnum),
+      z.enum(["digest:scorecard", "digest:feature"]),
+    ]),
     format: z.enum(["none", "compact", "detailed"]),
   })
   .strict();
@@ -68,6 +71,9 @@ router.put(
         projects: z.array(z.string()),
         environments: z.array(z.string()),
         tags: z.array(z.string()),
+        experiments: z.array(z.string()).optional(),
+        metrics: z.array(z.string()).optional(),
+        features: z.array(z.string()).optional(),
         slackOptions: slackEventWebHookOptions.optional(),
       })
       .strict(),

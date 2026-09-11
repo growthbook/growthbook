@@ -1,7 +1,13 @@
 import { notificationEventNames } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
-import { sampleCard } from "back-end/src/services/notificationCards/cardImages";
+import {
+  sampleCard,
+  sampleScorecard,
+  sampleFeatureDigest,
+  renderWeeklyScorecard,
+  renderFeatureDigest,
+} from "back-end/src/services/notificationCards/cardImages";
 import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
 import { getSlackOAuthIntegrationById } from "back-end/src/services/slackIntegration";
 import { decryptSlackBotToken } from "back-end/src/util/slackToken";
@@ -11,9 +17,13 @@ import {
   slackEventWebhookTestEventNames,
 } from "./slackTestFixtures";
 
-export const slackPreviewEventNames = slackEventWebhookTestEventNames.filter(
-  (name) => notificationEventNames.some((event) => event === name),
-);
+export const slackPreviewEventNames = [
+  ...slackEventWebhookTestEventNames.filter((name) =>
+    notificationEventNames.some((event) => event === name),
+  ),
+  "digest:scorecard",
+  "digest:feature",
+] as const;
 
 export async function buildSlackSettingsPreview(
   context: ReqContext,
@@ -22,8 +32,26 @@ export async function buildSlackSettingsPreview(
 ) {
   if (!context.permissions.canManageIntegrations())
     context.permissions.throwPermissionError();
+  if (eventName === "digest:scorecard" || eventName === "digest:feature") {
+    const text =
+      eventName === "digest:scorecard"
+        ? "Experiment activity scorecard — sample data"
+        : "Feature flag activity digest — sample data";
+    const png =
+      eventName === "digest:scorecard"
+        ? await renderWeeklyScorecard(sampleScorecard())
+        : await renderFeatureDigest(sampleFeatureDigest());
+    return {
+      message: {
+        text,
+        blocks: [{ type: "section", text: { type: "plain_text", text } }],
+      },
+      png,
+    };
+  }
   const name = slackPreviewEventNames.find((name) => name === eventName);
-  if (!name) throw new Error("Unsupported test event");
+  if (!name || name === "digest:scorecard" || name === "digest:feature")
+    throw new Error("Unsupported test event");
   const event = getSampleEventPayload({ context, eventName: name });
   const message = await getSlackMessageForNotificationEvent(
     event,
