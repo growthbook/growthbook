@@ -89,6 +89,7 @@ const runDigest = async (
         kind,
         leaseUntil: claimed.leaseUntil,
         nextRunAt,
+        dueAt,
       });
       return;
     }
@@ -135,6 +136,7 @@ const runDigest = async (
       kind,
       leaseUntil: claimed.leaseUntil,
       nextRunAt,
+      dueAt,
     });
   } catch (error) {
     await releaseSlackDigestRun({

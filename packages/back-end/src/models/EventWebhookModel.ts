@@ -15,12 +15,15 @@ import {
   getWildcardPatternsForEvent,
   NotificationEventNameOrWildcard,
   slackDigestNextRunAts,
-  slackDigestScheduleChanges,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
+import {
+  getSlackDigestScheduleUpdate,
+  finishSlackDigestWindow,
+} from "back-end/src/services/slack/digestSchedule";
 import { createEvent } from "./EventModel";
 
 const eventWebHookSchema = new mongoose.Schema({
@@ -395,30 +398,17 @@ export const updateEventWebHook = async (
     organizationId,
   });
   if (!existing) return false;
-  const schedule: Record<string, Date> = {};
-  const unset: Record<string, ""> = {};
-  if (updates.slackOptions !== undefined) {
-    const changes = slackDigestScheduleChanges(
-      existing.slackOptions,
-      updates.slackOptions,
-      new Date(),
-    );
-    for (const kind of ["experiment", "feature"] as const) {
-      const date = changes[kind];
-      if (date === undefined) continue;
-      const field = DIGEST_FIELD[kind];
-      if (date) schedule[field] = date;
-      else unset[field] = "";
-    }
-  }
-  // Invalidate in-flight delivery when settings or filters change.
-  unset.experimentDigestLeaseUntil = "";
-  unset.featureDigestLeaseUntil = "";
+  const now = new Date();
+  const { set: schedule, unset } = getSlackDigestScheduleUpdate(
+    existing,
+    updates,
+    now,
+  );
   const result = await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId, dateUpdated: existing.dateUpdated },
     {
-      $set: { ...updates, ...schedule, dateUpdated: new Date() },
-      $unset: unset,
+      $set: { ...updates, ...schedule, dateUpdated: now },
+      ...(Object.keys(unset).length ? { $unset: unset } : {}),
     },
   );
   if (!result.matchedCount)
@@ -601,21 +591,40 @@ export const completeSlackDigestRun = async ({
   kind,
   leaseUntil,
   nextRunAt,
+  dueAt,
 }: {
   eventWebHookId: string;
   organizationId: string;
   kind: SlackDigestKind;
   leaseUntil: Date;
   nextRunAt: Date | null;
+  dueAt: Date;
 }) => {
   const field = DIGEST_FIELD[kind];
   const leaseField = DIGEST_LEASE_FIELD[kind];
-  await EventWebHookModel.updateOne(
-    { id: eventWebHookId, organizationId, [leaseField]: leaseUntil },
-    nextRunAt
-      ? { $set: { [field]: nextRunAt }, $unset: { [leaseField]: "" } }
-      : { $unset: { [field]: "", [leaseField]: "" } },
-  );
+  await finishSlackDigestWindow({
+    advance: async () => {
+      const result = await EventWebHookModel.updateOne(
+        {
+          id: eventWebHookId,
+          organizationId,
+          [leaseField]: leaseUntil,
+          [field]: dueAt,
+        },
+        nextRunAt
+          ? { $set: { [field]: nextRunAt }, $unset: { [leaseField]: "" } }
+          : { $unset: { [field]: "", [leaseField]: "" } },
+      );
+      return result.matchedCount === 1;
+    },
+    release: () =>
+      releaseSlackDigestRun({
+        eventWebHookId,
+        organizationId,
+        kind,
+        leaseUntil,
+      }),
+  });
 };
 
 export const releaseSlackDigestRun = async ({
