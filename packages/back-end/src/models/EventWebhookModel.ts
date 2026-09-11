@@ -8,6 +8,7 @@ import { NotificationEventName } from "shared/types/events/base-types";
 import {
   zodNotificationEventNamesEnum,
   eventWebHookPayloadTypes,
+  eventWebHookApiVersion,
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
@@ -45,6 +46,10 @@ const eventWebHookSchema = new mongoose.Schema({
     channelName: String,
     channelId: String,
     configurationUrl: String,
+  },
+  apiVersion: {
+    type: String,
+    enum: eventWebHookApiVersion.options,
   },
   method: {
     type: String,
@@ -216,6 +221,7 @@ const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
   return {
     ...defaults,
     ...payload,
+    apiVersion: payload.apiVersion ?? "2024-07-31",
   };
 };
 
@@ -235,6 +241,7 @@ type CreateEventWebHookOptions = {
   tags: string[];
   environments: string[];
   payloadType: EventWebHookPayloadType;
+  apiVersion?: EventWebHookInterface["apiVersion"];
   method: EventWebHookMethod;
   headers: Record<string, string>;
   slack?: EventWebHookInterface["slack"];
@@ -256,6 +263,7 @@ export const createEventWebHook = async ({
   tags,
   environments,
   payloadType,
+  apiVersion = "2026-09-11",
   method,
   headers,
   slack,
@@ -277,6 +285,7 @@ export const createEventWebHook = async ({
     tags,
     environments,
     payloadType,
+    apiVersion,
     method,
     headers,
     slack,
@@ -352,6 +361,7 @@ export type UpdateEventWebHookAttributes = {
   environments?: string[];
   projects?: string[];
   payloadType?: EventWebHookPayloadType;
+  apiVersion?: EventWebHookInterface["apiVersion"];
   method?: EventWebHookMethod;
   headers?: Record<string, string>;
   slack?: EventWebHookInterface["slack"];

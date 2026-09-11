@@ -1,4 +1,5 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
+import { EventWebHookApiVersion } from "shared/validators";
 import {
   EventWebHookInterface,
   EventWebHookMethod,
@@ -33,6 +34,7 @@ import {
   EventWebHookSuccessResult,
   getEventWebHookSignatureForPayload,
 } from "./event-webhooks-utils";
+import { getJsonWebhookPayload } from "./getJsonWebhookPayload";
 
 let jobDefined = false;
 
@@ -43,6 +45,12 @@ interface Notifier {
 type EventWebHookNotificationHandlerOptions = {
   eventId: string;
   eventWebHookId: string;
+  // Jobs queued before API versioning have no saved delivery settings.
+  delivery?: {
+    payloadType: EventWebHookInterface["payloadType"];
+    apiVersion: EventWebHookApiVersion;
+    changeIndex: number;
+  };
 };
 
 type EventWebHookJobData = JobAttributesData &
@@ -72,10 +80,14 @@ export class EventWebHookNotifier implements Notifier {
       ...this.options,
       retryCount: 0,
     });
-    job.unique({
-      "data.eventId": this.options.eventId,
-      "data.eventWebHookId": this.options.eventWebHookId,
-    });
+    job.unique(
+      {
+        "data.eventId": this.options.eventId,
+        "data.eventWebHookId": this.options.eventWebHookId,
+        "data.delivery.changeIndex": this.options.delivery?.changeIndex,
+      },
+      { insertOnly: true },
+    );
     job.schedule(new Date());
     await job.save();
   }
@@ -88,9 +100,15 @@ export class EventWebHookNotifier implements Notifier {
   private static async handleAgendaJob(
     job: Job<EventWebHookJobData>,
   ): Promise<void> {
-    const { eventId, eventWebHookId } = job.attrs.data;
+    const { eventId, eventWebHookId, delivery } = job.attrs.data;
 
-    const event = await getEvent(eventId);
+    // Legacy JSON jobs need only one change, returned at index 0 by the projection.
+    const event = await getEvent(
+      eventId,
+      delivery?.payloadType === "json" && delivery.apiVersion === "2024-07-31"
+        ? delivery.changeIndex
+        : null,
+    );
     if (!event) {
       // We should never get here.
       throw new Error(
@@ -124,17 +142,18 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
+    const payloadType =
+      delivery?.payloadType ?? eventWebHook.payloadType ?? "raw";
     const payload = await (async () => {
       let invalidPayloadType: never;
-
-      // There might be very old webhook definitions who don't have
-      // a payloadType at all. Assume "raw" in this case.
-      const payloadType = eventWebHook.payloadType || "raw";
 
       switch (payloadType) {
         case "json": {
           if (!event.version) throw new Error("Internal error");
-          return event.data;
+          // Pre-upgrade jobs retain their original payload.
+          return delivery
+            ? getJsonWebhookPayload(event.data, delivery.apiVersion)
+            : event.data;
         }
 
         case "raw": {
@@ -179,7 +198,7 @@ export class EventWebHookNotifier implements Notifier {
     const context = getContextForAgendaJobByOrgObject(organization);
 
     if (
-      (eventWebHook.payloadType || "raw") === "slack" &&
+      payloadType === "slack" &&
       isSlackWorkspacePlaceholderUrl(eventWebHook.url)
     ) {
       const teamId = eventWebHook.slack?.teamId;

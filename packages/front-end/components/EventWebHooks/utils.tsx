@@ -1,5 +1,6 @@
 import {
   NotificationEventNameOrWildcard,
+  EventWebHookApiVersion,
   notificationEventNames as allNotificationEventNames,
   notificationEvents,
 } from "shared/validators";
@@ -41,6 +42,7 @@ export type EventWebHookEditParams = {
   environments: string[];
   projects: string[];
   payloadType: EventWebHookPayloadType;
+  apiVersion?: EventWebHookApiVersion;
   method: EventWebHookMethod;
   headers: string;
 };

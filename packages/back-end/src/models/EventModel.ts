@@ -24,7 +24,7 @@ import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 
-const API_VERSION = "2024-07-31" as const;
+const API_VERSION = "2026-09-11" as const;
 const MODEL_VERSION = 1 as const;
 
 const eventSchema = new mongoose.Schema({
@@ -268,8 +268,16 @@ export const createEvent = async <
  */
 export const getEvent = async (
   eventId: string,
+  significanceChangeIndex: number | null = null,
 ): Promise<EventInterface | null> => {
-  const doc = await EventModel.findOne({ id: eventId });
+  const doc = await EventModel.findOne(
+    { id: eventId },
+    significanceChangeIndex === null
+      ? null
+      : {
+          "data.data.object.changes": { $slice: [significanceChangeIndex, 1] },
+        },
+  );
   return !doc ? null : (toInterface(doc) as EventInterface);
 };
 

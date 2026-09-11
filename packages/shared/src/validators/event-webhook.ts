@@ -11,6 +11,9 @@ export const eventWebHookPayloadTypes = [
 
 export type EventWebHookPayloadType = (typeof eventWebHookPayloadTypes)[number];
 
+export const eventWebHookApiVersion = z.enum(["2024-07-31", "2026-09-11"]);
+export type EventWebHookApiVersion = z.infer<typeof eventWebHookApiVersion>;
+
 export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 
 export type EventWebHookMethod = (typeof eventWebHookMethods)[number];
@@ -72,6 +75,7 @@ export const eventWebHookInterface = z
     tags: z.array(z.string()),
     environments: z.array(z.string()),
     payloadType: z.enum(eventWebHookPayloadTypes),
+    apiVersion: eventWebHookApiVersion.optional(),
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
     slack: slackEventWebHookMetadata.optional(),

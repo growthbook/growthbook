@@ -101,6 +101,7 @@ type PostEventWebHooksRequest = AuthRequest & {
     environments: string[];
     projects: string[];
     payloadType: EventWebHookPayloadType;
+    apiVersion?: EventWebHookInterface["apiVersion"];
     method: EventWebHookMethod;
     headers: Record<string, string>;
   };
@@ -128,6 +129,7 @@ export const createEventWebHook = async (
     projects = [],
     environments = [],
     payloadType,
+    apiVersion,
     method = "POST",
     headers = {},
   } = req.body;
@@ -142,6 +144,7 @@ export const createEventWebHook = async (
     environments,
     tags,
     payloadType,
+    apiVersion,
     method,
     headers,
   });
@@ -221,7 +224,7 @@ export const deleteEventWebHook = async (
 // region PUT /event-webhooks/:eventWebHookId
 
 type UpdateEventWebHookRequest = AuthRequest<
-  Required<UpdateEventWebHookAttributes>,
+  UpdateEventWebHookAttributes,
   { eventWebHookId: string }
 >;
 

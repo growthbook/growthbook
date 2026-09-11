@@ -13,16 +13,17 @@ import { EventWebHookNotifier } from "./EventWebHookNotifier";
  * Common handler that looks up the web hooks and makes a post request with the event.
  */
 export const webHooksEventHandler: NotificationEventHandler = async (event) => {
-  const { tags, projects } = getFilterDataForNotificationEvent(event.data) || {
+  const { data: payload, version } = event;
+  const { tags, projects } = getFilterDataForNotificationEvent(payload) || {
     tags: [],
     projects: [],
   };
 
   const eventWebHooks = await (async () => {
-    if (event.data.event === "webhook.test") {
-      const webhookId = event.version
-        ? event.data.data.object.webhookId
-        : event.data.data.webhookId;
+    if (payload.event === "webhook.test") {
+      const webhookId = version
+        ? payload.data.object.webhookId
+        : payload.data.webhookId;
 
       const webhook = await getEventWebHookById(
         webhookId,
@@ -36,22 +37,38 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
       return (
         (await getAllEventWebHooksForEvent({
           organizationId: event.organizationId,
-          eventName: event.data.event,
+          eventName: payload.event,
           enabled: true,
           tags,
           projects,
         })) || []
       ).filter(({ environments = [] }) =>
-        filterEventForEnvironments({ event: event.data, environments }),
+        filterEventForEnvironments({ event: payload, environments }),
       );
     }
   })();
 
   eventWebHooks.forEach((eventWebHook) => {
-    const notifier = new EventWebHookNotifier({
-      eventId: event.id,
-      eventWebHookId: eventWebHook.id,
-    });
-    notifier.enqueue();
+    const apiVersion = eventWebHook.apiVersion ?? "2024-07-31";
+    const count =
+      eventWebHook.payloadType === "json" &&
+      apiVersion === "2024-07-31" &&
+      version &&
+      payload.event === "experiment.info.significance" &&
+      "changes" in payload.data.object
+        ? payload.data.object.changes.length
+        : 1;
+    for (let changeIndex = 0; changeIndex < count; changeIndex++) {
+      const notifier = new EventWebHookNotifier({
+        eventId: event.id,
+        eventWebHookId: eventWebHook.id,
+        delivery: {
+          payloadType: eventWebHook.payloadType || "raw",
+          apiVersion,
+          changeIndex,
+        },
+      });
+      notifier.enqueue();
+    }
   });
 };

@@ -264,6 +264,13 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         )}
       </Box>
 
+      {payloadType === "json" && (
+        <Flex align="center" gap="2" ml="2" mt="2">
+          <Text weight="semibold">API version:</Text>
+          <Text>{eventWebHook.apiVersion ?? "2024-07-31"}</Text>
+        </Flex>
+      )}
+
       {["raw", "json"].includes(payloadType) && (
         <Flex align="center" gap="2" ml="2" mt="2">
           <Text weight="semibold">Secret:</Text>
@@ -422,6 +429,7 @@ export const EventWebHookDetailContainer = ({
               "url",
               "enabled",
               "payloadType",
+              "apiVersion",
               "projects",
               "tags",
               "environments",

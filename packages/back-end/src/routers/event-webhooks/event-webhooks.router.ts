@@ -4,6 +4,7 @@ import {
   zodNotificationEventNamesEnum,
   eventWebHookMethods,
   eventWebHookPayloadTypes,
+  eventWebHookApiVersion,
   isEventWebhookWildcard,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -46,6 +47,7 @@ router.post(
         tags: z.array(z.string()),
         environments: z.array(z.string()),
         payloadType: z.enum(eventWebHookPayloadTypes),
+        apiVersion: eventWebHookApiVersion.optional(),
         method: z.enum(eventWebHookMethods),
         headers: z.object({}).catchall(z.string()),
       })
@@ -124,6 +126,7 @@ router.put(
         tags: z.array(z.string()),
         environments: z.array(z.string()),
         payloadType: z.enum(eventWebHookPayloadTypes),
+        apiVersion: eventWebHookApiVersion.optional(),
         method: z.enum(eventWebHookMethods),
         headers: z.object({}).catchall(z.string()),
       })

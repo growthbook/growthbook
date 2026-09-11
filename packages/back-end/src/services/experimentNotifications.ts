@@ -14,8 +14,10 @@ import {
   getExperimentResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import { ExperimentAnalysisSummary } from "shared/validators";
-import { StatsEngine } from "shared/types/stats";
+import {
+  ExperimentAnalysisSummary,
+  ExperimentSignificanceChange,
+} from "shared/validators";
 import {
   ExperimentHealthSettings,
   ExperimentInterface,
@@ -379,18 +381,6 @@ export const notifyNoData = async ({
   return triggered && !experiment.pastNotifications?.includes("no-data");
 };
 
-type ExperimentSignificanceChange = {
-  experimentId: string;
-  experimentName: string;
-  variationId: string;
-  variationName: string;
-  metricId: string;
-  metricName: string;
-  statsEngine: StatsEngine;
-  criticalValue: number;
-  winning: boolean;
-};
-
 const sendSignificanceEmail = async (
   context: Context,
   experiment: ExperimentInterface,
@@ -565,8 +555,6 @@ export const computeExperimentChanges = async ({
       )?.[i] || { id: i + "", name: "" };
 
       experimentChanges.push({
-        experimentId: experiment.id,
-        experimentName: experiment.name,
         variationId,
         variationName,
         metricId: m,
@@ -609,18 +597,18 @@ export const notifySignificance = async ({
     await sendSignificanceEmail(context, experiment, experimentChanges);
   }
 
-  await Promise.all(
-    experimentChanges.map((change) =>
-      dispatchEvent({
-        context,
-        experiment,
-        event: "info.significance",
-        data: {
-          object: change,
-        },
-      }),
-    ),
-  );
+  await dispatchEvent({
+    context,
+    experiment,
+    event: "info.significance",
+    data: {
+      object: {
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        changes: experimentChanges,
+      },
+    },
+  });
 };
 
 export const notifyDecision = async ({

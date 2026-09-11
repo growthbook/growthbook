@@ -12,6 +12,7 @@ import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import {
   ExperimentWarningNotificationPayload,
   ExperimentInfoSignificancePayload,
+  LegacyExperimentInfoSignificancePayload,
   ExperimentInfoScheduledStatusUpdatePayload,
   ExperimentDecisionNotificationPayload,
   SafeRolloutDecisionNotificationPayload,
@@ -1669,7 +1670,42 @@ const buildSlackMessageForExperimentDeletedEvent = async (
   };
 };
 
-const buildSlackMessageForExperimentInfoSignificanceEvent = ({
+const buildSlackMessageForExperimentInfoSignificanceEvent = (
+  data:
+    | ExperimentInfoSignificancePayload
+    | LegacyExperimentInfoSignificancePayload,
+): SlackMessage => {
+  if (!("changes" in data)) {
+    return buildSlackMessageForLegacyExperimentInfoSignificanceEvent(data);
+  }
+
+  const winning = data.changes.filter((change) => change.winning).length;
+  const count = data.changes.length;
+  const text = (experimentName: string) =>
+    `In experiment ${experimentName}, ${count} metric/variation ${
+      count === 1 ? "result" : "results"
+    } newly reached significance. ${winning} winning, ${count - winning} losing.`;
+
+  return {
+    text: `${text(data.experimentName)} View results: ${APP_ORIGIN}/experiment/${data.experimentId}`,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: text(
+            getExperimentUrlAndNameFormatted(
+              data.experimentId,
+              data.experimentName,
+            ),
+          ),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForLegacyExperimentInfoSignificanceEvent = ({
   metricName,
   experimentName,
   experimentId,
@@ -1677,7 +1713,7 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
   statsEngine,
   criticalValue,
   winning,
-}: ExperimentInfoSignificancePayload): SlackMessage => {
+}: LegacyExperimentInfoSignificancePayload): SlackMessage => {
   const percentFormatter = (v: number) => {
     if (v > 0.99) {
       return ">99%";
