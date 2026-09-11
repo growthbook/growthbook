@@ -90,7 +90,7 @@ function FunnelStepInput({
               if (factTable) {
                 return (
                   <>
-                    {factTable.name}
+                    {label}
                     <OfficialBadge
                       managedBy={factTable.managedBy}
                       type="fact table"
