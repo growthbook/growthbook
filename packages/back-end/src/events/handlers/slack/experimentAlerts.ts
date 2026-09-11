@@ -12,9 +12,7 @@ type AlertName =
   | "experiment.health.srm"
   | "experiment.health.multipleExposures"
   | "experiment.metric.guardrailFailure"
-  | "experiment.bandit.weightsChanged"
-  | "experiment.holdout.created"
-  | "experiment.holdout.updated";
+  | "experiment.bandit.weightsChanged";
 
 type AlertEvent = Extract<NotificationEvent, { event: AlertName }>;
 
@@ -59,12 +57,6 @@ export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
       break;
     case "experiment.bandit.weightsChanged":
       detail = `Bandit allocation changed from ${event.data.object.currentWeights.map((w) => `${(w * 100).toFixed(1)}%`).join(" / ")} to ${event.data.object.updatedWeights.map((w) => `${(w * 100).toFixed(1)}%`).join(" / ")}.`;
-      break;
-    case "experiment.holdout.created":
-      detail = "Holdout created.";
-      break;
-    case "experiment.holdout.updated":
-      detail = "Holdout updated.";
       break;
   }
   const text = `${object.experimentName}: ${detail}`;

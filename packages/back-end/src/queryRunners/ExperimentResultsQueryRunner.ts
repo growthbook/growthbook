@@ -38,9 +38,6 @@ import {
   QueryStatus,
 } from "shared/types/query";
 import { BanditResult } from "shared/types/experiment";
-import { logger } from "back-end/src/util/logger";
-import { notifyExperimentUpdateFailed } from "back-end/src/services/experimentNotifications";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
@@ -688,32 +685,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
-    if (
-      status === "failed" &&
-      failureCause !== "cancelled" &&
-      this.model.type === "standard" &&
-      !this.model.report
-    ) {
-      try {
-        const experiment = await getExperimentById(
-          this.context,
-          this.model.experiment,
-        );
-        if (experiment)
-          await notifyExperimentUpdateFailed({
-            context: this.context,
-            experiment,
-            cause: failureCause,
-          });
-      } catch (notificationError) {
-        logger.error(
-          notificationError,
-          "Failed to notify experiment update failure",
-        );
-      }
-    }
     if (
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)

@@ -1,3 +1,4 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import { tabulateCovariateImbalance } from "shared/health";
 import {
   ExperimentMetricInterface,
@@ -1434,12 +1435,14 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     runStarted,
     result,
     error,
+    failureCause,
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const snapshotStatus =
       status === "running"
@@ -1459,6 +1462,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

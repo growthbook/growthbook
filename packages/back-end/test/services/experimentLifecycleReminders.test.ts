@@ -1,4 +1,5 @@
 import { ExperimentInterface } from "shared/types/experiment";
+import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import {
   getExperimentById,
   dangerousGetExperimentsForLifecycleReminders,
@@ -126,4 +127,40 @@ it("does not send if an experiment is archived after the candidate scan", async 
   experiments[0].archived = true;
   await checkExperimentLifecycleReminders(renewLease);
   expect(createEvent).not.toHaveBeenCalled();
+});
+
+function applyReminderChange(changes: Partial<ExperimentInterface>) {
+  const previous = experiments[0];
+  const updated = { ...previous, ...changes };
+  const reset = getExperimentReminderResets(previous, updated);
+  updated.pastNotifications = (previous.pastNotifications ?? []).filter(
+    (type) => !reset.includes(type),
+  );
+  experiments[0] = updated;
+}
+
+it("notifies again after a stop and restart between scheduler passes", async () => {
+  await checkExperimentLifecycleReminders(renewLease);
+  jest.mocked(createEvent).mockClear();
+  applyReminderChange({ status: "stopped" });
+  applyReminderChange({ status: "running" });
+  await checkExperimentLifecycleReminders(renewLease);
+  expect(
+    jest.mocked(createEvent).mock.calls.map(([event]) => event.event),
+  ).toEqual(["status.endingSoon", "status.stale"]);
+});
+
+it("notifies about a revised end date without repeating the stale reminder", async () => {
+  await checkExperimentLifecycleReminders(renewLease);
+  jest.mocked(createEvent).mockClear();
+  applyReminderChange({
+    statusUpdateSchedule: { stopAt: new Date(now.getTime() + 10 * day) },
+  });
+  applyReminderChange({
+    statusUpdateSchedule: { stopAt: new Date(now.getTime() + 2 * day) },
+  });
+  await checkExperimentLifecycleReminders(renewLease);
+  expect(
+    jest.mocked(createEvent).mock.calls.map(([event]) => event.event),
+  ).toEqual(["status.endingSoon"]);
 });

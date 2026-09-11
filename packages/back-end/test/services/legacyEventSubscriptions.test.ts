@@ -50,6 +50,7 @@ test.each([
   ["experiment.health.queryFailed", "experiment.health.updateFailure"],
   ["experiment.health.queryFailure", "experiment.health.updateFailure"],
   ["experiment.health.guardrailFailed", "experiment.metric.guardrailFailure"],
+  ["experiment.holdout.updated", "holdout.config.newLinkage"],
 ])("keeps the renamed subscription %s working", (previous, current) => {
   expect(normalizeLegacySlackEvent(previous)).toBe(current);
   expect(getSlackEventSubscriptionNames(current)).toContain(previous);

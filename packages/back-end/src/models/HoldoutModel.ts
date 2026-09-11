@@ -21,6 +21,7 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
+import { notifyHoldoutNewLinkage } from "back-end/src/services/holdoutNotifications";
 import {
   holdoutApiSpec,
   holdoutStartAnalysisEndpoint,
@@ -760,10 +761,13 @@ export class HoldoutModel extends BaseClass {
     holdoutId: string,
     feature: { id: string; dateAdded: Date },
   ) {
-    await this.mutateLinkage(holdoutId, ({ linkedFeatures }) =>
-      linkedFeatures[feature.id]
-        ? null
-        : { linkedFeatures: { ...linkedFeatures, [feature.id]: feature } },
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedFeatures }) =>
+        linkedFeatures[feature.id]
+          ? null
+          : { linkedFeatures: { ...linkedFeatures, [feature.id]: feature } },
+      { notifyNewLinkage: false },
     );
   }
 
@@ -811,12 +815,19 @@ export class HoldoutModel extends BaseClass {
     // Set by the link/unlink verbs, which are acting on a Holdout the caller just
     // resolved: a missing one is a real error there, where for compensation it just
     // means there is nothing left to undo.
-    { required = false }: { required?: boolean } = {},
+    {
+      required = false,
+      notifyNewLinkage = true,
+    }: { required?: boolean; notifyNewLinkage?: boolean } = {},
   ) {
+    let previous: HoldoutInterface | null = null;
     const updated = await this.updateWithCas(
       holdoutId,
       [...LINKAGE_FIELDS],
-      compute,
+      (holdout) => {
+        previous = holdout;
+        return compute(holdout);
+      },
       {
         dangerouslyBypassCanUpdate: true,
         dangerouslyBypassCanRead: true,
@@ -826,6 +837,13 @@ export class HoldoutModel extends BaseClass {
     if (!updated && required) {
       const stillThere = await this.getByIdForLinkage(holdoutId);
       if (!stillThere) throw new NotFoundError("Holdout not found");
+    }
+    if (updated && previous && notifyNewLinkage) {
+      await notifyHoldoutNewLinkage({
+        context: this.context,
+        previous,
+        holdout: updated,
+      });
     }
     return updated;
   }

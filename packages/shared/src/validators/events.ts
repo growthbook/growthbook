@@ -6,6 +6,11 @@ import {
   ResourceEvents,
   WebhookEntry,
 } from "shared/types/events/base-types";
+import {
+  holdoutCreatedNotificationPayload,
+  holdoutStatusChangedNotificationPayload,
+  holdoutNewLinkageNotificationPayload,
+} from "./holdout-notifications";
 import { apiExperimentValidator } from "./experiments";
 import { featureWebhookPayload } from "./feature-webhook-schemas";
 import {
@@ -60,7 +65,6 @@ import {
   experimentUpdateFailedNotificationPayload,
   experimentGuardrailFailedNotificationPayload,
   experimentBanditChangedNotificationPayload,
-  experimentHoldoutNotificationPayload,
 } from "./experiment-alerts";
 import { userLoginInterface } from "./users";
 import { apiSavedGroupValidator } from "./saved-group";
@@ -355,14 +359,6 @@ export const notificationEvents = {
       description:
         "Triggered when a multi-armed bandit materially changes variation weights.",
     },
-    "holdout.created": {
-      schema: experimentHoldoutNotificationPayload,
-      description: "Triggered when a holdout is created.",
-    },
-    "holdout.updated": {
-      schema: experimentHoldoutNotificationPayload,
-      description: "Triggered when a holdout is updated.",
-    },
     "info.significance": {
       schema: experimentInfoSignificance,
       description: `Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.`,
@@ -382,6 +378,23 @@ export const notificationEvents = {
     "decision.review": {
       schema: experimentDecisionNotificationPayload,
       description: `Triggered when an experiment has reached the desired power point, but the results may be ambiguous.`,
+    },
+  },
+  holdout: {
+    created: {
+      schema: holdoutCreatedNotificationPayload,
+      description:
+        "Triggered after a holdout and its backing experiment are created successfully.",
+    },
+    "status.changed": {
+      schema: holdoutStatusChangedNotificationPayload,
+      description:
+        "Triggered when a holdout changes between draft, running, analysis period, and stopped after the transition is saved.",
+    },
+    "config.newLinkage": {
+      schema: holdoutNewLinkageNotificationPayload,
+      description:
+        "Triggered when new Feature Flags or experiments are linked to a holdout. Contains only the newly added links.",
     },
   },
   savedGroup: {

@@ -20,10 +20,7 @@ import {
 } from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import {
-  notifyAutoUpdate,
-  notifyBanditWeightsChanged,
-} from "back-end/src/services/experimentNotifications";
+import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
@@ -218,20 +215,6 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
         experiment,
         changes,
       });
-      if (
-        currentSnapshot?.banditResult?.weightsWereUpdated &&
-        currentSnapshot.banditResult.currentWeights &&
-        currentSnapshot.banditResult.updatedWeights
-      ) {
-        await notifyBanditWeightsChanged({
-          context,
-          experiment,
-          currentWeights: currentSnapshot.banditResult.currentWeights,
-          updatedWeights: currentSnapshot.banditResult.updatedWeights,
-        }).catch((error: unknown) =>
-          logger.error(error, "Failed to notify bandit allocation change"),
-        );
-      }
     }
   } catch (e) {
     // Lock contention is transient so we don't disable auto-updates

@@ -14,6 +14,7 @@ import {
   notifyMultipleExposures,
   notifyGuardrailFailed,
   notifyBanditWeightsChanged,
+  notifyExperimentBanditWeightsTransition,
 } from "back-end/src/services/experimentNotifications";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
@@ -75,6 +76,20 @@ describe("experiment alert producers", () => {
         );
     },
   );
+
+  it("leaves holdout transitions to their own lifecycle service", async () => {
+    await notifyExperimentStatusTransition({
+      context,
+      previous: { ...experiment, type: "holdout", status: "draft" },
+      experiment: { ...experiment, type: "holdout", status: "running" },
+    });
+    await notifyExperimentStatusTransition({
+      context,
+      previous: { ...experiment, type: "holdout", status: "running" },
+      experiment: { ...experiment, type: "holdout", status: "stopped" },
+    });
+    expect(createEvent).not.toHaveBeenCalled();
+  });
 
   it("captures linked implementation counts at start", async () => {
     jest
@@ -441,6 +456,47 @@ describe("experiment alert producers", () => {
     expect(
       (await getSlackMessageForNotificationEvent(event, "event_test"))?.text,
     ).toContain("Failing guardrails: revenue (A), errors (B).");
+  });
+
+  it("notifies from persisted bandit weight changes regardless of the caller", async () => {
+    const previous = {
+      ...experiment,
+      type: "multi-armed-bandit" as const,
+      phases: [{ ...experiment.phases[0], variationWeights: [0.5, 0.5] }],
+    };
+    const updated = {
+      ...previous,
+      phases: [{ ...previous.phases[0], variationWeights: [0.7, 0.3] }],
+    };
+    await notifyExperimentBanditWeightsTransition({
+      context,
+      previous,
+      experiment: updated,
+    });
+    expect(createEvent).toHaveBeenCalledTimes(1);
+    expect(createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "bandit.weightsChanged",
+        data: {
+          object: expect.objectContaining({
+            currentWeights: [0.5, 0.5],
+            updatedWeights: [0.7, 0.3],
+          }),
+        },
+      }),
+    );
+    jest.mocked(createEvent).mockClear();
+    await notifyExperimentBanditWeightsTransition({
+      context,
+      previous: updated,
+      experiment: { ...updated, name: "Renamed" },
+    });
+    await notifyExperimentBanditWeightsTransition({
+      context,
+      previous,
+      experiment: { ...updated, type: "standard" },
+    });
+    expect(createEvent).not.toHaveBeenCalled();
   });
 
   it("ignores insignificant or invalid bandit allocations", async () => {

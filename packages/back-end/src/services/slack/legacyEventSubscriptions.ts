@@ -1,6 +1,7 @@
 import { getWildcardPatternsForEvent } from "shared/validators";
 
 const renamedEvents: Record<string, string> = {
+  "experiment.holdout.updated": "holdout.config.newLinkage",
   "experiment.started": "experiment.status.started",
   "experiment.stopped": "experiment.status.stopped",
   "experiment.endingSoon": "experiment.status.endingSoon",

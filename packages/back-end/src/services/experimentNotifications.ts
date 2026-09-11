@@ -174,7 +174,8 @@ export const notifyExperimentStatusTransition = async ({
   previous: ExperimentInterface;
   experiment: ExperimentInterface;
 }) => {
-  if (previous.status === experiment.status) return;
+  if (experiment.type === "holdout" || previous.status === experiment.status)
+    return;
   if (experiment.status === "running") {
     await notifyExperimentStarted({ context, experiment });
   } else if (experiment.status === "stopped") {
@@ -188,9 +189,7 @@ export const notifyExperimentStatusTransition = async ({
       type: "stopped",
       results: experiment.results,
       enableTemporaryRollout:
-        experiment.type !== "holdout" &&
-        !experiment.excludeFromPayload &&
-        !!experiment.releasedVariationId,
+        !experiment.excludeFromPayload && !!experiment.releasedVariationId,
       releasedVariationName: releasedVariation?.name,
       reason: experiment.phases[experiment.phases.length - 1]?.reason,
     });
@@ -963,6 +962,26 @@ export const notifySignificance = async ({
     ),
   );
 };
+
+export async function notifyExperimentBanditWeightsTransition({
+  context,
+  previous,
+  experiment,
+}: {
+  context: Context;
+  previous: ExperimentInterface;
+  experiment: ExperimentInterface;
+}) {
+  if (experiment.type !== "multi-armed-bandit") return;
+  await notifyBanditWeightsChanged({
+    context,
+    experiment,
+    currentWeights:
+      previous.phases[previous.phases.length - 1]?.variationWeights ?? [],
+    updatedWeights:
+      experiment.phases[experiment.phases.length - 1]?.variationWeights ?? [],
+  });
+}
 
 export const notifyBanditWeightsChanged = async ({
   context,

@@ -83,14 +83,6 @@ export const experimentBanditChangedNotificationPayload = z
   })
   .strict();
 
-export const experimentHoldoutNotificationPayload = z
-  .object({
-    type: z.union([z.literal("holdout-created"), z.literal("holdout-updated")]),
-    experimentId: z.string(),
-    experimentName: z.string(),
-  })
-  .strict();
-
 export type ExperimentStartedNotificationPayload = z.infer<
   typeof experimentStartedNotificationPayload
 >;
@@ -117,8 +109,4 @@ export type ExperimentGuardrailFailedNotificationPayload = z.infer<
 
 export type ExperimentBanditChangedNotificationPayload = z.infer<
   typeof experimentBanditChangedNotificationPayload
->;
-
-export type ExperimentHoldoutNotificationPayload = z.infer<
-  typeof experimentHoldoutNotificationPayload
 >;

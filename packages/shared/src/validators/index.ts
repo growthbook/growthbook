@@ -97,3 +97,5 @@ export * from "./contextual-bandit-event";
 export * from "./api-errors";
 
 export * from "./experiment-alerts";
+
+export * from "./holdout-notifications";

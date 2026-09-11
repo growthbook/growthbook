@@ -28,7 +28,11 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { notifyExperimentStatusTransition } from "back-end/src/services/experimentNotifications";
+import {
+  notifyExperimentStatusTransition,
+  notifyExperimentBanditWeightsTransition,
+} from "back-end/src/services/experimentNotifications";
+import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
@@ -840,6 +844,15 @@ export async function updateExperiment({
 
   validateMetricOverrides(allChanges.metricOverrides);
 
+  const remindersToReset = getExperimentReminderResets(experiment, {
+    ...experiment,
+    ...allChanges,
+  });
+  if (remindersToReset.length && allChanges.pastNotifications) {
+    allChanges.pastNotifications = allChanges.pastNotifications.filter(
+      (type) => !remindersToReset.includes(type),
+    );
+  }
   const writeResult = await ExperimentModel.updateOne(
     {
       id: experiment.id,
@@ -848,13 +861,28 @@ export async function updateExperiment({
     },
     {
       $set: allChanges,
+      ...(remindersToReset.length && allChanges.pastNotifications === undefined
+        ? { $pull: { pastNotifications: { $in: remindersToReset } } }
+        : {}),
     },
   );
   if (guard && writeResult.matchedCount === 0) {
     throw new CasConflictError();
   }
 
-  const updated = { ...experiment, ...allChanges };
+  const updated = {
+    ...experiment,
+    ...allChanges,
+    ...(remindersToReset.length
+      ? {
+          pastNotifications: (
+            allChanges.pastNotifications ??
+            experiment.pastNotifications ??
+            []
+          ).filter((type) => !remindersToReset.includes(type)),
+        }
+      : {}),
+  };
 
   await onExperimentUpdate({
     context,
@@ -1297,28 +1325,7 @@ export const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  if (experiment.type === "holdout") {
-    await createEvent({
-      context,
-      object: "experiment",
-      objectId: experiment.id,
-      event: "holdout.created",
-      data: {
-        object: {
-          type: "holdout-created",
-          experimentId: experiment.id,
-          experimentName: experiment.name,
-        },
-      },
-      projects: experiment.project ? [experiment.project] : [],
-      tags: experiment.tags || [],
-      environments: [],
-      containsSecrets: false,
-    }).catch((error: unknown) =>
-      logger.error(error, "Failed to notify holdout creation"),
-    );
-    return;
-  }
+  if (experiment.type === "holdout") return;
 
   const apiExperiment = await toExperimentApiInterface(
     context,
@@ -1360,29 +1367,7 @@ export const logExperimentUpdated = async ({
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }) => {
-  if (current.type === "holdout") {
-    await createEvent({
-      context,
-      object: "experiment",
-      objectId: current.id,
-      event: "holdout.updated",
-      data: {
-        object: {
-          type: "holdout-updated",
-          experimentId: current.id,
-          experimentName: current.name,
-        },
-      },
-      projects: current.project ? [current.project] : [],
-      tags: current.tags || [],
-      environments: [],
-      containsSecrets: false,
-    }).catch((error: unknown) =>
-      logger.error(error, "Failed to notify holdout update"),
-    );
-
-    return;
-  }
+  if (current.type === "holdout") return;
 
   const previousApiExperimentPromise = toExperimentApiInterface(
     context,
@@ -2319,6 +2304,14 @@ const onExperimentUpdate = async ({
     experiment: newExperiment,
   }).catch((error: unknown) =>
     logger.error(error, "Failed to notify experiment status transition"),
+  );
+
+  await notifyExperimentBanditWeightsTransition({
+    context,
+    previous: oldExperiment,
+    experiment: newExperiment,
+  }).catch((error: unknown) =>
+    logger.error(error, "Failed to notify bandit allocation change"),
   );
 
   if (
