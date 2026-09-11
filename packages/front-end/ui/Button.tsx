@@ -40,6 +40,7 @@ export type Props = {
     | "aria-label"
     | "aria-disabled"
     | "aria-pressed"
+    | "aria-expanded"
     | "className"
   >;
 
