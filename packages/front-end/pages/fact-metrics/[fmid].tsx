@@ -19,6 +19,8 @@ import { GBBandit, GBEdit, GBExperiment } from "@/components/Icons";
 import { useAuth } from "@/services/auth";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
+import SortedTags from "@/components/Tags/SortedTags";
+import EditTagsForm from "@/components/Tags/EditTagsForm";
 import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspace";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Tooltip from "@/ui/Tooltip";
@@ -54,6 +56,7 @@ export default function FactMetricPage() {
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [editTagsOpen, setEditTagsOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(false);
@@ -222,6 +225,19 @@ export default function FactMetricPage() {
           }}
           mutate={mutateDefinitions}
           entityName="Metric"
+        />
+      )}
+      {editTagsOpen && canEdit && !isEditing && (
+        <EditTagsForm
+          tags={factMetric.tags || []}
+          cancel={() => setEditTagsOpen(false)}
+          mutate={mutateDefinitions}
+          save={async (tags) => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ tags }),
+            });
+          }}
         />
       )}
       {editOwnerModal && (
@@ -444,6 +460,30 @@ export default function FactMetricPage() {
         />
         <ReplacesMetadata replaces={factMetric.replaces} />
       </Flex>
+
+      {!isEditing && (
+        <Flex align="center" gap="2" wrap="wrap" mt="3">
+          <Text size="sm" weight="semibold">
+            Tags:
+          </Text>
+          {factMetric.tags?.length ? (
+            <SortedTags
+              tags={factMetric.tags}
+              useFlex
+              shouldShowEllipsis={false}
+            />
+          ) : (
+            <Text size="sm" color="text-mid">
+              No tags
+            </Text>
+          )}
+          {canEdit && (
+            <Link size="sm" onClick={() => setEditTagsOpen(true)}>
+              +Add
+            </Link>
+          )}
+        </Flex>
+      )}
 
       <Tabs value={activeTab} onValueChange={setTab} mt="4">
         <TabsList aria-label="Metric navigation" mb="4">
