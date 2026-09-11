@@ -334,13 +334,13 @@ export const apiContextualBanditUpdateVariationsValidator = {
         }),
       )
       .describe(
-        "Complete list of variations to keep. Pass each existing variation by `id`; omit `id` for new arms (server assigns id and next integer `key`). Any active variation not in this list is deactivated.",
+        "Complete list of variations to keep. Pass each variation with a stable `id`; a new arm's `id` is any unique string you choose (the same value you use as the key in `newVariationValues`). Any active variation not in this list is deactivated.",
       ),
     newVariationValues: z
       .record(z.string(), z.record(z.string(), z.string()))
       .optional()
       .describe(
-        "Value to set on each linked feature for each new arm: `{featureId: {variationId: value}}`. Required for every added arm.",
+        "Value to set on each linked feature for each new arm, keyed by the `id` you supplied for that arm in `variations`: `{featureId: {variationId: value}}`. Required for every added arm when the Contextual Bandit has linked features.",
       ),
   }),
   querySchema: z.never(),

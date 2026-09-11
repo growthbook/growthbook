@@ -185,11 +185,15 @@ const BaseClass = MakeModelClass({
           if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
             req.context.permissions.throwPermissionError();
           }
+          const variations = req.body.variations.map((v) => ({
+            ...v,
+            screenshots: v.screenshots ?? [],
+          }));
           const { updated, featureDraftPublishFailures } =
             await executeContextualBanditVariationChange(
               req.context,
               cb,
-              req.body.variations,
+              variations,
               req.body.newVariationValues,
             );
           return {
