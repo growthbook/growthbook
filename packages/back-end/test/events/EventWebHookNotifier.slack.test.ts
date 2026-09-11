@@ -143,6 +143,9 @@ describe("Slack EventWebHook delivery compatibility", () => {
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue(null);
     jest.mocked(getContextForAgendaJobByOrgObject).mockReturnValue({
       models: {
+        slackNotificationSnoozes: {
+          isExperimentSnoozed: jest.fn().mockResolvedValue(false),
+        },
         slackWorkspaceConnections: {
           getByTeamId: getSlackWorkspaceConnectionByTeamId,
         },
@@ -323,5 +326,32 @@ describe("Slack EventWebHook delivery compatibility", () => {
       "org-1",
       { state: "success", responseBody: "123.456" },
     );
+  });
+  it("suppresses a snoozed workspace experiment without changing legacy delivery", async () => {
+    setWebhook({
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+      slack: { channelId: "C123", teamId: "T123" },
+    });
+    jest.mocked(getEvent).mockResolvedValue({
+      id: "event-1",
+      event: "experiment.warning",
+      version: 1,
+      organizationId: "org-1",
+      data: {
+        event: "experiment.warning",
+        data: { object: { type: "srm", experimentId: "exp-1" } },
+      },
+    });
+    const snoozed = jest.fn().mockResolvedValue(true);
+    jest.mocked(getContextForAgendaJobByOrgObject).mockReturnValue({
+      models: { slackNotificationSnoozes: { isExperimentSnoozed: snoozed } },
+    });
+    await runAgendaJob();
+    expect(snoozed).toHaveBeenCalledWith({
+      eventWebHookId: "webhook-1",
+      experimentId: "exp-1",
+    });
+    expect(postSlackMessageResult).not.toHaveBeenCalled();
+    expect(uploadSlackImageFile).not.toHaveBeenCalled();
   });
 });

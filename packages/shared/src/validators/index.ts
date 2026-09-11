@@ -51,6 +51,7 @@ export * from "./watch";
 export * from "./apikey";
 export * from "./figma-connection";
 export * from "./slack-workspace-connection";
+export * from "./slack-notification-snooze";
 export * from "./ai-credential";
 export * from "./events";
 export * from "./experiment-decision";
@@ -95,3 +96,5 @@ export * from "./contextual-bandit-query";
 export * from "./contextual-bandit-snapshot";
 export * from "./contextual-bandit-event";
 export * from "./api-errors";
+
+export * from "./slack-user-link";

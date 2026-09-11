@@ -145,6 +145,7 @@ import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
+import { slackActionsRouter } from "./routers/slack-actions/slack-actions.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
@@ -312,6 +313,10 @@ app.use(async (req, res, next) => {
 
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
+
+// Slack signs the raw request body. Mount inbound events before the global JSON
+// parser so the Slack router can verify signatures itself.
+app.use("/integrations/slack", slackActionsRouter);
 
 // 2mb default; 10mb for screenshot upload and visual-editor AI image
 // gen (the latter accepts a base64-encoded reference image).
