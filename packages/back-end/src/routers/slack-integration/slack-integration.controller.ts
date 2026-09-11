@@ -1,12 +1,13 @@
+import {
+  experimentCardFormats as supportedCardFormats,
+  SlackEventWebHookOptions,
+  SlackWorkspaceConnectionFrontEndInterface,
+} from "shared/validators";
 import type { Response } from "express";
 import {
   SlackIntegrationInterface,
   SlackOAuthIntegrationInterface,
 } from "shared/types/slack-integration";
-import {
-  SlackEventWebHookOptions,
-  SlackWorkspaceConnectionFrontEndInterface,
-} from "shared/validators";
 import { NotificationEventName } from "shared/types/events/base-types";
 import {
   buildSlackSettingsPreview,
@@ -590,7 +591,7 @@ export const getSlackPreviewEvents = async (
 export const postSlackPreview = async (
   req: AuthRequest<{
     eventName: string;
-    format: "none" | "compact" | "detailed";
+    format: (typeof supportedCardFormats)[number];
   }>,
   res: Response,
 ) => {
@@ -607,7 +608,7 @@ export const postSlackPreview = async (
 };
 export const postSlackTest = async (
   req: AuthRequest<
-    { eventName: string; format: "none" | "compact" | "detailed" },
+    { eventName: string; format: (typeof supportedCardFormats)[number] },
     { id: string }
   >,
   res: Response,

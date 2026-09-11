@@ -1,4 +1,7 @@
-import { notificationEventNames } from "shared/validators";
+import {
+  experimentCardFormats as supportedCardFormats,
+  notificationEventNames,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
@@ -28,7 +31,7 @@ export const slackPreviewEventNames = [
 export async function buildSlackSettingsPreview(
   context: ReqContext,
   eventName: string,
-  format: "none" | "compact" | "detailed",
+  format: (typeof supportedCardFormats)[number],
 ) {
   if (!context.permissions.canManageIntegrations())
     context.permissions.throwPermissionError();
@@ -73,7 +76,7 @@ export async function sendSlackSettingsTest(
   context: ReqContext,
   id: string,
   eventName: string,
-  format: "none" | "compact" | "detailed",
+  format: (typeof supportedCardFormats)[number],
 ) {
   if (!context.permissions.canManageIntegrations())
     context.permissions.throwPermissionError();

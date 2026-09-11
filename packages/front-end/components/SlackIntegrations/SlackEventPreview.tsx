@@ -1,3 +1,4 @@
+import { experimentCardFormats as supportedCardFormats } from "shared/validators";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
@@ -21,7 +22,7 @@ export default function SlackEventPreview({
   format,
 }: {
   eventName: string;
-  format: "none" | "compact" | "detailed";
+  format: (typeof supportedCardFormats)[number];
 }) {
   const { apiCall } = useAuth();
   const [attempt, setAttempt] = useState(0);

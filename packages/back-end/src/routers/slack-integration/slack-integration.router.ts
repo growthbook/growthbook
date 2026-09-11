@@ -1,10 +1,11 @@
-import express from "express";
-import { z } from "zod";
 import {
+  experimentCardFormats as supportedCardFormats,
   isEventWebhookWildcard,
   slackEventWebHookOptions,
   zodNotificationEventNamesEnum,
 } from "shared/validators";
+import express from "express";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawSlackIntegrationController from "./slack-integration.controller";
@@ -30,7 +31,7 @@ const previewBody = z
       z.enum(zodNotificationEventNamesEnum),
       z.enum(["digest:scorecard", "digest:feature"]),
     ]),
-    format: z.enum(["none", "compact", "detailed"]),
+    format: z.enum(supportedCardFormats),
   })
   .strict();
 router.get("/preview-events", slackIntegrationController.getSlackPreviewEvents);
