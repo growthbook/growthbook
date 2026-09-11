@@ -9,12 +9,11 @@ import {
   withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import { ExplorationDateRange } from "shared/validators";
-import React, { useState } from "react";
+import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiSlidersHorizontal } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
-import { Popover } from "@/ui/Popover";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters, {
@@ -26,7 +25,7 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
 import { DATE_RANGE_PREDEFINED_LABELS } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
-import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
+import ColumnSettingsButton from "@/ui/ColumnSettingsButton";
 import BlockDateRangePicker from "./BlockDateRangePicker";
 import SidebarSettingField from "./SidebarSettingField";
 import DashboardFilterInheritTag from "./DashboardFilterInheritTag";
@@ -66,7 +65,6 @@ export default function MetricExperimentsSettings({
 }: Props) {
   const { projects: allProjects } = useDefinitions();
   const { experiments } = useExperiments();
-  const [columnsOpen, setColumnsOpen] = useState(false);
 
   // A field inherits only if the block opted in AND the dashboard has a value.
   const projectsSet = globalFilterIsSet(dashboardGlobalControls, "projects");
@@ -295,10 +293,16 @@ export default function MetricExperimentsSettings({
             </Text>
           </Box>
           <Box style={{ flexShrink: 0 }}>
-            <Popover
-              open={columnsOpen}
-              onOpenChange={setColumnsOpen}
-              align="end"
+            {/* The hidden count is already in the summary to the left, and this
+                sidebar row wants a Link rather than the toolbar trigger. */}
+            <ColumnSettingsButton
+              columns={resolvedColumns.map((c) => ({
+                id: c.id,
+                label: c.label,
+                visible: c.visible,
+              }))}
+              onChange={(columns) => setBlock({ ...block, columns })}
+              note="The Experiment column is always shown."
               trigger={
                 <Link size="sm" style={{ whiteSpace: "nowrap" }}>
                   <Flex align="center" gap="1">
@@ -306,24 +310,6 @@ export default function MetricExperimentsSettings({
                     Edit
                   </Flex>
                 </Link>
-              }
-              content={
-                <Box style={{ width: 260 }}>
-                  <Box mb="2">
-                    <Text size="sm" color="text-low">
-                      Drag to reorder or toggle visibility. The Experiment
-                      column is always shown.
-                    </Text>
-                  </Box>
-                  <MetricExperimentsColumnSettings
-                    columns={resolvedColumns.map((c) => ({
-                      id: c.id,
-                      label: c.label,
-                      visible: c.visible,
-                    }))}
-                    onChange={(columns) => setBlock({ ...block, columns })}
-                  />
-                </Box>
               }
             />
           </Box>
