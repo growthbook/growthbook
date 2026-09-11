@@ -1966,11 +1966,13 @@ export const getFeatureStaleValidator = {
                 "abandoned-draft",
                 "toggled-off",
                 "active-experiment",
+                "temp-rollout",
+                "old-temp-rollout",
                 "has-rules",
               ])
               .nullable()
               .describe(
-                "Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`. Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`. Null when non-stale with no single cause (see staleByEnv).\n",
+                "Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`, `temp-rollout` (a rule serves a recently stopped experiment's released variation). Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`, `old-temp-rollout` (the environment only serves the released variation of an experiment stopped more than 30 days ago). Null when non-stale with no single cause (see staleByEnv).\n",
               ),
             neverStale: z
               .boolean()
@@ -1991,6 +1993,8 @@ export const getFeatureStaleValidator = {
                       "abandoned-draft",
                       "toggled-off",
                       "active-experiment",
+                      "temp-rollout",
+                      "old-temp-rollout",
                       "has-rules",
                       "recently-updated",
                       "active-draft",
@@ -2004,6 +2008,12 @@ export const getFeatureStaleValidator = {
                     .string()
                     .describe(
                       "The deterministic value this feature evaluates to in this environment. Uses the same raw string encoding as `feature.defaultValue`. Only present when the value is deterministic or the environment is toggled off.\n",
+                    )
+                    .optional(),
+                  tempRollout: z
+                    .enum(["temp-rollout", "old-temp-rollout"])
+                    .describe(
+                      "Present when a reachable rule still serves a stopped experiment's released variation (a temporary rollout that can be cleaned up). `old-temp-rollout` once the experiment has been stopped for more than 30 days.\n",
                     )
                     .optional(),
                 }),

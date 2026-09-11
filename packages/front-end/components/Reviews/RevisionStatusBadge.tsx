@@ -125,22 +125,6 @@ export function topDraftStatus(
   return null;
 }
 
-/**
- * Returns the distinct visual dot colors to show in the column cell.
- * "pending-review" and "changes-requested" both map to red, so they
- * collapse into a single dot. Result is ordered: red, green, amber.
- */
-export function draftStatusDots(
-  counts: Partial<Record<string, number>>,
-): string[] {
-  const dots: string[] = [];
-  if ((counts["changes-requested"] ?? 0) + (counts["pending-review"] ?? 0) > 0)
-    dots.push("var(--red-9)");
-  if ((counts["approved"] ?? 0) > 0) dots.push("var(--green-9)");
-  if ((counts["draft"] ?? 0) > 0) dots.push("var(--amber-9)");
-  return dots;
-}
-
 /** Builds a tooltip ReactNode from a counts map — one line per status. */
 export function draftStatusTooltip(
   counts: Partial<Record<string, number>>,
