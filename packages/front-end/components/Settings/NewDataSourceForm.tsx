@@ -756,7 +756,6 @@ const NewDataSourceForm: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={"Add Data Source"}

@@ -20,7 +20,6 @@ export default function AdminSetPasswordModal({ member, close }: Props) {
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header="Change Password"

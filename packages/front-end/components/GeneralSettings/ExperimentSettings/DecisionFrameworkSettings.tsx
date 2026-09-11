@@ -65,7 +65,6 @@ const DecisionFrameworkSettings = () => {
 
       {criteriaToDelete && (
         <Modal
-          useRadixButton={false}
           header="Delete Decision Criteria"
           trackingEventModalType="delete-decision-criteria"
           open={true}

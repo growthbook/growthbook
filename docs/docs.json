@@ -672,7 +672,8 @@
                   "api/experiments/operation/postExperimentSnapshot",
                   "api/experiments/operation/postVariationImageUpload",
                   "api/experiments/operation/deleteVariationScreenshot",
-                  "api/experiments/operation/getExperimentNames"
+                  "api/experiments/operation/getExperimentNames",
+                  "api/experiments/operation/postExperimentComment"
                 ]
               },
               {
@@ -1088,6 +1089,16 @@
                   "api/Holdouts/operation/startHoldoutAnalysis",
                   "api/Holdouts/operation/stopHoldout"
                 ]
+              },
+              {
+                "group": "Auto Runs",
+                "pages": [
+                  "api/AutoRuns/operation/listAutoRuns",
+                  "api/AutoRuns/operation/createAutoRun",
+                  "api/AutoRuns/operation/getAutoRun",
+                  "api/AutoRuns/operation/updateAutoRun",
+                  "api/AutoRuns/operation/appendAutoRunArtifact"
+                ]
               }
             ]
           },
@@ -1098,6 +1109,7 @@
               "api/AnalyticsExploration_model",
               "api/Archetype_model",
               "api/Attribute_model",
+              "api/AutoRun_model",
               "api/CodeRef_model",
               "api/Config_model",
               "api/ConfigKeyUsage_model",

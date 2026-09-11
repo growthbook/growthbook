@@ -266,6 +266,14 @@ export type ExplorationDateRange = z.infer<
   typeof explorationDateRangeValidator
 >;
 
+const chartSettingsValidator = z.object({
+  categoryAxisLabel: z.string().optional(),
+  valueAxisLabel: z.string().optional(),
+});
+export type ProductAnalyticsChartSettings = z.infer<
+  typeof chartSettingsValidator
+>;
+
 // Strict: a key on the wrong level (e.g. block-level `globalControlSettings`) must not vanish.
 export const baseExplorationConfigValidator = z.strictObject({
   datasource: z.string().describe("ID of the datasource to query"),
@@ -279,6 +287,9 @@ export const baseExplorationConfigValidator = z.strictObject({
   // regardless of this setting.
   // Optional for backward compatibility; read sites default to "total".
   showAs: showAsValidator.optional(),
+  // Render-only chart display options. Optional so existing saved explorations,
+  // dashboard blocks, URLs, and API clients continue to parse unchanged.
+  chartSettings: chartSettingsValidator.optional(),
 });
 
 export const metricExplorationConfigValidator =

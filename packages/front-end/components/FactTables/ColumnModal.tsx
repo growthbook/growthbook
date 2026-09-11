@@ -265,7 +265,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -410,6 +409,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             {
               label: "Time (seconds)",
               value: "time:seconds",
+            },
+            {
+              label: "Time (milliseconds)",
+              value: "time:milliseconds",
             },
             {
               label: "Memory (bytes)",
