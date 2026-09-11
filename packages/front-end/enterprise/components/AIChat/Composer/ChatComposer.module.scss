@@ -157,11 +157,15 @@
   box-shadow: 0 0 0 1px var(--violet-8);
 }
 
+// The 40px bottom padding on .heroBox is the gutter these sit in.
 .heroSendButton {
   position: absolute;
   right: 12px;
   bottom: 12px;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 // --- Buttons -----------------------------------------------------------------
@@ -180,7 +184,8 @@
   line-height: 0;
 }
 
-.sendButton {
+.sendButton,
+.dictateButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -191,11 +196,10 @@
   line-height: 0;
   border: none;
   border-radius: var(--radius-3);
-  background: var(--violet-10);
-  color: #fff;
   cursor: pointer;
   transition:
     background-color 120ms ease,
+    color 120ms ease,
     opacity 120ms ease;
 
   // The icon defaults to inline (baseline) layout, which leaves descender
@@ -205,13 +209,18 @@
     display: block;
   }
 
-  &:hover:not(:disabled) {
-    background: var(--violet-11);
-  }
-
   &:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+}
+
+.sendButton {
+  background: var(--violet-10);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: var(--violet-11);
   }
 }
 
@@ -224,4 +233,51 @@
   &:hover:not(:disabled) {
     background: var(--gray-a6);
   }
+}
+
+// Quiet by default — the send button is the primary action.
+.dictateButton {
+  background: transparent;
+  color: var(--gray-11);
+
+  &:hover:not(:disabled) {
+    background: var(--gray-a3);
+    color: var(--gray-12);
+  }
+}
+
+// Recording. Tinted rather than pulsing: the panel already animates during a
+// turn, and a second moving thing competes with it.
+.dictateButtonActive {
+  background: var(--red-a4);
+  color: var(--red-11);
+
+  &:hover:not(:disabled) {
+    background: var(--red-a5);
+    color: var(--red-11);
+  }
+}
+
+// Gives the tooltip an enabled trigger to hover: pointer events never reach a
+// disabled button.
+.dictateTrigger {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+// A child of .box, positioned like SuggestionList's .popup so it clears the
+// whole composer rather than overlapping typed text. Right-aligned to sit
+// over the mic it came from.
+.dictateError {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  z-index: 2;
+  width: max-content;
+  max-width: 240px;
+  padding: 6px 8px;
+  border-radius: var(--radius-3);
+  background: var(--color-panel-solid);
+  box-shadow: var(--shadow-3);
 }

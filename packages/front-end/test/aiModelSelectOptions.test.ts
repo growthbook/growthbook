@@ -11,7 +11,9 @@ import {
   getAvailableEmbeddingModelOptions,
   getAvailableImageModelOptions,
   getAvailablePromptModelOptions,
+  getAvailableSTTModelOptions,
   getModelDisplayLabel,
+  STT_MODEL_OPTIONS,
   USE_DEFAULT_MODEL_OPTION,
 } from "@/services/aiModelSelectOptions";
 
@@ -190,5 +192,48 @@ describe("getAvailableEmbeddingModelOptions", () => {
     expect(values(getAvailableEmbeddingModelOptions(["anthropic"]))).toContain(
       "",
     );
+  });
+});
+
+describe("getAvailableSTTModelOptions", () => {
+  it("only offers transcription models from the given providers", () => {
+    const ids = values(getAvailableSTTModelOptions(["xai"]));
+
+    expect(ids).toContain("grok-stt-1.0");
+    expect(ids).not.toContain("gpt-transcribe");
+  });
+
+  it("keeps a saved transcription model selectable", () => {
+    const options = getAvailableSTTModelOptions(["xai"], "whisper-1");
+
+    expect(values(options)).toContain("whisper-1");
+    expect(groupLabels(options)).toContain("Selected, no API key");
+  });
+
+  it("does not expose transcription models for an incompatible provider list", () => {
+    // Neither Anthropic nor Google serves one, so only the sentinel is left.
+    expect(
+      values(getAvailableSTTModelOptions(["anthropic", "google"])).filter(
+        Boolean,
+      ),
+    ).toEqual([]);
+  });
+
+  it("shows every transcription model while provider access is unknown", () => {
+    expect(
+      values(getAvailableSTTModelOptions(undefined)).filter(Boolean),
+    ).toHaveLength(STT_MODEL_OPTIONS.length);
+  });
+
+  it("always keeps the 'use default' entry", () => {
+    // The only way back to the resolved default once a model has been chosen.
+    expect(values(getAvailableSTTModelOptions(["anthropic"]))).toContain("");
+  });
+
+  it("labels every transcription model", () => {
+    // Feeds the key-removal dialog; an unlabeled id shows as a raw model id.
+    for (const { value, label } of STT_MODEL_OPTIONS) {
+      expect(getModelDisplayLabel(value)).toBe(label);
+    }
   });
 });

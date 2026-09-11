@@ -39,6 +39,8 @@ import {
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   EmbeddingModel,
+  STTModel,
+  resolveDefaultSTTModel,
   getProviderForAIModel,
 } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
@@ -311,6 +313,10 @@ export async function getAISettingsForOrg(
   keySource: Record<AIProvider, AIKeySource>;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
+  // Dictation model, or null when unavailable. Nullable unlike embeddingModel
+  // because it gates a visible button: a mic that renders and then fails after
+  // the user has spoken is worse than no mic.
+  sttModel: STTModel | null;
   // Resolved Visual Editor overrides — both already fall back to a
   // sensible default so callers don't need their own resolution logic.
   visualEditorAIModel: AIModel;
@@ -376,6 +382,13 @@ export async function getAISettingsForOrg(
       ? CLOUD_MANAGED_IMAGE_MODEL
       : GEMINI_IMAGE_MODEL);
 
+  const sttModel: STTModel | null = !aiEnabled
+    ? null
+    : getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
+      resolveDefaultSTTModel(
+        AI_PROVIDERS.filter((p) => keySource[p] !== "none"),
+      );
+
   return {
     aiEnabled,
     openAIAPIKey: includeKey ? resolvedKeys.openai.key : "",
@@ -391,6 +404,7 @@ export async function getAISettingsForOrg(
         context.org.settings?.embeddingModel,
         keySource,
       ) || DEFAULT_EMBEDDING_MODEL,
+    sttModel,
     visualEditorAIModel,
     visualEditorImageModel,
     visualEditorAIContext: (

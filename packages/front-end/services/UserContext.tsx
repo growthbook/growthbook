@@ -39,7 +39,7 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { AgreementType } from "shared/validators";
-import { AIProvider } from "shared/ai";
+import { AIProvider, STTModel } from "shared/ai";
 import { NonJsonResponseError } from "shared/util";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
@@ -129,6 +129,8 @@ export interface UserContextValue {
   // AI providers with a usable API key, from the org's own stored keys or the
   // host's environment variables.
   aiKeyProviders: AIProvider[];
+  // Resolved dictation model, null when unavailable. Hides the mic button.
+  sttModel: STTModel | null;
   seatsInUse: number;
   roles: Role[];
   teams?: Team[];
@@ -178,6 +180,7 @@ export const UserContext = createContext<UserContextValue>({
   organization: {},
   agreements: [],
   aiKeyProviders: [],
+  sttModel: null,
   subscription: null,
   licenseError: "",
   seatsInUse: 0,
@@ -603,6 +606,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         commercialFeatures: [...commercialFeatures],
         agreements: currentOrg?.agreements || [],
         aiKeyProviders: currentOrg?.aiKeyProviders || [],
+        sttModel: currentOrg?.sttModel || null,
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,

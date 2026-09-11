@@ -46,28 +46,30 @@ export const updateTokenUsage = async ({
       lastResetAt: new Date().getTime(),
     };
   }
-  let tokenUsage = await AITokenUsageModel.findOne({
-    organization: organization.id,
-  });
-
-  if (!tokenUsage) {
-    tokenUsage = await AITokenUsageModel.create({
-      organization: organization.id,
-      numTokensUsed: 0,
-      lastResetAt: new Date().getTime(),
-    });
-  }
-
-  const lastResetAt = tokenUsage.lastResetAt;
   const now = new Date().getTime();
-  if (now - lastResetAt > RESET_INTERVAL) {
-    tokenUsage.lastResetAt = now;
-    tokenUsage.numTokensUsed = 0;
-  }
 
-  tokenUsage.numTokensUsed += numTokensUsed;
+  // Roll the window first. Self-limiting under concurrency: once one writer
+  // sets lastResetAt to now, the filter stops matching for everyone else.
+  await AITokenUsageModel.updateOne(
+    {
+      organization: organization.id,
+      lastResetAt: { $lt: now - RESET_INTERVAL },
+    },
+    { $set: { numTokensUsed: 0, lastResetAt: now } },
+  );
 
-  await tokenUsage.save();
+  // $inc rather than read-modify-save. Concurrent AI calls used to read the
+  // same total and overwrite each other's charge, undercounting usage against
+  // the daily cap. dailyLimit is set explicitly on insert rather than left to
+  // the schema default, because an undefined limit reads as "never over cap".
+  const tokenUsage = await AITokenUsageModel.findOneAndUpdate(
+    { organization: organization.id },
+    {
+      $inc: { numTokensUsed },
+      $setOnInsert: { lastResetAt: now, dailyLimit: DAILY_TOKEN_LIMIT },
+    },
+    { new: true, upsert: true },
+  );
 
   return toInterface(tokenUsage);
 };

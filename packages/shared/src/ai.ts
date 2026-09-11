@@ -548,9 +548,67 @@ export function getProviderFromEmbeddingModel(
   throw new Error(`Embedding model ${model} is not supported.`);
 }
 
-// Text, embedding and image models each have their own registry, so callers
-// holding an org setting must say which one it came from.
-export type AIModelKind = "text" | "embedding" | "image";
+// Speech-to-text models for voice dictation. Batch (file-POST) only: the
+// realtime ids each provider also ships need a socket, not a POST.
+//
+// Anthropic is absent because no Claude model accepts audio input. Google is
+// absent because gemini-3.5-transcribe won't take inline audio — it needs a
+// Files API upload, then /v1beta/interactions with its own request and
+// response shape, which is more adapter than the other three combined.
+export const AI_PROVIDER_STT_MODEL_MAP = {
+  openai: [
+    "gpt-transcribe",
+    "gpt-4o-transcribe",
+    "gpt-4o-mini-transcribe",
+    "whisper-1",
+  ],
+  xai: ["grok-stt-1.0"],
+  mistral: ["voxtral-mini-latest"],
+} as const;
+
+export type STTModel =
+  (typeof AI_PROVIDER_STT_MODEL_MAP)[keyof typeof AI_PROVIDER_STT_MODEL_MAP][number];
+
+export function getProviderFromSTTModel(model: STTModel): AIProvider {
+  for (const [provider, models] of Object.entries(AI_PROVIDER_STT_MODEL_MAP)) {
+    if (models.includes(model as never)) {
+      return provider as AIProvider;
+    }
+  }
+  throw new Error(`Transcription model ${model} is not supported.`);
+}
+
+// Walked in order, so a missing key degrades to the next provider rather than
+// disabling dictation. Same order on Cloud and self-hosted: whichever key is
+// present wins, and there is no managed model worth special-casing above it.
+export const DEFAULT_STT_MODELS: ReadonlyArray<[AIProvider, STTModel]> = [
+  ["openai", "gpt-transcribe"],
+  ["xai", "grok-stt-1.0"],
+  ["mistral", "voxtral-mini-latest"],
+];
+
+// What the key-removal dialog names as taking over. Derived from the list so
+// the two can't drift apart.
+export const DEFAULT_STT_MODEL: STTModel = DEFAULT_STT_MODELS[0][1];
+
+/**
+ * Which model "use default" resolves to, given the providers that have a key.
+ * Shared so the settings dropdown can name the default without re-deriving a
+ * chain that could disagree with what the transcribe route actually picks.
+ */
+export function resolveDefaultSTTModel(
+  providersWithKeys: readonly AIProvider[],
+): STTModel | null {
+  return (
+    DEFAULT_STT_MODELS.find(([provider]) =>
+      providersWithKeys.includes(provider),
+    )?.[1] ?? null
+  );
+}
+
+// Text, embedding, image and transcription models each have their own
+// registry, so callers holding an org setting must say which one it came from.
+export type AIModelKind = "text" | "embedding" | "image" | "stt";
 
 // Provider that serves `model`, or null when the id isn't in that registry.
 // Null rather than a throw: a stale org setting should read as "not selectable",
@@ -563,6 +621,7 @@ export function getProviderForAIModel(
     if (kind === "text") return getProviderFromModel(model as AIModel);
     if (kind === "embedding")
       return getProviderFromEmbeddingModel(model as EmbeddingModel);
+    if (kind === "stt") return getProviderFromSTTModel(model as STTModel);
     return getImageModelMeta(model)?.provider ?? null;
   } catch {
     return null;
@@ -603,6 +662,12 @@ export const AI_MODEL_SETTINGS = [
     kind: "embedding",
     label: "Embedding model",
     fallback: DEFAULT_EMBEDDING_MODEL,
+  },
+  {
+    key: "sttModel",
+    kind: "stt",
+    label: "Dictation model",
+    fallback: DEFAULT_STT_MODEL,
   },
 ] as const;
 
