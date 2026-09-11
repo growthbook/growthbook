@@ -169,16 +169,25 @@ export const compareRows = (
   return sortDirection === "desc" ? -comparisonResult : comparisonResult;
 };
 
-export function experimentDate(exp: ExperimentInterfaceStringDates): string {
-  return (
-    (exp.archived
-      ? exp.dateUpdated
-      : exp.status === "running"
-        ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-        : exp.status === "stopped"
-          ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-          : exp.dateCreated) ?? new Date().toISOString() // fallback to now
-  );
+export function experimentDate(
+  exp: ExperimentInterfaceStringDates,
+): string | undefined {
+  if (exp.archived) return exp.dateUpdated;
+  if (exp.status === "running") {
+    // A running experiment with no phase start date effectively just started,
+    // so "now" is an honest fallback (same gating DateGraph uses).
+    return (
+      exp.phases?.[exp.phases?.length - 1]?.dateStarted ??
+      new Date().toISOString()
+    );
+  }
+  if (exp.status === "stopped") {
+    // Several stop paths never close the phase, so dateEnded can be absent.
+    // Returning undefined (no fabricated "now") lets the list show the gap
+    // and sort these rows last instead of as if they ended today.
+    return exp.phases?.[exp.phases?.length - 1]?.dateEnded;
+  }
+  return exp.dateCreated;
 }
 
 /**
@@ -514,6 +523,7 @@ export function useExperimentSearch({
     defaultSortDir,
     updateSearchQueryOnChange: controlledSearchValue === undefined,
     controlledSearchValue,
+    undefinedLast: true,
     searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
