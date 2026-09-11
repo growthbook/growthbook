@@ -37,6 +37,9 @@ import {
   QueryStatus,
 } from "shared/types/query";
 import { BanditResult } from "shared/types/experiment";
+import { logger } from "back-end/src/util/logger";
+import { notifyExperimentQueryFailed } from "back-end/src/services/experimentNotifications";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
@@ -690,12 +693,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       !this.model.report
     ) {
       try {
-        const { getExperimentById } = await import(
-          "back-end/src/models/ExperimentModel"
-        );
-        const { notifyExperimentQueryFailed } = await import(
-          "back-end/src/services/experimentNotifications"
-        );
         const experiment = await getExperimentById(
           this.context,
           this.model.experiment,
@@ -707,7 +704,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             errorMessage: error,
           });
       } catch (notificationError) {
-        const { logger } = await import("back-end/src/util/logger");
         logger.error(
           notificationError,
           "Failed to notify experiment query failure",

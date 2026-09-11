@@ -1,7 +1,7 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   getExperimentById,
-  getExperimentsForLifecycleReminders,
+  dangerousGetExperimentsForLifecycleReminders,
   setExperimentNotificationState,
 } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
@@ -10,7 +10,7 @@ import { checkExperimentLifecycleReminders } from "back-end/src/services/experim
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),
-  getExperimentsForLifecycleReminders: jest.fn(),
+  dangerousGetExperimentsForLifecycleReminders: jest.fn(),
   setExperimentNotificationState: jest.fn(),
 }));
 jest.mock("back-end/src/models/EventModel", () => ({ createEvent: jest.fn() }));
@@ -50,7 +50,7 @@ beforeEach(() => {
   jest.useFakeTimers().setSystemTime(now);
   experiments = [fixture("manual")];
   jest
-    .mocked(getExperimentsForLifecycleReminders)
+    .mocked(dangerousGetExperimentsForLifecycleReminders)
     .mockImplementation(async function* () {
       for (const experiment of experiments)
         yield { id: experiment.id, organization: experiment.organization };

@@ -975,7 +975,7 @@ export async function getExperimentsToUpdateLegacy(
 // Lifecycle reminders must include experiments without automatic result refreshes.
 // Also revisit previously notified experiments to clear their marker after stopping
 // or extending their schedule, so a later lifecycle can notify again.
-export async function* getExperimentsForLifecycleReminders(): AsyncGenerator<
+export async function* dangerousGetExperimentsForLifecycleReminders(): AsyncGenerator<
   Pick<ExperimentInterface, "id" | "organization">
 > {
   const cursor = getCollection(COLLECTION)

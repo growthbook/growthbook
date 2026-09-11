@@ -1,6 +1,6 @@
 import {
   getExperimentById,
-  getExperimentsForLifecycleReminders,
+  dangerousGetExperimentsForLifecycleReminders,
 } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import {
@@ -16,7 +16,7 @@ export async function checkExperimentLifecycleReminders(
   let context: ReqContext | null = null;
   let processed = 0;
   let renewedAt = 0;
-  for await (const candidate of getExperimentsForLifecycleReminders()) {
+  for await (const candidate of dangerousGetExperimentsForLifecycleReminders()) {
     // Renew outside the per-experiment catch: losing the scheduler lease must
     // stop this worker, rather than let two workers dispatch the same reminders.
     if (processed++ % 100 === 0 || Date.now() - renewedAt >= 60000) {
