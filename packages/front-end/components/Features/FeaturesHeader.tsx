@@ -50,7 +50,7 @@ import {
   DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
-import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
+import { useFeatureHealthStates } from "@/hooks/useFeatureHealthStates";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import FeatureArchiveModal from "./FeatureArchiveModal";
@@ -132,12 +132,12 @@ export default function FeaturesHeader({
   const { holdouts } = useHoldouts(feature.project);
   const holdoutsEnabled = hasCommercialFeature("holdouts");
 
-  const staleHook = useFeatureStaleStates();
-  const staleData = staleHook.getStaleState(feature.id);
+  const healthHook = useFeatureHealthStates();
+  const staleData = healthHook.getHealthState(feature.id);
 
   // Initial fetch when navigating to a feature (uses cache if fresh).
   useEffect(() => {
-    staleHook.fetchSome([feature.id]);
+    healthHook.fetchSome([feature.id]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feature.id]);
 
@@ -189,16 +189,16 @@ export default function FeaturesHeader({
       prevVersionRef.current !== null &&
       prevVersionRef.current !== feature.version
     ) {
-      staleHook.invalidate([feature.id]);
-      staleHook.fetchSome([feature.id]);
+      healthHook.invalidate([feature.id]);
+      healthHook.fetchSome([feature.id]);
     }
     prevVersionRef.current = feature.version ?? 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feature.id, feature.version]);
 
   const handleRerunStale = async () => {
-    staleHook.invalidate([feature.id]);
-    await staleHook.fetchSome([feature.id]);
+    healthHook.invalidate([feature.id]);
+    await healthHook.fetchSome([feature.id]);
   };
 
   const project = getProjectById(projectId || "");

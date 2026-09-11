@@ -9011,6 +9011,8 @@ paths:
                                 - abandoned-draft
                                 - toggled-off
                                 - active-experiment
+                                - temp-rollout
+                                - old-temp-rollout
                                 - has-rules
                             - type: 'null'
                         neverStale:
@@ -9033,6 +9035,8 @@ paths:
                                       - abandoned-draft
                                       - toggled-off
                                       - active-experiment
+                                      - temp-rollout
+                                      - old-temp-rollout
                                       - has-rules
                                       - recently-updated
                                       - active-draft
@@ -9040,6 +9044,11 @@ paths:
                                   - type: 'null'
                               evaluatesTo:
                                 type: string
+                              tempRollout:
+                                type: string
+                                enum:
+                                  - temp-rollout
+                                  - old-temp-rollout
                             required:
                               - isStale
                               - reason
@@ -73710,10 +73719,13 @@ components:
             description: >
               Reason for the feature's stale or non-stale status. `never-stale`
               when stale detection is disabled. Non-stale reasons:
-              `recently-updated`, `active-draft`, `has-dependents`. Stale
-              reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`,
-              `toggled-off`. Null when non-stale with no single cause (see
-              staleByEnv).
+              `recently-updated`, `active-draft`, `has-dependents`,
+              `temp-rollout` (a rule serves a recently stopped experiment's
+              released variation). Stale reasons: `no-rules`, `rules-one-sided`,
+              `abandoned-draft`, `toggled-off`, `old-temp-rollout` (the
+              environment only serves the released variation of an experiment
+              stopped more than 30 days ago). Null when non-stale with no single
+              cause (see staleByEnv).
             anyOf:
               - type: string
                 enum:
@@ -73726,6 +73738,8 @@ components:
                   - abandoned-draft
                   - toggled-off
                   - active-experiment
+                  - temp-rollout
+                  - old-temp-rollout
                   - has-rules
               - type: 'null'
           neverStale:
@@ -73756,6 +73770,8 @@ components:
                         - abandoned-draft
                         - toggled-off
                         - active-experiment
+                        - temp-rollout
+                        - old-temp-rollout
                         - has-rules
                         - recently-updated
                         - active-draft
@@ -73768,6 +73784,16 @@ components:
                     `feature.defaultValue`. Only present when the value is
                     deterministic or the environment is toggled off.
                   type: string
+                tempRollout:
+                  description: >
+                    Present when a reachable rule still serves a stopped
+                    experiment's released variation (a temporary rollout that
+                    can be cleaned up). `old-temp-rollout` once the experiment
+                    has been stopped for more than 30 days.
+                  type: string
+                  enum:
+                    - temp-rollout
+                    - old-temp-rollout
               required:
                 - isStale
                 - reason

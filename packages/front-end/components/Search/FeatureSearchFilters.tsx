@@ -2,6 +2,14 @@ import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton, TextField } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
 import Text from "@/ui/Text";
+import {
+  FEATURE_HEALTH_FILTER_OPTIONS,
+  FEATURE_HEALTH_SEVERITIES,
+  FEATURE_HEALTH_SEVERITY_FILTER_OPTIONS,
+  FEATURE_HEALTH_STATES,
+  FEATURE_STALE_FILTER_OPTIONS,
+} from "@/services/health";
+import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useEnvironments, useAttributeSchema } from "@/services/features";
 import Tag from "@/components/Tags/Tag";
 import Button from "@/ui/Button";
@@ -628,21 +636,6 @@ const FeatureSearchFilters: FC<
           onClick={() => {
             updateQuery({
               field: "has",
-              values: ["temp-rollout"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Temp experiment rollouts"
-            exists={doesFilterExist("has", "temp-rollout", "")}
-          />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "has",
               values: ["ramp-schedule"],
               operator: "",
               negated: false,
@@ -710,6 +703,71 @@ const FeatureSearchFilters: FC<
         />
       </DropdownMenu>
 
+      <DropdownMenu
+        trigger={FilterHeading({
+          heading: "health",
+          open: dropdownFilterOpen === "health",
+        })}
+        open={dropdownFilterOpen === "health"}
+        menuPlacement="end"
+        variant="soft"
+        onOpenChange={(o) => {
+          setDropdownFilterOpen(o ? "health" : "");
+        }}
+      >
+        <DropdownMenuLabel>Severity</DropdownMenuLabel>
+        {FEATURE_HEALTH_SEVERITY_FILTER_OPTIONS.map(({ value, label }) => (
+          <DropdownMenuItem
+            key={value}
+            onClick={() => {
+              updateQuery({
+                field: "health",
+                values: [value],
+                operator: "",
+                negated: false,
+              });
+            }}
+          >
+            <FilterItem
+              item={
+                <Flex gap="1" align="center">
+                  <ExperimentDot
+                    color={FEATURE_HEALTH_SEVERITIES[value].color}
+                  />
+                  {label}
+                </Flex>
+              }
+              exists={doesFilterExist("health", value, "")}
+            />
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Issue</DropdownMenuLabel>
+        {FEATURE_HEALTH_FILTER_OPTIONS.map(({ value, label }) => (
+          <DropdownMenuItem
+            key={value}
+            onClick={() => {
+              updateQuery({
+                field: "health",
+                values: [value],
+                operator: "",
+                negated: false,
+              });
+            }}
+          >
+            <FilterItem
+              item={
+                <Flex gap="1" align="center">
+                  <ExperimentDot color={FEATURE_HEALTH_STATES[value].color} />
+                  {label}
+                </Flex>
+              }
+              exists={doesFilterExist("health", value, "")}
+            />
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenu>
+
       {/* More: status/staleness filters */}
       <DropdownMenu
         trigger={FilterHeading({
@@ -754,51 +812,26 @@ const FeatureSearchFilters: FC<
             exists={doesFilterExist("has", "draft", "")}
           />
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "is",
-              values: ["stale"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Is stale"
-            exists={doesFilterExist("is", "stale", "")}
-          />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "has",
-              values: ["stale-env"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Has stale environments"
-            exists={doesFilterExist("has", "stale-env", "")}
-          />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            updateQuery({
-              field: "is",
-              values: ["stale-disabled"],
-              operator: "",
-              negated: false,
-            });
-          }}
-        >
-          <FilterItem
-            item="Stale detection disabled"
-            exists={doesFilterExist("is", "stale-disabled", "")}
-          />
-        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Stale</DropdownMenuLabel>
+        {FEATURE_STALE_FILTER_OPTIONS.map(({ value, label }) => (
+          <DropdownMenuItem
+            key={value}
+            onClick={() => {
+              updateQuery({
+                field: "is",
+                values: [value],
+                operator: "",
+                negated: false,
+              });
+            }}
+          >
+            <FilterItem
+              item={label}
+              exists={doesFilterExist("is", value, "")}
+            />
+          </DropdownMenuItem>
+        ))}
       </DropdownMenu>
     </Flex>
   );
