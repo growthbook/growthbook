@@ -7,10 +7,6 @@ import {
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiTrash } from "react-icons/pi";
-import {
-  eventWebHookEventOptions,
-  formatWebhookEventOptionLabel,
-} from "@/components/EventWebHooks/utils";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -106,7 +102,6 @@ export default function SlackChannelSettings({
   const [expandedCategories, setExpandedCategories] = useState<
     SlackEventCategory[]
   >([]);
-  const [showOtherEvents, setShowOtherEvents] = useState(false);
   const [cardFormat, setCardFormat] = useState(
     integration.slackOptions?.experimentCardFormat ?? "compact",
   );
@@ -568,45 +563,12 @@ export default function SlackChannelSettings({
           );
         })}
 
-        <Box>
-          <Button
-            variant="ghost"
-            color="gray"
-            size="sm"
-            onClick={() => setShowOtherEvents(!showOtherEvents)}
-          >
-            {showOtherEvents
-              ? "Hide advanced subscriptions"
-              : "Advanced subscriptions"}
-          </Button>
-          {showOtherEvents && (
-            <Box mt="3">
-              <Text as="p" color="text-mid">
-                Manage other resource types and wildcard subscriptions.
-              </Text>
-              <MultiSelectField
-                value={events}
-                placeholder="Choose events"
-                sort={false}
-                size="lg"
-                options={eventWebHookEventOptions}
-                formatOptionLabel={(option, meta) =>
-                  formatWebhookEventOptionLabel(option, meta)
-                }
-                onChange={(value) => {
-                  setEvents(value);
-                  markDirty();
-                }}
-              />
-            </Box>
-          )}
-          {events.length === 0 && (
-            <Callout status="warning" mt="3">
-              Select at least one event before saving. To pause all
-              notifications, turn off Enabled at the top of this page.
-            </Callout>
-          )}
-        </Box>
+        {events.length === 0 && (
+          <Callout status="warning">
+            Select at least one event before saving. To pause all notifications,
+            turn off Enabled at the top of this page.
+          </Callout>
+        )}
 
         <Frame mb="0">
           <Heading as="h3" size="md" mb="1">
