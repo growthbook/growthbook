@@ -51,6 +51,7 @@ export function revisionStatusColor(
       // variant — see revisionStatusBadgeVariant.
       return "gray";
     case "published":
+    case "pending-parent":
     default:
       return "gray";
   }
@@ -76,6 +77,7 @@ export function revisionStatusIcon(
       // surrounding chip/band provides the container.
       return <PiCheckBold />;
     case "pending-review":
+    case "pending-parent":
       // Spinner glyph (not animated) — distinct from the scheduled-publish clock.
       return <PiSpinnerGap />;
     case "changes-requested":
@@ -202,6 +204,8 @@ export function revisionStatusLabel(
       return "Approved";
     case "changes-requested":
       return "Changes requested";
+    case "pending-parent":
+      return "Pending parent";
     case "discarded":
       return "Discarded";
     case "merged":

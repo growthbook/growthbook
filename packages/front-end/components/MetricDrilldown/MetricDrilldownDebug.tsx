@@ -73,7 +73,8 @@ function getSupplementalMetricSnapshotSettings(
         ...baseSettings,
         properPrior: false,
       };
-    default:
+    case "uncapped":
+    case "unstratified":
       return baseSettings;
   }
 }

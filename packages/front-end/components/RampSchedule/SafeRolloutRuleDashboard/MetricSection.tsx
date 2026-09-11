@@ -40,20 +40,27 @@ import MetricDrilldownOverview from "@/components/MetricDrilldown/MetricDrilldow
 // Event marker helpers
 // ---------------------------------------------------------------------------
 
-const STEP_EVENT_TYPES = new Set([
+const STEP_EVENT_TYPES = [
   "started",
   "step-advanced",
   "step-jumped",
   "rollback",
   "reset",
   "completed",
-]);
+] as const satisfies readonly RampEvent["type"][];
+
+type StepEventType = (typeof STEP_EVENT_TYPES)[number];
+type StepEvent = RampEvent & { type: StepEventType };
+
+function isStepEvent(event: RampEvent): event is StepEvent {
+  return STEP_EVENT_TYPES.some((type) => type === event.type);
+}
 
 function stepLabel(idx: number | undefined): string {
   return idx !== undefined && idx >= 0 ? String(idx + 1) : "?";
 }
 
-function isRegressionEvent(e: RampEvent): boolean {
+function isRegressionEvent(e: StepEvent): boolean {
   if (e.type === "rollback" || e.type === "reset") return true;
   if (
     e.type === "step-jumped" &&
@@ -65,7 +72,7 @@ function isRegressionEvent(e: RampEvent): boolean {
   return false;
 }
 
-function eventLabel(e: RampEvent): string {
+function eventLabel(e: StepEvent): string {
   switch (e.type) {
     case "started":
       return "Start";
@@ -78,12 +85,10 @@ function eventLabel(e: RampEvent): string {
       return "Reset";
     case "completed":
       return "Done";
-    default:
-      return e.type;
   }
 }
 
-function eventTooltip(e: RampEvent): React.ReactNode {
+function eventTooltip(e: StepEvent): React.ReactNode {
   const ts = getValidDate(e.timestamp);
   const time = ts.toLocaleString(undefined, {
     month: "short",
@@ -119,8 +124,6 @@ function eventTooltip(e: RampEvent): React.ReactNode {
     case "completed":
       action = "Completed";
       break;
-    default:
-      action = e.type;
   }
   return (
     <span>
@@ -129,7 +132,7 @@ function eventTooltip(e: RampEvent): React.ReactNode {
   );
 }
 
-const EVENT_PRIORITY: Record<string, number> = {
+const EVENT_PRIORITY: Record<StepEventType, number> = {
   started: 0,
   completed: 1,
   rollback: 2,
@@ -148,15 +151,13 @@ type MarkerWithPriority = Omit<TimeSeriesEventMarker, "tooltips"> & {
 const MARKER_LABEL_CLUSTER_PX = 14;
 
 export function buildEventMarkers(events: RampEvent[]): MarkerWithPriority[] {
-  const raw: MarkerWithPriority[] = events
-    .filter((e) => STEP_EVENT_TYPES.has(e.type))
-    .map((e) => ({
-      date: getValidDate(e.timestamp),
-      label: eventLabel(e),
-      color: isRegressionEvent(e) ? ("red" as const) : ("indigo" as const),
-      tooltips: [eventTooltip(e)],
-      _priority: EVENT_PRIORITY[e.type] ?? 99,
-    }));
+  const raw: MarkerWithPriority[] = events.filter(isStepEvent).map((e) => ({
+    date: getValidDate(e.timestamp),
+    label: eventLabel(e),
+    color: isRegressionEvent(e) ? ("red" as const) : ("indigo" as const),
+    tooltips: [eventTooltip(e)],
+    _priority: EVENT_PRIORITY[e.type],
+  }));
 
   const deduped: MarkerWithPriority[] = [];
   for (const m of raw) {
