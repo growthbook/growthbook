@@ -33,6 +33,7 @@ describe("renderExperimentCard", () => {
       const png = await renderExperimentCard(sampleCard(state));
       expect(isPng(png)).toBe(true);
       expect(png.length).toBeGreaterThan(2000);
+      expect(png.readUInt32BE(16)).toBe(2000);
     },
     30000,
   );
@@ -45,6 +46,8 @@ describe("renderExperimentCard", () => {
       const png = await renderExperimentCard(card, "compact");
       expect(isPng(png)).toBe(true);
       expect(png.length).toBeGreaterThan(2000);
+      expect(png.readUInt32BE(16)).toBe(1120);
+      expect(png.readUInt32BE(20)).toBeGreaterThanOrEqual(480);
     },
     30000,
   );
