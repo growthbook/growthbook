@@ -274,6 +274,26 @@ function buildGeneralAgentSystemPrompt(): string {
 // Path matchers & helpers
 // =============================================================================
 
+const SQL_QUERY_PATH_RE =
+  /^\/api\/v[12]\/data-sources\/[^/]+\/sql\/(search-tables|table-schema|preview-values|run-query)\/?$/;
+
+// Strips `confirm` from agent-initiated SQL run-query bodies to prevent the
+// model from bypassing the cost confirmation gate.
+function stripConfirmFromSqlBody(path: string, body: unknown): unknown {
+  if (
+    !SQL_QUERY_PATH_RE.test(normalizePath(path)) ||
+    !body ||
+    typeof body !== "object"
+  ) {
+    return body;
+  }
+  const bodyObj = body as Record<string, unknown>;
+  if (!("confirm" in bodyObj)) return body;
+  return Object.fromEntries(
+    Object.entries(bodyObj).filter(([k]) => k !== "confirm"),
+  );
+}
+
 /**
  * Deterministic mutation gate. Any non-GET call mutates configuration and is
  * parked for explicit user confirmation, except a small allowlist of
@@ -295,6 +315,10 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
       path,
     )
   ) {
+    return false;
+  }
+  // SQL query endpoints are read-only POSTs with their own cost confirmation
+  if (SQL_QUERY_PATH_RE.test(path)) {
     return false;
   }
   return true;
@@ -581,7 +605,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
           method: input.method,
           path: input.path,
           query,
-          body: coerceBody(input.body),
+          body: stripConfirmFromSqlBody(input.path, coerceBody(input.body)),
         };
 
         // Before the card, which only shows a summary the model wrote.
@@ -627,6 +651,49 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
         }
 
         const result = await dispatchInternal(ctx, dispatchInput);
+
+        // SQL cost confirmation gate: when run-query returns
+        // confirmation_required, park a confirmed re-call as a pending
+        // action so the user sees a confirmation card with cost details.
+        if (
+          result.status === 200 &&
+          SQL_QUERY_PATH_RE.test(normalizePath(dispatchInput.path)) &&
+          result.body &&
+          typeof result.body === "object" &&
+          (result.body as Record<string, unknown>).status ===
+            "confirmation_required"
+        ) {
+          const confirmedBody =
+            typeof dispatchInput.body === "object" && dispatchInput.body
+              ? {
+                  ...(dispatchInput.body as Record<string, unknown>),
+                  confirm: true,
+                }
+              : { confirm: true };
+          const costMessage = (result.body as Record<string, unknown>)
+            .message as string | undefined;
+          const pendingAction: AIAgentPendingAction = {
+            id: randomUUID(),
+            method: "POST",
+            path: dispatchInput.path,
+            ...(query ? { query } : {}),
+            body: confirmedBody,
+            summary: costMessage ?? "Execute SQL query",
+            createdAt: Date.now(),
+          };
+          buffer.setPendingAction(pendingAction);
+          if (emit) {
+            emit("confirm-action", {
+              actionId: pendingAction.id,
+              method: pendingAction.method,
+              path: pendingAction.path,
+              summary: pendingAction.summary,
+              body: confirmedBody,
+            });
+          }
+          return AWAITING_CONFIRMATION_RESULT;
+        }
+
         return shapeCallApiResult(result);
       },
     }),
@@ -684,4 +751,5 @@ export const _buildGeneralAgentSystemPrompt = buildGeneralAgentSystemPrompt;
 export const _coerceBody = coerceBody;
 export const _offScreenDashboardWrite = offScreenDashboardWrite;
 export const _requiresMutationConfirmation = requiresMutationConfirmation;
+export const _stripConfirmFromSqlBody = stripConfirmFromSqlBody;
 export const _shapeCallApiResult = shapeCallApiResult;

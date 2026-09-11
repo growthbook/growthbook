@@ -567,9 +567,16 @@ export async function getAllFeatures(
 // need a complete feature.
 export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
-  { includeArchived = false }: { includeArchived?: boolean } = {},
+  {
+    includeArchived = false,
+    ids,
+  }: { includeArchived?: boolean; ids?: string[] } = {},
 ): Promise<FeatureInterface[]> {
-  const q = featureListQuery(context.org.id, { includeArchived });
+  if (ids && !ids.length) return [];
+  const q: FilterQuery<FeatureDocument> = {
+    ...featureListQuery(context.org.id, { includeArchived }),
+    ...(ids ? { id: { $in: ids } } : {}),
+  };
 
   const docs = await FeatureModel.find(q, {
     description: 0,
@@ -749,6 +756,25 @@ export async function migrateDraft(
     logger.error(e, "Error migrating old feature draft");
   }
   return null;
+}
+
+// jsonSchema is projected out of the list loaders; fetch the enabled ones
+// separately for value validation. Results are merged onto features that
+// already passed the read-permission filter, so none is applied here.
+export async function getFeatureJsonSchemasByIds(
+  context: ReqContext | ApiReqContext,
+  ids?: string[],
+): Promise<Map<string, FeatureInterface["jsonSchema"]>> {
+  if (ids && !ids.length) return new Map();
+  const docs = await FeatureModel.find(
+    {
+      ...featureListQuery(context.org.id, { includeArchived: false }),
+      "jsonSchema.enabled": true,
+      ...(ids ? { id: { $in: ids } } : {}),
+    },
+    { id: 1, jsonSchema: 1 },
+  ).lean<Pick<FeatureInterface, "id" | "jsonSchema">[]>();
+  return new Map(docs.map((d) => [d.id, d.jsonSchema]));
 }
 
 export async function getFeaturesByIds(

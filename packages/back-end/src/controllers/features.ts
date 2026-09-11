@@ -16,7 +16,6 @@ import {
 } from "shared/types/sdk-connection";
 import {
   ANY_REVIEW_FOOTPRINT,
-  IsFeatureStaleResult,
   MergeResultChanges,
   MergeStrategy,
   assertSchemaMatchesValueType,
@@ -49,7 +48,10 @@ import {
   normalizeTargetingProjects,
   pruneOrphanedRampActions,
   reconcileMergeBaselines,
+  computeFeatureHealth,
+  FeatureHealthStateEntry,
 } from "shared/util";
+import { getHealthSettings } from "shared/enterprise";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
@@ -66,6 +68,7 @@ import {
   RevisionRampDetachAction,
   RevisionRampUpdateAction,
   RampStepAction,
+  RampScheduleInterface,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -136,6 +139,7 @@ import {
   publishRevision,
   setDefaultValue,
   updateFeature,
+  getFeatureJsonSchemasByIds,
 } from "back-end/src/models/FeatureModel";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
@@ -255,6 +259,7 @@ import {
   getExperimentsByTrackingKeys,
   getAllExperimentsForStaleGraph,
   updateExperiment,
+  getExistingExperimentIds,
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
@@ -7471,16 +7476,10 @@ export async function getFeatureDraftStates(
 }
 
 // TODO: consider adding a force-recompute option that writes results back
-export async function getFeaturesStaleStates(
+export async function getFeaturesHealth(
   req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<
-    {
-      status: 200;
-      features: Record<
-        string,
-        IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
-      >;
-    },
+    { status: 200; features: Record<string, FeatureHealthStateEntry> },
     EventUserForResponseLocals
   >,
 ) {
@@ -7489,13 +7488,38 @@ export async function getFeaturesStaleStates(
     ? req.query.ids.split(",").filter(Boolean)
     : undefined;
 
-  const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
+  const [
+    allFeatures,
+    allExperiments,
+    draftRevisions,
+    allRampSchedules,
+    safeRollouts,
+    jsonSchemas,
+  ] = await Promise.all([
     getAllFeaturesWithoutEditorFields(context),
     getAllExperimentsForStaleGraph(context),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
     }),
+    featureIds
+      ? context.models.rampSchedules.getAllByFeatureIds(featureIds)
+      : context.models.rampSchedules.getAll(),
+    featureIds
+      ? context.models.safeRollout.getAllByFeatureIds(featureIds)
+      : context.models.safeRollout.getAll(),
+    getFeatureJsonSchemasByIds(context, featureIds),
   ]);
+  const rampSchedulesByFeature = new Map<string, RampScheduleInterface[]>();
+  for (const schedule of allRampSchedules) {
+    if (schedule.entityType !== "feature") continue;
+    const list = rampSchedulesByFeature.get(schedule.entityId) ?? [];
+    list.push(schedule);
+    rampSchedulesByFeature.set(schedule.entityId, list);
+  }
+  const healthSettings = getHealthSettings(
+    context.org.settings,
+    context.hasPremiumFeature("decision-framework"),
+  );
 
   const mostRecentDraftDateByFeatureId = new Map<string, Date>();
   for (const rev of draftRevisions) {
@@ -7506,17 +7530,31 @@ export async function getFeaturesStaleStates(
     }
   }
 
-  const targetFeatures = featureIds
-    ? allFeatures.filter((f) => featureIds.includes(f.id))
+  const targetIds = featureIds ? new Set(featureIds) : null;
+  const targetFeatures = targetIds
+    ? allFeatures.filter((f) => targetIds.has(f.id))
     : allFeatures;
+  const knownExperimentIds = await getExistingExperimentIds(context, [
+    ...new Set(
+      targetFeatures.flatMap((f) =>
+        (f.rules ?? []).flatMap((r) =>
+          r?.type === "experiment-ref" ? [r.experimentId] : [],
+        ),
+      ),
+    ),
+  ]);
+
+  const safeRolloutsByFeature = new Map<string, SafeRolloutInterface[]>();
+  for (const safeRollout of safeRollouts) {
+    const list = safeRolloutsByFeature.get(safeRollout.featureId) ?? [];
+    list.push(safeRollout);
+    safeRolloutsByFeature.set(safeRollout.featureId, list);
+  }
 
   const lookups = buildFeatureLookups(allFeatures, allExperiments);
 
   const computedAt = new Date().toISOString();
-  const result: Record<
-    string,
-    IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
-  > = {};
+  const result: Record<string, FeatureHealthStateEntry> = {};
 
   for (let i = 0; i < targetFeatures.length; i++) {
     await yieldEventLoop(i);
@@ -7544,6 +7582,16 @@ export async function getFeaturesStaleStates(
       ...staleResult,
       neverStale: feature.neverStale ?? false,
       computedAt,
+      health: computeFeatureHealth({
+        feature: { ...feature, jsonSchema: jsonSchemas.get(feature.id) },
+        environments: applicableEnvIds,
+        envResults: staleResult.envResults,
+        experimentMap: lookups.experimentMap,
+        rampSchedules: rampSchedulesByFeature.get(feature.id) ?? [],
+        safeRollouts: safeRolloutsByFeature.get(feature.id) ?? [],
+        healthSettings,
+        knownExperimentIds,
+      }),
     };
   }
 
@@ -7918,64 +7966,6 @@ export async function getFeatureRampStates(
         name: schedule.name,
         status: schedule.status,
       };
-    }
-  }
-
-  res.status(200).json({ status: 200, features: result });
-}
-
-export async function getFeatureExperimentStates(
-  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
-  res: Response<
-    {
-      status: 200;
-      features: Record<
-        string,
-        {
-          hasTempRollout: boolean;
-        }
-      >;
-    },
-    EventUserForResponseLocals
-  >,
-) {
-  const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
-
-  const allExperiments = await getAllExperimentsForStaleGraph(context);
-
-  const tempRolloutExpIds = new Set<string>();
-
-  for (const exp of allExperiments) {
-    if (
-      exp.status === "stopped" &&
-      !exp.excludeFromPayload &&
-      (exp.linkedFeatures?.length ||
-        exp.hasURLRedirects ||
-        exp.hasVisualChangesets)
-    ) {
-      tempRolloutExpIds.add(exp.id);
-    }
-  }
-
-  const allFeatures = await getAllFeatures(context, {});
-  const targetFeatures = featureIds
-    ? allFeatures.filter((f) => featureIds.includes(f.id))
-    : allFeatures;
-
-  const result: Record<string, { hasTempRollout: boolean }> = {};
-
-  for (let i = 0; i < targetFeatures.length; i++) {
-    await yieldEventLoop(i);
-    const feature = targetFeatures[i];
-    const linked = feature.linkedExperiments ?? [];
-
-    const hasTempRollout = linked.some((id) => tempRolloutExpIds.has(id));
-
-    if (hasTempRollout) {
-      result[feature.id] = { hasTempRollout };
     }
   }
 

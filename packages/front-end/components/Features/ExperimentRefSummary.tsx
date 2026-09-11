@@ -2,11 +2,13 @@ import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
 import NextLink from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getTempRolloutStaleReason,
   includeExperimentInPayload,
   calculateNamespaceCoverage,
   getConfigBackingKey,
   getFeatureBaseConfigKey,
 } from "shared/util";
+import { ago } from "shared/dates";
 import {
   getLatestPhaseVariations,
   hasTargetingConfigured,
@@ -46,6 +48,32 @@ export function isExperimentRefRuleSkipped(
   return !includeExperimentInPayload(experiment);
 }
 
+export function TempRolloutCallout({
+  rule,
+  experiment,
+}: {
+  rule: ExperimentRefRule;
+  experiment?: ExperimentInterfaceStringDates;
+}) {
+  if (!experiment || experiment.status !== "stopped") return null;
+  if (rule.enabled === false || !includeExperimentInPayload(experiment)) {
+    return null;
+  }
+  const isBandit = experiment.type === "multi-armed-bandit";
+  const lastPhaseEnded =
+    experiment.phases?.[experiment.phases.length - 1]?.dateEnded;
+  const isOld = getTempRolloutStaleReason(experiment) === "old-temp-rollout";
+  return (
+    <Callout status={isOld ? "warning" : "info"} size="sm" mt="3">
+      Temporary rollout from {isBandit ? "a Bandit" : "an experiment"} that
+      stopped {lastPhaseEnded ? ago(lastPhaseEnded) : "earlier"}.{" "}
+      {isOld
+        ? "Once the winner is in code, stop the rollout on the experiment."
+        : "Stop it on the experiment when it is no longer needed."}
+    </Callout>
+  );
+}
+
 export default function ExperimentRefSummary({
   rule,
   experiment,
@@ -75,10 +103,10 @@ export default function ExperimentRefSummary({
   if (experiment.archived) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is archived and will be
+        This {isBandit ? "Bandit" : "experiment"} is archived and will be
         skipped.{" "}
         <Link href={`/experiment/${experiment.id}`}>
-          View {isBandit ? "Bandit" : "Experiment"}
+          View {isBandit ? "Bandit" : "experiment"}
         </Link>
       </Callout>
     );
@@ -88,10 +116,10 @@ export default function ExperimentRefSummary({
   if (!phase) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is not running and rule will
-        be skipped.{" "}
+        This {isBandit ? "Bandit" : "experiment"} is not running and this rule
+        will be skipped.{" "}
         <Link href={`/experiment/${experiment.id}`}>
-          View {isBandit ? "Bandit" : "Experiment"}
+          View {isBandit ? "Bandit" : "experiment"}
         </Link>
       </Callout>
     );
@@ -107,9 +135,9 @@ export default function ExperimentRefSummary({
   if (experiment.status === "stopped" && !releasedValue) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is stopped and does not have a{" "}
-        <strong>Temporary Rollout</strong> enabled. This rule will be skipped.{" "}
-        <Link href={`/experiment/${experiment.id}#results`}>View Results</Link>
+        This {isBandit ? "Bandit" : "experiment"} is stopped and does not have a{" "}
+        temporary rollout enabled. This rule will be skipped.{" "}
+        <Link href={`/experiment/${experiment.id}#results`}>View results</Link>
       </Callout>
     );
   }
@@ -128,18 +156,9 @@ export default function ExperimentRefSummary({
     <Box>
       {experiment.status === "draft" && !isDraft && (
         <Callout status="warning" mb="3">
-          This {isBandit ? "Bandit" : "Experiment"} is in a{" "}
+          This {isBandit ? "Bandit" : "experiment"} is in a{" "}
           <strong>draft</strong> state and has not been started yet. This rule
           will be skipped.
-        </Callout>
-      )}
-      {experiment.status === "stopped" && (
-        <Callout status="info" mb="3">
-          This {isBandit ? "Bandit" : "Experiment"} is stopped and a{" "}
-          <strong>Temporary Rollout</strong> is enabled. All users in the{" "}
-          {isBandit ? "Bandit" : "Experiment"} will receive the winning
-          variation. If no longer needed, you can stop it from the{" "}
-          {isBandit ? "Bandit" : "Experiment"} page.
         </Callout>
       )}
       {hasCondition && (
@@ -193,7 +212,7 @@ export default function ExperimentRefSummary({
             </Text>
           }
         />
-        of units in the {isBandit ? "Bandit" : "Experiment"}
+        of units in the {isBandit ? "Bandit" : "experiment"}
         {hasNamespace && (
           <>
             (

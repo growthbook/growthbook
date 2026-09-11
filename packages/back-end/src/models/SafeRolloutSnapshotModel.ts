@@ -20,9 +20,11 @@ import {
 import { evaluateRampScheduleAfterSafeRolloutSnapshot } from "back-end/src/services/rampScheduleEvaluator";
 import { MakeModelClass } from "./BaseModel";
 
+export const COLLECTION_NAME = "saferolloutsnapshots";
+
 const BaseClass = MakeModelClass({
   schema: safeRolloutSnapshotInterface,
-  collectionName: "saferolloutsnapshots",
+  collectionName: COLLECTION_NAME,
   idPrefix: "srsnp_",
   globallyUniquePrimaryKeys: true,
   additionalIndexes: [
