@@ -185,7 +185,7 @@ export default function SlackWorkspacePanel({
         <Box p="3" className={styles.rail}>
           <Flex justify="between" align="center" gap="2" mb="3">
             <Text size="sm" color="text-mid" weight="semibold">
-              CHANNELS IN THIS WORKSPACE · {channels.length}
+              Channels
             </Text>
             <Button
               variant="ghost"
@@ -242,8 +242,6 @@ export default function SlackWorkspacePanel({
               icon={<PiPlus />}
               onClick={onAddChannel}
               style={{
-                border: "1px dashed var(--gray-a6)",
-                boxShadow: "none",
                 width: "100%",
               }}
             >
