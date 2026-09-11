@@ -32,6 +32,7 @@ import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
+import { hasEventSubscribers } from "back-end/src/events/hasEventSubscribers";
 import {
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
@@ -45,11 +46,13 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
   experiment,
   event,
   data,
+  notify = true,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   event: T;
   data: CreateEventData<"experiment", T>;
+  notify?: boolean;
 }) => {
   const changedEnvs = includeExperimentInPayload(experiment)
     ? getEnvironmentIdsFromOrg(context.org)
@@ -65,6 +68,7 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
     environments: changedEnvs,
     tags: experiment.tags || [],
     containsSecrets: false,
+    notify,
   });
 };
 
@@ -609,12 +613,23 @@ export const notifySignificance = async ({
     await sendSignificanceEmail(context, experiment, experimentChanges);
   }
 
+  const notify = await hasEventSubscribers({
+    organizationId: context.org.id,
+    eventName: "experiment.info.significance",
+    projects: experiment.project ? [experiment.project] : [],
+    tags: experiment.tags || [],
+    environments: includeExperimentInPayload(experiment)
+      ? getEnvironmentIdsFromOrg(context.org)
+      : [],
+  });
+
   await Promise.all(
     experimentChanges.map((change) =>
       dispatchEvent({
         context,
         experiment,
         event: "info.significance",
+        notify,
         data: {
           object: change,
         },
