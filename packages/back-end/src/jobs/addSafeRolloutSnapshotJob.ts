@@ -1,5 +1,8 @@
 import Agenda, { Job } from "agenda";
-import { SafeRolloutInterface } from "shared/validators";
+import {
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
+} from "shared/validators";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { getCollection } from "back-end/src/util/mongo.util";
@@ -11,6 +14,10 @@ import {
 } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { COLLECTION_NAME } from "back-end/src/models/SafeRolloutModel";
+import { getQueryStatusesByIds } from "back-end/src/models/QueryModel";
+import { classifyStalledSnapshot } from "back-end/src/jobs/expireOldQueries";
+
+const SAFE_ROLLOUT_SNAPSHOT_COLLECTION = "saferolloutsnapshots";
 
 const UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT = "updateSingleSafeRolloutSnapshot";
 const QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES = "queueSafeRolloutSnapshotUpdates";
@@ -100,18 +107,38 @@ const updateSingleSafeRolloutSnapshot = async (
       });
 
     if (latestSnapshot?.status === "running") {
-      // Query is still in-flight. Defer rather than stack — the effective
-      // interval becomes max(configuredInterval, actualQueryDuration) naturally.
-      // Zombie queries (heartbeat lost, orphaned DAG) are handled system-wide
-      // by expireOldQueries, so no manual kill is needed here.
-      const intervalMs = (safeRollout.updateScheduleMinutes ?? 60) * 60 * 1000;
-      await context.models.safeRollout.update(safeRollout, {
-        nextSnapshotAttempt: new Date(Date.now() + intervalMs),
-      });
-      logger.debug(
-        `SafeRollout ${id}: snapshot still running, deferring next attempt by ${intervalMs / 60000}min`,
-      );
-      return;
+      // Zombie queries (heartbeat lost, orphaned DAG) are reaped system-wide by
+      // expireOldQueries, but a snapshot whose queries all finished and was
+      // never finalized would otherwise defer us forever.
+      if (await isStalledSnapshot(organization, latestSnapshot)) {
+        await getCollection<SafeRolloutSnapshotInterface>(
+          SAFE_ROLLOUT_SNAPSHOT_COLLECTION,
+        ).updateOne(
+          { id: latestSnapshot.id, status: "running" },
+          {
+            $set: {
+              status: "error",
+              error:
+                "Snapshot stalled: queries finished but results were never finalized. A new snapshot has been started.",
+            },
+          },
+        );
+        logger.warn(
+          `SafeRollout ${id}: reaped stalled snapshot ${latestSnapshot.id}; starting a new one`,
+        );
+      } else {
+        // Query is still in-flight. Defer rather than stack — the effective
+        // interval becomes max(configuredInterval, actualQueryDuration) naturally.
+        const intervalMs =
+          (safeRollout.updateScheduleMinutes ?? 60) * 60 * 1000;
+        await context.models.safeRollout.update(safeRollout, {
+          nextSnapshotAttempt: new Date(Date.now() + intervalMs),
+        });
+        logger.debug(
+          `SafeRollout ${id}: snapshot still running, deferring next attempt by ${intervalMs / 60000}min`,
+        );
+        return;
+      }
     }
 
     logger.info("Start Refreshing Results for SafeRollout " + id);
@@ -131,6 +158,23 @@ const updateSingleSafeRolloutSnapshot = async (
     logger.error(e, "Failed to create SafeRollout Snapshot: " + id);
   }
 };
+
+async function isStalledSnapshot(
+  organization: string,
+  snapshot: SafeRolloutSnapshotInterface,
+): Promise<boolean> {
+  const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
+  if (!queryIds.length) return false;
+  const queryStatuses = await getQueryStatusesByIds(organization, queryIds);
+  if (queryStatuses.length !== queryIds.length) return false;
+  return (
+    classifyStalledSnapshot({
+      queryStatuses,
+      snapshotDateCreated: snapshot.dateCreated,
+      now: Date.now(),
+    }) !== "active"
+  );
+}
 
 async function getAllSafeRolloutsToUpdate() {
   const now = new Date();
