@@ -43,7 +43,7 @@ function PerformanceChart() {
   return (
     <Flex direction="column" gap="2" height="100%" minHeight="0">
       <Text size="sm" color="text-mid">
-        Last 30 days
+        Last 7 days
       </Text>
       <ExplorerChart
         exploration={exploration}
@@ -89,6 +89,11 @@ export default function MetricPerformance({
   const config: ExplorationConfig = funnel
     ? {
         ...DEFAULT_EXPLORE_STATE,
+        dateRange: {
+          ...DEFAULT_EXPLORE_STATE.dateRange,
+          predefined: "last7Days",
+          lookbackValue: 7,
+        },
         type: "funnel",
         datasource: metric.datasource,
         dimensions: [],
@@ -103,6 +108,11 @@ export default function MetricPerformance({
       }
     : {
         ...DEFAULT_EXPLORE_STATE,
+        dateRange: {
+          ...DEFAULT_EXPLORE_STATE.dateRange,
+          predefined: "last7Days",
+          lookbackValue: 7,
+        },
         type: "metric",
         datasource: metric.datasource,
         dimensions: timeSeries ? DEFAULT_EXPLORE_STATE.dimensions : [],
