@@ -11,6 +11,7 @@ import {
   ExperimentDataForStatusStringDates,
   ExperimentHealthSettings,
 } from "shared/types/experiment";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -55,7 +56,7 @@ function getExperimentDecisionCriteria({
 
 export function useRunningExperimentStatus() {
   const { hasCommercialFeature } = useUser();
-  const { decisionCriteria } = useDefinitions();
+  const { decisionCriteria, metricGroups } = useDefinitions();
   const settings = useOrgSettings();
   const healthSettings = getHealthSettings(
     settings,
@@ -75,6 +76,7 @@ export function useRunningExperimentStatus() {
       getRunningExperimentResultStatus({
         experimentData,
         healthSettings,
+        metricGroups,
         decisionCriteria: getExperimentDecisionCriteria({
           orgCustomDecisionCriterias: decisionCriteria,
           experimentDecisionCriteriaId:
@@ -87,7 +89,8 @@ export function useRunningExperimentStatus() {
 
 export function useExperimentStatusIndicator() {
   const { hasCommercialFeature } = useUser();
-  const { decisionCriteria } = useDefinitions();
+  const { decisionCriteria, metricGroups, getExperimentMetricById } =
+    useDefinitions();
   const settings = useOrgSettings();
   const healthSettings = getHealthSettings(
     settings,
@@ -98,27 +101,32 @@ export function useExperimentStatusIndicator() {
     experimentData: ExperimentDataForStatusStringDates,
     skipArchived: boolean = false,
   ) =>
-    getStatusIndicatorData(
+    getStatusIndicatorData({
       experimentData,
       skipArchived,
       healthSettings,
-      getExperimentDecisionCriteria({
+      decisionCriteria: getExperimentDecisionCriteria({
         orgCustomDecisionCriterias: decisionCriteria,
         experimentDecisionCriteriaId:
           experimentData.decisionFrameworkSettings?.decisionCriteriaId,
         defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
       }),
-    );
+      metricGroups,
+      resolveMetricName: (metricId) =>
+        getExperimentMetricById(metricId)?.name ?? metricId,
+    });
 }
 
 function getRunningExperimentResultStatus({
   experimentData,
   healthSettings,
   decisionCriteria,
+  metricGroups,
 }: {
   experimentData: ExperimentDataForStatusStringDates;
   healthSettings: ExperimentHealthSettings;
   decisionCriteria: DecisionCriteriaData;
+  metricGroups: MetricGroupInterface[];
 }) {
   if (experimentData.status !== "running") {
     return undefined;
@@ -127,5 +135,6 @@ function getRunningExperimentResultStatus({
     experimentData,
     healthSettings,
     decisionCriteria,
+    metricGroups,
   });
 }
