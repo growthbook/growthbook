@@ -1,4 +1,5 @@
 import request from "supertest";
+import { PermissionError } from "shared/util";
 import {
   getExperimentById,
   getExperimentByTrackingKey,
@@ -1209,6 +1210,59 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
       expect(res.body.experiment.name).toBe("Updated Experiment Name");
+    });
+
+    describe("run-experiments permission for payload-affecting fields", () => {
+      // An experiment that reaches every environment (visual changesets are
+      // not scoped to linked-feature environments), and a caller who may
+      // update the experiment's analysis but may not run experiments.
+      const liveExperiment = { ...experiment, hasVisualChangesets: true };
+      beforeEach(() => {
+        updateReqContext({
+          org: { ...org, settings: { environments: [{ id: "production" }] } },
+          permissions: {
+            canUpdateExperiment: () => true,
+            canRunExperiment: () => false,
+            throwPermissionError: () => {
+              throw new PermissionError("permission denied");
+            },
+          },
+        });
+        (getExperimentById as jest.Mock).mockResolvedValue(liveExperiment);
+        (updateExperiment as jest.Mock).mockImplementation(
+          ({ experiment: exp, changes }) => ({ ...exp, ...changes }),
+        );
+      });
+
+      it("refuses a phases change without run permission", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            phases: [{ name: "Main", dateStarted: "2026-02-01T00:00:00.000Z" }],
+          })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(403);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("allows an analysis-only change without run permission", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ description: "Updated description" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+      });
+
+      it("asks for run permission whenever a payload field is sent, as the dashboard route does", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ name: liveExperiment.name, description: "Updated" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(403);
+      });
     });
 
     it("allows update when required custom fields are missing and payload omits customFields", async () => {
