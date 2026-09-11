@@ -281,11 +281,6 @@ export default function MetricWorkspace({
         canEdit={isEditing}
         onRepresentableChange={setRepresentable}
       />
-      {/* Editing a metric definition is a long form (type, definition,
-          basics, advanced settings) - repeat just the buttons at the bottom
-          so Save/Discard don't scroll out of reach. The error stays above,
-          not duplicated here. */}
-      {actionRow}
     </Flex>
   );
 }
