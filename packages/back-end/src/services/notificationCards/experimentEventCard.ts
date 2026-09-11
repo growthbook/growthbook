@@ -19,7 +19,6 @@ const compactEventForNotification = (
 
 const CARD_CAPTION: Record<CompactEvent, string> = {
   started: "Experiment started",
-  significance: "Reached significance",
   won: "Declared a winner",
   lost: "Rolled back",
   stopped: "Experiment stopped",

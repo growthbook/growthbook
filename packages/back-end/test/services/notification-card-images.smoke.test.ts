@@ -19,7 +19,6 @@ const STATES: CardState[] = [
 
 const COMPACT_EVENTS: { event: CompactEvent; state: CardState }[] = [
   { event: "started", state: "started" },
-  { event: "significance", state: "running" },
   { event: "won", state: "winner" },
   { event: "lost", state: "loser" },
   { event: "stopped", state: "stopped" },
