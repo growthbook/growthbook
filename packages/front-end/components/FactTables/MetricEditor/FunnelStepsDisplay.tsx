@@ -46,7 +46,7 @@ export default function FunnelStepsDisplay({
             >{`Step ${i + 1}: ${step.name}`}</Heading>
             <DataList data={items} maxColumns={1} />
             <Text weight="semibold" size="sm" mt="2" as="div">
-              Row Filter
+              Row filter
             </Text>
             <FilterSummary
               rowFilters={step.rowFilters || []}
@@ -56,7 +56,7 @@ export default function FunnelStepsDisplay({
               <Flex gap="4" align="center" wrap="wrap" mt="2">
                 {conversionWindowValue ? (
                   <Metadata
-                    label="Conversion Window"
+                    label="Conversion window"
                     value={conversionWindowValue}
                   />
                 ) : null}
