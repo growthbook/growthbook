@@ -2,6 +2,7 @@ import fs from "fs";
 import { DiscussionModel } from "back-end/src/models/DiscussionModel";
 import {
   cleanupDeletedDiscussionUploads,
+  getConfiguredApiOrigin,
   getDiscussionUploadUrls,
 } from "back-end/src/services/discussionFiles";
 import {
@@ -16,6 +17,24 @@ jest.mock("back-end/src/models/DiscussionModel", () => ({
 jest.mock("back-end/src/util/logger", () => ({
   logger: { error: jest.fn() },
 }));
+
+describe("getConfiguredApiOrigin", () => {
+  const originalApiHost = process.env.API_HOST;
+
+  afterEach(() => {
+    if (originalApiHost === undefined) {
+      delete process.env.API_HOST;
+    } else {
+      process.env.API_HOST = originalApiHost;
+    }
+  });
+
+  it("uses the configured public API host without trailing slashes", () => {
+    process.env.API_HOST = "https://api.growthbook.company.com///";
+
+    expect(getConfiguredApiOrigin()).toBe("https://api.growthbook.company.com");
+  });
+});
 
 describe("getDiscussionUploadUrls", () => {
   const organization = "org_test";

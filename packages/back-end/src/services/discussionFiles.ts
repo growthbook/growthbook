@@ -8,6 +8,10 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+export function getConfiguredApiOrigin(): string {
+  return (process.env.API_HOST || "http://localhost:3100").replace(/\/+$/, "");
+}
+
 export function getDiscussionUploadUrls(
   content: string,
   organization: string,

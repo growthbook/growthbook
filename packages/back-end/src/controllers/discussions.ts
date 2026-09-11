@@ -10,7 +10,10 @@ import {
   getProjectsByParentId,
 } from "back-end/src/services/discussions";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { cleanupDeletedDiscussionUploads } from "back-end/src/services/discussionFiles";
+import {
+  cleanupDeletedDiscussionUploads,
+  getConfiguredApiOrigin,
+} from "back-end/src/services/discussionFiles";
 
 export async function postDiscussions(
   req: AuthRequest<
@@ -112,7 +115,7 @@ export async function deleteComment(
     await cleanupDeletedDiscussionUploads({
       content: current.content,
       organization: org.id,
-      localOrigin: `${req.protocol}://${req.get("host") ?? ""}`,
+      localOrigin: getConfiguredApiOrigin(),
     });
     return res.status(200).json({
       status: 200,
