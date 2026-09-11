@@ -1,4 +1,4 @@
-import { isEqual, uniqWith } from "lodash";
+import { isEqual, omit, uniqWith } from "lodash";
 import { isString } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
@@ -466,10 +466,25 @@ export async function runNewApiExplorationBlocks<
           )
         : null;
 
+      // A failed comparison run is reported, not thrown, so an unchecked id
+      // here would save a broken previous-period series next to a good
+      // primary. Dropping it renders the tile without the comparison instead.
+      const previousId =
+        previous && previous.status !== "error" ? previous.id : undefined;
+      if (previous && !previousId) {
+        logger.warn(
+          { blockTitle: block.title, err: previous.error },
+          "Comparison query failed for a new dashboard block; saving without it",
+        );
+      }
+
       return {
-        ...enrolled,
+        // Any comparison id the caller sent belongs to an earlier run, so only
+        // this run's may survive: dropped when the comparison failed and when
+        // it is now off, never carried over next to a fresh primary.
+        ...omit(enrolled, "comparisonExplorerAnalysisId"),
         explorerAnalysisId: exploration.id,
-        ...(previous ? { comparisonExplorerAnalysisId: previous.id } : {}),
+        ...(previousId ? { comparisonExplorerAnalysisId: previousId } : {}),
       } as DashboardBlockWithAnalysisId<T>;
     }),
   );
@@ -535,24 +550,43 @@ export async function updateDashboardExplorations(
       if (!primaryResult.value) {
         throw new Error("Failed run to run product analytics query");
       }
+      // A failed run resolves rather than rejecting, so without this the block
+      // would point at a broken result and the refresh would report success.
+      if (primaryResult.value.status === "error") {
+        throw new Error(
+          primaryResult.value.error || "Product analytics query failed",
+        );
+      }
       block.explorerAnalysisId = primaryResult.value.id;
-      if (comparisonResult.status === "fulfilled") {
-        if (comparisonResult.value) {
-          block.comparisonExplorerAnalysisId = comparisonResult.value.id;
-        } else {
-          // Clear a stale comparison id when comparison is off.
-          delete block.comparisonExplorerAnalysisId;
-        }
-      } else {
-        // Keep the previous comparison id so the primary still refreshes.
+
+      const comparisonRun =
+        comparisonResult.status === "fulfilled" ? comparisonResult.value : null;
+      // Thrown and reported failures are the same outcome here: no usable
+      // previous-period run this cycle.
+      const comparisonFailure =
+        comparisonResult.status === "rejected"
+          ? comparisonResult.reason
+          : comparisonRun?.status === "error"
+            ? comparisonRun.error || "Product analytics query failed"
+            : undefined;
+      if (comparisonFailure) {
         logger.warn(
           {
-            err: comparisonResult.reason,
+            err: comparisonFailure,
             blockId: block.id,
             blockType: block.type,
           },
-          "Failed to refresh product analytics comparison; keeping previous comparison",
+          "Failed to refresh product analytics comparison; cleared the stale comparison",
         );
+      }
+      if (comparisonRun && !comparisonFailure) {
+        block.comparisonExplorerAnalysisId = comparisonRun.id;
+      } else {
+        // Nothing usable, so leave no id behind — whether the comparison is now
+        // off or its run failed. The primary has just rolled to a new window, so
+        // a retained id is the window before the *old* primary: a plausible
+        // delta against the wrong baseline, worse than no comparison at all.
+        delete block.comparisonExplorerAnalysisId;
       }
       anyUpdated = true;
     } catch (e) {

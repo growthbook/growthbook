@@ -19,7 +19,7 @@ import type { AIChatMessage } from "shared/ai-chat";
 import {
   _buildGeneralAgentSystemPrompt,
   _coerceBody,
-  _offScreenDashboardUpdate,
+  _offScreenDashboardWrite,
   _requiresMutationConfirmation,
   _stripConfirmFromSqlBody,
   _shapeCallApiResult,
@@ -346,7 +346,7 @@ describe("offScreenDashboardUpdate (the dashboard on screen is the only one)", (
 
   it("allows an update to the dashboard the user is viewing", () => {
     expect(
-      _offScreenDashboardUpdate(put("/api/v1/dashboards/dash_abc"), viewing),
+      _offScreenDashboardWrite(put("/api/v1/dashboards/dash_abc"), viewing),
     ).toBeUndefined();
   });
 
@@ -357,12 +357,12 @@ describe("offScreenDashboardUpdate (the dashboard on screen is the only one)", (
       "/api/v1/dashboards/dash_abc?foo=1",
       "/api/v1/dashboards/dash_abc/",
     ]) {
-      expect(_offScreenDashboardUpdate(put(path), viewing)).toBeUndefined();
+      expect(_offScreenDashboardWrite(put(path), viewing)).toBeUndefined();
     }
   });
 
   it("rejects an update to any other dashboard, and names both", () => {
-    const rejection = _offScreenDashboardUpdate(
+    const rejection = _offScreenDashboardWrite(
       put("/api/v1/dashboards/dash_other"),
       viewing,
     );
@@ -381,7 +381,7 @@ describe("offScreenDashboardUpdate (the dashboard on screen is the only one)", (
       undefined,
     ]) {
       expect(
-        _offScreenDashboardUpdate(
+        _offScreenDashboardWrite(
           put("/api/v1/dashboards/dash_abc"),
           onPage(page),
         ),
@@ -402,28 +402,45 @@ describe("offScreenDashboardUpdate (the dashboard on screen is the only one)", (
     ];
 
     expect(
-      _offScreenDashboardUpdate(put("/api/v1/dashboards/dash_new"), navigated),
+      _offScreenDashboardWrite(put("/api/v1/dashboards/dash_new"), navigated),
     ).toBeUndefined();
     expect(
-      _offScreenDashboardUpdate(put("/api/v1/dashboards/dash_old"), navigated),
+      _offScreenDashboardWrite(put("/api/v1/dashboards/dash_old"), navigated),
+    ).toMatchObject({ status: "rejected" });
+  });
+
+  it("guards a delete too, not just an update", () => {
+    const del = (path: string) => ({ method: "DELETE" as const, path });
+
+    expect(
+      _offScreenDashboardWrite(del("/api/v1/dashboards/dash_abc"), viewing),
+    ).toBeUndefined();
+    expect(
+      _offScreenDashboardWrite(del("/api/v1/dashboards/dash_other"), viewing),
+    ).toMatchObject({ status: "rejected" });
+    expect(
+      _offScreenDashboardWrite(
+        del("/api/v1/dashboards/dash_abc"),
+        onPage("/product-analytics/dashboards"),
+      ),
     ).toMatchObject({ status: "rejected" });
   });
 
   it("leaves creates, reads, and other resources alone", () => {
     expect(
-      _offScreenDashboardUpdate(
+      _offScreenDashboardWrite(
         { method: "POST", path: "/api/v1/dashboards" },
         onPage("/features/dark-mode"),
       ),
     ).toBeUndefined();
     expect(
-      _offScreenDashboardUpdate(
+      _offScreenDashboardWrite(
         { method: "GET", path: "/api/v1/dashboards/dash_other" },
         viewing,
       ),
     ).toBeUndefined();
     expect(
-      _offScreenDashboardUpdate(
+      _offScreenDashboardWrite(
         put("/api/v1/experiments/exp_1"),
         onPage("/features/dark-mode"),
       ),
