@@ -1507,6 +1507,7 @@ const postFeatureExperimentRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
+    ...v1RuleSavedGroupInput,
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     condition: z.string(),
     id: z.string().optional(),

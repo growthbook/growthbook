@@ -91,10 +91,7 @@ describe("write schemas accept every key their GET response emits", () => {
     const env = findProp(json(postFeatureValidator.bodySchema), "environments")!
       .additionalProperties as JsonSchema;
     const rules = findProp(env, "rules")!.items as JsonSchema;
-    // No write counterpart is curated for the legacy inline `experiment` type.
-    expect(missingKeys(apiFeatureRuleValidator, rules, ["experiment"])).toEqual(
-      {},
-    );
+    expect(missingKeys(apiFeatureRuleValidator, rules)).toEqual({});
   });
 });
 

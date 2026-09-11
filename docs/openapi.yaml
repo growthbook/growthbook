@@ -1327,6 +1327,50 @@ paths:
                                   description: >-
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    additionalProperties: false
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1850,6 +1894,50 @@ paths:
                                         Read-only; ignored on write. Accepted so
                                         a GET response can be posted back
                                         unchanged.
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
+                                        additionalProperties: false
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2548,6 +2636,50 @@ paths:
                                   description: >-
                                     Read-only; ignored on write. Accepted so a
                                     GET response can be posted back unchanged.
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    additionalProperties: false
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -3071,6 +3203,50 @@ paths:
                                         Read-only; ignored on write. Accepted so
                                         a GET response can be posted back
                                         unchanged.
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
+                                        additionalProperties: false
                                     description:
                                       type: string
                                       maxLength: 10000
