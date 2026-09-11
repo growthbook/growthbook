@@ -6,9 +6,9 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
   hasSubmittablePayload,
-  isQueryTimeoutError,
   shouldChartSectionShow,
 } from "@/enterprise/components/ProductAnalytics/util";
+import { getExplorerFloatingCallout } from "@/enterprise/components/ProductAnalytics/explorerQueryPhase";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExplorerChart from "./ExplorerChart";
@@ -21,7 +21,7 @@ export default function ExplorerMainSection() {
     submittedExploreState,
     loading,
     error,
-    isStale,
+    queryPhase,
     query,
     draftExploreState,
     handleSubmit,
@@ -46,8 +46,10 @@ export default function ExplorerMainSection() {
     draftExploreState.dataset?.type === "funnel" &&
     !hasSubmittablePayload(submittedExploreState);
 
-  const suppressStaleFloatingCallout = funnelMainEmpty && isStale && !loading;
-  const isTimeoutError = !loading && isQueryTimeoutError(error);
+  const floatingCallout =
+    queryPhase.type === "stale" && funnelMainEmpty
+      ? null
+      : getExplorerFloatingCallout(queryPhase);
   const retryDisabled =
     !hasSubmittablePayload(draftExploreState) || !isSubmittable;
 
@@ -136,7 +138,9 @@ export default function ExplorerMainSection() {
                 submittedExploreState={submittedExploreState}
                 loading={loading}
                 hasChart={showChartSection}
-                isStale={isStale}
+                padForFloatingCallout={
+                  floatingCallout !== null && !showChartSection
+                }
                 query={query}
                 compareEnabled={compareEnabled}
                 comparisonExploration={comparisonExploration}
@@ -196,60 +200,47 @@ export default function ExplorerMainSection() {
             )}
           </Flex>
         )}
-        {(isStale || loading || isTimeoutError) &&
-          !suppressStaleFloatingCallout && (
-            <Box
-              style={{
-                position: "absolute",
-                zIndex: 1000,
-                top: isTimeoutError ? 63 : 12,
-                right: 15,
-                width: "auto",
-                backgroundColor: "var(--color-panel-solid)",
-                borderRadius: "var(--radius-3)",
-              }}
+        {floatingCallout ? (
+          <Box
+            style={{
+              position: "absolute",
+              zIndex: 1000,
+              top: 12,
+              right: 15,
+              width: "auto",
+              backgroundColor: "var(--color-panel-solid)",
+              borderRadius: "var(--radius-3)",
+            }}
+          >
+            <Callout
+              status={floatingCallout.status}
+              size="sm"
+              align="center"
+              wrap="nowrap"
+              icon={
+                floatingCallout.action === null ? (
+                  <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+                ) : undefined
+              }
+              action={
+                floatingCallout.action !== null ? (
+                  <Button
+                    color="inherit"
+                    size="sm"
+                    variant="solid"
+                    disabled={retryDisabled}
+                    onClick={() => handleSubmit({ force: true })}
+                    icon={<PiArrowsClockwise />}
+                  >
+                    {floatingCallout.action === "retry" ? "Retry" : "Refresh"}
+                  </Button>
+                ) : undefined
+              }
             >
-              <Callout
-                status={isTimeoutError ? "error" : "info"}
-                size="sm"
-                align="center"
-                wrap="nowrap"
-                icon={
-                  loading ? (
-                    <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-                  ) : undefined
-                }
-                action={
-                  !loading ? (
-                    <Button
-                      color="inherit"
-                      size="sm"
-                      variant="solid"
-                      disabled={retryDisabled}
-                      onClick={() => handleSubmit({ force: true })}
-                      icon={<PiArrowsClockwise />}
-                    >
-                      {isTimeoutError ? "Retry" : "Refresh"}
-                    </Button>
-                  ) : undefined
-                }
-              >
-                <Text
-                  title={
-                    !loading && !isTimeoutError
-                      ? "Some configuration changes require running a new SQL query against your data source"
-                      : undefined
-                  }
-                >
-                  {loading
-                    ? "Loading..."
-                    : isTimeoutError
-                      ? "Query timed out"
-                      : "Latest changes not applied"}
-                </Text>
-              </Callout>
-            </Box>
-          )}
+              <Text title={floatingCallout.title}>{floatingCallout.text}</Text>
+            </Callout>
+          </Box>
+        ) : null}
       </Flex>
     </Flex>
   );
