@@ -1,9 +1,28 @@
 import { memoizeNotification } from "back-end/src/services/experimentNotifications";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   updateExperiment: jest.fn(),
+  getExperimentById: jest.fn(),
 }));
+
+const updateExperimentMock = updateExperiment as jest.Mock;
+const getExperimentByIdMock = getExperimentById as jest.Mock;
+
+beforeEach(() => {
+  updateExperimentMock.mockReset();
+  getExperimentByIdMock.mockReset();
+  getExperimentByIdMock.mockImplementation(async () => {
+    const last = updateExperimentMock.mock.calls.at(-1)?.[0];
+    return {
+      id: last?.experiment?.id,
+      pastNotifications: last?.changes?.pastNotifications,
+    };
+  });
+});
 
 describe("memoizeNotification", () => {
   it("calls the handler when notification is triggered and hasn't been dispatched yet", async () => {
