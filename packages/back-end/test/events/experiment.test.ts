@@ -17,6 +17,7 @@ import { EventModel } from "back-end/src/models/EventModel";
 
 jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
+    static register = jest.fn();
     perform() {
       return undefined;
     }
