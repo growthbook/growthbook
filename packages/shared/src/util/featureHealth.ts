@@ -211,11 +211,8 @@ export function computeFeatureHealth({
   }
 
   for (const schedule of rampSchedules) {
-    const detail = { label: schedule.name };
-    if (schedule.status === "paused") add("ramp-paused", undefined, detail);
-    else if (isReadyForApproval(schedule)) {
-      add("ramp-needs-approval", undefined, detail);
-    }
+    if (schedule.status === "paused") add("ramp-paused");
+    else if (isReadyForApproval(schedule)) add("ramp-needs-approval");
   }
 
   // Only safe rollouts an enabled rule or a live ramp schedule still points at;
