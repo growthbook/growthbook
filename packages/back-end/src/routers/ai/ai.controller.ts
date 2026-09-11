@@ -10,6 +10,7 @@ import {
   getProviderForAIModel,
 } from "shared/ai";
 import { AICredentialFrontEndInterface } from "shared/validators";
+import type { SqlDebugRequest, SqlDebugResponse } from "shared/sql-debug";
 import {
   getAISettingsForOrg,
   getContextFromReq,
@@ -29,6 +30,8 @@ import {
 } from "back-end/src/enterprise/services/ai";
 import { getTokensUsedByOrganization } from "back-end/src/models/AITokenUsageModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { debugSqlQuery } from "back-end/src/enterprise/services/sql-debug";
 
 type GetTokenUsageResponse = {
   status: 200;
@@ -248,6 +251,38 @@ export async function postAIPrompts(
 
   return res.status(200).json({
     status: 200,
+  });
+}
+
+export async function postDebugSql(
+  req: AuthRequest<SqlDebugRequest>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.body.datasourceId);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Data Source not found.",
+    });
+  }
+
+  const canRunQuery =
+    req.body.queryKind === "sql-explorer"
+      ? context.permissions.canRunSqlExplorerQueries(datasource)
+      : context.permissions.canRunTestQueries(datasource);
+  if (!canRunQuery) {
+    context.permissions.throwPermissionError();
+  }
+
+  const data: SqlDebugResponse = await debugSqlQuery({
+    context,
+    datasource,
+    request: req.body,
+  });
+  return res.status(200).json({
+    status: 200,
+    data,
   });
 }
 

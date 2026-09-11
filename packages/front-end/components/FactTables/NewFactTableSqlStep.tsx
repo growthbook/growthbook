@@ -36,6 +36,7 @@ type TestQueryResults = {
   results?: TestQueryRow[];
   sql?: string;
   columns?: DetectedFactTableColumn[];
+  sourceSql?: string;
 };
 
 export default function NewFactTableSqlStep({
@@ -88,20 +89,27 @@ export default function NewFactTableSqlStep({
     .filter((d) => d.properties?.queryLanguage === "sql");
 
   const runQuery = useCallback(
-    async (limit: number): Promise<TestQueryResults> => {
+    async (
+      limit: number,
+      sqlOverride: string = sql,
+    ): Promise<TestQueryResults> => {
       setTestingQuery(true);
       try {
-        validateSQL(sql, []);
+        validateSQL(sqlOverride, []);
         const res = await apiCall<TestQueryResults>("/query/test", {
           method: "POST",
           body: JSON.stringify({
-            query: sql,
+            query: sqlOverride,
             datasourceId,
             limit,
             detectColumns: true,
           }),
         });
-        const results = { ...res, error: res.error || "" };
+        const results = {
+          ...res,
+          error: res.error || "",
+          sourceSql: sqlOverride,
+        };
         // A `LIMIT 0` validation run has no rows to show, and the pane's
         // contents belong to the SQL the user just edited away from.
         setTestQueryResults(limit || results.error ? results : null);
@@ -110,7 +118,11 @@ export default function NewFactTableSqlStep({
         }
         return results;
       } catch (e) {
-        const results = { sql, error: e.message };
+        const results = {
+          sql: sqlOverride,
+          sourceSql: sqlOverride,
+          error: e instanceof Error ? e.message : String(e),
+        };
         setTestQueryResults(results);
         return results;
       } finally {
@@ -256,6 +268,30 @@ export default function NewFactTableSqlStep({
                       sql={testQueryResults.sql || ""}
                       error={testQueryResults.error || ""}
                       close={() => setTestQueryResults(null)}
+                      sqlDebug={
+                        testQueryResults.sourceSql === sql
+                          ? {
+                              datasourceId,
+                              queryKind: "fact-table",
+                              sourceSql: testQueryResults.sourceSql,
+                              context: {
+                                userIdTypes:
+                                  datasource?.settings?.userIdTypes?.map(
+                                    ({ userIdType }) => userIdType,
+                                  ),
+                                timestampColumn: "timestamp",
+                              },
+                              onApplySql: (suggestedSql) => {
+                                setSql(suggestedSql);
+                                setTestQueryResults(null);
+                              },
+                              onApplyAndRun: async (suggestedSql) => {
+                                setSql(suggestedSql);
+                                await runQuery(SAMPLE_ROW_LIMIT, suggestedSql);
+                              },
+                            }
+                          : undefined
+                      }
                     />
                   </Panel>
                 </>

@@ -4,6 +4,7 @@ import { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import type { TestQueryRow } from "shared/types/integrations";
 import { parseIntWithDefault } from "shared/util";
+import type { SqlDebugQueryKind } from "shared/sql-debug";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -17,6 +18,7 @@ type TestQueryResults = {
   error?: string;
   results?: TestQueryRow[];
   sql?: string;
+  sourceSql?: string;
 };
 
 type Props = {
@@ -41,6 +43,17 @@ type Props = {
   showHeadline?: boolean;
 };
 
+const SQL_DEBUG_KIND_BY_QUERY_TYPE: Record<
+  Props["queryType"],
+  SqlDebugQueryKind
+> = {
+  segment: "segment",
+  dimension: "dimension",
+  metric: "metric",
+  "experiment-assignment": "experiment-assignment",
+  factTable: "fact-table",
+};
+
 export default function SQLInputField({
   userEnteredQuery,
   datasourceId,
@@ -63,15 +76,15 @@ export default function SQLInputField({
   const userEnteredHasNameCol = form.watch("hasNameCol");
   const userEnteredDimensions = form.watch("dimensions");
 
-  const handleTestQuery = async () => {
+  const handleTestQuery = async (sql: string = userEnteredQuery) => {
     setTestQueryResults(null);
     try {
-      validateSQL(userEnteredQuery, [...requiredColumns]);
+      validateSQL(sql, [...requiredColumns]);
 
       const res: TestQueryResults = await apiCall("/query/test", {
         method: "POST",
         body: JSON.stringify({
-          query: userEnteredQuery,
+          query: sql,
           datasourceId: datasourceId,
           timestampColumn: requiredColumns.has("timestamp")
             ? "timestamp"
@@ -79,9 +92,13 @@ export default function SQLInputField({
         }),
       });
 
-      setTestQueryResults(res);
+      setTestQueryResults({ ...res, sourceSql: sql });
     } catch (e) {
-      setTestQueryResults({ error: e.message });
+      setTestQueryResults({
+        error: e instanceof Error ? e.message : String(e),
+        sql,
+        sourceSql: sql,
+      });
     }
   };
 
@@ -151,6 +168,42 @@ export default function SQLInputField({
               sql={testQueryResults.sql || ""}
               error={testQueryResults.error || ""}
               close={() => setTestQueryResults(null)}
+              sqlDebug={
+                showPreview || testQueryResults.sourceSql !== userEnteredQuery
+                  ? undefined
+                  : {
+                      datasourceId,
+                      queryKind: SQL_DEBUG_KIND_BY_QUERY_TYPE[queryType],
+                      sourceSql: testQueryResults.sourceSql,
+                      context: {
+                        requiredColumns: Array.from(requiredColumns),
+                        userIdTypes: identityTypes?.map(
+                          ({ userIdType }) => userIdType,
+                        ),
+                        timestampColumn: requiredColumns.has("timestamp")
+                          ? "timestamp"
+                          : undefined,
+                      },
+                      onApplySql: (sql) => {
+                        form.setValue(
+                          queryType === "experiment-assignment"
+                            ? "query"
+                            : "sql",
+                          sql,
+                        );
+                        setTestQueryResults(null);
+                      },
+                      onApplyAndRun: async (sql) => {
+                        form.setValue(
+                          queryType === "experiment-assignment"
+                            ? "query"
+                            : "sql",
+                          sql,
+                        );
+                        await handleTestQuery(sql);
+                      },
+                    }
+              }
             />
           )}
         </div>

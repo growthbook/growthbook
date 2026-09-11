@@ -157,6 +157,7 @@ export default function SqlQuerySection({
     loading,
     error,
     previewResult,
+    lastRunSql,
     runQuery: previewQuery,
   } = useSqlQueryPreview({
     dataset,
@@ -217,6 +218,24 @@ export default function SqlQuerySection({
         error={error ?? previewResult?.error ?? ""}
         allowDownload={status === "success"}
         showNoRowsWarning={status === "success"}
+        sqlDebug={
+          draftExploreState.datasource && lastRunSql === localSql
+            ? {
+                datasourceId: draftExploreState.datasource,
+                queryKind: "sql-explorer",
+                sourceSql: lastRunSql,
+                onApplySql: (sql) => {
+                  setLocalSql(sql);
+                  setFormatError(null);
+                },
+                onApplyAndRun: async (sql) => {
+                  setLocalSql(sql);
+                  setFormatError(null);
+                  await previewQuery(sql);
+                },
+              }
+            : undefined
+        }
         emptyResultsContent={
           status === "loading" ? (
             <Flex

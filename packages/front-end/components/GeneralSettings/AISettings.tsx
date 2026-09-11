@@ -123,6 +123,22 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         ?.overrideModel,
     },
     {
+      promptType: "debug-sql-query",
+      promptName: "SQL error assistant",
+      promptDescription:
+        "Adds organization-specific context when AI explains failed SQL and suggests corrections. GrowthBook includes the Data Source dialect, relevant table structure, query error, and query-type requirements automatically.",
+      promptValue:
+        data.prompts.find((p) => p.type === "debug-sql-query")?.prompt ||
+        AI_PROMPT_DEFAULTS["debug-sql-query"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["debug-sql-query"],
+      promptHelpText:
+        "Add warehouse conventions, naming rules, or other organization-specific guidance.",
+      overrideModelHelpText:
+        "Some models are better at diagnosing and correcting SQL.",
+      overrideModel: data.prompts.find((p) => p.type === "debug-sql-query")
+        ?.overrideModel,
+    },
+    {
       promptType: "product-analytics-chat",
       promptName: "Product Analytics AI Analyst",
       promptDescription:

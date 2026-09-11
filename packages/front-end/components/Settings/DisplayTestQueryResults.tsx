@@ -20,6 +20,9 @@ import {
   flattenHeaderStructureForCsv,
   type HeaderStructure,
 } from "@/components/Settings/flattenHeaderStructureForCsv";
+import useSqlDebugAI, {
+  type SqlDebugAIConfig,
+} from "@/components/Queries/useSqlDebugAI";
 
 export type { HeaderStructure };
 
@@ -61,6 +64,7 @@ export type Props = {
   paddingTop?: number;
   showNoRowsWarning?: boolean;
   emptyResultsContent?: ReactNode;
+  sqlDebug?: SqlDebugAIConfig;
 };
 
 export default function DisplayTestQueryResults({
@@ -83,9 +87,14 @@ export default function DisplayTestQueryResults({
   paddingTop = 0,
   showNoRowsWarning = true,
   emptyResultsContent,
+  sqlDebug,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [showQueryModal, setShowQueryModal] = useState(false);
+  const { trigger: sqlDebugTrigger, panel: sqlDebugPanel } = useSqlDebugAI({
+    error,
+    config: sqlDebug,
+  });
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
   const labels = columnLabels ?? cols;
   const canDownload =
@@ -191,9 +200,12 @@ export default function DisplayTestQueryResults({
             <ManagedWarehouseNoEventsCallout />
           </div>
         ) : (
-          <Callout status="error" mr="auto">
-            {error}
-          </Callout>
+          <>
+            <Callout status="error" mr="auto" action={sqlDebugTrigger}>
+              {error}
+            </Callout>
+            {sqlDebugPanel}
+          </>
         )
       ) : (
         showNoRowsWarning &&
