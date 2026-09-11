@@ -1560,10 +1560,13 @@ export async function runContextualBanditSnapshot(
   // Compute bandit stage before running the update, in case this
   // update moves bandits from explore to exploit.
   const scheduleChanges = computeContextualBanditStageAndSchedule(cb);
-  const updatedCb = await context.models.contextualBandits.update(
-    cb,
-    scheduleChanges,
-  );
+  // Authority was established by canRunContextualBandit at the route; the
+  // stage/schedule write is a consequence of the run, not a separate edit.
+  const updatedCb =
+    await context.models.contextualBandits.dangerousUpdateBypassPermission(
+      cb,
+      scheduleChanges,
+    );
 
   const snapshotSettings = buildContextualBanditSnapshotSettings(
     updatedCb,

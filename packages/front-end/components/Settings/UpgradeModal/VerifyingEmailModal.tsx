@@ -70,7 +70,6 @@ export default function VerifyingEmailModal() {
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       cta="Invite Members"

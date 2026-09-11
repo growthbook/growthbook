@@ -934,20 +934,23 @@ export async function refreshSDKPayloadCache({
     logger.warn(e, "Failed to delete legacy cache entries");
   }
 
-  const experimentMap = await getAllPayloadExperiments(context);
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-  const savedGroups = await context.models.savedGroups.getAll();
-  const groupMap = await getSavedGroupMap(context, savedGroups);
-  const allFeatures = await getAllFeatures(context);
-  const constants = await getResolvableValues(context);
-  const rampMonitoredRuleMap =
-    await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
+  // With no payload cache configured there is nowhere to store a pre-built
+  // payload: the cache upsert at the end of this function is the only consumer
+  // of the built contents, and every reader (SDK endpoint, webhooks, proxy)
+  // generates the payload itself on a cache miss. In that case this function
+  // only has to work out WHICH connections are affected and notify them.
+  const storesPayloads = storageLocation !== "none";
 
-  const [allVisualExperiments, allURLRedirectExperiments] = await Promise.all([
-    getAllVisualExperiments(context, experimentMap),
-    getAllURLRedirectExperiments(context, experimentMap),
-  ]);
+  // First load only what deciding the affected connections needs: the payload
+  // experiments (phase prerequisites) and the features (prerequisite edges and
+  // projects). Building payloads needs the full feature documents; the decision
+  // alone can use the lean loader getFeaturesDependingOnAsPrerequisite also
+  // uses (same JIT migration and permission filter, editor-only fields
+  // projected out, no Mongoose hydration).
+  const experimentMap = await getAllPayloadExperiments(context);
+  const allFeatures = storesPayloads
+    ? await getAllFeatures(context)
+    : await getAllFeaturesWithoutEditorFields(context);
 
   // Only an all-projects dependent needs the project list, and this context is
   // fresh, so its cache is cold — don't pay for the query otherwise.
@@ -971,6 +974,86 @@ export async function refreshSDKPayloadCache({
     );
   }
 
+  // Everything that decides which connections are affected (the widening above
+  // and this match) must stay above the early returns below.
+  const sdkConnections = payloadKeys.length
+    ? await findSDKConnectionsByOrganization(context)
+    : sdkConnectionsToUpdate;
+
+  const connectionsUpdated = sdkConnections.filter(
+    (connection) =>
+      sdkConnectionsToUpdate.some((c) => c.key === connection.key) ||
+      payloadKeys.some((k) =>
+        isSDKConnectionAffectedByPayloadKey(
+          connection,
+          k,
+          treatEmptyProjectAsGlobal,
+        ),
+      ),
+  );
+
+  // If there are no changes, we don't need to do anything
+  if (!connectionsUpdated.length) {
+    const durationMs = Math.round(performance.now() - refreshStartedAt);
+    recordSdkPayloadRefreshMetrics(durationMs);
+    logger.info(
+      {
+        orgId: context.org.id,
+        payloadKeys,
+        auditContext: initialAuditContext,
+        durationMs,
+      },
+      "[sdk-payload] refresh skipped — no matching SDK connections",
+    );
+    return;
+  }
+
+  // Shared epilogue: record metrics and notify webhooks/proxies/CDN for the
+  // affected connections. These consumers take connection identities (and the
+  // widened payload keys) and fetch payloads themselves, so on the cached path
+  // this must run after the upserts below.
+  const finish = () => {
+    const durationMs = Math.round(performance.now() - refreshStartedAt);
+    recordSdkPayloadRefreshMetrics(durationMs);
+    logger.info(
+      {
+        orgId: context.org.id,
+        connectionKeys: connectionsUpdated.map((c) => c.key),
+        connectionCount: connectionsUpdated.length,
+        payloadKeys,
+        cacheLocation: storageLocation,
+        auditContext: initialAuditContext,
+        durationMs,
+      },
+      "[sdk-payload] refresh completed",
+    );
+
+    triggerWebhookJobs(context, payloadKeys, connectionsUpdated, true).catch(
+      (e) => {
+        logger.error(e, "Error triggering webhook jobs");
+      },
+    );
+  };
+
+  if (!storesPayloads) {
+    finish();
+    return;
+  }
+
+  const safeRolloutMap =
+    await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const savedGroups = await context.models.savedGroups.getAll();
+  const groupMap = await getSavedGroupMap(context, savedGroups);
+  const constants = await getResolvableValues(context);
+  const rampMonitoredRuleMap =
+    await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
+
+  const [allVisualExperiments, allURLRedirectExperiments] = await Promise.all([
+    getAllVisualExperiments(context, experimentMap),
+    getAllURLRedirectExperiments(context, experimentMap),
+  ]);
+
+  // Only reached when payloads are built, i.e. allFeatures holds full documents.
   const rawData: Omit<SDKPayloadRawData, "holdoutsMap"> = {
     features: allFeatures,
     featuresMap: new Map(allFeatures.map((f) => [f.id, f])),
@@ -984,12 +1067,8 @@ export async function refreshSDKPayloadCache({
     constants,
   };
 
-  const payloadKeyEnvironments = new Set(payloadKeys.map((k) => k.environment));
   const allEnvironmentsToUpdate = Array.from(
-    new Set([
-      ...payloadKeyEnvironments,
-      ...sdkConnectionsToUpdate.map((c) => c.environment),
-    ]),
+    new Set(connectionsUpdated.map((c) => c.environment)),
   );
 
   const holdoutsMapByEnv: Record<
@@ -1011,40 +1090,16 @@ export async function refreshSDKPayloadCache({
       : null;
   }
 
-  const sdkConnections = payloadKeys.length
-    ? await findSDKConnectionsByOrganization(context)
-    : sdkConnectionsToUpdate;
-
   if (sdkConnections.some((c) => c.includeProjectIdInMetadata)) {
     const allProjects = await context.models.projects.getAll();
     rawData.projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
-  const connectionsUpdated: SDKConnectionInterface[] = [];
-  const promises: (() => Promise<void>)[] = [];
-
-  sdkConnections.forEach((connection) => {
-    if (
-      !sdkConnectionsToUpdate.some((c) => c.key === connection.key) &&
-      !payloadKeys.some((k) =>
-        isSDKConnectionAffectedByPayloadKey(
-          connection,
-          k,
-          treatEmptyProjectAsGlobal,
-        ),
-      )
-    ) {
-      return;
-    }
-
+  const promises = connectionsUpdated.map((connection) => {
     const env = connection.environment;
     const holdoutsMap = holdoutsMapByEnv[env];
-    if (!holdoutsMap) {
-      return;
-    }
-    connectionsUpdated.push(connection);
 
-    promises.push(async () => {
+    return async () => {
       try {
         const capabilities = getConnectionSDKCapabilities(connection);
         const environmentDoc = context.org?.settings?.environments?.find(
@@ -1100,59 +1155,22 @@ export async function refreshSDKPayloadCache({
               }
             : undefined;
 
-        if (storageLocation !== "none") {
-          await context.models.sdkConnectionCache.upsert(
-            connection.key,
-            JSON.stringify(contents),
-            auditContext,
-          );
-        }
+        await context.models.sdkConnectionCache.upsert(
+          connection.key,
+          JSON.stringify(contents),
+          auditContext,
+        );
       } catch (e) {
         logger.error(e, "Error updating SDK connection cache");
       }
-    });
+    };
   });
-
-  // If there are no changes, we don't need to do anything
-  if (!promises.length) {
-    const durationMs = Math.round(performance.now() - refreshStartedAt);
-    recordSdkPayloadRefreshMetrics(durationMs);
-    logger.info(
-      {
-        orgId: context.org.id,
-        payloadKeys,
-        auditContext: initialAuditContext,
-        durationMs,
-      },
-      "[sdk-payload] refresh skipped — no matching SDK connections",
-    );
-    return;
-  }
 
   // There may be many SDK connection caches to update
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
-  const durationMs = Math.round(performance.now() - refreshStartedAt);
-  recordSdkPayloadRefreshMetrics(durationMs);
-  logger.info(
-    {
-      orgId: context.org.id,
-      connectionKeys: connectionsUpdated.map((c) => c.key),
-      connectionCount: connectionsUpdated.length,
-      payloadKeys,
-      cacheLocation: storageLocation,
-      auditContext: initialAuditContext,
-      durationMs,
-    },
-    "[sdk-payload] refresh completed",
-  );
-
-  triggerWebhookJobs(context, payloadKeys, connectionsUpdated, true).catch(
-    (e) => {
-      logger.error(e, "Error triggering webhook jobs");
-    },
-  );
+  finish();
 }
 
 export type FeatureDefinitionsResponseArgs = {

@@ -189,7 +189,6 @@ const DataSourceForm: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       inline={inline}
       open={true}

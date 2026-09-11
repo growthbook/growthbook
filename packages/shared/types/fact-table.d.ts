@@ -11,6 +11,7 @@ import {
   columnRefValidator,
   metricTypeValidator,
   factTableColumnTypeValidator,
+  factTableTypeValidator,
   testFactFilterPropsValidator,
   testVirtualColumnPropsValidator,
   conversionWindowUnitValidator,
@@ -35,6 +36,7 @@ import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
+export type FactTableType = z.infer<typeof factTableTypeValidator>;
 
 // Funnel step / settings types (validators live in validators/fact-table).
 export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
@@ -93,12 +95,13 @@ export interface FactTableInterface {
   tags: string[];
   datasource: string;
   userIdTypes: string[];
+  userIdColumns?: Record<string, string>; // defaults to the id type names
   sql: string;
-  // Column in the fact table SQL holding the event timestamp. Empty/undefined
-  // means "timestamp". SQL generation aliases it to `timestamp` in the first CTE
-  // that selects from the fact table, so everything downstream is unchanged.
-  timestampColumn?: string;
+  timestampColumn?: string; // defaults to "timestamp"
   eventName: string;
+  // Set when the table was created through a flow that asked. Absent on older
+  // fact tables, which predate the question.
+  tableType?: FactTableType;
   columns: ColumnInterface[];
   columnsError?: string | null;
   columnRefreshPending?: boolean;
@@ -212,6 +215,17 @@ export type CreateVirtualColumnProps = z.infer<
 
 export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
+
+/**
+ * Columns detected by running a Fact Table's SQL, before anything is persisted.
+ * Returned by the test-query endpoint so the create flow can show the columns
+ * and their types, and post them back with the new Fact Table.
+ */
+export type DetectedFactTableColumn = {
+  column: string;
+  datatype: FactTableColumnType;
+  jsonFields?: JSONColumnFields;
+};
 
 export type FactTableMap = Map<string, FactTableInterface>;
 
