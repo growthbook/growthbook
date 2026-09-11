@@ -36758,6 +36758,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: metric
@@ -37134,6 +37142,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: fact_table
@@ -37519,6 +37535,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: data_source
@@ -37921,6 +37945,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: funnel
@@ -38323,6 +38355,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: sql
@@ -40146,6 +40186,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: metric
@@ -40528,6 +40576,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: fact_table
@@ -40919,6 +40975,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: data_source
@@ -41327,6 +41391,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: sql
@@ -41738,6 +41810,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: funnel
@@ -43655,6 +43735,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: metric
@@ -44031,6 +44119,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: fact_table
@@ -44416,6 +44512,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: data_source
@@ -44818,6 +44922,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: funnel
@@ -45220,6 +45332,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: sql
@@ -47909,6 +48029,14 @@ paths:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: metric
@@ -48279,6 +48407,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: metric
@@ -48594,6 +48730,14 @@ paths:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: fact_table
@@ -48973,6 +49117,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: fact_table
@@ -49297,6 +49449,14 @@ paths:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: data_source
@@ -49693,6 +49853,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: data_source
@@ -50034,6 +50202,14 @@ paths:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: sql
@@ -50433,6 +50609,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: sql
@@ -50777,6 +50961,14 @@ paths:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: funnel
@@ -51169,6 +51361,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: funnel
@@ -67540,6 +67740,14 @@ components:
                         enum:
                           - total
                           - per_unit
+                      chartSettings:
+                        type: object
+                        properties:
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
+                        additionalProperties: false
                       type:
                         type: string
                         const: metric
@@ -67922,6 +68130,14 @@ components:
                         enum:
                           - total
                           - per_unit
+                      chartSettings:
+                        type: object
+                        properties:
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
+                        additionalProperties: false
                       type:
                         type: string
                         const: fact_table
@@ -68313,6 +68529,14 @@ components:
                         enum:
                           - total
                           - per_unit
+                      chartSettings:
+                        type: object
+                        properties:
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
+                        additionalProperties: false
                       type:
                         type: string
                         const: data_source
@@ -68721,6 +68945,14 @@ components:
                         enum:
                           - total
                           - per_unit
+                      chartSettings:
+                        type: object
+                        properties:
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
+                        additionalProperties: false
                       type:
                         type: string
                         const: sql
@@ -69132,6 +69364,14 @@ components:
                         enum:
                           - total
                           - per_unit
+                      chartSettings:
+                        type: object
+                        properties:
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
+                        additionalProperties: false
                       type:
                         type: string
                         const: funnel
@@ -70233,6 +70473,14 @@ components:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: metric
@@ -70497,6 +70745,14 @@ components:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: fact_table
@@ -70770,6 +71026,14 @@ components:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: data_source
@@ -71060,6 +71324,14 @@ components:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: sql
@@ -71353,6 +71625,14 @@ components:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: funnel
