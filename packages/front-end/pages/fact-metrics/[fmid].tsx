@@ -402,7 +402,7 @@ export default function FactMetricPage() {
                     All Projects
                   </Text>
                 )}
-                {canEdit && !isEditing ? (
+                {canEdit && !isEditing && (
                   <Link
                     onClick={(e) => {
                       e.preventDefault();
@@ -411,10 +411,6 @@ export default function FactMetricPage() {
                   >
                     <GBEdit />
                   </Link>
-                ) : (
-                  <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
-                    <GBEdit />
-                  </span>
                 )}
               </Flex>
             }
@@ -427,14 +423,10 @@ export default function FactMetricPage() {
               <Text weight="regular" color="text-mid">
                 {getOwnerDisplay(factMetric.owner) || "None"}
               </Text>
-              {canEdit && !isEditing ? (
+              {canEdit && !isEditing && (
                 <Link onClick={() => setEditOwnerModal(true)}>
                   <GBEdit />
                 </Link>
-              ) : (
-                <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
-                  <GBEdit />
-                </span>
               )}
             </Flex>
           }
