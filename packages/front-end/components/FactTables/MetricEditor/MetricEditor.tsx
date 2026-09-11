@@ -264,7 +264,7 @@ export default function MetricEditor({
         <Frame>
           <Flex align="center" gap="1" mb="3">
             <Heading as="h4" size="sm" mb="0">
-              Basics
+              Details
             </Heading>
             <OfficialBadge type="metric" managedBy={form.watch("managedBy")} />
           </Flex>
