@@ -256,10 +256,7 @@ export default function MetricEditor({
       ];
 
   return (
-    <Grid
-      columns={{ initial: "1", md: "minmax(0, 3fr) minmax(0, 2fr)" }}
-      gap="4"
-    >
+    <Grid columns={{ initial: "1", md: "minmax(0, 1fr) 320px" }} gap="4">
       <Flex direction="column" gap="4" minWidth="0">
         <Frame>
           <Flex align="center" gap="1" mb="3">
