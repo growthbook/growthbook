@@ -1,5 +1,5 @@
 import { UseFormReturn } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
@@ -9,6 +9,7 @@ import useFullFactTable from "@/hooks/useFullFactTable";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
@@ -79,6 +80,8 @@ export default function MetricEditor({
   const { getFactTableById, getDatasourceById, factTables, project } =
     useDefinitions();
   const { hasCommercialFeature } = useUser();
+  const [showDescription, setShowDescription] = useState(false);
+  const [showTags, setShowTags] = useState(false);
 
   const metricType = form.watch("metricType");
   const numerator = form.watch("numerator");
@@ -266,25 +269,60 @@ export default function MetricEditor({
             <OfficialBadge type="metric" managedBy={form.watch("managedBy")} />
           </Flex>
           {canEdit ? (
-            <Flex direction="column" gap="3">
+            <Flex direction="column" gap="4">
+              <Text color="text-mid">
+                Define this metric with a clear name, description, and tags.
+              </Text>
               <TextField
                 label="Name"
+                markRequired
                 value={form.watch("name")}
                 onChange={(e) => form.setValue("name", e.target.value)}
                 required
               />
-              <Field
-                label="Description"
-                textarea
-                value={form.watch("description")}
-                onChange={(e) => form.setValue("description", e.target.value)}
-              />
-              <TagsInput
-                label="Tags"
-                autoFocus={false}
-                value={form.watch("tags") || []}
-                onChange={(tags) => form.setValue("tags", tags)}
-              />
+              <Grid columns={{ initial: "1", sm: "2" }} gap="4">
+                <div style={{ minWidth: 0 }}>
+                  {showDescription || form.watch("description") ? (
+                    <Field
+                      label="Description"
+                      textarea
+                      autoFocus={showDescription}
+                      value={form.watch("description")}
+                      onChange={(e) => {
+                        setShowDescription(true);
+                        form.setValue("description", e.target.value);
+                      }}
+                    />
+                  ) : (
+                    <Flex direction="column" align="start" gap="3">
+                      <Text weight="semibold">Description</Text>
+                      <Link size="sm" onClick={() => setShowDescription(true)}>
+                        + Add a description
+                      </Link>
+                    </Flex>
+                  )}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  {showTags || !!form.watch("tags")?.length ? (
+                    <TagsInput
+                      label="Tags"
+                      autoFocus={showTags}
+                      value={form.watch("tags") || []}
+                      onChange={(tags) => {
+                        setShowTags(true);
+                        form.setValue("tags", tags);
+                      }}
+                    />
+                  ) : (
+                    <Flex direction="column" align="start" gap="3">
+                      <Text weight="semibold">Tags</Text>
+                      <Link size="sm" onClick={() => setShowTags(true)}>
+                        + Group with related metrics
+                      </Link>
+                    </Flex>
+                  )}
+                </div>
+              </Grid>
             </Flex>
           ) : (
             <Flex direction="column" gap="6">
