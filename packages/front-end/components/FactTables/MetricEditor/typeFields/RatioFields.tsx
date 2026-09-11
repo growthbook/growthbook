@@ -85,7 +85,7 @@ function RatioPart({
           ]}
         />
         <Text weight="semibold" size="sm" mt="2" as="div">
-          Row Filter
+          Row filter
         </Text>
         <FilterSummary
           rowFilters={value.rowFilters || []}
@@ -137,7 +137,7 @@ function RatioPart({
 // Ratio parts (spec): a Box per part, Shape (both sides also offer "Unique
 // users") + Column, denominator additionally offers a fact table override
 // when its shape isn't "users", and Row filters per part - unlike every
-// other type, which shares one Row Filters section after the type block.
+// other type, which shares one Row filters section after the type block.
 export default function RatioFields({
   numerator,
   onNumeratorChange,
