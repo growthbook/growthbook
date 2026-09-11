@@ -2,6 +2,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { evaluatePrerequisiteState } from "shared/util";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { generateFeaturesPayload } from "back-end/src/services/features";
+import { logger } from "back-end/src/util/logger";
 
 // Test-local normalizer: these fixtures were authored in the v1 shape
 // (rules under environmentSettings[env].rules). The production JIT
@@ -159,9 +160,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       ).state,
     ).toEqual("cyclic");
 
-    // With the "prerequisites" capability a feature whose prerequisite is
-    // merely "conditional" would be kept (with an inline gating rule), so
-    // absence here pins the "cyclic" branch specifically.
+    // Conditional prerequisites would survive with this capability enabled.
     const payload = generateFeaturesPayload({
       features: features.map(normalizeV1Fixture),
       environment: "production",
@@ -200,6 +199,101 @@ describe("Prerequisite reduction in SDK Payload", () => {
       capabilities: ["prerequisites"],
     });
     expect(payload).not.toHaveProperty("parent1");
+  });
+
+  it("Removes a rule gated on a cycle while preserving the default and unrelated rules", () => {
+    const features: FeatureInterface[] = [
+      {
+        ...cloneDeep(childFeature),
+        defaultValue: "false",
+        prerequisites: [],
+        rules: [
+          {
+            type: "force",
+            description: "",
+            enabled: true,
+            allEnvironments: true,
+            value: "true",
+            prerequisites: [{ id: "parent1", condition: '{"value": true}' }],
+          },
+          {
+            type: "force",
+            description: "",
+            enabled: true,
+            allEnvironments: true,
+            value: "true",
+            condition: '{"country": "US"}',
+          },
+        ],
+      },
+      {
+        ...cloneDeep(parentFeature),
+        prerequisites: [{ id: "parent1", condition: '{"value": true}' }],
+      },
+    ];
+
+    const payload = generateFeaturesPayload({
+      features,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      safeRolloutMap: new Map(),
+      holdoutsMap: new Map(),
+      capabilities: ["prerequisites"],
+    });
+
+    expect(payload).not.toHaveProperty("parent1");
+    expect(payload.child1).toEqual({
+      defaultValue: false,
+      rules: [{ force: true, condition: { country: "US" } }],
+    });
+  });
+
+  it("Warns once per cyclic prerequisite per payload build across features and rules", () => {
+    const warn = jest.spyOn(logger, "warn").mockImplementation(() => {});
+    const features: FeatureInterface[] = [
+      {
+        ...cloneDeep(childFeature),
+        id: "rule-consumer",
+        prerequisites: [],
+        rules: [
+          {
+            type: "force",
+            description: "",
+            enabled: true,
+            allEnvironments: true,
+            value: "true",
+            prerequisites: [{ id: "parent1", condition: '{"value": true}' }],
+          },
+        ],
+      },
+      cloneDeep(childFeature),
+      {
+        ...cloneDeep(parentFeature),
+        prerequisites: [{ id: "parent1", condition: '{"value": true}' }],
+      },
+    ];
+
+    try {
+      for (let build = 1; build <= 2; build++) {
+        generateFeaturesPayload({
+          features,
+          environment: "production",
+          groupMap: new Map(),
+          experimentMap: new Map(),
+          safeRolloutMap: new Map(),
+          holdoutsMap: new Map(),
+          capabilities: ["prerequisites"],
+        });
+        expect(warn).toHaveBeenCalledTimes(build);
+      }
+      expect(warn).toHaveBeenCalledWith(
+        { organization: "123", feature: "parent1", environment: "production" },
+        expect.any(String),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("Does not block when top-level prerequisite has conditional state, creates inline gating rule", () => {

@@ -2538,9 +2538,7 @@ export function evaluatePrerequisiteState(
       return { state: "cyclic", value: null };
   }
 
-  // Features on the current prerequisite path. Callers that pass
-  // `skipCyclicCheck` (the SDK payload builder) rely on this to terminate on
-  // a cycle instead of recursing until the stack overflows.
+  // Guard recursion even when payload generation skips the full cycle check.
   const visiting = new Set<string>();
   const visit = (feature: FeatureInterface): PrerequisiteStateResult => {
     if (visiting.has(feature.id)) return { state: "cyclic", value: null };

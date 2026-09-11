@@ -3591,7 +3591,6 @@ function prerequisiteListsDiffer(
   return false;
 }
 
-// Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
 const logCyclicPrerequisite = (
   prereqFeature: FeatureInterface,
   environment: string,
@@ -3606,6 +3605,7 @@ const logCyclicPrerequisite = (
   );
 };
 
+// Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
 export const reduceFeaturesWithPrerequisites = (
   features: FeatureInterface[],
   environment: string,
