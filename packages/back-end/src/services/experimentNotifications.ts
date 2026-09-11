@@ -123,11 +123,6 @@ export const notifyAutoUpdate = ({
       },
     });
 
-  // A stuck failure marker must not swallow a new scheduled-refresh failure.
-  if (!success && experiment.pastNotifications?.includes("auto-update")) {
-    return dispatch();
-  }
-
   return memoizeNotification({
     context,
     experiment,
