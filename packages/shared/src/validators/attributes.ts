@@ -30,6 +30,7 @@ export const apiAttributeValidator = namedSchema(
       format: z.enum(["", "version", "date", "isoCountryCode"]).optional(),
       projects: z.array(z.string()).optional(),
       tags: z.array(z.string()).optional(),
+      customFields: z.record(z.string(), z.string()).optional(),
     })
     .strict(),
 );
@@ -66,6 +67,12 @@ const postAttributeBody = z
       .optional(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
+    customFields: z
+      .record(z.string(), z.string())
+      .describe(
+        "Values for the organization's attribute custom fields, keyed by field id",
+      )
+      .optional(),
   })
   .strict();
 
@@ -101,6 +108,12 @@ const putAttributeBody = z
       .optional(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
+    customFields: z
+      .record(z.string(), z.string())
+      .describe(
+        "Values for the organization's attribute custom fields, keyed by field id",
+      )
+      .optional(),
   })
   .strict();
 

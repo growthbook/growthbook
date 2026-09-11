@@ -38,6 +38,27 @@ import {
   TableColumnDef,
 } from "@/services/tableColumns";
 import ColumnResizeHandle from "@/ui/ColumnResizeHandle";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import { useUser } from "@/services/UserContext";
+import {
+  filterCustomFieldsForSection,
+  filterCustomFieldsForSectionAndProjects,
+} from "@/services/customFields";
+import {
+  customFieldFilterValue,
+  customFieldValueToText,
+  renderCustomFieldValue,
+} from "@/components/CustomFields/renderCustomFieldValue";
+
+// Built-in `key:value` filters. A custom field with one of these ids keeps its
+// column and free-text search but can't shadow the built-in filter.
+const RESERVED_FILTER_KEYS = new Set([
+  "is",
+  "datatype",
+  "project",
+  "identifier",
+  "tag",
+]);
 
 // Rough char budget for a column of `width` px. Only settles after a resize
 // commits, which is why it takes the committed width rather than a live one.
@@ -120,6 +141,30 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
   const { references } = useAttributeReferences(attributeKeys);
 
+  // Column ids are namespaced `custom:<fieldId>`. Those ids are org-unique, so a
+  // saved layout carried into another org just resolves away instead of breaking.
+  const { hasCommercialFeature } = useUser();
+  const allCustomFields = useCustomFields();
+  const attributeCustomFields = useMemo(() => {
+    if (!hasCommercialFeature("custom-metadata")) return [];
+    // Under "All Projects" the table lists attributes from every project, so
+    // scoping the columns to one project's fields would hide metadata that
+    // visible rows carry.
+    const fields = project
+      ? filterCustomFieldsForSectionAndProjects(allCustomFields, "attribute", [
+          project,
+        ])
+      : filterCustomFieldsForSection(allCustomFields, "attribute");
+    return fields ?? [];
+  }, [allCustomFields, hasCommercialFeature, project]);
+  const filterableCustomFields = useMemo(
+    () =>
+      attributeCustomFields.filter(
+        (f) => !RESERVED_FILTER_KEYS.has(f.id.toLowerCase()),
+      ),
+    [attributeCustomFields],
+  );
+
   const attributesWithComputedFields = useAddComputedFields(
     attributeSchema,
     (attr) => {
@@ -140,12 +185,28 @@ const FeatureAttributesPage = (): React.ReactElement => {
         projectNamesSearch: projectNames.filter(Boolean).join(" "),
         datatypeSearch,
         tagsSearch: (attr.tags || []).join(" "),
+        customFieldsSearch: attributeCustomFields
+          .map((f) =>
+            customFieldValueToText(f, attr.customFields?.[f.id] ?? ""),
+          )
+          .filter(Boolean)
+          .join(" "),
       };
     },
-    [getProjectById],
+    [getProjectById, attributeCustomFields],
   );
 
-  const hasArchived = attributeSchema.some((a) => a.archived);
+  // Archived rows are hidden until an `archived:` filter asks for them, mirroring
+  // the features list. Synced from the parsed query below, as there.
+  const [showArchived, setShowArchived] = useState(false);
+  const archivedFilter = useMemo(
+    () =>
+      showArchived
+        ? undefined
+        : (items: typeof attributesWithComputedFields) =>
+            items.filter((a) => !a.archived),
+    [showArchived],
+  );
 
   const {
     items: filteredAttributes,
@@ -160,6 +221,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     localStorageKey: "attributes",
     defaultSortField: "property",
     pageSize: 50,
+    filterResults: archivedFilter,
     searchFields: [
       "property^3",
       "description",
@@ -167,8 +229,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
       "datatypeSearch",
       "projectNamesSearch",
       "tagsSearch",
+      "customFieldsSearch",
     ],
     updateSearchQueryOnChange: true,
+    searchTermFilterDeps: [attributeCustomFields],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.datatype];
@@ -180,8 +244,24 @@ const FeatureAttributesPage = (): React.ReactElement => {
       identifier: (item) =>
         item.hashAttribute ? ["yes", "true"] : ["no", "false"],
       tag: (item) => item.tags || [],
+      // parseQuery lowercases the field, so the filter keys must match.
+      ...Object.fromEntries(
+        filterableCustomFields.map((f) => [
+          f.id.toLowerCase(),
+          (item: { customFields?: Record<string, string> }) =>
+            customFieldFilterValue(f, item.customFields?.[f.id] ?? ""),
+        ]),
+      ),
     },
   });
+
+  useEffect(() => {
+    setShowArchived(
+      syntaxFilters.some(
+        (f) => f.field === "is" && !f.negated && f.values.includes("archived"),
+      ),
+    );
+  }, [syntaxFilters]);
 
   const [referencesProperty, setReferencesProperty] = useState<string | null>(
     null,
@@ -361,6 +441,31 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
         ),
       },
+      // Hidden by default so existing users see no change until they opt in.
+      ...attributeCustomFields.map<TableColumnDef<AttributeRow>>((f) => ({
+        id: `custom:${f.id}`,
+        label: f.name,
+        header: f.description ? (
+          <>
+            {f.name}{" "}
+            <RadixTooltip content={f.description}>
+              <PiInfo style={{ position: "relative", top: "-1px" }} />
+            </RadixTooltip>
+          </>
+        ) : undefined,
+        defaultWidth: 160,
+        defaultHidden: true,
+        cellProps: () => ({ className: "text-gray" }),
+        render: (v) => {
+          const raw = v.customFields?.[f.id] ?? "";
+          if (!raw) return null;
+          return (
+            <ClampedCell tooltip={customFieldValueToText(f, raw)}>
+              {renderCustomFieldValue(f, raw)}
+            </ClampedCell>
+          );
+        },
+      })),
       {
         // The one column that absorbs leftover width, so a resize elsewhere
         // only moves the columns to its right. Renders nothing.
@@ -393,7 +498,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         ),
       },
     ],
-    [references],
+    [references, attributeCustomFields],
   );
 
   const {
@@ -439,6 +544,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       : col.header !== undefined
         ? col.header
         : col.label;
+
   const renderResizeHandle = (col: ResolvedTableColumn<AttributeRow>) => {
     if (col.resizable === false) return null;
     const { min, max } = columnWidthBounds(col);
@@ -487,7 +593,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
           {attributeSchema?.length > 0 && (
             <Box mb="3">
               <Flex justify="between" gap="3" align="center">
-                <Box className="relative" style={{ width: "40%" }}>
+                <Box
+                  className="relative"
+                  style={{ width: "40%", minWidth: 240 }}
+                >
                   <Field
                     size="legacy"
                     placeholder="Search..."
@@ -500,7 +609,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   searchInputProps={searchInputProps}
                   setSearchValue={setSearchValue}
                   syntaxFilters={syntaxFilters}
-                  hasArchived={hasArchived}
+                  customFields={filterableCustomFields}
                 />
               </Flex>
             </Box>

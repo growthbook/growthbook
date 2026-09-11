@@ -11,6 +11,10 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
 import { yieldEventLoop } from "back-end/src/util/yield";
+import {
+  shouldValidateCustomFieldsOnUpdate,
+  validateCustomFieldsForSectionAndProjects,
+} from "back-end/src/util/custom-fields";
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
   res: Response<{ status: number }>,
@@ -27,6 +31,15 @@ export const postAttribute = async (
 
   if (attributeSchema.some((a) => a.property === attributeFields.property)) {
     context.throwBadRequestError("An attribute with that name already exists");
+  }
+
+  if (attributeFields.customFields !== undefined) {
+    await validateCustomFieldsForSectionAndProjects({
+      customFieldValues: attributeFields.customFields,
+      projects: attributeFields.projects,
+      section: "attribute",
+      customFieldsModel: context.models.customFields,
+    });
   }
 
   if (tags.length > 0) {
@@ -114,6 +127,24 @@ export const putAttribute = async (
   ) {
     // If the name is being changed, check if the new name already exists
     context.throwBadRequestError("An attribute with that name already exists");
+  }
+
+  if (
+    shouldValidateCustomFieldsOnUpdate({
+      existingCustomFieldValues: existing.customFields,
+      updatedCustomFieldValues: attributeFields.customFields,
+    })
+  ) {
+    await validateCustomFieldsForSectionAndProjects({
+      customFieldValues: attributeFields.customFields,
+      // Validate against the projects the attribute will have, not the ones it had.
+      projects:
+        "projects" in attributeFields
+          ? attributeFields.projects
+          : existing.projects,
+      section: "attribute",
+      customFieldsModel: context.models.customFields,
+    });
   }
 
   if (tags !== undefined) {
