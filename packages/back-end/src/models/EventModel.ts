@@ -268,8 +268,16 @@ export const createEvent = async <
  */
 export const getEvent = async (
   eventId: string,
+  significanceChangeIndex: number | null = null,
 ): Promise<EventInterface | null> => {
-  const doc = await EventModel.findOne({ id: eventId });
+  const doc = await EventModel.findOne(
+    { id: eventId },
+    significanceChangeIndex === null
+      ? null
+      : {
+          "data.data.object.changes": { $slice: [significanceChangeIndex, 1] },
+        },
+  );
   return !doc ? null : (toInterface(doc) as EventInterface);
 };
 

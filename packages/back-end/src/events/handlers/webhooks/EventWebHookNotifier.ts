@@ -100,9 +100,15 @@ export class EventWebHookNotifier implements Notifier {
   private static async handleAgendaJob(
     job: Job<EventWebHookJobData>,
   ): Promise<void> {
-    const { eventId, eventWebHookId } = job.attrs.data;
+    const { eventId, eventWebHookId, delivery } = job.attrs.data;
 
-    const event = await getEvent(eventId);
+    // Legacy JSON jobs need only one change, returned at index 0 by the projection.
+    const event = await getEvent(
+      eventId,
+      delivery?.payloadType === "json" && delivery.apiVersion === "2024-07-31"
+        ? delivery.changeIndex
+        : null,
+    );
     if (!event) {
       // We should never get here.
       throw new Error(
@@ -136,7 +142,6 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const delivery = job.attrs.data.delivery;
     const payloadType =
       delivery?.payloadType ?? eventWebHook.payloadType ?? "raw";
     const payload = await (async () => {
@@ -147,11 +152,7 @@ export class EventWebHookNotifier implements Notifier {
           if (!event.version) throw new Error("Internal error");
           // Pre-upgrade jobs retain their original payload.
           return delivery
-            ? getJsonWebhookPayload(
-                event.data,
-                delivery.apiVersion,
-                delivery.changeIndex,
-              )
+            ? getJsonWebhookPayload(event.data, delivery.apiVersion)
             : event.data;
         }
 
