@@ -1,5 +1,11 @@
 import { getSnapshotAnalysis } from "shared/util";
-import type { ExperimentMetricInterface } from "shared/experiments";
+import {
+  type ExperimentMetricInterface,
+  parseFunnelStepMetricId,
+  parseSliceMetricId,
+  isFactFunnelMetric,
+  getFunnelStepMetric,
+} from "shared/experiments";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   SnapshotMetric,
@@ -8,7 +14,7 @@ import type {
 import type { Context } from "back-end/src/models/BaseModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
-import { getExperimentMetricById } from "back-end/src/services/experiments";
+import { getExperimentMetricsByIds } from "back-end/src/services/experiments";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { logger } from "back-end/src/util/logger";
 import type {
@@ -139,9 +145,37 @@ export async function buildExperimentCardData(
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
   const goalId = experiment.goalMetrics[0];
-  const goalMetric = goalId
-    ? await getExperimentMetricById(context, goalId)
-    : null;
+  const secondaryIds = (experiment.secondaryMetrics || []).slice(
+    0,
+    experiment.status === "draft" ? undefined : MAX_SECONDARY,
+  );
+  const guardrailIds = (experiment.guardrailMetrics || []).slice(
+    0,
+    experiment.status === "draft" ? undefined : MAX_GUARDRAIL,
+  );
+  const baseId = (id: string): string =>
+    parseSliceMetricId(parseFunnelStepMetricId(id).baseMetricId).baseMetricId;
+  const ids = [
+    ...new Set(
+      [...(goalId ? [goalId] : []), ...secondaryIds, ...guardrailIds].map(
+        baseId,
+      ),
+    ),
+  ];
+  const metrics = ids.length
+    ? await getExperimentMetricsByIds(context, ids)
+    : [];
+  const metricMap = new Map(metrics.map((metric) => [metric.id, metric]));
+  const metricFor = (id: string): ExperimentMetricInterface | null => {
+    const metric = metricMap.get(baseId(id)) ?? null;
+    const step = parseFunnelStepMetricId(id);
+    return step.isFunnelStepMetric && step.stepIndex !== null
+      ? metric && isFactFunnelMetric(metric)
+        ? getFunnelStepMetric(metric, step.stepIndex)
+        : null
+      : metric;
+  };
+  const goalMetric = goalId ? metricFor(goalId) : null;
 
   const dsName = experiment.datasource
     ? (await getDataSourceById(context, experiment.datasource))?.name
@@ -165,22 +199,16 @@ export async function buildExperimentCardData(
 
   // Draft → "started": no results yet.
   if (experiment.status === "draft") {
-    const nameFor = async (ids: string[]) =>
-      (
-        await Promise.all(
-          ids.map(
-            async (id) => (await getExperimentMetricById(context, id))?.name,
-          ),
-        )
-      ).filter((n): n is string => !!n);
+    const nameFor = (ids: string[]) =>
+      ids.map((id) => metricFor(id)?.name).filter((n): n is string => !!n);
     return {
       ...base,
       state: "started",
       hypothesis: experiment.hypothesis || "",
       metrics: {
         goal: goalMetric?.name || "Goal metric",
-        secondary: await nameFor(experiment.secondaryMetrics || []),
-        guardrail: await nameFor(experiment.guardrailMetrics || []),
+        secondary: nameFor(secondaryIds),
+        guardrail: nameFor(guardrailIds),
       },
       dates: startDate ? `Created ${fmtDate(startDate)}` : undefined,
       rows: [],
@@ -239,13 +267,11 @@ export async function buildExperimentCardData(
   }
 
   // Secondary / guardrail rows use the first treatment variation (index 1).
-  const ciMetricRow = async (
-    metricId: string,
-  ): Promise<CardCiMetric | null> => {
+  const ciMetricRow = (metricId: string): CardCiMetric | null => {
     const vm = dim?.variations[1]?.metrics?.[metricId];
     const cm = dim?.variations[0]?.metrics?.[metricId];
     if (!vm) return null;
-    const metric = await getExperimentMetricById(context, metricId);
+    const metric = metricFor(metricId);
     const upliftPct = (vm.expected ?? 0) * 100;
     const ci = relCi(vm);
     return {
@@ -263,20 +289,12 @@ export async function buildExperimentCardData(
     };
   };
 
-  const secondary = (
-    await Promise.all(
-      (experiment.secondaryMetrics || [])
-        .slice(0, MAX_SECONDARY)
-        .map(ciMetricRow),
-    )
-  ).filter((m): m is CardCiMetric => !!m);
-  const guardrail = (
-    await Promise.all(
-      (experiment.guardrailMetrics || [])
-        .slice(0, MAX_GUARDRAIL)
-        .map(ciMetricRow),
-    )
-  ).filter((m): m is CardCiMetric => !!m);
+  const secondary = secondaryIds
+    .map(ciMetricRow)
+    .filter((m): m is CardCiMetric => !!m);
+  const guardrail = guardrailIds
+    .map(ciMetricRow)
+    .filter((m): m is CardCiMetric => !!m);
 
   const totalUsers = dim
     ? dim.variations.reduce((sum, v) => sum + (v.users || 0), 0)

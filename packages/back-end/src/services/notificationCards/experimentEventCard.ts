@@ -1,5 +1,7 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { experimentCardFormats } from "shared/validators";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
 import { logger } from "back-end/src/util/logger";
 import type { CompactEvent } from "back-end/src/services/notificationCards/cardImages";
 import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
@@ -50,12 +52,6 @@ export async function renderExperimentNotificationCard(
   if (!experimentId) return null;
 
   try {
-    const { getContextForAgendaJobByOrgId } = await import(
-      "back-end/src/services/organizations"
-    );
-    const { buildExperimentCardData } = await import(
-      "back-end/src/services/notificationCards/experimentCardData"
-    );
     const context = await getContextForAgendaJobByOrgId(organizationId);
     const card = await buildExperimentCardData(context, experimentId);
     // A delayed warning may now load healthy or stopped results. Preserve the
