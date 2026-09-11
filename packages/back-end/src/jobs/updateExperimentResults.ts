@@ -228,7 +228,9 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
           experiment,
           changes: {
             pastNotifications: (experiment.pastNotifications || []).filter(
-              (notification) => notification !== "auto-update",
+              (notification) =>
+                notification !== "auto-update" &&
+                notification !== "auto-update-results-ok",
             ),
           },
         });
@@ -237,6 +239,23 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
           err,
           "Failed to clear auto-update notification marker: " + experimentId,
         );
+        try {
+          const past = experiment.pastNotifications || [];
+          if (!past.includes("auto-update-results-ok")) {
+            await updateExperiment({
+              context,
+              experiment,
+              changes: {
+                pastNotifications: [...past, "auto-update-results-ok"],
+              },
+            });
+          }
+        } catch (okErr) {
+          logger.error(
+            okErr,
+            "Failed to record Results-ok after marker clear: " + experimentId,
+          );
+        }
       }
     }
   } catch (e) {

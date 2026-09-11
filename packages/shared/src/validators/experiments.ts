@@ -173,6 +173,7 @@ export type ImplementationType = (typeof implementationType)[number];
 
 export const experimentNotification = [
   "auto-update",
+  "auto-update-results-ok",
   "multiple-exposures",
   "srm",
   "no-data",
