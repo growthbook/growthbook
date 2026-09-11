@@ -8,6 +8,7 @@ import {
   expandMetricGroups,
   conditionFromLeafClauses,
   getMetricLink,
+  isActiveVariation,
 } from "shared/experiments";
 import type {
   ContextualBanditResultsLeaf,
@@ -234,29 +235,51 @@ export default function ContextualBanditResultsTable({
     () => results?.overall.variations ?? [],
     [results?.overall.variations],
   );
-  const variations = useMemo(
+  const snapshotIds = useMemo(
+    () => new Set(overallVariations.map((v) => v.variationId)),
+    [overallVariations],
+  );
+  const pendingActiveVariations = useMemo(
     () =>
-      overallVariations.map((v) => {
+      cb.variations.filter(
+        (v) => isActiveVariation(v) && !snapshotIds.has(v.id),
+      ),
+    [cb.variations, snapshotIds],
+  );
+  const variations = useMemo(
+    () => [
+      ...overallVariations.map((v) => {
         const current = cb.variations.find((c) => c.id === v.variationId);
         return {
           id: v.variationId,
           name: current?.name ?? v.variationName ?? "Removed variation",
         };
       }),
-    [overallVariations, cb.variations],
+      ...pendingActiveVariations.map((v) => ({ id: v.id, name: v.name })),
+    ],
+    [overallVariations, cb.variations, pendingActiveVariations],
   );
   const numVariations = variations.length;
   const overallVariationWeights = useMemo(
-    () => overallVariations.map((v) => v.weight ?? null),
-    [overallVariations],
+    () => [
+      ...overallVariations.map((v) => v.weight ?? null),
+      ...pendingActiveVariations.map(() => null),
+    ],
+    [overallVariations, pendingActiveVariations],
   );
   const overallVariationMeans = useMemo(
-    () => overallVariations.map((v) => v.mean ?? null),
-    [overallVariations],
+    () => [
+      ...overallVariations.map((v) => v.mean ?? null),
+      ...pendingActiveVariations.map(() => null),
+    ],
+    [overallVariations, pendingActiveVariations],
   );
   const overallVariationUnits = useMemo(
-    () => overallVariations.map((v) => v.users ?? 0),
-    [overallVariations],
+    () => [
+      ...overallVariations.map((v) => v.users ?? 0),
+      ...pendingActiveVariations.map(() => 0),
+    ],
+    [overallVariations, pendingActiveVariations],
   );
 
   const totalUnits = useMemo(
