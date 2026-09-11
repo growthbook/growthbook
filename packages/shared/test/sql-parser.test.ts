@@ -186,11 +186,14 @@ describe("parseSelectSQL", () => {
         { operator: "=", column: "d", values: ["3"] },
       ]);
     });
-    it("folds same-column OR equalities into IN", () => {
+    it("keeps OR predicates as opaque SQL", () => {
       expect(
         where("(a = 'x' OR a = 'y' OR a IN ('z', 'w')) AND b = 1"),
       ).toEqual([
-        { operator: "in", column: "a", values: ["x", "y", "z", "w"] },
+        {
+          operator: "sql_expr",
+          values: ["a = 'x' OR a = 'y' OR a IN ('z', 'w')"],
+        },
         { operator: "=", column: "b", values: ["1"] },
       ]);
       expect(where("a = 'x' OR b = 'y'")).toEqual([
@@ -198,6 +201,17 @@ describe("parseSelectSQL", () => {
       ]);
       expect(where("a = 'x' OR a LIKE 'y%'")).toEqual([
         { operator: "sql_expr", values: ["a = 'x' OR a LIKE 'y%'"] },
+      ]);
+    });
+    it.each([
+      "a = 1 OR b = 2 AND c = 3",
+      "a = 1 AND b = 2 OR c = 3",
+      "a BETWEEN 1 AND 2 OR b = 3 AND c = 4",
+    ])("preserves boolean precedence in %s", (sql) => {
+      expect(where(sql)).toEqual([{ operator: "sql_expr", values: [sql] }]);
+      expect(where(`(${sql}) AND d = 5`)).toEqual([
+        { operator: "sql_expr", values: [sql] },
+        { operator: "=", column: "d", values: ["5"] },
       ]);
     });
     it("pulls _TABLE_SUFFIX ranges into tableSuffix", () => {

@@ -415,6 +415,40 @@ describe("groupLegacyMetricsIntoFactTables", () => {
     );
   });
 
+  it.each([
+    ["", false],
+    [" WHERE event = 'purchase'", true],
+    [" WHERE event = 'refund'", false],
+    [" WHERE event = 'purchase' AND country = 'US'", false],
+  ])(
+    "preserves elevated filters when matching existing SQL: %s",
+    (where, reuse) => {
+      const sql = "SELECT user_id, ts AS timestamp FROM t";
+      const { groups, errors } = groupLegacyMetricsIntoFactTables(
+        [
+          legacy("purchase", `${sql} WHERE event = 'purchase'`, {
+            type: "binomial",
+          }),
+        ],
+        {
+          ...options(),
+          existingFactTables: [
+            {
+              id: "ft_existing",
+              sql: sql + where,
+              userIdTypes: ["user_id"],
+            },
+          ],
+        },
+      );
+      expect(errors).toEqual([]);
+      expect(groups).toHaveLength(1);
+      expect(groups[0].existing).toBe(reuse);
+      expect(groups[0].factTable.sql).toContain("event = 'purchase'");
+      expect(groups[0].metrics[0].numerator.rowFilters).toEqual([]);
+    },
+  );
+
   it("maps custom aggregations, ratios and ignoreNulls", () => {
     const { groups, errors } = groupLegacyMetricsIntoFactTables(
       [
@@ -456,7 +490,8 @@ describe("groupLegacyMetricsIntoFactTables", () => {
     expect(byId["fact__max"].numerator.aggregation).toBe("max");
     expect(byId["fact__cd"].numerator.aggregation).toBe("count distinct");
     expect(byId["fact__cnt"].numerator.column).toBe("$$count");
-    // COUNT(value) counts rows with a value, unlike COUNT(*)
+    // Both legacy COUNT forms skip null values.
+    expect(byId["fact__cnt"].numerator).toEqual(byId["fact__cv"].numerator);
     expect(byId["fact__cv"].numerator).toMatchObject({
       column: "$$count",
       rowFilters: [{ operator: "not_null", column: "v" }],
@@ -562,7 +597,7 @@ describe("groupLegacyMetricsIntoFactTables", () => {
     ]);
   });
 
-  it("re-aggregates SUM/COUNT/COUNT DISTINCT/MAX value columns from GROUP BY SQL", () => {
+  it("flattens additive GROUP BY values and preserves non-additive ones", () => {
     const { groups, errors } = groupLegacyMetricsIntoFactTables(
       [
         legacy(
@@ -645,12 +680,12 @@ describe("groupLegacyMetricsIntoFactTables", () => {
       },
     ]);
     expect(groups[0].metrics.map((m) => m.id)).toContain("fact__finer");
-    expect(groups).toHaveLength(1);
+    expect(groups).toHaveLength(3);
     expect(groups[0].factTable.sql).toBe(
-      "SELECT \n  user_id,\n  date(ts) AS timestamp,\n  amt,\n  sess,\n  o.id\nFROM t",
+      "SELECT \n  user_id,\n  date(ts) AS timestamp,\n  amt,\n  o.id\nFROM t",
     );
     const byId = Object.fromEntries(
-      groups[0].metrics.map((m) => [m.id, m.numerator]),
+      groups.flatMap((g) => g.metrics).map((m) => [m.id, m.numerator]),
     );
     expect(byId["fact__sum"]).toMatchObject({
       column: "amt",
@@ -665,21 +700,60 @@ describe("groupLegacyMetricsIntoFactTables", () => {
       column: "$$count",
       rowFilters: [{ operator: "not_null", column: "id" }],
     });
-    // count distinct is only valid on a string column
-    expect(
-      groups[0].factTable.columns?.find((c) => c.column === "sess"),
-    ).toMatchObject({ datatype: "string", numberFormat: "" });
-    expect(byId["fact__cd"]).toMatchObject({
-      column: "sess",
-      aggregation: "count distinct",
-    });
-    expect(byId["fact__max"]).toMatchObject({
-      column: "amt",
-      aggregation: "max",
-    });
+    for (const [id, expression] of [
+      ["cd", "COUNT(DISTINCT sess)"],
+      ["max", "MAX(amt)"],
+    ]) {
+      const group = groups.find((g) =>
+        g.metrics.some((m) => m.id === `fact__${id}`),
+      );
+      expect(group?.factTable.sql).toBe(
+        `SELECT user_id, DATE(ts) AS timestamp, ${expression} AS value FROM t GROUP BY 1, 2`,
+      );
+      expect(byId[`fact__${id}`]).toMatchObject({
+        column: "value",
+        aggregation: "sum",
+        rowFilters: [],
+      });
+      expect(
+        group?.factTable.columns?.find((c) => c.column === "value"),
+      ).toMatchObject({
+        datatype: "number",
+      });
+    }
     expect(byId["fact__bin"]).toMatchObject({ column: "$$distinctUsers" });
     expect(groups[0].factTable.dedupe).toBeUndefined();
   });
+
+  it.each(["user_id, timestamp, value", "1, 2, 3", "ALL"])(
+    "shares deduplication GROUP BY %s with an ungrouped metric",
+    (groupBy) => {
+      const sql = "SELECT user_id, timestamp, value FROM t";
+      const { groups, errors } = groupLegacyMetricsIntoFactTables(
+        [legacy("deduped", `${sql} GROUP BY ${groupBy}`), legacy("raw", sql)],
+        options(),
+      );
+      expect(errors).toEqual([]);
+      expect(groups).toHaveLength(1);
+      expect(groups[0].factTable.sql).toBe(
+        "SELECT DISTINCT \n  user_id,\n  timestamp,\n  value\nFROM t",
+      );
+      expect(groups[0].metrics.map((m) => m.numerator)).toEqual([
+        {
+          factTableId: "ft_1",
+          column: "value",
+          aggregation: "sum",
+          rowFilters: [],
+        },
+        {
+          factTableId: "ft_1",
+          column: "value",
+          aggregation: "sum",
+          rowFilters: [],
+        },
+      ]);
+    },
+  );
 
   it("drops constant value columns and restores the original value column name", () => {
     const { groups, errors } = groupLegacyMetricsIntoFactTables(

@@ -709,26 +709,10 @@ function conjunctToRowFilter(tokens: Token[], fold: boolean): RowFilter {
     ...(values ? { values } : {}),
   });
 
-  // `col = 'a' OR col IN ('b')` on one column is exactly an IN list
   const disjuncts = splitTopLevel(tokens, (t) => isKw(t, "OR"));
   if (disjuncts.length > 1) {
     if (disjuncts.some((d) => !d.length))
       fail("Empty condition in WHERE clause");
-    const parts = disjuncts.map((d) => conjunctToRowFilter(d, fold));
-    const column = parts[0].column;
-    if (
-      column !== undefined &&
-      parts.every(
-        (f) =>
-          (f.operator === "=" || f.operator === "in") && f.column === column,
-      )
-    ) {
-      return {
-        operator: "in",
-        column,
-        values: parts.flatMap((f) => f.values ?? []),
-      };
-    }
     return sqlExpr();
   }
 
@@ -862,6 +846,10 @@ function conjunctToRowFilter(tokens: Token[], fold: boolean): RowFilter {
 
 // Ignores BETWEEN's own AND and recurses into parens
 function splitConjuncts(tokens: Token[]): Token[][] {
+  // OR has lower precedence than AND; keep the whole disjunction intact.
+  if (splitTopLevel(tokens, (t) => isKw(t, "OR")).length > 1) {
+    return [tokens];
+  }
   const parts = splitTopLevel(tokens, (t, prev) => {
     if (!isKw(t, "AND")) return false;
     let depth = 0;

@@ -66,7 +66,7 @@ interface TypedFilter {
 interface SqlShape {
   from: string;
   cte?: string;
-  // Kept verbatim because the column list is only knowable from the warehouse
+  // Kept verbatim for wildcard projections or non-additive grouped values
   sqlOverride?: string;
   sqlExprs: string[];
   columns: Map<string, string>;
@@ -178,6 +178,22 @@ function parseSqlShape(
       aggregatedValue = { column: "value", aggregation };
     }
   }
+  // SUM of group maxima/distinct counts is not MAX/COUNT DISTINCT of raw rows.
+  if (
+    aggregatedValue?.aggregation === "max" ||
+    aggregatedValue?.aggregation === "count distinct"
+  ) {
+    return {
+      from: parsed.from,
+      sqlOverride: sql.trim(),
+      sqlExprs: [],
+      columns: new Map([...columns.keys()].map((alias) => [alias, alias])),
+      filters: [],
+      dedupe: false,
+      aggregatedAliases,
+      aggregatedValue: { column: "value", aggregation: "sum" },
+    };
+  }
   const sqlExprs: string[] = [];
   (parsed.where || []).forEach((rowFilter, i) => {
     if (rowFilter.operator === "sql_expr") {
@@ -275,7 +291,8 @@ function parseAggregation(
     return {
       column: "$$count",
       metricType: "mean",
-      requireNonNullValue: normalized === "COUNT(VALUE)",
+      // The legacy engine rewrites COUNT(*) to COUNT(value).
+      requireNonNullValue: true,
     };
   }
   const aggregation = known[normalized];
@@ -314,7 +331,7 @@ function parseLegacyMetric(
     );
   }
   // The legacy engine read these names off the wildcard rows, so they exist
-  if (shape.sqlOverride) {
+  if (shape.sqlOverride && !columns.size) {
     configured.forEach((t) => columns.set(t, t));
     columns.set("timestamp", "timestamp");
     if (metric.type !== "binomial") columns.set("value", "value");
@@ -460,8 +477,10 @@ function findExistingFactTable(
       (e.cte ?? null) === (first.cte ?? null) &&
       (e.sqlOverride ?? null) === (first.sqlOverride ?? null) &&
       JSON.stringify(e.sqlExprs) === JSON.stringify(first.sqlExprs) &&
-      // Typed filters in the existing SQL would drop rows the metrics need
-      e.filters.length === 0 &&
+      // Elevated filters are omitted from metric row filters, so the table
+      // must apply exactly those predicates.
+      new Set(e.filters.map((f) => f.sql)).size === group.elevated.size &&
+      e.filters.every((f) => group.elevated.has(f.sql)) &&
       (e.dedupe || !needsDedupe) &&
       [...userIdTypes].every((t) => e.table.userIdTypes.includes(t)) &&
       [...group.columns].every(
