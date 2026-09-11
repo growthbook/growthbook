@@ -1803,10 +1803,13 @@ export function generateProductAnalyticsSQL(
     // this group's rows rather than dropping them or emitting an
     // unresolvable column reference.
     const groupDimensions: DimensionData[] = config.dimensions.map((d, di) => {
-      if (
-        (d.dimensionType === "static" || d.dimensionType === "dynamic") &&
-        !factTableHasResolvableColumn(factTableGroup.factTable, d.column || "")
-      ) {
+      const unresolvable =
+        (d.dimensionType === "static" &&
+          !factTableHasResolvableColumn(factTableGroup.factTable, d.column)) ||
+        (d.dimensionType === "dynamic" &&
+          d.column !== null &&
+          !factTableHasResolvableColumn(factTableGroup.factTable, d.column));
+      if (unresolvable) {
         return {
           alias: `dimension${di}`,
           valueExpr: d.dimensionType === "static" ? "NULL" : "'other'",

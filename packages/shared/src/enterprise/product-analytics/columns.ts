@@ -2,7 +2,10 @@ import {
   FactTableInterface,
   FactMetricInterface,
 } from "shared/types/fact-table";
-import { ExplorationDataset } from "../../validators/product-analytics";
+import {
+  ExplorationDataset,
+  ProductAnalyticsDimension,
+} from "../../validators/product-analytics";
 import { factTableHasResolvableColumn } from "./sql";
 
 export interface AvailableDimensionColumn {
@@ -10,18 +13,13 @@ export interface AvailableDimensionColumn {
   name: string;
 }
 
-// Only what this module needs from a fact table — deliberately excludes
-// `sql`, so callers can pass either a full FactTableInterface or the
-// sql-less shape returned by an id-scoped "full columns" fetch (e.g. the
-// front-end's useFullFactTablesByIds), without either satisfying the other.
+// Deliberately excludes `sql`, so callers can pass a full FactTableInterface
+// or a sql-less id-scoped fetch.
 export type DimensionFactTable = Pick<
   FactTableInterface,
   "columns" | "userIdTypes"
 >;
 
-// Top-level string columns, plus dotted sub-paths for JSON columns whose
-// fields are themselves strings — matches the dotted-path convention
-// `getColumnExpression`/`factTableHasResolvableColumn` resolve at query time.
 function expandFactTableColumns(
   factTable: DimensionFactTable,
 ): AvailableDimensionColumn[] {
@@ -46,22 +44,64 @@ function expandFactTableColumns(
   return result;
 }
 
+function excludeUserIdTypes(
+  columns: AvailableDimensionColumn[],
+  userIdTypes: Set<string>,
+): AvailableDimensionColumn[] {
+  return columns
+    .filter((c) => !userIdTypes.has(c.column))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Fact table ids whose full column data (including `jsonFields`) is needed
+ * to compute `getAvailableDimensionColumns` for this dataset.
+ */
+export function getRelevantFactTableIds(
+  dataset: ExplorationDataset | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string[] {
+  if (!dataset) return [];
+  const ids = new Set<string>();
+
+  switch (dataset.type) {
+    case "fact_table":
+      if (dataset.factTableId) ids.add(dataset.factTableId);
+      break;
+    case "metric":
+      dataset.values.forEach((value) => {
+        const metric = getFactMetricById(value.metricId);
+        if (!metric) return;
+        if (metric.numerator?.factTableId) {
+          ids.add(metric.numerator.factTableId);
+        }
+        if (metric.denominator?.factTableId) {
+          ids.add(metric.denominator.factTableId);
+        }
+      });
+      break;
+    case "funnel": {
+      const initialStepFactTableId = dataset.steps[0]?.factTableId;
+      if (initialStepFactTableId) ids.add(initialStepFactTableId);
+      break;
+    }
+    case "data_source":
+      break;
+    default: {
+      const _exhaustive: never = dataset;
+      return _exhaustive;
+    }
+  }
+
+  return Array.from(ids);
+}
+
 /**
  * Columns (including dotted JSON sub-paths) valid to group by for a given
- * dataset. Single source of truth shared by the front-end Explorer's column
- * picker and the AI agent's `getAvailableColumns` tool, so both offer
- * exactly the columns a group-by query can actually resolve.
- *
- * For a ratio metric whose denominator lives on a different fact table than
- * the numerator, candidates are filtered down to columns (including nested
- * JSON paths) resolvable on *both* fact tables — `factTableHasResolvableColumn`
- * checks the full dotted path, not just the base column name, so a JSON
- * sub-field only offered when the denominator's own JSON column actually has
- * it too.
+ * dataset. Shared by the Explorer picker and agent validation.
  *
  * Callers must pass FULL fact table data (real `jsonFields`) — a slim/
- * definitions-only fact table representation will silently under-report
- * nested JSON columns.
+ * definitions-only fact table silently under-reports nested JSON columns.
  */
 export function getAvailableDimensionColumns(
   dataset: ExplorationDataset | null,
@@ -69,66 +109,96 @@ export function getAvailableDimensionColumns(
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): AvailableDimensionColumn[] {
   if (!dataset) return [];
-  if (dataset.type !== "funnel") {
-    if (!dataset.values || dataset.values.length === 0) return [];
-  } else {
-    if (!dataset.steps || dataset.steps.length === 0) return [];
-  }
 
   const userIdTypes = new Set<string>();
   let candidates: AvailableDimensionColumn[] | null = null;
 
-  if (dataset.type === "fact_table") {
-    const ft = getFactTableById(dataset.factTableId || "");
-    ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-    candidates = ft ? expandFactTableColumns(ft) : [];
-  } else if (dataset.type === "metric") {
-    for (const value of dataset.values) {
-      const factMetric = getFactMetricById(value.metricId);
-      if (!factMetric) continue;
-      const ft = getFactTableById(factMetric.numerator?.factTableId || "");
-      if (!ft) continue;
+  switch (dataset.type) {
+    case "fact_table": {
+      if (!dataset.values.length) return [];
+      const ft = getFactTableById(dataset.factTableId || "");
+      if (!ft) return [];
       ft.userIdTypes?.forEach((u) => userIdTypes.add(u));
-
-      let valueCandidates = expandFactTableColumns(ft);
-
-      // A ratio metric's denominator can live on a different fact table —
-      // only offer columns (including nested JSON paths) both sides can
-      // resolve, so a dimension can never be picked that a group-by query
-      // can't evaluate on the denominator.
-      if (factMetric.denominator?.factTableId) {
-        const denominatorFt = getFactTableById(
-          factMetric.denominator.factTableId,
-        );
-        denominatorFt?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-        valueCandidates = denominatorFt
-          ? valueCandidates.filter((c) =>
-              factTableHasResolvableColumn(denominatorFt, c.column),
-            )
-          : [];
-      }
-
-      if (candidates === null) {
-        candidates = valueCandidates;
-      } else {
-        const names = new Set(valueCandidates.map((c) => c.column));
-        candidates = candidates.filter((c) => names.has(c.column));
-      }
+      candidates = expandFactTableColumns(ft);
+      break;
     }
-  } else if (dataset.type === "data_source") {
-    candidates = Object.entries(dataset.columnTypes)
-      .filter(([, datatype]) => datatype === "string")
-      .map(([name]) => ({ column: name, name }));
-  } else if (dataset.type === "funnel") {
-    const initialStep = dataset.steps[0];
-    const ft = initialStep?.factTableId
-      ? getFactTableById(initialStep.factTableId)
-      : null;
-    ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-    candidates = ft ? expandFactTableColumns(ft) : [];
+    case "metric": {
+      if (!dataset.values.length) return [];
+      for (const value of dataset.values) {
+        const factMetric = getFactMetricById(value.metricId);
+        if (!factMetric) continue;
+        const ft = getFactTableById(factMetric.numerator?.factTableId || "");
+        let valueCandidates: AvailableDimensionColumn[] = [];
+        if (ft) {
+          ft.userIdTypes?.forEach((u) => userIdTypes.add(u));
+          valueCandidates = expandFactTableColumns(ft);
+
+          if (factMetric.denominator?.factTableId) {
+            const denominatorFt = getFactTableById(
+              factMetric.denominator.factTableId,
+            );
+            denominatorFt?.userIdTypes?.forEach((u) => userIdTypes.add(u));
+            valueCandidates = denominatorFt
+              ? valueCandidates.filter((c) =>
+                  factTableHasResolvableColumn(denominatorFt, c.column),
+                )
+              : [];
+          }
+        }
+
+        if (candidates === null) {
+          candidates = valueCandidates;
+        } else {
+          const names = new Set(valueCandidates.map((c) => c.column));
+          candidates = candidates.filter((c) => names.has(c.column));
+        }
+      }
+      break;
+    }
+    case "data_source": {
+      if (!dataset.values.length) return [];
+      candidates = Object.entries(dataset.columnTypes)
+        .filter(([, datatype]) => datatype === "string")
+        .map(([name]) => ({ column: name, name }));
+      break;
+    }
+    case "funnel": {
+      if (!dataset.steps.length) return [];
+      const initialStep = dataset.steps[0];
+      const ft = initialStep?.factTableId
+        ? getFactTableById(initialStep.factTableId)
+        : null;
+      if (!ft) return [];
+      ft.userIdTypes?.forEach((u) => userIdTypes.add(u));
+      candidates = expandFactTableColumns(ft);
+      break;
+    }
+    default: {
+      const _exhaustive: never = dataset;
+      return _exhaustive;
+    }
   }
 
-  return (candidates || [])
-    .filter((c) => !userIdTypes.has(c.column))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  return excludeUserIdTypes(candidates || [], userIdTypes);
+}
+
+export function dimensionColumnIsAvailable(
+  dimension: ProductAnalyticsDimension,
+  columns: AvailableDimensionColumn[],
+): boolean {
+  switch (dimension.dimensionType) {
+    case "date":
+    case "slice":
+      return true;
+    case "dynamic":
+    case "static":
+      return (
+        dimension.column === null ||
+        columns.some((c) => c.column === dimension.column)
+      );
+    default: {
+      const _exhaustive: never = dimension;
+      return _exhaustive;
+    }
+  }
 }

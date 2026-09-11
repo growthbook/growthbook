@@ -1,4 +1,8 @@
-import { getAvailableDimensionColumns } from "shared/enterprise";
+import {
+  dimensionColumnIsAvailable,
+  getAvailableDimensionColumns,
+  getRelevantFactTableIds,
+} from "shared/enterprise";
 import {
   ColumnInterface,
   FactTableInterface,
@@ -337,5 +341,113 @@ describe("getAvailableDimensionColumns", () => {
       "country",
       "props.plan",
     ]);
+  });
+});
+
+describe("getRelevantFactTableIds", () => {
+  it("returns [] for a null dataset", () => {
+    expect(getRelevantFactTableIds(null, () => null)).toEqual([]);
+  });
+
+  it("returns the fact table id for a fact_table dataset", () => {
+    expect(
+      getRelevantFactTableIds(
+        {
+          type: "fact_table",
+          factTableId: "numerator_ft",
+          values: [{ name: "v", valueColumn: "amount", rowFilters: [] }],
+        },
+        () => null,
+      ),
+    ).toEqual(["numerator_ft"]);
+  });
+
+  it("returns numerator and denominator fact table ids for a ratio metric", () => {
+    const getFactMetricById = (id: string) =>
+      id === "ratio"
+        ? makeMetric({
+            id: "ratio",
+            metricType: "ratio",
+            numerator: {
+              factTableId: "numerator_ft",
+              column: "amount",
+              aggregation: "sum",
+            },
+            denominator: {
+              factTableId: "denominator_ft",
+              column: "$$count",
+              aggregation: "sum",
+            },
+          })
+        : null;
+
+    expect(
+      getRelevantFactTableIds(
+        {
+          type: "metric",
+          values: [
+            {
+              name: "v",
+              type: "metric",
+              rowFilters: [],
+              metricId: "ratio",
+              unit: null,
+              denominatorUnit: null,
+            },
+          ],
+        },
+        getFactMetricById,
+      ).sort(),
+    ).toEqual(["denominator_ft", "numerator_ft"]);
+  });
+
+  it("returns only the initial step's fact table for a funnel dataset", () => {
+    expect(
+      getRelevantFactTableIds(
+        {
+          type: "funnel",
+          unit: "user_id",
+          steps: [
+            { name: "s1", factTableId: "step1_ft", rowFilters: [] },
+            { name: "s2", factTableId: "step2_ft", rowFilters: [] },
+          ],
+        },
+        () => null,
+      ),
+    ).toEqual(["step1_ft"]);
+  });
+});
+
+describe("dimensionColumnIsAvailable", () => {
+  const columns = [{ column: "country", name: "Country" }];
+
+  it("keeps date and slice dimensions regardless of columns", () => {
+    expect(
+      dimensionColumnIsAvailable(
+        { dimensionType: "date", column: null, dateGranularity: "auto" },
+        [],
+      ),
+    ).toBe(true);
+    expect(
+      dimensionColumnIsAvailable({ dimensionType: "slice", slices: [] }, []),
+    ).toBe(true);
+  });
+
+  it("keeps a dynamic dimension with no column yet", () => {
+    expect(
+      dimensionColumnIsAvailable(
+        { dimensionType: "dynamic", column: null, maxValues: 5 },
+        columns,
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a static dimension whose column is missing", () => {
+    expect(
+      dimensionColumnIsAvailable(
+        { dimensionType: "static", column: "missing", values: ["US"] },
+        columns,
+      ),
+    ).toBe(false);
   });
 });
