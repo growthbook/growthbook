@@ -116,16 +116,15 @@ export default function SlackWorkspacePanel({
             </Flex>
             <Box>
               <Flex align="center" gap="2" wrap="wrap">
-                <Text weight="semibold">{name}</Text>
+                <Heading as="h2" size="md" mb="0">
+                  {name}
+                </Heading>
                 <Badge
                   label={needsReconnect ? "Reconnect needed" : "Connected"}
                   color={needsReconnect ? "amber" : "green"}
                   variant="soft"
                 />
               </Flex>
-              <Text as="div" size="sm" color="text-mid">
-                Applies to every channel in this workspace
-              </Text>
             </Box>
           </Flex>
           <Flex gap="2">
@@ -228,9 +227,19 @@ export default function SlackWorkspacePanel({
                       <Badge label="Disabled" color="gray" variant="soft" />
                     )}
                   </Flex>
-                  <Text as="div" size="sm" color="text-mid" truncate>
-                    {getSlackChannelSummary(channel, projects)}
-                  </Text>
+                  <span
+                    className="text-muted"
+                    style={{
+                      display: "block",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <Text size="sm">
+                      {getSlackChannelSummary(channel, projects)}
+                    </Text>
+                  </span>
                 </Link>
               );
             })}

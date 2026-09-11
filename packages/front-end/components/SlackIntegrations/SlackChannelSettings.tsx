@@ -7,7 +7,7 @@ import {
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiTrash, PiPaperPlaneTilt, PiX } from "react-icons/pi";
+import { PiTrash, PiPaperPlaneTilt, PiX, PiImage } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import useApi from "@/hooks/useApi";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -20,6 +20,7 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
+import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Frame from "@/ui/Frame";
@@ -411,7 +412,7 @@ export default function SlackChannelSettings({
       <Flex direction="column" gap="4">
         <Flex justify="between" align="start" gap="4" wrap="wrap">
           <Box>
-            <Heading as="h2" size="md" mb="1">
+            <Heading as="h3" size="sm" mb="1">
               {getSlackChannelLabel(integration)}
             </Heading>
             <Text color="text-mid">
@@ -506,7 +507,7 @@ export default function SlackChannelSettings({
         )}
 
         <Frame mb="0">
-          <Heading as="h3" size="md" mb="1">
+          <Heading as="h4" size="sm" mb="1">
             Scope
           </Heading>
           <Text as="p" color="text-mid" mb="3">
@@ -672,7 +673,7 @@ export default function SlackChannelSettings({
             category === "experiment" ? "Experiments" : "Feature Flags";
           return (
             <Frame key={category} mb="0">
-              <Heading as="h3" size="md" mb="2">
+              <Heading as="h4" size="sm" mb="2">
                 {title}
               </Heading>
               <Text as="p" color="text-mid" mb="4">
@@ -820,18 +821,26 @@ export default function SlackChannelSettings({
                                   option.events.some((event) =>
                                     ["experiment.warning"].includes(event),
                                   ) ? (
-                                    <>
-                                      {option.label}
+                                    <Tooltip content="Can include an image card when a card style is selected and the event has supported data. Warning cards are limited to SRM warnings.">
                                       <span
-                                        title="Can include a results card when supported by the event data"
+                                        tabIndex={0}
                                         style={{
-                                          marginLeft: 5,
-                                          color: "var(--violet-11)",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: "var(--space-1)",
                                         }}
                                       >
-                                        ▪
+                                        {option.label}
+                                        <PiImage
+                                          size={16}
+                                          aria-label="Image card available"
+                                          style={{
+                                            color: "var(--violet-11)",
+                                            flexShrink: 0,
+                                          }}
+                                        />
                                       </span>
-                                    </>
+                                    </Tooltip>
                                   ) : (
                                     option.label
                                   )
@@ -860,10 +869,17 @@ export default function SlackChannelSettings({
                   )}
                   {category === "experiment" && (
                     <Text as="div" size="md" color="text-mid">
-                      <span style={{ color: "var(--violet-11)" }}>▪</span> Can
-                      include a results-card image when a card style is selected
-                      and the event supports it. Warning cards are limited to
-                      SRM warnings.
+                      <PiImage
+                        size={16}
+                        aria-hidden
+                        style={{
+                          color: "var(--violet-11)",
+                          verticalAlign: "middle",
+                        }}
+                      />{" "}
+                      Image-marked events can include a results-card image when
+                      a card style is selected and the event supports it.
+                      Warning cards are limited to SRM warnings.
                     </Text>
                   )}
                   {events.some(
@@ -889,7 +905,7 @@ export default function SlackChannelSettings({
         )}
 
         <Frame mb="0">
-          <Heading as="h3" size="md" mb="1">
+          <Heading as="h4" size="sm" mb="1">
             Results Card
           </Heading>
           <Text as="p" color="text-mid" mb="3">

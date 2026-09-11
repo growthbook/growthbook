@@ -1,4 +1,7 @@
-import { notificationEventNames } from "shared/validators";
+import {
+  notificationEventNames,
+  defaultSlackNotificationEvents,
+} from "shared/validators";
 import {
   slackEventOptions,
   slackNotificationLevel,
@@ -145,4 +148,18 @@ describe("Slack notification levels", () => {
     expect(slackNotificationLevel(edited, "experiment")).toBe("custom");
     expect(edited).toContain("feature.*");
   });
+});
+
+it("keeps new channel defaults aligned with the Default presets without significance", () => {
+  const defaults = [
+    ...slackEventsForLevel("experiment", "default"),
+    ...slackEventsForLevel("feature", "default"),
+  ];
+  expect([...defaults].sort()).toEqual(
+    [...defaultSlackNotificationEvents].sort(),
+  );
+  expect(defaults).not.toContain("experiment.info.significance");
+  expect(slackEventsForLevel("experiment", "full")).toContain(
+    "experiment.info.significance",
+  );
 });

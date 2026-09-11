@@ -89,7 +89,7 @@ const originalOptions: SlackEventOption[] = [
     category: "experiment",
     group: "Results & decisions",
     events: ["experiment.info.significance"],
-    defaultOn: true,
+    defaultOn: false,
   },
   {
     id: "exp-decision",
