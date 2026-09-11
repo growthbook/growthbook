@@ -43,6 +43,7 @@ describe("getAllEventWebHooksForEvent", () => {
           headers: {},
           method: "POST",
           payloadType: "raw",
+          apiVersion: "2024-07-31",
         },
       ]);
     });
@@ -115,6 +116,7 @@ describe("getAllEventWebHooksForEvent", () => {
           headers: {},
           method: "POST",
           payloadType: "raw",
+          apiVersion: "2024-07-31",
         },
         {
           name: "webhook with filter for event project",
@@ -124,6 +126,7 @@ describe("getAllEventWebHooksForEvent", () => {
           headers: {},
           method: "POST",
           payloadType: "raw",
+          apiVersion: "2024-07-31",
         },
       ]);
     });
