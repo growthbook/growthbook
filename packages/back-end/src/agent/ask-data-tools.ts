@@ -1,7 +1,5 @@
-import { randomUUID } from "crypto";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
-import { ASK_ROW_LIMIT, assertSafeReadOnlySQL, ensureLimit } from "shared/sql";
 import type { ExplorationConfig } from "shared/validators";
 import { calculateProductAnalyticsDateRange } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
@@ -13,8 +11,6 @@ import {
   runFreeFormQuery,
 } from "back-end/src/services/datasource";
 import { getFactTablesForDatasource } from "back-end/src/models/FactTableModel";
-
-export { ASK_ROW_LIMIT } from "shared/sql";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -255,99 +251,6 @@ export async function previewWarehouseColumnValues(
   };
 }
 
-export async function runWarehouseQuery(
-  ctx: ReqContext,
-  datasource: DataSourceInterface,
-  input: { sql: string; purpose: string },
-): Promise<unknown> {
-  assertSafeReadOnlySQL(input.sql);
-
-  const limited = ensureLimit(input.sql, ASK_ROW_LIMIT);
-
-  const { results, duration, sql, columns, error } = await runFreeFormQuery(
-    ctx,
-    datasource,
-    limited,
-    ASK_ROW_LIMIT,
-  );
-
-  if (error) {
-    return { status: "error", message: error };
-  }
-
-  const rows = results ?? [];
-  const colNames = columns?.map((c) => c.name) ?? Object.keys(rows[0] ?? {});
-  const truncated = rows.length >= ASK_ROW_LIMIT;
-  const csvPreview = resultsToCsv(rows, 20);
-
-  const syntheticConfig = {
-    type: "data_source" as const,
-    datasource: datasource.id,
-    chartType: "table" as const,
-    dateRange: { predefined: "last30Days" as const },
-    dimensions: colNames.map((col) => ({
-      dimensionType: "dynamic" as const,
-      column: col,
-      maxValues: 500,
-    })),
-    dataset: {
-      type: "data_source" as const,
-      table: "sql_query",
-      path: "",
-      timestampColumn: "",
-      columnTypes: Object.fromEntries(
-        colNames.map((col) => {
-          const meta = columns?.find((c) => c.name === col);
-          const dt = meta?.dataType;
-          return [col, dt === "number" ? "number" : "string"];
-        }),
-      ),
-      values: [],
-    },
-  };
-
-  const convertedRows = rows.map((row) => ({
-    dimensions: colNames.map((col) => {
-      const v = row[col];
-      return v === null || v === undefined ? null : String(v);
-    }),
-  }));
-
-  const syntheticId = `sql_${randomUUID().slice(0, 8)}`;
-  const executedSql = sql ?? limited;
-
-  return {
-    summary: `SQL query (${rows.length} rows, ${duration ?? 0}ms): ${executedSql.slice(0, 120)}`,
-    status: "success",
-    snapshotId: syntheticId,
-    rowCount: rows.length,
-    config: syntheticConfig,
-    resultCsv: csvPreview,
-    exploration: {
-      id: syntheticId,
-      organization: ctx.org.id,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      datasource: datasource.id,
-      configHash: "",
-      valueHashes: [],
-      config: syntheticConfig,
-      result: { rows: convertedRows },
-      dateStart: "",
-      dateEnd: "",
-      runStarted: new Date(),
-      status: "success",
-      error: null,
-      queries: [],
-    },
-    ...(truncated
-      ? {
-          note: "Results were truncated at 500 rows. Consider re-aggregating at a coarser grain.",
-        }
-      : {}),
-  };
-}
-
 // -----------------------------------------------------------------------------
 // Shared internal helper for table schema building (used by both standalone
 // function and cached agent tool wrapper)
@@ -418,7 +321,3 @@ async function buildTableSchemaResult(
 
   return { tables: results };
 }
-
-// -----------------------------------------------------------------------------
-// Agent tool builder
-// -----------------------------------------------------------------------------

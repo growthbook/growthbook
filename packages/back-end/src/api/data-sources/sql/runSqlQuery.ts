@@ -39,7 +39,6 @@ export const runSqlQuery = createApiRequestHandler(runSqlQueryValidator)(async (
   const limited = ensureLimit(req.body.sql, ASK_ROW_LIMIT);
 
   // Cost estimation gate (skip if caller already confirmed)
-  let costEstimationUnavailable = false;
   if (!req.body.confirm) {
     const policy =
       datasource.settings?.askData?.runPolicy ?? "auto-below-threshold";
@@ -84,9 +83,16 @@ export const runSqlQuery = createApiRequestHandler(runSqlQueryValidator)(async (
         };
       }
 
-      // Non-BigQuery integrations return 0 bytes — the threshold is not meaningful
+      // Non-BigQuery integrations return 0 bytes — the threshold is not meaningful.
+      // Fall back to requiring confirmation rather than silently auto-approving.
       if (estimate.bytesProcessed === 0 && !estimate.costEstimateUsd) {
-        costEstimationUnavailable = true;
+        return {
+          status: "confirmation_required" as const,
+          estimatedBytesProcessed: 0,
+          sql: limited,
+          message:
+            "Cost estimation is not supported for this datasource type. Confirmation is required before executing. Re-call with confirm: true to execute.",
+        };
       }
     }
     // Legacy "auto-always" values fall through to execution
@@ -142,12 +148,6 @@ export const runSqlQuery = createApiRequestHandler(runSqlQueryValidator)(async (
     sql: executedSql,
     ...(explorationUrl ? { explorationUrl } : {}),
     ...(explorationId ? { explorationId } : {}),
-    ...(costEstimationUnavailable
-      ? {
-          notice:
-            "Cost estimation is not supported for this datasource type. The query was auto-approved without a cost check.",
-        }
-      : {}),
   };
 });
 
