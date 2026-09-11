@@ -2,7 +2,9 @@ import { Job, JobAttributesData } from "agenda";
 import { logger } from "back-end/src/util/logger";
 import { JOB_TIMEOUT_MS } from "back-end/src/util/secrets";
 
-const TOUCH_INTERVAL_MS = 9 * 60 * 1000;
+export const LOCK_LIFETIME_MS = 10 * 60 * 1000;
+// Renew well inside the lease so a delayed or failed heartbeat still has time to recover.
+export const TOUCH_INTERVAL_MS = 3 * 60 * 1000;
 
 //This prevents the lockLifetime being reached as long as the job is running, and hence stops other servers from picking up the job.
 //This also adds a timeout which allows the job to keep running but marks it as failed, which frees up the "slot" for another job to run, in case the defaultLockLimit is reached, and also prevents other jobs from picking it up unless they have retry logic.

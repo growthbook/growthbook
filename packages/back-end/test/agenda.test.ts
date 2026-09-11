@@ -1,11 +1,14 @@
 import Agenda from "agenda";
 import { MongoClient, ObjectId } from "mongodb";
+import {
+  LOCK_LIFETIME_MS,
+  TOUCH_INTERVAL_MS,
+} from "back-end/src/services/jobLifecycle";
 
 const MINUTE = 60 * 1000;
-const LOCK_LIFETIME = 10 * MINUTE;
 
 function createJob() {
-  const agenda = new Agenda({ defaultLockLifetime: LOCK_LIFETIME });
+  const agenda = new Agenda({ defaultLockLifetime: LOCK_LIFETIME_MS });
   const jobId = new ObjectId();
   // Exercise Agenda's persistence code without connecting to MongoDB.
   agenda._collection = new MongoClient("mongodb://localhost:27017")
@@ -63,13 +66,14 @@ it("renews a queued job's lock in the start save, keeping it valid until its fir
       { returnDocument: "after" },
     );
 
-    // The acquisition lease expires before the first heartbeat at minute 11.
-    jest.setSystemTime(acquiredAt + 10.5 * MINUTE);
+    // Without renewal at start, the acquisition lease would have expired by now.
+    jest.setSystemTime(acquiredAt + LOCK_LIFETIME_MS + MINUTE / 2);
     expect(job.attrs.lockedAt?.getTime()).toBeGreaterThan(
-      Date.now() - LOCK_LIFETIME,
+      Date.now() - LOCK_LIFETIME_MS,
     );
 
-    jest.setSystemTime(startedAt.getTime() + 9 * MINUTE);
+    // A heartbeat lands inside the lease and only moves lockedAt.
+    expect(TOUCH_INTERVAL_MS).toBeLessThan(LOCK_LIFETIME_MS);
     await job.touch();
     expect(save).toHaveBeenCalledTimes(2);
     expect(job.attrs.lockedAt).toEqual(new Date());
