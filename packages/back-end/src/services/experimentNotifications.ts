@@ -23,6 +23,7 @@ import {
   ExperimentResultStatusData,
 } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -714,9 +715,11 @@ async function getDecisionCriteria(
 export const notifyScheduledEndDecision = async ({
   context,
   experiment,
+  metricGroups,
 }: {
   context: Context;
   experiment: ExperimentInterface;
+  metricGroups: MetricGroupInterface[];
 }) => {
   const healthSettings = getHealthSettings(
     context.org.settings,
@@ -732,6 +735,7 @@ export const notifyScheduledEndDecision = async ({
     experimentData: experiment,
     healthSettings,
     decisionCriteria,
+    metricGroups,
   });
   if (!currentStatus) return false;
 
@@ -739,6 +743,7 @@ export const notifyScheduledEndDecision = async ({
     experimentData: { ...experiment, statusUpdateSchedule: null },
     healthSettings,
     decisionCriteria,
+    metricGroups,
   });
 
   return notifyDecision({
@@ -779,11 +784,13 @@ export const notifyExperimentChange = async ({
     experiment.decisionFrameworkSettings?.decisionCriteriaId ??
       context.org.settings?.defaultDecisionCriteriaId,
   );
+  const metricGroups = await context.models.metricGroups.getAll();
 
   const currentStatus = getExperimentResultStatus({
     experimentData: experiment,
     healthSettings,
     decisionCriteria,
+    metricGroups,
   });
 
   const triggeredNoData = await notifyNoData({
@@ -835,6 +842,7 @@ export const notifyExperimentChange = async ({
       },
       healthSettings,
       decisionCriteria,
+      metricGroups,
     });
     const triggeredDecision = await notifyDecision({
       context,
