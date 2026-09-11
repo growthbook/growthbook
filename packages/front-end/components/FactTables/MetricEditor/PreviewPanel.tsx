@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiEye } from "react-icons/pi";
 import {
   FactFilterTestResults,
@@ -54,8 +54,6 @@ export default function PreviewPanel({
   const [rowsError, setRowsError] = useState<string | null>(null);
 
   const active = parts.find((p) => p.key === partKey) ?? parts[0];
-
-  if (!active && !previewSql) return null;
 
   const requestKey = JSON.stringify([
     active?.factTable?.id,
@@ -113,7 +111,7 @@ export default function PreviewPanel({
           )}
         </Flex>
 
-        <div
+        <Box
           style={{
             height:
               view === "preview" && (metric || rows)
@@ -248,7 +246,7 @@ export default function PreviewPanel({
               </Flex>
             )}
           </TabsContent>
-        </div>
+        </Box>
         {view === "preview" && !metric && active?.factTable && (
           <Flex mt="3">
             <Button onClick={runPreview} setError={setRowsError}>
