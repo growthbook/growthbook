@@ -35,9 +35,7 @@ function ActivityChart({ revision }: { revision: number }) {
       </Text>
     );
   if (loading)
-    return (
-      <Text color="text-mid">Loading activity over the last 30 days…</Text>
-    );
+    return <Text color="text-mid">Loading activity over the last 7 days…</Text>;
   if (error)
     return (
       <Callout status="error">
@@ -65,7 +63,7 @@ function ActivityChart({ revision }: { revision: number }) {
         {chart.total.toLocaleString()}
       </Heading>
       <Text as="div" size="sm" color="text-mid">
-        Matching rows · last 30 days
+        Matching rows · last 7 days
       </Text>
       <EChartsReact
         notMerge
@@ -112,6 +110,11 @@ export default function MetricActivityChart({
 }) {
   const config: ExplorationConfig = {
     ...DEFAULT_EXPLORE_STATE,
+    dateRange: {
+      ...DEFAULT_EXPLORE_STATE.dateRange,
+      predefined: "last7Days",
+      lookbackValue: 7,
+    },
     type: "fact_table",
     datasource: factTable.datasource,
     dimensions: [
