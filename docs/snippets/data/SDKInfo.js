@@ -453,7 +453,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.5.0",
+    version: "0.5.1",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
