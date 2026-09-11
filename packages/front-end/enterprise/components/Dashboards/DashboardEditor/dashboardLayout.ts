@@ -3,6 +3,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   DashboardBlockType,
+  dashboardBlockHasIds,
   getBlockSizeBounds,
 } from "shared/enterprise";
 import { LayoutItem } from "react-grid-layout";
@@ -323,4 +324,81 @@ export function gridRectToPixels({
     width: rect.w * columnWidth + (rect.w - 1) * DASHBOARD_GRID_MARGIN,
     height: rect.h * rowHeight + (rect.h - 1) * DASHBOARD_GRID_MARGIN,
   };
+}
+
+export function getGridKeyForBlock(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  index: number,
+): string {
+  return dashboardBlockHasIds(block) ? block.id : `__staged_block_${index}__`;
+}
+
+export function buildRGLLayout(
+  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  cols: number = DASHBOARD_GRID_COLS,
+): LayoutItem[] {
+  let nextY = 0;
+  blocks.forEach((b) => {
+    if (b.layout) {
+      nextY = Math.max(nextY, b.layout.y + b.layout.h);
+    }
+  });
+  return blocks.map((block, index) => {
+    const i = getGridKeyForBlock(block, index);
+    const bounds = getBlockSizeBounds(block.type);
+    const maxW = cols;
+    if (block.layout) {
+      const item: LayoutItem = {
+        i,
+        x: block.layout.x,
+        y: block.layout.y,
+        w: Math.min(block.layout.w, maxW),
+        h: Math.max(1, block.layout.h),
+        minW: bounds.minW,
+        minH: bounds.minH,
+        maxW,
+      };
+      if (block.layout.static) item.static = true;
+      return item;
+    }
+    const w = Math.min(bounds.w, maxW);
+    const h = Math.max(1, bounds.h);
+    const layout: LayoutItem = {
+      i,
+      x: 0,
+      y: nextY,
+      w,
+      h,
+      minW: bounds.minW,
+      minH: bounds.minH,
+      maxW,
+    };
+    nextY += h;
+    return layout;
+  });
+}
+
+export function getPreviewBlocks<
+  T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>(blocks: T[], maxBlocks?: number): T[] {
+  if (maxBlocks === undefined) return blocks;
+
+  const sorted = [...blocks].sort((a, b) => {
+    const ay = a.layout?.y ?? Number.POSITIVE_INFINITY;
+    const by = b.layout?.y ?? Number.POSITIVE_INFINITY;
+    if (ay !== by) return ay - by;
+    return (a.layout?.x ?? 0) - (b.layout?.x ?? 0);
+  });
+  const visible = sorted.slice(0, maxBlocks);
+  const minY = visible.reduce(
+    (min, block) => Math.min(min, block.layout?.y ?? 0),
+    Number.POSITIVE_INFINITY,
+  );
+  if (!Number.isFinite(minY) || minY === 0) return visible;
+
+  return visible.map((block) =>
+    block.layout
+      ? { ...block, layout: { ...block.layout, y: block.layout.y - minY } }
+      : block,
+  );
 }
