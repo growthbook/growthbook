@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ContextualBanditInterface } from "shared/validators";
 import {
   computeContextualBanditStageAndSchedule,
@@ -27,10 +28,10 @@ function makeCb(
 
 describe("determineNextContextualBanditSchedule", () => {
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(NOW);
+    vi.useFakeTimers().setSystemTime(NOW);
   });
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("returns the burn-in end during explore when it lands before the next cadence boundary", () => {
@@ -66,10 +67,10 @@ describe("determineNextContextualBanditSchedule", () => {
 
 describe("computeContextualBanditStageAndSchedule", () => {
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(NOW);
+    vi.useFakeTimers().setSystemTime(NOW);
   });
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("reschedules without a stage change while still inside the explore (burn-in) window", () => {

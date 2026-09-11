@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
 import * as SharedUtil from "shared/util";
@@ -15,40 +16,37 @@ import * as DataSourceService from "back-end/src/services/datasource";
 import * as RefreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
 import * as Organizations from "back-end/src/services/organizations";
 
-jest.mock("back-end/src/models/DataSourceModel");
-jest.mock("back-end/src/models/FactTableModel");
-jest.mock("back-end/src/services/eventForwarder/config");
-jest.mock("shared/util", () => ({
-  ...jest.requireActual<typeof SharedUtil>("shared/util"),
-  getEventForwarderSinkTypeForDatasource: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel");
+vi.mock("back-end/src/models/FactTableModel");
+vi.mock("back-end/src/services/eventForwarder/config");
+vi.mock("shared/util", async () => ({
+  ...(await vi.importActual<typeof SharedUtil>("shared/util")),
+  getEventForwarderSinkTypeForDatasource: vi.fn(),
 }));
-jest.mock("back-end/src/services/datasource");
-jest.mock("back-end/src/jobs/refreshFactTableColumns");
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgObject: jest.fn(),
+vi.mock("back-end/src/services/datasource");
+vi.mock("back-end/src/jobs/refreshFactTableColumns");
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgObject: vi.fn(),
 }));
 
 const mockedGetDataSourceById =
-  DataSourceModel.getDataSourceById as jest.MockedFunction<
+  DataSourceModel.getDataSourceById as MockedFunction<
     typeof DataSourceModel.getDataSourceById
   >;
-const mockedGetFactTable = FactTableModel.getFactTable as jest.MockedFunction<
+const mockedGetFactTable = FactTableModel.getFactTable as MockedFunction<
   typeof FactTableModel.getFactTable
 >;
-const mockedCreateFactTable =
-  FactTableModel.createFactTable as jest.MockedFunction<
-    typeof FactTableModel.createFactTable
-  >;
-const mockedDeleteFactTable =
-  FactTableModel.deleteFactTable as jest.MockedFunction<
-    typeof FactTableModel.deleteFactTable
-  >;
-const mockedUpdateFactTable =
-  FactTableModel.updateFactTable as jest.MockedFunction<
-    typeof FactTableModel.updateFactTable
-  >;
+const mockedCreateFactTable = FactTableModel.createFactTable as MockedFunction<
+  typeof FactTableModel.createFactTable
+>;
+const mockedDeleteFactTable = FactTableModel.deleteFactTable as MockedFunction<
+  typeof FactTableModel.deleteFactTable
+>;
+const mockedUpdateFactTable = FactTableModel.updateFactTable as MockedFunction<
+  typeof FactTableModel.updateFactTable
+>;
 const mockedGetContextForAgendaJobByOrgObject =
-  Organizations.getContextForAgendaJobByOrgObject as jest.MockedFunction<
+  Organizations.getContextForAgendaJobByOrgObject as MockedFunction<
     typeof Organizations.getContextForAgendaJobByOrgObject
   >;
 // Sentinel returned by the mocked background-job context factory. The event
@@ -59,31 +57,31 @@ const agendaContext = {
   auditUser: null,
 } as never;
 const mockedDecrypt =
-  EventForwarderConfig.decryptEventForwarderConfigModel as jest.MockedFunction<
+  EventForwarderConfig.decryptEventForwarderConfigModel as MockedFunction<
     typeof EventForwarderConfig.decryptEventForwarderConfigModel
   >;
 const mockedGetBigQueryTablePrefix =
-  EventForwarderConfig.getBigQueryEventForwarderTablePrefix as jest.MockedFunction<
+  EventForwarderConfig.getBigQueryEventForwarderTablePrefix as MockedFunction<
     typeof EventForwarderConfig.getBigQueryEventForwarderTablePrefix
   >;
 const mockedGetSnowflakeTablePrefix =
-  EventForwarderConfig.getSnowflakeEventForwarderTablePrefix as jest.MockedFunction<
+  EventForwarderConfig.getSnowflakeEventForwarderTablePrefix as MockedFunction<
     typeof EventForwarderConfig.getSnowflakeEventForwarderTablePrefix
   >;
 const mockedGetSourceIntegrationObject =
-  DataSourceService.getSourceIntegrationObject as jest.MockedFunction<
+  DataSourceService.getSourceIntegrationObject as MockedFunction<
     typeof DataSourceService.getSourceIntegrationObject
   >;
 const mockedGetSinkType =
-  SharedUtil.getEventForwarderSinkTypeForDatasource as jest.MockedFunction<
+  SharedUtil.getEventForwarderSinkTypeForDatasource as MockedFunction<
     typeof SharedUtil.getEventForwarderSinkTypeForDatasource
   >;
 const mockedQueueFactTableColumnsRefresh =
-  RefreshFactTableColumns.queueFactTableColumnsRefresh as jest.MockedFunction<
+  RefreshFactTableColumns.queueFactTableColumnsRefresh as MockedFunction<
     typeof RefreshFactTableColumns.queueFactTableColumnsRefresh
   >;
 const mockedQueueFactTableColumnsRefreshAt =
-  RefreshFactTableColumns.queueFactTableColumnsRefreshAt as jest.MockedFunction<
+  RefreshFactTableColumns.queueFactTableColumnsRefreshAt as MockedFunction<
     typeof RefreshFactTableColumns.queueFactTableColumnsRefreshAt
   >;
 
@@ -116,8 +114,8 @@ function context() {
     userId: "user_1",
     models: {
       eventForwarderConfigs: {
-        getAll: jest.fn(),
-        update: jest.fn(),
+        getAll: vi.fn(),
+        update: vi.fn(),
       },
     },
   };
@@ -149,7 +147,7 @@ function eventsFactTable(
 
 describe("ensureEventForwarderEventsFactTable", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedGetBigQueryTablePrefix.mockReturnValue("gb");
     mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
   });
@@ -247,7 +245,7 @@ describe("ensureEventForwarderEventsFactTable", () => {
 
 describe("queueEventForwarderEventsFactTablesColumnsRefresh", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("queues refresh for each event forwarder datasource fact table", async () => {
@@ -316,7 +314,7 @@ describe("queueEventForwarderEventsFactTablesColumnsRefresh", () => {
 
 describe("syncEventForwarderEventsFactTableMetadata", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedGetBigQueryTablePrefix.mockReturnValue("gb");
     mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
     mockedGetContextForAgendaJobByOrgObject.mockReturnValue(agendaContext);
@@ -565,7 +563,7 @@ describe("mergeEventForwarderFactTableColumnFromDesired", () => {
 
 describe("deleteEventForwarderEventsFactTableForDatasource", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("deletes api-managed Events fact table for datasource", async () => {

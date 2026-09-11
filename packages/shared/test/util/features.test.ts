@@ -1763,9 +1763,6 @@ describe("inferSchemaField", () => {
 });
 
 describe("inferSchemaFields", () => {
-  // structuredClone missing from our jest version
-  // This is a hack, but should work since we aren't using Dates or other non-JSON types
-  const structuredClone = (obj: unknown) => JSON.parse(JSON.stringify(obj));
   it("Infers object fields in isolation", () => {
     const obj = {
       a_string: "test",

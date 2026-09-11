@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { GrowthBook } from "../src";
 import {
   AutoExperiment,
@@ -765,8 +766,8 @@ describe("Auto experiments", () => {
       },
     ];
 
-    const undo = jest.fn();
-    const cb = jest.fn(() => () => undo());
+    const undo = vi.fn();
+    const cb = vi.fn(() => () => undo());
 
     const gb = new GrowthBook({
       attributes: { id: "1" },

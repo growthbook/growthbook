@@ -1,4 +1,5 @@
-import { EventEmitter } from "events";
+import type { EventEmitter } from "events";
+import { vi } from "vitest";
 import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import {
   closeMssqlPool,
@@ -7,10 +8,13 @@ import {
 
 type MockPool = EventEmitter & { closeCalls: number };
 
-const created: MockPool[] = [];
-let connectBehavior: () => Promise<void> = async () => undefined;
+const created: MockPool[] = vi.hoisted(() => []);
+let connectBehavior: () => Promise<void> = vi.hoisted(
+  () => async () => undefined,
+);
 
-jest.mock("mssql", () => {
+vi.mock("mssql", async () => {
+  const { EventEmitter } = await import("node:events");
   class ConnectionPool extends EventEmitter {
     closeCalls = 0;
     constructor() {

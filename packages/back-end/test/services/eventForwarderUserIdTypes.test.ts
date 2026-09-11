@@ -1,3 +1,4 @@
+import { MockedFunction, Mock, vi } from "vitest";
 import type { DataSourceInterface } from "shared/types/datasource";
 import {
   buildEventForwarderExposureQuerySql,
@@ -11,25 +12,25 @@ import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as EventForwarderExposureQueries from "back-end/src/services/eventForwarder/sinkParams";
 import * as DataSourceService from "back-end/src/services/datasource";
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
-  updateDataSource: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
+  updateDataSource: vi.fn(),
 }));
-jest.mock("back-end/src/services/eventForwarder/sinkParams");
-jest.mock("back-end/src/services/datasource");
+vi.mock("back-end/src/services/eventForwarder/sinkParams");
+vi.mock("back-end/src/services/datasource");
 
-const mockedGetById = DataSourceModel.getDataSourceById as jest.MockedFunction<
+const mockedGetById = DataSourceModel.getDataSourceById as MockedFunction<
   typeof DataSourceModel.getDataSourceById
 >;
-const mockedUpdate = DataSourceModel.updateDataSource as jest.MockedFunction<
+const mockedUpdate = DataSourceModel.updateDataSource as MockedFunction<
   typeof DataSourceModel.updateDataSource
 >;
 const mockedGetSourceIntegrationObject =
-  DataSourceService.getSourceIntegrationObject as jest.MockedFunction<
+  DataSourceService.getSourceIntegrationObject as MockedFunction<
     typeof DataSourceService.getSourceIntegrationObject
   >;
 const mockedBuildExposureQueryParams =
-  EventForwarderExposureQueries.buildExposureQueryParams as jest.MockedFunction<
+  EventForwarderExposureQueries.buildExposureQueryParams as MockedFunction<
     typeof EventForwarderExposureQueries.buildExposureQueryParams
   >;
 
@@ -58,8 +59,8 @@ function contextWithSchema(
     hashAttribute?: boolean;
   }[],
   overrides?: {
-    getAll?: jest.Mock;
-    update?: jest.Mock;
+    getAll?: Mock;
+    update?: Mock;
   },
 ) {
   return {
@@ -69,10 +70,10 @@ function contextWithSchema(
     },
     models: {
       eventForwarderConfigs: {
-        getAll: overrides?.getAll ?? jest.fn(),
+        getAll: overrides?.getAll ?? vi.fn(),
         update:
           overrides?.update ??
-          jest.fn(async (existing, updates) => ({ ...existing, ...updates })),
+          vi.fn(async (existing, updates) => ({ ...existing, ...updates })),
       },
     },
   };
@@ -125,7 +126,7 @@ function setupDataSourceMocks(raw?: DataSourceInterface) {
 
 describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     setupDataSourceMocks();
     mockedGetSourceIntegrationObject.mockReturnValue({
       params: { defaultProject: "my-project" },
@@ -177,7 +178,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
         hashAttribute: true,
       },
     ];
-    const updateConfig = jest.fn();
+    const updateConfig = vi.fn();
     const config = efConfig();
 
     await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
@@ -483,7 +484,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       },
     });
     setupDataSourceMocks(raw);
-    const updateConfig = jest.fn();
+    const updateConfig = vi.fn();
 
     await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
       contextWithSchema([], { update: updateConfig }) as never,
@@ -499,7 +500,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
   });
 
   it("does nothing when no event forwarder configs exist", async () => {
-    const getAll = jest.fn().mockResolvedValue([]);
+    const getAll = vi.fn().mockResolvedValue([]);
 
     await reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries(
       {

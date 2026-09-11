@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import type {
   RampScheduleInterface,
   SafeRolloutInterface,
@@ -7,35 +8,35 @@ import {
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  publishRevision: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
+  publishRevision: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
-  createRevision: jest.fn(),
-  getRevision: jest.fn(),
-  discardRevision: jest.fn(),
-  registerRevisionPublishedHook: jest.fn(),
+vi.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  createRevision: vi.fn(),
+  getRevision: vi.fn(),
+  discardRevision: vi.fn(),
+  registerRevisionPublishedHook: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/EventModel", () => ({
-  createEvent: jest.fn(),
+vi.mock("back-end/src/models/EventModel", () => ({
+  createEvent: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getEnvironments: jest.fn().mockReturnValue([]),
+vi.mock("back-end/src/services/organizations", () => ({
+  getEnvironments: vi.fn().mockReturnValue([]),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
-jest.mock("back-end/src/util/secrets", () => ({
+vi.mock("back-end/src/util/secrets", () => ({
   IS_CLOUD: false,
 }));
 
@@ -75,12 +76,12 @@ function makeSchedule(
 }
 
 function makeContext(safeRollout: SafeRolloutInterface) {
-  const update = jest.fn().mockResolvedValue(safeRollout);
+  const update = vi.fn().mockResolvedValue(safeRollout);
   return {
     ctx: {
       models: {
         safeRollout: {
-          getById: jest.fn().mockResolvedValue(safeRollout),
+          getById: vi.fn().mockResolvedValue(safeRollout),
           update,
         },
       },
@@ -242,8 +243,8 @@ describe("syncLinkedSafeRolloutForRampState", () => {
 // lives in rampSchedule.test.ts.
 describe("restartSchedule SafeRollout floor reset", () => {
   function makeRestartContext(safeRollout: SafeRolloutInterface) {
-    const updateSafeRollout = jest.fn().mockResolvedValue(safeRollout);
-    const rampUpdateById = jest
+    const updateSafeRollout = vi.fn().mockResolvedValue(safeRollout);
+    const rampUpdateById = vi
       .fn()
       .mockImplementation(
         (_id: string, updates: Partial<RampScheduleInterface>) =>
@@ -258,7 +259,7 @@ describe("restartSchedule SafeRollout floor reset", () => {
             ...updates,
           }),
       );
-    const rampGetById = jest.fn().mockResolvedValue(
+    const rampGetById = vi.fn().mockResolvedValue(
       makeSchedule({
         currentStepIndex: -1,
         status: "running",
@@ -279,12 +280,12 @@ describe("restartSchedule SafeRollout floor reset", () => {
             getById: rampGetById,
             // 0-step terminal schedules in these fixtures hit the auto-delete
             // path inside advanceUntilBlocked; stub the delete so it's a no-op.
-            dangerousDeleteByIdBypassPermission: jest
+            dangerousDeleteByIdBypassPermission: vi
               .fn()
               .mockResolvedValue(undefined),
           },
           safeRollout: {
-            getById: jest.fn().mockResolvedValue(safeRollout),
+            getById: vi.fn().mockResolvedValue(safeRollout),
             update: updateSafeRollout,
           },
         },
@@ -348,7 +349,7 @@ describe("restartSchedule SafeRollout floor reset", () => {
     } as SafeRolloutInterface;
     const { ctx, updateSafeRollout } = makeRestartContext(safeRollout);
     // Override rampSchedules.updateById to keep safeRolloutId undefined.
-    (ctx.models.rampSchedules.updateById as jest.Mock).mockImplementation(
+    (ctx.models.rampSchedules.updateById as Mock).mockImplementation(
       (_id: string, updates: Partial<RampScheduleInterface>) =>
         Promise.resolve({
           ...makeSchedule({
@@ -361,7 +362,7 @@ describe("restartSchedule SafeRollout floor reset", () => {
           ...updates,
         }),
     );
-    (ctx.models.rampSchedules.getById as jest.Mock).mockResolvedValue(
+    (ctx.models.rampSchedules.getById as Mock).mockResolvedValue(
       makeSchedule({
         currentStepIndex: -1,
         status: "running",

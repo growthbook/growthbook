@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
@@ -98,7 +99,7 @@ describe("incremental refresh statistics query with skipPartialData", () => {
   let integration: BigQuery;
 
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(NOW);
+    vi.useFakeTimers().setSystemTime(NOW);
     // @ts-expect-error -- context not needed for this unit test
     integration = new BigQuery("", {
       settings: { queries: { exposure: [exposureQuery] } },
@@ -106,7 +107,7 @@ describe("incremental refresh statistics query with skipPartialData", () => {
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   function buildSql(

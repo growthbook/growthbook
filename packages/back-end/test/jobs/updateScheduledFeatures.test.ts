@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import { FeatureInterface } from "shared/types/feature";
 import { updateSingleFeature } from "back-end/src/jobs/updateScheduledFeatures";
 import {
@@ -10,19 +11,19 @@ import {
 } from "back-end/src/services/features";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  updateNextScheduledDate: jest.fn(),
-  getScheduledFeaturesToUpdate: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: vi.fn(),
+  updateNextScheduledDate: vi.fn(),
+  getScheduledFeaturesToUpdate: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/features", () => ({
-  getNextScheduledUpdate: jest.fn(),
-  refreshSDKPayloadCache: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  getNextScheduledUpdate: vi.fn(),
+  refreshSDKPayloadCache: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getContextForAgendaJobByOrgId: jest.fn(),
+vi.mock("back-end/src/services/organizations", () => ({
+  getContextForAgendaJobByOrgId: vi.fn(),
 }));
 
 // getSDKPayloadKeysByDiff is not mocked — the real implementation is used so
@@ -54,25 +55,23 @@ const makeContext = () => ({
 
 describe("updateSingleFeature", () => {
   beforeEach(() => {
-    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(
-      makeContext(),
-    );
-    (getFeature as jest.Mock).mockResolvedValue(makeFeature());
-    (getNextScheduledUpdate as jest.Mock).mockReturnValue(null);
-    (refreshSDKPayloadCache as jest.Mock).mockResolvedValue(undefined);
-    (updateNextScheduledDate as jest.Mock).mockResolvedValue(undefined);
+    (getContextForAgendaJobByOrgId as Mock).mockResolvedValue(makeContext());
+    (getFeature as Mock).mockResolvedValue(makeFeature());
+    (getNextScheduledUpdate as Mock).mockReturnValue(null);
+    (refreshSDKPayloadCache as Mock).mockResolvedValue(undefined);
+    (updateNextScheduledDate as Mock).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("calls refreshSDKPayloadCache then updateNextScheduledDate on success", async () => {
     const order: string[] = [];
-    (refreshSDKPayloadCache as jest.Mock).mockImplementation(async () => {
+    (refreshSDKPayloadCache as Mock).mockImplementation(async () => {
       order.push("refresh");
     });
-    (updateNextScheduledDate as jest.Mock).mockImplementation(async () => {
+    (updateNextScheduledDate as Mock).mockImplementation(async () => {
       order.push("ack");
     });
 
@@ -85,7 +84,7 @@ describe("updateSingleFeature", () => {
   });
 
   it("does not call updateNextScheduledDate when refreshSDKPayloadCache rejects", async () => {
-    (refreshSDKPayloadCache as jest.Mock).mockRejectedValue(
+    (refreshSDKPayloadCache as Mock).mockRejectedValue(
       new Error("cache write failed"),
     );
 
@@ -96,7 +95,7 @@ describe("updateSingleFeature", () => {
   });
 
   it("does nothing when the feature does not exist", async () => {
-    (getFeature as jest.Mock).mockResolvedValue(null);
+    (getFeature as Mock).mockResolvedValue(null);
 
     await updateSingleFeature(makeJob());
 

@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import { ContextualBanditInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { ReqContext } from "back-end/types/request";
@@ -5,35 +6,36 @@ import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBa
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeatures: jest.fn(),
+vi.mock("back-end/src/models/FeatureModel", () => ({
+  getAllFeatures: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/features", () => ({
-  queueSDKPayloadRefresh: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/audit", () => ({
-  auditDetailsUpdate: jest.fn(),
+vi.mock("back-end/src/services/audit", () => ({
+  auditDetailsUpdate: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/experiment-feature", () => ({
-  publishPendingFeatureDraftsForContextualBandit: jest.fn(),
-  formatPendingDraftFailureMessage: jest.fn(),
+vi.mock("back-end/src/services/experiment-feature", () => ({
+  publishPendingFeatureDraftsForContextualBandit: vi.fn(),
+  formatPendingDraftFailureMessage: vi.fn(),
 }));
 
-const getAllFeaturesMock = getAllFeatures as jest.MockedFunction<
+const getAllFeaturesMock = getAllFeatures as MockedFunction<
   typeof getAllFeatures
 >;
-const queueSDKPayloadRefreshMock =
-  queueSDKPayloadRefresh as jest.MockedFunction<typeof queueSDKPayloadRefresh>;
+const queueSDKPayloadRefreshMock = queueSDKPayloadRefresh as MockedFunction<
+  typeof queueSDKPayloadRefresh
+>;
 
 function makeContext(): ReqContext {
   // No org.settings.environments → getEnvironmentIdsFromOrg falls back to
   // the default ["dev", "production"].
   return {
     org: { id: "org_1" },
-    getAllProjectIds: jest.fn().mockResolvedValue([]),
+    getAllProjectIds: vi.fn().mockResolvedValue([]),
   } as unknown as ReqContext;
 }
 
@@ -74,7 +76,7 @@ function makeLinkedFeature(
 
 describe("refreshLinkedFeaturePayloads", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("queues a refresh with keys derived from a feature's enabled contextual-bandit-ref rule", async () => {

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { Experiment, GrowthBook, GrowthBookClient } from "../../src";
 import { thirdPartyTrackingPlugin } from "../../src/plugins/third-party-tracking";
 
@@ -13,7 +14,7 @@ declare global {
 
 describe("thirdPartyTrackingPlugin", () => {
   it("should call additionalCallback if provided", async () => {
-    const additionalCallback = jest.fn();
+    const additionalCallback = vi.fn();
     const plugin = thirdPartyTrackingPlugin({
       additionalCallback,
       trackers: [],
@@ -41,7 +42,7 @@ describe("thirdPartyTrackingPlugin", () => {
       trackers: ["gtag"],
     });
 
-    window.gtag = jest.fn();
+    window.gtag = vi.fn();
 
     const gb = new GrowthBook({
       plugins: [plugin],
@@ -103,7 +104,7 @@ describe("thirdPartyTrackingPlugin", () => {
     });
 
     window.analytics = {
-      track: jest.fn(),
+      track: vi.fn(),
     };
 
     const gb = new GrowthBook({
@@ -153,7 +154,7 @@ describe("thirdPartyTrackingPlugin", () => {
   });
 
   it("works with GrowthBookClient and user-scoped instances", () => {
-    const cb = jest.fn();
+    const cb = vi.fn();
     const plugin = thirdPartyTrackingPlugin({
       additionalCallback: cb,
     });

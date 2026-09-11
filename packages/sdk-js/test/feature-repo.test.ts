@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import cloneDeep from "lodash/cloneDeep";
 import {
   configureCache,
@@ -18,7 +19,6 @@ import { ApiHost, ClientKey } from "../src/types/growthbook";
 global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
 const { MockEvent, EventSource } = require("mocksse");
-require("jest-localstorage-mock");
 /* eslint-enable */
 
 setPolyfills({
@@ -36,7 +36,7 @@ function mockApi(
   supportSSE: boolean = false,
   delay: number = 50,
 ) {
-  const f = jest.fn((url: string) => {
+  const f = vi.fn((url: string) => {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
@@ -601,9 +601,7 @@ describe("feature-repo", () => {
     };
 
     const [, cleanup] = mockApi(apiPayload, true);
-    const warn = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     // Simulates `require("eventsource")` on v3+, which returns the module instead of the constructor
     setPolyfills({ EventSource: { EventSource } });
@@ -641,9 +639,7 @@ describe("feature-repo", () => {
     };
 
     const [, cleanup] = mockApi(apiPayload, true);
-    const warn = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     // Constructor succeeds (opening a connection), but listener setup throws
     const closed: string[] = [];
@@ -694,9 +690,7 @@ describe("feature-repo", () => {
     };
 
     const [, cleanup] = mockApi(apiPayload, true);
-    const warn = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     // First attempt fails - the module object isn't a constructor
     setPolyfills({ EventSource: { EventSource } });
@@ -758,9 +752,7 @@ describe("feature-repo", () => {
     };
 
     const [, cleanup] = mockApi(apiPayload, true);
-    const warn = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     // Establish a channel, then park it so re-connecting goes back through enableChannel
     const growthbook1 = new GrowthBook({
@@ -895,9 +887,7 @@ describe("feature-repo", () => {
     };
 
     const [, cleanup] = mockApi(apiPayload, true);
-    const warn = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     setPolyfills({ EventSource: undefined });
 
@@ -932,9 +922,7 @@ describe("feature-repo", () => {
 
     // No x-sse-support response header
     const [, cleanup] = mockApi(apiPayload, false);
-    const warn = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
@@ -1013,9 +1001,7 @@ describe("feature-repo", () => {
     };
     // No x-sse-support, so no stream can start
     const [f, cleanup] = mockApi({ features }, false, 0);
-    const warn = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
@@ -1132,7 +1118,7 @@ describe("feature-repo", () => {
     const features = { foo: { defaultValue: "initial" } };
     // First response advertises no SSE support, so polling starts
     let supportSSE = false;
-    const f = jest.fn((url: string) =>
+    const f = vi.fn((url: string) =>
       Promise.resolve({
         status: 200,
         ok: true,
@@ -1178,9 +1164,7 @@ describe("feature-repo", () => {
       false,
       0,
     );
-    const warn = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
@@ -1206,9 +1190,7 @@ describe("feature-repo", () => {
       false,
       0,
     );
-    const warn = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
@@ -1260,9 +1242,7 @@ describe("feature-repo", () => {
       false,
       0,
     );
-    const warn = jest
-      .spyOn(console, "warn")
-      .mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
@@ -1527,7 +1507,7 @@ describe("feature-repo", () => {
     const [f, cleanup] = mockApi(null);
 
     // eslint-disable-next-line
-    const log = jest.fn((msg: string, ctx: Record<string, unknown>) => {
+    const log = vi.fn((msg: string, ctx: Record<string, unknown>) => {
       // Do nothing
     });
 
@@ -1665,7 +1645,7 @@ describe("feature-repo", () => {
     const [f, cleanup] = mockApi(null);
 
     // eslint-disable-next-line
-    const log = jest.fn((msg: string, ctx: Record<string, unknown>) => {
+    const log = vi.fn((msg: string, ctx: Record<string, unknown>) => {
       // Do nothing
     });
 
@@ -1735,7 +1715,7 @@ describe("feature-repo", () => {
     });
 
     // eslint-disable-next-line
-    const log = jest.fn((msg: string, ctx: Record<string, unknown>) => {
+    const log = vi.fn((msg: string, ctx: Record<string, unknown>) => {
       // Do nothing
     });
 

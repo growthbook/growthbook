@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { vi } from "vitest";
 import { ReqContext } from "back-end/types/request";
 import {
   connectSlackOAuthIntegration,
@@ -8,19 +9,21 @@ import {
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { JWT_SECRET } from "back-end/src/util/secrets";
 
-jest.mock("back-end/src/util/http.util", () => ({
-  cancellableFetch: jest.fn(),
+vi.mock("back-end/src/util/http.util", () => ({
+  cancellableFetch: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/secrets")>(
+    "back-end/src/util/secrets",
+  )),
   APP_ORIGIN: "https://growthbook.example",
   JWT_SECRET: "test-jwt-secret",
   SLACK_CLIENT_ID: "slack-client-id",
   SLACK_CLIENT_SECRET: "slack-client-secret",
 }));
 
-const upsertSlackWorkspaceConnection = jest.fn();
+const upsertSlackWorkspaceConnection = vi.fn();
 
 const context = {
   org: { id: "org-1" },
@@ -42,7 +45,7 @@ const getValidState = () => {
 
 describe("Slack OAuth validation", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("rejects OAuth state with extra segments", async () => {
@@ -75,7 +78,7 @@ describe("Slack OAuth validation", () => {
   });
 
   it("rejects successful Slack responses without a bot access token", async () => {
-    jest.mocked(cancellableFetch).mockResolvedValueOnce({
+    vi.mocked(cancellableFetch).mockResolvedValueOnce({
       responseWithoutBody: { ok: true, statusText: "OK" },
       stringBody: JSON.stringify({
         ok: true,
@@ -93,9 +96,9 @@ describe("Slack OAuth validation", () => {
   });
 
   it("bounds OAuth requests through the proxy-aware HTTP helper", async () => {
-    jest
-      .mocked(cancellableFetch)
-      .mockRejectedValueOnce(new Error("request aborted"));
+    vi.mocked(cancellableFetch).mockRejectedValueOnce(
+      new Error("request aborted"),
+    );
     await expect(
       connectSlackOAuthIntegration({
         context,
@@ -125,7 +128,7 @@ describe("Slack OAuth validation", () => {
   ])(
     "rejects incomplete, malformed, or oversized exchange responses",
     async (stringBody) => {
-      jest.mocked(cancellableFetch).mockResolvedValueOnce({
+      vi.mocked(cancellableFetch).mockResolvedValueOnce({
         responseWithoutBody: { ok: true },
         stringBody,
       } as never);
@@ -143,7 +146,7 @@ describe("Slack OAuth validation", () => {
   it("stores workspace credentials outside EventWebHooks", async () => {
     const dateCreated = new Date("2026-09-03T12:00:00Z");
     const dateUpdated = new Date("2026-09-03T12:00:00Z");
-    jest.mocked(cancellableFetch).mockResolvedValueOnce({
+    vi.mocked(cancellableFetch).mockResolvedValueOnce({
       responseWithoutBody: { ok: true, statusText: "OK" },
       stringBody: JSON.stringify({
         ok: true,

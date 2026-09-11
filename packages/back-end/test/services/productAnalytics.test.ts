@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ExplorationConfig } from "shared/validators";
 import { FactTableInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
@@ -5,17 +6,17 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
-jest.mock("back-end/src/models/FactTableModel", () => ({
-  getFactTable: jest.fn(),
-  getFactTablesByIds: jest.fn(),
+vi.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTable: vi.fn(),
+  getFactTablesByIds: vi.fn(),
 }));
 
-const getDataSourceByIdMock = jest.mocked(getDataSourceById);
-const getFactTablesByIdsMock = jest.mocked(getFactTablesByIds);
+const getDataSourceByIdMock = vi.mocked(getDataSourceById);
+const getFactTablesByIdsMock = vi.mocked(getFactTablesByIds);
 
 const makeConfig = (
   datasetOverrides: Partial<
@@ -67,18 +68,18 @@ const makeFactTable = (
   }) as FactTableInterface;
 
 describe("runProductAnalyticsExploration funnel validation", () => {
-  const create = jest.fn();
+  const create = vi.fn();
   const context = {
     models: {
       analyticsExplorations: {
-        findLatestByConfig: jest.fn(),
+        findLatestByConfig: vi.fn(),
         create,
       },
     },
   } as unknown as ReqContext;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getDataSourceByIdMock.mockResolvedValue({
       id: "ds_1",
       type: "postgres",

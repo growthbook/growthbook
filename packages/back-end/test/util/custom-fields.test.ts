@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { CustomField } from "shared/types/custom-fields";
 import {
   shouldValidateCustomFieldsOnUpdate,
@@ -18,7 +19,7 @@ const buildCustomField = (
 });
 
 const buildCustomFieldsModel = (fields: CustomField[] | null | undefined) => ({
-  getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue(fields),
+  getCustomFieldsBySectionAndProject: vi.fn().mockResolvedValue(fields),
 });
 
 describe("custom fields validation", () => {

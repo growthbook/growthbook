@@ -1,10 +1,11 @@
+import { vi } from "vitest";
 import { ConflictError } from "back-end/src/util/errors";
 
-const getById = jest.fn();
-const applyChanges = jest.fn();
-const afterRestorePreImage = jest.fn();
+const getById = vi.hoisted(() => vi.fn());
+const applyChanges = vi.hoisted(() => vi.fn());
+const afterRestorePreImage = vi.hoisted(() => vi.fn());
 
-jest.mock("back-end/src/revisions", () => ({
+vi.mock("back-end/src/revisions", () => ({
   getAdapter: () => ({
     getModel: () => ({ getById }),
     applyChanges,
@@ -35,7 +36,7 @@ function contextWithLatestMerged(latestId: string | null): Context {
   return {
     models: {
       revisions: {
-        getLatestMergedByTarget: jest
+        getLatestMergedByTarget: vi
           .fn()
           .mockResolvedValue(latestId ? { id: latestId } : null),
       },

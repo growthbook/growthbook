@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import type { Request } from "express";
@@ -14,30 +15,33 @@ import { setupApp } from "./api.setup";
 // Fault injection at the cleanest seam: the bulk adapter registry. The
 // feature adapter's applyPrecomputed throws AFTER the constant item already
 // applied, so compensation must restore a committed entity write, release
-// both claims, and suppress all success-side signals. The lazy Proxy defers
-// requireActual to first property access, dodging model-module import cycles.
-let mockFailFeatureApply = false;
-let mockFailConstantRestore = false;
-let mockFailConstantReleaseClaim = false;
-let mockFeatureClaimConflict = false;
-let mockFeatureReleaseNoop = false;
-let mockConstantAppliedNothing = false;
-let mockFailConstantApply = false;
-let mockFeatureSafeRolloutPoison: unknown = null;
-let mockFeatureCreatedRampScheduleIds: string[] | null = null;
-let mockBeforeFeatureApply: (() => Promise<void>) | null = null;
+// both claims, and suppress all success-side signals.
+let mockFailFeatureApply = vi.hoisted(() => false);
+let mockFailConstantRestore = vi.hoisted(() => false);
+let mockFailConstantReleaseClaim = vi.hoisted(() => false);
+let mockFeatureClaimConflict = vi.hoisted(() => false);
+let mockFeatureReleaseNoop = vi.hoisted(() => false);
+let mockConstantAppliedNothing = vi.hoisted(() => false);
+let mockFailConstantApply = vi.hoisted(() => false);
+let mockFeatureSafeRolloutPoison: unknown = vi.hoisted(() => null);
+let mockFeatureCreatedRampScheduleIds: string[] | null = vi.hoisted(() => null);
+let mockBeforeFeatureApply: (() => Promise<void>) | null = vi.hoisted(
+  () => null,
+);
 // The no-op self-heal replay: a real durable write, and a way to make a later one
 // throw so the run aborts after that write has landed.
-let mockConstantNoOpReplay: ((context: unknown) => Promise<void>) | null = null;
-let mockFailConstantNoOpMerge = false;
-jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
-  return new Proxy(
-    {},
-    {
+let mockConstantNoOpReplay: ((context: unknown) => Promise<void>) | null =
+  vi.hoisted(() => null);
+let mockFailConstantNoOpMerge = vi.hoisted(() => false);
+vi.mock(
+  "back-end/src/revisions/bulkPublish/registry",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("back-end/src/revisions/bulkPublish/registry")
+      >();
+    return new Proxy(actual, {
       get(_target, prop: string) {
-        const actual = jest.requireActual(
-          "back-end/src/revisions/bulkPublish/registry",
-        );
         if (prop !== "getBulkAdapter") return actual[prop];
         return (type: string) => {
           const adapter = actual.getBulkAdapter(type);
@@ -121,9 +125,9 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
           return adapter;
         };
       },
-    },
-  );
-});
+    });
+  },
+);
 
 const ORG_ID = "org_publish_failure";
 
@@ -237,7 +241,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
         ],
       })
       .set("Authorization", "Bearer foo");
-    expect(res.status).toBe(500);
+    expect(res.status, JSON.stringify(res.body)).toBe(500);
     expect(res.body.message).toMatch(/rolled back/);
 
     // Pre-images restored on both entities.
@@ -371,7 +375,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
         ],
       })
       .set("Authorization", "Bearer foo");
-    expect(res.status).toBe(500);
+    expect(res.status, JSON.stringify(res.body)).toBe(500);
     expect(res.body.message).toMatch(/could not be fully rolled back/);
 
     // Per-item outcomes name the stuck entity — flat rows speaking the
@@ -498,7 +502,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
         ],
       })
       .set("Authorization", "Bearer foo");
-    expect(res.status).toBe(500);
+    expect(res.status, JSON.stringify(res.body)).toBe(500);
 
     const byId = Object.fromEntries(
       (res.body.items as { id: string; status: string }[]).map((item) => [
@@ -605,7 +609,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
       })
       .set("Authorization", "Bearer foo");
     // Not a clean 409 — the failed reopen escalates to a 500 with items.
-    expect(res.status).toBe(500);
+    expect(res.status, JSON.stringify(res.body)).toBe(500);
 
     const byId = Object.fromEntries(
       (res.body.items as { id: string; status: string }[]).map((item) => [
@@ -711,7 +715,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
         ],
       })
       .set("Authorization", "Bearer foo");
-    expect(res.status).toBe(500);
+    expect(res.status, JSON.stringify(res.body)).toBe(500);
 
     const byId = Object.fromEntries(
       (res.body.items as { id: string; status: string }[]).map((item) => [
@@ -833,7 +837,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
         ],
       })
       .set("Authorization", "Bearer foo");
-    expect(res.status).toBe(500);
+    expect(res.status, JSON.stringify(res.body)).toBe(500);
 
     const byId = Object.fromEntries(
       (res.body.items as { id: string; status: string }[]).map((item) => [
@@ -942,7 +946,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
         ],
       })
       .set("Authorization", "Bearer foo");
-    expect(res.status).toBe(500);
+    expect(res.status, JSON.stringify(res.body)).toBe(500);
 
     const byId = Object.fromEntries(
       (res.body.items as { id: string; status: string }[]).map((item) => [
@@ -1081,7 +1085,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
         ],
       })
       .set("Authorization", "Bearer foo");
-    expect(res.status).toBe(500);
+    expect(res.status, JSON.stringify(res.body)).toBe(500);
 
     const byId = Object.fromEntries(
       (res.body.items as { id: string; status: string }[]).map((item) => [
@@ -1201,7 +1205,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
         ],
       })
       .set("Authorization", "Bearer foo");
-    expect(res.status).toBe(500);
+    expect(res.status, JSON.stringify(res.body)).toBe(500);
 
     // The feature really did go back.
     const feature = await mongoose.connection

@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import type { EventForwarderConfigInterface } from "shared/validators";
 import type { DataSourceInterface } from "shared/types/datasource";
 import {
@@ -8,16 +9,16 @@ import { syncEventForwarderConfigFromDatasource } from "back-end/src/services/ev
 import * as configInit from "back-end/src/init/config";
 import * as provisioning from "back-end/src/services/eventForwarder/connector";
 
-jest.mock("back-end/src/init/config");
-jest.mock("back-end/src/services/eventForwarder/connector", () => ({
-  teardownEventForwarderInfrastructureRemote: jest.fn(),
+vi.mock("back-end/src/init/config");
+vi.mock("back-end/src/services/eventForwarder/connector", () => ({
+  teardownEventForwarderInfrastructureRemote: vi.fn(),
 }));
 
-const mockedUsingFileConfig = configInit.usingFileConfig as jest.MockedFunction<
+const mockedUsingFileConfig = configInit.usingFileConfig as MockedFunction<
   typeof configInit.usingFileConfig
 >;
 const mockedTeardownRemote =
-  provisioning.teardownEventForwarderInfrastructureRemote as jest.MockedFunction<
+  provisioning.teardownEventForwarderInfrastructureRemote as MockedFunction<
     typeof provisioning.teardownEventForwarderInfrastructureRemote
   >;
 
@@ -38,7 +39,7 @@ function bqDatasource(id: string): DataSourceInterface {
 
 describe("syncEventForwarderAfterDatasourceDeleted", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedUsingFileConfig.mockReturnValue(false);
     mockedTeardownRemote.mockResolvedValue(undefined);
   });
@@ -59,21 +60,19 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     };
 
     const callOrder: string[] = [];
-    const deleteForDatasourceCascade = jest
-      .fn()
-      .mockImplementation(async () => {
-        callOrder.push("delete");
-      });
+    const deleteForDatasourceCascade = vi.fn().mockImplementation(async () => {
+      callOrder.push("delete");
+    });
     mockedTeardownRemote.mockImplementation(async () => {
       callOrder.push("teardown");
     });
-    const getByDatasourceIdForDatasourceCascade = jest
+    const getByDatasourceIdForDatasourceCascade = vi
       .fn()
       .mockResolvedValue(existing);
 
     const context = {
       org: { id: "org1" },
-      auditLog: jest.fn().mockResolvedValue(undefined),
+      auditLog: vi.fn().mockResolvedValue(undefined),
       models: {
         eventForwarderConfigs: {
           getByDatasourceIdForDatasourceCascade,
@@ -116,21 +115,19 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     };
 
     const callOrder: string[] = [];
-    const deleteForDatasourceCascade = jest
-      .fn()
-      .mockImplementation(async () => {
-        callOrder.push("delete");
-      });
+    const deleteForDatasourceCascade = vi.fn().mockImplementation(async () => {
+      callOrder.push("delete");
+    });
     mockedTeardownRemote.mockImplementation(async () => {
       callOrder.push("teardown");
     });
-    const getByDatasourceIdForDatasourceCascade = jest
+    const getByDatasourceIdForDatasourceCascade = vi
       .fn()
       .mockResolvedValue(existing);
 
     const context = {
       org: { id: "org1" },
-      auditLog: jest.fn(),
+      auditLog: vi.fn(),
       models: {
         eventForwarderConfigs: {
           getByDatasourceIdForDatasourceCascade,
@@ -162,14 +159,14 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
   });
 
   it("does nothing when no event forwarder exists for that datasource", async () => {
-    const getByDatasourceIdForDatasourceCascade = jest
+    const getByDatasourceIdForDatasourceCascade = vi
       .fn()
       .mockResolvedValue(null);
-    const deleteForDatasourceCascade = jest.fn();
+    const deleteForDatasourceCascade = vi.fn();
 
     const context = {
       org: { id: "org1" },
-      auditLog: jest.fn(),
+      auditLog: vi.fn(),
       models: {
         eventForwarderConfigs: {
           getByDatasourceIdForDatasourceCascade,
@@ -208,18 +205,18 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       topic: "topic-b",
     };
 
-    const getByDatasourceIdForDatasourceCascade = jest
+    const getByDatasourceIdForDatasourceCascade = vi
       .fn()
       .mockImplementation((datasourceId: string) => {
         if (datasourceId === "ds_a") return Promise.resolve(existingA);
         if (datasourceId === "ds_b") return Promise.resolve(existingB);
         return Promise.resolve(null);
       });
-    const deleteForDatasourceCascade = jest.fn().mockResolvedValue(undefined);
+    const deleteForDatasourceCascade = vi.fn().mockResolvedValue(undefined);
 
     const context = {
       org: { id: "org1" },
-      auditLog: jest.fn().mockResolvedValue(undefined),
+      auditLog: vi.fn().mockResolvedValue(undefined),
       models: {
         eventForwarderConfigs: {
           getByDatasourceIdForDatasourceCascade,
@@ -243,7 +240,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     });
     expect(deleteForDatasourceCascade).toHaveBeenCalledTimes(1);
 
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedUsingFileConfig.mockReturnValue(false);
     mockedTeardownRemote.mockResolvedValue(undefined);
 
@@ -279,11 +276,11 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       dateUpdated: new Date(),
     };
 
-    const deleteForDatasourceCascade = jest.fn().mockResolvedValue(undefined);
-    const getByDatasourceIdForDatasourceCascade = jest
+    const deleteForDatasourceCascade = vi.fn().mockResolvedValue(undefined);
+    const getByDatasourceIdForDatasourceCascade = vi
       .fn()
       .mockResolvedValue(existing);
-    const auditLog = jest.fn().mockResolvedValue(undefined);
+    const auditLog = vi.fn().mockResolvedValue(undefined);
     mockedTeardownRemote.mockRejectedValue(new Error("license server down"));
 
     const context = {
@@ -319,7 +316,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
 
 describe("deleteEventForwarderConfigForDatasource", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedTeardownRemote.mockResolvedValue(undefined);
   });
 
@@ -341,7 +338,7 @@ describe("deleteEventForwarderConfigForDatasource", () => {
     };
 
     const callOrder: string[] = [];
-    const deleteConfig = jest.fn().mockImplementation(async () => {
+    const deleteConfig = vi.fn().mockImplementation(async () => {
       callOrder.push("delete");
     });
     mockedTeardownRemote.mockImplementation(async () => {
@@ -349,7 +346,7 @@ describe("deleteEventForwarderConfigForDatasource", () => {
     });
     const context = {
       org: { id: "org1" },
-      auditLog: jest.fn().mockResolvedValue(undefined),
+      auditLog: vi.fn().mockResolvedValue(undefined),
       models: {
         eventForwarderConfigs: {
           delete: deleteConfig,
@@ -391,7 +388,7 @@ describe("deleteEventForwarderConfigForDatasource", () => {
     };
 
     const callOrder: string[] = [];
-    const deleteConfig = jest.fn().mockImplementation(async () => {
+    const deleteConfig = vi.fn().mockImplementation(async () => {
       callOrder.push("delete");
     });
     mockedTeardownRemote.mockImplementation(async () => {
@@ -399,7 +396,7 @@ describe("deleteEventForwarderConfigForDatasource", () => {
     });
     const context = {
       org: { id: "org1" },
-      auditLog: jest.fn().mockResolvedValue(undefined),
+      auditLog: vi.fn().mockResolvedValue(undefined),
       models: {
         eventForwarderConfigs: {
           delete: deleteConfig,
@@ -431,8 +428,8 @@ describe("deleteEventForwarderConfigForDatasource", () => {
 
 describe("syncEventForwarderConfigFromDatasource draft null", () => {
   it("returns null on create when draft is null and no existing config", async () => {
-    const getByDatasourceId = jest.fn().mockResolvedValue(null);
-    const deleteConfig = jest.fn();
+    const getByDatasourceId = vi.fn().mockResolvedValue(null);
+    const deleteConfig = vi.fn();
     const context = {
       org: { id: "org1" },
       models: {
@@ -468,8 +465,8 @@ describe("syncEventForwarderConfigFromDatasource draft null", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     };
-    const getByDatasourceId = jest.fn().mockResolvedValue(existing);
-    const deleteConfig = jest.fn();
+    const getByDatasourceId = vi.fn().mockResolvedValue(existing);
+    const deleteConfig = vi.fn();
     const context = {
       org: { id: "org1" },
       models: {

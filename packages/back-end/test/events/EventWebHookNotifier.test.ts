@@ -1,21 +1,22 @@
+import { vi } from "vitest";
 import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 import { getEventWebHookSignatureForPayload } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { secretsReplacer } from "back-end/src/util/secrets";
 
-jest.mock("back-end/src/events/handlers/webhooks/event-webhooks-utils", () => ({
-  getEventWebHookSignatureForPayload: jest.fn(),
+vi.mock("back-end/src/events/handlers/webhooks/event-webhooks-utils", () => ({
+  getEventWebHookSignatureForPayload: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/http.util", () => ({
-  cancellableFetch: jest.fn(),
+vi.mock("back-end/src/util/http.util", () => ({
+  cancellableFetch: vi.fn(),
 }));
 
 const applySecrets = secretsReplacer({});
 
 describe("EventWebHookNotifier", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("sends data to webhook", async () => {

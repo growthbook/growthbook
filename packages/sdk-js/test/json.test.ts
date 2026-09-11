@@ -109,9 +109,9 @@ describe("json test suite", () => {
   it.each((cases as Cases).evalCondition)(
     "evalCondition[%#] %s",
     (name, condition, value, expected, savedGroups = {}) => {
-      const consoleErrorMock = jest
+      const consoleErrorMock = vi
         .spyOn(console, "error")
-        .mockImplementation();
+        .mockImplementation(() => undefined);
       expect(evalCondition(value, condition, savedGroups)).toEqual(expected);
       consoleErrorMock.mockRestore();
     },
@@ -127,9 +127,9 @@ describe("json test suite", () => {
   it.each((cases as Cases).getBucketRange)(
     "getBucketRange[%#] %s",
     (name, inputs, expected) => {
-      const consoleErrorMock = jest
+      const consoleErrorMock = vi
         .spyOn(console, "error")
-        .mockImplementation();
+        .mockImplementation(() => undefined);
 
       expect(
         roundArrayArray(

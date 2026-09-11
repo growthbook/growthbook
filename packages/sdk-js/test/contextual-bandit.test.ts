@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { GrowthBook } from "../src";
 import { GrowthBookClient } from "../src/GrowthBookClient";
 import { ContextualBanditDefinitions } from "../src/types/growthbook";
@@ -116,7 +117,7 @@ describe("contextual bandit feature rules", () => {
   it("excludes the user (no exposure, no leaf metadata) when global targeting fails even if a leaf matches", () => {
     // The user matches leaf 1 (plan=enterprise) but fails the global targeting
     // condition (country != US). Must be excluded and leak no leaf metadata.
-    const trackingCallback = jest.fn();
+    const trackingCallback = vi.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise", country: "CA" },
       trackingCallback,
@@ -181,7 +182,7 @@ describe("contextual bandit feature rules", () => {
     // The SDK no longer enforces a list of required attributes. A user missing
     // `plan` simply fails the specific leaf condition and matches the catch-all
     // leaf like any other non-enterprise user.
-    const trackingCallback = jest.fn();
+    const trackingCallback = vi.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1" },
       trackingCallback,
@@ -205,7 +206,7 @@ describe("contextual bandit feature rules", () => {
   it("buckets on fallback weights (leafId -1) and tracks when no leaf matches", () => {
     // User passes global targeting and has the required attribute, but matches
     // none of the leaves (no catch-all present). Fallback leaf, still tracked.
-    const trackingCallback = jest.fn();
+    const trackingCallback = vi.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "free" },
       trackingCallback,
@@ -231,7 +232,7 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("does not crash and uses fallback weights (leafId -1) when leaf selection throws", () => {
-    const trackingCallback = jest.fn();
+    const trackingCallback = vi.fn();
     // A condition that throws when evaluated (e.g. a malformed payload).
     const throwingCondition = new Proxy(
       {},
@@ -268,7 +269,7 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("passes resolved attributes to the standard trackingCallback for CB exposures", () => {
-    const trackingCallback = jest.fn();
+    const trackingCallback = vi.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       trackingCallback,
@@ -291,7 +292,7 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("reports the override weights (not the leaf weights) when a context weights-override changes bucketing", () => {
-    const trackingCallback = jest.fn();
+    const trackingCallback = vi.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" }, // matches leaf 1 -> [1, 0]
       trackingCallback,
@@ -322,7 +323,7 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("passes attributes to the trackingCallback for non-CB experiments too (no leaf data on result)", () => {
-    const trackingCallback = jest.fn();
+    const trackingCallback = vi.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1" },
       trackingCallback,
@@ -418,7 +419,7 @@ describe("contextual bandit feature rules", () => {
     expect(deferred[0].result.leafId).toEqual(1);
     expect(deferred[0].result.banditVersion).toEqual(7);
 
-    const trackingCallback = jest.fn();
+    const trackingCallback = vi.fn();
     gb.setTrackingCallback(trackingCallback);
     await gb.fireDeferredTrackingCalls();
 

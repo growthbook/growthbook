@@ -1,13 +1,16 @@
+import { MockedFunction, vi } from "vitest";
 import { OrganizationInterface } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { assertMemberRoleInfoValid } from "back-end/src/services/organizations";
 
-jest.mock("back-end/src/enterprise", () => ({
-  ...jest.requireActual("back-end/src/enterprise"),
-  orgHasPremiumFeature: jest.fn(),
+vi.mock("back-end/src/enterprise", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/enterprise")>(
+    "back-end/src/enterprise",
+  )),
+  orgHasPremiumFeature: vi.fn(),
 }));
 
-const mockPremium = orgHasPremiumFeature as jest.MockedFunction<
+const mockPremium = orgHasPremiumFeature as MockedFunction<
   typeof orgHasPremiumFeature
 >;
 

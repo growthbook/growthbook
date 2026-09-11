@@ -1,3 +1,4 @@
+import { MockedFunction, Mock, vi } from "vitest";
 import fetch, { Response } from "node-fetch";
 import * as Sentry from "@sentry/node";
 import { OrganizationInterface } from "shared/types/organization";
@@ -11,33 +12,37 @@ import {
 } from "back-end/src/enterprise/billing";
 import * as licenseUtil from "back-end/src/enterprise/licenseUtil";
 
-jest.mock("@sentry/node", () => ({
-  ...jest.requireActual("@sentry/node"),
-  captureException: jest.fn(),
+vi.mock("@sentry/node", async () => ({
+  ...(await vi.importActual<typeof import("@sentry/node")>("@sentry/node")),
+  captureException: vi.fn(),
 }));
 
-jest.mock("back-end/src/enterprise/licenseUtil", () => ({
-  ...jest.requireActual("back-end/src/enterprise/licenseUtil"),
-  getEffectiveAccountPlan: jest.fn(),
+vi.mock("back-end/src/enterprise/licenseUtil", async () => ({
+  ...(await vi.importActual<
+    typeof import("back-end/src/enterprise/licenseUtil")
+  >("back-end/src/enterprise/licenseUtil")),
+  getEffectiveAccountPlan: vi.fn(),
 }));
 
-jest.mock("back-end/src/util/logger", () => ({
+vi.mock("back-end/src/util/logger", () => ({
   logger: {
-    error: jest.fn(),
+    error: vi.fn(),
   },
 }));
 
-let isCloud = false;
+let isCloud = vi.hoisted(() => false);
 
-jest.mock("back-end/src/util/secrets", () => ({
-  ...jest.requireActual("back-end/src/util/secrets"),
+vi.mock("back-end/src/util/secrets", async () => ({
+  ...(await vi.importActual<typeof import("back-end/src/util/secrets")>(
+    "back-end/src/util/secrets",
+  )),
   get IS_CLOUD() {
     return isCloud; // Use a getter to dynamically return the value of isCloud
   },
 }));
-jest.mock("node-fetch");
+vi.mock("node-fetch");
 
-const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
+const mockedFetch = fetch as MockedFunction<typeof fetch>;
 
 const mockOrgId = "org_123";
 
@@ -85,14 +90,14 @@ describe("getUsage", () => {
 
   beforeEach(() => {
     resetUsageCache();
-    jest.clearAllMocks();
-    jest.useFakeTimers();
-    jest.setSystemTime(now);
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
     process.env = { ...env };
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
     mockedFetch.mockReset();
     process.env = env;
   });
@@ -126,9 +131,7 @@ describe("getUsage", () => {
 
     describe("pro plan", () => {
       beforeEach(() => {
-        (licenseUtil.getEffectiveAccountPlan as jest.Mock).mockReturnValue(
-          "pro",
-        );
+        (licenseUtil.getEffectiveAccountPlan as Mock).mockReturnValue("pro");
       });
 
       it("should return UNLIMITED_USAGE for plans with unlimited usage", async () => {
@@ -163,7 +166,7 @@ describe("getUsage", () => {
 
     describe("starter plan", () => {
       beforeEach(() => {
-        (licenseUtil.getEffectiveAccountPlan as jest.Mock).mockReturnValue(
+        (licenseUtil.getEffectiveAccountPlan as Mock).mockReturnValue(
           "starter",
         );
       });
@@ -181,7 +184,7 @@ describe("getUsage", () => {
       it("should fetch usage data from the server if cache is empty and wait is true", async () => {
         mockedFetch.mockResolvedValueOnce({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(mockResponse),
+          json: vi.fn().mockResolvedValueOnce(mockResponse),
         } as unknown as Response);
 
         const usage = await getUsage(mockOrganization);
@@ -192,7 +195,7 @@ describe("getUsage", () => {
       it("should return cached usage data if available and not expired", async () => {
         mockedFetch.mockResolvedValueOnce({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(mockResponse),
+          json: vi.fn().mockResolvedValueOnce(mockResponse),
         } as unknown as Response);
 
         const usage = await getUsage(mockOrganization);
@@ -206,17 +209,17 @@ describe("getUsage", () => {
       it("should return cached usage data if available and expired, and refetch in the background", async () => {
         mockedFetch.mockResolvedValueOnce({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(mockResponse),
+          json: vi.fn().mockResolvedValueOnce(mockResponse),
         } as unknown as Response);
         mockedFetch.mockResolvedValueOnce({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(mockResponse2),
+          json: vi.fn().mockResolvedValueOnce(mockResponse2),
         } as unknown as Response);
 
         const usage = await getUsage(mockOrganization);
         expect(usage).toEqual(mockResponse[mockOrgId]);
 
-        jest.setSystemTime(twoHoursFromNow);
+        vi.setSystemTime(twoHoursFromNow);
         const usage2 = await getUsage(mockOrganization);
         expect(usage2).toEqual(mockResponse[mockOrgId]);
 
@@ -232,7 +235,7 @@ describe("getUsage", () => {
       it("should not wait for the server response if getUsageFromCache is called, but subsequent request should have it", async () => {
         mockedFetch.mockResolvedValueOnce({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce(mockResponse),
+          json: vi.fn().mockResolvedValueOnce(mockResponse),
         } as unknown as Response);
 
         const usage = getUsageFromCache(mockOrganization);

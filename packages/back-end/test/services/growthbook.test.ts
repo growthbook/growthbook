@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   getRoutePath,
@@ -5,24 +6,24 @@ import {
   trackEventForContext,
 } from "back-end/src/services/growthbook";
 
-const mockOrgClientLogEvent = jest.fn();
-const mockOrgClientInit = jest
-  .fn()
-  .mockResolvedValue({ success: true, source: "test" });
+const mockOrgClientLogEvent = vi.hoisted(() => vi.fn());
+const mockOrgClientInit = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ success: true, source: "test" }),
+);
 
-jest.mock("@growthbook/growthbook", () => ({
-  GrowthBookClient: jest.fn().mockImplementation(() => ({
+vi.mock("@growthbook/growthbook", () => ({
+  GrowthBookClient: vi.fn().mockImplementation(() => ({
     logEvent: mockOrgClientLogEvent,
     init: mockOrgClientInit,
   })),
-  setPolyfills: jest.fn(),
+  setPolyfills: vi.fn(),
 }));
 
-jest.mock("@growthbook/growthbook/plugins", () => ({
-  growthbookTrackingPlugin: jest.fn(),
+vi.mock("@growthbook/growthbook/plugins", () => ({
+  growthbookTrackingPlugin: vi.fn(),
 }));
 
-jest.mock("eventsource", () => ({ EventSource: jest.fn() }));
+vi.mock("eventsource", () => ({ EventSource: vi.fn() }));
 
 describe("parseContentLength", () => {
   it("returns undefined when the header is absent", () => {
@@ -88,7 +89,7 @@ describe("trackEventForContext", () => {
   });
 
   it("uses the request-scoped client when `req.gb` is present", () => {
-    const scopedLogEvent = jest.fn();
+    const scopedLogEvent = vi.fn();
     const context = {
       org,
       req: { gb: { logEvent: scopedLogEvent } },

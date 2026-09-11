@@ -1,3 +1,4 @@
+import { MockedFunction, Mock, vi } from "vitest";
 import { ExposureQuery } from "shared/types/datasource";
 import type { SDKAttributeSchema } from "shared/types/organization";
 import {
@@ -25,42 +26,42 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 
-jest.mock("back-end/src/services/features", () => ({
-  queueSDKPayloadRefresh: jest.fn(),
+vi.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/contextualBanditChanges", () => ({
-  refreshLinkedFeaturePayloads: jest.fn().mockResolvedValue(undefined),
+vi.mock("back-end/src/services/contextualBanditChanges", () => ({
+  refreshLinkedFeaturePayloads: vi.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock("back-end/src/models/DataSourceModel", () => ({
-  getDataSourceById: jest.fn(),
+vi.mock("back-end/src/models/DataSourceModel", () => ({
+  getDataSourceById: vi.fn(),
 }));
 
-jest.mock("back-end/src/services/datasource", () => ({
-  getSourceIntegrationObject: jest.fn(),
+vi.mock("back-end/src/services/datasource", () => ({
+  getSourceIntegrationObject: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner",
   () => ({
-    ContextualBanditResultsQueryRunner: jest.fn(),
+    ContextualBanditResultsQueryRunner: vi.fn(),
   }),
 );
 
 const refreshLinkedFeaturePayloadsMock =
-  refreshLinkedFeaturePayloads as jest.MockedFunction<
+  refreshLinkedFeaturePayloads as MockedFunction<
     typeof refreshLinkedFeaturePayloads
   >;
-const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
+const getDataSourceByIdMock = getDataSourceById as MockedFunction<
   typeof getDataSourceById
 >;
 const getSourceIntegrationObjectMock =
-  getSourceIntegrationObject as jest.MockedFunction<
+  getSourceIntegrationObject as MockedFunction<
     typeof getSourceIntegrationObject
   >;
 const ContextualBanditResultsQueryRunnerMock =
-  ContextualBanditResultsQueryRunner as unknown as jest.Mock;
+  ContextualBanditResultsQueryRunner as unknown as Mock;
 
 function makeCb(
   overrides: Partial<ContextualBanditInterface> = {},
@@ -339,10 +340,10 @@ describe("buildContextualBanditSnapshotSettings", () => {
 });
 
 describe("runContextualBanditSnapshot", () => {
-  const startAnalysisMock = jest.fn().mockResolvedValue(undefined);
+  const startAnalysisMock = vi.fn().mockResolvedValue(undefined);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     startAnalysisMock.mockResolvedValue(undefined);
     getDataSourceByIdMock.mockResolvedValue({
       id: "ds_1",
@@ -357,16 +358,16 @@ describe("runContextualBanditSnapshot", () => {
 
   function makeContext(
     overrides: Partial<{
-      update: jest.Mock;
+      update: Mock;
       cbeSnapshotId: string;
     }> = {},
   ) {
     const updateMock =
-      overrides.update ?? jest.fn().mockImplementation((cb) => cb);
+      overrides.update ?? vi.fn().mockImplementation((cb) => cb);
     return {
-      hasPremiumFeature: jest.fn().mockReturnValue(true),
-      auditLog: jest.fn().mockResolvedValue(undefined),
-      logger: { error: jest.fn() },
+      hasPremiumFeature: vi.fn().mockReturnValue(true),
+      auditLog: vi.fn().mockResolvedValue(undefined),
+      logger: { error: vi.fn() },
       org: {
         settings: {
           attributeSchema: [{ property: "country" }, { property: "device" }],
@@ -375,7 +376,7 @@ describe("runContextualBanditSnapshot", () => {
       models: {
         contextualBandits: { dangerousUpdateBypassPermission: updateMock },
         contextualBanditQueries: {
-          getById: jest.fn().mockResolvedValue({
+          getById: vi.fn().mockResolvedValue({
             id: "cbq_1",
             query: "SELECT 1",
             userIdType: "user_id",
@@ -383,17 +384,17 @@ describe("runContextualBanditSnapshot", () => {
           }),
         },
         contextualBanditSnapshots: {
-          create: jest
+          create: vi
             .fn()
             .mockResolvedValue({ id: overrides.cbeSnapshotId ?? "cbs_1" }),
-          getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
+          getLatestForContextualBandit: vi.fn().mockResolvedValue(null),
         },
       },
     } as unknown as ApiReqContext;
   }
 
   it("resolves the explore -> exploit stage transition before starting the run", async () => {
-    jest.useFakeTimers().setSystemTime(new Date("2025-01-03T01:00:00Z"));
+    vi.useFakeTimers().setSystemTime(new Date("2025-01-03T01:00:00Z"));
     try {
       // Burn-in (1 day from stageDateStarted) has already elapsed, but the CB
       // doc still says "explore" since nothing has re-derived it yet.
@@ -403,7 +404,7 @@ describe("runContextualBanditSnapshot", () => {
         burnInValue: 1,
         burnInUnit: "days",
       });
-      const updateMock = jest.fn().mockImplementation((existing, changes) => ({
+      const updateMock = vi.fn().mockImplementation((existing, changes) => ({
         ...existing,
         ...changes,
       }));
@@ -425,14 +426,14 @@ describe("runContextualBanditSnapshot", () => {
       );
       expect(result.snapshotId).toBe("cbs_1");
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 });
 
 describe("persistContextualBanditEvent", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     refreshLinkedFeaturePayloadsMock.mockResolvedValue(undefined);
   });
 
@@ -441,7 +442,7 @@ describe("persistContextualBanditEvent", () => {
     const cbs = makeCbs();
     const result = makeResult();
 
-    const createCbeMock = jest.fn().mockResolvedValue({
+    const createCbeMock = vi.fn().mockResolvedValue({
       id: "cbe_1",
       organization: "org_1",
       contextualBandit: cb.id,
@@ -452,8 +453,8 @@ describe("persistContextualBanditEvent", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
-    const patchLeafWeightsMock = jest.fn().mockResolvedValue(cb);
-    const getByIdMock = jest.fn().mockResolvedValue(cb);
+    const patchLeafWeightsMock = vi.fn().mockResolvedValue(cb);
+    const getByIdMock = vi.fn().mockResolvedValue(cb);
 
     const context = {
       org: { id: "org_1" },
@@ -461,14 +462,14 @@ describe("persistContextualBanditEvent", () => {
         contextualBandits: {
           getById: getByIdMock,
           patchLeafWeights: patchLeafWeightsMock,
-          update: jest.fn().mockResolvedValue(cb),
+          update: vi.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
           create: createCbeMock,
         },
       },
-      auditLog: jest.fn().mockResolvedValue(undefined),
-      logger: { error: jest.fn() },
+      auditLog: vi.fn().mockResolvedValue(undefined),
+      logger: { error: vi.fn() },
     } as unknown as ReqContext;
 
     const cbe = await persistContextualBanditEvent(context, cbs, result);
@@ -520,7 +521,7 @@ describe("persistContextualBanditEvent", () => {
     const cbs = makeCbs();
     const result = makeResult({ responses: [], leaf_map: [] });
 
-    const createCbeMock = jest.fn().mockResolvedValue({
+    const createCbeMock = vi.fn().mockResolvedValue({
       id: "cbe_empty",
       organization: "org_1",
       contextualBandit: cb.id,
@@ -531,15 +532,15 @@ describe("persistContextualBanditEvent", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
-    const patchLeafWeightsMock = jest.fn().mockResolvedValue(cb);
+    const patchLeafWeightsMock = vi.fn().mockResolvedValue(cb);
 
     const context = {
       org: { id: "org_1" },
       models: {
         contextualBandits: {
-          getById: jest.fn().mockResolvedValue(cb),
+          getById: vi.fn().mockResolvedValue(cb),
           patchLeafWeights: patchLeafWeightsMock,
-          update: jest.fn().mockResolvedValue(cb),
+          update: vi.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
           create: createCbeMock,
@@ -565,10 +566,10 @@ describe("persistContextualBanditEvent", () => {
       org: { id: "org_1" },
       models: {
         contextualBandits: {
-          getById: jest.fn().mockResolvedValue(null),
-          patchLeafWeights: jest.fn(),
+          getById: vi.fn().mockResolvedValue(null),
+          patchLeafWeights: vi.fn(),
         },
-        contextualBanditEvents: { create: jest.fn() },
+        contextualBanditEvents: { create: vi.fn() },
       },
     } as unknown as ReqContext;
 
@@ -585,8 +586,8 @@ describe("persistContextualBanditEvent", () => {
     const cbs = makeCbs();
     const result = makeResult();
 
-    const patchLeafWeightsMock = jest.fn().mockResolvedValue(cb);
-    const createCbeMock = jest.fn().mockResolvedValue({
+    const patchLeafWeightsMock = vi.fn().mockResolvedValue(cb);
+    const createCbeMock = vi.fn().mockResolvedValue({
       id: "cbe_1",
       organization: "org_1",
       contextualBandit: cb.id,
@@ -598,12 +599,12 @@ describe("persistContextualBanditEvent", () => {
       dateUpdated: new Date(),
     });
 
-    const updateMock = jest.fn();
+    const updateMock = vi.fn();
     const context = {
       org: { id: "org_1" },
       models: {
         contextualBandits: {
-          getById: jest.fn().mockResolvedValue(cb),
+          getById: vi.fn().mockResolvedValue(cb),
           patchLeafWeights: patchLeafWeightsMock,
           update: updateMock,
         },
@@ -636,17 +637,17 @@ describe("persistContextualBanditEvent", () => {
       result,
       cb.variations,
     );
-    const patchLeafWeightsMock = jest.fn().mockResolvedValue(cb);
+    const patchLeafWeightsMock = vi.fn().mockResolvedValue(cb);
     const context = {
       org: { id: "org_1" },
       models: {
         contextualBandits: {
-          getById: jest.fn().mockResolvedValue(cb),
+          getById: vi.fn().mockResolvedValue(cb),
           patchLeafWeights: patchLeafWeightsMock,
-          update: jest.fn().mockResolvedValue(cb),
+          update: vi.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
-          create: jest.fn().mockResolvedValue({
+          create: vi.fn().mockResolvedValue({
             id: "cbe_1",
             organization: "org_1",
             contextualBandit: cb.id,
@@ -819,10 +820,10 @@ describe("getContextualBanditResultsForUi", () => {
     const context = {
       models: {
         contextualBanditSnapshots: {
-          getLatestForContextualBandit: jest.fn().mockResolvedValue(cbs),
+          getLatestForContextualBandit: vi.fn().mockResolvedValue(cbs),
         },
         contextualBanditEvents: {
-          getLatestForContextualBandit: jest.fn().mockResolvedValue(cbe),
+          getLatestForContextualBandit: vi.fn().mockResolvedValue(cbe),
         },
       },
     } as unknown as ReqContext;

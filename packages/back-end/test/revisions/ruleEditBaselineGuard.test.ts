@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import mongoose from "mongoose";
 import type { Response } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -83,7 +84,7 @@ describe("putFeatureRule baseline guard", () => {
       name: "A",
       query: {},
       headers: {},
-      audit: jest.fn(),
+      audit: vi.fn(),
     }) as unknown as Parameters<typeof putFeatureRule>[0];
 
   const resSpy = () => {
@@ -387,9 +388,8 @@ describe("putFeatureRule baseline guard", () => {
     let intercepted = false;
     // Interposed on the guarded write, not the read before it: a one-shot spy
     // on findOne is consumable by any in-flight read.
-    jest
-      .spyOn(collection, "findOneAndUpdate")
-      .mockImplementation(async (...args: unknown[]) => {
+    vi.spyOn(collection, "findOneAndUpdate").mockImplementation(
+      async (...args: unknown[]) => {
         intercepted = true;
         await collection.updateOne(
           { organization: ORG_ID, featureId: FEATURE_ID, version: 2 },
@@ -398,7 +398,8 @@ describe("putFeatureRule baseline guard", () => {
         return (realFindOneAndUpdate as (...a: unknown[]) => Promise<unknown>)(
           ...args,
         );
-      });
+      },
+    );
 
     try {
       await putFeatureRule(
@@ -410,7 +411,7 @@ describe("putFeatureRule baseline guard", () => {
         res,
       );
     } finally {
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     }
 
     // Fails loudly if the guarded write moves off findOneAndUpdate.

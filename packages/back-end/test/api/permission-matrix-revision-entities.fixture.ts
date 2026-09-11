@@ -19,7 +19,7 @@ import {
  * permission-matrix-features.test.ts, and a divergence is either a deliberate
  * difference or a bug.
  *
- * One entity per spec file: Jest never splits a single file across workers.
+ * One entity per spec file: Vitest never splits a single file across workers.
  * Importing this module boots an app and an in-memory Mongo of its own.
  */
 

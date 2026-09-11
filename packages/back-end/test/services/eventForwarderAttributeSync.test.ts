@@ -1,22 +1,23 @@
+import { MockedFunction, vi } from "vitest";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
 import * as EventForwarderConfig from "back-end/src/services/eventForwarder/config";
 import * as EventForwarderFactTable from "back-end/src/services/eventForwarder/factTable";
 import * as EventForwarderUserIdTypes from "back-end/src/services/eventForwarder/datasourceSync";
 
-jest.mock("back-end/src/services/eventForwarder/config");
-jest.mock("back-end/src/services/eventForwarder/factTable");
-jest.mock("back-end/src/services/eventForwarder/datasourceSync");
+vi.mock("back-end/src/services/eventForwarder/config");
+vi.mock("back-end/src/services/eventForwarder/factTable");
+vi.mock("back-end/src/services/eventForwarder/datasourceSync");
 
 const mockedHasAnyEventForwarderConfig =
-  EventForwarderConfig.hasAnyEventForwarderConfig as jest.MockedFunction<
+  EventForwarderConfig.hasAnyEventForwarderConfig as MockedFunction<
     typeof EventForwarderConfig.hasAnyEventForwarderConfig
   >;
 const mockedSyncFactTable =
-  EventForwarderFactTable.syncEventForwarderEventsFactTableMetadata as jest.MockedFunction<
+  EventForwarderFactTable.syncEventForwarderEventsFactTableMetadata as MockedFunction<
     typeof EventForwarderFactTable.syncEventForwarderEventsFactTableMetadata
   >;
 const mockedReconcileDatasourceMetadata =
-  EventForwarderUserIdTypes.reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries as jest.MockedFunction<
+  EventForwarderUserIdTypes.reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries as MockedFunction<
     typeof EventForwarderUserIdTypes.reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries
   >;
 
@@ -28,7 +29,7 @@ function context() {
 
 describe("syncEventForwarderAfterAttributeSchemaChange", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedHasAnyEventForwarderConfig.mockResolvedValue(true);
     mockedSyncFactTable.mockResolvedValue(undefined);
     mockedReconcileDatasourceMetadata.mockResolvedValue(undefined);

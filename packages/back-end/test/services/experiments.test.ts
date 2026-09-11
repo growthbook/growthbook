@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { z } from "zod";
 import {
   postExperimentValidator,
@@ -33,7 +34,7 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 
-jest.mock("back-end/src/models/TagModel", () => ({ addTags: jest.fn() }));
+vi.mock("back-end/src/models/TagModel", () => ({ addTags: vi.fn() }));
 
 describe("createMetric", () => {
   it("does not register tags when metric creation is denied", async () => {

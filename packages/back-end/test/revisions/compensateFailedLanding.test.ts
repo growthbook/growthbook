@@ -1,10 +1,11 @@
+import { vi } from "vitest";
 // The ADAPTER is faked, not the landing module — so the real restore and the real
 // ordering both run, and only the writes are stand-ins. Mocking landingSequence
 // partially instead hits a circular initialization of LandingConflictError.
-const restoredIds: string[] = [];
-const failFor = new Set<string>();
+const restoredIds: string[] = vi.hoisted(() => []);
+const failFor = vi.hoisted(() => new Set<string>());
 
-jest.mock("back-end/src/revisions", () => ({
+vi.mock("back-end/src/revisions", () => ({
   getAdapter: () => ({
     getModel: () => ({
       // Live equals what the landing wrote, so `ownedRestoreValues` judges every
@@ -75,7 +76,7 @@ beforeEach(() => {
 describe("compensateFailedLanding", () => {
   it("restores the root before any descendant, and descendants in cascade order", async () => {
     const context = makeContext();
-    const unmerge = jest.fn().mockResolvedValue({});
+    const unmerge = vi.fn().mockResolvedValue({});
 
     await compensateFailedLanding({
       context,
@@ -95,7 +96,7 @@ describe("compensateFailedLanding", () => {
 
   it("un-merges when nothing was reported written", async () => {
     const context = makeContext();
-    const unmerge = jest.fn().mockResolvedValue({});
+    const unmerge = vi.fn().mockResolvedValue({});
 
     await compensateFailedLanding({
       context,
@@ -115,7 +116,7 @@ describe("compensateFailedLanding", () => {
   it("keeps the revision when the ROOT restore fails", async () => {
     const context = makeContext();
     failFor.add("cfg_root");
-    const unmerge = jest.fn();
+    const unmerge = vi.fn();
 
     await compensateFailedLanding({
       context,
@@ -135,7 +136,7 @@ describe("compensateFailedLanding", () => {
   it("keeps the revision when only a DESCENDANT restore fails", async () => {
     const context = makeContext();
     failFor.add("cfg_child_a");
-    const unmerge = jest.fn();
+    const unmerge = vi.fn();
 
     await compensateFailedLanding({
       context,
@@ -155,7 +156,7 @@ describe("compensateFailedLanding", () => {
   // hand, so it is logged rather than thrown, and must not mask the original error.
   it("does not throw when the un-merge itself fails", async () => {
     const context = makeContext();
-    const unmerge = jest.fn().mockRejectedValue(new Error("cas miss"));
+    const unmerge = vi.fn().mockRejectedValue(new Error("cas miss"));
 
     await expect(
       compensateFailedLanding({

@@ -1,3 +1,4 @@
+import { MockedFunction, vi } from "vitest";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { EventForwarderConfigInterface } from "shared/validators";
 import type { EventForwarderConfigDraft } from "shared/types/event-forwarder";
@@ -5,31 +6,31 @@ import { syncEventForwarderAfterDatasourceUpdate } from "back-end/src/services/e
 import * as eventForwarderConfig from "back-end/src/services/eventForwarder/config";
 import * as eventForwarderProvisioning from "back-end/src/services/eventForwarder/connector";
 
-jest.mock("back-end/src/services/eventForwarder/config");
-jest.mock("back-end/src/services/eventForwarder/connector");
+vi.mock("back-end/src/services/eventForwarder/config");
+vi.mock("back-end/src/services/eventForwarder/connector");
 
 const mockedGetEventForwarderForDatasource =
-  eventForwarderConfig.getEventForwarderForDatasource as jest.MockedFunction<
+  eventForwarderConfig.getEventForwarderForDatasource as MockedFunction<
     typeof eventForwarderConfig.getEventForwarderForDatasource
   >;
 const mockedIsEventForwarderDraftUnchanged =
-  eventForwarderConfig.isEventForwarderDraftUnchanged as jest.MockedFunction<
+  eventForwarderConfig.isEventForwarderDraftUnchanged as MockedFunction<
     typeof eventForwarderConfig.isEventForwarderDraftUnchanged
   >;
 const mockedSyncEventForwarderConfigFromDatasource =
-  eventForwarderConfig.syncEventForwarderConfigFromDatasource as jest.MockedFunction<
+  eventForwarderConfig.syncEventForwarderConfigFromDatasource as MockedFunction<
     typeof eventForwarderConfig.syncEventForwarderConfigFromDatasource
   >;
 const mockedRefreshEventForwarderConfigCredentials =
-  eventForwarderConfig.refreshEventForwarderConfigCredentials as jest.MockedFunction<
+  eventForwarderConfig.refreshEventForwarderConfigCredentials as MockedFunction<
     typeof eventForwarderConfig.refreshEventForwarderConfigCredentials
   >;
 const mockedProvisionEventForwarderThroughLicenseServer =
-  eventForwarderProvisioning.provisionEventForwarderThroughLicenseServer as jest.MockedFunction<
+  eventForwarderProvisioning.provisionEventForwarderThroughLicenseServer as MockedFunction<
     typeof eventForwarderProvisioning.provisionEventForwarderThroughLicenseServer
   >;
 const mockedUpdateEventForwarderCredentialsThroughLicenseServer =
-  eventForwarderProvisioning.updateEventForwarderCredentialsThroughLicenseServer as jest.MockedFunction<
+  eventForwarderProvisioning.updateEventForwarderCredentialsThroughLicenseServer as MockedFunction<
     typeof eventForwarderProvisioning.updateEventForwarderCredentialsThroughLicenseServer
   >;
 
@@ -80,7 +81,7 @@ describe("syncEventForwarderAfterDatasourceUpdate", () => {
   const datasourceParams = {} as never;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("rejects datasource updates that try to remove the event forwarder", async () => {

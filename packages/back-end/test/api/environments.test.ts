@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import request from "supertest";
 import {
   findOrganizationById,
@@ -5,16 +6,16 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import { setupApp } from "./api.setup";
 
-jest.mock("back-end/src/models/OrganizationModel", () => ({
-  findOrganizationById: jest.fn(),
-  updateOrganization: jest.fn(),
+vi.mock("back-end/src/models/OrganizationModel", () => ({
+  findOrganizationById: vi.fn(),
+  updateOrganization: vi.fn(),
 }));
 
 describe("environements API", () => {
   const { app, auditMock, setReqContext } = setupApp();
 
   afterEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("can list all environments", async () => {
@@ -203,7 +204,7 @@ describe("environements API", () => {
       },
     };
     // The payload refresh re-reads the org by id after the write
-    jest.mocked(findOrganizationById).mockResolvedValue(org as never);
+    vi.mocked(findOrganizationById).mockResolvedValue(org as never);
     setReqContext({
       models: {
         projects: {

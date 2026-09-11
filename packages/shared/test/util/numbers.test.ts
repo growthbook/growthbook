@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   formatNumericLikeForDisplay,
   parseEnvInt,
@@ -147,10 +148,10 @@ describe("parseIntWithDefaultCapped", () => {
 
 describe("parseEnvInt", () => {
   beforeEach(() => {
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("returns default only when value is undefined", () => {
@@ -165,8 +166,8 @@ describe("parseEnvInt", () => {
   });
 
   it("warns when invalid", () => {
-    jest.restoreAllMocks();
-    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    vi.restoreAllMocks();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(parseEnvInt("nope", 100, { name: "MY_VAR" })).toBe(100);
     expect(warn).toHaveBeenCalledWith(
       'WARNING! Invalid value for MY_VAR: "nope". Falling back to default: 100',

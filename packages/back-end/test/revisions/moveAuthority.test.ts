@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import {
   holdsMoveDestination,
   isMove,
@@ -13,7 +14,7 @@ import {
 
 function permissionsAllowing(allowed: { projects: string[] }[]) {
   return {
-    canRevisionAction: jest.fn(
+    canRevisionAction: vi.fn(
       (
         _model: string,
         _action: string,

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { GrowthBook, GrowthBookClient } from "../../src";
 import { autoAttributesPlugin } from "../../src/plugins/auto-attributes";
 
@@ -152,16 +153,10 @@ describe("autoAttributesPlugin", () => {
 
     // Mock sessionStorage
     const sessionStorage = {
-      getItem: jest.fn(),
-      setItem: jest.fn(),
+      getItem: vi.fn(),
+      setItem: vi.fn(),
     };
-    Object.defineProperty(window, "sessionStorage", {
-      value: sessionStorage,
-      writable: true,
-    });
-    const originalSessionStorage = window.sessionStorage;
-    window.sessionStorage =
-      sessionStorage as unknown as typeof window.sessionStorage;
+    vi.stubGlobal("sessionStorage", sessionStorage);
 
     // Make getItem throw to test fault tolerance
     sessionStorage.getItem.mockImplementationOnce(() => {
@@ -207,7 +202,7 @@ describe("autoAttributesPlugin", () => {
 
     gb.destroy();
     gb2.destroy();
-    window.sessionStorage = originalSessionStorage;
+    vi.unstubAllGlobals();
   });
 
   it("pulls in dataLayer variables as attributes", () => {

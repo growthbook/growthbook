@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import type { Revision } from "shared/enterprise";
 import type { RevisionAction } from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -45,7 +46,7 @@ function makeContext({
     },
     models: {
       revisions: {
-        getById: jest.fn(async () => revertTarget),
+        getById: vi.fn(async () => revertTarget),
       },
     },
   } as unknown as Context;

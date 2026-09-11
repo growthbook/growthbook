@@ -1,3 +1,4 @@
+import { Mock, vi } from "vitest";
 import { applyRampCreateActionsForRevision } from "back-end/src/models/FeatureModel";
 
 /**
@@ -47,14 +48,14 @@ describe("applyRampCreateActionsForRevision surfaces schedules it could not clea
       },
       models: {
         rampSchedules: {
-          findByTargetRule: jest.fn().mockResolvedValue([]),
+          findByTargetRule: vi.fn().mockResolvedValue([]),
           // The create loop fails on the SECOND action, after the first has
           // already created a schedule — the mid-loop throw the catch exists for.
-          create: jest
+          create: vi
             .fn()
             .mockResolvedValueOnce({ id: "ramp_1" })
             .mockRejectedValueOnce(new Error("ramp create failed")),
-          dangerousDeleteByIdBypassPermission: jest.fn(async () => {
+          dangerousDeleteByIdBypassPermission: vi.fn(async () => {
             if (!deleteWorks) throw new Error("delete failed");
           }),
         },
@@ -100,7 +101,7 @@ describe("applyRampCreateActionsForRevision surfaces schedules it could not clea
     // and both would read the same if the loop had skipped every action and
     // created nothing at all.
     const context = makeContext(true) as unknown as {
-      models: { rampSchedules: { create: jest.Mock } };
+      models: { rampSchedules: { create: Mock } };
     };
     await expect(
       applyRampCreateActionsForRevision(

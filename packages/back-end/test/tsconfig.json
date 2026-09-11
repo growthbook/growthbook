@@ -9,7 +9,7 @@
     },
     "noEmit": true,
     "noCheck": true,
-    "types": ["node", "jest"]
+    "types": ["node", "vitest/globals"]
   },
   "include": [
     "./**/*.ts",
