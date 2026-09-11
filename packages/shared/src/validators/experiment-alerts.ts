@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { queryRunnerFailureCause } from "./queries";
 import { experimentResultsType } from "./experiments";
 
 export const experimentStartedNotificationPayload = z
@@ -7,7 +8,10 @@ export const experimentStartedNotificationPayload = z
     experimentId: z.string(),
     experimentName: z.string(),
     phaseName: z.string().optional(),
-    variationCount: z.number(),
+    variationCount: z.number().optional(),
+    linkedFeatureCount: z.number().int().nonnegative().optional(),
+    visualChangesetCount: z.number().int().nonnegative().optional(),
+    urlRedirectCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 
@@ -16,46 +20,10 @@ export const experimentStoppedNotificationPayload = z
     type: z.literal("stopped"),
     experimentId: z.string(),
     experimentName: z.string(),
-    results: z.enum(experimentResultsType),
+    results: z.enum(experimentResultsType).optional(),
     releasedVariationName: z.string().optional(),
     enableTemporaryRollout: z.boolean(),
     reason: z.string().optional(),
-  })
-  .strict();
-
-export const experimentGuardrailFailedNotificationPayload = z
-  .object({
-    type: z.literal("guardrail-failed"),
-    experimentId: z.string(),
-    experimentName: z.string(),
-    failedMetrics: z.array(
-      z
-        .object({
-          id: z.string(),
-          name: z.string(),
-          variationName: z.string(),
-        })
-        .strict(),
-    ),
-  })
-  .strict();
-
-export const experimentQueryFailedNotificationPayload = z
-  .object({
-    type: z.literal("query-failed"),
-    experimentId: z.string(),
-    experimentName: z.string(),
-    errorMessage: z.string().optional(),
-  })
-  .strict();
-
-export const experimentStatusChangedNotificationPayload = z
-  .object({
-    type: z.literal("status-changed"),
-    experimentId: z.string(),
-    experimentName: z.string(),
-    previousStatus: z.string(),
-    currentStatus: z.string(),
   })
   .strict();
 
@@ -79,17 +47,29 @@ export const experimentStaleNotificationPayload = z
   })
   .strict();
 
-export const experimentMetricRegressionNotificationPayload = z
+export const experimentUpdateFailedNotificationPayload = z
   .object({
-    type: z.literal("metric-regression"),
+    type: z.literal("update-failed"),
     experimentId: z.string(),
     experimentName: z.string(),
-    metricId: z.string(),
-    metricName: z.string(),
-    variationName: z.string(),
-    metricRole: z.enum(["goal", "secondary", "guardrail"]).optional(),
-    uplift: z.number().optional(),
-    ci: z.tuple([z.number(), z.number()]).optional(),
+    cause: queryRunnerFailureCause.exclude(["cancelled"]),
+  })
+  .strict();
+
+export const experimentGuardrailFailedNotificationPayload = z
+  .object({
+    type: z.literal("guardrail-failed"),
+    experimentId: z.string(),
+    experimentName: z.string(),
+    failedMetrics: z.array(
+      z
+        .object({
+          id: z.string(),
+          name: z.string(),
+          variationName: z.string(),
+        })
+        .strict(),
+    ),
   })
   .strict();
 
@@ -119,18 +99,6 @@ export type ExperimentStoppedNotificationPayload = z.infer<
   typeof experimentStoppedNotificationPayload
 >;
 
-export type ExperimentGuardrailFailedNotificationPayload = z.infer<
-  typeof experimentGuardrailFailedNotificationPayload
->;
-
-export type ExperimentQueryFailedNotificationPayload = z.infer<
-  typeof experimentQueryFailedNotificationPayload
->;
-
-export type ExperimentStatusChangedNotificationPayload = z.infer<
-  typeof experimentStatusChangedNotificationPayload
->;
-
 export type ExperimentEndingSoonNotificationPayload = z.infer<
   typeof experimentEndingSoonNotificationPayload
 >;
@@ -139,8 +107,12 @@ export type ExperimentStaleNotificationPayload = z.infer<
   typeof experimentStaleNotificationPayload
 >;
 
-export type ExperimentMetricRegressionNotificationPayload = z.infer<
-  typeof experimentMetricRegressionNotificationPayload
+export type ExperimentUpdateFailedNotificationPayload = z.infer<
+  typeof experimentUpdateFailedNotificationPayload
+>;
+
+export type ExperimentGuardrailFailedNotificationPayload = z.infer<
+  typeof experimentGuardrailFailedNotificationPayload
 >;
 
 export type ExperimentBanditChangedNotificationPayload = z.infer<

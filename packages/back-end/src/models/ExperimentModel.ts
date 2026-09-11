@@ -28,6 +28,7 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { notifyExperimentStatusTransition } from "back-end/src/services/experimentNotifications";
 import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
@@ -1380,29 +1381,6 @@ export const logExperimentUpdated = async ({
       logger.error(error, "Failed to notify holdout update"),
     );
 
-    if (previous.status !== current.status) {
-      await createEvent({
-        context,
-        object: "experiment",
-        objectId: current.id,
-        event: "status.changed",
-        data: {
-          object: {
-            type: "status-changed",
-            experimentId: current.id,
-            experimentName: current.name,
-            previousStatus: previous.status,
-            currentStatus: current.status,
-          },
-        },
-        projects: current.project ? [current.project] : [],
-        tags: current.tags || [],
-        environments: [],
-        containsSecrets: false,
-      }).catch((error: unknown) =>
-        logger.error(error, "Failed to notify experiment status change"),
-      );
-    }
     return;
   }
 
@@ -1475,34 +1453,6 @@ export const logExperimentUpdated = async ({
     environments: changedEnvs,
     containsSecrets: false,
   });
-
-  if (previous.status !== current.status) {
-    await createEvent({
-      context,
-      object: "experiment",
-      objectId: current.id,
-      event: "status.changed",
-      data: {
-        object: {
-          type: "status-changed",
-          experimentId: current.id,
-          experimentName: current.name,
-          previousStatus: previous.status,
-          currentStatus: current.status,
-        },
-      },
-      projects: Array.from(
-        new Set([previousApiExperiment.project, currentApiExperiment.project]),
-      ),
-      tags: Array.from(
-        new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags]),
-      ),
-      environments: changedEnvs,
-      containsSecrets: false,
-    }).catch((error: unknown) =>
-      logger.error(error, "Failed to notify experiment status change"),
-    );
-  }
 };
 
 /**
@@ -2362,6 +2312,14 @@ const onExperimentUpdate = async ({
     current: newExperiment,
     previous: oldExperiment,
   });
+
+  await notifyExperimentStatusTransition({
+    context,
+    previous: oldExperiment,
+    experiment: newExperiment,
+  }).catch((error: unknown) =>
+    logger.error(error, "Failed to notify experiment status transition"),
+  );
 
   if (
     !bypassWebhooks &&

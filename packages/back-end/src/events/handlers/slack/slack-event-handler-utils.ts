@@ -101,14 +101,14 @@ export const getSlackMessageForNotificationEvent = async (
         eventId,
       );
 
-    case "experiment.started":
-    case "experiment.stopped":
-    case "experiment.health.guardrailFailed":
-    case "experiment.health.queryFailed":
-    case "experiment.status.changed":
-    case "experiment.endingSoon":
-    case "experiment.stale":
-    case "experiment.metric.regression":
+    case "experiment.status.started":
+    case "experiment.status.stopped":
+    case "experiment.status.endingSoon":
+    case "experiment.status.stale":
+    case "experiment.health.updateFailure":
+    case "experiment.health.srm":
+    case "experiment.health.multipleExposures":
+    case "experiment.metric.guardrailFailure":
     case "experiment.bandit.weightsChanged":
     case "experiment.holdout.created":
     case "experiment.holdout.updated":

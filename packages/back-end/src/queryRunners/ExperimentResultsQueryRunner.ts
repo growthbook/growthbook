@@ -1,3 +1,4 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import { analyzeExperimentPower } from "shared/enterprise";
 import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
@@ -38,7 +39,7 @@ import {
 } from "shared/types/query";
 import { BanditResult } from "shared/types/experiment";
 import { logger } from "back-end/src/util/logger";
-import { notifyExperimentQueryFailed } from "back-end/src/services/experimentNotifications";
+import { notifyExperimentUpdateFailed } from "back-end/src/services/experimentNotifications";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -662,12 +663,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     runStarted,
     result,
     error,
+    failureCause = "query",
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -689,6 +692,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     });
     if (
       status === "failed" &&
+      failureCause !== "cancelled" &&
       this.model.type === "standard" &&
       !this.model.report
     ) {
@@ -698,15 +702,15 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           this.model.experiment,
         );
         if (experiment)
-          await notifyExperimentQueryFailed({
+          await notifyExperimentUpdateFailed({
             context: this.context,
             experiment,
-            errorMessage: error,
+            cause: failureCause,
           });
       } catch (notificationError) {
         logger.error(
           notificationError,
-          "Failed to notify experiment query failure",
+          "Failed to notify experiment update failure",
         );
       }
     }

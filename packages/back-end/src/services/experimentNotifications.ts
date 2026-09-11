@@ -15,6 +15,7 @@ import {
   getHealthSettings,
 } from "shared/enterprise";
 import { ExperimentAnalysisSummary } from "shared/validators";
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentHealthSettings,
@@ -28,6 +29,7 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { setExperimentNotificationState } from "back-end/src/models/ExperimentModel";
+import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
@@ -93,36 +95,6 @@ export const memoizeNotification = async ({
   });
 };
 
-export const notifyAutoUpdate = ({
-  context,
-  experiment,
-  success,
-}: {
-  context: Context;
-  experiment: ExperimentInterface;
-  success: boolean;
-}) =>
-  memoizeNotification({
-    context,
-    experiment,
-    type: "auto-update",
-    triggered: !success,
-    dispatch: () =>
-      dispatchEvent({
-        context,
-        experiment,
-        event: "warning",
-        data: {
-          object: {
-            type: "auto-update",
-            success,
-            experimentId: experiment.id,
-            experimentName: experiment.name,
-          },
-        },
-      }),
-  });
-
 export const notifyExperimentStarted = async ({
   context,
   experiment,
@@ -130,19 +102,29 @@ export const notifyExperimentStarted = async ({
   context: Context;
   experiment: ExperimentInterface;
 }) => {
+  const [visualChangesets, urlRedirects] = await Promise.all([
+    experiment.hasVisualChangesets
+      ? findVisualChangesetsByExperiment(experiment.id, context.org.id)
+      : [],
+    experiment.hasURLRedirects
+      ? context.models.urlRedirects.findByExperiment(experiment.id)
+      : [],
+  ]);
   const latestPhase = experiment.phases[experiment.phases.length - 1];
 
   await dispatchEvent({
     context,
     experiment,
-    event: "started",
+    event: "status.started",
     data: {
       object: {
         type: "started",
         experimentId: experiment.id,
         experimentName: experiment.name,
         phaseName: latestPhase?.name,
-        variationCount: experiment.variations.length,
+        linkedFeatureCount: new Set(experiment.linkedFeatures || []).size,
+        visualChangesetCount: visualChangesets.length,
+        urlRedirectCount: urlRedirects.length,
       },
     },
   });
@@ -160,7 +142,7 @@ export const notifyExperimentStopped = async ({
   context: Context;
   experiment: ExperimentInterface;
   type: "stopped";
-  results: NonNullable<ExperimentInterface["results"]>;
+  results?: ExperimentInterface["results"];
   enableTemporaryRollout: boolean;
   releasedVariationName?: string;
   reason?: string;
@@ -168,7 +150,7 @@ export const notifyExperimentStopped = async ({
   await dispatchEvent({
     context,
     experiment,
-    event: "stopped",
+    event: "status.stopped",
     data: {
       object: {
         type,
@@ -183,53 +165,37 @@ export const notifyExperimentStopped = async ({
   });
 };
 
-// Fires on every failed attempt of the scheduled-status-update job (not
-// memoized). Each event carries the attempt count and whether another retry
-// will follow, so downstream channels can choose to surface only the
-// terminal failure (`willRetry: false`) if desired.
-export const notifyScheduledStatusUpdateFailed = ({
+export const notifyExperimentStatusTransition = async ({
   context,
+  previous,
   experiment,
-  scheduledStatusUpdateType,
-  attempts,
-  maxAttempts,
-  willRetry,
-  reason,
 }: {
   context: Context;
+  previous: ExperimentInterface;
   experiment: ExperimentInterface;
-  scheduledStatusUpdateType: "start" | "stop";
-  attempts: number;
-  maxAttempts: number;
-  willRetry: boolean;
-  reason: string;
-}) =>
-  dispatchEvent({
-    context,
-    experiment,
-    event: "warning",
-    data: {
-      object: {
-        type: "scheduled-status-update-failed",
-        experimentId: experiment.id,
-        experimentName: experiment.name,
-        scheduledStatusUpdateType,
-        attempts,
-        maxAttempts,
-        willRetry,
-        reason,
-      },
-    },
-  });
-
-const getSafeDate = (value: Date | string | undefined): Date | null => {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+}) => {
+  if (previous.status === experiment.status) return;
+  if (experiment.status === "running") {
+    await notifyExperimentStarted({ context, experiment });
+  } else if (experiment.status === "stopped") {
+    const releasedVariation =
+      experiment.variations.find(
+        (variation) => variation.id === experiment.releasedVariationId,
+      ) ?? experiment.variations[experiment.winner ?? -1];
+    await notifyExperimentStopped({
+      context,
+      experiment,
+      type: "stopped",
+      results: experiment.results,
+      enableTemporaryRollout:
+        experiment.type !== "holdout" &&
+        !experiment.excludeFromPayload &&
+        !!experiment.releasedVariationId,
+      releasedVariationName: releasedVariation?.name,
+      reason: experiment.phases[experiment.phases.length - 1]?.reason,
+    });
+  }
 };
-
-const daysBetweenDates = (start: Date, end: Date): number =>
-  Math.max(0, Math.ceil((end.getTime() - start.getTime()) / 86400000));
 
 export const notifyExperimentEndingSoon = async ({
   context,
@@ -259,7 +225,7 @@ export const notifyExperimentEndingSoon = async ({
       await dispatchEvent({
         context,
         experiment,
-        event: "endingSoon",
+        event: "status.endingSoon",
         data: {
           object: {
             type: "ending-soon",
@@ -303,7 +269,7 @@ export const notifyExperimentStale = async ({
       await dispatchEvent({
         context,
         experiment,
-        event: "stale",
+        event: "status.stale",
         data: {
           object: {
             type: "stale",
@@ -319,93 +285,49 @@ export const notifyExperimentStale = async ({
   });
 };
 
-// Emitted when the scheduled-status-update job applies a start/stop. Not
-// memoized — each scheduled transition fires once. Flows to org webhooks/Slack
-// like other experiment events.
-export const notifyScheduledStatusUpdateApplied = ({
-  context,
-  experiment,
-  action,
-  shipped,
-  shippedVariationId,
-  forced,
-  recommendedVariationId,
-}: {
-  context: Context;
-  experiment: ExperimentInterface;
-  action: "started" | "stopped" | "kept-running";
-  shipped?: boolean;
-  shippedVariationId?: string;
-  forced?: boolean;
-  recommendedVariationId?: string;
-}) => {
-  const variationName = (id?: string) =>
-    id ? experiment.variations.find((v) => v.id === id)?.name : undefined;
-  const shippedVariationName = variationName(shippedVariationId);
-  const recommendedVariationName = variationName(recommendedVariationId);
-
-  return dispatchEvent({
-    context,
-    experiment,
-    event: "info.scheduled-status-update",
-    data: {
-      object: {
-        experimentId: experiment.id,
-        experimentName: experiment.name,
-        action,
-        ...(shipped !== undefined ? { shipped } : {}),
-        ...(shippedVariationId ? { shippedVariationId } : {}),
-        ...(shippedVariationName ? { shippedVariationName } : {}),
-        ...(forced !== undefined ? { forced } : {}),
-        ...(recommendedVariationId ? { recommendedVariationId } : {}),
-        ...(recommendedVariationName ? { recommendedVariationName } : {}),
-      },
-    },
-  });
+const getSafeDate = (value: Date | string | undefined): Date | null => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 };
 
-export const notifyMultipleExposures = async ({
+const daysBetweenDates = (start: Date, end: Date): number =>
+  Math.max(0, Math.ceil((end.getTime() - start.getTime()) / 86400000));
+
+export const notifyExperimentUpdateFailed = async ({
   context,
   experiment,
-  currentStatus,
+  cause,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  currentStatus: ExperimentResultStatusData;
+  cause: QueryRunnerFailureCause | null;
 }) => {
-  const multipleExposureData =
-    currentStatus.status === "unhealthy" &&
-    currentStatus.unhealthyData.multipleExposures;
-  const triggered = !!multipleExposureData;
-
+  if (cause === "cancelled") return;
+  const triggered = experiment.status === "running" && cause !== null;
   await memoizeNotification({
     context,
     experiment,
-    type: "multiple-exposures",
+    // Retain the existing marker so queued failures do not notify twice after upgrading.
+    type: "query-failed",
     triggered,
     dispatch: async () => {
-      if (!triggered) return;
-
+      if (!triggered || cause === null) return;
       await dispatchEvent({
         context,
         experiment,
-        event: "warning",
+        event: "health.updateFailure",
         data: {
           object: {
-            type: "multiple-exposures",
+            type: "update-failed",
             experimentId: experiment.id,
             experimentName: experiment.name,
-            usersCount: multipleExposureData.multipleExposedUsers,
-            percent: multipleExposureData.rawDecimal,
+            cause,
           },
         },
       });
     },
   });
-
-  return (
-    triggered && !experiment.pastNotifications?.includes("multiple-exposures")
-  );
 };
 
 export const notifySrm = async ({
@@ -433,7 +355,7 @@ export const notifySrm = async ({
       await dispatchEvent({
         context,
         experiment,
-        event: "warning",
+        event: "health.srm",
         data: {
           object: {
             type: "srm",
@@ -447,6 +369,50 @@ export const notifySrm = async ({
   });
 
   return triggered && !experiment.pastNotifications?.includes("srm");
+};
+
+export const notifyMultipleExposures = async ({
+  context,
+  experiment,
+  currentStatus,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  currentStatus: ExperimentResultStatusData;
+}) => {
+  const multipleExposureData =
+    currentStatus.status === "unhealthy" &&
+    currentStatus.unhealthyData.multipleExposures;
+  const triggered = !!multipleExposureData;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "multiple-exposures",
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
+
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "health.multipleExposures",
+        data: {
+          object: {
+            type: "multiple-exposures",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            usersCount: multipleExposureData.multipleExposedUsers,
+            percent: multipleExposureData.rawDecimal,
+          },
+        },
+      });
+    },
+  });
+
+  return (
+    triggered && !experiment.pastNotifications?.includes("multiple-exposures")
+  );
 };
 
 const getFailedGuardrailMetrics = async ({
@@ -513,7 +479,7 @@ export const notifyGuardrailFailed = async ({
       await dispatchEvent({
         context,
         experiment,
-        event: "health.guardrailFailed",
+        event: "metric.guardrailFailure",
         data: {
           object: {
             type: "guardrail-failed",
@@ -530,6 +496,75 @@ export const notifyGuardrailFailed = async ({
     triggered && !experiment.pastNotifications?.includes("guardrail-failed")
   );
 };
+
+export const notifyAutoUpdate = ({
+  context,
+  experiment,
+  success,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  success: boolean;
+}) =>
+  memoizeNotification({
+    context,
+    experiment,
+    type: "auto-update",
+    triggered: !success,
+    dispatch: () =>
+      dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "auto-update",
+            success,
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      }),
+  });
+
+// Fires on every failed attempt of the scheduled-status-update job (not
+// memoized). Each event carries the attempt count and whether another retry
+// will follow, so downstream channels can choose to surface only the
+// terminal failure (`willRetry: false`) if desired.
+export const notifyScheduledStatusUpdateFailed = ({
+  context,
+  experiment,
+  scheduledStatusUpdateType,
+  attempts,
+  maxAttempts,
+  willRetry,
+  reason,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  scheduledStatusUpdateType: "start" | "stop";
+  attempts: number;
+  maxAttempts: number;
+  willRetry: boolean;
+  reason: string;
+}) =>
+  dispatchEvent({
+    context,
+    experiment,
+    event: "warning",
+    data: {
+      object: {
+        type: "scheduled-status-update-failed",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        scheduledStatusUpdateType,
+        attempts,
+        maxAttempts,
+        willRetry,
+        reason,
+      },
+    },
+  });
 
 export const notifyUnderpowered = async ({
   context,
@@ -612,40 +647,47 @@ export const notifyNoData = async ({
   return triggered && !experiment.pastNotifications?.includes("no-data");
 };
 
-export const notifyExperimentQueryFailed = async ({
+// Emitted when the scheduled-status-update job applies a start/stop. Not
+// memoized — each scheduled transition fires once. Flows to org webhooks/Slack
+// like other experiment events.
+export const notifyScheduledStatusUpdateApplied = ({
   context,
   experiment,
-  errorMessage,
-  triggered = true,
+  action,
+  shipped,
+  shippedVariationId,
+  forced,
+  recommendedVariationId,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  errorMessage?: string;
-  triggered?: boolean;
+  action: "started" | "stopped" | "kept-running";
+  shipped?: boolean;
+  shippedVariationId?: string;
+  forced?: boolean;
+  recommendedVariationId?: string;
 }) => {
-  await memoizeNotification({
+  const variationName = (id?: string) =>
+    id ? experiment.variations.find((v) => v.id === id)?.name : undefined;
+  const shippedVariationName = variationName(shippedVariationId);
+  const recommendedVariationName = variationName(recommendedVariationId);
+
+  return dispatchEvent({
     context,
     experiment,
-    type: "query-failed",
-    triggered: experiment.status === "running" && triggered,
-    dispatch: async () => {
-      if (!triggered || experiment.status !== "running") return;
-
-      await dispatchEvent({
-        context,
-        experiment,
-        event: "health.queryFailed",
-        data: {
-          object: {
-            type: "query-failed",
-            experimentId: experiment.id,
-            experimentName: experiment.name,
-            errorMessage: errorMessage
-              ? "The results query failed. Open GrowthBook for details."
-              : undefined,
-          },
-        },
-      });
+    event: "info.scheduled-status-update",
+    data: {
+      object: {
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        action,
+        ...(shipped !== undefined ? { shipped } : {}),
+        ...(shippedVariationId ? { shippedVariationId } : {}),
+        ...(shippedVariationName ? { shippedVariationName } : {}),
+        ...(forced !== undefined ? { forced } : {}),
+        ...(recommendedVariationId ? { recommendedVariationId } : {}),
+        ...(recommendedVariationName ? { recommendedVariationName } : {}),
+      },
     },
   });
 };
@@ -911,43 +953,14 @@ export const notifySignificance = async ({
   }
 
   await Promise.all(
-    experimentChanges.flatMap((change) => {
-      const events = [
-        dispatchEvent({
-          context,
-          experiment,
-          event: "info.significance",
-          data: {
-            object: change,
-          },
-        }),
-      ];
-
-      if (!change.winning) {
-        events.push(
-          dispatchEvent({
-            context,
-            experiment,
-            event: "metric.regression",
-            data: {
-              object: {
-                type: "metric-regression",
-                experimentId: change.experimentId,
-                experimentName: change.experimentName,
-                metricId: change.metricId,
-                metricName: change.metricName,
-                variationName: change.variationName,
-                metricRole: change.metricRole,
-                uplift: change.uplift,
-                ci: change.ci,
-              },
-            },
-          }),
-        );
-      }
-
-      return events;
-    }),
+    experimentChanges.map((change) =>
+      dispatchEvent({
+        context,
+        experiment,
+        event: "info.significance",
+        data: { object: change },
+      }),
+    ),
   );
 };
 
@@ -1147,10 +1160,10 @@ export const notifyExperimentChange = async ({
     decisionCriteria,
   });
 
-  await notifyExperimentQueryFailed({
+  await notifyExperimentUpdateFailed({
     context,
     experiment,
-    triggered: false,
+    cause: null,
   });
 
   const triggeredNoData = await notifyNoData({

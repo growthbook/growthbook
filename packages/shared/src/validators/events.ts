@@ -42,7 +42,11 @@ import {
   featureRevisionPublishFailedPayload,
 } from "./feature-revision-notifications";
 
-import { experimentWarningNotificationPayload } from "./experiment-warnings";
+import {
+  experimentWarningNotificationPayload,
+  srm,
+  multipleExposures,
+} from "./experiment-warnings";
 import {
   experimentInfoSignificance,
   experimentInfoScheduledStatusUpdate,
@@ -51,12 +55,10 @@ import { experimentDecisionNotificationPayload } from "./experiment-decision";
 import {
   experimentStartedNotificationPayload,
   experimentStoppedNotificationPayload,
-  experimentGuardrailFailedNotificationPayload,
-  experimentQueryFailedNotificationPayload,
-  experimentStatusChangedNotificationPayload,
   experimentEndingSoonNotificationPayload,
   experimentStaleNotificationPayload,
-  experimentMetricRegressionNotificationPayload,
+  experimentUpdateFailedNotificationPayload,
+  experimentGuardrailFailedNotificationPayload,
   experimentBanditChangedNotificationPayload,
   experimentHoldoutNotificationPayload,
 } from "./experiment-alerts";
@@ -310,6 +312,57 @@ export const notificationEvents = {
       description:
         "Triggered when a warning condition is detected on an experiment",
     },
+    "status.started": {
+      schema: experimentStartedNotificationPayload,
+      description: "Triggered when an experiment starts or resumes running.",
+    },
+    "status.stopped": {
+      schema: experimentStoppedNotificationPayload,
+      description:
+        "Triggered when an experiment stops, including its result and any temporary rollout.",
+    },
+    "status.endingSoon": {
+      schema: experimentEndingSoonNotificationPayload,
+      description:
+        "Triggered when a running experiment is nearing its scheduled end date.",
+    },
+    "status.stale": {
+      schema: experimentStaleNotificationPayload,
+      description:
+        "Triggered when a running experiment has been active for a long time without a decision.",
+    },
+    "health.updateFailure": {
+      schema: experimentUpdateFailedNotificationPayload,
+      description:
+        "Triggered when experiment results fail to update because queries failed, analysis failed, or no queries were generated. User cancellations are excluded.",
+    },
+    "health.srm": {
+      schema: srm,
+      description: "Triggered when an experiment has a sample ratio mismatch.",
+    },
+    "health.multipleExposures": {
+      schema: multipleExposures,
+      description:
+        "Triggered when too many users are exposed to multiple experiment variations.",
+    },
+    "metric.guardrailFailure": {
+      schema: experimentGuardrailFailedNotificationPayload,
+      description:
+        "Triggered when a running experiment has a failing guardrail metric.",
+    },
+    "bandit.weightsChanged": {
+      schema: experimentBanditChangedNotificationPayload,
+      description:
+        "Triggered when a multi-armed bandit materially changes variation weights.",
+    },
+    "holdout.created": {
+      schema: experimentHoldoutNotificationPayload,
+      description: "Triggered when a holdout is created.",
+    },
+    "holdout.updated": {
+      schema: experimentHoldoutNotificationPayload,
+      description: "Triggered when a holdout is updated.",
+    },
     "info.significance": {
       schema: experimentInfoSignificance,
       description: `Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.`,
@@ -329,57 +382,6 @@ export const notificationEvents = {
     "decision.review": {
       schema: experimentDecisionNotificationPayload,
       description: `Triggered when an experiment has reached the desired power point, but the results may be ambiguous.`,
-    },
-    started: {
-      schema: experimentStartedNotificationPayload,
-      description: "Triggered when an experiment starts running.",
-    },
-    stopped: {
-      schema: experimentStoppedNotificationPayload,
-      description:
-        "Triggered when an experiment stops, including its result and any temporary rollout.",
-    },
-    "health.guardrailFailed": {
-      schema: experimentGuardrailFailedNotificationPayload,
-      description:
-        "Triggered when a running experiment has a failing guardrail metric.",
-    },
-    "health.queryFailed": {
-      schema: experimentQueryFailedNotificationPayload,
-      description:
-        "Triggered when experiment results fail to update because of a query error.",
-    },
-    "status.changed": {
-      schema: experimentStatusChangedNotificationPayload,
-      description: "Triggered when an experiment status changes.",
-    },
-    endingSoon: {
-      schema: experimentEndingSoonNotificationPayload,
-      description:
-        "Triggered when a running experiment is nearing its scheduled end date.",
-    },
-    stale: {
-      schema: experimentStaleNotificationPayload,
-      description:
-        "Triggered when a running experiment has been active for a long time without a decision.",
-    },
-    "metric.regression": {
-      schema: experimentMetricRegressionNotificationPayload,
-      description:
-        "Triggered when a metric regression is detected in an experiment.",
-    },
-    "bandit.weightsChanged": {
-      schema: experimentBanditChangedNotificationPayload,
-      description:
-        "Triggered when a multi-armed bandit materially changes variation weights.",
-    },
-    "holdout.created": {
-      schema: experimentHoldoutNotificationPayload,
-      description: "Triggered when a holdout is created.",
-    },
-    "holdout.updated": {
-      schema: experimentHoldoutNotificationPayload,
-      description: "Triggered when a holdout is updated.",
     },
   },
   savedGroup: {

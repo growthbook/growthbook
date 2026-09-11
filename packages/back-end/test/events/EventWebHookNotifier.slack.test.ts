@@ -1,3 +1,4 @@
+import type { NotificationEvent } from "shared/types/events/notification-events";
 import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
@@ -161,6 +162,108 @@ describe("Slack EventWebHook delivery compatibility", () => {
       stringBody: "ok",
     });
   });
+
+  it.each(["incoming webhook", "workspace bot"])(
+    "delivers experiment alerts through the %s with the real Slack formatter",
+    async (delivery) => {
+      const formatter = jest.requireActual<
+        typeof import("back-end/src/events/handlers/slack/slack-event-handler-utils")
+      >(
+        "back-end/src/events/handlers/slack/slack-event-handler-utils",
+      ).getSlackMessageForNotificationEvent;
+      jest
+        .mocked(getSlackMessageForNotificationEvent)
+        .mockImplementation(formatter);
+      const url =
+        delivery === "workspace bot"
+          ? SLACK_WORKSPACE_PLACEHOLDER_URL
+          : "https://hooks.slack.com/services/T000/B000/test";
+      setWebhook({ url, slack: { channelId: "C123", teamId: "T123" } });
+      getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+        teamId: "T123",
+        encryptedBotAccessToken: "xoxb-token",
+      });
+      jest
+        .mocked(postSlackMessageResult)
+        .mockResolvedValue({ ok: true, ts: "123.456", error: null });
+
+      const base = { experimentId: "exp-1", experimentName: "Checkout" };
+      const events = [
+        {
+          event: "experiment.health.srm",
+          data: { object: { ...base, type: "srm", threshold: 0.001 } },
+        },
+        {
+          event: "experiment.health.multipleExposures",
+          data: {
+            object: {
+              ...base,
+              type: "multiple-exposures",
+              usersCount: 10,
+              percent: 0.1,
+            },
+          },
+        },
+        {
+          event: "experiment.health.updateFailure",
+          data: {
+            object: {
+              ...base,
+              type: "update-failed",
+              cause: "query",
+              errorMessage: "secret SQL",
+            },
+          },
+        },
+        {
+          event: "experiment.metric.guardrailFailure",
+          data: {
+            object: {
+              ...base,
+              type: "guardrail-failed",
+              failedMetrics: [
+                { id: "revenue", name: "Revenue", variationName: "Express" },
+              ],
+            },
+          },
+        },
+        {
+          event: "experiment.status.started",
+          data: { object: { ...base, type: "started", linkedFeatureCount: 2 } },
+        },
+      ] as NotificationEvent[];
+
+      for (const event of events) {
+        jest.mocked(getEvent).mockResolvedValue({
+          id: "event-1",
+          organizationId: "org-1",
+          version: 1,
+          event: event.event,
+          data: event,
+        });
+        await runAgendaJob();
+        const message = await formatter(event, "event-1");
+        expect(message).not.toBeNull();
+        expect(message?.text).not.toContain("secret SQL");
+        if (delivery === "workspace bot") {
+          expect(postSlackMessageResult).toHaveBeenLastCalledWith({
+            token: "xoxb-token",
+            channel: "C123",
+            ...message,
+          });
+          expect(cancellableFetch).not.toHaveBeenCalled();
+        } else {
+          expect(cancellableFetch).toHaveBeenLastCalledWith(
+            url,
+            expect.objectContaining({ body: JSON.stringify(message) }),
+            expect.any(Object),
+          );
+          expect(postSlackMessageResult).not.toHaveBeenCalled();
+        }
+      }
+      expect(updateEventWebHookStatus).toHaveBeenCalledTimes(events.length);
+    },
+  );
 
   it("preserves legacy incoming-webhook delivery", async () => {
     const url = "https://hooks.slack.com/services/T000/B000/legacy";

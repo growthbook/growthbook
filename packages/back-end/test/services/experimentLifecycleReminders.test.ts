@@ -78,7 +78,7 @@ it("notifies manually refreshed experiments without a data source even when orga
   await checkExperimentLifecycleReminders(renewLease);
   expect(
     jest.mocked(createEvent).mock.calls.map(([event]) => event.event),
-  ).toEqual(["endingSoon", "stale"]);
+  ).toEqual(["status.endingSoon", "status.stale"]);
   expect(renewLease).toHaveBeenCalledTimes(1);
 });
 it("retains deduplication across scheduler passes", async () => {

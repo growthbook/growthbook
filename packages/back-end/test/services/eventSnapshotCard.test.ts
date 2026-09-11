@@ -26,6 +26,40 @@ const significance = (
   }) as NotificationEvent;
 
 describe("immutable event cards", () => {
+  it("renders a stop without claiming an outcome that was not recorded", () => {
+    const event = {
+      event: "experiment.status.stopped",
+      data: {
+        object: {
+          type: "stopped",
+          experimentId: "exp-1",
+          experimentName: "Checkout",
+          enableTemporaryRollout: false,
+        },
+      },
+    } as NotificationEvent;
+    expect(buildEventSnapshotCard(event)?.summary).toEqual([
+      "Experiment stopped.",
+    ]);
+  });
+  it("does not call an inconclusive stop a rollback or ship", () => {
+    const event = {
+      event: "experiment.status.stopped",
+      data: {
+        object: {
+          type: "stopped",
+          experimentId: "exp-1",
+          experimentName: "Checkout",
+          results: "inconclusive",
+          enableTemporaryRollout: false,
+        },
+      },
+    } as NotificationEvent;
+    expect(buildEventSnapshotCard(event)).toMatchObject({
+      event: "stopped",
+      summary: ["Experiment stopped. Result: inconclusive."],
+    });
+  });
   it("uses the event's metric and variation, including frequentist terminology", () => {
     expect(buildEventSnapshotCard(significance())).toMatchObject({
       sentiment: "positive",
@@ -75,22 +109,4 @@ describe("immutable event cards", () => {
       expect(buildEventSnapshotCard(significance(overrides))).toBeNull();
     },
   );
-  it("does not call an inconclusive stop a rollback or ship", () => {
-    const event = {
-      event: "experiment.stopped",
-      data: {
-        object: {
-          type: "stopped",
-          experimentId: "exp-1",
-          experimentName: "Checkout",
-          results: "inconclusive",
-          enableTemporaryRollout: false,
-        },
-      },
-    } as NotificationEvent;
-    expect(buildEventSnapshotCard(event)).toMatchObject({
-      event: "stopped",
-      summary: ["Experiment stopped. Result: inconclusive."],
-    });
-  });
 });

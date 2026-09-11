@@ -1,16 +1,17 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
+import { getExperimentStartedSummary } from "back-end/src/services/experimentChanges/experimentStartedSummary";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import type { SlackMessage } from "./slack-event-handler-utils";
 
 type AlertName =
-  | "experiment.started"
-  | "experiment.stopped"
-  | "experiment.health.guardrailFailed"
-  | "experiment.health.queryFailed"
-  | "experiment.status.changed"
-  | "experiment.endingSoon"
-  | "experiment.stale"
-  | "experiment.metric.regression"
+  | "experiment.status.started"
+  | "experiment.status.stopped"
+  | "experiment.status.endingSoon"
+  | "experiment.status.stale"
+  | "experiment.health.updateFailure"
+  | "experiment.health.srm"
+  | "experiment.health.multipleExposures"
+  | "experiment.metric.guardrailFailure"
   | "experiment.bandit.weightsChanged"
   | "experiment.holdout.created"
   | "experiment.holdout.updated";
@@ -21,35 +22,40 @@ export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
   const object = event.data.object;
   let detail: string;
   switch (event.event) {
-    case "experiment.started":
-      detail = `Started with ${event.data.object.variationCount} variations.`;
+    case "experiment.status.started":
+      detail = getExperimentStartedSummary(event.data.object);
       break;
-    case "experiment.stopped": {
+    case "experiment.status.stopped": {
       const data = event.data.object;
-      detail = `Stopped. Result: ${data.results}.`;
+      detail = data.results ? `Stopped. Result: ${data.results}.` : "Stopped.";
       if (data.enableTemporaryRollout && data.releasedVariationName) {
         detail += ` Temporary rollout: ${data.releasedVariationName}.`;
       }
       if (data.reason) detail += ` ${data.reason}`;
       break;
     }
-    case "experiment.health.guardrailFailed":
-      detail = `Failing guardrails: ${event.data.object.failedMetrics.map((m) => `${m.name} (${m.variationName})`).join(", ")}.`;
+    case "experiment.status.endingSoon":
+      detail = `Scheduled to end soon at ${event.data.object.endsAt}.`;
       break;
-    case "experiment.health.queryFailed":
-      detail = "The results query failed. Open GrowthBook for details.";
-      break;
-    case "experiment.status.changed":
-      detail = `Status changed from ${event.data.object.previousStatus} to ${event.data.object.currentStatus}.`;
-      break;
-    case "experiment.endingSoon":
-      detail = `Scheduled to end at ${event.data.object.endsAt}.`;
-      break;
-    case "experiment.stale":
+    case "experiment.status.stale":
       detail = `Running for ${event.data.object.daysRunning} days. Review whether to stop or extend it.`;
       break;
-    case "experiment.metric.regression":
-      detail = `Regression detected for ${event.data.object.metricName} (${event.data.object.variationName}).`;
+    case "experiment.health.updateFailure":
+      detail = {
+        query: "Results failed to update because database queries failed.",
+        analysis: "Results failed to update because analysis failed.",
+        "no-queries":
+          "Results failed to update because no queries were generated.",
+      }[event.data.object.cause];
+      break;
+    case "experiment.health.srm":
+      detail = `Sample ratio mismatch detected (threshold: ${event.data.object.threshold}).`;
+      break;
+    case "experiment.health.multipleExposures":
+      detail = `${event.data.object.usersCount} users (${(event.data.object.percent * 100).toFixed(2)}%) were exposed to multiple variations.`;
+      break;
+    case "experiment.metric.guardrailFailure":
+      detail = `Failing guardrails: ${event.data.object.failedMetrics.map((m) => `${m.name} (${m.variationName})`).join(", ")}.`;
       break;
     case "experiment.bandit.weightsChanged":
       detail = `Bandit allocation changed from ${event.data.object.currentWeights.map((w) => `${(w * 100).toFixed(1)}%`).join(" / ")} to ${event.data.object.updatedWeights.map((w) => `${(w * 100).toFixed(1)}%`).join(" / ")}.`;

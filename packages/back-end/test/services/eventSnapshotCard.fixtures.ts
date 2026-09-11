@@ -25,12 +25,14 @@ export const eventSnapshotCardSamples: {
   {
     name: "started",
     event: {
-      event: "experiment.started",
+      event: "experiment.status.started",
       data: {
         object: {
           ...base,
           type: "started",
-          variationCount: 3,
+          linkedFeatureCount: 2,
+          visualChangesetCount: 1,
+          urlRedirectCount: 1,
           phaseName: "Main phase",
         },
       },
@@ -39,7 +41,7 @@ export const eventSnapshotCardSamples: {
   {
     name: "stopped",
     event: {
-      event: "experiment.stopped",
+      event: "experiment.status.stopped",
       data: {
         object: {
           ...base,
@@ -51,6 +53,13 @@ export const eventSnapshotCardSamples: {
             "Pause while investigating instrumentation. No winner was selected; the original checkout remains active during the investigation.",
         },
       },
+    } as NotificationEvent,
+  },
+  {
+    name: "srm",
+    event: {
+      event: "experiment.health.srm",
+      data: { object: { ...base, type: "srm", threshold: 0.001 } },
     } as NotificationEvent,
   },
   {
