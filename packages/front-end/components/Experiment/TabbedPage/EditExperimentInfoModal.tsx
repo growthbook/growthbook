@@ -36,7 +36,7 @@ export default function EditExperimentInfoModal({
 
   const form = useForm({
     defaultValues: {
-      name: experiment.name,
+      experimentName: experiment.name,
       trackingKey: experiment.trackingKey,
       owner: experiment.owner || "",
       tags: experiment.tags,
@@ -52,10 +52,10 @@ export default function EditExperimentInfoModal({
       size="lg"
       trackingEventModalSource="experiment-more-menu"
       header="Edit Info"
-      submit={form.handleSubmit(async (data) => {
+      submit={form.handleSubmit(async ({ experimentName, ...data }) => {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(data),
+          body: JSON.stringify({ ...data, name: experimentName }),
         });
         mutate();
       })}
@@ -64,7 +64,7 @@ export default function EditExperimentInfoModal({
         size="legacy"
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
-        {...form.register("name")}
+        {...form.register("experimentName")}
         required
       />
       <Field
