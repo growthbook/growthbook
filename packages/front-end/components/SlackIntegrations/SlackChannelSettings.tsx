@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   experimentCardFormats,
@@ -23,6 +23,14 @@ import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
 import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
+import Switch from "@/ui/Switch";
+import {
+  slackEventOptions,
+  SlackEventCategory,
+  slackEventSelection,
+  toggleSlackEvents,
+  matchesSlackEvent,
+} from "./slackEventOptions";
 
 const REQUIRED_SCOPES = [
   "chat:write",
@@ -91,6 +99,13 @@ export default function SlackChannelSettings({
   const environments = useEnvironments();
   const [enabled, setEnabled] = useState(integration.enabled);
   const [events, setEvents] = useState(integration.events);
+  const [expandedCategories, setExpandedCategories] = useState<
+    SlackEventCategory[]
+  >(["experiment", "feature"]);
+  const previousCategoryEvents = useRef<
+    Partial<Record<SlackEventCategory, string[]>>
+  >({});
+  const [showOtherEvents, setShowOtherEvents] = useState(false);
   const [cardFormat, setCardFormat] = useState(
     integration.slackOptions?.experimentCardFormat ?? "compact",
   );
@@ -243,30 +258,184 @@ export default function SlackChannelSettings({
           </Flex>
         )}
 
+        {(["experiment", "feature"] as const).map((category) => {
+          const options = slackEventOptions.filter(
+            (option) => option.category === category,
+          );
+          const categoryEvents = options.flatMap((option) => option.events);
+          const selected = categoryEvents.some((event) =>
+            events.some((subscription) =>
+              matchesSlackEvent(subscription, event),
+            ),
+          );
+          const expanded = expandedCategories.includes(category);
+          const title =
+            category === "experiment" ? "Experiments" : "Feature Flags";
+          return (
+            <Box
+              key={category}
+              pt="5"
+              style={{ borderTop: "1px solid var(--gray-a4)" }}
+            >
+              <Heading as="h3" size="md" mb="2">
+                {title}
+              </Heading>
+              <Text as="p" color="text-mid" mb="5">
+                What this channel hears about{" "}
+                {category === "experiment" ? "experiments" : "Feature Flags"}.
+              </Text>
+              <Flex justify="between" align="start" gap="3">
+                <Switch
+                  label="Event notifications"
+                  description={
+                    category === "experiment"
+                      ? "Launches, results, decisions, and health warnings."
+                      : "Published versions, safe rollouts, drafts, and reviews."
+                  }
+                  value={selected}
+                  onChange={(value) => {
+                    if (!value) {
+                      previousCategoryEvents.current[category] = events.filter(
+                        (event) => event.startsWith(`${category}.`),
+                      );
+                      setEvents(
+                        events.filter(
+                          (event) => !event.startsWith(`${category}.`),
+                        ),
+                      );
+                    } else {
+                      const previous = previousCategoryEvents.current[category];
+                      setEvents([
+                        ...new Set([
+                          ...events,
+                          ...(previous?.length
+                            ? previous
+                            : options
+                                .filter((option) => option.defaultOn)
+                                .flatMap((option) => option.events)),
+                        ]),
+                      ]);
+                    }
+                    setSaved(false);
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  color="gray"
+                  size="sm"
+                  onClick={() =>
+                    setExpandedCategories(
+                      expanded
+                        ? expandedCategories.filter((item) => item !== category)
+                        : [...expandedCategories, category],
+                    )
+                  }
+                >
+                  {expanded ? "Hide events" : "Customize events"}
+                </Button>
+              </Flex>
+              {expanded && (
+                <Flex
+                  direction="column"
+                  gap="5"
+                  mt="5"
+                  pl={{ initial: "0", sm: "6" }}
+                >
+                  {[...new Set(options.map((option) => option.group))].map(
+                    (group) => (
+                      <Box key={group}>
+                        <Text
+                          as="div"
+                          size="md"
+                          weight="medium"
+                          color="text-mid"
+                          mb="3"
+                        >
+                          {group}
+                        </Text>
+                        <Grid
+                          columns={{ initial: "1", sm: "2" }}
+                          gapX="5"
+                          gapY="4"
+                        >
+                          {options
+                            .filter((option) => option.group === group)
+                            .map((option) => (
+                              <Checkbox
+                                key={option.id}
+                                label={option.label}
+                                description={option.description}
+                                value={slackEventSelection(
+                                  events,
+                                  option.events,
+                                )}
+                                setValue={(value) => {
+                                  setEvents(
+                                    toggleSlackEvents(
+                                      events,
+                                      option.events,
+                                      value,
+                                    ),
+                                  );
+                                  setSaved(false);
+                                }}
+                              />
+                            ))}
+                        </Grid>
+                      </Box>
+                    ),
+                  )}
+                  {events.some(
+                    (event) =>
+                      event.startsWith(`${category}.`) && event.endsWith(".*"),
+                  ) && (
+                    <HelperText status="info">
+                      Customizing an event covered by “all events” keeps the
+                      other currently available events selected.
+                    </HelperText>
+                  )}
+                </Flex>
+              )}
+            </Box>
+          );
+        })}
+
         <Box>
-          <Heading as="h3" size="sm" mb="1">
-            Events
-          </Heading>
-          <Text as="p" color="text-mid" mb="3">
-            Choose the existing GrowthBook events sent to this channel.
-          </Text>
-          <MultiSelectField
-            value={events}
-            placeholder="Choose events"
-            sort={false}
-            size="lg"
-            options={eventWebHookEventOptions}
-            formatOptionLabel={(option, meta) =>
-              formatWebhookEventOptionLabel(option, meta)
-            }
-            onChange={(value) => {
-              setEvents(value);
-              setSaved(false);
-            }}
-          />
+          <Button
+            variant="ghost"
+            color="gray"
+            size="sm"
+            onClick={() => setShowOtherEvents(!showOtherEvents)}
+          >
+            {showOtherEvents
+              ? "Hide advanced subscriptions"
+              : "Advanced subscriptions"}
+          </Button>
+          {showOtherEvents && (
+            <Box mt="3">
+              <Text as="p" color="text-mid">
+                Manage other resource types and wildcard subscriptions.
+              </Text>
+              <MultiSelectField
+                value={events}
+                placeholder="Choose events"
+                sort={false}
+                size="lg"
+                options={eventWebHookEventOptions}
+                formatOptionLabel={(option, meta) =>
+                  formatWebhookEventOptionLabel(option, meta)
+                }
+                onChange={(value) => {
+                  setEvents(value);
+                  setSaved(false);
+                }}
+              />
+            </Box>
+          )}
           {events.length === 0 && (
             <Callout status="warning" mt="3">
-              Select at least one event before saving.
+              Select at least one event before saving. To pause all
+              notifications, turn off Enabled at the top of this page.
             </Callout>
           )}
         </Box>
@@ -348,7 +517,18 @@ export default function SlackChannelSettings({
           </Grid>
         </Box>
 
-        <Flex align="center" gap="3">
+        <Flex
+          align="center"
+          gap="3"
+          py="3"
+          style={{
+            position: "sticky",
+            bottom: 0,
+            background: "var(--color-background)",
+            borderTop: "1px solid var(--gray-a4)",
+            zIndex: 1,
+          }}
+        >
           <Button
             onClick={save}
             loading={saving}
