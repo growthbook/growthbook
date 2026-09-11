@@ -5,10 +5,15 @@ import { ContextualBanditSnapshotSettings } from "../validators/contextual-bandi
 export function buildUnitsQuerySettingsFromSnapshot(
   settings: ExperimentSnapshotSettings,
   exposureQuery: { query: string; userIdType: string },
+  baseUserIdType: string | undefined = settings.exposureQueryIdentifierType ??
+    exposureQuery.userIdType,
 ): ExperimentUnitsQuerySettings {
   return {
     experimentId: settings.experimentId,
-    exposureQuery,
+    exposureQuery: {
+      ...exposureQuery,
+      userIdType: baseUserIdType ?? exposureQuery.userIdType,
+    },
     startDate: settings.startDate,
     endDate: settings.endDate,
     skipPartialData: settings.skipPartialData,

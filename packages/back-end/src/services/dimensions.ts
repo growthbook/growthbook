@@ -109,11 +109,13 @@ async function resolvePrecomputedUnitDimensions({
   context,
   datasource,
   exposureQueryId,
+  exposureQueryIdentifierType,
   dimensionIds,
 }: {
   context: ReqContext;
   datasource: DataSourceInterface | null;
   exposureQueryId: string | undefined;
+  exposureQueryIdentifierType?: string;
   dimensionIds: string[];
 }): Promise<{
   dimensions: DimensionInterface[];
@@ -138,10 +140,9 @@ async function resolvePrecomputedUnitDimensions({
 
   let exposureQueryUserIdType: string;
   try {
-    exposureQueryUserIdType = getExposureQuery(
-      datasource,
-      exposureQueryId ?? "",
-    ).userIdType;
+    const exposureQuery = getExposureQuery(datasource, exposureQueryId ?? "");
+    exposureQueryUserIdType =
+      exposureQueryIdentifierType ?? exposureQuery.userIdType;
   } catch {
     return {
       dimensions: [],
@@ -225,6 +226,7 @@ export async function getEligiblePrecomputedUnitDimensionIds({
     context,
     datasource,
     exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
     dimensionIds,
   });
 
@@ -278,11 +280,13 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
   context,
   datasource,
   exposureQueryId,
+  exposureQueryIdentifierType,
   dimensionIds,
 }: {
   context: ReqContext;
   datasource: DataSourceInterface | null;
   exposureQueryId: string | undefined;
+  exposureQueryIdentifierType?: string;
   dimensionIds: string[];
 }): Promise<void> {
   // Nothing to validate when clearing the config
@@ -312,6 +316,7 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
     context,
     datasource,
     exposureQueryId,
+    exposureQueryIdentifierType,
     dimensionIds,
   });
 

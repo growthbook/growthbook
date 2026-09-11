@@ -166,6 +166,7 @@ const safeRolloutSnapshotSettings = z.object({
   queryFilter: z.string(),
   datasourceId: z.string(),
   exposureQueryId: z.string(),
+  exposureQueryIdentifierType: z.string().optional(),
   startDate: z.date(),
   endDate: z.date(),
   variations: z.array(snapshotSettingsVariationValidator),

@@ -3,7 +3,11 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  getExposureQuery,
+  getExposureQueryIdentifierType,
+  getExposureQueryIdentifierTypes,
+} from "@/services/datasources";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -14,15 +18,21 @@ const EditDataSourceForm: FC<{
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
   const { datasources, getDatasourceById } = useDefinitions();
+  const initialExposureQuery = getExposureQuery(
+    getDatasourceById(experiment.datasource)?.settings,
+    experiment.exposureQueryId,
+    experiment.userIdType,
+  );
   const form = useForm({
     defaultValues: {
       datasource: experiment.datasource || "",
-      exposureQueryId:
-        getExposureQuery(
-          getDatasourceById(experiment.datasource)?.settings,
-          experiment.exposureQueryId,
-          experiment.userIdType,
-        )?.id || "",
+      exposureQueryId: initialExposureQuery?.id || "",
+      exposureQueryIdentifierType: initialExposureQuery
+        ? getExposureQueryIdentifierType(
+            initialExposureQuery,
+            experiment.exposureQueryIdentifierType,
+          )
+        : undefined,
       trackingKey: experiment.trackingKey || "",
     },
   });
@@ -32,6 +42,21 @@ const EditDataSourceForm: FC<{
 
   const supportsExposureQueries = datasource?.properties?.exposureQueries;
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const exposureQueryOptions = exposureQueries.flatMap((query) =>
+    getExposureQueryIdentifierTypes(query).map((identifierType) => ({
+      label: query.name,
+      value: JSON.stringify([query.id, identifierType]),
+      exposureQueryId: query.id,
+      exposureQueryIdentifierType: identifierType,
+    })),
+  );
+  const exposureQueryOptionValue =
+    exposureQueryOptions.find(
+      (option) =>
+        option.exposureQueryId === form.watch("exposureQueryId") &&
+        option.exposureQueryIdentifierType ===
+          form.watch("exposureQueryIdentifierType"),
+    )?.value ?? "";
 
   return (
     <ModalStandard
@@ -68,15 +93,35 @@ const EditDataSourceForm: FC<{
         <SelectField
           size="legacy"
           label="Assignment Table"
-          value={form.watch("exposureQueryId")}
+          value={exposureQueryOptionValue}
           required
-          onChange={(v) => form.setValue("exposureQueryId", v)}
-          options={exposureQueries.map((q) => {
-            return {
-              label: q.name,
-              value: q.id,
-            };
-          })}
+          onChange={(value) => {
+            const selectedOption = exposureQueryOptions.find(
+              (option) => option.value === value,
+            );
+            if (!selectedOption) return;
+            form.setValue("exposureQueryId", selectedOption.exposureQueryId);
+            form.setValue(
+              "exposureQueryIdentifierType",
+              selectedOption.exposureQueryIdentifierType,
+            );
+          }}
+          options={exposureQueryOptions}
+          formatOptionLabel={({ label, value }) => {
+            const identifierType = exposureQueryOptions.find(
+              (option) => option.value === value,
+            )?.exposureQueryIdentifierType;
+            return (
+              <>
+                {label}
+                {identifierType ? (
+                  <span className="text-muted small float-right">
+                    Identifier Type: <code>{identifierType}</code>
+                  </span>
+                ) : null}
+              </>
+            );
+          }}
         />
       )}
       <Field

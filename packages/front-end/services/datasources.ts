@@ -767,6 +767,7 @@ export function getInitialSettings(
       exposure: userIdTypes.map((id) => ({
         id,
         userIdType: id,
+        userIdTypes: [id],
         dimensions: schema.experimentDimensions,
         name:
           id === "user_id"
@@ -790,12 +791,35 @@ export function getExposureQuery(
   const queries = settings?.queries?.exposure || [];
 
   if (!exposureQueryId) {
+    const identifierType = userIdType ?? "anonymous_id";
     return (
-      queries.find((q) => q.userIdType === (userIdType ?? "anonymous_id")) ??
-      null
+      queries.find(
+        (q) =>
+          q.userIdTypes?.includes(identifierType) ||
+          q.userIdType === identifierType,
+      ) ?? null
     );
   }
   return queries.find((q) => q.id === exposureQueryId) ?? null;
+}
+
+export function getExposureQueryIdentifierTypes(
+  exposureQuery: ExposureQuery,
+): string[] {
+  return exposureQuery.userIdTypes?.length
+    ? exposureQuery.userIdTypes
+    : [exposureQuery.userIdType].filter(Boolean);
+}
+
+export function getExposureQueryIdentifierType(
+  exposureQuery: ExposureQuery,
+  preferredIdentifierType?: string,
+): string {
+  const identifierTypes = getExposureQueryIdentifierTypes(exposureQuery);
+  return preferredIdentifierType &&
+    identifierTypes.includes(preferredIdentifierType)
+    ? preferredIdentifierType
+    : (identifierTypes[0] ?? exposureQuery.userIdType);
 }
 
 export function getInitialMetricQuery(

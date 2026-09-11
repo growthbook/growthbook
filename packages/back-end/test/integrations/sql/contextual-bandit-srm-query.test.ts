@@ -1,4 +1,6 @@
 import type { ExperimentUnitsQuerySettings } from "shared/types/integrations";
+import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
 import { getContextualBanditSrmQuery } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 
@@ -36,6 +38,7 @@ describe("getContextualBanditSrmQuery", () => {
     const c = compact(sql);
 
     expect(c).toContain("__rawExperiment");
+    expect(c).toContain("e.user_idASuid");
     expect(c).toContain("e.experiment_id='exp_1'");
     expect(c).toContain("e.timestamp>=");
 
@@ -122,6 +125,34 @@ describe("getContextualBanditSrmQuery", () => {
     const c = compact(sql);
 
     expect(c).toContain("SELECT*FROMmy_cb_assignments");
+    expect(c).toContain("e.anonymous_idASuid");
+  });
+
+  it("uses the base identifier selected on the snapshot", () => {
+    const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
+      {
+        experimentId: "exp_1",
+        exposureQueryIdentifierType: "anonymous_id",
+        startDate: new Date("2025-01-01T00:00:00.000Z"),
+        endDate: new Date("2025-02-01T00:00:00.000Z"),
+        variations: [],
+        metricSettings: [],
+      } as unknown as ExperimentSnapshotSettings,
+      {
+        query:
+          "SELECT user_id, anonymous_id, timestamp, experiment_id, variation_id FROM assignments",
+        userIdType: "user_id",
+      },
+    );
+
+    const sql = getContextualBanditSrmQuery(postgresDialect, {
+      settings: makeSettings({
+        exposureQuery: unitsSettings.exposureQuery,
+      }),
+    });
+    const c = compact(sql);
+
+    expect(c).toContain("SELECTuser_id,anonymous_id");
     expect(c).toContain("e.anonymous_idASuid");
   });
 });

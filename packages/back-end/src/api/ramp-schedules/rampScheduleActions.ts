@@ -3,8 +3,8 @@ import { v4 as uuidv4 } from "uuid";
 import { PermissionError, isRampScheduleServing } from "shared/util";
 import {
   apiRampScheduleInterface,
+  apiRampMonitoringConfig,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
-  rampMonitoringConfig,
   lockdownConfigSchema,
   stepHoldConditions,
   isAwaitingStartApproval,
@@ -44,7 +44,10 @@ import {
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import {
+  apiMonitoringConfigToInternal,
+  rampScheduleToApiInterface,
+} from "back-end/src/models/RampScheduleModel";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
@@ -1355,8 +1358,8 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
 
 export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: rampMonitoringConfig.describe(
-    "Full replacement of the monitoring configuration. `datasourceId` and `exposureQueryId` cannot be changed while a monitoring experiment is active — stop the schedule first.",
+  bodySchema: apiRampMonitoringConfig.describe(
+    "Full replacement of the monitoring configuration. `datasourceId` and `exposureQuery` cannot be changed while a monitoring experiment is active — stop the schedule first.",
   ),
   responseSchema: apiRampScheduleInterface,
   method: "put" as const,
@@ -1375,7 +1378,13 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) => updateRampMonitoringConfig(req.context, fresh, req.body),
+    (fresh) =>
+      updateRampMonitoringConfig(
+        req.context,
+        fresh,
+        // req.body is always present here, so the translation never returns null.
+        apiMonitoringConfigToInternal(req.body)!,
+      ),
   );
   return rampScheduleToApiInterface(updated);
 });

@@ -322,10 +322,22 @@ export function toExperimentSnapshotBulkResultsApiInterface(
   // Data-generation settings are identical across dimensions of one snapshot;
   // per-analysis stats options (statsEngine, regressionAdjustment, etc.) are
   // added per item below.
+  const assignmentQueryId =
+    snapshot.settings.exposureQueryId || experiment.exposureQueryId || "";
+  const assignmentQueryIdentifierType =
+    snapshot.settings.exposureQueryIdentifierType ??
+    experiment.exposureQueryIdentifierType;
   const baseSettings = {
     datasourceId: snapshot.settings.datasourceId || experiment.datasource || "",
-    assignmentQueryId:
-      snapshot.settings.exposureQueryId || experiment.exposureQueryId || "",
+    ...(assignmentQueryId && assignmentQueryIdentifierType
+      ? {
+          assignmentQuery: {
+            id: assignmentQueryId,
+            identifierType: assignmentQueryIdentifierType,
+          },
+        }
+      : {}),
+    assignmentQueryId,
     experimentId: snapshot.settings.experimentId || experiment.trackingKey,
     segmentId: snapshot.settings.segment,
     queryFilter: snapshot.settings.queryFilter,

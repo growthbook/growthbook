@@ -20,7 +20,11 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  getExposureQuery,
+  getExposureQueryIdentifierType,
+  getExposureQueryIdentifierTypes,
+} from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -136,17 +140,23 @@ const AnalysisForm: FC<{
   }
 
   const phaseObj = experiment.phases[phase];
+  const initialExposureQuery = getExposureQuery(
+    getDatasourceById(experiment.datasource)?.settings,
+    experiment.exposureQueryId,
+    experiment.userIdType,
+  );
 
   const form = useForm({
     defaultValues: {
       trackingKey: experiment.trackingKey || "",
       datasource: experiment.datasource || "",
-      exposureQueryId:
-        getExposureQuery(
-          getDatasourceById(experiment.datasource)?.settings,
-          experiment.exposureQueryId,
-          experiment.userIdType,
-        )?.id || "",
+      exposureQueryId: initialExposureQuery?.id || "",
+      exposureQueryIdentifierType: initialExposureQuery
+        ? getExposureQueryIdentifierType(
+            initialExposureQuery,
+            experiment.exposureQueryIdentifierType,
+          )
+        : undefined,
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -285,7 +295,26 @@ const AnalysisForm: FC<{
     [datasource?.settings?.queries?.exposure],
   );
   const exposureQueryId = form.watch("exposureQueryId");
+  const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+  const exposureQueryOptions = useMemo(
+    () =>
+      exposureQueries.flatMap((query) =>
+        getExposureQueryIdentifierTypes(query).map((identifierType) => ({
+          label: query.name,
+          value: JSON.stringify([query.id, identifierType]),
+          exposureQueryId: query.id,
+          exposureQueryIdentifierType: identifierType,
+        })),
+      ),
+    [exposureQueries],
+  );
+  const exposureQueryOptionValue =
+    exposureQueryOptions.find(
+      (option) =>
+        option.exposureQueryId === exposureQueryId &&
+        option.exposureQueryIdentifierType === exposureQueryIdentifierType,
+    )?.value ?? "";
 
   const hashAttributeToIdentifierTypeMap = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -302,31 +331,33 @@ const AnalysisForm: FC<{
 
   const groupedExposureQueries = useMemo((): (GroupedValue | SingleValue)[] => {
     const hashAttribute = experiment.hashAttribute ?? "";
-    const matched = exposureQueries.filter((q) =>
+    const matched = exposureQueryOptions.filter((option) =>
       hashAttributeToIdentifierTypeMap
         .get(hashAttribute)
-        ?.includes(q.userIdType),
+        ?.includes(option.exposureQueryIdentifierType),
     );
-    const unmatched = exposureQueries.filter((q) => !matched.includes(q));
+    const unmatched = exposureQueryOptions.filter(
+      (option) => !matched.includes(option),
+    );
     if (hashAttributeToIdentifierTypeMap.size > 0) {
-      return [
-        matched.length > 0
-          ? {
-              label: "Matches Hash Attribute",
-              options: matched.map((q) => ({ label: q.name, value: q.id })),
-            }
-          : null,
-        unmatched.length > 0
-          ? {
-              label: "Does Not Match Hash Attribute",
-              options: unmatched.map((q) => ({ label: q.name, value: q.id })),
-            }
-          : null,
-      ].filter((g): g is GroupedValue => g !== null);
+      const groups: GroupedValue[] = [];
+      if (matched.length > 0) {
+        groups.push({
+          label: "Matches Hash Attribute",
+          options: matched,
+        });
+      }
+      if (unmatched.length > 0) {
+        groups.push({
+          label: "Does Not Match Hash Attribute",
+          options: unmatched,
+        });
+      }
+      return groups;
     }
-    return exposureQueries.map((q) => ({ label: q.name, value: q.id }));
+    return exposureQueryOptions;
   }, [
-    exposureQueries,
+    exposureQueryOptions,
     hashAttributeToIdentifierTypeMap,
     experiment.hashAttribute,
   ]);
@@ -350,10 +381,12 @@ const AnalysisForm: FC<{
         .filter(
           (d) =>
             d.datasource === datasourceField &&
-            (!exposureQuery || d.userIdType === exposureQuery.userIdType),
+            (!exposureQuery ||
+              d.userIdType ===
+                (exposureQueryIdentifierType ?? exposureQuery.userIdType)),
         )
         .map((d) => ({ label: d.name, value: d.id })),
-    [dimensions, datasourceField, exposureQuery],
+    [dimensions, datasourceField, exposureQuery, exposureQueryIdentifierType],
   );
   const datasourceHasWritableEphemeralPipelineEnabled = useMemo(
     () =>
@@ -604,6 +637,7 @@ const AnalysisForm: FC<{
                   !getExposureQuery(ds?.settings, form.watch("exposureQueryId"))
                 ) {
                   form.setValue("exposureQueryId", "");
+                  form.setValue("exposureQueryIdentifierType", undefined);
                 }
 
                 // If the segment is now invalid
@@ -676,18 +710,24 @@ const AnalysisForm: FC<{
                     <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
                   </>
                 }
-                value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => {
-                  form.setValue("exposureQueryId", v);
-
-                  const newUserIdType = exposureQueries?.find(
-                    (e) => e.id === v,
-                  )?.userIdType;
-                  if (!newUserIdType) return;
+                value={exposureQueryOptionValue}
+                onChange={(value) => {
+                  const selectedOption = exposureQueryOptions.find(
+                    (option) => option.value === value,
+                  );
+                  if (!selectedOption) return;
+                  form.setValue(
+                    "exposureQueryId",
+                    selectedOption.exposureQueryId,
+                  );
+                  form.setValue(
+                    "exposureQueryIdentifierType",
+                    selectedOption.exposureQueryIdentifierType,
+                  );
 
                   removeInvalidPrecomputedUnitDimensionIds({
                     datasourceId: form.watch("datasource"),
-                    userIdType: newUserIdType,
+                    userIdType: selectedOption.exposureQueryIdentifierType,
                   });
                 }}
                 required
@@ -696,9 +736,9 @@ const AnalysisForm: FC<{
                 placeholder="Choose..."
                 options={groupedExposureQueries}
                 formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueries?.find(
-                    (e) => e.id === value,
-                  )?.userIdType;
+                  const userIdType = exposureQueryOptions.find(
+                    (option) => option.value === value,
+                  )?.exposureQueryIdentifierType;
                   return (
                     <>
                       {label}
@@ -984,6 +1024,7 @@ const AnalysisForm: FC<{
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
+              exposureQueryIdentifierType={exposureQueryIdentifierType}
               project={experiment.project}
               goalMetrics={form.watch("goalMetrics")}
               secondaryMetrics={form.watch("secondaryMetrics")}
@@ -1023,6 +1064,7 @@ const AnalysisForm: FC<{
                     disabled={isExperimentIncludedInIncrementalRefresh}
                     datasource={form.watch("datasource")}
                     exposureQueryId={exposureQueryId}
+                    exposureQueryIdentifierType={exposureQueryIdentifierType}
                     project={experiment.project}
                     includeFacts={true}
                     label={

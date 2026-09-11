@@ -1140,6 +1140,7 @@ describe("Datasource Migration", () => {
             name: "Logged-in User Experiments",
             query: "testing",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
           },
           {
             id: "anonymous_id",
@@ -1148,6 +1149,7 @@ describe("Datasource Migration", () => {
             name: "Anonymous Visitor Experiments",
             query: "testing",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
           },
         ],
       },
@@ -1198,6 +1200,7 @@ describe("Datasource Migration", () => {
             query:
               "SELECT\n  user_id as user_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
           },
           {
             id: "anonymous_id",
@@ -1207,9 +1210,56 @@ describe("Datasource Migration", () => {
             query:
               "SELECT\n  anonymous_id as anonymous_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
           },
         ],
       },
+    });
+  });
+
+  it("normalizes exposure query identifier types", () => {
+    const datasource = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      name: "",
+      description: "",
+      organization: "",
+      params: "",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "legacy",
+              name: "Legacy",
+              userIdType: "user_id",
+              dimensions: [],
+              query: "SELECT user_id",
+            },
+            {
+              id: "multi",
+              name: "Multi",
+              userIdType: "anonymous_id",
+              userIdTypes: ["user_id", "anonymous_id"],
+              dimensions: [],
+              query: "SELECT user_id, anonymous_id",
+            },
+          ],
+        },
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const exposureQueries = upgradeDatasourceObject(cloneDeep(datasource))
+      .settings.queries?.exposure;
+
+    expect(exposureQueries?.[0]).toMatchObject({
+      userIdType: "user_id",
+      userIdTypes: ["user_id"],
+    });
+    expect(exposureQueries?.[1]).toMatchObject({
+      userIdType: "user_id",
+      userIdTypes: ["user_id", "anonymous_id"],
     });
   });
 

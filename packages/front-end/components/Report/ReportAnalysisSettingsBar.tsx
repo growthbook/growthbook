@@ -158,7 +158,11 @@ export default function ReportAnalysisSettingsBar({
               activationMetric={!!snapshot.settings.activationMetric}
               datasourceId={snapshot.settings.datasourceId}
               exposureQueryId={snapshot.settings.exposureQueryId}
-              userIdType={report?.experimentAnalysisSettings?.userIdType}
+              userIdType={
+                report?.experimentAnalysisSettings
+                  ?.exposureQueryIdentifierType ??
+                report?.experimentAnalysisSettings?.userIdType
+              }
               labelClassName="mr-2"
               disabled={true}
               ssrPolyfills={ssrPolyfills}
