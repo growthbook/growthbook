@@ -4,6 +4,7 @@ import {
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
 import { countSDKConnectionsByEnvironment } from "back-end/src/models/SdkConnectionModel";
+import { removeEnvironmentFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
@@ -14,6 +15,11 @@ jest.mock("back-end/src/models/OrganizationModel", () => ({
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   countSDKConnectionsByEnvironment: jest.fn().mockResolvedValue(0),
   findSDKConnectionsByOrganization: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock("back-end/src/models/SlackIntegrationModel", () => ({
+  ...jest.requireActual("back-end/src/models/SlackIntegrationModel"),
+  removeEnvironmentFromSlackIntegration: jest.fn(),
 }));
 
 describe("environements API", () => {
@@ -146,6 +152,10 @@ describe("environements API", () => {
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
       settings: { environments: [{ id: "env2" }] },
     });
+    expect(removeEnvironmentFromSlackIntegration).toHaveBeenCalledWith({
+      organizationId: "org1",
+      envId: "env1",
+    });
     expect(auditMock).toHaveBeenCalledWith({
       details:
         '{"pre":{"id":"env1","description":"env1","toggleOnList":true,"defaultState":true,"projects":["bla"]},"context":{}}',
@@ -175,6 +185,7 @@ describe("environements API", () => {
     expect(response.status).toBe(400);
     expect(response.body.message).toMatch(/still used by 2 SDK Connection/);
     expect(updateOrganization).not.toHaveBeenCalled();
+    expect(removeEnvironmentFromSlackIntegration).not.toHaveBeenCalled();
     expect(auditMock).not.toHaveBeenCalled();
   });
 
