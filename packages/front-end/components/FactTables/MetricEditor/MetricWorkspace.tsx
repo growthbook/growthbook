@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { isEmptyInlineFilterPlaceholder } from "shared/experiments";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import omit from "lodash/omit";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -26,7 +27,6 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import Text from "@/ui/Text";
 import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
 import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateFieldMapping";
 import { FactMetricSeed } from "@/components/FactTables/MetricEditor/templateMetric";
@@ -92,7 +92,9 @@ export default function MetricWorkspace({
   mutate,
   onSaved,
   onCancel,
+  actionsContainer,
 }: {
+  actionsContainer: HTMLDivElement | null;
   existing: FactMetricInterface | null;
   // Seeds defaults for a brand-new metric (create payload, not update) -
   // distinct from `existing`, which also decides POST vs PUT. Partial since
@@ -331,32 +333,18 @@ export default function MetricWorkspace({
     />
   );
 
-  const actionRow = isEditing && (
-    <Flex
-      justify="between"
-      align="center"
-      py="3"
-      px="4"
-      style={{
-        background: "var(--color-panel-solid)",
-        borderRadius: "var(--radius-3)",
-      }}
-    >
-      <Text color="text-mid">
-        {existing ? "Editing metric" : "Creating a new metric"}
-      </Text>
-      <Flex gap="2">
-        <Button variant="soft" color="gray" onClick={handleDiscard}>
-          {onCancel ? "Cancel" : "Discard"}
-        </Button>
-        <Button
-          onClick={handleSave}
-          setError={setError}
-          disabled={!representable || !hasFactTables}
-        >
-          Save
-        </Button>
-      </Flex>
+  const actions = (
+    <Flex gap="2" flexShrink="0">
+      <Button variant="soft" color="gray" onClick={handleDiscard}>
+        {onCancel ? "Cancel" : "Discard"}
+      </Button>
+      <Button
+        onClick={handleSave}
+        setError={setError}
+        disabled={!representable || !hasFactTables}
+      >
+        Save
+      </Button>
     </Flex>
   );
 
@@ -368,7 +356,7 @@ export default function MetricWorkspace({
           {error}
         </Callout>
       )}
-      {actionRow}
+      {isEditing && actionsContainer && createPortal(actions, actionsContainer)}
       <MetricEditor
         existingMetric={existing}
         form={form}
