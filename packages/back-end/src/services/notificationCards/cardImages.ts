@@ -2401,3 +2401,837 @@ export async function warmNotificationCardRenderer(): Promise<void> {
     logger.warn(err, "Notification card image renderer failed to warm up");
   }
 }
+
+export interface ScorecardNotable {
+  name: string;
+  label?: string;
+  state: CardState;
+  lift?: string | null; // "+6.1%" or null (then `note` shows)
+  dir?: "up" | "down";
+  note?: string;
+}
+
+export interface ScorecardData {
+  week: string; // "Jul 1 – Jul 7, 2026"
+  stats: {
+    started: number;
+    significant: number;
+    stopped: number;
+    warnings: number;
+  };
+  highlight?: { name: string; metric: string; lift: string };
+  cumWins?: number;
+  notable: ScorecardNotable[];
+}
+
+const SCORECARD_STATUS_LABEL: Record<CardState, string> = {
+  winner: "Won",
+  loser: "Lost",
+  running: "Running",
+  stopped: "Stopped",
+  warning: "Needs attention",
+  started: "Started",
+};
+
+// Notable-list column widths (fixed; the card is a fixed 1000px). Panel content
+// 998 − 56px row padding − 28px gaps − 150 − 150 = 614 for the name column.
+const SC_NAME_W = 614;
+const SC_COL_W = 150;
+
+function dot(color: string, size = 8): El {
+  return el("div", {
+    display: "flex",
+    width: size,
+    height: size,
+    borderRadius: 9999,
+    backgroundColor: color,
+  });
+}
+
+function scLabel(text: string, extra: Record<string, unknown> = {}): El {
+  return txt(text, {
+    fontSize: 9.5,
+    fontWeight: 600,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: P.subtle,
+    ...extra,
+  });
+}
+
+function buildScorecard(data: ScorecardData): El {
+  const divider = `1px solid ${P.borderSub}`;
+  const logoH = 17;
+
+  const header = el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      padding: "22px 28px 18px",
+      borderBottom: `1px solid ${P.border}`,
+    },
+    [
+      el("div", { display: "flex", flexDirection: "column" }, [
+        txt("Experimentation", {
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: P.st.violet,
+          marginBottom: 6,
+        }),
+        txt(data.week, {
+          fontSize: 25,
+          fontWeight: 700,
+          color: P.text,
+          letterSpacing: "-0.02em",
+        }),
+      ]),
+      {
+        type: "img",
+        props: {
+          src: getLogoDataUri(),
+          width: Math.round(logoH * LOGO_ASPECT),
+          height: logoH,
+          style: { display: "flex" },
+        },
+      } as El,
+    ],
+  );
+
+  const stats: [string, number, Hue][] = [
+    ["Started", data.stats.started, "blue"],
+    ["Reached significance", data.stats.significant, "violet"],
+    ["Stopped", data.stats.stopped, "slate"],
+    ["Warnings", data.stats.warnings, "amber"],
+  ];
+  const statStrip = el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      borderBottom: `1px solid ${P.border}`,
+    },
+    stats.map(([label, count, hue], i) =>
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          flexBasis: 0,
+          padding: "18px 20px",
+          ...(i > 0 ? { borderLeft: divider } : {}),
+        },
+        [
+          el(
+            "div",
+            {
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 7,
+              marginBottom: 8,
+            },
+            [
+              dot(SOLID[hue], 8),
+              txt(label, { fontSize: 12, fontWeight: 500, color: P.muted }),
+            ],
+          ),
+          txt(String(count), {
+            fontSize: 34,
+            fontWeight: 700,
+            color: P.text,
+            letterSpacing: "-0.02em",
+            lineHeight: 1,
+          }),
+        ],
+      ),
+    ),
+  );
+
+  const highlight = data.highlight
+    ? el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 18,
+          padding: "18px 28px",
+          backgroundColor: SOFT.green,
+          borderBottom: `1px solid ${P.border}`,
+        },
+        [
+          el("div", { display: "flex", flexDirection: "column", gap: 3 }, [
+            scLabel("Biggest win", {
+              letterSpacing: "0.1em",
+              color: P.st.green,
+            }),
+            txt(data.highlight.name, {
+              fontSize: 17,
+              fontWeight: 600,
+              color: P.text,
+              letterSpacing: "-0.01em",
+            }),
+          ]),
+          el(
+            "div",
+            {
+              display: "flex",
+              flexDirection: "row",
+              flexGrow: 1,
+              justifyContent: "flex-end",
+              alignItems: "baseline",
+              gap: 8,
+            },
+            [
+              el(
+                "div",
+                {
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                },
+                [
+                  arrowImg("up", P.st.green, 16),
+                  txt(
+                    data.highlight.lift,
+                    {
+                      fontSize: 30,
+                      fontWeight: 700,
+                      color: P.st.green,
+                      letterSpacing: "-0.01em",
+                    },
+                    true,
+                  ),
+                ],
+              ),
+              txt(`on ${data.highlight.metric}`, {
+                fontSize: 13,
+                fontWeight: 500,
+                color: P.muted,
+              }),
+            ],
+          ),
+        ],
+      )
+    : null;
+
+  const listHead = el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      gap: 14,
+      padding: "10px 28px 4px",
+    },
+    [
+      el("div", { display: "flex", width: SC_NAME_W }, [
+        scLabel("This period"),
+      ]),
+      el("div", { display: "flex", width: SC_COL_W }, [scLabel("Status")]),
+      el(
+        "div",
+        { display: "flex", width: SC_COL_W, justifyContent: "flex-end" },
+        [scLabel("Detail")],
+      ),
+    ],
+  );
+
+  const listRows = data.notable.map((n, i) => {
+    const hue = HUE[n.state];
+    const dir = n.dir || (n.state === "loser" ? "down" : "up");
+    const showMetric = n.lift !== null && n.lift !== undefined;
+    const metricColor = dir === "up" ? P.st.green : P.st.red;
+    return el(
+      "div",
+      {
+        display: "flex",
+        flexDirection: "row",
+        gap: 14,
+        alignItems: "center",
+        padding: "13px 28px",
+        ...(i > 0 ? { borderTop: divider } : {}),
+      },
+      [
+        el(
+          "div",
+          {
+            display: "flex",
+            flexDirection: "row",
+            width: SC_NAME_W,
+            alignItems: "center",
+            gap: 10,
+          },
+          [
+            dot(SOLID[hue], 8),
+            txt(n.name, {
+              fontSize: 14,
+              fontWeight: 500,
+              color: P.text,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }),
+          ],
+        ),
+        el("div", { display: "flex", width: SC_COL_W }, [
+          txt(n.label || SCORECARD_STATUS_LABEL[n.state], {
+            fontSize: 12.5,
+            fontWeight: 500,
+            color: P.st[hue],
+          }),
+        ]),
+        el(
+          "div",
+          {
+            display: "flex",
+            width: SC_COL_W,
+            justifyContent: "flex-end",
+            alignItems: "center",
+          },
+          [
+            showMetric
+              ? el(
+                  "div",
+                  {
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 5,
+                  },
+                  [
+                    arrowImg(dir, metricColor, 10),
+                    txt(
+                      n.lift as string,
+                      { fontSize: 14, fontWeight: 600, color: metricColor },
+                      true,
+                    ),
+                  ],
+                )
+              : txt(n.note || "—", { fontSize: 12.5, color: P.subtle }),
+          ],
+        ),
+      ],
+    );
+  });
+
+  const footer = el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "12px 28px",
+      borderTop: `1px solid ${P.border}`,
+    },
+    [
+      txt("Activity in this channel’s selected scope", {
+        fontSize: 11.5,
+        color: P.subtle,
+      }),
+      txt("View experiments in GrowthBook", {
+        fontSize: 11.5,
+        color: P.subtle,
+      }),
+    ],
+  );
+
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      width: CARD_WIDTH,
+      backgroundColor: P.panel,
+      border: `1px solid ${P.border}`,
+      borderRadius: 14,
+      overflow: "hidden",
+    },
+    [header, statStrip, highlight, listHead, ...listRows, footer].filter(
+      Boolean,
+    ) as El[],
+  );
+}
+
+// satori (flexbox tree -> SVG) -> resvg-wasm (SVG -> PNG @ 2x width).
+
+export async function renderWeeklyScorecard(
+  data: ScorecardData,
+): Promise<Buffer> {
+  return rasterize(buildScorecard(data));
+}
+export type FeatureDigestReason =
+  | "rollback"
+  | "unhealthy"
+  | "changes"
+  | "review"
+  | "stale";
+
+export interface FeatureDigestData {
+  period: string; // "Jun 8 – Jul 8, 2026"
+  total: number;
+  counts: {
+    published: number;
+    reverted: number;
+    safeRolloutShipped: number;
+    safeRolloutRolledBack: number;
+    safeRolloutUnhealthy: number;
+    stale: number;
+    reviewRequested: number;
+    reviewApproved: number;
+    changesRequested: number;
+  };
+  publishedFlags: string[]; // keys, most-recent first (capped)
+  revertedFlags: string[];
+  needsAttentionFlags: { key: string; reason?: FeatureDigestReason }[];
+}
+
+const FEATURE_REASON: Record<
+  FeatureDigestReason,
+  { label: string; hue: Hue; glyph: "warn" | "review" | "clock" }
+> = {
+  rollback: { label: "rollback recommended", hue: "red", glyph: "warn" },
+  unhealthy: { label: "unhealthy", hue: "red", glyph: "warn" },
+  changes: { label: "changes requested", hue: "amber", glyph: "warn" },
+  review: { label: "review requested", hue: "violet", glyph: "review" },
+  stale: { label: "stale · cleanup", hue: "slate", glyph: "clock" },
+};
+
+function reasonGlyphSvg(
+  glyph: "warn" | "review" | "clock",
+  color: string,
+): string {
+  if (glyph === "review") {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="${color}" stroke-width="2.2"/><path d="M8 12.5 L11 15.5 L16.5 9" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  if (glyph === "clock") {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="${color}" stroke-width="2.2"/><path d="M12 7 V12 L15.5 14" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  return triAlertSvg(color, 11);
+}
+
+function featureInlineStat(value: number, label: string, color: string): El {
+  return el(
+    "div",
+    { display: "flex", flexDirection: "row", alignItems: "baseline", gap: 6 },
+    [
+      txt(String(value), { fontSize: 15, fontWeight: 600, color }, true),
+      txt(label, { fontSize: 12.5, fontWeight: 400, color: P.muted }),
+    ],
+  );
+}
+
+function featureStatSep(): El {
+  return el("div", {
+    display: "flex",
+    width: 1,
+    height: 13,
+    backgroundColor: P.border,
+    margin: "0 4px",
+  });
+}
+
+function featureKeyList(
+  title: string,
+  items: { key: string; reason?: FeatureDigestReason }[],
+  kind: "published" | "reverted" | "attention",
+): El {
+  const headColor =
+    kind === "attention"
+      ? P.st.red
+      : kind === "published"
+        ? P.st.blue
+        : P.subtle;
+  const dotColor =
+    kind === "attention"
+      ? SOLID.red
+      : kind === "published"
+        ? SOLID.blue
+        : SOLID.slate;
+
+  const rows = items.length
+    ? el(
+        "div",
+        { display: "flex", flexDirection: "column", gap: 2 },
+        items.map((item) => {
+          const r = item.reason ? FEATURE_REASON[item.reason] : null;
+          const leading =
+            kind === "attention"
+              ? svgImg(
+                  reasonGlyphSvg(
+                    r ? r.glyph : "warn",
+                    r ? P.st[r.hue] : P.st.red,
+                  ),
+                  11,
+                  11,
+                )
+              : dot(dotColor, 6);
+          return el(
+            "div",
+            {
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              padding: "5px 22px",
+            },
+            [
+              leading,
+              txt(
+                item.key,
+                {
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: P.text,
+                  flexGrow: 1,
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                },
+                true,
+              ),
+              r
+                ? txt(r.label, {
+                    fontSize: 10,
+                    fontWeight: 500,
+                    color: P.st[r.hue],
+                    backgroundColor: SOFT[r.hue],
+                    padding: "2px 7px",
+                    borderRadius: 3,
+                    flexShrink: 0,
+                  })
+                : null,
+            ].filter(Boolean) as El[],
+          );
+        }),
+      )
+    : txt("None this period", {
+        fontSize: 12.5,
+        color: P.subtle,
+        padding: "2px 22px 6px",
+      });
+
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      flexGrow: 1,
+      flexBasis: 0,
+      minWidth: 0,
+      padding: "16px 0 6px",
+      ...(kind === "published"
+        ? {}
+        : { borderLeft: `1px solid ${P.borderSub}` }),
+    },
+    [
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 7,
+          padding: "0 22px",
+          marginBottom: 11,
+        },
+        [
+          scLabel(title, { color: headColor }),
+          txt(
+            `${items.length}`,
+            { fontSize: 10, fontWeight: 600, color: P.subtle },
+            true,
+          ),
+        ],
+      ),
+      rows,
+    ],
+  );
+}
+
+function buildFeatureDigest(data: FeatureDigestData): El {
+  const c = data.counts;
+  const logoH = 24;
+
+  const header = el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      padding: "22px 28px 18px",
+      borderBottom: `1px solid ${P.border}`,
+    },
+    [
+      el("div", { display: "flex", flexDirection: "column" }, [
+        txt("Feature flags", {
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: P.st.violet,
+          marginBottom: 6,
+        }),
+        txt(`Digest · ${data.period}`, {
+          fontSize: 25,
+          fontWeight: 700,
+          color: P.text,
+          letterSpacing: "-0.02em",
+        }),
+      ]),
+      {
+        type: "img",
+        props: {
+          src: getLogoDataUri(),
+          width: Math.round(logoH * LOGO_ASPECT),
+          height: logoH,
+          style: { display: "flex" },
+        },
+      } as El,
+    ],
+  );
+
+  const stats: [string, number, Hue][] = [
+    ["Published", c.published, "blue"],
+    ["Ready to ship", c.safeRolloutShipped, "green"],
+    ["Reverted", c.reverted, "amber"],
+    ["Stale · cleanup", c.stale, "slate"],
+  ];
+  const statStrip = el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      borderBottom: `1px solid ${P.border}`,
+    },
+    stats.map(([label, count, hue], i) =>
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          flexBasis: 0,
+          padding: "18px 20px",
+          ...(i > 0 ? { borderLeft: `1px solid ${P.borderSub}` } : {}),
+        },
+        [
+          el(
+            "div",
+            {
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 7,
+              marginBottom: 8,
+            },
+            [
+              dot(SOLID[hue], 8),
+              txt(label, { fontSize: 12, fontWeight: 500, color: P.muted }),
+            ],
+          ),
+          txt(String(count), {
+            fontSize: 34,
+            fontWeight: 700,
+            color: P.text,
+            letterSpacing: "-0.02em",
+            lineHeight: 1,
+          }),
+        ],
+      ),
+    ),
+  );
+
+  const subBand = el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 14,
+      padding: "13px 28px",
+      borderBottom: `1px solid ${P.border}`,
+      backgroundColor: P.zebra,
+    },
+    [
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        },
+        [
+          scLabel("Safe rollouts", { marginBottom: 0 }),
+          featureInlineStat(c.safeRolloutShipped, "ready to ship", P.st.green),
+          featureStatSep(),
+          featureInlineStat(
+            c.safeRolloutRolledBack,
+            "rollback recommended",
+            P.st.red,
+          ),
+          featureStatSep(),
+          featureInlineStat(c.safeRolloutUnhealthy, "unhealthy", P.st.amber),
+        ],
+      ),
+      el("div", { display: "flex", flexGrow: 1 }),
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        },
+        [
+          scLabel("Reviews", { marginBottom: 0 }),
+          featureInlineStat(c.reviewRequested, "requested", P.text),
+          featureStatSep(),
+          featureInlineStat(c.reviewApproved, "approved", P.st.green),
+          featureStatSep(),
+          featureInlineStat(
+            c.changesRequested,
+            "changes requested",
+            P.st.amber,
+          ),
+        ],
+      ),
+    ],
+  );
+
+  const lists = el(
+    "div",
+    { display: "flex", flexDirection: "row", alignItems: "stretch" },
+    [
+      featureKeyList(
+        "Most recent published",
+        data.publishedFlags.map((key) => ({ key })),
+        "published",
+      ),
+      featureKeyList(
+        "Reverted",
+        data.revertedFlags.map((key) => ({ key })),
+        "reverted",
+      ),
+      featureKeyList("Attention events", data.needsAttentionFlags, "attention"),
+    ],
+  );
+
+  const footer = el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "12px 28px",
+      borderTop: `1px solid ${P.border}`,
+    },
+    [
+      txt(`${data.total} flag events this period`, {
+        fontSize: 11.5,
+        color: P.subtle,
+      }),
+      txt("View flags in GrowthBook", {
+        fontSize: 11.5,
+        color: P.subtle,
+      }),
+    ],
+  );
+
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      width: CARD_WIDTH,
+      backgroundColor: P.panel,
+      border: `1px solid ${P.border}`,
+      borderRadius: 14,
+      overflow: "hidden",
+    },
+    [header, statStrip, subBand, lists, footer],
+  );
+}
+
+/** Render the feature-flag digest to a PNG buffer. */
+export async function renderFeatureDigest(
+  data: FeatureDigestData,
+): Promise<Buffer> {
+  return rasterize(buildFeatureDigest(data));
+}
+
+export function sampleScorecard(): ScorecardData {
+  return {
+    week: "Jul 1 – Jul 7, 2026",
+    stats: { started: 8, significant: 3, stopped: 2, warnings: 1 },
+    notable: [
+      {
+        name: "Homepage hero test",
+        state: "running",
+        label: "Significant",
+        note: "Significance event",
+      },
+      { name: "Checkout v2 flow", state: "started", note: "Started" },
+      { name: "Signup CTA copy", state: "stopped", note: "Stopped" },
+      { name: "Pricing page layout", state: "started", note: "Started" },
+      {
+        name: "Mobile nav redesign",
+        state: "warning",
+        label: "Warning",
+        note: "Warning event",
+      },
+      {
+        name: "Email digest cadence",
+        state: "running",
+        label: "Updated",
+        note: "Updated",
+      },
+    ],
+  };
+}
+
+export function sampleFeatureDigest(): FeatureDigestData {
+  return {
+    period: "Jun 8 – Jul 8, 2026",
+    total: 16,
+    counts: {
+      published: 7,
+      reverted: 1,
+      safeRolloutShipped: 2,
+      safeRolloutRolledBack: 1,
+      safeRolloutUnhealthy: 1,
+      stale: 0,
+      reviewRequested: 2,
+      reviewApproved: 1,
+      changesRequested: 1,
+    },
+    publishedFlags: [
+      "checkout-banner",
+      "new-nav",
+      "pricing-v2",
+      "signup-cta",
+      "referral-widget",
+    ],
+    revertedFlags: ["legacy-search"],
+    needsAttentionFlags: [
+      { key: "promo-banner", reason: "unhealthy" },
+      { key: "cart-upsell", reason: "rollback" },
+      { key: "beta-dashboard", reason: "changes" },
+      { key: "onboarding-tour", reason: "review" },
+    ],
+  };
+}

@@ -1,10 +1,11 @@
-import express from "express";
-import { z } from "zod";
 import {
+  experimentCardFormats as supportedCardFormats,
   isEventWebhookWildcard,
   slackEventWebHookOptions,
   zodNotificationEventNamesEnum,
 } from "shared/validators";
+import express from "express";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawSlackIntegrationController from "./slack-integration.controller";
@@ -23,6 +24,30 @@ const eventNameOrWildcard = z
       isEventWebhookWildcard(value),
     { message: "Must be a valid event name or wildcard pattern" },
   );
+
+const previewBody = z
+  .object({
+    eventName: z.union([
+      z.enum(zodNotificationEventNamesEnum),
+      z.enum(["digest:scorecard", "digest:feature"]),
+    ]),
+    format: z.enum(supportedCardFormats),
+  })
+  .strict();
+router.get("/preview-events", slackIntegrationController.getSlackPreviewEvents);
+router.post(
+  "/preview",
+  validateRequestMiddleware({ body: previewBody }),
+  slackIntegrationController.postSlackPreview,
+);
+router.post(
+  "/:id/test",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string().min(1) }).strict(),
+    body: previewBody,
+  }),
+  slackIntegrationController.postSlackTest,
+);
 
 router.get("/", slackIntegrationController.getSlackIntegrations);
 
@@ -47,6 +72,9 @@ router.put(
         projects: z.array(z.string()),
         environments: z.array(z.string()),
         tags: z.array(z.string()),
+        experiments: z.array(z.string()).optional(),
+        metrics: z.array(z.string()).optional(),
+        features: z.array(z.string()).optional(),
         slackOptions: slackEventWebHookOptions.optional(),
       })
       .strict(),

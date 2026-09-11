@@ -29,6 +29,9 @@ export interface SlackOAuthIntegrationInterface {
   projects: string[];
   environments: string[];
   tags: string[];
+  experiments?: string[];
+  metrics?: string[];
+  features?: string[];
   lastRunAt: Date | null;
   lastState: "none" | "success" | "error";
   slackOptions?: EventWebHookInterface["slackOptions"];

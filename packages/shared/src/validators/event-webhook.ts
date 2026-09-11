@@ -80,6 +80,9 @@ export const eventWebHookInterface = z
     projects: z.array(z.string()),
     tags: z.array(z.string()),
     environments: z.array(z.string()),
+    experiments: z.array(z.string()).optional(),
+    metrics: z.array(z.string()).optional(),
+    features: z.array(z.string()).optional(),
     payloadType: z.enum(eventWebHookPayloadTypes),
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
@@ -93,3 +96,25 @@ export const eventWebHookInterface = z
   .strict();
 
 export type EventWebHookInterface = z.infer<typeof eventWebHookInterface>;
+
+// Explicit defaults avoid subscribing new channels to high-volume significance
+// events or future event families without an administrator selecting them.
+export const defaultSlackNotificationEvents = [
+  "experiment.started",
+  "experiment.stopped",
+  "experiment.decision.ship",
+  "experiment.decision.rollback",
+  "experiment.decision.review",
+  "experiment.metric.regression",
+  "experiment.warning",
+  "experiment.health.guardrailFailed",
+  "feature.revision.published",
+  "feature.revision.reverted",
+  "feature.saferollout.ship",
+  "feature.saferollout.rollback",
+  "feature.saferollout.unhealthy",
+  "feature.revision.reviewRequested",
+  "feature.revision.changesRequested",
+].filter((event) =>
+  zodNotificationEventNamesEnum.some((supported) => supported === event),
+);

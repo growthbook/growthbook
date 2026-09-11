@@ -1,13 +1,19 @@
+import {
+  experimentCardFormats as supportedCardFormats,
+  SlackEventWebHookOptions,
+  SlackWorkspaceConnectionFrontEndInterface,
+} from "shared/validators";
 import type { Response } from "express";
 import {
   SlackIntegrationInterface,
   SlackOAuthIntegrationInterface,
 } from "shared/types/slack-integration";
-import {
-  SlackEventWebHookOptions,
-  SlackWorkspaceConnectionFrontEndInterface,
-} from "shared/validators";
 import { NotificationEventName } from "shared/types/events/base-types";
+import {
+  buildSlackSettingsPreview,
+  sendSlackSettingsTest,
+  slackPreviewEventNames,
+} from "back-end/src/services/slack/slackSettingsPreview";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -125,6 +131,9 @@ type PutSlackOAuthConnectionRequest = AuthRequest<
     projects: string[];
     environments: string[];
     tags: string[];
+    experiments?: string[];
+    metrics?: string[];
+    features?: string[];
     slackOptions?: SlackEventWebHookOptions;
   },
   { id: string }
@@ -569,3 +578,46 @@ export const deleteSlackIntegration = async (
 };
 
 // endregion DELETE /integrations/slack/:id
+
+export const getSlackPreviewEvents = async (
+  req: AuthRequest,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageIntegrations())
+    context.permissions.throwPermissionError();
+  res.json({ events: slackPreviewEventNames });
+};
+export const postSlackPreview = async (
+  req: AuthRequest<{
+    eventName: string;
+    format: (typeof supportedCardFormats)[number];
+  }>,
+  res: Response,
+) => {
+  const { message, png } = await buildSlackSettingsPreview(
+    getContextFromReq(req),
+    req.body.eventName,
+    req.body.format,
+  );
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    message,
+    image: png ? `data:image/png;base64,${png.toString("base64")}` : null,
+  });
+};
+export const postSlackTest = async (
+  req: AuthRequest<
+    { eventName: string; format: (typeof supportedCardFormats)[number] },
+    { id: string }
+  >,
+  res: Response,
+) => {
+  const result = await sendSlackSettingsTest(
+    getContextFromReq(req),
+    req.params.id,
+    req.body.eventName,
+    req.body.format,
+  );
+  res.json(result);
+};
