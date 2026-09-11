@@ -11,11 +11,10 @@ import {
 } from "shared/validators";
 import {
   applyTimestampColumn,
-  getCommonColumns,
+  getAvailableDimensionColumns,
   getColumnTopValues,
   normalizeTimelessSqlConfig,
   resolveSqlPreviewTimestamp,
-  getRelevantFactTableIds,
   validateDimensions,
   type ExplorerDraftConfig,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -34,7 +33,7 @@ function makeColumn(overrides: Partial<ColumnInterface>): ColumnInterface {
   };
 }
 
-// getCommonColumns only reads `columns` and `userIdTypes` off the fact table.
+// getAvailableDimensionColumns only reads `columns` and `userIdTypes` off the fact table.
 function makeFactTable(
   columns: ColumnInterface[],
   userIdTypes: string[] = [],
@@ -61,9 +60,11 @@ function factTableDataset(): ExplorationDataset {
 
 const noFactMetric = () => null;
 
-describe("getCommonColumns", () => {
+describe("getAvailableDimensionColumns", () => {
   it("returns empty when dataset is null", () => {
-    expect(getCommonColumns(null, () => null, noFactMetric)).toEqual([]);
+    expect(
+      getAvailableDimensionColumns(null, () => null, noFactMetric),
+    ).toEqual([]);
   });
 
   it("returns empty when the dataset has no values", () => {
@@ -72,7 +73,9 @@ describe("getCommonColumns", () => {
       factTableId: "ft_1",
       values: [],
     };
-    expect(getCommonColumns(dataset, () => null, noFactMetric)).toEqual([]);
+    expect(
+      getAvailableDimensionColumns(dataset, () => null, noFactMetric),
+    ).toEqual([]);
   });
 
   it("includes only top-level string columns, sorted by name", () => {
@@ -84,7 +87,7 @@ describe("getCommonColumns", () => {
     ]);
 
     expect(
-      getCommonColumns(factTableDataset(), () => ft, noFactMetric),
+      getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
     ).toEqual([
       { column: "browser", name: "Browser" },
       { column: "country", name: "Country" },
@@ -102,7 +105,7 @@ describe("getCommonColumns", () => {
     );
 
     expect(
-      getCommonColumns(factTableDataset(), () => ft, noFactMetric),
+      getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
     ).toEqual([{ column: "country", name: "Country" }]);
   });
 
@@ -122,7 +125,7 @@ describe("getCommonColumns", () => {
     ]);
 
     expect(
-      getCommonColumns(factTableDataset(), () => ft, noFactMetric),
+      getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
     ).toEqual([
       { column: "country", name: "Country" },
       { column: "props.city", name: "Props.city" },
@@ -143,7 +146,7 @@ describe("getCommonColumns", () => {
     ]);
 
     expect(
-      getCommonColumns(factTableDataset(), () => ft, noFactMetric),
+      getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
     ).toEqual([{ column: "country", name: "Country" }]);
   });
 
@@ -158,7 +161,7 @@ describe("getCommonColumns", () => {
     ]);
 
     expect(
-      getCommonColumns(factTableDataset(), () => ft, noFactMetric),
+      getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
     ).toEqual([{ column: "props.plan", name: "props.plan" }]);
   });
 
@@ -185,9 +188,9 @@ describe("getCommonColumns", () => {
       ],
     };
 
-    expect(getCommonColumns(dataset, () => null, noFactMetric)).toEqual([
-      { column: "country", name: "country" },
-    ]);
+    expect(
+      getAvailableDimensionColumns(dataset, () => null, noFactMetric),
+    ).toEqual([{ column: "country", name: "country" }]);
   });
 
   it("offers every scalar column of a sql dataset, but not `other`", () => {
@@ -217,7 +220,9 @@ describe("getCommonColumns", () => {
       ],
     };
 
-    expect(getCommonColumns(dataset, () => null, noFactMetric)).toEqual([
+    expect(
+      getAvailableDimensionColumns(dataset, () => null, noFactMetric),
+    ).toEqual([
       { column: "active", name: "active" },
       { column: "installs", name: "installs" },
       { column: "month", name: "month" },
@@ -265,7 +270,11 @@ describe("getCommonColumns", () => {
       }) as FactMetricInterface;
 
     expect(
-      getCommonColumns(dataset, getFactTableById, getFactMetricById),
+      getAvailableDimensionColumns(
+        dataset,
+        getFactTableById,
+        getFactMetricById,
+      ),
     ).toEqual([{ column: "country", name: "Country" }]);
   });
 
@@ -305,7 +314,11 @@ describe("getCommonColumns", () => {
       }) as FactMetricInterface;
 
     expect(
-      getCommonColumns(dataset, getFactTableById, getFactMetricById),
+      getAvailableDimensionColumns(
+        dataset,
+        getFactTableById,
+        getFactMetricById,
+      ),
     ).toEqual([{ column: "country", name: "Country" }]);
   });
 });
@@ -487,84 +500,6 @@ describe("validateDimensions", () => {
     expect(
       validateDimensions(config, () => null, noFactMetric).dimensions,
     ).toEqual([]);
-  });
-
-  it("keeps a dimension when the fact table can't be resolved yet, but columnsMayBeIncomplete is set", () => {
-    const config = makeConfig([
-      { dimensionType: "static", column: "country", values: ["US"] },
-    ]);
-
-    expect(
-      validateDimensions(config, () => null, noFactMetric, {
-        columnsMayBeIncomplete: true,
-      }).dimensions,
-    ).toEqual(config.dimensions);
-  });
-});
-
-describe("getRelevantFactTableIds", () => {
-  it("returns [] for a null dataset", () => {
-    expect(getRelevantFactTableIds(null, noFactMetric)).toEqual([]);
-  });
-
-  it("returns the fact table id for a fact_table dataset", () => {
-    expect(getRelevantFactTableIds(factTableDataset(), noFactMetric)).toEqual([
-      "ft_1",
-    ]);
-  });
-
-  it("returns numerator and denominator fact table ids for a ratio metric dataset", () => {
-    const getFactMetricById = (id: string) =>
-      ({
-        m1: {
-          numerator: { factTableId: "numerator_ft" },
-          denominator: { factTableId: "denominator_ft" },
-        } as FactMetricInterface,
-      })[id] ?? null;
-
-    const dataset: ExplorationDataset = {
-      type: "metric",
-      values: [
-        {
-          name: "v",
-          type: "metric",
-          rowFilters: [],
-          metricId: "m1",
-          unit: null,
-          denominatorUnit: null,
-        },
-      ],
-    };
-
-    expect(getRelevantFactTableIds(dataset, getFactMetricById).sort()).toEqual([
-      "denominator_ft",
-      "numerator_ft",
-    ]);
-  });
-
-  it("returns only the initial step's fact table for a funnel dataset", () => {
-    const dataset: ExplorationDataset = {
-      type: "funnel",
-      unit: "user_id",
-      steps: [
-        {
-          name: "s1",
-          factTableId: "step1_ft",
-          rowFilters: [],
-          optional: false,
-        },
-        {
-          name: "s2",
-          factTableId: "step2_ft",
-          rowFilters: [],
-          optional: false,
-        },
-      ],
-    };
-
-    expect(getRelevantFactTableIds(dataset, noFactMetric)).toEqual([
-      "step1_ft",
-    ]);
   });
 });
 
