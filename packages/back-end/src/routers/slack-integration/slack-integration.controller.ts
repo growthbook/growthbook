@@ -8,6 +8,11 @@ import {
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { NotificationEventName } from "shared/types/events/base-types";
+import {
+  buildSlackSettingsPreview,
+  sendSlackSettingsTest,
+  slackPreviewEventNames,
+} from "back-end/src/services/slack/slackSettingsPreview";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -569,3 +574,46 @@ export const deleteSlackIntegration = async (
 };
 
 // endregion DELETE /integrations/slack/:id
+
+export const getSlackPreviewEvents = async (
+  req: AuthRequest,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageIntegrations())
+    context.permissions.throwPermissionError();
+  res.json({ events: slackPreviewEventNames });
+};
+export const postSlackPreview = async (
+  req: AuthRequest<{
+    eventName: string;
+    format: "none" | "compact" | "detailed";
+  }>,
+  res: Response,
+) => {
+  const { message, png } = await buildSlackSettingsPreview(
+    getContextFromReq(req),
+    req.body.eventName,
+    req.body.format,
+  );
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    message,
+    image: png ? `data:image/png;base64,${png.toString("base64")}` : null,
+  });
+};
+export const postSlackTest = async (
+  req: AuthRequest<
+    { eventName: string; format: "none" | "compact" | "detailed" },
+    { id: string }
+  >,
+  res: Response,
+) => {
+  const result = await sendSlackSettingsTest(
+    getContextFromReq(req),
+    req.params.id,
+    req.body.eventName,
+    req.body.format,
+  );
+  res.json(result);
+};

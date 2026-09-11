@@ -6,7 +6,9 @@ import {
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiTrash } from "react-icons/pi";
+import { PiTrash, PiPaperPlaneTilt, PiX } from "react-icons/pi";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import useApi from "@/hooks/useApi";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -21,7 +23,8 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
-import { Select, SelectItem } from "@/ui/Select";
+import { Select, SelectItem, SelectGroup, SelectLabel } from "@/ui/Select";
+import SlackEventPreview from "./SlackEventPreview";
 import {
   slackEventOptions,
   SlackEventCategory,
@@ -95,6 +98,42 @@ export default function SlackChannelSettings({
   saveBarHost?: HTMLDivElement | null;
 }) {
   const { apiCall } = useAuth();
+  const { data: previewEvents, error: previewEventsError } = useApi<{
+    events: string[];
+  }>("/integrations/slack/preview-events");
+  const [previewEvent, setPreviewEvent] = useState("experiment.warning");
+  const [testEvent, setTestEvent] = useState("experiment.warning");
+  const [showSendTest, setShowSendTest] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const eventChoices = slackEventOptions.flatMap((option) => {
+    const event = option.events.find((event) =>
+      previewEvents?.events.includes(event),
+    );
+    return event
+      ? [
+          {
+            event,
+            label:
+              option.label + (event === "experiment.warning" ? " (SRM)" : ""),
+            group: `${option.category === "experiment" ? "Experiments" : "Feature Flags"} · ${option.group}`,
+          },
+        ]
+      : [];
+  });
+  const previewChoiceItems = [
+    ...new Set(eventChoices.map((option) => option.group)),
+  ].map((group) => (
+    <SelectGroup key={group}>
+      <SelectLabel>{group}</SelectLabel>
+      {eventChoices
+        .filter((option) => option.group === group)
+        .map(({ event, label }) => (
+          <SelectItem key={event} value={event}>
+            {label}
+          </SelectItem>
+        ))}
+    </SelectGroup>
+  ));
   const { projects, tags } = useDefinitions();
   const environments = useEnvironments();
   const [enabled, setEnabled] = useState(integration.enabled);
@@ -227,6 +266,46 @@ export default function SlackChannelSettings({
 
   return (
     <>
+      {showSendTest && (
+        <ModalStandard
+          open
+          header="Send a Test Message"
+          trackingEventModalType="slack-send-test-message"
+          cta={`Send to ${getSlackChannelLabel(integration)}`}
+          close={() => setShowSendTest(false)}
+          submit={async () => {
+            const result = await apiCall<{ delivery: "card" | "text" }>(
+              `/integrations/slack/${integration.id}/test`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  eventName: testEvent,
+                  format: cardFormat,
+                }),
+              },
+            );
+            setTestResult(
+              `Test ${result.delivery === "card" ? "card" : "message"} sent to ${getSlackChannelLabel(integration)}.`,
+            );
+          }}
+        >
+          <Text as="p" mb="3">
+            Posts a sample notification to {getSlackChannelLabel(integration)}{" "}
+            using the currently selected card style, without saving your
+            settings or creating a real event.
+          </Text>
+          <Box mb="4">
+            <Select
+              label="Message type"
+              value={testEvent}
+              setValue={setTestEvent}
+            >
+              {previewChoiceItems}
+            </Select>
+          </Box>
+          <SlackEventPreview eventName={testEvent} format={cardFormat} />
+        </ModalStandard>
+      )}
       {confirmingDelete && (
         <ConfirmDialog
           title="Delete Slack Channel Connection?"
@@ -259,6 +338,18 @@ export default function SlackChannelSettings({
             />
             <Button
               variant="outline"
+              color="gray"
+              icon={<PiPaperPlaneTilt />}
+              disabled={!previewEvents?.events.length}
+              onClick={() => {
+                setTestEvent(previewEvent);
+                setShowSendTest(true);
+              }}
+            >
+              Send test message
+            </Button>
+            <Button
+              variant="outline"
               color="red"
               icon={<PiTrash />}
               onClick={() => setConfirmingDelete(true)}
@@ -268,6 +359,27 @@ export default function SlackChannelSettings({
           </Flex>
         </Flex>
 
+        {previewEventsError && (
+          <HelperText status="error">
+            Could not load test events. Refresh to try again.
+          </HelperText>
+        )}
+        {testResult && (
+          <Callout status="success">
+            <Flex align="center" justify="between" gap="3">
+              <span>{testResult}</span>
+              <Button
+                aria-label="Dismiss"
+                variant="ghost"
+                color="gray"
+                size="sm"
+                onClick={() => setTestResult(null)}
+              >
+                <PiX />
+              </Button>
+            </Flex>
+          </Callout>
+        )}
         {needsReconnect && (
           <Flex direction="column" gap="2">
             <Callout
@@ -578,22 +690,46 @@ export default function SlackChannelSettings({
             Choose how SRM warnings appear. Significance notifications and other
             events remain text-only.
           </Text>
-          <Box style={{ maxWidth: 420 }}>
-            <Select
-              label="Card style"
-              value={cardFormat}
-              setValue={(value) => {
-                setCardFormat(value as (typeof experimentCardFormats)[number]);
-                markDirty();
-              }}
-            >
-              {experimentCardFormats.map((format) => (
-                <SelectItem key={format} value={format}>
-                  {CARD_FORMAT_LABELS[format].label}
-                </SelectItem>
-              ))}
-            </Select>
-          </Box>
+          <Flex gap="6" align="start" wrap="wrap">
+            <Box style={{ flex: 1, minWidth: 220 }}>
+              <Box style={{ maxWidth: 420 }}>
+                <Select
+                  label="Card style"
+                  value={cardFormat}
+                  setValue={(value) => {
+                    setCardFormat(
+                      value as (typeof experimentCardFormats)[number],
+                    );
+                    markDirty();
+                  }}
+                >
+                  {experimentCardFormats.map((format) => (
+                    <SelectItem key={format} value={format}>
+                      {CARD_FORMAT_LABELS[format].label}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </Box>{" "}
+            </Box>
+            <Box style={{ width: 460, maxWidth: "100%" }}>
+              <Text as="div" weight="medium" color="text-mid" mb="2">
+                Preview
+              </Text>
+              <SlackEventPreview eventName={previewEvent} format={cardFormat} />
+              <Box mt="3">
+                <Select
+                  label="Preview event"
+                  value={previewEvent}
+                  setValue={setPreviewEvent}
+                >
+                  {previewChoiceItems}
+                </Select>
+              </Box>
+              <Text as="p" color="text-mid" size="sm" mt="2">
+                Sample data. Events without image support appear as text.
+              </Text>
+            </Box>
+          </Flex>
         </Frame>
 
         {saveBarHost ? createPortal(saveBar, saveBarHost) : saveBar}

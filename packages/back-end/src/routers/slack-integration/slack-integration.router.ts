@@ -24,6 +24,27 @@ const eventNameOrWildcard = z
     { message: "Must be a valid event name or wildcard pattern" },
   );
 
+const previewBody = z
+  .object({
+    eventName: z.enum(zodNotificationEventNamesEnum),
+    format: z.enum(["none", "compact", "detailed"]),
+  })
+  .strict();
+router.get("/preview-events", slackIntegrationController.getSlackPreviewEvents);
+router.post(
+  "/preview",
+  validateRequestMiddleware({ body: previewBody }),
+  slackIntegrationController.postSlackPreview,
+);
+router.post(
+  "/:id/test",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string().min(1) }).strict(),
+    body: previewBody,
+  }),
+  slackIntegrationController.postSlackTest,
+);
+
 router.get("/", slackIntegrationController.getSlackIntegrations);
 
 router.get("/oauth", slackIntegrationController.getSlackOAuthConnections);
