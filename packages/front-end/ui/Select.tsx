@@ -1,6 +1,6 @@
 import { Select as RadixSelect, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { forwardRef, ReactNode } from "react";
+import { forwardRef, ReactNode, useId } from "react";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
 import HelperText from "./HelperText";
@@ -10,6 +10,7 @@ export type SelectSize = Size<"sm" | "md" | "lg">;
 
 type SelectProps = {
   label?: ReactNode;
+  "aria-label"?: string;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
   defaultValue?: string;
@@ -33,6 +34,7 @@ type SelectProps = {
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
   {
     label,
+    "aria-label": ariaLabel,
     labelSize,
     labelWeight = "semibold",
     defaultValue,
@@ -53,6 +55,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
   }: SelectProps,
   ref,
 ) {
+  const triggerId = useId();
   return (
     <Flex
       direction="column"
@@ -61,7 +64,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       className={`gb-select--${size}`}
     >
       {typeof label === "string" ? (
-        <Text as="label" size={labelSize ?? "md"} weight={labelWeight}>
+        <Text
+          as="label"
+          htmlFor={triggerId}
+          size={labelSize ?? "md"}
+          weight={labelWeight}
+        >
           {label}
         </Text>
       ) : label !== undefined ? (
@@ -75,6 +83,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         onValueChange={setValue}
       >
         <RadixSelect.Trigger
+          id={triggerId}
+          aria-label={ariaLabel}
           autoFocus={autoFocus}
           placeholder={placeholder}
           className={clsx(triggerClassName, { error: error })}
