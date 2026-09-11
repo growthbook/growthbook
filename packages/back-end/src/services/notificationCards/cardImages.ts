@@ -249,6 +249,7 @@ export interface ExperimentCardData {
   ds?: string;
   note?: string;
   rows: CardGoalRow[];
+  summary?: string[];
   secondary?: CardCiMetric[];
   guardrail?: CardCiMetric[];
   // Shown above the conclusion for non-started states; and in the started body.
@@ -1266,12 +1267,25 @@ function conclusionEl(exp: ExperimentCardData): El | null {
   );
 }
 
+function eventSummaryBody(lines: string[]): El {
+  return el(
+    "div",
+    { display: "flex", flexDirection: "column", gap: 12, padding: "20px 24px" },
+    lines.map((line) =>
+      txt(plainClamp(line, 240), { fontSize: 17, color: P.text }),
+    ),
+  );
+}
+
 function buildCard(exp: ExperimentCardData): El {
   const hue = HUE[exp.state];
   let body: El;
   let footerItems: (string | undefined)[];
 
-  if (exp.state === "started") {
+  if (exp.summary) {
+    body = eventSummaryBody(exp.summary);
+    footerItems = [exp.dates];
+  } else if (exp.state === "started") {
     body = startedBody(exp);
     footerItems = [exp.variants.join(" · "), exp.dates, exp.ds];
   } else if (exp.state === "warning") {
@@ -1565,6 +1579,7 @@ function compactHero(
   event: CompactEvent,
   hue: Hue,
 ): El {
+  if (exp.summary) return eventSummaryBody(exp.summary);
   const accentText = P.st[hue];
   const r = exp.rows[0];
 

@@ -292,7 +292,6 @@ describe("Slack EventWebHook delivery compatibility", () => {
 
     expect(renderExperimentNotificationCard).toHaveBeenCalledWith(
       {},
-      "org-1",
       "detailed",
     );
     expect(uploadSlackImageFile).toHaveBeenCalledWith({

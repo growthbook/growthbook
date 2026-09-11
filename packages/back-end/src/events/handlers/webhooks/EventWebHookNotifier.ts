@@ -201,7 +201,6 @@ export class EventWebHookNotifier implements Notifier {
           event.version && notificationSettings.type === "image"
             ? await renderExperimentNotificationCard(
                 event.data,
-                organization.id,
                 notificationSettings.cardFormat,
               )
             : null;

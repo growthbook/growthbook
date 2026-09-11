@@ -1,21 +1,9 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { experimentCardFormats } from "shared/validators";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
 import { logger } from "back-end/src/util/logger";
 import type { CompactEvent } from "back-end/src/services/notificationCards/cardImages";
 import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
-
-const compactEventForNotification = (
-  event: NotificationEvent,
-): CompactEvent | null => {
-  // The generic experiment warning event covers several semantically distinct
-  // cases. The current warning card specifically describes SRM, so other
-  // warning subtypes must retain their accurate text notification.
-  if (event.event !== "experiment.warning") return null;
-  const warning = event.data.object as { type?: string };
-  return warning.type === "srm" ? "warning" : null;
-};
+import { buildEventSnapshotCard } from "./eventSnapshotCard";
 
 const CARD_CAPTION: Record<CompactEvent, string> = {
   started: "Experiment started",
@@ -37,37 +25,23 @@ export interface RenderedExperimentNotificationCard {
 
 export async function renderExperimentNotificationCard(
   event: NotificationEvent,
-  organizationId: string,
   format: ExperimentNotificationCardFormat = "compact",
 ): Promise<RenderedExperimentNotificationCard | null> {
-  const compactEvent = compactEventForNotification(event);
-  if (!compactEvent) return null;
-
-  const object = event.data?.object as
-    | { id?: string; experimentId?: string }
-    | undefined;
-  const experimentId = object?.id || object?.experimentId;
-  if (!experimentId) return null;
+  const card = buildEventSnapshotCard(event);
+  if (!card?.event) return null;
 
   try {
-    const context = await getContextForAgendaJobByOrgId(organizationId);
-    const card = await buildExperimentCardData(context, experimentId);
-    // A delayed warning may now load healthy or stopped results. Preserve the
-    // event's text instead of presenting a contradictory current-state card.
-    if (!card || card.state !== "warning") return null;
-
-    card.event = compactEvent;
     const png = await renderExperimentCard(card, format);
     return {
       png,
       altText: `${card.name} — experiment results`,
-      caption: CARD_CAPTION[compactEvent],
-      experimentId,
+      caption: CARD_CAPTION[card.event],
+      experimentId: card.key,
     };
   } catch (error) {
     logger.warn(
       error,
-      `Notification card: failed to render experiment ${experimentId}`,
+      `Notification card: failed to render experiment ${card.key}`,
     );
     return null;
   }
