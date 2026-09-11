@@ -56,8 +56,8 @@ import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fie
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
 import {
-  validateCustomFields,
   validateChangedRuleReferences,
+  validateCustomFields,
 } from "./validations";
 import {
   canBypassReviewChecks,

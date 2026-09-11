@@ -53,9 +53,9 @@ import {
 } from "back-end/src/services/featureRevisionEvents";
 import { validateEnvKeys } from "./postFeature";
 import {
+  validateChangedRuleReferences,
   validateCustomFields,
   validateRuleAttributes,
-  validateRulesReferences,
 } from "./validations";
 import {
   canBypassReviewChecks,
@@ -289,38 +289,9 @@ export const updateFeatureV2 = createApiRequestHandler(
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
     await assertValidRuleProjectIds(inboundFlatRules, req.context);
-    // Same condition / saved-group / prerequisite reference checks the
-    // per-rule endpoints run. Like the per-rule PUT, only fields that differ
-    // from the stored rule with the same id are checked, so resending a stored
-    // rule unchanged (or editing only its condition) does not re-validate
-    // references the caller did not touch — the saved groups and features
-    // visible to the check are those the caller can read.
-    const storedRulesById = new Map(
-      (feature.rules ?? []).map((r) => [r.id, r]),
-    );
-    await validateRulesReferences(
-      inboundFlatRules.flatMap((rule) => {
-        const stored = rule.id ? storedRulesById.get(rule.id) : undefined;
-        const conditionChanged =
-          !stored || (stored.condition || "{}") !== (rule.condition || "{}");
-        const savedGroupsChanged =
-          !stored || !isEqual(stored.savedGroups ?? [], rule.savedGroups ?? []);
-        const prerequisitesChanged =
-          !stored ||
-          !isEqual(stored.prerequisites ?? [], rule.prerequisites ?? []);
-        if (!conditionChanged && !savedGroupsChanged && !prerequisitesChanged) {
-          return [];
-        }
-        return [
-          {
-            condition: conditionChanged ? rule.condition : undefined,
-            savedGroups: savedGroupsChanged ? rule.savedGroups : [],
-            prerequisites: prerequisitesChanged
-              ? rule.prerequisites
-              : undefined,
-          },
-        ];
-      }),
+    await validateChangedRuleReferences(
+      inboundFlatRules,
+      feature.rules ?? [],
       req.context,
     );
     validateRulesScheduleRules(inboundFlatRules, req.context);

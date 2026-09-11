@@ -214,12 +214,8 @@ export async function validateRuleReferences(
   );
 }
 
-// Bulk form for endpoints that accept a whole rules array (v2 feature
-// create/update): the same reference checks as the per-rule endpoints —
-// condition (parsed with the saved-group map, so JSON errors, unknown
-// $inGroup/$notInGroup ids and unknown $savedGroups are all caught), targeted
-// saved groups, prerequisite conditions and prerequisite features — with the
-// organization's saved groups loaded once for the whole array.
+// Bulk form for endpoints that take a whole rules array (feature create /
+// update, v1 and v2): the per-rule checks, with saved groups loaded once.
 export async function validateRulesReferences(
   rules: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">[],
   context: ApiReqContext,

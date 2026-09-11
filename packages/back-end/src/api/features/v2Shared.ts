@@ -265,8 +265,7 @@ export function mapV2ApiRuleToFeatureRule(
     enabled: ruleInput.enabled ?? true,
     condition: ruleInput.condition ?? "",
     savedGroups: resolveSavedGroupsInput(ruleInput),
-    // Emitted on GET and accepted on every rule type; dropping them here made a
-    // plain fetch → edit → send-back remove the rule's gate and schedule.
+    // Emitted on GET; dropping them broke the fetch → edit → send-back loop.
     ...(ruleInput.prerequisites !== undefined && {
       prerequisites: ruleInput.prerequisites,
     }),
