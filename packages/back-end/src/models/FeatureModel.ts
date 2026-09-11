@@ -4581,20 +4581,7 @@ export async function getFeatureEnvStatus(
   }));
 }
 
-export async function getFeatureIdsLinkedToExperiment(
-  context: ReqContext | ApiReqContext,
-  experimentId: string,
-): Promise<string[]> {
-  const features = await FeatureModel.find(
-    { organization: context.org.id, linkedExperiments: experimentId },
-    { id: 1, _id: 0 },
-  ).lean<{ id: string }[]>();
-  return features.map((f) => f.id);
-}
-
-// The experiment ids a feature is linked to. Lightweight projection scoped to
-// the context's org — the mirror of getFeatureIdsLinkedToExperiment, used by
-// Slack delivery so an experiments filter can also match this feature's events.
+// The experiment ids a feature is linked to, scoped to the context's org.
 export async function getFeatureLinkedExperimentIds(
   context: ReqContext | ApiReqContext,
   featureId: string,

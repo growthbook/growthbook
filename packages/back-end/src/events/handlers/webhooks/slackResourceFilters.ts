@@ -2,7 +2,6 @@ import { EventWebHookInterface } from "shared/types/event-webhook";
 import { isNoisyExperimentUpdate } from "back-end/src/services/slack/experimentUpdateNoise";
 import {
   getFeature,
-  getFeatureIdsLinkedToExperiment,
   getFeatureLinkedExperimentIds,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
@@ -135,6 +134,22 @@ export const getSlackEventResource = (event: ResourceFilterEvent) => {
   };
 };
 
+function getSnapshotLinkedFeatures(event: ResourceFilterEvent): string[] {
+  const asRecord = (value: unknown): Record<string, unknown> =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const data = asRecord(asRecord(event.data).data);
+  const snapshot = asRecord(
+    data.object ?? data.current ?? data.previous ?? data,
+  );
+  return Array.isArray(snapshot.linkedFeatures)
+    ? snapshot.linkedFeatures.filter(
+        (id): id is string => typeof id === "string",
+      )
+    : [];
+}
+
 export async function filterWebhooksByResources(
   event: ResourceFilterEvent,
   webhooks: EventWebHookInterface[],
@@ -158,13 +173,19 @@ export async function filterWebhooksByResources(
     metrics: Array.from(new Set(collectMetricIds(event.data))),
   };
   const context = await getContextForAgendaJobByOrgId(event.organizationId);
-  if (resource === "experiment" && id) {
-    if (hasFilter("features"))
-      related.features = await getFeatureIdsLinkedToExperiment(context, id);
-    if (hasFilter("metrics")) {
-      const experiments = await getExperimentsByIds(context, id ? [id] : []);
-      related.metrics.push(...experiments.flatMap(metricIdsFromMetricConfig));
+  if (
+    resource === "experiment" &&
+    id &&
+    (hasFilter("features") || hasFilter("metrics"))
+  ) {
+    const experiments = await getExperimentsByIds(context, [id]);
+    if (hasFilter("features")) {
+      related.features = experiments.length
+        ? experiments.flatMap((experiment) => experiment.linkedFeatures || [])
+        : getSnapshotLinkedFeatures(event);
     }
+    if (hasFilter("metrics"))
+      related.metrics.push(...experiments.flatMap(metricIdsFromMetricConfig));
   }
   if (resource === "feature" && id) {
     if (hasFilter("experiments"))

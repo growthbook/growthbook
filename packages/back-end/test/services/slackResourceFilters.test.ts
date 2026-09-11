@@ -7,10 +7,7 @@ import {
   filterWebhooksByResources,
 } from "../../src/events/handlers/webhooks/slackResourceFilters";
 import { getContextForAgendaJobByOrgId } from "../../src/services/organizations";
-import {
-  getFeatureIdsLinkedToExperiment,
-  getFeatureLinkedExperimentIds,
-} from "../../src/models/FeatureModel";
+import { getFeatureLinkedExperimentIds } from "../../src/models/FeatureModel";
 import { getExperimentsByIds } from "../../src/models/ExperimentModel";
 
 jest.mock("../../src/services/organizations", () => ({
@@ -18,7 +15,6 @@ jest.mock("../../src/services/organizations", () => ({
 }));
 jest.mock("../../src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
-  getFeatureIdsLinkedToExperiment: jest.fn(),
   getFeatureLinkedExperimentIds: jest.fn(),
 }));
 jest.mock("../../src/models/ExperimentModel", () => ({
@@ -92,12 +88,11 @@ test("experiment events match linked feature and configured metrics", async () =
     .mockResolvedValue(
       context as Awaited<ReturnType<typeof getContextForAgendaJobByOrgId>>,
     );
-  jest.mocked(getFeatureIdsLinkedToExperiment).mockResolvedValue(["flag-a"]);
   jest
     .mocked(getExperimentsByIds)
-    .mockResolvedValue([{ goalMetrics: ["fact__a"] }] as Awaited<
-      ReturnType<typeof getExperimentsByIds>
-    >);
+    .mockResolvedValue([
+      { linkedFeatures: ["flag-a"], goalMetrics: ["fact__a"] },
+    ] as Awaited<ReturnType<typeof getExperimentsByIds>>);
   const hooks = [
     { features: ["flag-a"], metrics: ["fact__a"] } as EventWebHookInterface,
   ];
@@ -110,10 +105,8 @@ test("experiment events match linked feature and configured metrics", async () =
       hooks,
     ),
   ).toEqual(hooks);
-  expect(getFeatureIdsLinkedToExperiment).toHaveBeenCalledWith(
-    context,
-    "exp_a",
-  );
+  expect(getExperimentsByIds).toHaveBeenCalledWith(context, ["exp_a"]);
+  expect(getExperimentsByIds).toHaveBeenCalledTimes(1);
 });
 test("feature events match linked experiments", async () => {
   jest.mocked(getFeatureLinkedExperimentIds).mockResolvedValue(["exp_a"]);
@@ -180,4 +173,54 @@ test("empty experiment updates skip Slack but preserve customer webhooks", async
     raw,
   ]);
   expect(getContextForAgendaJobByOrgId).not.toHaveBeenCalled();
+});
+
+test.each(["object", "previous"])(
+  "deleted experiment uses %s snapshot links and metric ids",
+  async (shape) => {
+    jest.mocked(getExperimentsByIds).mockResolvedValueOnce([]);
+    const hooks = [
+      {
+        features: ["deleted-flag"],
+        metrics: ["fact__deleted"],
+      } as EventWebHookInterface,
+    ];
+    expect(
+      await filterWebhooksByResources(
+        {
+          organizationId: "org_a",
+          data: {
+            object: "experiment",
+            data: {
+              [shape]: {
+                id: "exp_deleted",
+                linkedFeatures: ["deleted-flag"],
+                goalMetrics: ["fact__deleted"],
+              },
+            },
+          },
+        },
+        hooks,
+      ),
+    ).toEqual(hooks);
+  },
+);
+test("the live experiment's canonical links override stale event links", async () => {
+  jest
+    .mocked(getExperimentsByIds)
+    .mockResolvedValueOnce([{ id: "exp_a", linkedFeatures: [] }] as Awaited<
+      ReturnType<typeof getExperimentsByIds>
+    >);
+  expect(
+    await filterWebhooksByResources(
+      {
+        organizationId: "org_a",
+        data: {
+          object: "experiment",
+          data: { object: { id: "exp_a", linkedFeatures: ["old-flag"] } },
+        },
+      },
+      [{ features: ["old-flag"] } as EventWebHookInterface],
+    ),
+  ).toEqual([]);
 });
