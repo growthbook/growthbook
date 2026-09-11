@@ -112,7 +112,6 @@ export const createEventWithPayload = async <
   payload,
   organizationId,
   objectId,
-  notify = true,
 }: {
   payload: Omit<
     NotificationEventPayload<Resource, Event>,
@@ -120,8 +119,6 @@ export const createEventWithPayload = async <
   >;
   organizationId: string;
   objectId?: string;
-  // Save event history even when webhook and legacy Slack dispatch is skipped.
-  notify?: boolean;
 }) => {
   try {
     const eventId = `event-${randomUUID()}`;
@@ -142,7 +139,7 @@ export const createEventWithPayload = async <
       typeof MODEL_VERSION
     >;
 
-    if (notify) await new EventNotifier(event.id).perform();
+    await new EventNotifier(event.id).perform();
   } catch (e) {
     logger.error(e);
   }
@@ -234,7 +231,6 @@ export type CreateEventParams<
   projects: string[];
   tags: string[];
   environments: string[];
-  notify?: boolean;
 };
 
 export const createEvent = async <
@@ -250,7 +246,6 @@ export const createEvent = async <
   projects,
   tags,
   environments,
-  notify = true,
 }: CreateEventParams<Resource, Event>) =>
   createEventWithPayload<Resource, Event>({
     payload: {
@@ -264,7 +259,6 @@ export const createEvent = async <
       user: context.auditUser ?? { type: "system" },
     },
     organizationId: context.org.id,
-    notify,
     ...(objectId ? { objectId } : {}),
   });
 
