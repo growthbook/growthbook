@@ -378,3 +378,24 @@ export const getLatestEventsForOrganization = async (
 
   return docs.map(toInterface) as EventInterface[];
 };
+
+export const hasAutoUpdateFailEventSince = async ({
+  organizationId,
+  experimentId,
+  since,
+}: {
+  organizationId: string;
+  experimentId: string;
+  since: Date;
+}): Promise<boolean> => {
+  const doc = await EventModel.findOne({
+    organizationId,
+    objectId: experimentId,
+    event: "experiment.warning",
+    "data.data.object.type": "auto-update",
+    "data.data.object.success": false,
+    dateCreated: { $gte: since },
+  }).lean();
+
+  return !!doc;
+};

@@ -27,7 +27,11 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
-import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import {
+  createEvent,
+  CreateEventData,
+  hasAutoUpdateFailEventSince,
+} from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
@@ -103,7 +107,7 @@ export const memoizeNotification = async ({
   });
 };
 
-export const notifyAutoUpdate = ({
+export const notifyAutoUpdate = async ({
   context,
   experiment,
   success,
@@ -113,6 +117,15 @@ export const notifyAutoUpdate = ({
   success: boolean;
 }) => {
   if (success) return;
+  if (
+    await hasAutoUpdateFailEventSince({
+      organizationId: context.org.id,
+      experimentId: experiment.id,
+      since: experiment.dateUpdated,
+    })
+  ) {
+    return;
+  }
   return dispatchEvent({
     context,
     experiment,
