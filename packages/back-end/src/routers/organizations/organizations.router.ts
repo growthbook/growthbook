@@ -88,6 +88,10 @@ router.get(
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
+router.get(
+  "/keys/personal-access-tokens",
+  organizationsController.getPersonalAccessTokens,
+);
 router.post(
   "/keys",
   validateRequestMiddleware({

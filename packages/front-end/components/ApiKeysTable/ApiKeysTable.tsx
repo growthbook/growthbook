@@ -9,9 +9,13 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useEnvironments } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+
+const ADMIN_LOCKED_REASON =
+  "An administrator disabled this token. Ask them to re-enable it, or delete it and create a new one.";
 
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
@@ -37,7 +41,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onEdit,
   onShowAuditLog,
 }) => {
-  const { organization } = useUser();
+  const { organization, userId } = useUser();
+  const canManageTokens = usePermissionsUtil().canDeleteApiKey();
   const { projects } = useDefinitions();
   const environments = useEnvironments();
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
@@ -45,10 +50,13 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   );
   return (
     <div style={{ overflowX: "auto" }}>
-      <table className="table mb-3 appbox gbtable">
+      <table
+        className="table mb-3 appbox gbtable"
+        style={{ width: "auto", minWidth: "100%" }}
+      >
         <thead>
           <tr>
-            <th style={{ width: 150 }}>Description</th>
+            <th style={{ minWidth: 150 }}>Description</th>
             <th>Key</th>
             <th>Global Role</th>
             <th>Project Roles</th>
@@ -60,115 +68,132 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           </tr>
         </thead>
         <tbody>
-          {keys.map((key) => (
-            <tr
-              key={key.id}
-              style={key.disabled ? { opacity: 0.55 } : undefined}
-            >
-              <td>
-                {key.description}
-                {key.disabled && (
-                  <Badge ml="2" color="red" variant="soft" label="Disabled" />
-                )}
-              </td>
-              <td style={{ minWidth: 270 }}>
-                {canCreateKeys ? (
-                  <ClickToReveal
-                    valueWhenHidden="secret_abcdefghijklmnop123"
-                    getValue={onReveal(key.id)}
-                  />
-                ) : (
-                  <em>hidden</em>
-                )}
-              </td>
-              <td>
-                {key.role ? getRoleDisplayName(key.role, organization) : "-"}
-              </td>
-              <td>
-                {key.projectRoles?.map((pr) => {
-                  const p = projects.find((p) => p.id === pr.project);
-                  if (p?.name) {
-                    return (
-                      <div key={`project-tags-${p.id}`}>
-                        <ProjectBadges
-                          resourceType="member"
-                          projectIds={[p.id]}
-                        />{" "}
-                        — {getRoleDisplayName(pr.role, organization)}
-                        {pr.limitAccessByEnvironment &&
-                          pr.environments.length > 0 && (
-                            <Tooltip
-                              content={`Limited to: ${pr.environments.join(", ")}`}
-                            >
-                              <span>
-                                <FaFilter
-                                  className="text-muted ml-1"
-                                  size={10}
-                                />
-                              </span>
-                            </Tooltip>
-                          )}
-                      </div>
-                    );
-                  }
-                  return null;
-                })}
-              </td>
-              {environments.map((env) => {
-                const access = !key.role
-                  ? "N/A"
-                  : roleHasAccessToEnv(
-                      key as ApiKeyWithRole,
-                      env.id,
-                      organization,
-                    );
-                return (
-                  <td key={env.id}>
-                    {access === "N/A" ? (
-                      <span className="text-muted">N/A</span>
-                    ) : access === "yes" ? (
-                      <FaCheck className="text-success" />
-                    ) : (
-                      <FaTimes className="text-danger" />
-                    )}
-                  </td>
-                );
-              })}
-              <td>
-                {key.lastUsed ? (
-                  <Tooltip
-                    content={
-                      key.disabled
-                        ? `${datetime(key.lastUsed)}. This is the last time a request was attempted, successful or not.`
-                        : datetime(key.lastUsed)
-                    }
-                  >
-                    <span>{ago(key.lastUsed)}</span>
-                  </Tooltip>
-                ) : key.lastUsed === null ? (
-                  <span className="text-muted">Never</span>
-                ) : (
-                  <Tooltip content="This key was created before usage tracking was added, so we don't know when it was last used.">
-                    <span className="text-muted">Unknown</span>
-                  </Tooltip>
-                )}
-              </td>
-              {canDeleteKeys && (
-                <td>
-                  <ApiKeyRowMenu
-                    apiKey={key}
-                    canDeleteKeys={canDeleteKeys}
-                    onDelete={onDelete}
-                    onEdit={onEdit}
-                    onToggleClick={
-                      onToggleDisabled ? setPendingToggle : undefined
-                    }
-                    onShowAuditLog={onShowAuditLog}
-                  />
+          {keys.map((key) => {
+            const disabledByAdmin =
+              !!key.userId &&
+              !!key.disabled &&
+              !!key.disabledBy &&
+              key.disabledBy !== userId;
+            // Only an admin can re-enable such a token; mirrors canUpdate.
+            const adminLocked = disabledByAdmin && !canManageTokens;
+            // Data cells dim, never the actions cell that holds Enable.
+            const dimmed = key.disabled ? { opacity: 0.55 } : undefined;
+            return (
+              <tr key={key.id}>
+                <td style={dimmed}>
+                  {key.description}
+                  {key.disabled && (
+                    <Badge
+                      ml="2"
+                      color="red"
+                      variant="soft"
+                      label={disabledByAdmin ? "Disabled by admin" : "Disabled"}
+                      title={adminLocked ? ADMIN_LOCKED_REASON : undefined}
+                    />
+                  )}
                 </td>
-              )}
-            </tr>
-          ))}
+                <td style={{ minWidth: 270, ...dimmed }}>
+                  {canCreateKeys ? (
+                    <ClickToReveal
+                      valueWhenHidden="secret_abcdefghijklmnop123"
+                      getValue={onReveal(key.id)}
+                    />
+                  ) : (
+                    <em>hidden</em>
+                  )}
+                </td>
+                <td style={dimmed}>
+                  {key.role ? getRoleDisplayName(key.role, organization) : "-"}
+                </td>
+                <td style={dimmed}>
+                  {key.projectRoles?.map((pr) => {
+                    const p = projects.find((p) => p.id === pr.project);
+                    if (p?.name) {
+                      return (
+                        <div key={`project-tags-${p.id}`}>
+                          <ProjectBadges
+                            resourceType="member"
+                            projectIds={[p.id]}
+                          />{" "}
+                          — {getRoleDisplayName(pr.role, organization)}
+                          {pr.limitAccessByEnvironment &&
+                            pr.environments.length > 0 && (
+                              <Tooltip
+                                content={`Limited to: ${pr.environments.join(", ")}`}
+                              >
+                                <span>
+                                  <FaFilter
+                                    className="text-muted ml-1"
+                                    size={10}
+                                  />
+                                </span>
+                              </Tooltip>
+                            )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </td>
+                {environments.map((env) => {
+                  const access = !key.role
+                    ? "N/A"
+                    : roleHasAccessToEnv(
+                        key as ApiKeyWithRole,
+                        env.id,
+                        organization,
+                      );
+                  return (
+                    <td key={env.id} style={dimmed}>
+                      {access === "N/A" ? (
+                        <span className="text-muted">N/A</span>
+                      ) : access === "yes" ? (
+                        <FaCheck className="text-success" />
+                      ) : (
+                        <FaTimes className="text-danger" />
+                      )}
+                    </td>
+                  );
+                })}
+                <td style={dimmed}>
+                  {key.lastUsed ? (
+                    <Tooltip
+                      content={
+                        key.disabled
+                          ? `${datetime(key.lastUsed)}. This is the last time a request was attempted, successful or not.`
+                          : datetime(key.lastUsed)
+                      }
+                    >
+                      <span>{ago(key.lastUsed)}</span>
+                    </Tooltip>
+                  ) : key.lastUsed === null ? (
+                    <span className="text-muted">Never</span>
+                  ) : (
+                    <Tooltip content="This key was created before usage tracking was added, so we don't know when it was last used.">
+                      <span className="text-muted">Unknown</span>
+                    </Tooltip>
+                  )}
+                </td>
+                {canDeleteKeys && (
+                  <td>
+                    <ApiKeyRowMenu
+                      apiKey={key}
+                      canDeleteKeys={canDeleteKeys}
+                      onDelete={onDelete}
+                      onEdit={onEdit}
+                      onToggleClick={
+                        onToggleDisabled ? setPendingToggle : undefined
+                      }
+                      toggleLockedReason={
+                        adminLocked ? ADMIN_LOCKED_REASON : undefined
+                      }
+                      onShowAuditLog={onShowAuditLog}
+                    />
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {pendingToggle && onToggleDisabled && (
@@ -182,6 +207,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               : `This key will immediately start accepting requests again.`
           }
           yesText={!pendingToggle.disabled ? "Disable" : "Enable"}
+          color={!pendingToggle.disabled ? "red" : "violet"}
           onConfirm={async () => {
             const target = pendingToggle;
             await onToggleDisabled(target.id, !target.disabled)();
