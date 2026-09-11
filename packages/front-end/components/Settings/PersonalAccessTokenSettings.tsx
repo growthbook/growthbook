@@ -62,7 +62,7 @@ const PersonalAccessTokenSettings: FC = () => {
       {confirming && (
         <ConfirmDialog
           title="Disable personal access tokens?"
-          content="Every token that acts as a user stops working immediately — personal access tokens, OAuth access tokens, and the Visual Editor. Members won't be able to create new ones. Turning this setting back off restores them."
+          content="Every token that acts as a user stops working immediately: personal access tokens, OAuth access tokens, and the Visual Editor. Members won't be able to create new ones. Turning this setting back off restores them."
           yesText="Disable tokens"
           color="red"
           onConfirm={async () => {

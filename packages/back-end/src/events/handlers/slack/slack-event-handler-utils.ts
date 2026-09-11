@@ -276,6 +276,13 @@ export const getSlackMessageForNotificationEvent = async (
         eventId,
       );
 
+    case "apiKey.expiring":
+    case "apiKey.expired":
+      return buildSlackMessageForApiKeyExpirationEvent(
+        event.event,
+        event.data.object,
+      );
+
     default:
       invalidEvent = event;
       throw `Invalid event: ${invalidEvent}`;
@@ -1257,6 +1264,42 @@ const buildSlackMessageForConfigUpdatedEvent = async (
         },
       },
       ...changeBlocks,
+    ],
+  };
+};
+
+// No event user: the expiration sweep is a system actor, not a person.
+const buildSlackMessageForApiKeyExpirationEvent = (
+  event: "apiKey.expiring" | "apiKey.expired",
+  apiKey: {
+    id: string;
+    description?: string;
+    kind: "personalAccessToken" | "secretApiKey";
+    expiresAt: string;
+  },
+): SlackMessage => {
+  const kind =
+    apiKey.kind === "personalAccessToken"
+      ? "personal access token"
+      : "secret API key";
+  const name = apiKey.description || apiKey.id;
+  const text =
+    event === "apiKey.expired"
+      ? `The ${kind} ${name} expired on ${apiKey.expiresAt}.`
+      : `The ${kind} ${name} expires on ${apiKey.expiresAt}.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            event === "apiKey.expired"
+              ? `The ${kind} *${name}* expired on ${apiKey.expiresAt}.`
+              : `The ${kind} *${name}* expires on ${apiKey.expiresAt}.`,
+        },
+      },
     ],
   };
 };

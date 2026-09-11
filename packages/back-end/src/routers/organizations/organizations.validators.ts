@@ -45,6 +45,8 @@ export const postApiKeyValidator = z.strictObject({
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
   additionalRoles: z.array(roleRuleValidator).optional(),
+  // ISO string; null or absent means no expiration, subject to the org policy.
+  expiresAt: z.string().nullable().optional(),
 });
 
 export const putApiKeyValidator = z.strictObject({

@@ -107,6 +107,10 @@ router.put(
   organizationsController.putApiKey,
 );
 router.delete("/keys", organizationsController.deleteApiKey);
+router.post(
+  "/keys/apply-expiration-policy",
+  organizationsController.postApplyExpirationPolicy,
+);
 router.post("/keys/reveal", organizationsController.postApiKeyReveal);
 router.put(
   "/keys/:id/disabled",
