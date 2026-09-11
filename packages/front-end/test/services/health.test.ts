@@ -27,7 +27,7 @@ describe("getFeatureHealthStates", () => {
 });
 
 describe("describeFeatureHealthEntry", () => {
-  it("adds counts and environments to the description", () => {
+  it("adds counts to the description", () => {
     expect(
       describeFeatureHealthEntry({
         signal: "unreachable-rule",
@@ -35,7 +35,7 @@ describe("describeFeatureHealthEntry", () => {
         environments: ["dev", "prod"],
       }),
     ).toBe(
-      "An earlier rule always matches, so this rule never runs. 2 occurrences. Environments: dev, prod.",
+      "An earlier rule always matches, so this rule never runs. 2 occurrences.",
     );
     expect(
       describeFeatureHealthEntry({ signal: "ramp-paused", count: 1 }),
@@ -52,7 +52,7 @@ describe("describeFeatureHealthEntry", () => {
         details: [{ label: "Checkout test", since }],
       }),
     ).toMatch(
-      /^Experiment "Checkout test" stopped (about|over) 1 year ago and its rollout is still being served\. Stop it on the experiment once the winner is in code\. Environments: production\.$/,
+      /^Experiment "Checkout test" stopped (about|over) 1 year ago and its rollout is still being served\. Stop it on the experiment once the winner is in code\.$/,
     );
   });
 });

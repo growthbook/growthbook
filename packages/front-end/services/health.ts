@@ -146,9 +146,6 @@ export function describeFeatureHealthEntry(entry: FeatureHealthEntry): string {
     parts.push(FEATURE_HEALTH_STATES[entry.signal].description);
     if (entry.count > 1) parts.push(`${entry.count} occurrences.`);
   }
-  if (entry.environments?.length) {
-    parts.push(`Environments: ${entry.environments.join(", ")}.`);
-  }
   return parts.join(" ");
 }
 
