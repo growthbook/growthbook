@@ -73,6 +73,7 @@ interface Props {
   experiments: ExperimentInterfaceStringDates[];
   allowDrafts?: boolean;
   showStatusFilter?: boolean;
+  includeTempRollouts?: boolean;
   // Set to false when the caller already renders a dedicated Project control
   // (e.g. a Projects multi-select above this filter list), so Project isn't
   // offered twice.
@@ -122,6 +123,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   experiments,
   allowDrafts = true,
   showStatusFilter = true,
+  includeTempRollouts = false,
   showProjectFilter = true,
   extraFilters = [],
 }) => {
@@ -183,7 +185,11 @@ const SidebarExperimentFilters: FC<Props> = ({
     statusItems,
     typeItems,
     healthItems,
-  } = useExperimentFilterCategories({ experiments, allowDrafts });
+  } = useExperimentFilterCategories({
+    experiments,
+    allowDrafts,
+    includeTempRollouts,
+  });
 
   const categories = useMemo<FilterCategory[]>(() => {
     const byKey = new Map<string, FilterCategory>();

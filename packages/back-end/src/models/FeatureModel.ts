@@ -758,8 +758,9 @@ export async function migrateDraft(
   return null;
 }
 
-// jsonSchema is projected out of the list loaders; fetch it separately for
-// value validation.
+// jsonSchema is projected out of the list loaders; fetch the enabled ones
+// separately for value validation. Results are merged onto features that
+// already passed the read-permission filter, so none is applied here.
 export async function getFeatureJsonSchemasByIds(
   context: ReqContext | ApiReqContext,
   ids?: string[],
@@ -767,8 +768,8 @@ export async function getFeatureJsonSchemasByIds(
   if (ids && !ids.length) return new Map();
   const docs = await FeatureModel.find(
     {
-      organization: context.org.id,
-      jsonSchema: { $exists: true },
+      ...featureListQuery(context.org.id, { includeArchived: false }),
+      "jsonSchema.enabled": true,
       ...(ids ? { id: { $in: ids } } : {}),
     },
     { id: 1, jsonSchema: 1 },

@@ -271,6 +271,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   syntaxFilters={syntaxFilters}
                   setSearchValue={setSearchValue}
                   experiments={allExperiments}
+                  includeTempRollouts
                 />
               </Flex>
 

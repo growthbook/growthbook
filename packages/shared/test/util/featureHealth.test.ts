@@ -84,7 +84,6 @@ describe("computeFeatureHealth", () => {
       {
         signal: "old-temp-rollout",
         count: 1,
-        environments: ["dev", "prod"],
         details: [
           { label: "exp_done", since: new Date("2023-02-01").toISOString() },
         ],
@@ -97,7 +96,7 @@ describe("computeFeatureHealth", () => {
       prod: { stale: false, tempRollout: "temp-rollout" },
     };
     expect(compute(feature([]), { envResults })).toEqual([
-      { signal: "temp-rollout", count: 1, environments: ["prod"] },
+      { signal: "temp-rollout", count: 1 },
     ]);
   });
 
@@ -107,9 +106,7 @@ describe("computeFeatureHealth", () => {
       force("false", '{"a":1}'),
       force("false"),
     ]);
-    expect(compute(f)).toEqual([
-      { signal: "unreachable-rule", count: 2, environments: ["dev", "prod"] },
-    ]);
+    expect(compute(f)).toEqual([{ signal: "unreachable-rule", count: 2 }]);
   });
 
   it("ignores shadowing in disabled environments and by disabled rules", () => {
@@ -183,7 +180,7 @@ describe("computeFeatureHealth", () => {
       } as Partial<FeatureRule>,
     ]);
     expect(compute(f, { safeRollouts: [safeRollout] })).toEqual([
-      { signal: "safe-rollout-no-data", count: 1, environments: ["prod"] },
+      { signal: "safe-rollout-no-data", count: 1 },
     ]);
   });
 
@@ -204,9 +201,7 @@ describe("computeFeatureHealth", () => {
     } as unknown as RampScheduleInterface;
     expect(
       compute(feature([]), { safeRollouts: [monitor], rampSchedules: [ramp] }),
-    ).toEqual([
-      { signal: "safe-rollout-no-data", count: 1, environments: ["prod"] },
-    ]);
+    ).toEqual([{ signal: "safe-rollout-no-data", count: 1 }]);
   });
 
   it("ignores safe rollouts no rule points at any more", () => {

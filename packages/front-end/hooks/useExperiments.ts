@@ -17,12 +17,11 @@ export function useExperiments(
     hasArchived: boolean;
     holdouts: HoldoutInterface[];
     // Stopped experiments whose temporary rollout is actually being served.
-    // Present only when requested with includeTempRollouts.
     tempRolloutExperimentIds?: string[];
   }>(
     `/experiments?project=${project || ""}&includeArchived=${
       includeArchived ? "1" : ""
-    }&type=${type || ""}&includeTempRollouts=${includeTempRollouts ? "1" : ""}`,
+    }&type=${type || ""}${includeTempRollouts ? "&includeTempRollouts=1" : ""}`,
   );
 
   const experiments = useMemo(() => data?.experiments || [], [data]);

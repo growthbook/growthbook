@@ -7,6 +7,7 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { useUser } from "@/services/UserContext";
 import { SearchFiltersItem } from "@/components/Search/SearchFilters";
 import { EXPERIMENT_HEALTH_STATE_LABELS } from "@/services/experiments";
+import { isTempRolloutHealthState } from "@/services/health";
 
 /**
  * Single source of truth for the experiment-filter taxonomy (tags, metrics,
@@ -27,9 +28,13 @@ export interface ExperimentFilterCategories {
 export function useExperimentFilterCategories({
   experiments,
   allowDrafts = true,
+  includeTempRollouts = false,
 }: {
   experiments: ExperimentInterfaceStringDates[];
   allowDrafts?: boolean;
+  // Only lists whose experiments were loaded with served temp rollout ids
+  // can filter on them.
+  includeTempRollouts?: boolean;
 }): ExperimentFilterCategories {
   const { getOwnerDisplay } = useUser();
   const allMetrics = useCombinedMetrics({});
@@ -144,12 +149,16 @@ export function useExperimentFilterCategories({
           ExperimentHealthState,
           string,
         ][]
-      ).map(([state, label]) => ({
-        searchValue: state,
-        id: `health-${state}`,
-        name: label,
-      })),
-    [],
+      )
+        .filter(
+          ([state]) => includeTempRollouts || !isTempRolloutHealthState(state),
+        )
+        .map(([state, label]) => ({
+          searchValue: state,
+          id: `health-${state}`,
+          name: label,
+        })),
+    [includeTempRollouts],
   );
 
   return {

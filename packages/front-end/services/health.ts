@@ -150,30 +150,33 @@ export function describeFeatureHealthEntry(entry: FeatureHealthEntry): string {
 }
 
 // An old temp rollout is still a temp rollout, so `health:temp-rollout` matches both.
+export function expandTempRolloutToken<T extends string>(
+  state: T,
+): (T | "temp-rollout")[] {
+  return state === "old-temp-rollout" ? [state, "temp-rollout"] : [state];
+}
+
 export function getFeatureHealthSearchTokens(
   staleData: FeatureStaleSummary | undefined,
 ): (FeatureHealthState | FeatureHealthSeverity)[] {
   const states = getFeatureHealthStates(staleData);
-  const tokens: (FeatureHealthState | FeatureHealthSeverity)[] = [...states];
-  if (states.includes("old-temp-rollout") && !states.includes("temp-rollout")) {
-    tokens.push("temp-rollout");
-  }
-  for (const severity of new Set(states.map(getFeatureHealthSeverity))) {
-    tokens.push(severity);
-  }
-  return tokens;
+  return [
+    ...new Set<FeatureHealthState | FeatureHealthSeverity>([
+      ...states.flatMap(expandTempRolloutToken),
+      ...states.map(getFeatureHealthSeverity),
+    ]),
+  ];
 }
 
 export function entryMatchesHealthFilter(
   entry: FeatureHealthEntry,
   filterValues: string[],
 ): boolean {
-  return filterValues.some(
-    (v) =>
-      v === entry.signal ||
-      (v === "temp-rollout" && entry.signal === "old-temp-rollout") ||
-      v === getFeatureHealthSeverity(entry.signal),
-  );
+  const tokens: string[] = [
+    ...expandTempRolloutToken(entry.signal),
+    getFeatureHealthSeverity(entry.signal),
+  ];
+  return filterValues.some((v) => tokens.includes(v));
 }
 
 export const FEATURE_HEALTH_SEVERITY_FILTER_OPTIONS = (

@@ -111,7 +111,11 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                 Status
               </SortableTableColumnHeader>
             )}
-            {needsResultColumn && <TableColumnHeader>Result</TableColumnHeader>}
+            {needsResultColumn && (
+              <SortableTableColumnHeader field="statusSortOrder">
+                Result
+              </SortableTableColumnHeader>
+            )}
             {showHealthColumn && (
               <SortableTableColumnHeader field="healthSortOrder">
                 Health

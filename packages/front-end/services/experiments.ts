@@ -53,7 +53,11 @@ import {
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ReactElement, useMemo } from "react";
-import { TEMP_ROLLOUT_HEALTH, TempRolloutHealthState } from "@/services/health";
+import {
+  expandTempRolloutToken,
+  TEMP_ROLLOUT_HEALTH,
+  TempRolloutHealthState,
+} from "@/services/health";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -494,8 +498,7 @@ export function getExperimentHealthState(
 export function getHealthSearchTokens(
   state: ExperimentHealthState | null,
 ): ExperimentHealthState[] {
-  if (!state) return [];
-  return state === "old-temp-rollout" ? [state, "temp-rollout"] : [state];
+  return state ? expandTempRolloutToken(state) : [];
 }
 
 export function getHealthSortOrder(

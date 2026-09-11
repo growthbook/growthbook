@@ -32,7 +32,6 @@ describe("describeFeatureHealthEntry", () => {
       describeFeatureHealthEntry({
         signal: "unreachable-rule",
         count: 2,
-        environments: ["dev", "prod"],
       }),
     ).toBe(
       "An earlier rule always matches, so this rule never runs. 2 occurrences.",
@@ -48,7 +47,6 @@ describe("describeFeatureHealthEntry", () => {
       describeFeatureHealthEntry({
         signal: "old-temp-rollout",
         count: 1,
-        environments: ["production"],
         details: [{ label: "Checkout test", since }],
       }),
     ).toMatch(

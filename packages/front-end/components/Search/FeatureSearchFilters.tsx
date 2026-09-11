@@ -703,7 +703,6 @@ const FeatureSearchFilters: FC<
         />
       </DropdownMenu>
 
-      {/* Health: severity first, then specific signals */}
       <DropdownMenu
         trigger={FilterHeading({
           heading: "health",

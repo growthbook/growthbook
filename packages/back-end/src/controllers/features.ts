@@ -259,7 +259,7 @@ import {
   getExperimentsByTrackingKeys,
   getAllExperimentsForStaleGraph,
   updateExperiment,
-  getAllExperimentIds,
+  getExistingExperimentIds,
 } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
@@ -7495,7 +7495,6 @@ export async function getFeaturesHealth(
     allRampSchedules,
     safeRollouts,
     jsonSchemas,
-    knownExperimentIds,
   ] = await Promise.all([
     getAllFeaturesWithoutEditorFields(context),
     getAllExperimentsForStaleGraph(context),
@@ -7509,7 +7508,6 @@ export async function getFeaturesHealth(
       ? context.models.safeRollout.getAllByFeatureIds(featureIds)
       : context.models.safeRollout.getAll(),
     getFeatureJsonSchemasByIds(context, featureIds),
-    getAllExperimentIds(context),
   ]);
   const rampSchedulesByFeature = new Map<string, RampScheduleInterface[]>();
   for (const schedule of allRampSchedules) {
@@ -7536,6 +7534,15 @@ export async function getFeaturesHealth(
   const targetFeatures = targetIds
     ? allFeatures.filter((f) => targetIds.has(f.id))
     : allFeatures;
+  const knownExperimentIds = await getExistingExperimentIds(context, [
+    ...new Set(
+      targetFeatures.flatMap((f) =>
+        (f.rules ?? []).flatMap((r) =>
+          r?.type === "experiment-ref" ? [r.experimentId] : [],
+        ),
+      ),
+    ),
+  ]);
 
   const safeRolloutsByFeature = new Map<string, SafeRolloutInterface[]>();
   for (const safeRollout of safeRollouts) {

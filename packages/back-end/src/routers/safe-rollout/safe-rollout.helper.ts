@@ -1,5 +1,7 @@
 import {
   FeatureInterface,
+  isTerminalRampScheduleStatus,
+  RampScheduleInterface,
   SafeRolloutInterface,
   SafeRolloutRule,
 } from "shared/validators";
@@ -31,19 +33,17 @@ export function getSafeRolloutRuleFromFeature(
   return null;
 }
 
-const TERMINAL_RAMP_STATUSES = ["completed", "rolled-back"];
-
 // Rule removals and revision reverts can leave a running safe rollout that
 // nothing references any more.
 export function isOrphanedSafeRollout(
   feature: FeatureInterface | null,
   safeRollout: Pick<SafeRolloutInterface, "id" | "rampScheduleId">,
-  rampSchedule: { status: string } | null,
+  rampSchedule: Pick<RampScheduleInterface, "status"> | null,
 ): boolean {
   if (!feature) return true;
   if (getSafeRolloutRuleFromFeature(feature, safeRollout.id)) return false;
   if (!safeRollout.rampScheduleId) return true;
-  return !rampSchedule || TERMINAL_RAMP_STATUSES.includes(rampSchedule.status);
+  return !rampSchedule || isTerminalRampScheduleStatus(rampSchedule.status);
 }
 
 export function shouldSkipScheduledSafeRolloutSnapshot(

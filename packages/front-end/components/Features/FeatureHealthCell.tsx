@@ -1,5 +1,6 @@
 import { FC } from "react";
 import { Flex } from "@radix-ui/themes";
+import { FeatureHealthEntry } from "shared/util";
 import { Popover } from "@/ui/Popover";
 import Badge from "@/ui/Badge";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -10,6 +11,26 @@ import {
   FEATURE_HEALTH_STATES,
   getFeatureHealthEntries,
 } from "@/services/health";
+
+// Rendered only while the popover is open.
+const FeatureHealthDetails: FC<{ entries: FeatureHealthEntry[] }> = ({
+  entries,
+}) => (
+  <Flex direction="column" gap="2" style={{ maxWidth: 360 }}>
+    {entries.map((entry) => (
+      <Flex key={entry.signal} direction="column" gap="0">
+        <Flex gap="1" align="center">
+          <ExperimentDot color={FEATURE_HEALTH_STATES[entry.signal].color} />
+          <strong>
+            {FEATURE_HEALTH_STATES[entry.signal].label}
+            {entry.count > 1 ? ` (${entry.count})` : ""}
+          </strong>
+        </Flex>
+        <span>{describeFeatureHealthEntry(entry)}</span>
+      </Flex>
+    ))}
+  </Flex>
+);
 
 const FeatureHealthCell: FC<{
   staleData?: FeatureHealthStateEntry;
@@ -24,30 +45,13 @@ const FeatureHealthCell: FC<{
   const hidden =
     entries.reduce((sum, entry) => sum + entry.count, 0) - shown.length;
 
-  const details = (
-    <Flex direction="column" gap="2" style={{ maxWidth: 360 }}>
-      {entries.map((entry) => (
-        <Flex key={entry.signal} direction="column" gap="0">
-          <Flex gap="1" align="center">
-            <ExperimentDot color={FEATURE_HEALTH_STATES[entry.signal].color} />
-            <strong>
-              {FEATURE_HEALTH_STATES[entry.signal].label}
-              {entry.count > 1 ? ` (${entry.count})` : ""}
-            </strong>
-          </Flex>
-          <span>{describeFeatureHealthEntry(entry)}</span>
-        </Flex>
-      ))}
-    </Flex>
-  );
-
   return (
     <Popover
       openOnHover
       side="left"
       align="center"
       showArrow
-      content={details}
+      content={<FeatureHealthDetails entries={entries} />}
       trigger={
         <Flex direction="column" gap="1" align="start">
           {shown.map((entry, i) => (

@@ -578,14 +578,20 @@ export async function getAllExperiments(
  * `buildFeatureLookups`, but only the projected fields are populated at
  * runtime. Reach for `getAllExperiments` if you need a complete experiment.
  */
-// Ids of every non-archived experiment in the org, unfiltered by the caller's
+// Which of `ids` are live experiments in the org, unfiltered by the caller's
 // read permissions. Used to tell "deleted" from "not visible to you".
-export async function getAllExperimentIds(
+export async function getExistingExperimentIds(
   context: ReqContext | ApiReqContext,
+  ids: string[],
 ): Promise<Set<string>> {
+  if (!ids.length) return new Set();
   const docs = await getCollection(COLLECTION)
     .find(
-      { organization: context.org.id, archived: { $ne: true } },
+      {
+        organization: context.org.id,
+        id: { $in: ids },
+        archived: { $ne: true },
+      },
       { projection: { _id: 0, id: 1 } },
     )
     .toArray();

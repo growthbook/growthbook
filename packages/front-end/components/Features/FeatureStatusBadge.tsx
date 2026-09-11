@@ -4,36 +4,15 @@ import Badge from "@/ui/Badge";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
 
-type FeatureStatus = "live" | "off" | "archived";
-
-const STATUS_CONFIG: Record<
-  FeatureStatus,
-  { color: "green" | "gray" | "gold"; label: string }
-> = {
-  live: { color: "green", label: "Live" },
-  off: { color: "gray", label: "Off" },
-  archived: { color: "gold", label: "Archived" },
-};
-
-function deriveStatus({
-  archived,
-  envStatus,
-}: {
-  archived?: boolean;
-  envStatus?: Record<string, boolean>;
-}): FeatureStatus {
-  if (archived) return "archived";
-  const enabled = Object.values(envStatus ?? {});
-  if (enabled.length && enabled.every((on) => !on)) return "off";
-  return "live";
-}
-
 export const FeatureLifecycleStatus: FC<{
   archived?: boolean;
   envStatus?: Record<string, boolean>;
-}> = ({ archived, envStatus }) => (
-  <>{STATUS_CONFIG[deriveStatus({ archived, envStatus })].label}</>
-);
+}> = ({ archived, envStatus }) => {
+  if (archived) return <>Archived</>;
+  const enabled = Object.values(envStatus ?? {});
+  if (enabled.length && enabled.every((on) => !on)) return <>Off</>;
+  return <>Live</>;
+};
 
 const FeatureStatusBadge: FC<{
   feature: {
@@ -54,11 +33,10 @@ const FeatureStatusBadge: FC<{
   open,
   onOpenChange,
 }) => {
-  const status = deriveStatus({ archived: feature.archived });
-  const { color, label } = STATUS_CONFIG[status];
-
-  if (status !== "live") {
-    return <Badge color={color} variant="solid" radius="full" label={label} />;
+  if (feature.archived) {
+    return (
+      <Badge color="gold" variant="solid" radius="full" label="Archived" />
+    );
   }
 
   return (

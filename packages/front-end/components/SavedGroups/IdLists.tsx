@@ -283,7 +283,7 @@ export default function IdLists({ groups, mutate }: Props) {
                 })}
                 {!items.length && isFiltered && (
                   <TableRow>
-                    <TableCell colSpan={6} style={{ textAlign: "center" }}>
+                    <TableCell colSpan={5} style={{ textAlign: "center" }}>
                       No matching saved groups
                     </TableCell>
                   </TableRow>

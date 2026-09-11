@@ -1614,6 +1614,53 @@ describe("isFeatureStale", () => {
       });
     });
 
+    it("still reports a temp rollout that sits after a running experiment", () => {
+      const experiments = [
+        genMockExperiment({ id: "exp_live", status: "running" }),
+        genMockExperiment({
+          id: "exp_done",
+          status: "stopped",
+          excludeFromPayload: false,
+          releasedVariationId: "v1",
+        }),
+      ];
+      feature.environmentSettings = {
+        prod: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_live",
+              id: "rule_live",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+            {
+              type: "experiment-ref",
+              enabled: true,
+              description: "",
+              experimentId: "exp_done",
+              id: "rule_done",
+              variations: [
+                { variationId: "v1", value: "true" },
+                { variationId: "v2", value: "false" },
+              ],
+            },
+          ],
+        },
+      };
+      const result = testStale({ feature, experiments });
+      expect(result.envResults.prod).toMatchObject({
+        stale: false,
+        reason: "active-experiment",
+        tempRollout: "temp-rollout",
+      });
+    });
+
     it("sets reason to temp-rollout when env has a rule referencing a stopped experiment still in the payload", () => {
       const experiments = [
         genMockExperiment({

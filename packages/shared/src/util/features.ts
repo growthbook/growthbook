@@ -38,6 +38,10 @@ import { GroupMap } from "shared/types/saved-group";
 // import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
 import { assertValidExtendsEntries } from "../validators/constant";
 import { RampScheduleInterface } from "../validators/ramp-schedule";
+import {
+  hasAttributeCondition,
+  hasTargetingConfigured,
+} from "../experiments/targeting";
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
@@ -92,6 +96,7 @@ export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
     const schemaDateUpdated = feature?.jsonSchema.date;
     return {
       jsonSchema,
+      schemaString,
       validationEnabled,
       schemaDateUpdated,
       simpleSchema:
@@ -229,21 +234,18 @@ export function getJSONValidator() {
   });
 }
 
-// Ajv compiles are expensive; cache by schema text (validation runs across
-// every feature on a health fetch-all).
+// Ajv compiles are expensive; cache by schema text. Each compile gets its own
+// Ajv instance so schemas sharing an `$id` never collide in a registry.
 const compiledValidators = new Map<string, ValidateFunction>();
 const MAX_COMPILED_VALIDATORS = 1000;
-let sharedAjv: Ajv | undefined;
-export function getCompiledValidator(jsonSchema: unknown): ValidateFunction {
-  const key = JSON.stringify(jsonSchema);
-  const cached = compiledValidators.get(key);
+export function getCompiledValidator(schemaString: string): ValidateFunction {
+  const cached = compiledValidators.get(schemaString);
   if (cached) return cached;
-  sharedAjv ??= getJSONValidator();
-  const validate = sharedAjv.compile(jsonSchema as object);
+  const validate = getJSONValidator().compile(JSON.parse(schemaString));
   if (compiledValidators.size >= MAX_COMPILED_VALIDATORS) {
     compiledValidators.clear();
   }
-  compiledValidators.set(key, validate);
+  compiledValidators.set(schemaString, validate);
   return validate;
 }
 
@@ -254,12 +256,12 @@ export function validateJSONFeatureValue(
   // Non-json flags hold a raw scalar; coerce instead of JSON-parsing (default keeps json behavior).
   valueType?: FeatureValueType,
 ) {
-  const { jsonSchema, validationEnabled } = getValidation(feature);
-  if (!validationEnabled) {
+  const { schemaString, validationEnabled } = getValidation(feature);
+  if (!validationEnabled || !schemaString) {
     return { valid: true, enabled: validationEnabled, errors: [] };
   }
   try {
-    const validate = getCompiledValidator(jsonSchema);
+    const validate = getCompiledValidator(schemaString);
     let parsedValue;
     if (valueType === "string") {
       parsedValue = value;
@@ -798,18 +800,15 @@ const isContextualBanditRefRule = (
 ): rule is ContextualBanditRefRule => rule.type === "contextual-bandit-ref";
 
 // A rule that unconditionally matches all users, blocking any rules after it.
+const matchesEveryone = (rule: FeatureRule): boolean =>
+  !hasTargetingConfigured(rule) && !rule.scheduleRules?.length;
+
 export const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
-  if (!hasNoCondition(rule)) return false;
-  if ((rule.savedGroups ?? []).length > 0) return false;
-  if ((rule.prerequisites ?? []).length > 0) return false;
-  if ((rule.scheduleRules ?? []).length > 0) return false;
+  if (!matchesEveryone(rule)) return false;
   if (isForceRule(rule)) return true;
   if (isRolloutRule(rule)) return rule.coverage >= 1;
   return false;
 };
-
-const hasNoCondition = (rule: FeatureRule): boolean =>
-  !rule.condition || rule.condition === "{}";
 
 // The SDK payload keeps the phase's targeting on a temp rollout's force rule,
 // so it only serves everyone when neither the rule nor the phase targets.
@@ -817,18 +816,17 @@ const isUnconditionalTempRollout = (
   rule: FeatureRule,
   exp: ExperimentInterfaceStringDates,
 ): boolean => {
-  if (!hasNoCondition(rule)) return false;
-  if ((rule.savedGroups ?? []).length > 0) return false;
-  if ((rule.prerequisites ?? []).length > 0) return false;
+  if (!matchesEveryone(rule)) return false;
   const phase = exp.phases?.[exp.phases.length - 1];
   if (!phase) return true;
-  if (phase.condition && phase.condition !== "{}") return false;
+  if (hasTargetingConfigured(phase)) return false;
   if ((phase.coverage ?? 1) < 1) return false;
-  if ((phase.savedGroups ?? []).length > 0) return false;
-  if ((phase.prerequisites ?? []).length > 0) return false;
   if (phase.namespace?.enabled) return false;
   return true;
 };
+
+const hasNoCondition = (rule: FeatureRule): boolean =>
+  !hasAttributeCondition(rule.condition);
 
 const areRulesOneSided = (
   rules: FeatureRule[], // can assume all rules are enabled
@@ -921,7 +919,7 @@ function buildEnvResults(
       ? []
       : ((envSetting as unknown as { rules?: FeatureRule[] }).rules ?? []);
     const rules = (v2RulesForEnv.length ? v2RulesForEnv : legacyRules).filter(
-      (r) => r.enabled,
+      (r) => r.enabled !== false,
     );
 
     const hasDependentsInEnv =
@@ -962,6 +960,7 @@ function buildEnvResults(
     }
 
     // Walk rules in order; an unconditional catcher shadows everything after it.
+    // A running experiment does not: users it skips fall through to later rules.
     // A recent temp rollout keeps the env non-stale (grace period). An old one
     // serves a constant, so it counts as one-sided. Either way it is reported
     // in `tempRollout` so it can be cleaned up.
@@ -991,7 +990,6 @@ function buildEnvResults(
             }
           } else {
             activeExperimentReason = "active-experiment";
-            break;
           }
         }
       }

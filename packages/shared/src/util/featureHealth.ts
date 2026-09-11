@@ -7,6 +7,7 @@ import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   RampScheduleInterface,
   isReadyForApproval,
+  isTerminalRampScheduleStatus,
 } from "../validators/ramp-schedule";
 import { getSafeRolloutResultStatus } from "../enterprise/decision-criteria/decisionCriteria";
 import {
@@ -50,7 +51,6 @@ export type FeatureHealthDetail = {
 export type FeatureHealthEntry = {
   signal: FeatureHealthSignal;
   count: number;
-  environments?: string[];
   details?: FeatureHealthDetail[];
 };
 
@@ -78,8 +78,9 @@ const RULE_VALUES = (rule: FeatureRule): string[] => {
   }
 };
 
-const isRuleObject = (r: unknown): r is FeatureRule =>
-  r != null && typeof r === "object";
+// Absent `enabled` is live, matching the SDK payload.
+const isLiveRule = (r: unknown): r is FeatureRule =>
+  typeof r === "object" && r !== null && (r as FeatureRule).enabled !== false;
 
 // validateFeatureValue coerces booleans instead of rejecting them.
 function isInvalidValue(feature: FeatureInterface, value: string): boolean {
@@ -111,49 +112,38 @@ export function computeFeatureHealth({
   rampSchedules: RampScheduleInterface[];
   safeRollouts: SafeRolloutInterface[];
   healthSettings: ExperimentHealthSettings;
-  // Every live experiment id in the org, regardless of the caller's read
-  // permissions, so unreadable experiments are not reported as missing.
+  // Every live experiment id referenced by the feature, regardless of the
+  // caller's read permissions, so unreadable experiments are not reported as missing.
   knownExperimentIds?: Set<string>;
 }): FeatureHealthEntry[] {
-  const rules = (feature.rules ?? []).filter(isRuleObject);
+  const rules = (feature.rules ?? []).filter(isLiveRule);
   const known = knownExperimentIds ?? new Set(experimentMap.keys());
-  type Found = {
-    count: number;
-    envs: Set<string>;
-    details: FeatureHealthDetail[];
-  };
-  const found = new Map<FeatureHealthSignal, Found>();
+  const found = new Map<
+    FeatureHealthSignal,
+    { count: number; details: FeatureHealthDetail[] }
+  >();
   const add = (
     signal: FeatureHealthSignal,
-    env?: string,
-    detail?: FeatureHealthDetail,
+    count = 1,
+    details: FeatureHealthDetail[] = [],
   ) => {
-    const entry = found.get(signal) ?? {
-      count: 0,
-      envs: new Set<string>(),
-      details: [],
-    };
-    entry.count++;
-    if (env) entry.envs.add(env);
-    if (detail) entry.details.push(detail);
+    const entry = found.get(signal) ?? { count: 0, details: [] };
+    entry.count += count;
+    entry.details.push(...details);
     found.set(signal, entry);
   };
 
-  // One temp rollout rule may target several environments: count rules, list envs.
+  // One temp rollout rule may target several environments: count rules once.
   const tempRolloutRules = new Map<
     TempRolloutStaleReason,
-    { rules: Map<string, FeatureHealthDetail>; envs: Set<string> }
+    Map<string, FeatureHealthDetail>
   >();
   for (const [envId, result] of Object.entries(envResults)) {
     const tier = result.tempRollout;
     if (!tier) continue;
-    const entry = tempRolloutRules.get(tier) ?? {
-      rules: new Map<string, FeatureHealthDetail>(),
-      envs: new Set<string>(),
-    };
-    entry.envs.add(envId);
+    const byRule = tempRolloutRules.get(tier) ?? new Map();
     for (const rule of getRulesForEnvironment(feature.rules, envId)) {
-      if (rule.type !== "experiment-ref" || !rule.enabled) continue;
+      if (rule.type !== "experiment-ref" || !isLiveRule(rule)) continue;
       const exp = experimentMap.get(rule.experimentId);
       if (
         exp?.status === "stopped" &&
@@ -161,52 +151,34 @@ export function computeFeatureHealth({
         getTempRolloutStaleReason(exp) === tier
       ) {
         const ended = exp.phases?.[exp.phases.length - 1]?.dateEnded;
-        entry.rules.set(rule.id, {
+        byRule.set(rule.id, {
           label: exp.name || exp.id,
           ...(ended ? { since: new Date(ended).toISOString() } : {}),
         });
       }
     }
-    tempRolloutRules.set(tier, entry);
+    tempRolloutRules.set(tier, byRule);
   }
-  for (const [tier, { rules, envs }] of tempRolloutRules) {
-    found.set(tier, {
-      count: Math.max(rules.size, 1),
-      envs,
-      details: [...rules.values()],
-    });
+  for (const [tier, byRule] of tempRolloutRules) {
+    add(tier, Math.max(byRule.size, 1), [...byRule.values()]);
   }
 
   const enabledEnvs = environments.filter(
     (envId) => feature.environmentSettings?.[envId]?.enabled,
   );
-  const unreachableRuleIds = new Map<string, Set<string>>();
+  const unreachableRuleIds = new Set<string>();
   for (const envId of enabledEnvs) {
     let shadowed = false;
     for (const rule of getRulesForEnvironment(feature.rules, envId)) {
-      if (!rule.enabled) continue;
-      if (shadowed) {
-        const envs = unreachableRuleIds.get(rule.id) ?? new Set<string>();
-        envs.add(envId);
-        unreachableRuleIds.set(rule.id, envs);
-      } else if (isUnconditionalCatcher(rule)) {
-        shadowed = true;
-      }
+      if (!isLiveRule(rule)) continue;
+      if (shadowed) unreachableRuleIds.add(rule.id);
+      else if (isUnconditionalCatcher(rule)) shadowed = true;
     }
   }
-  for (const envs of unreachableRuleIds.values()) {
-    const entry = found.get("unreachable-rule") ?? {
-      count: 0,
-      envs: new Set<string>(),
-      details: [],
-    };
-    entry.count++;
-    envs.forEach((e) => entry.envs.add(e));
-    found.set("unreachable-rule", entry);
-  }
+  if (unreachableRuleIds.size) add("unreachable-rule", unreachableRuleIds.size);
 
   for (const rule of rules) {
-    if (rule.type !== "experiment-ref" || !rule.enabled) continue;
+    if (rule.type !== "experiment-ref") continue;
     if (!known.has(rule.experimentId)) add("missing-experiment");
   }
 
@@ -219,12 +191,12 @@ export function computeFeatureHealth({
   // orphans are inert.
   const referencedSafeRollouts = new Set(
     rules.flatMap((rule) =>
-      rule.type === "safe-rollout" && rule.enabled ? [rule.safeRolloutId] : [],
+      rule.type === "safe-rollout" ? [rule.safeRolloutId] : [],
     ),
   );
   const liveRampIds = new Set(
     rampSchedules
-      .filter((s) => !["completed", "rolled-back"].includes(s.status))
+      .filter((s) => !isTerminalRampScheduleStatus(s.status))
       .map((s) => s.id),
   );
   for (const safeRollout of safeRollouts) {
@@ -239,13 +211,9 @@ export function computeFeatureHealth({
       healthSettings,
       daysLeft: 0,
     })?.status;
-    if (status === "rollback-now") {
-      add("safe-rollout-rollback-now", safeRollout.environment);
-    } else if (status === "unhealthy") {
-      add("safe-rollout-unhealthy", safeRollout.environment);
-    } else if (status === "no-data") {
-      add("safe-rollout-no-data", safeRollout.environment);
-    }
+    if (status === "rollback-now") add("safe-rollout-rollback-now");
+    else if (status === "unhealthy") add("safe-rollout-unhealthy");
+    else if (status === "no-data") add("safe-rollout-no-data");
   }
 
   // Counted per rule (plus the default value), not per variation.
@@ -258,13 +226,8 @@ export function computeFeatureHealth({
 
   return FEATURE_HEALTH_SIGNALS.filter((signal) => found.has(signal)).map(
     (signal) => {
-      const { count, envs, details } = found.get(signal)!;
-      return {
-        signal,
-        count,
-        ...(envs.size ? { environments: [...envs].sort() } : {}),
-        ...(details.length ? { details } : {}),
-      };
+      const { count, details } = found.get(signal)!;
+      return { signal, count, ...(details.length ? { details } : {}) };
     },
   );
 }
