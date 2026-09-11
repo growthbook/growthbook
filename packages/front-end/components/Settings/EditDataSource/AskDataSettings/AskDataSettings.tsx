@@ -140,46 +140,47 @@ function EditAskDataModal({
           <Modal.Title>Ask Data Settings</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Switch
-            id="ask-data-enabled"
-            value={enabled}
-            onChange={setEnabled}
-            label="Enable Ask Data"
-            mb="4"
-          />
-          {enabled && (
-            <>
-              <Select
-                label="Run policy"
-                value={policy}
-                setValue={(v) => setPolicy(v as RunPolicy)}
-              >
-                <SelectItem value="auto-below-threshold">
-                  Auto-execute below cost threshold
-                </SelectItem>
-                <SelectItem value="always-confirm">
-                  Always confirm before executing
-                </SelectItem>
-              </Select>
-              <Text size="sm" color="text-mid">
-                Controls whether the agent must confirm before running SQL
-                queries
-              </Text>
-              {policy === "auto-below-threshold" && (
-                <TextField
-                  label="Cost threshold (GiB)"
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={String(thresholdGib)}
-                  onChange={(e) =>
-                    setThresholdGib(parseInt(e.target.value) || 1)
-                  }
-                  helpText="Queries scanning more than this amount require confirmation"
-                />
-              )}
-            </>
-          )}
+          <Flex direction="column" gap="4">
+            <Switch
+              id="ask-data-enabled"
+              value={enabled}
+              onChange={setEnabled}
+              label="Enable Ask Data"
+            />
+            {enabled && (
+              <>
+                <Select
+                  label="Run policy"
+                  value={policy}
+                  setValue={(v) => setPolicy(v as RunPolicy)}
+                >
+                  <SelectItem value="auto-below-threshold">
+                    Auto-execute below cost threshold
+                  </SelectItem>
+                  <SelectItem value="always-confirm">
+                    Always confirm before executing
+                  </SelectItem>
+                </Select>
+                <Text size="sm" color="text-mid">
+                  Controls whether the agent must confirm before running SQL
+                  queries
+                </Text>
+                {policy === "auto-below-threshold" && (
+                  <TextField
+                    label="Cost threshold (GiB)"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={String(thresholdGib)}
+                    onChange={(e) =>
+                      setThresholdGib(parseInt(e.target.value) || 1)
+                    }
+                    helpText="Queries scanning more than this amount require confirmation"
+                  />
+                )}
+              </>
+            )}
+          </Flex>
         </Modal.Body>
         <Modal.Footer>
           <Modal.Close>
