@@ -37,7 +37,7 @@ export default function ColumnSelect({
         data={[
           { label, value: columnValueLabel(value, factTable) },
           ...(agg
-            ? [{ label: "Per-User Aggregation", value: agg.toUpperCase() }]
+            ? [{ label: "Per-user aggregation", value: agg.toUpperCase() }]
             : []),
         ]}
       />
