@@ -156,7 +156,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // ensure default value matches value type
     let defaultValue;
     if (req.body.defaultValue != null) {
-      defaultValue = validateFeatureValue(feature, req.body.defaultValue);
+      defaultValue = validateFeatureValue(
+        feature,
+        req.body.defaultValue,
+        "Default value",
+      );
     }
 
     const environmentSettings =

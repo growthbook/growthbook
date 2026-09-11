@@ -182,7 +182,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   });
 
   // ensure default value matches value type
-  feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+  feature.defaultValue = validateFeatureValue(
+    feature,
+    feature.defaultValue,
+    "Default value",
+  );
 
   assertCanCreateFeatureInState({
     context: req.context,
