@@ -41,7 +41,6 @@ export async function renderExperimentNotificationCard(
   organizationId: string,
   format: ExperimentNotificationCardFormat = "compact",
 ): Promise<RenderedExperimentNotificationCard | null> {
-  if (format === "none") return null;
   const compactEvent = compactEventForNotification(event);
   if (!compactEvent) return null;
 

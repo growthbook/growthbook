@@ -2,7 +2,7 @@ import express from "express";
 import { z } from "zod";
 import {
   isEventWebhookWildcard,
-  slackEventWebHookOptions,
+  notificationSettingsSchema,
   zodNotificationEventNamesEnum,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -47,7 +47,7 @@ router.put(
         projects: z.array(z.string()),
         environments: z.array(z.string()),
         tags: z.array(z.string()),
-        slackOptions: slackEventWebHookOptions.optional(),
+        notificationSettings: notificationSettingsSchema.optional(),
       })
       .strict(),
   }),

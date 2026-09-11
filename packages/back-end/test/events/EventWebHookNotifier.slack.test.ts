@@ -1,3 +1,4 @@
+import type { NotificationSettings } from "shared/validators";
 import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
@@ -102,11 +103,11 @@ const runAgendaJob = async () => {
 const setWebhook = ({
   url,
   slack,
-  slackOptions,
+  notificationSettings,
 }: {
   url: string;
   slack?: { channelId: string; teamId?: string };
-  slackOptions?: { experimentCardFormat?: "none" | "compact" | "detailed" };
+  notificationSettings?: NotificationSettings;
 }) => {
   jest.mocked(getEventWebHookById).mockResolvedValue({
     id: "webhook-1",
@@ -118,7 +119,7 @@ const setWebhook = ({
     signingKey: "signing-key",
     headers: {},
     slack,
-    slackOptions,
+    notificationSettings,
   });
 };
 
@@ -246,11 +247,34 @@ describe("Slack EventWebHook delivery compatibility", () => {
     expect(job.save).toHaveBeenCalled();
   });
 
+  it("does not enter card rendering for text-only notifications", async () => {
+    setWebhook({
+      url: SLACK_WORKSPACE_PLACEHOLDER_URL,
+      slack: { channelId: "C123", teamId: "T123" },
+      notificationSettings: { type: "text" },
+    });
+    getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
+      teamId: "T123",
+      encryptedBotAccessToken: "xoxb-token",
+    });
+    jest.mocked(postSlackMessageResult).mockResolvedValue({
+      ok: true,
+      ts: "123.456",
+      error: null,
+    });
+
+    await runAgendaJob();
+
+    expect(renderExperimentNotificationCard).not.toHaveBeenCalled();
+    expect(uploadSlackImageFile).not.toHaveBeenCalled();
+    expect(postSlackMessageResult).toHaveBeenCalled();
+  });
+
   it("uploads an experiment card instead of posting the text message", async () => {
     setWebhook({
       url: SLACK_WORKSPACE_PLACEHOLDER_URL,
       slack: { channelId: "C123", teamId: "T123" },
-      slackOptions: { experimentCardFormat: "detailed" },
+      notificationSettings: { type: "image", cardFormat: "detailed" },
     });
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
       teamId: "T123",

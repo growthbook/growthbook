@@ -1,4 +1,5 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
+import { DEFAULT_NOTIFICATION_SETTINGS } from "shared/validators";
 import {
   EventWebHookInterface,
   EventWebHookMethod,
@@ -194,13 +195,16 @@ export class EventWebHookNotifier implements Notifier {
       const channelId = eventWebHook.slack?.channelId;
 
       if (botToken && channelId) {
-        const card = event.version
-          ? await renderExperimentNotificationCard(
-              event.data,
-              organization.id,
-              eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
-            )
-          : null;
+        const notificationSettings =
+          eventWebHook.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
+        const card =
+          event.version && notificationSettings.type === "image"
+            ? await renderExperimentNotificationCard(
+                event.data,
+                organization.id,
+                notificationSettings.cardFormat,
+              )
+            : null;
         if (card) {
           const fileId = await uploadSlackImageFile({
             token: botToken,

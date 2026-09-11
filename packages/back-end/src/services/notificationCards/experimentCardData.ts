@@ -1,10 +1,29 @@
 import { getSnapshotAnalysis } from "shared/util";
+import cloneDeep from "lodash/cloneDeep";
+import {
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+} from "shared/constants";
+import { getHealthSettings } from "shared/enterprise";
+import {
+  getBanditSRMValue,
+  getExperimentSRMValue,
+  getMultipleExposureHealthData,
+  getSRMHealthData,
+} from "shared/health";
 import {
   type ExperimentMetricInterface,
   parseFunnelStepMetricId,
   parseSliceMetricId,
   isFactFunnelMetric,
   getFunnelStepMetric,
+  expandMetricGroups,
+  isMetricGroupId,
+  getLatestPhaseVariations,
+  getMetricResultStatus,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type {
@@ -17,6 +36,10 @@ import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnaps
 import { getExperimentMetricsByIds } from "back-end/src/services/experiments";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { logger } from "back-end/src/util/logger";
+import {
+  getMetricDefaultsForOrg,
+  getSignificanceSettingsForProject,
+} from "back-end/src/services/organizations";
 import type {
   CardCiMetric,
   CardGoalRow,
@@ -29,8 +52,6 @@ import type {
 // snapshot's default analysis; `expected`/`ci` are fractional relative
 // uplift (matching the front-end results graph), so we scale to % for the card.
 
-const SRM_P_THRESHOLD = 0.001; // matches the default health-check threshold
-const SIG_THRESHOLD = 0.05;
 const MAX_SECONDARY = 3;
 const MAX_GUARDRAIL = 3;
 
@@ -103,25 +124,12 @@ function relCi(m: SnapshotMetric): [number, number] | undefined {
   return ci ? [ci[0] * 100, ci[1] * 100] : undefined;
 }
 
-function isSignificant(m: SnapshotMetric): boolean {
-  const p = m.pValueAdjusted ?? m.pValue;
-  if (p !== undefined) return p < SIG_THRESHOLD;
-  if (m.chanceToWin !== undefined) {
-    return m.chanceToWin >= 0.95 || m.chanceToWin <= 0.05;
-  }
-  return false;
-}
-
 function deriveState(
   experiment: ExperimentInterface,
-  srmPValue: number | undefined,
+  hasSrm: boolean,
 ): CardState {
   if (experiment.status === "draft") return "started";
-  if (
-    experiment.status === "running" &&
-    srmPValue !== undefined &&
-    srmPValue < SRM_P_THRESHOLD
-  ) {
+  if (experiment.status === "running" && hasSrm) {
     return "warning";
   }
   if (experiment.status === "running") return "running";
@@ -144,15 +152,23 @@ export async function buildExperimentCardData(
   if (!experiment) return null;
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
-  const goalId = experiment.goalMetrics[0];
-  const secondaryIds = (experiment.secondaryMetrics || []).slice(
-    0,
-    experiment.status === "draft" ? undefined : MAX_SECONDARY,
-  );
-  const guardrailIds = (experiment.guardrailMetrics || []).slice(
-    0,
-    experiment.status === "draft" ? undefined : MAX_GUARDRAIL,
-  );
+  const metricGroups = [
+    ...experiment.goalMetrics,
+    ...(experiment.secondaryMetrics ?? []),
+    ...(experiment.guardrailMetrics ?? []),
+  ].some(isMetricGroupId)
+    ? await context.models.metricGroups.getAll()
+    : [];
+  const goalIds = expandMetricGroups(experiment.goalMetrics, metricGroups);
+  const goalId = goalIds[0];
+  const secondaryIds = expandMetricGroups(
+    experiment.secondaryMetrics ?? [],
+    metricGroups,
+  ).slice(0, experiment.status === "draft" ? undefined : MAX_SECONDARY);
+  const guardrailIds = expandMetricGroups(
+    experiment.guardrailMetrics ?? [],
+    metricGroups,
+  ).slice(0, experiment.status === "draft" ? undefined : MAX_GUARDRAIL);
   const baseId = (id: string): string =>
     parseSliceMetricId(parseFunnelStepMetricId(id).baseMetricId).baseMetricId;
   const ids = [
@@ -222,15 +238,47 @@ export async function buildExperimentCardData(
       context,
       experiment: experiment.id,
       phase: experiment.phases.length - 1,
+      type: "standard",
     });
   } catch (e) {
     logger.warn(e, "Notification card: failed to load snapshot");
   }
   const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
-  const dim = analysis?.results?.[0];
-  const srmPValue = dim?.srm;
-
-  const state = deriveState(experiment, srmPValue);
+  const { ciUpper, ciLower, pValueThreshold, pValueCorrection } =
+    await getSignificanceSettingsForProject(context, experiment.project);
+  const metricDefaults = getMetricDefaultsForOrg(context);
+  const healthSettings = getHealthSettings(context.org.settings);
+  const results = cloneDeep(analysis?.results ?? []);
+  setAdjustedPValuesOnResults(results, goalIds, pValueCorrection);
+  setAdjustedCIs(results, pValueThreshold);
+  const dim = results[0];
+  const traffic = snapshot?.health?.traffic?.overall;
+  const totalUsers = traffic?.variationUnits.length
+    ? traffic.variationUnits.reduce((sum, users) => sum + users, 0)
+    : dim && results.length === 1
+      ? dim.variations.reduce(
+          (sum, variation) => sum + (variation.users || 0),
+          0,
+        )
+      : undefined;
+  const srmPValue = snapshot
+    ? experiment.type === "multi-armed-bandit"
+      ? getBanditSRMValue(snapshot)
+      : getExperimentSRMValue(snapshot)
+    : undefined;
+  const hasSrm =
+    srmPValue !== undefined &&
+    getSRMHealthData({
+      srm: srmPValue,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: totalUsers ?? 0,
+      numOfVariations: getLatestPhaseVariations(experiment).length,
+      minUsersPerVariation:
+        experiment.type === "multi-armed-bandit"
+          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+    }) === "unhealthy";
+  const state = deriveState(experiment, hasSrm);
 
   const goalRows: CardGoalRow[] = [];
   if (dim && goalId) {
@@ -242,10 +290,6 @@ export async function buildExperimentCardData(
       const ci = relCi(vm);
       const ciLo = ci ? ci[0] : upliftPct;
       const ciHi = ci ? ci[1] : upliftPct;
-      const spread =
-        vm.uplift?.stddev !== undefined
-          ? vm.uplift.stddev * 100
-          : Math.max(0.5, (ciHi - ciLo) / 3.92);
       goalRows.push({
         v: experiment.variations[i]?.name || `Variation ${i}`,
         i,
@@ -259,7 +303,9 @@ export async function buildExperimentCardData(
             : undefined,
         chg: pct(upliftPct),
         dir: upliftPct >= 0 ? "up" : "down",
-        vio: { c: upliftPct, s: Math.max(0.3, spread) },
+        ...(vm.uplift?.stddev !== undefined
+          ? { vio: { c: upliftPct, s: Math.max(0.3, vm.uplift.stddev * 100) } }
+          : {}),
         ...(ci ? { ci: { lo: ciLo, hi: ciHi, pt: upliftPct } } : {}),
         muted: state === "warning",
       });
@@ -285,7 +331,24 @@ export async function buildExperimentCardData(
         hi: ci ? ci[1] : upliftPct,
         pt: upliftPct,
       },
-      sig: isSignificant(vm),
+      sig:
+        metric &&
+        cm &&
+        analysis &&
+        (analysis.settings.statsEngine !== "bayesian" ||
+          vm.chanceToWin !== undefined)
+          ? getMetricResultStatus({
+              metric,
+              metricDefaults,
+              baseline: cm,
+              stats: vm,
+              ciLower,
+              ciUpper,
+              pValueThreshold,
+              statsEngine: analysis.settings.statsEngine,
+              differenceType: analysis.settings.differenceType,
+            }).significant
+          : false,
     };
   };
 
@@ -295,10 +358,6 @@ export async function buildExperimentCardData(
   const guardrail = guardrailIds
     .map(ciMetricRow)
     .filter((m): m is CardCiMetric => !!m);
-
-  const totalUsers = dim
-    ? dim.variations.reduce((sum, v) => sum + (v.users || 0), 0)
-    : undefined;
 
   const now = new Date();
   const days = startDate
@@ -322,17 +381,21 @@ export async function buildExperimentCardData(
   // (e.g. an SRM on a stopped experiment). Multiple exposures and unknown
   // variations are always health issues regardless of state.
   const healthIssues: [string, string][] = [];
-  if (
-    state !== "warning" &&
-    srmPValue !== undefined &&
-    srmPValue < SRM_P_THRESHOLD
-  ) {
+  if (state !== "warning" && hasSrm) {
     healthIssues.push([
       "Sample Ratio Mismatch",
       "observed traffic split deviates from the configured split",
     ]);
   }
-  if (snapshot && snapshot.multipleExposures > 0) {
+  if (
+    snapshot &&
+    getMultipleExposureHealthData({
+      multipleExposuresCount: snapshot.multipleExposures,
+      totalUsersCount: totalUsers ?? 0,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    }).status === "unhealthy"
+  ) {
     healthIssues.push([
       "Multiple exposures",
       `${compact(snapshot.multipleExposures)} users saw more than one variation`,
@@ -366,7 +429,7 @@ export async function buildExperimentCardData(
     ...(healthIssues.length
       ? { health: { status: "unhealthy" as const, issues: healthIssues } }
       : {}),
-    ...(srm ? { srm, p: `p < ${SRM_P_THRESHOLD}` } : {}),
+    ...(srm ? { srm, p: `p < ${healthSettings.srmThreshold}` } : {}),
     ...(state === "warning"
       ? {
           note: "Sample Ratio Mismatch — traffic is not splitting as configured. Results are unreliable until fixed.",

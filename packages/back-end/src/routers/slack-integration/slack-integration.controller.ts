@@ -4,7 +4,7 @@ import {
   SlackOAuthIntegrationInterface,
 } from "shared/types/slack-integration";
 import {
-  SlackEventWebHookOptions,
+  NotificationSettings,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { NotificationEventName } from "shared/types/events/base-types";
@@ -125,7 +125,7 @@ type PutSlackOAuthConnectionRequest = AuthRequest<
     projects: string[];
     environments: string[];
     tags: string[];
-    slackOptions?: SlackEventWebHookOptions;
+    notificationSettings?: NotificationSettings;
   },
   { id: string }
 >;

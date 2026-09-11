@@ -476,12 +476,6 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12
     devDependencies:
-      '@fontsource/inter':
-        specifier: ^5.2.8
-        version: 5.3.0
-      '@fontsource/roboto-mono':
-        specifier: ^5.2.9
-        version: 5.3.0
       '@slack/types':
         specifier: ^1.7.0
         version: 1.10.0
@@ -3235,12 +3229,6 @@ packages:
 
   '@floating-ui/utils@0.2.9':
     resolution: {integrity: sha512-MDWhGtE+eHw5JW7lq4qhc5yRLS11ERl1c7Z6Xd0a58DozHES6EnNNwUWbMiG4J9Cgj053Bhk8zvlhFYKVhULwg==}
-
-  '@fontsource/inter@5.3.0':
-    resolution: {integrity: sha512-RofMylZmjlJEfELXeNHFWBRcSs75rGU/6bV2S2jfnvv/3rPXPGe0LgUJTklcHZ9lM4OZmAVFhcJPnACfb91A3g==}
-
-  '@fontsource/roboto-mono@5.3.0':
-    resolution: {integrity: sha512-yhwplHMHW9dCk+1pZuERfcJe+K3rosGVZEoK0XktkxRSqQ9qsipSwwiuW2/8Qmtp9lzu3Ixa/ie4BMH3i8CkZQ==}
 
   '@google-cloud/bigquery@8.1.1':
     resolution: {integrity: sha512-2GHlohfA/VJffTvibMazMsZi6jPRx8MmaMberyDTL8rnhVs/frKSXVVRtLU83uSAy2j/5SD4mOs4jMQgJPON2g==}
@@ -16794,10 +16782,6 @@ snapshots:
   '@floating-ui/utils@0.1.4': {}
 
   '@floating-ui/utils@0.2.9': {}
-
-  '@fontsource/inter@5.3.0': {}
-
-  '@fontsource/roboto-mono@5.3.0': {}
 
   '@google-cloud/bigquery@8.1.1':
     dependencies:
