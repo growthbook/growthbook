@@ -21,7 +21,7 @@ jest.mock("back-end/src/services/features", () => ({
   queueSDKPayloadRefresh: jest.fn(),
   generateRuleId: jest.fn(() => "fr_new"),
   getDraftRevision: jest.fn(),
-  assertCanAutoPublish: jest.fn(),
+  assertCanAutoPublishForContextualBandit: jest.fn(),
   getLiveAndBaseRevisionsForFeature: jest.fn(),
 }));
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({

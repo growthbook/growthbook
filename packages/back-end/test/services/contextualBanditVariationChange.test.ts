@@ -14,7 +14,7 @@ import { CasConflictError } from "back-end/src/models/BaseModel";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import {
-  assertCanAutoPublish,
+  assertCanAutoPublishForContextualBandit,
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
@@ -30,7 +30,7 @@ jest.mock("back-end/src/services/features", () => ({
   queueSDKPayloadRefresh: jest.fn(),
   generateRuleId: jest.fn(() => "fr_new"),
   getDraftRevision: jest.fn(),
-  assertCanAutoPublish: jest.fn(),
+  assertCanAutoPublishForContextualBandit: jest.fn(),
   getLiveAndBaseRevisionsForFeature: jest.fn(),
 }));
 
@@ -105,9 +105,10 @@ const publishRevisionMock = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
 const getFeatureMock = getFeature as jest.Mock;
-const assertCanAutoPublishMock = assertCanAutoPublish as jest.MockedFunction<
-  typeof assertCanAutoPublish
->;
+const assertCanAutoPublishForContextualBanditMock =
+  assertCanAutoPublishForContextualBandit as jest.MockedFunction<
+    typeof assertCanAutoPublishForContextualBandit
+  >;
 const publishPendingDraftsMock =
   publishPendingFeatureDraftsForContextualBandit as jest.Mock;
 const getLiveAndBaseRevisionsMock =
@@ -755,7 +756,7 @@ describe("executeContextualBanditVariationChange", () => {
     const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
     const { context } = makeContext(cb);
 
-    const { featureDraftPublishFailures, pendingVariationIds, updated } =
+    const { featureDraftPublishFailures, updated } =
       await executeContextualBanditVariationChange(
         context,
         cb,
@@ -771,7 +772,9 @@ describe("executeContextualBanditVariationChange", () => {
     expect(publishRevisionMock).toHaveBeenCalledTimes(1);
     expect(featureDraftPublishFailures).toEqual([]);
     expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalled();
-    expect(pendingVariationIds).toEqual([]);
+    expect(
+      updated.variations.filter((v) => v.status === "pending").map((v) => v.id),
+    ).toEqual([]);
     const v2 = updated.variations.find((x) => x.id === "v2");
     expect(v2?.status === undefined || v2?.status === "active").toBe(true);
     expect(updated.variationWeights?.map((p) => p.variationId).sort()).toEqual([
@@ -789,7 +792,7 @@ describe("executeContextualBanditVariationChange", () => {
     const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
     const { context } = makeContext(cb);
 
-    const { featureDraftPublishFailures, pendingVariationIds, updated } =
+    const { featureDraftPublishFailures, updated } =
       await executeContextualBanditVariationChange(
         context,
         cb,
@@ -802,7 +805,9 @@ describe("executeContextualBanditVariationChange", () => {
       { featureId: "feature", revisionVersion: 4, reason: "publish-error" },
     ]);
     expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalledTimes(1);
-    expect(pendingVariationIds).toEqual(["v2"]);
+    expect(
+      updated.variations.filter((v) => v.status === "pending").map((v) => v.id),
+    ).toEqual(["v2"]);
     expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
       "pending",
     );
@@ -817,7 +822,7 @@ describe("executeContextualBanditVariationChange", () => {
     const feature = makeFeature();
     getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(feature)]);
     // The approval flow wins over `bypassApprovalChecks` on an implicit publish.
-    assertCanAutoPublishMock.mockRejectedValueOnce(
+    assertCanAutoPublishForContextualBanditMock.mockRejectedValueOnce(
       new ApprovalRequiredError(
         "Draft #4 of feature requires approval before it can be published.",
       ),
@@ -825,7 +830,7 @@ describe("executeContextualBanditVariationChange", () => {
     const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
     const { context } = makeContext(cb);
 
-    const { featureDraftPublishFailures, pendingVariationIds, updated } =
+    const { featureDraftPublishFailures, updated } =
       await executeContextualBanditVariationChange(
         context,
         cb,
@@ -833,12 +838,10 @@ describe("executeContextualBanditVariationChange", () => {
         { feature: { v2: "added-value" } },
       );
 
-    // Asked to respect the approval flow...
-    expect(assertCanAutoPublishMock).toHaveBeenCalledWith(
+    expect(assertCanAutoPublishForContextualBanditMock).toHaveBeenCalledWith(
       context,
       expect.objectContaining({ id: "feature" }),
       expect.anything(),
-      { respectApprovalFlow: true },
     );
     // ...so nothing published, and the one staged draft is kept (no re-stage).
     expect(publishRevisionMock).not.toHaveBeenCalled();
@@ -851,7 +854,9 @@ describe("executeContextualBanditVariationChange", () => {
       { featureId: "feature", revisionVersion: 4, reason: "needs-approval" },
     ]);
     // The arm holds no traffic until that revision is approved and published.
-    expect(pendingVariationIds).toEqual(["v2"]);
+    expect(
+      updated.variations.filter((v) => v.status === "pending").map((v) => v.id),
+    ).toEqual(["v2"]);
     expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
       "pending",
     );
@@ -888,16 +893,17 @@ describe("executeContextualBanditVariationChange", () => {
     const { context, applyWeightEpochUpdateMock } = makeContext(cb);
 
     // Same visible arm set — the old code treated this re-save as a no-op.
-    const { pendingVariationIds, updated } =
-      await executeContextualBanditVariationChange(context, cb, [
-        v("v0", "0"),
-        v("v1", "1"),
-        v("v2", "2"),
-      ]);
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+    );
 
     // The re-save retried the stuck drafts and promoted the arm.
     expect(publishPendingDraftsMock).toHaveBeenCalledTimes(1);
-    expect(pendingVariationIds).toEqual([]);
+    expect(
+      updated.variations.filter((v) => v.status === "pending").map((v) => v.id),
+    ).toEqual([]);
     expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
       "active",
     );
@@ -925,14 +931,15 @@ describe("executeContextualBanditVariationChange", () => {
     } as Partial<ContextualBanditInterface>);
     const { context, applyWeightEpochUpdateMock } = makeContext(cb);
 
-    const { pendingVariationIds, updated } =
-      await executeContextualBanditVariationChange(context, cb, [
-        v("v0", "0"),
-        v("v1", "1"),
-        v("v2", "2"),
-      ]);
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+    );
 
-    expect(pendingVariationIds).toEqual(["v2"]);
+    expect(
+      updated.variations.filter((v) => v.status === "pending").map((v) => v.id),
+    ).toEqual(["v2"]);
     expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
       "pending",
     );
@@ -1448,7 +1455,7 @@ describe("executeContextualBanditVariationChange", () => {
     const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
     const { context } = makeContext(cb);
 
-    const { featureDraftPublishFailures, pendingVariationIds, updated } =
+    const { featureDraftPublishFailures, updated } =
       await executeContextualBanditVariationChange(
         context,
         cb,
@@ -1462,7 +1469,9 @@ describe("executeContextualBanditVariationChange", () => {
         reason: "publish-error",
       }),
     ]);
-    expect(pendingVariationIds).toEqual(["v2"]);
+    expect(
+      updated.variations.filter((v) => v.status === "pending").map((v) => v.id),
+    ).toEqual(["v2"]);
     expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
       "pending",
     );
@@ -1509,7 +1518,7 @@ describe("executeContextualBanditVariationChange", () => {
     });
     const { context } = makeContext(cb);
 
-    const { featureDraftPublishFailures, pendingVariationIds, updated } =
+    const { featureDraftPublishFailures, updated } =
       await executeContextualBanditVariationChange(
         context,
         cb,
@@ -1520,7 +1529,9 @@ describe("executeContextualBanditVariationChange", () => {
     expect(featureDraftPublishFailures).toEqual([
       expect.objectContaining({ featureId: "feature2" }),
     ]);
-    expect(pendingVariationIds).toEqual(["v2"]);
+    expect(
+      updated.variations.filter((v) => v.status === "pending").map((v) => v.id),
+    ).toEqual(["v2"]);
     expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
       "pending",
     );

@@ -7,9 +7,9 @@ import { getEqualWeights } from "./experiments";
 export const MIN_CONTEXTUAL_BANDIT_VARIATIONS = 2;
 
 export type WeightReconcileMode = "uniform" | "redistribute";
-export type VariationIdentity = { id: string };
+type VariationIdentity = { id: string };
 
-export type VariationWithStatus = VariationIdentity & {
+type VariationWithStatus = VariationIdentity & {
   status?: ContextualBanditVariationStatus;
 };
 
@@ -36,7 +36,7 @@ export function getActiveVariations<T extends VariationWithStatus>(
 ): T[] {
   return variations.filter(isActiveVariation);
 }
-export type VariationDiff = {
+type VariationDiff = {
   addedIds: string[];
   removedIds: string[];
   keptIds: string[];

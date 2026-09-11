@@ -4093,7 +4093,6 @@ export async function assertCanAutoPublish(
   context: ReqContext,
   feature: FeatureInterface,
   draft: FeatureRevisionInterface,
-  { respectApprovalFlow = false }: { respectApprovalFlow?: boolean } = {},
 ): Promise<void> {
   const requireReviews = context.org.settings?.requireReviews;
   const reviewsConfigured =
@@ -4107,14 +4106,31 @@ export async function assertCanAutoPublish(
   });
   if (!requiresReview) return;
 
-  if (respectApprovalFlow) {
-    if (draft.status === "approved") return;
-    throw new ApprovalRequiredError(
-      `Draft #${draft.version} of ${feature.id} requires approval before it can be published.`,
-    );
-  }
-
   if (!context.permissions.canBypassFlagApprovalChecks(feature, "feature")) {
     context.permissions.throwPermissionError();
   }
+}
+
+export async function assertCanAutoPublishForContextualBandit(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+): Promise<void> {
+  const requireReviews = context.org.settings?.requireReviews;
+  const reviewsConfigured =
+    context.hasPremiumFeature("require-approvals") &&
+    (requireReviews === true ||
+      (Array.isArray(requireReviews) &&
+        requireReviews.some((r) => r?.requireReviewOn)));
+
+  const requiresReview = await revisionRequiresReview(context, feature, draft, {
+    treatUnresolvedBaseAsReview: reviewsConfigured,
+  });
+  if (!requiresReview) return;
+
+  if (draft.status === "approved") return;
+
+  throw new ApprovalRequiredError(
+    `Draft #${draft.version} of ${feature.id} requires approval before it can be published.`,
+  );
 }

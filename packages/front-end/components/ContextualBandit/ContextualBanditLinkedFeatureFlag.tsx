@@ -168,19 +168,19 @@ export default function ContextualBanditLinkedFeatureFlag({
 
   const draftCalloutBody = cbNotStarted ? (
     <>
-      Rule changes for this feature are in {draftRevisionDescription}.{" "}
+      Rule changes for this Feature Flag are in {draftRevisionDescription}.{" "}
       {awaitingApproval ? "Once approved, they" : "They"} will be auto-published
-      when this contextual bandit starts, or you can publish manually.
+      when this Contextual Bandit starts, or you can publish manually.
     </>
   ) : (
     <>
-      Rule changes for this feature are in {draftRevisionDescription}, so this
-      contextual bandit is not serving this Feature Flag.{" "}
+      Rule changes for this Feature Flag are in {draftRevisionDescription}, so
+      this Contextual Bandit is not serving this Feature Flag.{" "}
       {cb.status === "stopped"
-        ? "This contextual bandit has stopped, so the draft will not be auto-published."
+        ? "This Contextual Bandit has stopped, so the draft will not be auto-published."
         : awaitingApproval
-          ? "Drafts are only auto-published when a contextual bandit starts, so this one has to be approved and then published manually."
-          : "Drafts are only auto-published when a contextual bandit starts, so this one has to be published manually."}
+          ? "Drafts are only auto-published when a Contextual Bandit starts, so this one has to be approved and then published manually."
+          : "Drafts are only auto-published when a Contextual Bandit starts, so this one has to be published manually."}
     </>
   );
 

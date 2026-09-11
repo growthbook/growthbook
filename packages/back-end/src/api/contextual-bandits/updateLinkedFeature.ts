@@ -47,7 +47,6 @@ export const updateContextualBanditLinkedFeature = createApiRequestHandler(
     audit: req.audit,
     autoPublish: req.body.autoPublish,
     draftVersion: req.body.draftVersion,
-    respectApprovalFlow: true,
   });
 
   return {

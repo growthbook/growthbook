@@ -185,7 +185,7 @@ const BaseClass = MakeModelClass({
           if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
             req.context.permissions.throwPermissionError();
           }
-          const { updated, featureDraftPublishFailures, pendingVariationIds } =
+          const { updated, featureDraftPublishFailures } =
             await executeContextualBanditVariationChange(
               req.context,
               cb,
@@ -197,7 +197,6 @@ const BaseClass = MakeModelClass({
             ...(featureDraftPublishFailures.length > 0
               ? { featureDraftPublishFailures }
               : {}),
-            ...(pendingVariationIds.length > 0 ? { pendingVariationIds } : {}),
           };
         },
       }),

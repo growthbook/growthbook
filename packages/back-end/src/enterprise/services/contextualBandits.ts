@@ -64,7 +64,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import {
-  assertCanAutoPublish,
+  assertCanAutoPublishForContextualBandit,
   generateRuleId,
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
@@ -137,7 +137,6 @@ type ContextualBanditFeatureLinkOptions = {
   audit: (input: AuditInterfaceInput) => Promise<void>;
   autoPublish?: boolean;
   draftVersion?: number;
-  respectApprovalFlow?: boolean;
 };
 
 const isRuleForContextualBandit = (
@@ -222,19 +221,15 @@ async function publishContextualBanditRevision({
   revision,
   comment,
   audit,
-  respectApprovalFlow,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   comment: string;
   audit: (input: AuditInterfaceInput) => Promise<void>;
-  respectApprovalFlow?: boolean;
 }): Promise<{ pendingApproval: boolean }> {
   try {
-    await assertCanAutoPublish(context, feature, revision, {
-      respectApprovalFlow,
-    });
+    await assertCanAutoPublishForContextualBandit(context, feature, revision);
   } catch (err) {
     if (!(err instanceof ApprovalRequiredError)) throw err;
     context.logger.warn(
@@ -481,7 +476,6 @@ export async function updateContextualBanditFeatureRule({
   audit,
   autoPublish,
   draftVersion,
-  respectApprovalFlow,
 }: ContextualBanditFeatureLinkOptions & {
   feature: FeatureInterface;
   rule: ContextualBanditRefRule;
@@ -631,7 +625,6 @@ export async function updateContextualBanditFeatureRule({
         revision: updatedRevision,
         comment: `Update contextual bandit rule for "${contextualBandit.name}"`,
         audit,
-        respectApprovalFlow,
       }));
       published = !pendingApproval;
     }
@@ -887,7 +880,6 @@ export async function unlinkFeatureFromContextualBandit({
         revision: updatedRevision,
         comment: `Remove contextual bandit rule for "${contextualBandit.name}"`,
         audit,
-        respectApprovalFlow: true,
       });
       published = !pendingApproval;
     }
@@ -1060,7 +1052,6 @@ export async function executeContextualBanditVariationChange(
 ): Promise<{
   updated: ContextualBanditInterface;
   featureDraftPublishFailures: PendingDraftFailure[];
-  pendingVariationIds: string[];
 }> {
   if (cb.status === "stopped") {
     throw new Error(
@@ -1254,9 +1245,6 @@ export async function executeContextualBanditVariationChange(
   return {
     updated,
     featureDraftPublishFailures,
-    pendingVariationIds: updated.variations
-      .filter(isPendingVariation)
-      .map((v) => v.id),
   };
 }
 
@@ -1426,9 +1414,6 @@ export async function reconcileLinkedFeatureVariations(
           },
           autoPublish,
           draftVersion,
-          // A variation change is not a publish request: if the flag requires
-          // review, stage the draft and let the arm stay pending.
-          respectApprovalFlow: true,
         });
 
       const autoPublish = cb.status === "running";

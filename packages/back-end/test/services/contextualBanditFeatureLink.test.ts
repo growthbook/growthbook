@@ -12,7 +12,7 @@ import {
   updateContextualBanditFeatureRule,
 } from "back-end/src/enterprise/services/contextualBandits";
 import {
-  assertCanAutoPublish,
+  assertCanAutoPublishForContextualBandit,
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
@@ -28,7 +28,7 @@ import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureCo
 jest.mock("back-end/src/services/features", () => ({
   generateRuleId: jest.fn(() => "fr_new"),
   getDraftRevision: jest.fn(),
-  assertCanAutoPublish: jest.fn(),
+  assertCanAutoPublishForContextualBandit: jest.fn(),
   getLiveAndBaseRevisionsForFeature: jest.fn(),
   queueSDKPayloadRefresh: jest.fn(),
 }));
@@ -93,9 +93,10 @@ const updateRevisionMock = updateRevision as jest.MockedFunction<
 const getRevisionMock = getRevision as jest.MockedFunction<typeof getRevision>;
 const getLinkageSyncRevisionSummariesMock =
   getLinkageSyncRevisionSummaries as jest.Mock;
-const assertCanAutoPublishMock = assertCanAutoPublish as jest.MockedFunction<
-  typeof assertCanAutoPublish
->;
+const assertCanAutoPublishForContextualBanditMock =
+  assertCanAutoPublishForContextualBandit as jest.MockedFunction<
+    typeof assertCanAutoPublishForContextualBandit
+  >;
 const publishRevisionMock = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
@@ -555,7 +556,7 @@ describe("unlinkFeatureFromContextualBandit", () => {
   it("stages the removal instead of losing it when the publish needs approval", async () => {
     const liveRule = cbRefRule("fr_1", "cb_1");
     getDraftRevisionMock.mockResolvedValue(makeRevision({ rules: [liveRule] }));
-    assertCanAutoPublishMock.mockRejectedValueOnce(
+    assertCanAutoPublishForContextualBanditMock.mockRejectedValueOnce(
       new ApprovalRequiredError("Draft #4 of feat_1 requires approval"),
     );
 

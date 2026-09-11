@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import { banditStageType, variation } from "./experiments";
+import { banditStageType, screenshot, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
@@ -30,7 +30,7 @@ export const contextualBanditStatus = ["draft", "running", "stopped"] as const;
 export type ContextualBanditStatus = (typeof contextualBanditStatus)[number];
 
 // Absent = "active". See contextual-bandit-variation-changes.ts for semantics.
-export const contextualBanditVariationStatus = [
+const contextualBanditVariationStatus = [
   "active",
   "pending",
   "deactivated",
@@ -39,7 +39,7 @@ export type ContextualBanditVariationStatus =
   (typeof contextualBanditVariationStatus)[number];
 
 // Only the stored document carries status; the server owns transitions.
-export const contextualBanditVariation = variation.extend({
+const contextualBanditVariation = variation.extend({
   status: z.enum(contextualBanditVariationStatus).optional(),
 });
 export type ContextualBanditVariation = z.infer<
@@ -327,10 +327,21 @@ export const apiContextualBanditStopValidator = {
 export const apiContextualBanditUpdateVariationsValidator = {
   paramsSchema: z.strictObject({ id: z.string() }),
   bodySchema: z.strictObject({
-    variations: z.array(variation),
+    variations: z
+      .array(
+        variation.extend({
+          screenshots: z.array(screenshot).optional(),
+        }),
+      )
+      .describe(
+        "Complete list of variations to keep. Pass each existing variation by `id`; omit `id` for new arms (server assigns id and next integer `key`). Any active variation not in this list is deactivated.",
+      ),
     newVariationValues: z
       .record(z.string(), z.record(z.string(), z.string()))
-      .optional(),
+      .optional()
+      .describe(
+        "Value to set on each linked feature for each new arm: `{featureId: {variationId: value}}`. Required for every added arm.",
+      ),
   }),
   querySchema: z.never(),
 };
@@ -355,8 +366,6 @@ export const apiContextualBanditVariationsReturn = z.object({
       }),
     )
     .optional(),
-  // Added variations still pending (value not live everywhere yet).
-  pendingVariationIds: z.array(z.string()).optional(),
 });
 
 export const apiContextualBanditRefreshValidator = {

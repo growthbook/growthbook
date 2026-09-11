@@ -171,6 +171,7 @@ export default function LinkFeatureToContextualBanditModal({
   const [emptyStringConfirmed, setEmptyStringConfirmed] = useState<
     Record<string, boolean>
   >({});
+  const [showValueErrors, setShowValueErrors] = useState(false);
 
   const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
   const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
@@ -303,6 +304,7 @@ export default function LinkFeatureToContextualBanditModal({
           }),
         );
         if (unsetVariation) {
+          setShowValueErrors(true);
           throw new Error("Set a value for every variation before saving");
         }
 
@@ -494,36 +496,51 @@ export default function LinkFeatureToContextualBanditModal({
         <Text as="label" weight="semibold" mb="0">
           Variation Values
         </Text>
-        {variations.map((v, i) => (
-          <Box key={v.id}>
-            <Box mb="3">
-              <VariationLabel number={i} name={v.name} />
+        {variations.map((v, i) => {
+          const currentValue = form.watch(`variations.${i}.value`) || "";
+          const isMissing = isUnsetFeatureValue({
+            valueType,
+            value: currentValue,
+            emptyStringConfirmed: !!emptyStringConfirmed[v.id],
+          });
+          return (
+            <Box key={v.id}>
+              <Box mb="3">
+                <VariationLabel number={i} name={v.name} />
+              </Box>
+              {showValueErrors && isMissing && (
+                <HelperText status="error">
+                  {valueType === "string"
+                    ? "Set a value, or confirm you want an empty string"
+                    : "Set a value for this variation"}
+                </HelperText>
+              )}
+              <FeatureValueField
+                id={v.id}
+                value={currentValue}
+                setValue={(val) => form.setValue(`variations.${i}.value`, val)}
+                valueType={valueType}
+                feature={existing ? existingFeature : undefined}
+                useCodeInput={true}
+                showFullscreenButton={true}
+                sparse={isConfigBacked}
+                allowConfigBacking={isConfigBacked}
+                configBackingOptionKeys={configBackingOptionKeys}
+                configBackingShowPatch={isConfigBacked}
+                lockConfigBacking={isConfigBacked}
+                confirmEmptyString
+                emptyStringConfirmed={!!emptyStringConfirmed[v.id]}
+                setEmptyStringConfirmed={(checked) =>
+                  setEmptyStringConfirmed((prev) => ({
+                    ...prev,
+                    [v.id]: checked,
+                  }))
+                }
+              />
+              {i < variations.length - 1 && <Separator size="4" my="4" />}
             </Box>
-            <FeatureValueField
-              id={v.id}
-              value={form.watch(`variations.${i}.value`) || ""}
-              setValue={(val) => form.setValue(`variations.${i}.value`, val)}
-              valueType={valueType}
-              feature={existing ? existingFeature : undefined}
-              useCodeInput={true}
-              showFullscreenButton={true}
-              sparse={isConfigBacked}
-              allowConfigBacking={isConfigBacked}
-              configBackingOptionKeys={configBackingOptionKeys}
-              configBackingShowPatch={isConfigBacked}
-              lockConfigBacking={isConfigBacked}
-              confirmEmptyString
-              emptyStringConfirmed={!!emptyStringConfirmed[v.id]}
-              setEmptyStringConfirmed={(checked) =>
-                setEmptyStringConfirmed((prev) => ({
-                  ...prev,
-                  [v.id]: checked,
-                }))
-              }
-            />
-            {i < variations.length - 1 && <Separator size="4" my="4" />}
-          </Box>
-        ))}
+          );
+        })}
       </Flex>
     </ModalStandard>
   );

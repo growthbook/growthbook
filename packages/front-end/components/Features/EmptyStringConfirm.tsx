@@ -1,7 +1,7 @@
 import { FeatureValueType } from "shared/types/feature";
 import Checkbox from "@/ui/Checkbox";
 
-export function isEmptyStringCandidate(
+function isEmptyStringCandidate(
   valueType: FeatureValueType | undefined,
   value: string,
 ): boolean {

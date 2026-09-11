@@ -224,7 +224,7 @@ export default function EditContextualBanditFeatureValuesModal({
           ? "Changes made here go live on the linked Feature Flag as soon as you save."
           : "Changes made here will be saved to a draft on the linked Feature Flag rule."
       }
-      cta={willPublish ? "Save" : "Save to draft"}
+      cta={willPublish ? "Save and publish" : "Save to draft"}
       // Nothing to submit until the revisions load and there's a rule to patch.
       ctaEnabled={!!data && !!existingRule}
       close={close}
