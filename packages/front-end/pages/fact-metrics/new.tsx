@@ -1,10 +1,13 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { CommercialFeature } from "shared/enterprise";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
+import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,6 +23,8 @@ import {
 
 export default function NewFactMetricPage() {
   const router = useRouter();
+  const [actionsContainer, setActionsContainer] =
+    useState<HTMLDivElement | null>(null);
   const {
     project,
     ready,
@@ -148,9 +153,16 @@ export default function NewFactMetricPage() {
           { display: "New Fact Metric" },
         ]}
       />
-      <Heading as="h1" mb="3">
-        New Fact Metric
-      </Heading>
+      <Flex align="center" justify="between" gap="3" wrap="wrap" mb="3">
+        <Flex align="center" gap="3" wrap="wrap">
+          <Heading as="h1" mb="0">
+            New Fact Metric
+          </Heading>
+          <Badge label="Draft" color="pink" variant="solid" radius="full" />
+          <Text color="text-mid">Not yet saved</Text>
+        </Flex>
+        <div ref={setActionsContainer} />
+      </Flex>
       {!canCreate ? (
         <Callout status="error">
           You don&apos;t have permission to create Fact Metrics in this Project.{" "}
@@ -184,6 +196,7 @@ export default function NewFactMetricPage() {
             </Callout>
           )}
           <MetricWorkspace
+            actionsContainer={actionsContainer}
             existing={null}
             duplicateFrom={duplicateFrom}
             initialFactTable={initialFactTable}
