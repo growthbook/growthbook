@@ -1,5 +1,6 @@
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { ReqContext } from "back-end/types/organization";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   ApiRuleV2Input,
   assertValidRuleProjectIds,
@@ -7,7 +8,10 @@ import {
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
   resolveScopeFromInput,
+  validateRulesScheduleRules,
 } from "back-end/src/api/features/v2Shared";
+import { normalizeRuleForApiV2 } from "back-end/src/services/features";
+import { BadRequestError } from "back-end/src/util/errors";
 
 // ---------------------------------------------------------------------------
 // Pure-function unit tests for the v2 API mapping/extraction helpers.
@@ -389,6 +393,139 @@ describe("mapV2ApiRuleToFeatureRule", () => {
 // updates payload. Refactored from a mutating helper; tests guard against
 // regression to the in-place mutation pattern.
 // ---------------------------------------------------------------------------
+
+// Both fields are emitted on GET and accepted on every rule type. The mapper
+// used to drop them, so a fetch → edit → send-back through the bulk endpoints
+// removed every rule's prerequisite gate and schedule.
+describe("mapV2ApiRuleToFeatureRule prerequisites + scheduleRules", () => {
+  const prerequisites = [{ id: "parent_flag", condition: '{"value": true}' }];
+  const scheduleRules = [
+    { timestamp: "2030-01-01T00:00:00.000Z", enabled: true },
+    { timestamp: null, enabled: false },
+  ];
+  const existingSafeRollout: FeatureInterface = {
+    rules: [
+      {
+        id: "fr_sr",
+        type: "safe-rollout",
+        safeRolloutId: "sr_1",
+        trackingKey: "tk",
+        seed: "seed",
+        status: "running",
+      },
+    ],
+  } as unknown as FeatureInterface;
+
+  it.each<[string, ApiRuleV2Input]>([
+    ["force", { type: "force", value: "true" } as ApiRuleV2Input],
+    [
+      "rollout",
+      {
+        type: "rollout",
+        value: "true",
+        coverage: 0.5,
+        hashAttribute: "id",
+      } as ApiRuleV2Input,
+    ],
+    [
+      "experiment-ref",
+      {
+        type: "experiment-ref",
+        experimentId: "exp_1",
+        variations: [{ variationId: "v0", value: "false" }],
+      } as ApiRuleV2Input,
+    ],
+    [
+      "safe-rollout",
+      {
+        type: "safe-rollout",
+        id: "fr_sr",
+        controlValue: "false",
+        variationValue: "true",
+        hashAttribute: "id",
+        safeRolloutId: "sr_1",
+      } as ApiRuleV2Input,
+    ],
+  ])("carries both through for a %s rule", (_type, input) => {
+    const out = mapV2ApiRuleToFeatureRule(
+      { ...input, prerequisites, scheduleRules } as ApiRuleV2Input,
+      existingSafeRollout,
+    );
+    expect(out.prerequisites).toEqual(prerequisites);
+    expect(out.scheduleRules).toEqual(scheduleRules);
+  });
+
+  it("leaves both undefined when the input omits them", () => {
+    const out = mapV2ApiRuleToFeatureRule({
+      type: "force",
+      value: "true",
+    } as ApiRuleV2Input);
+    expect(out.prerequisites).toBeUndefined();
+    expect(out.scheduleRules).toBeUndefined();
+  });
+
+  it("survives a GET → POST round-trip through normalizeRuleForApiV2", () => {
+    const stored = {
+      id: "fr_1",
+      type: "force",
+      value: "true",
+      description: "",
+      enabled: true,
+      condition: "",
+      prerequisites,
+      scheduleRules,
+      allEnvironments: true,
+    } as unknown as FeatureRule;
+    const out = mapV2ApiRuleToFeatureRule(
+      normalizeRuleForApiV2(stored) as unknown as ApiRuleV2Input,
+    );
+    expect(out.prerequisites).toEqual(prerequisites);
+    expect(out.scheduleRules).toEqual(scheduleRules);
+  });
+});
+
+describe("validateRulesScheduleRules", () => {
+  const valid = [
+    { timestamp: "2030-01-01T00:00:00.000Z", enabled: true },
+    { timestamp: null, enabled: false },
+  ];
+  const rule = (scheduleRules?: unknown) =>
+    ({ type: "force", value: "true", scheduleRules }) as FeatureRule;
+  const ctx = (premium: boolean) =>
+    ({
+      hasPremiumFeature: jest.fn(() => premium),
+      throwPlanDoesNotAllowError: (message: string) => {
+        throw new Error(message);
+      },
+    }) as unknown as ApiReqContext;
+
+  it("skips rules with no or empty scheduleRules without consulting the plan", () => {
+    const context = ctx(false);
+    validateRulesScheduleRules([rule(), rule([])], context);
+    expect(context.hasPremiumFeature).not.toHaveBeenCalled();
+  });
+
+  it("refuses scheduleRules without the plan feature", () => {
+    expect(() => validateRulesScheduleRules([rule(valid)], ctx(false))).toThrow(
+      /schedule rules/,
+    );
+  });
+
+  it("rejects malformed scheduleRules and names the rule", () => {
+    expect(() =>
+      validateRulesScheduleRules([rule(valid), rule([valid[0]])], ctx(true)),
+    ).toThrow(BadRequestError);
+    expect(() =>
+      validateRulesScheduleRules([rule(valid), rule([valid[0]])], ctx(true)),
+    ).toThrow(/rule 2/);
+  });
+
+  it("accepts valid scheduleRules with the plan feature", () => {
+    expect(() =>
+      validateRulesScheduleRules([rule(valid)], ctx(true)),
+    ).not.toThrow();
+  });
+});
 
 describe("extractRevisionMetadata", () => {
   it("splits owner/description/project/tags/customFields/jsonSchema into metadata", () => {

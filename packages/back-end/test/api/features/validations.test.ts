@@ -4,6 +4,11 @@ import {
 } from "back-end/src/api/features/validations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
+import { getFeature } from "back-end/src/models/FeatureModel";
+
+jest.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: jest.fn(),
+}));
 
 // `validateRuleAttributes` is the V2-side gate for the opt-in
 // `requireRegisteredAttributes` org setting. Most of the underlying
@@ -194,6 +199,41 @@ describe("validateRulesReferences", () => {
         ctx,
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it("rejects a prerequisite that names a feature that does not exist", async () => {
+    jest.mocked(getFeature).mockResolvedValueOnce(null);
+    await expect(
+      validateRulesReferences(
+        [
+          {
+            prerequisites: [
+              { id: "missing_flag", condition: '{"value": true}' },
+            ],
+          },
+        ],
+        ctx,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("accepts a prerequisite whose feature exists", async () => {
+    jest
+      .mocked(getFeature)
+      .mockResolvedValueOnce({ id: "parent_flag" } as never);
+    await expect(
+      validateRulesReferences(
+        [
+          {
+            prerequisites: [
+              { id: "parent_flag", condition: '{"value": true}' },
+            ],
+          },
+        ],
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+    expect(getFeature).toHaveBeenCalledWith(ctx, "parent_flag");
   });
 
   it("rejects a prerequisite whose condition is not valid JSON", async () => {

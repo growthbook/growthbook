@@ -265,6 +265,14 @@ export function mapV2ApiRuleToFeatureRule(
     enabled: ruleInput.enabled ?? true,
     condition: ruleInput.condition ?? "",
     savedGroups: resolveSavedGroupsInput(ruleInput),
+    // Emitted on GET and accepted on every rule type; dropping them here made a
+    // plain fetch → edit → send-back remove the rule's gate and schedule.
+    ...(ruleInput.prerequisites !== undefined && {
+      prerequisites: ruleInput.prerequisites,
+    }),
+    ...(ruleInput.scheduleRules !== undefined && {
+      scheduleRules: ruleInput.scheduleRules,
+    }),
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
     allProjects: resolvedAllProjects,
@@ -433,6 +441,30 @@ export async function assertValidHoldout(
     context,
     holdoutId: holdout.id,
     project,
+  });
+}
+
+// v2 counterpart on the flat rules array: same plan gate and business rules,
+// keyed by rule index. Empty arrays pass so a round-trip of an unscheduled
+// rule never trips the plan gate.
+export function validateRulesScheduleRules(
+  rules: FeatureRule[],
+  context: ApiReqContext,
+): void {
+  rules.forEach((rule, i) => {
+    if (!rule.scheduleRules?.length) return;
+    if (!context.hasPremiumFeature("schedule-feature-flag")) {
+      context.throwPlanDoesNotAllowError(
+        "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
+      );
+    }
+    try {
+      validateScheduleRules(rule.scheduleRules);
+    } catch (error) {
+      throw new BadRequestError(
+        `Invalid scheduleRules on rule ${i + 1}: ${error.message}`,
+      );
+    }
   });
 }
 
