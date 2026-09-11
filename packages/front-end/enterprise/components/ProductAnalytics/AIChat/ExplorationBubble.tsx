@@ -14,8 +14,10 @@ import LinkButton from "@/ui/LinkButton";
 import { AssistantBubble } from "@/enterprise/components/AIChat/AIChatPrimitives";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import SimpleExplorationTable from "@/enterprise/components/ProductAnalytics/MainSection/SimpleExplorationTable";
+import SaveToDashboardModal, {
+  canSaveToDashboard,
+} from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
-import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 import { isTableChartType } from "@/enterprise/components/ProductAnalytics/util";
 
 export interface ChartData {
@@ -29,6 +31,7 @@ const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
   data_source: "/product-analytics/explore/data-source",
   sql: "/product-analytics/explore/sql",
   funnel: "/product-analytics/explore/funnel",
+  journey: "/product-analytics/explore/journey",
 };
 
 export function chartDataFromToolResult(result: unknown): ChartData | null {
@@ -85,16 +88,17 @@ export default function ExplorationBubble({
           </Text>
         </Flex>
         <Flex ml="auto" gap="1" wrap="wrap">
-          {showSaveAction && (
-            <Button
-              variant="ghost"
-              size="sm"
-              color="violet"
-              onClick={() => setShowSaveModal(true)}
-            >
-              Save to Dashboard
-            </Button>
-          )}
+          {showSaveAction &&
+            canSaveToDashboard(chartData.config.dataset.type) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                color="violet"
+                onClick={() => setShowSaveModal(true)}
+              >
+                Save to Dashboard
+              </Button>
+            )}
           <LinkButton
             href={explorerUrl}
             variant="ghost"

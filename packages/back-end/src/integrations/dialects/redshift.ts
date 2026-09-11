@@ -1,5 +1,5 @@
 import type { DataType } from "shared/types/integrations";
-import { createLikeStringMatchFn } from "shared/sql";
+import { createLikeMatchFns } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
 import { baseDialect } from "./base";
@@ -11,10 +11,11 @@ export const redshiftDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "redshift",
   escapeStringLiteral: redshiftEscapeStringLiteral,
-  stringMatch: createLikeStringMatchFn({
+  ...createLikeMatchFns({
     escapeStringLiteral: redshiftEscapeStringLiteral,
     emitEscapeClause: true,
   }),
+  concatStrings: (parts: string[]) => parts.join(" || "),
   dateDiffMs: (startCol: string, endCol: string) =>
     `DATEDIFF(millisecond, ${startCol}, ${endCol})`,
   addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>

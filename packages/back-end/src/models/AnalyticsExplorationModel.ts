@@ -13,6 +13,13 @@ import {
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
 import {
+  JOURNEY_CACHE_CANDIDATE_LIMIT,
+  journeyFamilyIdentity,
+  journeyCacheCandidateVerdict,
+  journeyResultCanServe,
+  toClientJourneyExploration,
+} from "shared/journeys";
+import {
   getQueryById,
   toQueryApiInterface,
 } from "back-end/src/models/QueryModel";
@@ -28,6 +35,7 @@ import analyticsExplorationApiSpec, {
   postDataSourceExplorationEndpoint,
   postSqlExplorationEndpoint,
   postFunnelExplorationEndpoint,
+  postJourneyExplorationEndpoint,
   searchProductAnalyticsResourcesEndpoint,
   getProductAnalyticsColumnsEndpoint,
   getProductAnalyticsColumnValuesEndpoint,
@@ -44,17 +52,18 @@ import { MakeModelClass } from "./BaseModel";
 function toApiInterface(
   exploration: ProductAnalyticsExploration,
 ): ApiAnalyticsExploration {
+  const client = toClientJourneyExploration(exploration, exploration.config);
   return {
-    id: exploration.id,
-    dateCreated: exploration.dateCreated.toISOString(),
-    dateUpdated: exploration.dateUpdated.toISOString(),
-    datasource: exploration.datasource,
-    status: exploration.status,
-    dateStart: exploration.dateStart,
-    dateEnd: exploration.dateEnd,
-    error: exploration.error ?? null,
-    result: exploration.result,
-    config: exploration.config,
+    id: client.id,
+    dateCreated: client.dateCreated.toISOString(),
+    dateUpdated: client.dateUpdated.toISOString(),
+    datasource: client.datasource,
+    status: client.status,
+    dateStart: client.dateStart,
+    dateEnd: client.dateEnd,
+    error: client.error ?? null,
+    result: client.result,
+    config: client.config,
   };
 }
 
@@ -110,6 +119,7 @@ const BaseClass = MakeModelClass({
       makeExplorationHandler(postDataSourceExplorationEndpoint),
       makeExplorationHandler(postSqlExplorationEndpoint),
       makeExplorationHandler(postFunnelExplorationEndpoint),
+      makeExplorationHandler(postJourneyExplorationEndpoint),
       defineCustomApiHandler({
         ...searchProductAnalyticsResourcesEndpoint,
         reqHandler: async (req) => {
@@ -218,6 +228,8 @@ export class AnalyticsExplorationModel extends BaseClass {
           dataset.type === "funnel"
             ? (dataset.concurrencyWindowSeconds ?? 0)
             : null,
+        journeyFamily:
+          dataset.type === "journey" ? journeyFamilyIdentity(dataset) : null,
       }),
     );
 
@@ -228,9 +240,11 @@ export class AnalyticsExplorationModel extends BaseClass {
     const valueHashes =
       dataset.type === "funnel"
         ? [md5(JSON.stringify(dataset.steps))]
-        : config.chartType === "rawTable"
-          ? []
-          : dataset.values.map((value) => md5(JSON.stringify(value)));
+        : dataset.type === "journey"
+          ? [md5("journey")]
+          : config.chartType === "rawTable"
+            ? []
+            : dataset.values.map((value) => md5(JSON.stringify(value)));
 
     return {
       generalSettingsHash,
@@ -284,35 +298,94 @@ export class AnalyticsExplorationModel extends BaseClass {
     return this.canCreate(doc);
   }
 
-  public async findLatestByConfig(config: ExplorationConfig) {
+  public async findLatestByConfig(
+    config: ExplorationConfig,
+    options?: { minUnusedLookahead?: number },
+  ) {
     const { dataset } = config;
     if (!dataset) return null;
 
     const configHashes = this.getConfigHashes(config);
     if (!configHashes) return null;
 
-    // 1. Get all possible matches (ignoring date ranges for now)
-    const matches = await this._find(
-      {
-        datasource: config.datasource,
-        status: "success",
-        configHash: configHashes.generalSettingsHash,
-        valueHashes: { $eq: configHashes.valueHashes },
-      },
-      { sort: { dateCreated: -1 }, limit: 5 },
-    );
+    const query = {
+      datasource: config.datasource,
+      status: "success" as const,
+      configHash: configHashes.generalSettingsHash,
+      valueHashes: { $eq: configHashes.valueHashes },
+    };
+    const requestedJourney =
+      config.dataset.type === "journey" ? config.dataset : null;
 
-    if (
-      dataset.type === "sql" &&
-      !hasTimestampColumn(dataset.timestampColumn)
-    ) {
-      return matches[0] ?? null;
+    // 1. Get all possible matches (ignoring date ranges for now)
+    if (!requestedJourney) {
+      const matches = await this._find(query, {
+        sort: { dateCreated: -1 },
+        limit: 5,
+      });
+      if (
+        dataset.type === "sql" &&
+        !hasTimestampColumn(dataset.timestampColumn)
+      ) {
+        return matches[0] ?? null;
+      }
+      return this.pickBestDateRangeMatch(config, matches);
     }
 
+    // Journeys look at many more candidates because a single result can serve a
+    // whole family of paths. Decide from the configs alone first — result rows
+    // run to MAX_JOURNEY_RESULT_ROWS each, so loading 40 of them to reject 39 on
+    // a config mismatch is the expensive way to do it.
+    const candidates = await this._find(query, {
+      sort: { dateCreated: -1 },
+      limit: JOURNEY_CACHE_CANDIDATE_LIMIT,
+      projection: { result: 0 },
+    });
+
+    const needRows: string[] = [];
+    const servable: typeof candidates = [];
+    for (const candidate of candidates) {
+      if (candidate.config.dataset.type !== "journey") continue;
+      const verdict = journeyCacheCandidateVerdict({
+        cachedDataset: candidate.config.dataset,
+        requestedDataset: requestedJourney,
+        minUnusedLookahead: options?.minUnusedLookahead,
+      });
+      if (verdict === "yes") servable.push(candidate);
+      else if (verdict === "needs-rows") needRows.push(candidate.id);
+    }
+
+    if (needRows.length) {
+      const withRows = await this._find({ id: { $in: needRows } });
+      for (const match of withRows) {
+        if (match.config.dataset.type !== "journey") continue;
+        if (
+          journeyResultCanServe({
+            cachedDataset: match.config.dataset,
+            cachedRows: match.result?.rows ?? [],
+            requestedDataset: requestedJourney,
+            minUnusedLookahead: options?.minUnusedLookahead,
+          })
+        ) {
+          servable.push(match);
+        }
+      }
+    }
+
+    const best = this.pickBestDateRangeMatch(config, servable);
+    // `servable` mixes rows-free candidates with fully loaded ones; re-read the
+    // winner so the caller always gets a complete document.
+    return best && !best.result ? await this.getById(best.id) : best;
+  }
+
+  private pickBestDateRangeMatch(
+    config: ExplorationConfig,
+    compatible: ProductAnalyticsExploration[],
+  ) {
     const requestedDates = calculateProductAnalyticsDateRange(config.dateRange);
 
     // 2. Find the analysis that best matches the requested date range
-    const bestMatch = matches.reduce(
+    const bestMatch = compatible.reduce(
       (max, current) => {
         const requestedRange =
           requestedDates.endDate.getTime() - requestedDates.startDate.getTime();

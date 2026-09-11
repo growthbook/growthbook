@@ -13,8 +13,11 @@ import {
   ExplorationConfig,
   ProductAnalyticsValue,
   DatasetType,
+  datasetHasValues,
+  datasetTypeHasValues,
   ProductAnalyticsExploration,
   ExplorationDateRange,
+  MAX_JOURNEY_PATH_LENGTH,
   SqlValue,
   type ComparisonMode,
   type ProductAnalyticsRunComparisonPayload,
@@ -46,6 +49,7 @@ import {
   isTimelessSqlExploration,
   isTimeSeriesChart,
   isSubmittableConfig,
+  journeyDiffersOnlyByPath,
   normalizeTimelessSqlConfig,
   resetValueAxisLabelOnDatasetChange,
   applyTimestampColumn,
@@ -119,6 +123,9 @@ export interface ExplorerContextValue {
   /** Funnel sidebar registers a handler; main empty-state CTA invokes before analyze. */
   registerFunnelAnalyzeCollapseHandler: (fn: (() => void) | null) => void;
   collapseFunnelStepsForAnalyze: () => void;
+  commitJourneyStep: (value: string) => void;
+  popJourneyPath: (index: number) => void;
+  clearJourneyAnchor: () => void;
 
   // ─── Funnel metric link ────────────────────────────────────────────────
   /** Funnel fact metric this funnel was loaded from, if any. Cleared when the
@@ -251,7 +258,6 @@ export function ExplorerProvider({
   const [comparisonComputed, setComparisonComputed] =
     useState<ExplorerContextValue["comparisonComputed"]>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
-
   const hasEverFetchedRef = useRef(hasExistingResults);
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
@@ -469,7 +475,6 @@ export function ExplorerProvider({
 
       let cache: CacheOption;
       if (options?.cache) {
-        // explicitly set the cache option
         cache = options.cache;
       } else if (
         !hasEverFetchedRef.current ||
@@ -479,7 +484,6 @@ export function ExplorerProvider({
         // first load, managed warehouse, or newly-enabled comparison: run if missing
         cache = "preferred";
       } else {
-        // otherwise, use required cache
         cache = "required";
       }
       hasEverFetchedRef.current = true;
@@ -545,16 +549,28 @@ export function ExplorerProvider({
       ) => {
         if (requestId !== submitRequestIdRef.current) return;
         setPolling(false);
-        if (result || resultError) {
-          setSubmittedExploreState(submittedConfig);
+        const nextError = resultError || result?.error || null;
+        const failedWithoutRows =
+          !!nextError && (result?.result?.rows?.length ?? 0) === 0;
+        const hasTerminalResult = !!result || !!resultError;
+        if (hasTerminalResult) {
           setIsStale(false);
         }
-        setExplorerState((prev) => ({
-          ...prev,
-          exploration: result,
-          query: resultQuery,
-          error: resultError || result?.error || null,
-        }));
+        setExplorerState((prev) => {
+          const keepPrevious =
+            failedWithoutRows &&
+            (prev.exploration?.result?.rows?.length ?? 0) > 0;
+          return {
+            ...prev,
+            submittedState:
+              hasTerminalResult && !keepPrevious
+                ? submittedConfig
+                : prev.submittedState,
+            exploration: keepPrevious ? prev.exploration : result,
+            query: keepPrevious ? prev.query : resultQuery,
+            error: nextError,
+          };
+        });
         setComparisonExploration(resultComparison);
         setComparisonQuery(resultComparisonQuery);
         setComparisonComputed(resultComparisonComputed);
@@ -581,7 +597,9 @@ export function ExplorerProvider({
             num_values:
               configToSubmit.dataset?.type === "funnel"
                 ? (configToSubmit.dataset.steps?.length ?? 0)
-                : (configToSubmit.dataset?.values?.length ?? 0),
+                : configToSubmit.dataset?.type === "journey"
+                  ? configToSubmit.dataset.path.length
+                  : (configToSubmit.dataset?.values?.length ?? 0),
             num_dimensions: configToSubmit.dimensions?.length ?? 0,
           };
           if (errorMessage) {
@@ -614,11 +632,19 @@ export function ExplorerProvider({
       // exceeds the backend's sync budget, poll both running ids until each is
       // terminal, then rebuild the shared comparison payload from final rows.
       if (primaryIsRunning || comparisonIsRunning) {
-        setSubmittedExploreState(submittedConfig);
-        setIsStale(false);
+        const preserveVisibleResultWhileRunning =
+          configToSubmit.dataset.type === "journey";
+        if (!preserveVisibleResultWhileRunning) {
+          setSubmittedExploreState(submittedConfig);
+          setIsStale(false);
+        }
         setExplorerState((prev) => ({
           ...prev,
-          exploration: primaryIsRunning ? null : fetchResult,
+          exploration: primaryIsRunning
+            ? preserveVisibleResultWhileRunning
+              ? prev.exploration
+              : null
+            : fetchResult,
           query: primaryIsRunning ? null : query,
           error: null,
         }));
@@ -791,26 +817,28 @@ export function ExplorerProvider({
       return;
     }
     const draftIsFunnel = cleanedDraftExploreState.dataset.type === "funnel";
-    // Funnels on customer warehouses auto-run as soon as the config becomes
-    // fetchable (e.g. second step added), which fires an expensive query.
-    // Managed Warehouse stays auto-run — queries are cheap there.
-    // Exception: toggling Compare on/off only changes previousTimeFrame — the
-    // primary result is already cached, so don't defer.
+    // Funnels on customer warehouses wait for a manual refresh instead of
+    // auto-running an expensive query. Managed Warehouse stays auto-run.
     const onlyComparisonChanged =
       baselineConfig !== null &&
       isEqual(
         toFetchKey(stripExplorerDraftFields(baselineConfig)),
         toFetchKey(cleanedDraftExploreState),
       );
-    const deferFunnelFetchUntilManualRefresh =
+    const deferUntilManualRefresh =
       draftIsFunnel &&
       !isManagedWarehouse &&
       needsFetch &&
       !onlyComparisonChanged;
 
     if (needsFetch) {
-      if (deferFunnelFetchUntilManualRefresh) {
+      if (deferUntilManualRefresh) {
         setIsStale(true);
+      } else if (
+        baselineConfig &&
+        journeyDiffersOnlyByPath(baselineConfig, cleanedDraftExploreState)
+      ) {
+        doSubmit({ cache: "preferred" });
       } else if (
         cleanedDraftExploreState.type === "sql" &&
         !isManagedWarehouse
@@ -863,13 +891,10 @@ export function ExplorerProvider({
 
   const addValueToDataset = useCallback(
     (datasetType: DatasetType) => {
-      // Funnels don't carry "values"; the FunnelTabContent manages steps
-      // directly via setDraftExploreState.
-      if (datasetType === "funnel") return;
+      if (!datasetTypeHasValues(datasetType)) return;
       setDraftExploreState((prev) => {
         if (
-          !prev.dataset ||
-          prev.dataset.type === "funnel" ||
+          !datasetHasValues(prev.dataset) ||
           prev.dataset.type !== datasetType
         ) {
           return prev;
@@ -910,8 +935,7 @@ export function ExplorerProvider({
     (index: number, value: ProductAnalyticsValue) => {
       setDraftExploreState((prev) => {
         if (
-          !prev.dataset ||
-          prev.dataset.type === "funnel" ||
+          !datasetHasValues(prev.dataset) ||
           prev.dataset.type !== value.type
         ) {
           return prev;
@@ -935,7 +959,7 @@ export function ExplorerProvider({
   const deleteValueFromDataset = useCallback(
     (index: number) => {
       setDraftExploreState((prev) => {
-        if (!prev.dataset || prev.dataset.type === "funnel") {
+        if (!datasetHasValues(prev.dataset)) {
           return prev;
         }
         const newValues = [
@@ -1010,8 +1034,8 @@ export function ExplorerProvider({
           // Funnels don't carry `values` and the bigNumber chart doesn't
           // apply to them anyway; the FunnelGraphTypeSelector doesn't
           // expose bigNumber, but guard defensively in case it slips in.
-          if (prev.dataset?.type !== "funnel") {
-            const values = prev.dataset?.values ?? [];
+          if (datasetHasValues(prev.dataset)) {
+            const values = prev.dataset.values;
             if (values.length > 1) {
               dataset = {
                 ...prev.dataset,
@@ -1043,6 +1067,69 @@ export function ExplorerProvider({
       });
     },
     [setDraftExploreState, trackingSource, draftExploreState],
+  );
+
+  const commitJourneyStep = useCallback(
+    (value: string) => {
+      setDraftExploreState((prev) => {
+        if (prev.dataset.type !== "journey") return prev;
+        if (prev.dataset.path.length >= MAX_JOURNEY_PATH_LENGTH) return prev;
+        return {
+          ...prev,
+          dataset: {
+            ...prev.dataset,
+            path: [...prev.dataset.path, { value }],
+          },
+        } as ExplorationConfig;
+      });
+    },
+    [setDraftExploreState],
+  );
+
+  const clearJourneyAnchor = useCallback(() => {
+    // Ignore pending results from the path that is being cleared.
+    submitRequestIdRef.current += 1;
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    setPolling(false);
+    setIsStale(false);
+    hasEverFetchedRef.current = false;
+    skipNextAutoSubmitRef.current = false;
+    setExplorerState((prev) => {
+      if (prev.draftState.type !== "journey") return prev;
+      return {
+        draftState: {
+          ...prev.draftState,
+          dataset: {
+            ...prev.draftState.dataset,
+            anchorStepValues: null,
+            path: [],
+          },
+        },
+        submittedState: null,
+        exploration: null,
+        error: null,
+        query: null,
+      };
+    });
+  }, []);
+
+  const popJourneyPath = useCallback(
+    (index: number) => {
+      setDraftExploreState((prev) => {
+        if (prev.dataset.type !== "journey") return prev;
+        return {
+          ...prev,
+          dataset: {
+            ...prev.dataset,
+            path: prev.dataset.path.slice(0, index),
+          },
+        } as ExplorationConfig;
+      });
+    },
+    [setDraftExploreState],
   );
 
   const setSqlExploreMode = useCallback(
@@ -1097,11 +1184,11 @@ export function ExplorerProvider({
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
         const emptyDataset = createEmptyDataset(type);
-        // Funnel datasets seed their first step in createEmptyDataset. SQL
-        // starts without a value so raw query previews do not also run an
+        // Funnel/journey datasets seed their own shape in createEmptyDataset.
+        // SQL starts without a value so raw query previews do not also run an
         // exploration query.
         const dataset =
-          type === "funnel" || type === "sql"
+          !datasetTypeHasValues(type) || type === "sql"
             ? emptyDataset
             : ({
                 ...emptyDataset,
@@ -1159,6 +1246,9 @@ export function ExplorerProvider({
       trackingSource,
       registerFunnelAnalyzeCollapseHandler,
       collapseFunnelStepsForAnalyze,
+      commitJourneyStep,
+      popJourneyPath,
+      clearJourneyAnchor,
       linkedFunnelMetricId,
       setLinkedFunnelMetricId,
       funnelLinkIsDirty,
@@ -1204,6 +1294,9 @@ export function ExplorerProvider({
       trackingSource,
       registerFunnelAnalyzeCollapseHandler,
       collapseFunnelStepsForAnalyze,
+      commitJourneyStep,
+      popJourneyPath,
+      clearJourneyAnchor,
       linkedFunnelMetricId,
       funnelLinkIsDirty,
       updateTimestampColumn,

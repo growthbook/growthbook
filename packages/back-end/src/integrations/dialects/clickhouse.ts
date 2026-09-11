@@ -1,4 +1,4 @@
-import { createLikeStringMatchFn } from "shared/sql";
+import { createLikeMatchFns } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { eligibleTopValueExpr } from "back-end/src/integrations/sql/clauses/approx-top-values";
@@ -18,9 +18,10 @@ const quoteClickHouseJsonPath = (path: string): string =>
 
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
+  concatStrings: (parts: string[]) => parts.join(" || "),
   formatDialect: "clickhouse",
   escapeStringLiteral: clickHouseEscapeStringLiteral,
-  stringMatch: createLikeStringMatchFn({
+  ...createLikeMatchFns({
     escapeStringLiteral: clickHouseEscapeStringLiteral,
     emitEscapeClause: false,
   }),

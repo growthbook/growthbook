@@ -1,4 +1,4 @@
-import { createLikeStringMatchFn } from "shared/sql";
+import { createLikeMatchFns } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { baseDialect } from "./base";
 
@@ -112,7 +112,7 @@ export const mysqlDialect: SqlDialect = {
 
   stringLength: (column: string) => `CHAR_LENGTH(${column})`,
 
-  stringMatch: createLikeStringMatchFn({
+  ...createLikeMatchFns({
     escapeStringLiteral: mysqlEscapeStringLiteral,
     emitEscapeClause: false,
   }),

@@ -29,7 +29,7 @@ describe("discriminator errors name the accepted values", () => {
     expect(result.error?.issues[0]).toMatchObject({
       path: ["type"],
       message:
-        'must be one of "metric", "fact_table", "data_source", "sql", "funnel"',
+        'must be one of "metric", "fact_table", "data_source", "sql", "funnel", "journey"',
     });
   });
 });

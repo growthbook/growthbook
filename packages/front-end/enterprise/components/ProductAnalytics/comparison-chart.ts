@@ -326,7 +326,8 @@ function metricIdForDatasetValue(
   config: ExplorationConfig,
   metricIndex: number,
 ): string {
-  if (config.dataset?.type === "funnel") return "";
+  if (config.dataset?.type === "funnel" || config.dataset?.type === "journey")
+    return "";
   const values = config.dataset?.values;
   if (!values?.[metricIndex]) return "";
   const v = values[metricIndex];
@@ -337,7 +338,8 @@ function metricNameForDatasetValue(
   config: ExplorationConfig,
   metricIndex: number,
 ): string {
-  if (config.dataset?.type === "funnel") return `Metric ${metricIndex}`;
+  if (config.dataset?.type === "funnel" || config.dataset?.type === "journey")
+    return `Metric ${metricIndex}`;
   return config.dataset?.values?.[metricIndex]?.name ?? `Metric ${metricIndex}`;
 }
 
@@ -358,7 +360,7 @@ export function buildComparisonOverlaySeriesMaps(
   const seriesMeta: Record<string, { metricId: string; name: string }> = {};
 
   const numMetrics =
-    config.dataset?.type !== "funnel"
+    config.dataset?.type !== "funnel" && config.dataset?.type !== "journey"
       ? (config.dataset?.values?.length ?? 0)
       : 0;
   const numDimensions = config.dimensions?.length ?? 0;
@@ -949,7 +951,8 @@ export function computeBigNumberComparisonTrends(
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): (BigNumberComparisonTrend | null)[] {
   const n =
-    submittedExploreState.dataset?.type !== "funnel"
+    submittedExploreState.dataset?.type !== "funnel" &&
+    submittedExploreState.dataset?.type !== "journey"
       ? (submittedExploreState.dataset?.values?.length ?? 0)
       : 0;
   return Array.from({ length: n }, (_, metricIndex) =>

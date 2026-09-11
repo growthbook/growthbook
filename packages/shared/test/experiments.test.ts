@@ -1411,6 +1411,27 @@ describe("Experiments", () => {
             }),
           ).toStrictEqual(`(${column.column} LIKE '%f\\_o''o\\%%')`);
         });
+        it.each(["matches_pattern", "not_matches_pattern"] as const)(
+          "supports %s row filters",
+          (operator) => {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: column.column,
+                  operator,
+                  values: ["/items/*/detail?"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+              }),
+            ).toBe(
+              `(${column.column} ${operator === "matches_pattern" ? "LIKE" : "NOT LIKE"} '/items/%/detail_')`,
+            );
+          },
+        );
         // Dialects like BigQuery/Snowflake treat backslash as a string-literal
         // escape character. The wildcard-escaping backslash must be inserted
         // before escapeStringLiteral runs so it gets doubled into a valid

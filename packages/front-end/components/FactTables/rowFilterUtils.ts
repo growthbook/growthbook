@@ -182,6 +182,8 @@ export function getAllowedOperators(datatype: string): RowFilter["operator"][] {
       "ends_with",
       "contains",
       "not_contains",
+      "matches_pattern",
+      "not_matches_pattern",
       "is_null",
       "not_null",
     ];
@@ -208,6 +210,8 @@ export const operatorLabelMap: Record<RowFilter["operator"], string> = {
   saved_filter: "Saved Filter",
   contains: "contains",
   not_contains: "not contains",
+  matches_pattern: "matches pattern (* and ?)",
+  not_matches_pattern: "does not match pattern (* and ?)",
   starts_with: "starts with",
   ends_with: "ends with",
 };

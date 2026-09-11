@@ -1,4 +1,4 @@
-import { createLikeStringMatchFn } from "shared/sql";
+import { createLikeMatchFns } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
@@ -6,7 +6,7 @@ import { baseDialect } from "./base";
 export const postgresDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "postgresql",
-  stringMatch: createLikeStringMatchFn({
+  ...createLikeMatchFns({
     escapeStringLiteral: baseDialect.escapeStringLiteral,
     emitEscapeClause: false,
   }),
@@ -14,6 +14,7 @@ export const postgresDialect: SqlDialect = {
     `${endCol}::DATE - ${startCol}::DATE`,
   dateDiffMs: (startCol: string, endCol: string) =>
     `(EXTRACT(EPOCH FROM (${endCol} - ${startCol})) * 1000)`,
+  concatStrings: (parts: string[]) => parts.join(" || "),
   addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
     `${col} ${sign} INTERVAL '${amount} seconds'`,
   castToFloat: (col: string) => `${col}::float`,

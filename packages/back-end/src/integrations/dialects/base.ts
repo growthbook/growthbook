@@ -1,5 +1,5 @@
 import type { DataType } from "shared/types/integrations";
-import { createLikeStringMatchFn } from "shared/sql";
+import { createLikeMatchFns } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 
@@ -12,7 +12,7 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
 
   escapeStringLiteral: baseEscapeStringLiteral,
 
-  stringMatch: createLikeStringMatchFn({
+  ...createLikeMatchFns({
     escapeStringLiteral: baseEscapeStringLiteral,
     emitEscapeClause: true,
   }),
@@ -34,6 +34,12 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   dateDiffMs: () => {
     throw new Error(
       "Millisecond date differences are not supported by this data source.",
+    );
+  },
+
+  concatStrings: () => {
+    throw new Error(
+      "String concatenation is not supported by this data source.",
     );
   },
 

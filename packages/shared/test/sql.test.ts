@@ -1,4 +1,5 @@
 import {
+  createLikeMatchFns,
   buildMinimalOrCondition,
   decodeSQLResults,
   encodeSQLResults,
@@ -672,4 +673,41 @@ describe("encodeSQLResults", () => {
       { id: 2, name: "Bob", grid: [1, 2, 3] },
     ]);
   });
+});
+
+it("uses the same escaping for wildcard row filters and journey grouping", () => {
+  for (const emitEscapeClause of [true, false]) {
+    const matchers = createLikeMatchFns({
+      escapeStringLiteral: (value) => value.replace(/'/g, "''"),
+      emitEscapeClause,
+    });
+    const pattern = "/items/50%_?'/*";
+    const expected = matchers.globMatch("url", pattern);
+    expect(matchers.stringMatch("url", "matches_pattern", pattern)).toBe(
+      expected,
+    );
+    expect(matchers.stringMatch("url", "not_matches_pattern", pattern)).toBe(
+      expected.replace(" LIKE ", " NOT LIKE "),
+    );
+  }
+});
+
+// journeyToFunnel emits every glob-shaped step filter as `matches_pattern`
+// rather than deriving starts_with/ends_with/contains, which is only safe
+// because the compiled LIKE clause is identical either way.
+it("compiles a glob to the same LIKE clause as the equivalent operator", () => {
+  const matchers = createLikeMatchFns({
+    escapeStringLiteral: (value) => value.replace(/'/g, "''"),
+    emitEscapeClause: true,
+  });
+  const cases: [string, string, string][] = [
+    ["/items/*", "starts_with", "/items/"],
+    ["*/checkout", "ends_with", "/checkout"],
+    ["*items*", "contains", "items"],
+  ];
+  for (const [glob, operator, value] of cases) {
+    expect(matchers.stringMatch("url", "matches_pattern", glob)).toBe(
+      matchers.stringMatch("url", operator as "starts_with", value),
+    );
+  }
 });
