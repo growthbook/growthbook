@@ -1,12 +1,61 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
-import { srm } from "shared/validators";
+import {
+  experimentStartedNotificationPayload,
+  experimentStoppedNotificationPayload,
+  srm,
+} from "shared/validators";
+import { getExperimentStartedSummary } from "back-end/src/services/experimentChanges/experimentStartedSummary";
 import type { ExperimentCardData } from "./cardImages";
 
-// Cards are built from the event payload alone so a delayed notification can
-// never show experiment state that contradicts the alert it accompanies.
 export function buildEventSnapshotCard(
   event: NotificationEvent,
 ): ExperimentCardData | null {
+  if (event.event === "experiment.status.started") {
+    const parsed = experimentStartedNotificationPayload.safeParse(
+      event.data.object,
+    );
+    if (!parsed.success) return null;
+    const data = parsed.data;
+    return {
+      state: "started",
+      event: "started",
+      name: data.experimentName,
+      key: data.experimentId,
+      goal: "",
+      variants: [],
+      rows: [],
+      summary: [
+        getExperimentStartedSummary(data),
+        ...(data.phaseName ? [`Phase: ${data.phaseName}`] : []),
+      ],
+    };
+  }
+  if (event.event === "experiment.status.stopped") {
+    const parsed = experimentStoppedNotificationPayload.safeParse(
+      event.data.object,
+    );
+    if (!parsed.success) return null;
+    const data = parsed.data;
+    return {
+      state: "stopped",
+      event: "stopped",
+      badgeLabel: "Stopped",
+      name: data.experimentName,
+      key: data.experimentId,
+      goal: "",
+      variants: [],
+      rows: [],
+      summary: [
+        data.results
+          ? `Experiment stopped. Result: ${data.results}.`
+          : "Experiment stopped.",
+        ...(data.enableTemporaryRollout && data.releasedVariationName
+          ? [`Temporary rollout: ${data.releasedVariationName}`]
+          : []),
+        ...(data.reason ? [data.reason] : []),
+      ],
+    };
+  }
   if (
     event.event === "experiment.warning" &&
     event.data.object.type === "srm"

@@ -1,3 +1,4 @@
+import addExperimentLifecycleRemindersJob from "back-end/src/jobs/experimentLifecycleReminders";
 import addExperimentResultsJob from "back-end/src/jobs/updateExperimentResults";
 import addContextualBanditResultsJob from "back-end/src/jobs/updateContextualBanditResults";
 import refreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
@@ -34,6 +35,7 @@ export async function queueInit() {
   const agenda = getAgendaInstance();
 
   addExperimentResultsJob(agenda);
+  addExperimentLifecycleRemindersJob(agenda);
   addContextualBanditResultsJob(agenda);
   updateScheduledFeatures(agenda);
   addMetricUpdateJob(agenda);

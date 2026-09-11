@@ -5,6 +5,7 @@ import {
   QueryInterface,
   QueryPointer,
   QueryStatus,
+  QueryRunnerFailureCause,
   QueryType,
   RunQueryMetadata,
 } from "shared/types/query";
@@ -113,6 +114,18 @@ export function getQueryFailureError(queryMap: QueryMap): string {
     (q) => !q.error?.startsWith("Dependencies failed"),
   );
   return (rootCause ?? failed[0])?.error || GENERIC_QUERY_FAILURE_ERROR;
+}
+
+export function getQueryFailureCause(
+  queryMap: QueryMap,
+): QueryRunnerFailureCause {
+  // A separate runner can observe cancellation before the snapshot is marked terminal.
+  return Array.from(queryMap.values()).some(
+    (query) =>
+      query.status === "failed" && query.error === "Query cancelled by user",
+  )
+    ? "cancelled"
+    : "query";
 }
 
 /**
@@ -267,6 +280,7 @@ export abstract class QueryRunner<
     runStarted?: Date;
     result?: Result;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<Model>;
 
   private setTimer(id: string, timer: NodeJS.Timeout): void {
@@ -598,6 +612,7 @@ export abstract class QueryRunner<
         queries: [],
         runStarted: new Date(),
         error: noQueriesError,
+        failureCause: "no-queries",
       });
       this.model = newModel;
       this.setStatus("finished", noQueriesError);
@@ -606,6 +621,7 @@ export abstract class QueryRunner<
 
     // If already finished (queries were cached)
     let error = "";
+    let failureCause: QueryRunnerFailureCause | undefined;
     let result: Result | undefined = undefined;
 
     const queryStatus = this.getOverallQueryStatus();
@@ -623,11 +639,13 @@ export abstract class QueryRunner<
       } catch (e) {
         logger.error(e, this.model.id + " runner: Error running analysis");
         error = "Error running analysis: " + e.message;
+        failureCause = "analysis";
       }
     } else if (queryStatus === "failed") {
       this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       logger.debug(this.model.id + " runner: Query failed immediately");
       error = "Error running one or more database queries";
+      failureCause = getQueryFailureCause(await this.getQueryMap(queries));
     }
 
     const newModel = await this.updateModel({
@@ -636,6 +654,7 @@ export abstract class QueryRunner<
       runStarted: new Date(),
       result: result,
       error: error,
+      failureCause,
     });
     this.model = newModel;
     this.dagPersisted = true;
@@ -841,10 +860,12 @@ export abstract class QueryRunner<
     if (!hasChanges && !needsFinalize) return queryMap;
 
     let error: string | undefined = undefined;
+    let failureCause: QueryRunnerFailureCause | undefined;
     let result: Result | undefined = undefined;
 
     if (newStatus === "failed") {
       error = getQueryFailureError(queryMap);
+      failureCause = getQueryFailureCause(queryMap);
 
       if (oldStatus === "running") {
         this.experimentUpdateExecutionLogger?.endPhase("runQueries");
@@ -873,8 +894,13 @@ export abstract class QueryRunner<
         logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
+        failureCause = "analysis";
         logger.error(e, `Queries ${newStatus}, failed running analysis`);
       }
+    }
+
+    if (error && getQueryFailureCause(queryMap) === "cancelled") {
+      failureCause = "cancelled";
     }
 
     const newModel = await this.updateModel({
@@ -883,6 +909,7 @@ export abstract class QueryRunner<
       result,
       // Empty string clears stale error text; mongoose strips undefined from $set.
       error: error ?? "",
+      failureCause,
     });
     this.model = newModel;
 
@@ -999,6 +1026,7 @@ export abstract class QueryRunner<
       queries: [],
       status: "failed",
       error: "",
+      failureCause: "cancelled",
     });
     this.model = newModel;
 

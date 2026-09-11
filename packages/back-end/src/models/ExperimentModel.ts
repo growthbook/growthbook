@@ -21,12 +21,18 @@ import {
   Changeset,
   ExperimentInterface,
   ExperimentType,
+  ExperimentNotification,
   LegacyExperimentInterface,
   Variation,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  notifyExperimentStatusTransition,
+  notifyExperimentBanditWeightsTransition,
+} from "back-end/src/services/experimentNotifications";
+import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
@@ -812,6 +818,26 @@ export function hasActualChanges(
   return changeKeys.some((key) => !isEqual(experiment[key], changes[key]));
 }
 
+export async function setExperimentNotificationState({
+  context,
+  experiment,
+  type,
+  triggered,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  type: ExperimentNotification;
+  triggered: boolean;
+}) {
+  // Independent alerts must not overwrite each other's delivery state.
+  await ExperimentModel.updateOne(
+    { id: experiment.id, organization: context.org.id },
+    triggered
+      ? { $addToSet: { pastNotifications: type } }
+      : { $pull: { pastNotifications: type } },
+  );
+}
+
 export async function updateExperiment({
   context,
   experiment,
@@ -843,6 +869,15 @@ export async function updateExperiment({
 
   validateMetricOverrides(allChanges.metricOverrides);
 
+  const remindersToReset = getExperimentReminderResets(experiment, {
+    ...experiment,
+    ...allChanges,
+  });
+  if (remindersToReset.length && allChanges.pastNotifications) {
+    allChanges.pastNotifications = allChanges.pastNotifications.filter(
+      (type) => !remindersToReset.includes(type),
+    );
+  }
   const writeResult = await ExperimentModel.updateOne(
     {
       id: experiment.id,
@@ -851,13 +886,28 @@ export async function updateExperiment({
     },
     {
       $set: allChanges,
+      ...(remindersToReset.length && allChanges.pastNotifications === undefined
+        ? { $pull: { pastNotifications: { $in: remindersToReset } } }
+        : {}),
     },
   );
   if (guard && writeResult.matchedCount === 0) {
     throw new CasConflictError();
   }
 
-  const updated = { ...experiment, ...allChanges };
+  const updated = {
+    ...experiment,
+    ...allChanges,
+    ...(remindersToReset.length
+      ? {
+          pastNotifications: (
+            allChanges.pastNotifications ??
+            experiment.pastNotifications ??
+            []
+          ).filter((type) => !remindersToReset.includes(type)),
+        }
+      : {}),
+  };
 
   await onExperimentUpdate({
     context,
@@ -974,6 +1024,34 @@ export async function getExperimentsToUpdateLegacy(
     id: exp.id,
     organization: exp.organization,
   }));
+}
+
+// Lifecycle reminders must include experiments without automatic result refreshes.
+// Also revisit previously notified experiments to clear their marker after stopping
+// or extending their schedule, so a later lifecycle can notify again.
+export async function* dangerousGetExperimentsForLifecycleReminders(): AsyncGenerator<
+  Pick<ExperimentInterface, "id" | "organization">
+> {
+  const cursor = getCollection(COLLECTION)
+    .find({
+      archived: { $ne: true },
+      $or: [
+        { status: "running" },
+        { pastNotifications: { $in: ["ending-soon", "stale"] } },
+      ],
+    })
+    .project<Pick<ExperimentInterface, "id" | "organization">>({
+      id: 1,
+      organization: 1,
+      _id: 0,
+    })
+    .sort({ organization: 1, id: 1 })
+    .batchSize(100);
+  try {
+    for await (const experiment of cursor) yield experiment;
+  } finally {
+    await cursor.close();
+  }
 }
 
 export async function getExperimentsWithScheduledStatusUpdate(): Promise<
@@ -2244,6 +2322,22 @@ const onExperimentUpdate = async ({
     current: newExperiment,
     previous: oldExperiment,
   });
+
+  await notifyExperimentStatusTransition({
+    context,
+    previous: oldExperiment,
+    experiment: newExperiment,
+  }).catch((error: unknown) =>
+    logger.error(error, "Failed to notify experiment status transition"),
+  );
+
+  await notifyExperimentBanditWeightsTransition({
+    context,
+    previous: oldExperiment,
+    experiment: newExperiment,
+  }).catch((error: unknown) =>
+    logger.error(error, "Failed to notify bandit allocation change"),
+  );
 
   if (
     !bypassWebhooks &&

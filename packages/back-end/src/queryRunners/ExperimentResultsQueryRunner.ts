@@ -1,3 +1,4 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import { analyzeExperimentPower } from "shared/enterprise";
 import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
@@ -659,12 +660,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     runStarted,
     result,
     error,
+    failureCause = "query",
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -682,6 +685,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

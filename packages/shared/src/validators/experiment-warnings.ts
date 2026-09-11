@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { queryRunnerFailureCause } from "./queries";
 
 export const autoUpdateFailed = z
   .object({
@@ -59,8 +60,18 @@ export const underpowered = z
   })
   .strict();
 
+export const updateFailed = z
+  .object({
+    type: z.literal("update-failed"),
+    experimentId: z.string(),
+    experimentName: z.string(),
+    cause: queryRunnerFailureCause.exclude(["cancelled"]),
+  })
+  .strict();
+
 export const experimentWarningNotificationPayload = z.union([
   autoUpdateFailed,
+  updateFailed,
   multipleExposures,
   srm,
   noData,

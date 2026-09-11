@@ -374,10 +374,15 @@ async function reapStalledSnapshots() {
       : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
 
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
-    const reaped = await errorSnapshotIfStillRunning(context, snapshot.id, {
-      queries: snapshot.queries,
-      error,
-    });
+    const reaped = await errorSnapshotIfStillRunning(
+      context,
+      snapshot.id,
+      {
+        queries: snapshot.queries,
+        error,
+      },
+      isOrphanedDag ? "query" : "analysis",
+    );
     if (!reaped) continue;
 
     logger.info(

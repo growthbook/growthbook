@@ -10,6 +10,13 @@ export const queryStatusValidator = z.enum([
   "succeeded",
 ]);
 
+export const queryRunnerFailureCause = z.enum([
+  "query",
+  "analysis",
+  "no-queries",
+  "cancelled",
+]);
+
 export const queryPointerValidator = z
   .object({
     query: z.string(),

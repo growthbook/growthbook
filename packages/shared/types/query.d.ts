@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   queryPointerValidator,
+  queryRunnerFailureCause,
   queryStatusValidator,
   sqlResultChunkValidator,
 } from "shared/validators";
@@ -9,6 +10,8 @@ import { QueryLanguage } from "./datasource";
 import { SnapshotTriggeredBy, SnapshotType } from "./experiment-snapshot";
 
 export type SqlResultChunkInterface = z.infer<typeof sqlResultChunkValidator>;
+
+export type QueryRunnerFailureCause = z.infer<typeof queryRunnerFailureCause>;
 
 export type QueryStatus = z.infer<typeof queryStatusValidator>;
 
