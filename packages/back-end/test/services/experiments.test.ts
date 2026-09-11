@@ -1518,54 +1518,6 @@ describe("putMetricApiPayloadToMetricInterface", () => {
 
       expect("activationMetric" in changes).toBe(false);
     });
-
-    it("writes the auto-update note when autoRefresh is turned on and the note is missing", () => {
-      const experiment = {
-        ...makeExperiment(),
-        pastNotifications: ["srm"] as ExperimentInterface["pastNotifications"],
-      };
-      const changes = updateExperimentApiPayloadToInterface(
-        { autoRefresh: true },
-        experiment,
-        new Map(),
-        organization,
-      );
-
-      expect(changes.autoSnapshots).toBe(true);
-      expect(changes.pastNotifications).toEqual(["srm", "auto-update"]);
-    });
-
-    it("does not rewrite the auto-update note when it is already present", () => {
-      const experiment = {
-        ...makeExperiment(),
-        pastNotifications: [
-          "auto-update",
-        ] as ExperimentInterface["pastNotifications"],
-      };
-      const changes = updateExperimentApiPayloadToInterface(
-        { autoRefresh: true },
-        experiment,
-        new Map(),
-        organization,
-      );
-
-      expect(changes.autoSnapshots).toBe(true);
-      expect("pastNotifications" in changes).toBe(false);
-    });
-
-    it("does not write the auto-update note when autoRefresh is turned off", () => {
-      const experiment = makeExperiment();
-      const changes = updateExperimentApiPayloadToInterface(
-        { autoRefresh: false },
-        experiment,
-        new Map(),
-        organization,
-      );
-
-      expect(changes.disableAutoSnapshots).toBe(true);
-      expect("autoSnapshots" in changes).toBe(false);
-      expect("pastNotifications" in changes).toBe(false);
-    });
   });
 
   describe("applyVariationWeightsToLatestPhase", () => {

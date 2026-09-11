@@ -28,10 +28,7 @@ import { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
@@ -97,38 +94,13 @@ export const memoizeNotification = async ({
     ? [...(experiment.pastNotifications || []), type]
     : (experiment.pastNotifications || []).filter((t) => t !== type);
 
-  const noteSaved = (latest: ExperimentInterface | null) => {
-    const has = !!latest?.pastNotifications?.includes(type);
-    return triggered ? has : !has;
-  };
-
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      await updateExperiment({
-        experiment,
-        context,
-        changes: {
-          pastNotifications,
-        },
-      });
-      const latest = await getExperimentById(context, experiment.id);
-      if (noteSaved(latest)) return;
-      lastError = new Error(
-        "pastNotifications missing " + type + " after save",
-      );
-    } catch (e) {
-      lastError = e;
-    }
-    logger.error(
-      lastError,
-      "Retrying pastNotifications save (" +
-        attempt +
-        "/3) for " +
-        experiment.id,
-    );
-  }
-  throw lastError;
+  await updateExperiment({
+    experiment,
+    context,
+    changes: {
+      pastNotifications,
+    },
+  });
 };
 
 export const notifyAutoUpdate = ({
@@ -139,27 +111,22 @@ export const notifyAutoUpdate = ({
   context: Context;
   experiment: ExperimentInterface;
   success: boolean;
-}) =>
-  memoizeNotification({
+}) => {
+  if (success) return;
+  return dispatchEvent({
     context,
     experiment,
-    type: "auto-update",
-    triggered: !success,
-    dispatch: () =>
-      dispatchEvent({
-        context,
-        experiment,
-        event: "warning",
-        data: {
-          object: {
-            type: "auto-update",
-            success,
-            experimentId: experiment.id,
-            experimentName: experiment.name,
-          },
-        },
-      }),
+    event: "warning",
+    data: {
+      object: {
+        type: "auto-update",
+        success,
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+      },
+    },
   });
+};
 
 // Fires on every failed attempt of the scheduled-status-update job (not
 // memoized). Each event carries the attempt count and whether another retry
