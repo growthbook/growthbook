@@ -83,7 +83,7 @@ export default function QuantileFields({
             value: getPercentileLabel(quantileSettings.quantile),
           },
           {
-            label: "Ignore Zeros",
+            label: "Ignore zeros",
             value: quantileSettings.ignoreZeros ? "Yes" : "No",
           },
         ]}
