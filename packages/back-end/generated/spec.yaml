@@ -945,6 +945,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1050,6 +1058,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1177,6 +1193,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1295,6 +1319,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1428,6 +1460,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1533,6 +1575,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1660,6 +1712,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1778,6 +1840,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2094,6 +2166,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2199,6 +2279,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2326,6 +2414,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2444,6 +2540,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2577,6 +2681,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2682,6 +2796,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2809,6 +2933,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2927,6 +3061,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -7306,6 +7450,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -7442,6 +7598,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -7602,6 +7770,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -7753,6 +7933,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8102,6 +8294,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8238,6 +8442,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8398,6 +8614,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8549,6 +8777,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:

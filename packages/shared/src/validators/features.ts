@@ -10,6 +10,7 @@ import {
   apiPaginationFieldsValidator,
   publishOverrideBodyFields,
   publishBypassedGatesField,
+  readOnlyEcho,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import {
@@ -1373,10 +1374,12 @@ export type ApiFeatureWithRevisions = z.infer<
 // These are DIFFERENT from the response schema rules -- they have different
 // required/optional fields and don't use allOf/intersection with base rule.
 
-const postFeatureSavedGroupTargeting = z.object({
-  matchType: z.enum(["all", "any", "none"]),
-  savedGroups: z.array(z.string()),
-});
+const postFeatureSavedGroupTargeting = z
+  .object({
+    matchType: z.enum(["all", "any", "none"]),
+    savedGroups: z.array(z.string()),
+  })
+  .strict();
 
 const postFeaturePrerequisite = z.object({
   id: z.string().describe("Feature ID"),
@@ -1407,6 +1410,12 @@ const postFeatureRuleProjectScopeShape = {
     .optional(),
 };
 
+// Present on GET responses only; anything else unknown is rejected.
+const v1RuleReadOnlyEcho = {
+  rampScheduleId: readOnlyEcho,
+  scheduleType: readOnlyEcho,
+};
+
 const v1RuleSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
   savedGroupTargeting: z
@@ -1418,113 +1427,131 @@ const v1RuleSavedGroupInput = {
     .meta({ deprecated: true }),
 };
 
-const postFeatureForceRule = z.object({
-  ...postFeatureRuleProjectScopeShape,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  condition: z.string().describe("Applied to everyone by default.").optional(),
-  ...v1RuleSavedGroupInput,
-  prerequisites: z.array(apiRevisionPrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRuleValidator).optional(),
-  id: z.string().optional(),
-  enabled: z.boolean().describe("Enabled by default").optional(),
-  type: z.literal("force"),
-  value: z.string(),
-  sparse: postSparseRuleField,
-});
+const postFeatureForceRule = z
+  .object({
+    ...postFeatureRuleProjectScopeShape,
+    ...v1RuleReadOnlyEcho,
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    condition: z
+      .string()
+      .describe("Applied to everyone by default.")
+      .optional(),
+    ...v1RuleSavedGroupInput,
+    prerequisites: z.array(apiRevisionPrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+    id: z.string().optional(),
+    enabled: z.boolean().describe("Enabled by default").optional(),
+    type: z.literal("force"),
+    value: z.string(),
+    sparse: postSparseRuleField,
+  })
+  .strict();
 
-const postFeatureRolloutRule = z.object({
-  ...postFeatureRuleProjectScopeShape,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  condition: z.string().describe("Applied to everyone by default.").optional(),
-  ...v1RuleSavedGroupInput,
-  prerequisites: z.array(postFeaturePrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRuleValidator).optional(),
-  id: z.string().optional(),
-  enabled: z.boolean().describe("Enabled by default").optional(),
-  type: z.literal("rollout"),
-  value: z.string(),
-  sparse: postSparseRuleField,
-  coverage: z
-    .number()
-    .describe(
-      "Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.",
+const postFeatureRolloutRule = z
+  .object({
+    ...postFeatureRuleProjectScopeShape,
+    ...v1RuleReadOnlyEcho,
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    condition: z
+      .string()
+      .describe("Applied to everyone by default.")
+      .optional(),
+    ...v1RuleSavedGroupInput,
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+    id: z.string().optional(),
+    enabled: z.boolean().describe("Enabled by default").optional(),
+    type: z.literal("rollout"),
+    value: z.string(),
+    sparse: postSparseRuleField,
+    coverage: z
+      .number()
+      .describe(
+        "Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.",
+      ),
+    hashAttribute: z.string(),
+    seed: z.string().optional(),
+    hashVersion: z
+      .union([z.literal(1), z.literal(2)])
+      .describe(
+        "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
+      )
+      .optional(),
+  })
+  .strict();
+
+const postFeatureExperimentRefRule = z
+  .object({
+    ...postFeatureRuleProjectScopeShape,
+    ...v1RuleReadOnlyEcho,
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    id: z.string().optional(),
+    enabled: z.boolean().describe("Enabled by default").optional(),
+    type: z.literal("experiment-ref"),
+    condition: z.string().optional(),
+    ...v1RuleSavedGroupInput,
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+    variations: z.array(
+      z.object({
+        value: z.string(),
+        variationId: z.string(),
+      }),
     ),
-  hashAttribute: z.string(),
-  seed: z.string().optional(),
-  hashVersion: z
-    .union([z.literal(1), z.literal(2)])
-    .describe(
-      "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
-    )
-    .optional(),
-});
+    experimentId: z.string(),
+    sparse: postSparseRuleField,
+  })
+  .strict();
 
-const postFeatureExperimentRefRule = z.object({
-  ...postFeatureRuleProjectScopeShape,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  id: z.string().optional(),
-  enabled: z.boolean().describe("Enabled by default").optional(),
-  type: z.literal("experiment-ref"),
-  condition: z.string().optional(),
-  ...v1RuleSavedGroupInput,
-  prerequisites: z.array(postFeaturePrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRuleValidator).optional(),
-  variations: z.array(
-    z.object({
-      value: z.string(),
-      variationId: z.string(),
-    }),
-  ),
-  experimentId: z.string(),
-  sparse: postSparseRuleField,
-});
-
-const postFeatureExperimentRule = z.object({
-  ...postFeatureRuleProjectScopeShape,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  condition: z.string(),
-  id: z.string().optional(),
-  enabled: z.boolean().describe("Enabled by default").optional(),
-  type: z.literal("experiment"),
-  trackingKey: z.string().optional(),
-  hashAttribute: z.string().optional(),
-  fallbackAttribute: z.string().optional(),
-  disableStickyBucketing: z.boolean().optional(),
-  bucketVersion: z.number().optional(),
-  minBucketVersion: z.number().optional(),
-  namespace: z
-    .object({
-      enabled: z.boolean(),
-      name: z.string(),
-      range: z.array(z.number()).min(2).max(2),
-    })
-    .optional(),
-  coverage: z.number().optional(),
-  prerequisites: z.array(apiRevisionPrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRuleValidator).optional(),
-  values: z
-    .array(
-      z.object({
-        value: z.string(),
-        weight: z.number(),
-        name: z.string().optional(),
-      }),
-    )
-    .optional(),
-  value: z
-    .array(
-      z.object({
-        value: z.string(),
-        weight: z.number(),
-        name: z.string().optional(),
-      }),
-    )
-    .describe(
-      "Support passing values under the value key as that was the original spec for FeatureExperimentRules",
-    )
-    .optional()
-    .meta({ deprecated: true }),
-});
+const postFeatureExperimentRule = z
+  .object({
+    ...postFeatureRuleProjectScopeShape,
+    ...v1RuleReadOnlyEcho,
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    condition: z.string(),
+    id: z.string().optional(),
+    enabled: z.boolean().describe("Enabled by default").optional(),
+    type: z.literal("experiment"),
+    trackingKey: z.string().optional(),
+    hashAttribute: z.string().optional(),
+    fallbackAttribute: z.string().optional(),
+    disableStickyBucketing: z.boolean().optional(),
+    bucketVersion: z.number().optional(),
+    minBucketVersion: z.number().optional(),
+    namespace: z
+      .object({
+        enabled: z.boolean(),
+        name: z.string(),
+        range: z.array(z.number()).min(2).max(2),
+      })
+      .optional(),
+    coverage: z.number().optional(),
+    prerequisites: z.array(apiRevisionPrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+    values: z
+      .array(
+        z.object({
+          value: z.string(),
+          weight: z.number(),
+          name: z.string().optional(),
+        }),
+      )
+      .optional(),
+    value: z
+      .array(
+        z.object({
+          value: z.string(),
+          weight: z.number(),
+          name: z.string().optional(),
+        }),
+      )
+      .describe(
+        "Support passing values under the value key as that was the original spec for FeatureExperimentRules",
+      )
+      .optional()
+      .meta({ deprecated: true }),
+  })
+  .strict();
 
 const postFeatureRule = z.union([
   postFeatureForceRule,

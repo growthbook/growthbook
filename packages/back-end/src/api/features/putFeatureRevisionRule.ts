@@ -33,7 +33,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
-  validateRuleConditions,
+  validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
 } from "./validations";
@@ -299,12 +299,9 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     // Only validate fields in the patch, so edits don't break on stale refs
     // elsewhere in the rule (e.g. since-deleted saved groups).
-    validateRuleConditions({
-      condition:
-        patch.condition !== undefined ? updatedRule.condition : undefined,
-      prerequisites:
-        patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
-    });
+    if (patch.prerequisites !== undefined) {
+      validatePrerequisiteConditions(updatedRule.prerequisites ?? []);
+    }
     // Attribute registration check: only validate the fields the caller
     // actually patched. patch is the Zod-typed RulePatchInput, so condition
     // and hashAttribute are already string | undefined. fallbackAttribute

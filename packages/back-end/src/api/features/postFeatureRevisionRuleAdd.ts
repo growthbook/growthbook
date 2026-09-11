@@ -50,7 +50,7 @@ import {
   buildScheduleRampAction,
   resolveOrCreateRevision,
   validateRuleAttributes,
-  validateRuleConditions,
+  validatePrerequisiteConditions,
   validateRuleReferences,
 } from "./validations";
 
@@ -228,7 +228,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     assertFeatureValuesValid(req.context, feature, { rules: [rule] });
 
     // Validate condition JSON and references before any DB writes.
-    validateRuleConditions(rule);
+    validatePrerequisiteConditions(rule.prerequisites ?? []);
     validateRuleAttributes(
       rule,
       req.context,

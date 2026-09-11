@@ -55,7 +55,10 @@ import {
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validations";
+import {
+  validateCustomFields,
+  validateChangedRuleReferences,
+} from "./validations";
 import {
   canBypassReviewChecks,
   canUseRestApiBypassSetting,
@@ -371,6 +374,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           })
         : [];
     await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    await validateChangedRuleReferences(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
     // Envs whose rule lists the caller is replacing. Envs present in the
     // payload with only `enabled` (no `rules` key) keep their current rules.
     const rulesTouchedEnvs = new Set(Object.keys(inboundRulesByEnv));

@@ -34,7 +34,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
-  validateRuleConditions,
+  validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
 } from "./validations";
@@ -236,12 +236,9 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       rules: [updatedRule as FeatureRule],
     });
 
-    validateRuleConditions({
-      condition:
-        basePatch.condition !== undefined ? updatedRule.condition : undefined,
-      prerequisites:
-        basePatch.prerequisites !== undefined ? updatedRule.prerequisites : [],
-    });
+    if (basePatch.prerequisites !== undefined) {
+      validatePrerequisiteConditions(updatedRule.prerequisites ?? []);
+    }
     // Opt-in registered-attribute check, only on fields the patch actually
     // touches. Validate `changedAttributes` (not `updatedRule`) so an
     // unchanged condition referencing a now-archived attribute doesn't

@@ -9,6 +9,7 @@ import {
   ACTIVE_DRAFT_STATUSES,
   inlineRampScheduleInput,
 } from "shared/validators";
+import isEqual from "lodash/isEqual";
 import { z } from "zod";
 import { validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
@@ -231,6 +232,40 @@ export async function validateRulesReferences(
   }
 }
 
+// Update form: a bulk write replaces the rules array, but only fields that
+// differ from the stored rule with the same id are checked, so resending a
+// stored rule unchanged never re-validates references the caller cannot read
+// (saved groups and features are read-filtered).
+export async function validateChangedRuleReferences(
+  inbound: FeatureRule[],
+  stored: FeatureRule[],
+  context: ApiReqContext,
+): Promise<void> {
+  const storedById = new Map(stored.map((r) => [r.id, r]));
+  await validateRulesReferences(
+    inbound.flatMap((rule) => {
+      const prior = rule.id ? storedById.get(rule.id) : undefined;
+      const conditionChanged =
+        !prior || (prior.condition || "{}") !== (rule.condition || "{}");
+      const savedGroupsChanged =
+        !prior || !isEqual(prior.savedGroups ?? [], rule.savedGroups ?? []);
+      const prerequisitesChanged =
+        !prior || !isEqual(prior.prerequisites ?? [], rule.prerequisites ?? []);
+      if (!conditionChanged && !savedGroupsChanged && !prerequisitesChanged) {
+        return [];
+      }
+      return [
+        {
+          condition: conditionChanged ? rule.condition : undefined,
+          savedGroups: savedGroupsChanged ? rule.savedGroups : [],
+          prerequisites: prerequisitesChanged ? rule.prerequisites : undefined,
+        },
+      ];
+    }),
+    context,
+  );
+}
+
 async function validateRuleReferencesWithGroups(
   rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
   groupMap: SavedGroupMap,
@@ -317,19 +352,6 @@ function findInvalidInGroupId(
     }
   }
   return null;
-}
-
-// Validate rule + per-prerequisite conditions; throws on the first invalid.
-export function validateRuleConditions(
-  rule: Pick<FeatureRule, "condition" | "prerequisites">,
-): void {
-  if (rule.condition) {
-    const res = validateCondition(rule.condition);
-    if (!res.success) {
-      throw new BadRequestError(`Invalid rule condition: ${res.error}`);
-    }
-  }
-  validatePrerequisiteConditions(rule.prerequisites ?? []);
 }
 
 // Opt-in check (org setting `requireRegisteredAttributes`): rejects rules

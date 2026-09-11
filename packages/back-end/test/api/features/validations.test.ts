@@ -1,5 +1,6 @@
 import {
   validateRuleAttributes,
+  validateRuleReferences,
   validateRulesReferences,
 } from "back-end/src/api/features/validations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -275,5 +276,65 @@ describe("validateRulesReferences", () => {
         ctx,
       ),
     ).rejects.toThrow(/grp_missing/);
+  });
+});
+
+// The per-rule endpoints used to run a map-less condition check first, which
+// rejected every `$savedGroups` condition (an operator the UI emits). The
+// map-aware reference check is the only condition check now.
+describe("validateRuleReferences saved-group operators", () => {
+  const getAll = jest.fn();
+  const ctx = {
+    org: { settings: { attributeSchema: [] } },
+    models: { savedGroups: { getAll } },
+  } as unknown as ApiReqContext;
+
+  beforeEach(() => {
+    getAll.mockReset();
+    getAll.mockResolvedValue([
+      { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
+    ]);
+  });
+
+  it("accepts $savedGroups and $inGroup that name an existing group", async () => {
+    await expect(
+      validateRuleReferences(
+        { condition: '{"$savedGroups": ["grp_known"]}' },
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      validateRuleReferences(
+        { condition: '{"id": {"$inGroup": "grp_known"}}' },
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects $savedGroups, $inGroup and targeted groups that do not exist", async () => {
+    await expect(
+      validateRuleReferences(
+        { condition: '{"$savedGroups": ["grp_missing"]}' },
+        ctx,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestError);
+    await expect(
+      validateRuleReferences(
+        { condition: '{"id": {"$inGroup": "grp_missing"}}' },
+        ctx,
+      ),
+    ).rejects.toThrow(/grp_missing/);
+    await expect(
+      validateRuleReferences(
+        { savedGroups: [{ match: "all", ids: ["grp_missing"] }] },
+        ctx,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("still rejects a condition that is not valid JSON", async () => {
+    await expect(
+      validateRuleReferences({ condition: '{"country": ' }, ctx),
+    ).rejects.toBeInstanceOf(BadRequestError);
   });
 });

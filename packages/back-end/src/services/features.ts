@@ -2809,6 +2809,59 @@ export function getApiFeatureObjV2({
   };
 }
 
+// Strip `@config:` from a rule value string; `@const:` refs pass through.
+const scrubRuleValue = (v: string | undefined): string | undefined =>
+  v === undefined ? v : (stripConfigExtends(v) ?? v);
+
+// v1 (env-bucketed) REST shape of a stored rule. Everything it emits must be
+// accepted by the v1 write schema so a GET → POST round-trip survives. Sparse
+// fields (`savedGroups`, `scheduleRules`, `variations`) are deliberately not
+// defaulted to `[]`; consumers null-check them.
+export function normalizeRuleForFeatureEnv(rule: FeatureRule): ApiFeatureRule {
+  return {
+    // v2 scope is implied by the environment bucket the rule is emitted in.
+    ...omit(rule, ["allEnvironments", "environments"]),
+    ...(rule.type === "rollout" || rule.type === "experiment"
+      ? { coverage: rule.coverage ?? 1 }
+      : {}),
+    condition: rule.condition || "",
+    savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+      matchType: s.match,
+      savedGroups: s.ids,
+    })),
+    prerequisites: rule.prerequisites || [],
+    enabled: !!rule.enabled,
+    // Scrub `@config:` from every value-bearing field of this rule type.
+    ...("value" in rule && typeof rule.value === "string"
+      ? { value: scrubRuleValue(rule.value) }
+      : {}),
+    ...(rule.type === "experiment" && Array.isArray(rule.values)
+      ? {
+          values: rule.values.map((v) => ({
+            ...v,
+            value: scrubRuleValue(v.value),
+          })),
+        }
+      : {}),
+    ...((rule.type === "experiment-ref" ||
+      rule.type === "contextual-bandit-ref") &&
+    Array.isArray(rule.variations)
+      ? {
+          variations: rule.variations.map((v) => ({
+            ...v,
+            value: scrubRuleValue(v.value),
+          })),
+        }
+      : {}),
+    ...(rule.type === "safe-rollout"
+      ? {
+          controlValue: scrubRuleValue(rule.controlValue),
+          variationValue: scrubRuleValue(rule.variationValue),
+        }
+      : {}),
+  } as unknown as ApiFeatureRule;
+}
+
 export function getApiFeatureObj({
   feature,
   organization,
@@ -2842,57 +2895,6 @@ export function getApiFeatureObj({
   // and reshapes; the two surfaces have always diverged.
   //
   // Defaults below mirror origin/main's long-standing explicit normalization.
-  // The old typed sub-schema also auto-initialized `savedGroups`,
-  // `scheduleRules`, and `variations` to `[]`; those leaked into the API
-  // response by accident and are intentionally NOT re-introduced here — the
-  // SDK payload (`definition`) is unaffected and external consumers should
-  // null-check sparse rule fields.
-  // Strip `@config:` from a rule value string; `@const:` refs pass through.
-  const scrubValue = (v: string | undefined): string | undefined =>
-    v === undefined ? v : (stripConfigExtends(v) ?? v);
-  const normalizeRuleForFeatureEnv = (rule: FeatureRule): ApiFeatureRule =>
-    ({
-      ...rule,
-      coverage:
-        rule.type === "rollout" || rule.type === "experiment"
-          ? (rule.coverage ?? 1)
-          : 1,
-      condition: rule.condition || "",
-      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
-        matchType: s.match,
-        savedGroups: s.ids,
-      })),
-      prerequisites: rule.prerequisites || [],
-      enabled: !!rule.enabled,
-      // Scrub `@config:` from every value-bearing field of this rule type.
-      ...("value" in rule && typeof rule.value === "string"
-        ? { value: scrubValue(rule.value) }
-        : {}),
-      ...(rule.type === "experiment" && Array.isArray(rule.values)
-        ? {
-            values: rule.values.map((v) => ({
-              ...v,
-              value: scrubValue(v.value),
-            })),
-          }
-        : {}),
-      ...((rule.type === "experiment-ref" ||
-        rule.type === "contextual-bandit-ref") &&
-      Array.isArray(rule.variations)
-        ? {
-            variations: rule.variations.map((v) => ({
-              ...v,
-              value: scrubValue(v.value),
-            })),
-          }
-        : {}),
-      ...(rule.type === "safe-rollout"
-        ? {
-            controlValue: scrubValue(rule.controlValue),
-            variationValue: scrubValue(rule.variationValue),
-          }
-        : {}),
-    }) as unknown as ApiFeatureRule;
   // `applicableEnvs` scopes `allEnvironments: true` rules; seeding with
   // `environments` keeps every org env present in the response.
   const orgEnvs = getEnvironments(organization);

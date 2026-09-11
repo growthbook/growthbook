@@ -43,6 +43,15 @@ export const savedGroupTargeting = z
   .strict();
 export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;
 
+// For strict write schemas: a key that only appears on GET responses. Accepted
+// (and ignored) so a response can be sent back unchanged.
+export const readOnlyEcho = z
+  .unknown()
+  .optional()
+  .describe(
+    "Read-only; ignored on write. Accepted so a GET response can be posted back unchanged.",
+  );
+
 // Rule/phase targeting arrives in the storage shape or the response spelling.
 // Storage wins; undefined when neither is supplied.
 export function resolveSavedGroupsInput(input: {
