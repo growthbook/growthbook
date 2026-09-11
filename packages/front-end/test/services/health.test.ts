@@ -41,6 +41,20 @@ describe("describeFeatureHealthEntry", () => {
       describeFeatureHealthEntry({ signal: "ramp-paused", count: 1 }),
     ).toBe("A ramp schedule is paused.");
   });
+
+  it("names each experiment and when it stopped for temp rollouts", () => {
+    const since = new Date(Date.now() - 400 * 86400000).toISOString();
+    expect(
+      describeFeatureHealthEntry({
+        signal: "old-temp-rollout",
+        count: 1,
+        environments: ["production"],
+        details: [{ label: "Checkout test", since }],
+      }),
+    ).toMatch(
+      /^Experiment "Checkout test" stopped (about|over) 1 year ago and its rollout is still being served\. Stop it on the experiment once the winner is in code\. Environments: production\.$/,
+    );
+  });
 });
 
 describe("getFeatureHealthSearchTokens", () => {

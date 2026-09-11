@@ -1,3 +1,4 @@
+import { ago } from "shared/dates";
 import {
   FEATURE_HEALTH_SIGNAL_SEVERITY,
   FEATURE_HEALTH_SIGNALS,
@@ -132,9 +133,19 @@ export function getFeatureHealthStates(
 }
 
 export function describeFeatureHealthEntry(entry: FeatureHealthEntry): string {
-  const { description } = FEATURE_HEALTH_STATES[entry.signal];
-  const parts = [description];
-  if (entry.count > 1) parts.push(`${entry.count} occurrences.`);
+  const parts: string[] = [];
+  if (isTempRolloutHealthState(entry.signal) && entry.details?.length) {
+    for (const detail of entry.details) {
+      const when = detail.since ? ago(detail.since) : "earlier";
+      parts.push(
+        `Experiment "${detail.label}" stopped ${when} and its rollout is still being served.`,
+      );
+    }
+    parts.push("Stop it on the experiment once the winner is in code.");
+  } else {
+    parts.push(FEATURE_HEALTH_STATES[entry.signal].description);
+    if (entry.count > 1) parts.push(`${entry.count} occurrences.`);
+  }
   if (entry.environments?.length) {
     parts.push(`Environments: ${entry.environments.join(", ")}.`);
   }

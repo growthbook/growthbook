@@ -1,5 +1,4 @@
 import { FC } from "react";
-import { ago } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import { Popover } from "@/ui/Popover";
 import Badge from "@/ui/Badge";
@@ -37,12 +36,6 @@ const FeatureHealthCell: FC<{
             </strong>
           </Flex>
           <span>{describeFeatureHealthEntry(entry)}</span>
-          {entry.details?.map((detail, i) => (
-            <span key={i} style={{ color: "var(--gray-11)" }}>
-              {detail.label}
-              {detail.since ? ` · stopped ${ago(detail.since)}` : ""}
-            </span>
-          ))}
         </Flex>
       ))}
     </Flex>

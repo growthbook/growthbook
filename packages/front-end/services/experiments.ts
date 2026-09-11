@@ -445,7 +445,7 @@ export function getTempRolloutTooltip(
 ): string {
   const dateEnded = exp.phases?.[exp.phases.length - 1]?.dateEnded;
   const stopped = dateEnded ? `Stopped ${ago(dateEnded)}` : "Stopped";
-  return `${stopped} with its temporary rollout still enabled. Ready for cleanup.`;
+  return `${stopped} and its rollout is still being served. Stop it once the winner is in code.`;
 }
 
 const HEALTH_SORT_ORDER: Record<ExperimentHealthState, number> = {

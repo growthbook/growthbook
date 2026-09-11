@@ -131,12 +131,12 @@ describe("getTempRolloutTooltip", () => {
       getTempRolloutTooltip(
         stopped([{ dateEnded: fiveDaysAgo }]) as ExperimentInterfaceStringDates,
       ),
-    ).toMatch(/^Stopped 5 days ago with its temporary rollout/);
+    ).toMatch(/^Stopped 5 days ago and its rollout is still being served/);
   });
 
   it("omits the duration when the end date is missing", () => {
     expect(
       getTempRolloutTooltip(stopped([{}]) as ExperimentInterfaceStringDates),
-    ).toMatch(/^Stopped with its temporary rollout/);
+    ).toMatch(/^Stopped and its rollout is still being served/);
   });
 });
