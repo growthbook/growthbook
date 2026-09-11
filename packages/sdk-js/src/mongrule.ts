@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { SavedGroupsValues } from "./types/growthbook";
+import { SavedGroupsPayload } from "./types/growthbook";
 import {
   ConditionInterface,
   TestedObj,
@@ -18,7 +18,7 @@ export function evalCondition(
   obj: TestedObj,
   condition: ConditionInterface,
   // Must be included for `condition` to correctly evaluate group Operators
-  savedGroups?: SavedGroupsValues,
+  savedGroups?: SavedGroupsPayload,
 ): boolean {
   savedGroups = savedGroups || {};
   // Condition is an object, keys are either specific operators or object paths
@@ -75,7 +75,7 @@ function getRegex(regex: string, insensitive = false): RegExp {
 function evalConditionValue(
   condition: ConditionValue,
   value: any,
-  savedGroups: SavedGroupsValues,
+  savedGroups: SavedGroupsPayload,
   insensitive: boolean = false,
 ) {
   // Simple equality comparisons
@@ -136,7 +136,11 @@ function getType(v: any): VarType | "unknown" {
 }
 
 // At least one element of actual must match the expected condition/value
-function elemMatch(actual: any, expected: any, savedGroups: SavedGroupsValues) {
+function elemMatch(
+  actual: any,
+  expected: any,
+  savedGroups: SavedGroupsPayload,
+) {
   if (!Array.isArray(actual)) return false;
   const check = isOperatorObject(expected)
     ? (v: any) => evalConditionValue(expected, v, savedGroups)
@@ -174,10 +178,19 @@ function isIn(
   return expected.includes(actual);
 }
 
+// $inGroup can only resolve a legacy value-array entry. A savedGroupReferencesV2
+// payload holds objects instead, and indexing one as an array throws, so treat
+// anything that isn't an array as matching nothing.
+function asLegacyValuesArray(
+  entry: SavedGroupsPayload[string] | undefined,
+): Array<string | number> {
+  return Array.isArray(entry) ? entry : [];
+}
+
 function isInAll(
   actual: any,
   expected: ConditionValue[],
-  savedGroups: SavedGroupsValues,
+  savedGroups: SavedGroupsPayload,
   insensitive: boolean = false,
 ): boolean {
   if (!Array.isArray(actual)) return false;
@@ -201,7 +214,7 @@ function evalOperatorCondition(
   operator: Operator,
   actual: any,
   expected: any,
-  savedGroups: SavedGroupsValues,
+  savedGroups: SavedGroupsPayload,
 ): boolean {
   switch (operator) {
     case "$veq":
@@ -238,9 +251,9 @@ function evalOperatorCondition(
       if (!Array.isArray(expected)) return false;
       return isIn(actual, expected, true);
     case "$inGroup":
-      return isIn(actual, savedGroups[expected] || []);
+      return isIn(actual, asLegacyValuesArray(savedGroups[expected]));
     case "$notInGroup":
-      return !isIn(actual, savedGroups[expected] || []);
+      return !isIn(actual, asLegacyValuesArray(savedGroups[expected]));
     case "$nin":
       if (!Array.isArray(expected)) return false;
       return !isIn(actual, expected);
@@ -284,7 +297,7 @@ function evalOperatorCondition(
 function evalOr(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  savedGroups: SavedGroupsValues,
+  savedGroups: SavedGroupsPayload,
 ): boolean {
   if (!conditions.length) return true;
   for (let i = 0; i < conditions.length; i++) {
@@ -299,7 +312,7 @@ function evalOr(
 function evalAnd(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  savedGroups: SavedGroupsValues,
+  savedGroups: SavedGroupsPayload,
 ): boolean {
   for (let i = 0; i < conditions.length; i++) {
     if (!evalCondition(obj, conditions[i], savedGroups)) {
