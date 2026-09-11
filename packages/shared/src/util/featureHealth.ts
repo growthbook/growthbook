@@ -22,14 +22,14 @@ import { getRulesForEnvironment, includeExperimentInPayload } from ".";
 
 export type FeatureHealthSeverity = "high" | "medium" | "low";
 
-// Ranked most urgent first (mirrors experiment status precedence): active harm,
-// blocking decisions, data problems, misconfiguration, cleanup.
+// Ranked most urgent first (mirrors experiment status precedence): live
+// rollouts in trouble, misconfiguration, blocking decisions, cleanup.
 export const FEATURE_HEALTH_SIGNAL_SEVERITY = {
   "safe-rollout-rollback-now": "high",
+  "safe-rollout-unhealthy": "high",
+  "safe-rollout-no-data": "high",
   "invalid-value": "high",
   "ramp-needs-approval": "medium",
-  "safe-rollout-no-data": "medium",
-  "safe-rollout-unhealthy": "medium",
   "missing-experiment": "medium",
   "ramp-paused": "medium",
   "unreachable-rule": "medium",
