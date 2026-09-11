@@ -1,5 +1,4 @@
 import {
-  ColumnInterface,
   FactMetricInterface,
   FactTableDefinition,
   RowFilter,
@@ -30,9 +29,12 @@ import {
   mapDatabaseTypeToEnum,
   getMetricMixClass,
   getAvailableDimensionColumns,
+  dimensionColumnIsAvailable,
 } from "shared/enterprise";
 import type { DimensionFactTable } from "shared/enterprise";
 export {
+  getAvailableDimensionColumns,
+  getRelevantFactTableIds,
   getMetricMixClass,
   getEffectiveShowAs,
   clearInapplicableShowAs,
@@ -460,56 +462,6 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
   }
 }
 
-// `getFactTableById` must resolve to FULL fact table data (real `jsonFields`)
-// for nested JSON group-by columns and cross-table ratio-metric denominator
-// checks to work — see useFullFactTablesByIds. The org-wide slim definitions
-// getter from useDefinitions() silently under-reports JSON sub-fields.
-export function getCommonColumns(
-  dataset: ExplorationDataset | null,
-  getFactTableById: (id: string) => DimensionFactTable | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): Pick<ColumnInterface, "column" | "name">[] {
-  return getAvailableDimensionColumns(
-    dataset,
-    getFactTableById,
-    getFactMetricById,
-  );
-}
-
-/** Fact table ids whose FULL column data (real `jsonFields`) is needed to
- *  compute `getCommonColumns` correctly for this dataset — the numerator and
- *  denominator fact table(s) of a metric dataset, a fact_table dataset's own
- *  fact table, or a funnel's initial-step fact table (the only one the
- *  picker draws candidate columns from). Used to scope a full-fact-table
- *  fetch (see useFullFactTablesByIds) to just what's relevant. */
-export function getRelevantFactTableIds(
-  dataset: ExplorationDataset | null,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): string[] {
-  if (!dataset) return [];
-  const ids = new Set<string>();
-
-  if (dataset.type === "fact_table") {
-    if (dataset.factTableId) ids.add(dataset.factTableId);
-  } else if (dataset.type === "metric") {
-    dataset.values.forEach((value) => {
-      const metric = getFactMetricById(value.metricId);
-      if (!metric) return;
-      if (metric.numerator?.factTableId) {
-        ids.add(metric.numerator.factTableId);
-      }
-      if (metric.denominator?.factTableId) {
-        ids.add(metric.denominator.factTableId);
-      }
-    });
-  } else if (dataset.type === "funnel") {
-    const initialStep = dataset.steps[0];
-    if (initialStep?.factTableId) ids.add(initialStep.factTableId);
-  }
-
-  return Array.from(ids);
-}
-
 /** Cached top values for a column (not dimension-specific — also usable for
  *  filtering UI); empty for data_source datasets, which have no cached
  *  column metadata. */
@@ -602,28 +554,17 @@ export function validateDimensions(
   config: ExplorationConfig,
   getFactTableById: (id: string) => DimensionFactTable | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-  options?: {
-    // While the relevant fact table(s) haven't finished loading, an empty
-    // column list is inconclusive — don't strip dimensions based on it, or a
-    // dimension picked before data arrived would flash away and back. Once
-    // loaded, an empty list means the dataset genuinely has no valid
-    // group-by column, and dimensions referencing one should be dropped.
-    columnsMayBeIncomplete?: boolean;
-  },
 ): ExplorationConfig {
-  const columns = getCommonColumns(
+  const columns = getAvailableDimensionColumns(
     config.dataset,
     getFactTableById,
     getFactMetricById,
   );
   const maxDims = getMaxDimensions(config.dataset);
 
-  let validDimensions = config.dimensions.filter((d) => {
-    if (d.dimensionType !== "dynamic" && d.dimensionType !== "static")
-      return true;
-    if (columns.length === 0 && options?.columnsMayBeIncomplete) return true;
-    return columns.some((c) => c.column === d.column || d.column === null);
-  });
+  let validDimensions = config.dimensions.filter((d) =>
+    dimensionColumnIsAvailable(d, columns),
+  );
   if (validDimensions.length > maxDims) {
     validDimensions = validDimensions.slice(0, maxDims);
   }

@@ -87,11 +87,8 @@ export const getFactTables = async (
   });
 };
 
-// Full fact tables (real jsonFields) for a small, specific id set — unlike
-// getFactTables/the org-wide definitions endpoint, which strip jsonFields to
-// keep that payload light. Used by the Explorer's dimension picker, which
-// needs nested JSON column data for only the 1-2 fact tables relevant to the
-// current dataset selection.
+// Full column metadata (including jsonFields) for a specific id set.
+// The org-wide list endpoint strips jsonFields to keep that payload light.
 export const getFullFactTables = async (
   req: AuthRequest<null, Record<string, never>, { ids?: string }>,
   res: Response<{ status: 200; factTables: FactTableInterface[] }>,
