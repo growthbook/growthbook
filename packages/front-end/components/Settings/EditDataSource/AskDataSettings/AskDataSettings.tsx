@@ -149,22 +149,24 @@ function EditAskDataModal({
             />
             {enabled && (
               <>
-                <Select
-                  label="Run policy"
-                  value={policy}
-                  setValue={(v) => setPolicy(v as RunPolicy)}
-                >
-                  <SelectItem value="auto-below-threshold">
-                    Auto-execute below cost threshold
-                  </SelectItem>
-                  <SelectItem value="always-confirm">
-                    Always confirm before executing
-                  </SelectItem>
-                </Select>
-                <Text size="sm" color="text-mid">
-                  Controls whether the agent must confirm before running SQL
-                  queries
-                </Text>
+                <Flex direction="column" gap="1">
+                  <Select
+                    label="Run policy"
+                    value={policy}
+                    setValue={(v) => setPolicy(v as RunPolicy)}
+                  >
+                    <SelectItem value="auto-below-threshold">
+                      Auto-execute below cost threshold
+                    </SelectItem>
+                    <SelectItem value="always-confirm">
+                      Always confirm before executing
+                    </SelectItem>
+                  </Select>
+                  <Text size="sm" color="text-mid">
+                    Controls whether the agent must confirm before running SQL
+                    queries
+                  </Text>
+                </Flex>
                 {policy === "auto-below-threshold" && (
                   <TextField
                     label="Cost threshold (GiB)"
