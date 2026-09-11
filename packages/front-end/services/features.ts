@@ -20,7 +20,6 @@ import {
   ComputedFeatureInterface,
 } from "shared/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import dJSON from "dirty-json";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
@@ -36,6 +35,7 @@ import {
   extractConditionAttributeKeys,
   getRequireRegisteredAttributesSettings,
   formatJsonMultilineObjects,
+  parseLooseJSON,
   getTargetingProjectIds,
   type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
@@ -55,6 +55,10 @@ import {
 } from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
+import {
+  getFeatureHealthSearchTokens,
+  getFeatureStaleSearchTokens,
+} from "@/services/health";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -212,10 +216,9 @@ export function useFeatureSearch({
   localStorageKey = "features",
   environmentStatus,
   draftStates,
-  staleStates,
+  healthStates,
   rampStates,
   dependencyIndex,
-  experimentStates,
   contentSearchPrefixes = [],
 }: {
   allFeatures: FeatureInterface[];
@@ -231,17 +234,19 @@ export function useFeatureSearch({
   localStorageKey?: string;
   environmentStatus?: Record<string, Record<string, boolean>>;
   draftStates?: Record<string, unknown>;
-  staleStates?: Record<
+  healthStates?: Record<
     string,
     {
       stale: boolean;
       neverStale: boolean;
-      envResults?: Record<string, { stale: boolean }>;
+      envResults?: Record<
+        string,
+        { stale: boolean; reason?: string; tempRollout?: string }
+      >;
     }
   >;
   rampStates?: Record<string, unknown>;
   dependencyIndex?: Set<string> | null;
-  experimentStates?: Record<string, { hasTempRollout: boolean }>;
   contentSearchPrefixes?: string[];
 }) {
   const syntaxFilterPassthrough = useCallback(
@@ -283,10 +288,9 @@ export function useFeatureSearch({
     searchTermFilterDeps: [
       environmentStatus,
       draftStates,
-      staleStates,
+      healthStates,
       rampStates,
       dependencyIndex,
-      experimentStates,
       projects,
       getProjectById,
     ],
@@ -299,26 +303,18 @@ export function useFeatureSearch({
         if (item.valueType === "string") is.push("string");
         if (item.valueType === "number") is.push("number");
         if (item.valueType === "boolean") is.push("boolean");
-        // item.neverStale is authoritative — overrides staleStates cache immediately
-        if (item.neverStale) {
-          is.push("stale-disabled");
-        } else {
-          const s = staleStates?.[item.id];
-          if (s?.stale) is.push("stale");
-        }
+        is.push(
+          ...getFeatureStaleSearchTokens(
+            healthStates?.[item.id],
+            item.neverStale,
+          ),
+        );
         return is;
       },
       has: (item) => {
         const has: string[] = [];
         if (item.project) has.push("project");
         if (draftStates?.[item.id]) has.push("draft", "drafts");
-        if (!item.neverStale) {
-          const s = staleStates?.[item.id];
-          const hasSomeStaleEnvs = Object.values(s?.envResults ?? {}).some(
-            (e) => e.stale,
-          );
-          if (hasSomeStaleEnvs) has.push("stale-env");
-        }
         const meta = item as FeatureInterface & {
           hasPrerequisites?: boolean;
           hasSavedGroups?: boolean;
@@ -328,10 +324,9 @@ export function useFeatureSearch({
         if (item.linkedExperiments?.length) has.push("experiments");
         if (rampStates?.[item.id]) has.push("ramp-schedule");
         if (dependencyIndex?.has(item.id)) has.push("dependents");
-        const expState = experimentStates?.[item.id];
-        if (expState?.hasTempRollout) has.push("temp-rollout");
         return has;
       },
+      health: (item) => getFeatureHealthSearchTokens(healthStates?.[item.id]),
       key: (item) => item.id,
       // Match the governance project plus any targeting projects (all
       // projects when targetingAllProjects), by id and resolved name, so
@@ -408,40 +403,21 @@ export function getVariationDefaultName(
   return val.value;
 }
 
-// File size constants for JSON formatting
-export const MEDIUM_FILE_SIZE = 1 * 1024; // 1KB - disable dirty-json parsing
 export const LARGE_FILE_SIZE = 1024 * 1024; // 1MB - default to text editor
 
-// Format JSON string with pretty-printing, handling malformed JSON gracefully
+// Runs on every render of the JSON editors, so only broken input pays for a repair.
 export function formatJSON(value: string): string | undefined {
-  const isMediumOrLargerJSON = value.length > MEDIUM_FILE_SIZE;
-
-  let formatted: string | undefined;
-  if (!isMediumOrLargerJSON) {
-    // Use dirty-json for small files to handle malformed JSON
-    try {
-      const parsed = dJSON.parse(value);
-      formatted = formatJsonMultilineObjects(parsed);
-    } catch (e) {
-      // Fallback to native JSON.parse if dirty-json fails
-      try {
-        const parsed = JSON.parse(value);
-        formatted = formatJsonMultilineObjects(parsed);
-      } catch (e2) {
-        // Ignore
-      }
-    }
-  } else {
-    // For medium+ files, only use native JSON.parse (much faster)
-    try {
-      const parsed = JSON.parse(value);
-      formatted = formatJsonMultilineObjects(parsed);
-    } catch (e) {
-      // Invalid JSON - skip formatting to avoid blocking UI
-    }
+  try {
+    return formatJsonMultilineObjects(JSON.parse(value));
+  } catch {
+    // Not valid JSON - fall through and try repairing it
   }
 
-  return formatted;
+  try {
+    return formatJsonMultilineObjects(parseLooseJSON(value));
+  } catch {
+    return undefined;
+  }
 }
 
 export function isRuleInactive(
