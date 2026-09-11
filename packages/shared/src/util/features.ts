@@ -661,14 +661,15 @@ export function assertSchemaMatchesValueType(
 }
 
 // Helper function to validate ISO timestamp format
+// RFC 3339 date-time: what the API schemas accept. Storage is canonicalized to
+// `toISOString()` at write time (addIdsToFlatRules), so the check here only has
+// to reject garbage, not enforce one spelling.
+const RFC3339_DATETIME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/i;
 function isValidISOTimestamp(timestamp: string): boolean {
-  // Validate that it's a proper date and parses correctly
-  try {
-    const date = new Date(timestamp);
-    return !isNaN(date.getTime()) && date.toISOString() === timestamp;
-  } catch {
-    return false;
-  }
+  return (
+    RFC3339_DATETIME.test(timestamp) && !isNaN(new Date(timestamp).getTime())
+  );
 }
 
 // Validate scheduleRules business logic
@@ -707,7 +708,7 @@ export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
   for (const rule of scheduleRules) {
     if (rule.timestamp !== null && !isValidISOTimestamp(rule.timestamp)) {
       throw new Error(
-        `Invalid timestamp format: "${rule.timestamp}". Must be in ISO format (e.g., "2025-06-23T16:09:37.769Z")`,
+        `Invalid timestamp format: "${rule.timestamp}". Must be an ISO 8601 date-time (e.g., "2025-06-23T16:09:37Z")`,
       );
     }
   }

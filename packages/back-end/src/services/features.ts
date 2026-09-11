@@ -2130,8 +2130,9 @@ export function addIdsToRules(
   });
 }
 
-// Single write-time chokepoint for rule ids, experiment tracking keys, and
-// rollout seeds — consolidated so the invariant can't drift across call sites.
+// Single write-time chokepoint for rule ids, experiment tracking keys,
+// rollout seeds, and schedule timestamps — consolidated so the invariants
+// can't drift across call sites.
 export function addIdsToFlatRules(
   rules: FeatureRule[] = [],
   featureId: string,
@@ -2143,6 +2144,13 @@ export function addIdsToFlatRules(
     if (!r.id) {
       r.id = generateRuleId();
     }
+    // The API accepts any RFC 3339 date-time (offsets, no fractional seconds);
+    // store the one canonical spelling so round-trips compare equal.
+    r.scheduleRules?.forEach((s) => {
+      if (s.timestamp === null) return;
+      const t = new Date(s.timestamp).getTime();
+      if (!isNaN(t)) s.timestamp = new Date(t).toISOString();
+    });
     // Seed new rollout rules off their own id so stacked rollouts hash
     // independently. Legacy seedless rules are pinned to the feature id on read
     // (`pinLegacyRolloutSeeds`), so this only ever applies to new rules.

@@ -520,6 +520,20 @@ describe("validateRulesScheduleRules", () => {
     ).toThrow(/rule 2/);
   });
 
+  it("accepts second-precision and offset timestamps, like the input schema", () => {
+    expect(() =>
+      validateRulesScheduleRules(
+        [
+          rule([
+            { timestamp: "2030-01-01T00:00:00Z", enabled: true },
+            { timestamp: "2030-06-01T02:00:00+02:00", enabled: false },
+          ]),
+        ],
+        ctx(true),
+      ),
+    ).not.toThrow();
+  });
+
   it("accepts valid scheduleRules with the plan feature", () => {
     expect(() =>
       validateRulesScheduleRules([rule(valid)], ctx(true)),
