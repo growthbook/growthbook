@@ -103,12 +103,13 @@ export const notifyAutoUpdate = ({
   context,
   experiment,
   success,
+  persist = true,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   success: boolean;
+  persist?: boolean;
 }) => {
-  const past = experiment.pastNotifications || [];
   const dispatch = () =>
     dispatchEvent({
       context,
@@ -124,21 +125,9 @@ export const notifyAutoUpdate = ({
       },
     });
 
-  // Fail mark still on, but Results worked since the last Slack: this fail is new.
-  if (
-    !success &&
-    past.includes("auto-update") &&
-    past.includes("auto-update-results-ok")
-  ) {
-    return dispatch().then(() =>
-      updateExperiment({
-        experiment,
-        context,
-        changes: {
-          pastNotifications: past.filter((n) => n !== "auto-update-results-ok"),
-        },
-      }),
-    );
+  // Fail path persists autoSnapshots + the mark first, then calls with persist: false.
+  if (!persist) {
+    return dispatch();
   }
 
   return memoizeNotification({
@@ -147,17 +136,6 @@ export const notifyAutoUpdate = ({
     type: "auto-update",
     triggered: !success,
     dispatch,
-  }).then(async () => {
-    if (!success || !past.includes("auto-update-results-ok")) return;
-    await updateExperiment({
-      experiment,
-      context,
-      changes: {
-        pastNotifications: past.filter(
-          (n) => n !== "auto-update" && n !== "auto-update-results-ok",
-        ),
-      },
-    });
   });
 };
 

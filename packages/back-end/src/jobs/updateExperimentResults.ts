@@ -228,9 +228,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
           experiment,
           changes: {
             pastNotifications: (experiment.pastNotifications || []).filter(
-              (notification) =>
-                notification !== "auto-update" &&
-                notification !== "auto-update-results-ok",
+              (notification) => notification !== "auto-update",
             ),
           },
         });
@@ -239,23 +237,6 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
           err,
           "Failed to clear auto-update notification marker: " + experimentId,
         );
-        try {
-          const past = experiment.pastNotifications || [];
-          if (!past.includes("auto-update-results-ok")) {
-            await updateExperiment({
-              context,
-              experiment,
-              changes: {
-                pastNotifications: [...past, "auto-update-results-ok"],
-              },
-            });
-          }
-        } catch (okErr) {
-          logger.error(
-            okErr,
-            "Failed to record Results-ok after marker clear: " + experimentId,
-          );
-        }
       }
     }
   } catch (e) {
@@ -278,18 +259,31 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       return;
     }
     try {
+      const past = experiment.pastNotifications || [];
       await updateExperiment({
         context,
         experiment,
         changes: {
           autoSnapshots: false,
+          pastNotifications: past.includes("auto-update")
+            ? past
+            : [...past, "auto-update"],
         },
       });
     } catch (e) {
-      logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
+      logger.error(
+        e,
+        "Failed to persist scheduled-refresh fail state: " + experimentId,
+      );
+      return;
     }
     try {
-      await notifyAutoUpdate({ context, experiment, success: false });
+      await notifyAutoUpdate({
+        context,
+        experiment,
+        success: false,
+        persist: false,
+      });
     } catch (e) {
       logger.error(e, "Failed to notify auto-update failure: " + experimentId);
     }
