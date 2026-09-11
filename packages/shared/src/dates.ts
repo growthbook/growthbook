@@ -55,6 +55,19 @@ export function timestamp(date: string | Date, inTimezone?: string): string {
     ? formatInTimeZone(d, inTimezone, formatStr)
     : format(d, formatStr);
 }
+/**
+ * Short label for the timezone a date renders in, e.g. "PST" or "GMT+2".
+ * Evaluated at the given date, not now — across a DST boundary the offset in
+ * effect at the scheduled time is the one that matters.
+ */
+export function timezoneShortLabel(
+  date: string | Date = new Date(),
+  inTimezone?: string,
+): string {
+  const zone = inTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return formatInTimeZone(getValidDate(date), zone, "zzz");
+}
+
 export function relativeDate(date: string | Date): string {
   if (!date) return "";
   return formatRelative(getValidDate(date), new Date());

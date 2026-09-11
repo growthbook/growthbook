@@ -3,6 +3,7 @@ import {
   getValidDate,
   resolveScheduleStopAfter,
   resolveScheduledStop,
+  timezoneShortLabel,
 } from "../src/dates";
 
 describe("getValidDate", () => {
@@ -156,5 +157,25 @@ describe("resolveScheduledStop", () => {
     expect(r.stopAt).toBeNull();
     expect(r.stopAfter).toBeNull();
     expect(r.stagedStop).toBeNull();
+  });
+});
+
+describe("timezoneShortLabel", () => {
+  it("evaluates the label at the given date, so DST resolves correctly", () => {
+    expect(timezoneShortLabel("2026-01-15T12:00:00Z", "America/New_York")).toBe(
+      "EST",
+    );
+    expect(timezoneShortLabel("2026-07-15T12:00:00Z", "America/New_York")).toBe(
+      "EDT",
+    );
+  });
+
+  it("falls back to a GMT offset for zones without an abbreviation", () => {
+    expect(timezoneShortLabel("2026-07-15T12:00:00Z", "Europe/Berlin")).toBe(
+      "GMT+2",
+    );
+    expect(timezoneShortLabel("2026-01-15T12:00:00Z", "Europe/Berlin")).toBe(
+      "GMT+1",
+    );
   });
 });
