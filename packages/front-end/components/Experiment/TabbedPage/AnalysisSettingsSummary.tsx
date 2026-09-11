@@ -31,7 +31,7 @@ import {
   OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON,
   IncrementalFullRefreshComparable,
 } from "shared/enterprise";
-import { getSnapshotAnalysis } from "shared/util";
+import { getSnapshotAnalysis, snapshotHasResults } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
 import {
@@ -183,18 +183,21 @@ export default function AnalysisSettingsSummary({
   } = useSnapshot();
 
   // Track previous latest status to detect transition from "running" to "success"
-  const previousLatestStatusRef = useRef<string | undefined>(latest?.status);
+  const latestStatus = latest?.status;
+  const previousLatestStatusRef = useRef<string | undefined>(latestStatus);
 
-  // Call reset when latest status transitions from "running" to "success"
+  // Call reset when latest status transitions from "running" to a
+  // results-bearing status
   useEffect(() => {
     if (
       previousLatestStatusRef.current === "running" &&
-      latest?.status === "success"
+      latestStatus !== undefined &&
+      snapshotHasResults(latestStatus)
     ) {
       onSnapshotSuccessfulUpdate?.();
     }
-    previousLatestStatusRef.current = latest?.status;
-  }, [latest?.status, onSnapshotSuccessfulUpdate]);
+    previousLatestStatusRef.current = latestStatus;
+  }, [latestStatus, onSnapshotSuccessfulUpdate]);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =

@@ -17,7 +17,7 @@ import {
   getExperimentSourceSnapshotRef,
   SourceSnapshotRef,
 } from "shared/enterprise";
-import { getSnapshotAnalysis } from "shared/util";
+import { getSnapshotAnalysis, snapshotHasResults } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 
@@ -146,38 +146,35 @@ export function getPrecomputedUnitDimensionIds(
   return [];
 }
 
-// When the cheap status endpoint reports a newer successful snapshot than the
+// When the cheap status endpoint reports a newer results-bearing snapshot than the
 // one currently held by the heavy fetch, pull the fresh analyses exactly
 // once. This is what lets poll loops use a status-only mutator: the provider
 // handles upgrading to the full snapshot on completion, on background
 // completion seen via focus revalidation, etc. The single id-mismatch check
 // covers both "no heavy snapshot yet" (undefined !== id) and "heavy is behind
-// a newer successful run" (X !== Y). `heavyIsValidating` suppresses the
+// a newer results-bearing run" (X !== Y). `heavyIsValidating` suppresses the
 // initial-mount redundant refetch: on first load the heavy fetch is already
 // in flight while the status fetch resolves, and without this guard a status
 // response that lands outside SWR's dedup window would trigger a second
 // round-trip for a request the provider is already making.
-function useRefetchHeavyOnStatusSuccess(
+function useRefetchHeavyOnStatusResults(
   statusLatest: SnapshotStatusSummary | undefined,
   snapshotId: string | undefined,
   heavyIsValidating: boolean,
   refetchHeavy: () => Promise<unknown>,
 ): void {
+  const latestId = statusLatest?.id;
+  const latestStatus = statusLatest?.status;
+
   useEffect(() => {
-    if (statusLatest?.status !== "success") return;
+    if (latestStatus === undefined || !snapshotHasResults(latestStatus)) return;
     if (heavyIsValidating) return;
-    if (statusLatest.id !== snapshotId) void refetchHeavy();
-  }, [
-    statusLatest?.id,
-    statusLatest?.status,
-    snapshotId,
-    heavyIsValidating,
-    refetchHeavy,
-  ]);
+    if (latestId !== snapshotId) void refetchHeavy();
+  }, [latestId, latestStatus, snapshotId, heavyIsValidating, refetchHeavy]);
 }
 
 // Surfaces the status endpoint's view atomically with the heavy snapshot.
-// While the status endpoint reports a newer successful snapshot than the
+// While the status endpoint reports a newer results-bearing snapshot than the
 // heavy fetch has caught up to, hold back the visible value so consumers
 // don't see "queries done" alongside stale analyses for the duration of the
 // heavy refetch. Running / errored / progress updates pass through
@@ -191,7 +188,7 @@ function useCoherentLatest(
 ): SnapshotStatusSummary | undefined {
   const heavyAgrees =
     !statusLatest ||
-    statusLatest.status !== "success" ||
+    !snapshotHasResults(statusLatest.status) ||
     statusLatest.id === snapshotId;
   const [held, setHeld] = useState<SnapshotStatusSummary | undefined>(
     undefined,
@@ -269,7 +266,7 @@ export default function SnapshotProvider({
 
   const statusLatest = statusData?.latest ?? undefined;
   const snapshotId = data?.snapshot?.id;
-  useRefetchHeavyOnStatusSuccess(
+  useRefetchHeavyOnStatusResults(
     statusLatest,
     snapshotId,
     isValidating,

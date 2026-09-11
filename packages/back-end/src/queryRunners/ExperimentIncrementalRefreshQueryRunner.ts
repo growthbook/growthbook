@@ -24,7 +24,12 @@ import {
   ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import {
+  buildUnitsQuerySettingsFromSnapshot,
+  analysisStatusFromResults,
+  snapshotHasResults,
+  snapshotStatusFromAnalyses,
+} from "shared/util";
 import {
   ExperimentQueryMetadata,
   Queries,
@@ -1310,7 +1315,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       if (!analysis) return;
 
       analysis.results = results.dimensions || [];
-      analysis.status = "success";
+      analysis.status = analysisStatusFromResults(analysis.results);
       analysis.error = "";
 
       // TODO: do this once, not per analysis
@@ -1446,7 +1451,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         ? "running"
         : status === "failed"
           ? "error"
-          : "success";
+          : snapshotStatusFromAnalyses(this.model.analyses);
 
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -1471,9 +1476,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     }
 
     // Release the incremental refresh lock on any terminal status
-    // TODO: Properly handle partially-succeeded status that also becomes terminal??
     if (snapshotStatus !== "running") {
-      if (snapshotStatus === "success") {
+      if (snapshotHasResults(snapshotStatus)) {
         await this.context.models.incrementalRefresh
           .updateByExperimentIdIfCurrentExecution(
             this.model.experiment,

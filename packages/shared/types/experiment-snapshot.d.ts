@@ -33,6 +33,17 @@ import {
   LookbackOverride,
 } from "./experiment";
 
+export type ExperimentSnapshotStatus =
+  | "running"
+  | "success"
+  | "partial-success"
+  | "error";
+export type ExperimentSnapshotAnalysisStatus =
+  | "running"
+  | "success"
+  | "partial"
+  | "error";
+
 export interface SnapshotMetric {
   value: number;
   cr: number;
@@ -161,7 +172,7 @@ export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
   settings: ExperimentSnapshotAnalysisSettings;
   dateCreated: Date;
-  status: "running" | "success" | "error";
+  status: ExperimentSnapshotAnalysisStatus;
   error?: string;
   results: ExperimentReportResultDimension[];
 }
@@ -233,7 +244,7 @@ export interface ExperimentSnapshotInterface {
   sourceSnapshotId?: string;
   sourceSnapshotDateCreated?: Date;
   runStarted: Date | null;
-  status: "running" | "success" | "error";
+  status: ExperimentSnapshotStatus;
   settings: ExperimentSnapshotSettings;
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;

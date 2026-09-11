@@ -9,6 +9,7 @@ import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
   findAnalysisComputeFailure,
   getSafeRolloutSnapshotAnalysis,
+  snapshotHasResults,
 } from "shared/util";
 import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -212,7 +213,8 @@ async function evaluateMonitoredStep(
     safeRollout.analysisStartedAt ?? safeRollout.startedAt ?? null;
   const hasCurrentAnalysis =
     !!requiredSnapshotAt &&
-    summarySnapshot?.status === "success" &&
+    !!summarySnapshot &&
+    snapshotHasResults(summarySnapshot.status) &&
     summarySnapshot.dateCreated >= requiredSnapshotAt &&
     (!analysisFloor || summarySnapshot.dateCreated >= analysisFloor);
 

@@ -19,6 +19,7 @@ import {
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
+  analysisStatusFromResults,
   autoMerge,
   draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
@@ -2842,7 +2843,7 @@ export async function createSnapshotAnalysis(
     metricMap: metricMap,
   });
   analysis.results = results[0]?.dimensions || [];
-  analysis.status = "success";
+  analysis.status = analysisStatusFromResults(analysis.results);
   analysis.error = undefined;
 
   await updateSnapshotAnalysis({
@@ -2911,12 +2912,15 @@ export async function createSnapshotAnalysesBatched(
       metricMap,
     });
 
-    completedAnalyses = analyses.map((analysis, i) => ({
-      ...analysis,
-      results: results[i]?.dimensions ?? [],
-      status: "success" as const,
-      error: undefined,
-    }));
+    completedAnalyses = analyses.map((analysis, i) => {
+      const dimensions = results[i]?.dimensions ?? [];
+      return {
+        ...analysis,
+        results: dimensions,
+        status: analysisStatusFromResults(dimensions),
+        error: undefined,
+      };
+    });
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     completedAnalyses = analyses.map((analysis) => ({

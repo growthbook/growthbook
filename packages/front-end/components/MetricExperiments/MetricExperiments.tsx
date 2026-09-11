@@ -10,6 +10,7 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
+import { snapshotHasResults } from "shared/util";
 import {
   ExperimentWithSnapshot,
   SnapshotMetric,
@@ -461,7 +462,9 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
         ? e.type === "multi-armed-bandit"
         : e.type !== "multi-armed-bandit") &&
       (includeOnlyResults
-        ? e.status !== "draft" && e.snapshot?.status === "success"
+        ? e.status !== "draft" &&
+          e.snapshot &&
+          snapshotHasResults(e.snapshot.status)
         : true),
   );
 

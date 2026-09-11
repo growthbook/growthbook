@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { PermissionError, isRampScheduleServing } from "shared/util";
+import {
+  PermissionError,
+  analysisHasResults,
+  isRampScheduleServing,
+} from "shared/util";
 import {
   apiRampScheduleInterface,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
@@ -1076,8 +1080,8 @@ export const getRampScheduleStatus = createApiRequestHandler({
 
       // Index per-metric deviation data from the first successful analysis,
       // "All" dimension (results[0]), treatment variation (index 1).
-      const snapshotAnalysis = snapshot?.analyses?.find(
-        (a) => a.status === "success",
+      const snapshotAnalysis = snapshot?.analyses?.find((a) =>
+        analysisHasResults(a.status),
       );
       const allDimResult = snapshotAnalysis?.results?.[0];
       const controlMetrics = allDimResult?.variations?.[0]?.metrics ?? {};
