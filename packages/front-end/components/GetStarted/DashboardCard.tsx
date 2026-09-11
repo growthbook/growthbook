@@ -1,62 +1,53 @@
 import { useMemo } from "react";
+import { isProjectListValidForProject } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
-import {
-  useDefinitions,
-  LOCALSTORAGE_DASHBOARD_KEY,
-} from "@/services/DefinitionsContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useDashboards } from "@/hooks/useDashboards";
+import { useUser } from "@/services/UserContext";
 import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 import DashboardView from "@/enterprise/components/Dashboards/DashboardView";
 
-// Cap the number of blocks shown, rather than shrinking/scrolling a full
-// dashboard, so everything visible fits at its native (author-configured)
-// size. See DashboardView for the "View full dashboard" link this implies.
 const PREVIEW_MAX_BLOCKS = 2;
+const DASHBOARD_PICKS_KEY = "gb_selected_dashboard";
 
-// Resolution order: the user's own localStorage pick, then the project's
-// admin-configured default, then nothing selected. The selector itself always
-// shows (as long as candidate dashboards exist) so a project without a
-// default yet is still discoverable/pickable from the home page.
 export default function DashboardCard() {
+  const { hasCommercialFeature } = useUser();
+  const canViewDashboards = hasCommercialFeature("dashboards");
   const { project, getProjectById } = useDefinitions();
-  const { dashboards, loading } = useDashboards(false);
-  const [selectedDashboardId, setSelectedDashboardId] = useLocalStorage(
-    LOCALSTORAGE_DASHBOARD_KEY,
-    "",
+  const { dashboards, loading, mutateDashboards } = useDashboards(
+    false,
+    () => canViewDashboards,
+  );
+  const [picks, setPicks] = useLocalStorage<Record<string, string>>(
+    DASHBOARD_PICKS_KEY,
+    {},
   );
 
   const projectDashboards = useMemo(
     () =>
-      dashboards.filter(
-        (d) => !d.projects?.length || d.projects.includes(project),
+      dashboards.filter((d) =>
+        isProjectListValidForProject(d.projects, project),
       ),
     [dashboards, project],
   );
 
   const projectDefaultDashboardId =
     getProjectById(project)?.settings?.defaultDashboardId;
+  const selectedDashboardId = picks[project] ?? "";
 
-  const resolvedDashboardId = useMemo(() => {
-    if (
-      selectedDashboardId &&
-      projectDashboards.some((d) => d.id === selectedDashboardId)
-    ) {
-      return selectedDashboardId;
-    }
-    if (
-      projectDefaultDashboardId &&
-      projectDashboards.some((d) => d.id === projectDefaultDashboardId)
-    ) {
-      return projectDefaultDashboardId;
-    }
-    return "";
+  const resolvedDashboard = useMemo(() => {
+    const byId = (id?: string) =>
+      id ? projectDashboards.find((d) => d.id === id) : undefined;
+    return (
+      byId(selectedDashboardId) ?? byId(projectDefaultDashboardId) ?? undefined
+    );
   }, [selectedDashboardId, projectDefaultDashboardId, projectDashboards]);
 
-  if (loading || projectDashboards.length === 0) {
+  if (!canViewDashboards || loading || projectDashboards.length === 0) {
     return null;
   }
 
@@ -68,13 +59,23 @@ export default function DashboardCard() {
         </Heading>
         <DashboardSelector
           dashboards={projectDashboards}
-          value={resolvedDashboardId}
-          setValue={setSelectedDashboardId}
+          value={resolvedDashboard?.id ?? ""}
+          setValue={(id) => {
+            setPicks((prev) => {
+              const next = { ...prev };
+              if (!id || id === projectDefaultDashboardId) {
+                delete next[project];
+              } else {
+                next[project] = id;
+              }
+              return next;
+            });
+          }}
           style={{ minWidth: "240px" }}
           placeholder="Select a dashboard"
         />
       </Flex>
-      {resolvedDashboardId ? (
+      {resolvedDashboard ? (
         <Frame
           position="relative"
           pt="1"
@@ -84,9 +85,9 @@ export default function DashboardCard() {
           style={{ minHeight: "160px" }}
         >
           <DashboardView
-            dashboardId={resolvedDashboardId}
+            dashboard={resolvedDashboard}
             maxBlocks={PREVIEW_MAX_BLOCKS}
-            showHeader={false}
+            mutate={mutateDashboards}
           />
         </Frame>
       ) : (
