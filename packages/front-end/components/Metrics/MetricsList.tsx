@@ -192,9 +192,16 @@ export interface MetricTableItem {
 
 export function useCombinedMetrics({
   setMetricModalProps,
+  enableRowActions,
   afterArchive,
 }: {
+  // Still the legacy-metric edit/duplicate mechanism (opens MetricForm via
+  // the modal state) - not a stand-in for "does this caller want row
+  // actions" anymore now that fact metrics navigate instead of using it.
   setMetricModalProps?: (props: MetricModalState) => void;
+  // The real "did this caller opt into row actions" signal, explicit rather
+  // than inferred from setMetricModalProps's presence.
+  enableRowActions?: boolean;
   afterArchive?: (id: string, archived: boolean) => void;
 }): MetricTableItem[] {
   const {
@@ -206,6 +213,8 @@ export function useCombinedMetrics({
   const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
+
+  const router = useRouter();
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
@@ -341,23 +350,15 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && setMetricModalProps
+          canDuplicate && enableRowActions
             ? () =>
-                setMetricModalProps({
-                  mode: "duplicate",
-                  currentFactMetric: {
-                    ...m,
-                    name: m.name + " (copy)",
-                  },
-                })
+                router.push(
+                  `/fact-metrics/new?${new URLSearchParams({ duplicate: m.id, returnUrl: router.asPath }).toString()}`,
+                )
             : undefined,
         onEdit:
-          canEdit && setMetricModalProps
-            ? () =>
-                setMetricModalProps({
-                  mode: "edit",
-                  currentFactMetric: m,
-                })
+          canEdit && enableRowActions
+            ? () => router.push(`/fact-metrics/${m.id}?edit=true`)
             : undefined,
         onDelete: canDelete
           ? async () => {
@@ -403,6 +404,7 @@ const MetricsList = (): React.ReactElement => {
   const [showArchived, setShowArchived] = useState(false);
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
+    enableRowActions: true,
   });
 
   const metrics = useAddComputedFields(
@@ -438,6 +440,14 @@ const MetricsList = (): React.ReactElement => {
   const showCreateFactTableButton = disableLegacyMetricCreation
     ? !hasFactTables
     : !hasLegacyMetrics && !hasFactTables;
+
+  // Navigating straight to the new full page loses the old modal's in-place
+  // "Switch to legacy SQL" escape hatch (NewMetricModal defaults to fact type
+  // whenever fact tables exist, but still lets the user flip to MetricForm).
+  // Only skip the modal when that escape hatch wouldn't have been reachable
+  // anyway - no legacy metrics to switch from, or legacy creation disabled.
+  const skipModalForFactMetricCreation =
+    hasFactTables && (disableLegacyMetricCreation || !hasLegacyMetrics);
 
   //searching:
   const filterResults = useCallback(
@@ -564,14 +574,19 @@ const MetricsList = (): React.ReactElement => {
                 !permissionsUtil.canCreateMetric({ projects: [project] })
               }
             >
-              <Button
-                disabled={
-                  !permissionsUtil.canCreateMetric({ projects: [project] })
-                }
-                onClick={() => setModalData({ mode: "new" })}
-              >
-                Add Metric
-              </Button>
+              {skipModalForFactMetricCreation &&
+              permissionsUtil.canCreateMetric({ projects: [project] }) ? (
+                <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
+              ) : (
+                <Button
+                  disabled={
+                    !permissionsUtil.canCreateMetric({ projects: [project] })
+                  }
+                  onClick={() => setModalData({ mode: "new" })}
+                >
+                  Add metric
+                </Button>
+              )}
             </Tooltip>
           </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
