@@ -1,12 +1,22 @@
 import Agenda, { Job } from "agenda";
-import { SafeRolloutInterface } from "shared/validators";
+import {
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
+} from "shared/validators";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { shouldSkipScheduledSafeRolloutSnapshot } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
+import {
+  getSafeRolloutRuleFromFeature,
+  isOrphanedSafeRollout,
+  shouldSkipScheduledSafeRolloutSnapshot,
+} from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { COLLECTION_NAME } from "back-end/src/models/SafeRolloutModel";
+import { COLLECTION_NAME as SAFE_ROLLOUT_SNAPSHOT_COLLECTION } from "back-end/src/models/SafeRolloutSnapshotModel";
+import { getQueryStatusesByIds } from "back-end/src/models/QueryModel";
+import { classifyStalledSnapshot } from "back-end/src/jobs/expireOldQueries";
 
 const UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT = "updateSingleSafeRolloutSnapshot";
 const QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES = "queueSafeRolloutSnapshotUpdates";
@@ -68,7 +78,23 @@ const updateSingleSafeRolloutSnapshot = async (
 
   const context = await getContextForAgendaJobByOrgId(organization);
   const feature = await getFeature(context, featureId);
-  if (!feature || feature.archived) return;
+  if (feature?.archived) return;
+
+  const rule = feature ? getSafeRolloutRuleFromFeature(feature, id) : null;
+  const rampSchedule =
+    !rule && safeRollout.rampScheduleId
+      ? await context.models.rampSchedules.getById(safeRollout.rampScheduleId)
+      : null;
+  if (isOrphanedSafeRollout(feature, safeRollout, rampSchedule)) {
+    // Stopped drops it from the queue; a revert that re-adds the rule restores
+    // the status via the landing path, so leave autoSnapshots alone.
+    await context.models.safeRollout.update(safeRollout, { status: "stopped" });
+    logger.warn(
+      `SafeRollout ${id}: no rule or live ramp schedule references it; marked stopped`,
+    );
+    return;
+  }
+  if (!feature) return;
 
   if (shouldSkipScheduledSafeRolloutSnapshot(feature, safeRollout)) return;
 
@@ -80,18 +106,33 @@ const updateSingleSafeRolloutSnapshot = async (
       });
 
     if (latestSnapshot?.status === "running") {
-      // Query is still in-flight. Defer rather than stack — the effective
-      // interval becomes max(configuredInterval, actualQueryDuration) naturally.
-      // Zombie queries (heartbeat lost, orphaned DAG) are handled system-wide
-      // by expireOldQueries, so no manual kill is needed here.
-      const intervalMs = (safeRollout.updateScheduleMinutes ?? 60) * 60 * 1000;
-      await context.models.safeRollout.update(safeRollout, {
-        nextSnapshotAttempt: new Date(Date.now() + intervalMs),
-      });
-      logger.debug(
-        `SafeRollout ${id}: snapshot still running, deferring next attempt by ${intervalMs / 60000}min`,
+      const stalled = await getStalledSnapshotUpdate(
+        organization,
+        latestSnapshot,
       );
-      return;
+      if (stalled) {
+        await getCollection<SafeRolloutSnapshotInterface>(
+          SAFE_ROLLOUT_SNAPSHOT_COLLECTION,
+        ).updateOne(
+          { id: latestSnapshot.id, status: "running" },
+          { $set: { status: "error", ...stalled } },
+        );
+        logger.warn(
+          `SafeRollout ${id}: reaped stalled snapshot ${latestSnapshot.id}; starting a new one`,
+        );
+      } else {
+        // Query is still in-flight. Defer rather than stack — the effective
+        // interval becomes max(configuredInterval, actualQueryDuration) naturally.
+        const intervalMs =
+          (safeRollout.updateScheduleMinutes ?? 60) * 60 * 1000;
+        await context.models.safeRollout.update(safeRollout, {
+          nextSnapshotAttempt: new Date(Date.now() + intervalMs),
+        });
+        logger.debug(
+          `SafeRollout ${id}: snapshot still running, deferring next attempt by ${intervalMs / 60000}min`,
+        );
+        return;
+      }
     }
 
     logger.info("Start Refreshing Results for SafeRollout " + id);
@@ -111,6 +152,43 @@ const updateSingleSafeRolloutSnapshot = async (
     logger.error(e, "Failed to create SafeRollout Snapshot: " + id);
   }
 };
+
+// Zombie queries (heartbeat lost, orphaned DAG) are reaped system-wide by
+// expireOldQueries, but a snapshot whose queries all finished or vanished and
+// was never finalized would otherwise defer us forever.
+async function getStalledSnapshotUpdate(
+  organization: string,
+  snapshot: SafeRolloutSnapshotInterface,
+): Promise<Pick<SafeRolloutSnapshotInterface, "error" | "queries"> | null> {
+  const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
+  if (!queryIds.length) return null;
+  const queryStatuses = await getQueryStatusesByIds(organization, queryIds);
+  const statusById = new Map(queryStatuses.map((s) => [s.id, s.status]));
+  const queries = snapshot.queries.map((q) => ({
+    ...q,
+    status: statusById.get(q.query) ?? "failed",
+  }));
+  if (queryStatuses.length !== queryIds.length) {
+    return {
+      queries,
+      error:
+        "Snapshot stalled: some of its queries no longer exist. A new snapshot has been started.",
+    };
+  }
+  const verdict = classifyStalledSnapshot({
+    queryStatuses,
+    snapshotDateCreated: snapshot.dateCreated,
+    now: Date.now(),
+  });
+  if (verdict === "active") return null;
+  return {
+    queries,
+    error:
+      verdict === "stalled-terminal"
+        ? "Snapshot stalled: queries finished but results were never finalized. A new snapshot has been started."
+        : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A new snapshot has been started.",
+  };
+}
 
 async function getAllSafeRolloutsToUpdate() {
   const now = new Date();

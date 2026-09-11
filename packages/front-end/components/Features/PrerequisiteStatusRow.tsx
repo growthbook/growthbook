@@ -114,7 +114,6 @@ export default function PrerequisiteStatusRow({
 
   const deleteModal = showDeleteModal && (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="delete-prerequisite"
       header="Delete Prerequisite"
       size="lg"

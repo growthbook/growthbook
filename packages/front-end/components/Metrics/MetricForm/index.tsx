@@ -639,7 +639,6 @@ const MetricForm: FC<MetricFormProps> = ({
         />
       )}
       <PagedModal
-        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         inline={inline}
         header={edit ? "Edit Metric" : "New Metric"}

@@ -53,12 +53,16 @@ interface ExplorationBubbleProps {
   chartData: ChartData;
   toolTransparency?: React.ReactNode;
   animate?: boolean;
+  compact?: boolean;
+  showSaveAction?: boolean;
 }
 
 export default function ExplorationBubble({
   chartData,
   toolTransparency,
   animate = true,
+  compact = false,
+  showSaveAction = true,
 }: ExplorationBubbleProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const explorerUrl = `${EXPLORER_PATHS[chartData.config.type]}?config=${encodeExplorationConfig(chartData.config)}`;
@@ -73,20 +77,24 @@ export default function ExplorationBubble({
           exploration={chartData.exploration}
         />
       )}
-      <Flex align="center" gap="2" mb="2">
-        <PiSparkle size={12} />
-        <Text size="sm" weight="medium">
-          {isTable ? "Generated table" : "Generated chart"}
-        </Text>
-        <Flex ml="auto" gap="1">
-          <Button
-            variant="ghost"
-            size="sm"
-            color="violet"
-            onClick={() => setShowSaveModal(true)}
-          >
-            Save to Dashboard
-          </Button>
+      <Flex align="center" gap="2" mb="2" wrap="wrap" style={{ minWidth: 0 }}>
+        <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+          <PiSparkle size={12} style={{ flexShrink: 0 }} />
+          <Text size="sm" weight="medium" truncate>
+            {isTable ? "Generated table" : "Generated chart"}
+          </Text>
+        </Flex>
+        <Flex ml="auto" gap="1" wrap="wrap">
+          {showSaveAction && (
+            <Button
+              variant="ghost"
+              size="sm"
+              color="violet"
+              onClick={() => setShowSaveModal(true)}
+            >
+              Save to Dashboard
+            </Button>
+          )}
           <LinkButton
             href={explorerUrl}
             variant="ghost"
@@ -98,7 +106,15 @@ export default function ExplorationBubble({
         </Flex>
       </Flex>
       {chartData.config.chartType === "rawTable" ? (
-        <Flex style={{ height: 360, minHeight: 260 }}>
+        <Flex
+          style={{
+            height: compact ? 280 : 360,
+            minHeight: compact ? 240 : 260,
+            minWidth: 0,
+            width: "100%",
+            overflow: "hidden",
+          }}
+        >
           <ExplorerDataTable
             exploration={chartData.exploration}
             error={chartData.exploration?.error ?? null}
@@ -110,9 +126,18 @@ export default function ExplorationBubble({
         <SimpleExplorationTable
           exploration={chartData.exploration}
           config={chartData.config}
+          maxHeight={compact ? 240 : 360}
         />
       ) : (
-        <Flex style={{ height: 360, minHeight: 260 }}>
+        <Flex
+          style={{
+            height: compact ? 280 : 360,
+            minHeight: compact ? 240 : 260,
+            minWidth: 0,
+            width: "100%",
+            overflow: "hidden",
+          }}
+        >
           <ExplorerChart
             exploration={chartData.exploration}
             error={chartData.exploration?.error ?? null}
