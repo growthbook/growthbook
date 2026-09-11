@@ -1,4 +1,5 @@
 import { EventWebHookInterface } from "shared/types/event-webhook";
+import { isNoisyExperimentUpdate } from "back-end/src/services/slack/experimentUpdateNoise";
 import {
   getFeature,
   getFeatureIdsLinkedToExperiment,
@@ -138,6 +139,10 @@ export async function filterWebhooksByResources(
   event: ResourceFilterEvent,
   webhooks: EventWebHookInterface[],
 ): Promise<EventWebHookInterface[]> {
+  if (isNoisyExperimentUpdate(event.data)) {
+    webhooks = webhooks.filter((webhook) => webhook.payloadType !== "slack");
+  }
+  if (!webhooks.length) return [];
   const hasFilter = (key: "experiments" | "metrics" | "features") =>
     webhooks.some((w) => w[key]?.length);
   if (

@@ -163,3 +163,21 @@ test("normalizes current, legacy deleted and persisted resource ids", () => {
     getSlackEventResource({ ...base, objectId: "persisted" } as EventInterface),
   ).toEqual({ resource: "experiment", id: "persisted" });
 });
+
+test("empty experiment updates skip Slack but preserve customer webhooks", async () => {
+  const slack = { payloadType: "slack" } as EventWebHookInterface;
+  const json = { payloadType: "json" } as EventWebHookInterface;
+  const raw = {} as EventWebHookInterface;
+  const event = {
+    organizationId: "org_a",
+    data: {
+      event: "experiment.updated",
+      data: { changes: { added: {}, removed: {}, modified: [] } },
+    },
+  };
+  expect(await filterWebhooksByResources(event, [slack, json, raw])).toEqual([
+    json,
+    raw,
+  ]);
+  expect(getContextForAgendaJobByOrgId).not.toHaveBeenCalled();
+});
