@@ -1,4 +1,5 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { isProjectListValidForProject } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
   updateExperimentValidator,
@@ -136,6 +137,16 @@ export const updateExperiment = createApiRequestHandler(
     ) {
       throw new Error(
         `Identifier type "${effectiveIdentifierType}" is not declared by assignment query "${assignmentQueryId}"`,
+      );
+    }
+    // Reject choosing a query outside the experiment's project. A project change
+    // alone that strands the current query is left to drift (outdated reason).
+    const effectiveProject = req.body.project ?? experiment.project;
+    if (
+      !isProjectListValidForProject(assignmentQuery.projects, effectiveProject)
+    ) {
+      throw new Error(
+        `Assignment query "${assignmentQueryId}" is not available for the experiment's project`,
       );
     }
   }

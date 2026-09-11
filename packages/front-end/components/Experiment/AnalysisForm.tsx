@@ -291,8 +291,19 @@ const AnalysisForm: FC<{
   });
 
   const exposureQueries = useMemo(
-    () => datasource?.settings?.queries?.exposure ?? [],
-    [datasource?.settings?.queries?.exposure],
+    // Keep the experiment's current query even if it has drifted out of scope,
+    // so the selection stays visible rather than silently disappearing.
+    () =>
+      (datasource?.settings?.queries?.exposure ?? []).filter(
+        (q) =>
+          q.id === experiment.exposureQueryId ||
+          isProjectListValidForProject(q.projects, experiment.project),
+      ),
+    [
+      datasource?.settings?.queries?.exposure,
+      experiment.project,
+      experiment.exposureQueryId,
+    ],
   );
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
@@ -709,6 +720,11 @@ const AnalysisForm: FC<{
                     Experiment Assignment Table{" "}
                     <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
                   </>
+                }
+                helpText={
+                  exposureQueryOptions.length === 0
+                    ? "No assignment queries are scoped to this experiment's project. Add one in the data source settings."
+                    : undefined
                 }
                 value={exposureQueryOptionValue}
                 onChange={(value) => {
