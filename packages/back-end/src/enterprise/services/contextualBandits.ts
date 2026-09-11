@@ -1465,6 +1465,7 @@ export async function reconcileLinkedFeatureVariations(
 export type ContextualBanditResultsForUi = {
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
   latestSnapshotSummary: SnapshotStatusSummary | null;
+  snapshotVariationIds: string[] | null;
   /** SRM of the latest snapshot run; null when the run has no SRM result. */
   srm: ContextualBanditSrmResult | null;
 };
@@ -1524,9 +1525,13 @@ export async function getContextualBanditResultsForUi(
     ? toContextualBanditSnapshotStatusSummary(latestSnapshot)
     : null;
 
+  const snapshotVariationIds =
+    latestSnapshot?.frozenSettings?.variations?.map((v) => v.id) ?? null;
+
   return {
     contextualBanditSnapshot,
     latestSnapshotSummary,
+    snapshotVariationIds,
     srm: latestSnapshot?.srm ?? null,
   };
 }

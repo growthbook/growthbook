@@ -17,6 +17,13 @@ export type ContextualBanditResultsVariation = {
   id: string;
   name?: string;
 };
+export function resolveSnapshotVariations(
+  frozenVariationIds: readonly string[],
+  currentVariations: readonly { id: string; name?: string }[],
+): ContextualBanditResultsVariation[] {
+  const byId = new Map(currentVariations.map((v) => [v.id, v]));
+  return frozenVariationIds.map((id) => ({ id, name: byId.get(id)?.name }));
+}
 
 export type ContextualBanditOverallVariation = {
   variationId: string;

@@ -210,9 +210,6 @@ export default function ContextualBanditResultsTable({
     permissionsUtil.canRunExperimentQueries(datasource) &&
     allExpandedMetrics.length > 0;
 
-  const variations = cb.variations;
-  const numVariations = variations.length;
-
   const leaves = useMemo(() => results?.leaves ?? [], [results?.leaves]);
   const hasTableData = leaves.length > 0;
 
@@ -237,29 +234,29 @@ export default function ContextualBanditResultsTable({
     () => results?.overall.variations ?? [],
     [results?.overall.variations],
   );
-  const overallVariationWeights = useMemo(
+  const variations = useMemo(
     () =>
-      Array.from(
-        { length: numVariations },
-        (_, i) => overallVariations[i]?.weight ?? null,
-      ),
-    [numVariations, overallVariations],
+      overallVariations.map((v) => {
+        const current = cb.variations.find((c) => c.id === v.variationId);
+        return {
+          id: v.variationId,
+          name: current?.name ?? v.variationName ?? "Removed variation",
+        };
+      }),
+    [overallVariations, cb.variations],
+  );
+  const numVariations = variations.length;
+  const overallVariationWeights = useMemo(
+    () => overallVariations.map((v) => v.weight ?? null),
+    [overallVariations],
   );
   const overallVariationMeans = useMemo(
-    () =>
-      Array.from(
-        { length: numVariations },
-        (_, i) => overallVariations[i]?.mean ?? null,
-      ),
-    [numVariations, overallVariations],
+    () => overallVariations.map((v) => v.mean ?? null),
+    [overallVariations],
   );
   const overallVariationUnits = useMemo(
-    () =>
-      Array.from(
-        { length: numVariations },
-        (_, i) => overallVariations[i]?.users ?? 0,
-      ),
-    [numVariations, overallVariations],
+    () => overallVariations.map((v) => v.users ?? 0),
+    [overallVariations],
   );
 
   const totalUnits = useMemo(
