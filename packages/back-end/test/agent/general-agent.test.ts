@@ -21,6 +21,7 @@ import {
   _coerceBody,
   _offScreenDashboardUpdate,
   _requiresMutationConfirmation,
+  _stripConfirmFromSqlBody,
   _shapeCallApiResult,
 } from "back-end/src/agent/general-agent";
 
@@ -200,6 +201,78 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
         path: "/api/v1/experiments/exp_123/snapshot?force=true",
       }),
     ).toBe(false);
+  });
+
+  it("allows SQL query endpoints without mutation confirmation", () => {
+    const sqlPaths = [
+      "/api/v1/data-sources/ds_123/sql/run-query",
+      "/api/v1/data-sources/ds_123/sql/preview-values",
+      "/api/v1/data-sources/ds_123/sql/search-tables",
+      "/api/v1/data-sources/ds_123/sql/table-schema",
+    ];
+    for (const path of sqlPaths) {
+      expect(_requiresMutationConfirmation({ method: "POST", path })).toBe(
+        false,
+      );
+    }
+  });
+});
+
+describe("stripConfirmFromSqlBody (cost confirmation bypass prevention)", () => {
+  it("strips confirm from SQL run-query bodies", () => {
+    const result = _stripConfirmFromSqlBody(
+      "/api/v1/data-sources/ds_123/sql/run-query",
+      { sql: "SELECT 1", purpose: "test", confirm: true },
+    );
+    expect(result).toEqual({ sql: "SELECT 1", purpose: "test" });
+    expect(result).not.toHaveProperty("confirm");
+  });
+
+  it("strips confirm from other SQL endpoint bodies", () => {
+    const result = _stripConfirmFromSqlBody(
+      "/api/v1/data-sources/ds_123/sql/preview-values",
+      { table: "t", columns: ["c"], confirm: true },
+    );
+    expect(result).not.toHaveProperty("confirm");
+  });
+
+  it("does not strip confirm from non-SQL paths", () => {
+    const body = { name: "test", confirm: true };
+    expect(_stripConfirmFromSqlBody("/api/v1/features", body)).toBe(body);
+  });
+
+  it("passes through non-object bodies unchanged", () => {
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        "string body",
+      ),
+    ).toBe("string body");
+  });
+
+  it("returns null/undefined unchanged", () => {
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        null,
+      ),
+    ).toBeNull();
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        undefined,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("passes through bodies without confirm unchanged", () => {
+    const body = { sql: "SELECT 1", purpose: "test" };
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        body,
+      ),
+    ).toBe(body);
   });
 });
 

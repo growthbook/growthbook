@@ -1,5 +1,10 @@
 import { createPrivateKey } from "crypto";
-import { Column, Connection, createConnection } from "snowflake-sdk";
+import {
+  Column,
+  Connection,
+  QueryStatus,
+  createConnection,
+} from "snowflake-sdk";
 import { version as SNOWFLAKE_SDK_VERSION } from "snowflake-sdk/package.json";
 import {
   ExternalIdCallback,
@@ -311,7 +316,7 @@ export async function getSnowflakeQueryStatus(
     await connectSnowflake(connection, 30000);
     const status = await connection.getQueryStatus(queryId);
     return snowflakeStatusToExternalStatus(status, {
-      isRunning: connection.isStillRunning(status),
+      isRunning: connection.isStillRunning(status as QueryStatus),
       isError: connection.isAnError(status),
     });
   } catch (e) {
