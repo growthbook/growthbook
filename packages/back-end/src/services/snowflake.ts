@@ -10,6 +10,7 @@ import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryMetadata } from "shared/types/query";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { getQueryTagString } from "back-end/src/util/integration";
 import { getErrorMessage } from "back-end/src/util/errors";
@@ -52,7 +53,8 @@ function getProxySettings(): ProxyOptions {
 
 const SNOWFLAKE_QUERY_TAG_MAX_LENGTH = 2000;
 
-function buildSnowflakeConnection(
+// Exported for tests.
+export function buildSnowflakeConnection(
   conn: SnowflakeConnectionParams,
   queryMetadata?: QueryMetadata,
 ): Connection {
@@ -80,6 +82,35 @@ function buildSnowflakeConnection(
     } catch (e) {
       throw new Error("Invalid private key or private key password");
     }
+  } else if (conn.authMethod === "workload-identity") {
+    // Authenticates with the ambient cloud identity of the GrowthBook server
+    // (e.g. its AWS IAM role) — no stored credential. Requires a Snowflake
+    // service user with a matching WORKLOAD_IDENTITY binding.
+    // Self-hosted only, enforced server-side (the UI restriction alone could be
+    // bypassed by a direct API request): on GrowthBook Cloud the ambient identity
+    // would be GrowthBook's own infrastructure, not the customer's.
+    if (IS_CLOUD) {
+      throw new Error(
+        "Workload Identity authentication is only supported on self-hosted GrowthBook installations",
+      );
+    }
+    // Allowlist, not a presence check: the TypeScript union only constrains the
+    // UI — a direct API request can supply anything, and an invalid value would
+    // otherwise surface as an opaque SDK/connection failure instead of a clear
+    // configuration error.
+    if (
+      conn.workloadIdentityProvider !== "AWS" &&
+      conn.workloadIdentityProvider !== "AZURE" &&
+      conn.workloadIdentityProvider !== "GCP"
+    ) {
+      throw new Error(
+        "Workload Identity authentication requires a cloud provider (AWS, AZURE, or GCP)",
+      );
+    }
+    authenticationDetails = {
+      authenticator: "WORKLOAD_IDENTITY",
+      workloadIdentityProvider: conn.workloadIdentityProvider,
+    };
   } else {
     authenticationDetails = {
       password: conn.password,
