@@ -52,3 +52,21 @@ describe("renderExperimentCard", () => {
     30000,
   );
 });
+
+it.each(STATES)(
+  "renders compact dark %s without changing concurrent light renders",
+  async (state) => {
+    const card = sampleCard(state);
+    const lightBefore = await renderExperimentCard(card, "compact");
+    const [dark, light] = await Promise.all([
+      renderExperimentCard(card, "compact-dark"),
+      renderExperimentCard(card, "compact"),
+    ]);
+    expect(isPng(dark)).toBe(true);
+    expect(dark.readUInt32BE(16)).toBe(1120);
+    expect(dark.readUInt32BE(20)).toBe(light.readUInt32BE(20));
+    expect(dark.equals(light)).toBe(false);
+    expect(light.equals(lightBefore)).toBe(true);
+  },
+  30000,
+);
