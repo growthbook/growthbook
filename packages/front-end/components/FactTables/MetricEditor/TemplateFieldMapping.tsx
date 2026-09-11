@@ -31,7 +31,8 @@ export default function TemplateFieldMapping({
   onMapped: (mapped: FactMetricSeed) => void;
   onCancel: () => void;
 }) {
-  const { factTables, getFactTableById, datasources } = useDefinitions();
+  const { factTables, getFactTableById, getDatasourceById, datasources } =
+    useDefinitions();
   const { numeric: numericPlaceholders, string: stringPlaceholders } =
     placeholderColumns(template);
 
@@ -183,7 +184,8 @@ export default function TemplateFieldMapping({
         >
           {factTables.map((ft) => (
             <SelectItem key={ft.id} value={ft.id}>
-              {ft.name}
+              {ft.name} (
+              {getDatasourceById(ft.datasource)?.name || ft.datasource})
             </SelectItem>
           ))}
         </Select>
