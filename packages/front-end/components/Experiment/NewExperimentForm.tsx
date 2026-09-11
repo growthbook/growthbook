@@ -173,11 +173,21 @@ export function getNewExperimentDatasourceDefaults({
       )?.userIdType ?? "anonymous_id")
     : "anonymous_id";
 
-  const exposureQuery = getExposureQuery(
+  let exposureQuery = getExposureQuery(
     initialDatasource.settings,
     initialValue?.exposureQueryId,
     initialUserIdType,
   );
+  // Don't default to a query that isn't scoped to the experiment's project.
+  if (
+    exposureQuery &&
+    !isProjectListValidForProject(exposureQuery.projects, project)
+  ) {
+    exposureQuery =
+      initialDatasource.settings?.queries?.exposure?.find((q) =>
+        isProjectListValidForProject(q.projects, project),
+      ) ?? null;
+  }
 
   return {
     datasource: initialDatasource.id,
@@ -687,8 +697,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     : allowAllProjects;
 
   const exposureQueries = useMemo(
-    () => datasource?.settings?.queries?.exposure || [],
-    [datasource?.settings?.queries?.exposure],
+    () =>
+      (datasource?.settings?.queries?.exposure || []).filter((q) =>
+        isProjectListValidForProject(q.projects, selectedProject),
+      ),
+    [datasource?.settings?.queries?.exposure, selectedProject],
   );
   const exposureQueryOptions = useMemo(
     () =>
@@ -1593,6 +1606,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     </>
                   }
                   labelClassName="font-weight-bold"
+                  helpText={
+                    exposureQueryOptions.length === 0
+                      ? "No assignment queries are scoped to this project. Add one in the data source settings."
+                      : undefined
+                  }
                   value={exposureQueryOptionValue}
                   onChange={(value) => {
                     const selectedOption = exposureQueryOptions.find(

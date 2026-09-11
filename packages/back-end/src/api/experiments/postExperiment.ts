@@ -1,4 +1,5 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { isProjectListValidForProject } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
@@ -200,6 +201,14 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     ) {
       throw new Error(
         `Identifier type "${payload.assignmentQueryIdentifierType}" is not declared by assignment query "${payload.assignmentQueryId}"`,
+      );
+    }
+    if (
+      assignmentQuery &&
+      !isProjectListValidForProject(assignmentQuery.projects, payload.project)
+    ) {
+      throw new Error(
+        `Assignment query "${payload.assignmentQueryId}" is not available for the experiment's project`,
       );
     }
 
