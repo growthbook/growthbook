@@ -578,17 +578,18 @@ export function getProviderFromSTTModel(model: STTModel): AIProvider {
   throw new Error(`Transcription model ${model} is not supported.`);
 }
 
-export const CLOUD_MANAGED_STT_MODEL: STTModel = "grok-stt-1.0";
-
-// Walked in order by both deployments, so a missing key degrades to the next
-// provider rather than disabling dictation.
-export const SELF_HOSTED_DEFAULT_STT_MODELS: ReadonlyArray<
-  [AIProvider, STTModel]
-> = [
+// Walked in order, so a missing key degrades to the next provider rather than
+// disabling dictation. Same order on Cloud and self-hosted: whichever key is
+// present wins, and there is no managed model worth special-casing above it.
+export const DEFAULT_STT_MODELS: ReadonlyArray<[AIProvider, STTModel]> = [
   ["openai", "gpt-transcribe"],
   ["xai", "grok-stt-1.0"],
   ["mistral", "voxtral-mini-latest"],
 ];
+
+// What the key-removal dialog names as taking over. Derived from the list so
+// the two can't drift apart.
+export const DEFAULT_STT_MODEL: STTModel = DEFAULT_STT_MODELS[0][1];
 
 /**
  * Which model "use default" resolves to, given the providers that have a key.
@@ -597,13 +598,9 @@ export const SELF_HOSTED_DEFAULT_STT_MODELS: ReadonlyArray<
  */
 export function resolveDefaultSTTModel(
   providersWithKeys: readonly AIProvider[],
-  isCloud: boolean,
 ): STTModel | null {
-  if (isCloud && providersWithKeys.includes("xai")) {
-    return CLOUD_MANAGED_STT_MODEL;
-  }
   return (
-    SELF_HOSTED_DEFAULT_STT_MODELS.find(([provider]) =>
+    DEFAULT_STT_MODELS.find(([provider]) =>
       providersWithKeys.includes(provider),
     )?.[1] ?? null
   );
@@ -670,7 +667,7 @@ export const AI_MODEL_SETTINGS = [
     key: "sttModel",
     kind: "stt",
     label: "Dictation model",
-    fallback: CLOUD_MANAGED_STT_MODEL,
+    fallback: DEFAULT_STT_MODEL,
   },
 ] as const;
 

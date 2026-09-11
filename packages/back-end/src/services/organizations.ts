@@ -387,7 +387,6 @@ export async function getAISettingsForOrg(
     : getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
       resolveDefaultSTTModel(
         AI_PROVIDERS.filter((p) => keySource[p] !== "none"),
-        IS_CLOUD,
       );
 
   return {

@@ -244,7 +244,7 @@ export default function AISettings({
     : null;
   // Unlike the fields above, the dictation sentinel is offered in both
   // deployments, so name the resolved model in both.
-  const sttDefault = resolveDefaultSTTModel(aiKeyProviders, isCloud());
+  const sttDefault = resolveDefaultSTTModel(aiKeyProviders);
   const sttDefaultNote = sttDefault
     ? { value: "", note: getModelDisplayLabel(sttDefault) }
     : null;

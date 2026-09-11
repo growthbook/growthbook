@@ -265,29 +265,32 @@ describe("getAIModelSettingsUsingProvider", () => {
 });
 
 describe("resolveDefaultSTTModel", () => {
-  it("prefers the managed Grok model on Cloud", () => {
-    expect(resolveDefaultSTTModel(["openai", "xai"], true)).toBe(
-      "grok-stt-1.0",
-    );
-  });
-
-  it("falls through to the next provider when Cloud has no xAI key", () => {
-    // The managed key isn't guaranteed, so dictation degrades rather than
-    // disappearing — this is the case a live Cloud org hits.
-    expect(resolveDefaultSTTModel(["openai"], true)).toBe("gpt-transcribe");
-    expect(resolveDefaultSTTModel(["mistral"], true)).toBe(
-      "voxtral-mini-latest",
-    );
-  });
-
-  it("ignores the managed model when self-hosted", () => {
-    expect(resolveDefaultSTTModel(["xai", "openai"], false)).toBe(
+  it("prefers gpt-transcribe", () => {
+    expect(resolveDefaultSTTModel(["openai", "xai", "mistral"])).toBe(
       "gpt-transcribe",
     );
   });
 
+  it("falls through in order when OpenAI has no key", () => {
+    // Degrades to the next provider rather than disabling dictation.
+    expect(resolveDefaultSTTModel(["xai", "mistral"])).toBe("grok-stt-1.0");
+    expect(resolveDefaultSTTModel(["mistral"])).toBe("voxtral-mini-latest");
+  });
+
+  it("serves a Cloud org with no keys of its own", () => {
+    // Enterprise Cloud without BYOK: the provider list is GrowthBook's managed
+    // keys, and dictation resolves off those rather than requiring the org to
+    // bring one. Anthropic alone is the one combination that yields nothing,
+    // since no Claude model accepts audio.
+    expect(resolveDefaultSTTModel(["anthropic", "openai"])).toBe(
+      "gpt-transcribe",
+    );
+    expect(resolveDefaultSTTModel(["anthropic", "xai"])).toBe("grok-stt-1.0");
+    expect(resolveDefaultSTTModel(["anthropic"])).toBeNull();
+  });
+
   it("returns null when no provider serves transcription", () => {
-    expect(resolveDefaultSTTModel(["anthropic", "google"], true)).toBeNull();
-    expect(resolveDefaultSTTModel([], false)).toBeNull();
+    expect(resolveDefaultSTTModel(["anthropic", "google"])).toBeNull();
+    expect(resolveDefaultSTTModel([])).toBeNull();
   });
 });
