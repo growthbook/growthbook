@@ -63,9 +63,9 @@ import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 export const NO_DATA_ERROR_MESSAGE = "No data";
 
 export function getComputeErrorMessage(
-  stats?: Pick<SnapshotMetric, "errorMessage"> | null,
+  stats?: Pick<SnapshotMetric, "computeFailed" | "errorMessage"> | null,
 ): string | null {
-  const message = stats?.errorMessage;
+  const message = stats?.computeFailed ? stats.errorMessage : null;
   return message && message !== NO_DATA_ERROR_MESSAGE ? message : null;
 }
 
