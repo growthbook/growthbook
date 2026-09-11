@@ -15,7 +15,6 @@ import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
 import DataList from "@/ui/DataList";
 import TagsInput from "@/components/Tags/TagsInput";
-import SortedTags from "@/components/Tags/SortedTags";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
@@ -435,16 +434,6 @@ export default function MetricEditor({
                   },
                 ]}
               />
-              <div>
-                <Text weight="semibold" as="div" mb="2">
-                  Tags
-                </Text>
-                {form.watch("tags")?.length ? (
-                  <SortedTags tags={form.watch("tags")} useFlex />
-                ) : (
-                  <Text>No tags</Text>
-                )}
-              </div>
             </Flex>
           )}
         </Frame>
