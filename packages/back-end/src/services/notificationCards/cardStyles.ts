@@ -1,4 +1,8 @@
 import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  NotificationCardFormat,
+} from "shared/validators";
+import {
   CardData,
   renderDetailedCard,
   renderCompactCard,
@@ -10,12 +14,8 @@ import {
 // style consumes the same model — so adding a style is purely a new renderer +
 // registry entry, with no change to how cards are built from an event.
 
-export type ExperimentCardStyle = "detailed" | "compact" | "compact-dark";
-
-export const DEFAULT_CARD_STYLE: ExperimentCardStyle = "detailed";
-
 export interface CardStyleDefinition {
-  id: ExperimentCardStyle;
+  id: NotificationCardFormat;
   /** User-facing name (for a future picker UI / API). */
   label: string;
   /** One-line description of the look, for the same picker. */
@@ -23,7 +23,7 @@ export interface CardStyleDefinition {
   render: (card: CardData) => Promise<Buffer>;
 }
 
-const CARD_STYLES: Record<ExperimentCardStyle, CardStyleDefinition> = {
+const CARD_STYLES: Record<NotificationCardFormat, CardStyleDefinition> = {
   "compact-dark": {
     id: "compact-dark",
     label: "Compact dark",
@@ -50,15 +50,16 @@ const CARD_STYLES: Record<ExperimentCardStyle, CardStyleDefinition> = {
 };
 
 /**
- * Render an experiment card to a PNG, using the requested style (falling back
- * to the default when unset or unknown). This is the entry point all callers
- * should use — it keeps the choice of style in one place.
+ * Render a card to a PNG in the requested style (falling back to the default
+ * when unset or unknown). This is the entry point all callers should use — it
+ * keeps the choice of style in one place.
  */
-export function renderExperimentCard(
+export function renderCard(
   card: CardData,
-  style: ExperimentCardStyle = DEFAULT_CARD_STYLE,
+  style: NotificationCardFormat = DEFAULT_NOTIFICATION_SETTINGS.cardFormat,
 ): Promise<Buffer> {
-  const def = CARD_STYLES[style] ?? CARD_STYLES[DEFAULT_CARD_STYLE];
+  const def =
+    CARD_STYLES[style] ?? CARD_STYLES[DEFAULT_NOTIFICATION_SETTINGS.cardFormat];
   return def.render(card);
 }
 

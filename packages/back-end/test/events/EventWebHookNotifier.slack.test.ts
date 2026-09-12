@@ -13,7 +13,7 @@ import {
   SLACK_WORKSPACE_PLACEHOLDER_URL,
   uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
-import { renderExperimentNotificationCard } from "back-end/src/services/notificationCards/experimentEventCard";
+import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { getEventWebHookSignatureForPayload } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
@@ -51,9 +51,9 @@ jest.mock("back-end/src/services/slack/slackWebApi", () => ({
 }));
 
 jest.mock(
-  "back-end/src/services/notificationCards/experimentEventCard",
+  "back-end/src/services/notificationCards/renderNotificationCard",
   () => ({
-    renderExperimentNotificationCard: jest.fn(),
+    renderNotificationCard: jest.fn(),
   }),
 );
 
@@ -140,7 +140,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
       text: "Feature updated",
       blocks: [],
     });
-    jest.mocked(renderExperimentNotificationCard).mockResolvedValue(null);
+    jest.mocked(renderNotificationCard).mockResolvedValue(null);
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue(null);
     jest.mocked(getContextForAgendaJobByOrgObject).mockReturnValue({
       models: {
@@ -265,7 +265,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
 
     await runAgendaJob();
 
-    expect(renderExperimentNotificationCard).not.toHaveBeenCalled();
+    expect(renderNotificationCard).not.toHaveBeenCalled();
     expect(uploadSlackImageFile).not.toHaveBeenCalled();
     expect(postSlackMessageResult).toHaveBeenCalled();
   });
@@ -280,25 +280,21 @@ describe("Slack EventWebHook delivery compatibility", () => {
       teamId: "T123",
       encryptedBotAccessToken: "xoxb-token",
     });
-    jest.mocked(renderExperimentNotificationCard).mockResolvedValue({
+    jest.mocked(renderNotificationCard).mockResolvedValue({
       png: Buffer.from("png"),
       altText: "Checkout test - Experiment stopped",
       caption:
         "<http://app/experiment/exp-1|Checkout test> - Experiment stopped",
-      experimentId: "exp-1",
     });
     jest.mocked(uploadSlackImageFile).mockResolvedValue("F123");
 
     await runAgendaJob();
 
-    expect(renderExperimentNotificationCard).toHaveBeenCalledWith(
-      {},
-      "detailed",
-    );
+    expect(renderNotificationCard).toHaveBeenCalledWith({}, "detailed");
     expect(uploadSlackImageFile).toHaveBeenCalledWith({
       token: "xoxb-token",
       png: Buffer.from("png"),
-      filename: "experiment-card.png",
+      filename: "notification-card.png",
       title: "Checkout test - Experiment stopped",
       channelId: "C123",
       initialComment:
@@ -321,11 +317,10 @@ describe("Slack EventWebHook delivery compatibility", () => {
       teamId: "T123",
       encryptedBotAccessToken: "xoxb-token",
     });
-    jest.mocked(renderExperimentNotificationCard).mockResolvedValue({
+    jest.mocked(renderNotificationCard).mockResolvedValue({
       png: Buffer.from("png"),
       altText: "Checkout test - Health issue",
       caption: "<http://app/experiment/exp-1|Checkout test> - Health issue",
-      experimentId: "exp-1",
     });
     jest.mocked(uploadSlackImageFile).mockResolvedValue(null);
     jest.mocked(postSlackMessageResult).mockResolvedValue({

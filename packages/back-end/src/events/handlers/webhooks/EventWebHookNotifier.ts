@@ -25,7 +25,7 @@ import {
   postSlackMessageResult,
   uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
-import { renderExperimentNotificationCard } from "back-end/src/services/notificationCards/experimentEventCard";
+import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
@@ -200,7 +200,7 @@ export class EventWebHookNotifier implements Notifier {
           eventWebHook.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
         const card =
           event.version && notificationSettings.type === "image"
-            ? await renderExperimentNotificationCard(
+            ? await renderNotificationCard(
                 event.data,
                 notificationSettings.cardFormat,
               )
@@ -209,7 +209,7 @@ export class EventWebHookNotifier implements Notifier {
           const fileId = await uploadSlackImageFile({
             token: botToken,
             png: card.png,
-            filename: "experiment-card.png",
+            filename: "notification-card.png",
             title: card.altText,
             channelId,
             initialComment: card.caption,

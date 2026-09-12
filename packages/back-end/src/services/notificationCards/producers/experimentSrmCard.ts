@@ -1,14 +1,20 @@
-import type { NotificationEvent } from "shared/types/events/notification-events";
 import {
   type ExperimentWarningNotificationPayload,
   srm,
 } from "shared/validators";
-import type { CardTable, EventCardData } from "./cardImages";
+import { getExperimentUrlAndNameFormatted } from "back-end/src/events/handlers/utils";
+import type { CardTable } from "back-end/src/services/notificationCards/cardImages";
+import type {
+  NotificationCard,
+  NotificationCardProducer,
+} from "back-end/src/services/notificationCards/types";
 
 type SrmPayload = Extract<
   ExperimentWarningNotificationPayload,
   { type: "srm" }
 >;
+
+const LABEL = "Health issue";
 
 const numberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
@@ -49,25 +55,26 @@ export function buildSrmBalanceTable(data: SrmPayload): CardTable | null {
   };
 }
 
-// Cards are built from the event payload alone
-export function buildEventSnapshotCard(
-  event: NotificationEvent,
-): EventCardData | null {
-  if (
-    event.event === "experiment.warning" &&
-    event.data.object.type === "srm"
-  ) {
-    const parsed = srm.safeParse(event.data.object);
-    if (!parsed.success) return null;
-    const table = buildSrmBalanceTable(parsed.data);
-    return {
+// Only the SRM subtype of experiment.warning has a card; other warnings stay
+// as accurate text notifications.
+export const buildExperimentSrmCard: NotificationCardProducer = (
+  event,
+): NotificationCard | null => {
+  if (event.event !== "experiment.warning") return null;
+  const parsed = srm.safeParse(event.data.object);
+  if (!parsed.success) return null;
+  const { experimentId, experimentName } = parsed.data;
+  const table = buildSrmBalanceTable(parsed.data);
+  return {
+    data: {
       state: "warning",
       event: "warning",
-      name: parsed.data.experimentName,
-      key: parsed.data.experimentId,
+      name: experimentName,
+      key: experimentId,
       summary: ["Sample ratio mismatch detected."],
       ...(table ? { table } : {}),
-    };
-  }
-  return null;
-}
+    },
+    altText: `${experimentName} - ${LABEL}`,
+    caption: `${getExperimentUrlAndNameFormatted(experimentId, experimentName)} - ${LABEL}`,
+  };
+};

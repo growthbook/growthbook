@@ -3,6 +3,18 @@ import {
   NotificationEvent,
   LegacyNotificationEvent,
 } from "shared/types/events/notification-events";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+
+// Slack mrkdwn links. Kept here (not in slack-event-handler-utils) so
+// lightweight callers like notification card producers don't pull in the
+// whole Slack message builder.
+export const getExperimentUrlFormatted = (experimentId: string): string =>
+  `\n• <${APP_ORIGIN}/experiment/${experimentId}|View Experiment>`;
+
+export const getExperimentUrlAndNameFormatted = (
+  experimentId: string,
+  experimentName: string,
+): string => `<${APP_ORIGIN}/experiment/${experimentId}|${experimentName}>`;
 
 export type FilterDataForNotificationEvent = {
   tags: string[];

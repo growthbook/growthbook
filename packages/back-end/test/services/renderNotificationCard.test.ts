@@ -1,9 +1,9 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
-import { renderExperimentNotificationCard } from "back-end/src/services/notificationCards/experimentEventCard";
-import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
+import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
+import { renderCard } from "back-end/src/services/notificationCards/cardStyles";
 
-jest.mock("back-end/src/services/notificationCards/experimentCards", () => ({
-  renderExperimentCard: jest.fn(),
+jest.mock("back-end/src/services/notificationCards/cardStyles", () => ({
+  renderCard: jest.fn(),
 }));
 
 const notification = (
@@ -22,24 +22,23 @@ const srmWarning = notification("experiment.warning", {
   threshold: 0.001,
 });
 
-describe("renderExperimentNotificationCard", () => {
+describe("renderNotificationCard", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.mocked(renderExperimentCard).mockResolvedValue(Buffer.from("png"));
+    jest.mocked(renderCard).mockResolvedValue(Buffer.from("png"));
   });
 
   it("renders the SRM warning card from the event payload alone", async () => {
-    await expect(renderExperimentNotificationCard(srmWarning)).resolves.toEqual(
-      {
-        png: Buffer.from("png"),
-        altText: "Checkout - Health issue",
-        caption: expect.stringMatching(
-          /^<https?:\/\/[^|]+\/experiment\/exp-1\|Checkout> - Health issue$/,
-        ),
-        experimentId: "exp-1",
-      },
-    );
-    expect(renderExperimentCard).toHaveBeenCalledWith(
+    await expect(
+      renderNotificationCard(srmWarning, "compact"),
+    ).resolves.toEqual({
+      png: Buffer.from("png"),
+      altText: "Checkout - Health issue",
+      caption: expect.stringMatching(
+        /^<https?:\/\/[^|]+\/experiment\/exp-1\|Checkout> - Health issue$/,
+      ),
+    });
+    expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
         event: "warning",
         state: "warning",
@@ -51,7 +50,7 @@ describe("renderExperimentNotificationCard", () => {
   });
 
   it("adds the balance table when the SRM payload carries evidence", async () => {
-    await renderExperimentNotificationCard(
+    await renderNotificationCard(
       notification("experiment.warning", {
         type: "srm",
         experimentId: "exp-1",
@@ -63,8 +62,9 @@ describe("renderExperimentNotificationCard", () => {
           { name: "Treatment", users: 3800, weight: 1 },
         ],
       }),
+      "compact",
     );
-    expect(renderExperimentCard).toHaveBeenCalledWith(
+    expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
         table: {
           columns: ["Variation", "Units", "Actual %", "Expected %"],
@@ -82,11 +82,8 @@ describe("renderExperimentNotificationCard", () => {
   it.each(["compact", "compact-dark", "detailed"] as const)(
     "passes the %s format through to the renderer",
     async (format) => {
-      await renderExperimentNotificationCard(srmWarning, format);
-      expect(renderExperimentCard).toHaveBeenCalledWith(
-        expect.anything(),
-        format,
-      );
+      await renderNotificationCard(srmWarning, format);
+      expect(renderCard).toHaveBeenCalledWith(expect.anything(), format);
     },
   );
 
@@ -94,47 +91,50 @@ describe("renderExperimentNotificationCard", () => {
     "leaves the %s warning as an accurate text notification",
     async (type) => {
       await expect(
-        renderExperimentNotificationCard(
+        renderNotificationCard(
           notification("experiment.warning", {
             type,
             experimentId: "exp-1",
             experimentName: "Checkout",
           }),
+          "compact",
         ),
       ).resolves.toBeNull();
-      expect(renderExperimentCard).not.toHaveBeenCalled();
+      expect(renderCard).not.toHaveBeenCalled();
     },
   );
 
-  it("leaves events without an immutable card as text", async () => {
+  it("leaves events with no producer as text", async () => {
     await expect(
-      renderExperimentNotificationCard(
+      renderNotificationCard(
         notification("experiment.info.significance", {
           experimentId: "exp-1",
           metricId: "metric-2",
           variationId: "variation-3",
         }),
+        "compact",
       ),
     ).resolves.toBeNull();
-    expect(renderExperimentCard).not.toHaveBeenCalled();
+    expect(renderCard).not.toHaveBeenCalled();
   });
 
   it("skips the card when the SRM payload is incomplete", async () => {
     await expect(
-      renderExperimentNotificationCard(
+      renderNotificationCard(
         notification("experiment.warning", {
           type: "srm",
           experimentId: "exp-1",
         }),
+        "compact",
       ),
     ).resolves.toBeNull();
-    expect(renderExperimentCard).not.toHaveBeenCalled();
+    expect(renderCard).not.toHaveBeenCalled();
   });
 
   it("falls back to text when rendering fails", async () => {
-    jest.mocked(renderExperimentCard).mockRejectedValue(new Error("boom"));
+    jest.mocked(renderCard).mockRejectedValue(new Error("boom"));
     await expect(
-      renderExperimentNotificationCard(srmWarning),
+      renderNotificationCard(srmWarning, "compact"),
     ).resolves.toBeNull();
   });
 });

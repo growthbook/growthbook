@@ -2061,8 +2061,8 @@ async function rasterize(root: El, width = CARD_WIDTH): Promise<Buffer> {
  * table with posterior violin plots, CI pills, and health signals. Rendered at
  * 2x width for crisp display in messaging clients; height auto-fits.
  *
- * This is one card *style*; callers should go through `renderExperimentCard`
- * in `./cards`, which dispatches by style, rather than calling this directly.
+ * This is one card *style*; callers should go through `renderCard` in
+ * `./cardStyles`, which dispatches by style, rather than calling this directly.
  */
 export async function renderDetailedCard(exp: CardData): Promise<Buffer> {
   return rasterize(buildCard(exp));
@@ -2071,7 +2071,7 @@ export async function renderDetailedCard(exp: CardData): Promise<Buffer> {
 /**
  * Render the "compact" experiment card — a glanceable single-hero-stat card for
  * per-event notifications. Uses a colored event banner and a narrow layout.
- * Callers should use `renderExperimentCard` in `./experimentCards`.
+ * Callers should use `renderCard` in `./cardStyles`.
  */
 export async function renderCompactCard(exp: CardData): Promise<Buffer> {
   return rasterize(buildCompactCard(exp), COMPACT_WIDTH);

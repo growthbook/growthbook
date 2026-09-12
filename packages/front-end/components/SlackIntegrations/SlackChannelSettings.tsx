@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
-  ExperimentCardFormat,
-  experimentCardFormats,
-  experimentCardFormatSchema,
+  NotificationCardFormat,
+  notificationCardFormats,
+  notificationCardFormatSchema,
   NotificationSettings,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
@@ -43,7 +43,7 @@ const REQUIRED_SCOPES = [
 ];
 
 const CARD_FORMAT_LABELS: Record<
-  (typeof experimentCardFormats)[number],
+  (typeof notificationCardFormats)[number],
   { label: string; description: string }
 > = {
   compact: {
@@ -101,7 +101,7 @@ export default function SlackChannelSettings({
   const [notificationType, setNotificationType] = useState<
     NotificationSettings["type"]
   >(initialNotificationSettings.type);
-  const [cardFormat, setCardFormat] = useState<ExperimentCardFormat>(
+  const [cardFormat, setCardFormat] = useState<NotificationCardFormat>(
     initialNotificationSettings.type === "image"
       ? initialNotificationSettings.cardFormat
       : DEFAULT_NOTIFICATION_SETTINGS.cardFormat,
@@ -311,12 +311,12 @@ export default function SlackChannelSettings({
               <RadioGroup
                 gap="3"
                 value={cardFormat}
-                options={experimentCardFormats.map((format) => ({
+                options={notificationCardFormats.map((format) => ({
                   value: format,
                   ...CARD_FORMAT_LABELS[format],
                 }))}
                 setValue={(value) => {
-                  setCardFormat(experimentCardFormatSchema.parse(value));
+                  setCardFormat(notificationCardFormatSchema.parse(value));
                   setSaved(false);
                 }}
               />

@@ -5,7 +5,7 @@ const base = {
   experimentName: "Checkout redesign",
 };
 
-export const eventSnapshotCardSamples: {
+export const notificationCardSamples: {
   name: string;
   event: NotificationEvent;
 }[] = [
