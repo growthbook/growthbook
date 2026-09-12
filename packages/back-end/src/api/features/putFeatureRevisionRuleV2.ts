@@ -3,6 +3,7 @@ import {
   getAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
+  isScheduledRule,
 } from "shared/util";
 import {
   RevisionRampCreateAction,
@@ -46,7 +47,6 @@ import {
   composeConfigBacking,
   resolveScopeFromInput,
   assertCanUseRuleScheduling,
-  isScheduledRule,
 } from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(

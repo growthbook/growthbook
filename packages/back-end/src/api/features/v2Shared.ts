@@ -10,7 +10,7 @@ import {
   isScopedConfig,
   valueHasConfigExtends,
   parsePlainJSONObject,
-  stemRuleId,
+  isScheduledRule,
   findStoredRuleCounterpart,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
@@ -500,13 +500,7 @@ export function assertUniqueRuleIdsByEnv(
   envBody: ApiFeatureEnvSettings | undefined,
 ): void {
   for (const [environment, settings] of Object.entries(envBody ?? {})) {
-    // The flattener groups a v1 environment's rules by stem.
-    if (settings.rules) {
-      assertUniqueRuleIds(
-        settings.rules.map((r) => ({ id: r.id && stemRuleId(r.id) })),
-        environment,
-      );
-    }
+    if (settings.rules) assertUniqueRuleIds(settings.rules, environment);
   }
 }
 
@@ -533,19 +527,9 @@ export function assertCanUseRuleScheduling(
     input.rampSchedule;
   if (scheduled && !context.hasPremiumFeature("schedule-feature-flag")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedules require a Pro plan or above.",
+      "Rule scheduling requires a Pro plan or above.",
     );
   }
-}
-
-export function isScheduledRule(
-  rule: Pick<FeatureRule, "scheduleRules" | "scheduleType"> | undefined,
-): boolean {
-  if (!rule) return false;
-  return (
-    (rule.scheduleType ?? "none") !== "none" ||
-    !!rule.scheduleRules?.some((r) => r.timestamp)
-  );
 }
 
 // Update form: a rule whose project scope is unchanged from the stored rule
@@ -581,11 +565,10 @@ export async function assertValidHoldout(
   });
 }
 
-// v2 counterpart on the flat rules array: same plan gate and business rules,
-// keyed by rule index. Empty arrays pass so a round-trip of an unscheduled
-// rule never trips the plan gate.
-// The plan gate applies only to rules not already scheduled in `stored`, so a
-// downgraded org can still echo, edit, or clear an existing schedule.
+// v2 counterpart on the flat rules array, keyed by rule index. Empty arrays
+// pass, and the plan gate applies only to rules not already scheduled in
+// `stored`, so a downgraded org can still echo, edit, or clear an existing
+// schedule.
 export function validateRulesScheduleRules(
   rules: FeatureRule[],
   context: ApiReqContext,
@@ -611,9 +594,8 @@ export function validateRulesScheduleRules(
   });
 }
 
-// v1-shape counterpart of validateRulesScheduleRules. A stored (flat, v2-scoped)
-// rule is the counterpart of an inbound env rule when the ids match, or the id
-// stems match and the stored rule covers that environment.
+// v1-shape counterpart of validateRulesScheduleRules; the stored counterpart
+// of an env rule is looked up as if the rule were scoped to that environment.
 export function validateEnvRulesScheduleRules(
   envBody: ApiFeatureEnvSettings | undefined,
   context: ApiReqContext,
@@ -624,15 +606,20 @@ export function validateEnvRulesScheduleRules(
     if (!envSettings.rules) continue;
     envSettings.rules.forEach((rule, ruleIndex) => {
       if (!rule.scheduleRules?.length) return;
-      const ruleId = rule.id;
-      const prior = ruleId
-        ? stored.find(
-            (s) =>
-              s.id === ruleId ||
-              (stemRuleId(s.id) === stemRuleId(ruleId) &&
-                (s.allEnvironments || s.environments?.includes(envName))),
-          )
-        : undefined;
+      const prior = findStoredRuleCounterpart<
+        Pick<
+          FeatureRule,
+          | "id"
+          | "allEnvironments"
+          | "environments"
+          | "scheduleRules"
+          | "scheduleType"
+        >
+      >(stored, {
+        id: rule.id ?? "",
+        allEnvironments: false,
+        environments: [envName],
+      });
       if (
         !isScheduledRule(prior) &&
         !context.hasPremiumFeature("schedule-feature-flag")

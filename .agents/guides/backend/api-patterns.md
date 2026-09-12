@@ -397,7 +397,9 @@ shorthand becomes a one-step ramp action. Gate them the same way.
   license, self-hosted OSS) must still be able to edit, pause, cancel, or clear
   the schedules it already has, so it can wind them down. Concretely: the engine
   chokepoint `createRampSchedulesForRevision` in `FeatureModel` gates `create`
-  ramp actions but not `update`; the per-rule REST endpoints skip
+  ramp actions but not `update`, and not a create whose target rule already
+  carried a schedule (`isScheduledRule` in `shared/util`); the per-rule REST
+  endpoints skip
   `assertCanUseRuleScheduling` when the stored rule is already scheduled
   (`isScheduledRule`) or a live ramp targets it; the bulk validators
   `validateRulesScheduleRules` / `validateEnvRulesScheduleRules` gate only rules

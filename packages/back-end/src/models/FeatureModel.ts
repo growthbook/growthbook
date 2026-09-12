@@ -15,6 +15,7 @@ import {
   rampRuleEnvKey,
   resolveTargetingProjectIds,
   stemRuleId,
+  isScheduledRule,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -2862,10 +2863,16 @@ async function createRampSchedulesForRevision(
     if (action.mode !== "create" && action.mode !== "update") continue;
 
     // Pro gate on new schedules only; editing an existing one stays allowed on
-    // any plan — see .agents/guides/backend/api-patterns.md.
+    // any plan — see .agents/guides/backend/api-patterns.md. A create that
+    // replaces a rule's legacy scheduleRules with a ramp is such an edit.
     if (
       action.mode === "create" &&
-      !context.hasPremiumFeature("schedule-feature-flag")
+      !context.hasPremiumFeature("schedule-feature-flag") &&
+      !isScheduledRule(
+        feature.rules?.find(
+          (r) => stemRuleId(r.id) === stemRuleId(action.ruleId),
+        ),
+      )
     ) {
       context.throwPlanDoesNotAllowError(
         "Ramp schedules require a Pro plan or above.",

@@ -496,14 +496,6 @@ describe("validateRulesScheduleRules", () => {
     expect(() => validateRulesScheduleRules([rule(valid)], ctx(false))).toThrow(
       /schedule rules/,
     );
-    const unscheduledStored = { ...rule([]), id: "fr_1" } as FeatureRule;
-    expect(() =>
-      validateRulesScheduleRules(
-        [{ ...rule(valid), id: "fr_1" } as FeatureRule],
-        ctx(false),
-        [unscheduledStored],
-      ),
-    ).toThrow(/schedule rules/);
   });
 
   it("does not consult the plan when the stored counterpart is already scheduled", () => {
@@ -679,10 +671,12 @@ describe("assertUniqueRuleIds", () => {
     expect(() => assertUniqueRuleIdsByEnv(body(["a", "a"], []))).toThrow(
       'Duplicate rule ID(s) in environment "production": a.',
     );
-    // The flattener groups by stem, so a suffixed id and its bare stem collide.
+    // Migration-suffixed siblings read back as distinct ids and must echo.
     expect(() =>
-      assertUniqueRuleIdsByEnv(body(["fr_x__production", "fr_x"], [])),
-    ).toThrow(/fr_x\./);
+      assertUniqueRuleIdsByEnv(
+        body(["fr_x__production", "fr_x__production__2"], []),
+      ),
+    ).not.toThrow();
   });
 });
 

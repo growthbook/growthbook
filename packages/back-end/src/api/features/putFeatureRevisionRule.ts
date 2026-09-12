@@ -1,5 +1,9 @@
 import isEqual from "lodash/isEqual";
-import { getAttributeScopeProjectIds, ruleAppliesToEnv } from "shared/util";
+import {
+  getAttributeScopeProjectIds,
+  ruleAppliesToEnv,
+  isScheduledRule,
+} from "shared/util";
 import {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
@@ -37,7 +41,7 @@ import {
   validateRuleReferences,
   resolveOrCreateRevision,
 } from "./validations";
-import { assertCanUseRuleScheduling, isScheduledRule } from "./v2Shared";
+import { assertCanUseRuleScheduling } from "./v2Shared";
 
 export function applyPatch(
   existing: FeatureRule,
