@@ -1,4 +1,5 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
+import { DEFAULT_NOTIFICATION_SETTINGS } from "shared/validators";
 import {
   EventWebHookInterface,
   EventWebHookMethod,
@@ -22,7 +23,9 @@ import {
 import {
   isSlackWorkspacePlaceholderUrl,
   postSlackMessageResult,
+  uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
+import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
@@ -91,6 +94,7 @@ export class EventWebHookNotifier implements Notifier {
     const { eventId, eventWebHookId } = job.attrs.data;
 
     const event = await getEvent(eventId);
+
     if (!event) {
       // We should never get here.
       throw new Error(
@@ -192,6 +196,43 @@ export class EventWebHookNotifier implements Notifier {
       const channelId = eventWebHook.slack?.channelId;
 
       if (botToken && channelId) {
+        const notificationSettings =
+          eventWebHook.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
+        const card =
+          event.version && notificationSettings.type === "image"
+            ? await renderNotificationCard(
+                event.data,
+                notificationSettings.cardFormat,
+              )
+            : null;
+        if (card) {
+          const fileId = await uploadSlackImageFile({
+            token: botToken,
+            png: card.png,
+            filename: "notification-card.png",
+            title: card.altText,
+            channelId,
+            initialComment: card.caption,
+          });
+          if (fileId) {
+            return EventWebHookNotifier.handleWebHookSuccess({
+              job,
+              webHookResult: {
+                result: "success",
+                statusCode: 200,
+                responseBody: fileId,
+              },
+              organizationId: organization.id,
+              event: event.event,
+              url: eventWebHook.url,
+              method,
+              payload: logPayload,
+            });
+          }
+        }
+
+        // Text remains the compatibility fallback for events without cards and
+        // workspaces whose existing token does not yet include files:write.
         const text =
           typeof logPayload.text === "string" ? logPayload.text : null;
         if (!text) return;

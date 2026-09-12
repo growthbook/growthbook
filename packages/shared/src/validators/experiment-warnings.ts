@@ -19,12 +19,25 @@ export const multipleExposures = z
   })
   .strict();
 
+export const srmVariationBalance = z
+  .object({
+    name: z.string(),
+    users: z.number(),
+    // Configured traffic share for the phase (normalize against the sum).
+    weight: z.number(),
+  })
+  .strict();
+
 export const srm = z
   .object({
     type: z.literal("srm"),
     experimentName: z.string(),
     experimentId: z.string(),
     threshold: z.number(),
+    // Evidence captured at emission time. Absent on events emitted before
+    // these fields existed.
+    pValue: z.number().optional(),
+    variations: z.array(srmVariationBalance).optional(),
   })
   .strict();
 

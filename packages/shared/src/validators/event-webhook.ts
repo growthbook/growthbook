@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NotificationEventName } from "shared/types/events/base-types";
 import { zodNotificationEventNamesEnum } from "./events";
+import { notificationSettingsSchema } from "./notification-card";
 
 export const eventWebHookPayloadTypes = [
   "raw",
@@ -75,6 +76,7 @@ export const eventWebHookInterface = z
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
     slack: slackEventWebHookMetadata.optional(),
+    notificationSettings: notificationSettingsSchema.optional(),
     signingKey: z.string().min(2),
     lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),
