@@ -154,23 +154,6 @@ describe("notifyAutoUpdate", () => {
     expect(createEventMock).toHaveBeenCalled();
   });
 
-  it("creates a warning event when auto-refresh was turned back on after the fail event", async () => {
-    getLatestAutoUpdateFailEventMock.mockResolvedValue({
-      dateCreated: failAt,
-    });
-
-    await notifyAutoUpdate({
-      context,
-      experiment: {
-        ...experiment,
-        dateUpdated: new Date("2026-09-12T00:00:00.000Z"),
-      },
-      success: false,
-    });
-
-    expect(createEventMock).toHaveBeenCalled();
-  });
-
   it("does not create a warning event on success", async () => {
     await notifyAutoUpdate({
       context,
