@@ -1,15 +1,14 @@
 import {
-  ExperimentCardData,
+  CardData,
   renderDetailedCard,
   renderCompactCard,
   renderCompactDarkCard,
 } from "back-end/src/services/notificationCards/cardImages";
 
 // A card style is one platform-neutral visual treatment for rendering
-// ExperimentCardData into a PNG. The data model
-// (`ExperimentCardData`) is intentionally style-agnostic — every style consumes
-// the same model — so adding a style is purely a new renderer + registry entry,
-// with no change to how cards are built from an experiment.
+// CardData into a PNG. The data model is intentionally style-agnostic — every
+// style consumes the same model — so adding a style is purely a new renderer +
+// registry entry, with no change to how cards are built from an event.
 
 export type ExperimentCardStyle = "detailed" | "compact" | "compact-dark";
 
@@ -21,7 +20,7 @@ export interface CardStyleDefinition {
   label: string;
   /** One-line description of the look, for the same picker. */
   description: string;
-  render: (exp: ExperimentCardData) => Promise<Buffer>;
+  render: (card: CardData) => Promise<Buffer>;
 }
 
 const CARD_STYLES: Record<ExperimentCardStyle, CardStyleDefinition> = {
@@ -56,11 +55,11 @@ const CARD_STYLES: Record<ExperimentCardStyle, CardStyleDefinition> = {
  * should use — it keeps the choice of style in one place.
  */
 export function renderExperimentCard(
-  exp: ExperimentCardData,
+  card: CardData,
   style: ExperimentCardStyle = DEFAULT_CARD_STYLE,
 ): Promise<Buffer> {
   const def = CARD_STYLES[style] ?? CARD_STYLES[DEFAULT_CARD_STYLE];
-  return def.render(exp);
+  return def.render(card);
 }
 
 /** The available card styles, for a future user/org-facing picker. */

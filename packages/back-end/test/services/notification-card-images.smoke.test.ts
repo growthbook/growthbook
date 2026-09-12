@@ -74,12 +74,12 @@ it.each(STATES)(
 
 describe("immutable event summary rendering", () => {
   it.each(eventSnapshotCardSamples)(
-    "renders compact and detailed $name cards without result rows",
+    "renders compact and detailed $name cards without metric data",
     async ({ event }) => {
       const card = buildEventSnapshotCard(event);
       expect(card).not.toBeNull();
       if (!card) throw new Error("Missing event sample card");
-      expect(card.rows).toEqual([]);
+      expect(card).not.toHaveProperty("rows");
       for (const style of ["compact", "compact-dark", "detailed"] as const) {
         const png = await renderExperimentCard(card, style);
         expect(isPng(png)).toBe(true);

@@ -282,8 +282,9 @@ describe("Slack EventWebHook delivery compatibility", () => {
     });
     jest.mocked(renderExperimentNotificationCard).mockResolvedValue({
       png: Buffer.from("png"),
-      altText: "Checkout test — experiment results",
-      caption: "Experiment stopped",
+      altText: "Checkout test - Experiment stopped",
+      caption:
+        "<http://app/experiment/exp-1|Checkout test> - Experiment stopped",
       experimentId: "exp-1",
     });
     jest.mocked(uploadSlackImageFile).mockResolvedValue("F123");
@@ -298,9 +299,10 @@ describe("Slack EventWebHook delivery compatibility", () => {
       token: "xoxb-token",
       png: Buffer.from("png"),
       filename: "experiment-card.png",
-      title: "Experiment stopped",
+      title: "Checkout test - Experiment stopped",
       channelId: "C123",
-      initialComment: "Experiment stopped",
+      initialComment:
+        "<http://app/experiment/exp-1|Checkout test> - Experiment stopped",
     });
     expect(postSlackMessageResult).not.toHaveBeenCalled();
     expect(updateEventWebHookStatus).toHaveBeenCalledWith(
@@ -321,8 +323,8 @@ describe("Slack EventWebHook delivery compatibility", () => {
     });
     jest.mocked(renderExperimentNotificationCard).mockResolvedValue({
       png: Buffer.from("png"),
-      altText: "Checkout test — experiment results",
-      caption: "Health alert",
+      altText: "Checkout test - Health issue",
+      caption: "<http://app/experiment/exp-1|Checkout test> - Health issue",
       experimentId: "exp-1",
     });
     jest.mocked(uploadSlackImageFile).mockResolvedValue(null);

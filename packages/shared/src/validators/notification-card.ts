@@ -24,14 +24,3 @@ export const DEFAULT_NOTIFICATION_SETTINGS = {
   type: "image",
   cardFormat: "compact",
 } satisfies NotificationSettings;
-
-export const notificationCardKinds = [
-  "started",
-  "significance",
-  "won",
-  "lost",
-  "stopped",
-  "warning",
-] as const;
-
-export type NotificationCardKind = (typeof notificationCardKinds)[number];

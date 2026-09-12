@@ -32,8 +32,10 @@ describe("renderExperimentNotificationCard", () => {
     await expect(renderExperimentNotificationCard(srmWarning)).resolves.toEqual(
       {
         png: Buffer.from("png"),
-        altText: "Checkout — experiment results",
-        caption: "Health alert",
+        altText: "Checkout - Health issue",
+        caption: expect.stringMatching(
+          /^<https?:\/\/[^|]+\/experiment\/exp-1\|Checkout> - Health issue$/,
+        ),
         experimentId: "exp-1",
       },
     );
@@ -42,8 +44,36 @@ describe("renderExperimentNotificationCard", () => {
         event: "warning",
         state: "warning",
         key: "exp-1",
-        rows: [],
-        summary: ["Sample ratio mismatch detected.", "SRM threshold: 0.001"],
+        summary: ["Sample ratio mismatch detected."],
+      }),
+      "compact",
+    );
+  });
+
+  it("adds the balance table when the SRM payload carries evidence", async () => {
+    await renderExperimentNotificationCard(
+      notification("experiment.warning", {
+        type: "srm",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        threshold: 0.001,
+        pValue: 0.00042,
+        variations: [
+          { name: "Control", users: 6200, weight: 1 },
+          { name: "Treatment", users: 3800, weight: 1 },
+        ],
+      }),
+    );
+    expect(renderExperimentCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        table: {
+          columns: ["Variation", "Units", "Actual %", "Expected %"],
+          rows: [
+            ["Control", "6,200", "62%", "50%"],
+            ["Treatment", "3,800", "38%", "50%"],
+          ],
+          note: "10,000 total units · p-value = <0.001",
+        },
       }),
       "compact",
     );

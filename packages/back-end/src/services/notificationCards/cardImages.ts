@@ -236,21 +236,41 @@ export interface CardCiMetric {
   sig?: boolean;
 }
 
-export interface ExperimentCardData {
+export interface CardTable {
+  columns: string[];
+  rows: string[][];
+  note?: string;
+}
+
+// Header/footer fields shared by every card.
+interface CardIdentity {
   state: CardState;
+  // The notification *event* the card announces (distinct from `state`/status).
+  // When unset, the compact card derives it from state.
+  event?: CompactEvent;
   name: string;
   key: string;
+  tags?: string[];
+  dates?: string;
+  badgeLabel?: string; // overrides the state badge text, e.g. a stopped card with no outcome
+}
+
+// Built from an immutable event payload alone; carries no metric results.
+export interface EventCardData extends CardIdentity {
+  summary: string[];
+  table?: CardTable;
+}
+
+// Results card: adds snapshot-derived metric data. Not produced by any event
+// yet; kept for the upcoming stopped/won/lost cards.
+export interface ExperimentCardData extends CardIdentity {
   goal: string;
   variants: string[];
-  tags?: string[];
   users?: string;
   days?: string;
-  dates?: string;
   ds?: string;
   note?: string;
   rows: CardGoalRow[];
-  summary?: string[];
-  badgeLabel?: string; // overrides the state badge text, e.g. a stopped card with no outcome
   secondary?: CardCiMetric[];
   guardrail?: CardCiMetric[];
   // Shown above the conclusion for non-started states; and in the started body.
@@ -265,13 +285,15 @@ export interface ExperimentCardData {
   // warning-only
   srm?: string;
   p?: string;
-  // compact-card-only: the notification *event* the card announces (distinct
-  // from `state`/status). When unset, the compact card derives it from state.
-  event?: CompactEvent;
   winningVariation?: string;
   winningVariationIndex?: number;
   compactLine?: string; // one-line conclusion fallback for outcome events
 }
+
+export type CardData = EventCardData | ExperimentCardData;
+
+const isResultsCard = (card: CardData): card is ExperimentCardData =>
+  "rows" in card;
 
 // A compact notification announces an EVENT (distinct from the experiment's
 // status). started fires while Running; won/lost/stopped once
@@ -882,7 +904,7 @@ function tagBadges(tags: string[]): El[] {
 
 // Condensed single-row header, no background tint (status is carried by the
 // left rail + the badge): name · key · badge on the left, tags + logo right.
-function headerEl(exp: ExperimentCardData): El {
+function headerEl(exp: CardIdentity): El {
   const logoH = 15;
   return el(
     "div",
@@ -1268,25 +1290,106 @@ function conclusionEl(exp: ExperimentCardData): El | null {
   );
 }
 
-function eventSummaryBody(lines: string[]): El {
+const TABLE_COL_W = 92;
+
+// Plain text table: first column flexes and is left-aligned, the rest are
+// fixed-width and right-aligned.
+function tableEl(table: CardTable): El {
+  const cell = (s: string, i: number, style: Record<string, unknown>) =>
+    el(
+      "div",
+      {
+        display: "flex",
+        justifyContent: i === 0 ? "flex-start" : "flex-end",
+        ...(i === 0 ? { flexGrow: 1, minWidth: 0 } : { width: TABLE_COL_W }),
+      },
+      [txt(s, style, i !== 0)],
+    );
+  const row = (cells: El[], style: Record<string, unknown>) =>
+    el(
+      "div",
+      {
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 12px",
+        ...style,
+      },
+      cells,
+    );
   return el(
     "div",
-    { display: "flex", flexDirection: "column", gap: 12, padding: "20px 24px" },
-    lines.map((line) =>
-      txt(plainClamp(line, 240), { fontSize: 17, color: P.text }),
-    ),
+    {
+      display: "flex",
+      flexDirection: "column",
+      border: `1px solid ${P.border}`,
+      borderRadius: 8,
+      overflow: "hidden",
+    },
+    [
+      row(
+        table.columns.map((c, i) =>
+          cell(c, i, {
+            fontSize: 9.5,
+            fontWeight: 600,
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            color: P.subtle,
+          }),
+        ),
+        { backgroundColor: P.zebra },
+      ),
+      ...table.rows.map((r, ri) =>
+        row(
+          r.map((s, i) =>
+            cell(s, i, {
+              fontSize: 13,
+              fontWeight: i === 0 ? 500 : 400,
+              color: P.text,
+            }),
+          ),
+          ri > 0 ? { borderTop: `1px solid ${P.borderSub}` } : {},
+        ),
+      ),
+      ...(table.note
+        ? [
+            row([txt(table.note, { fontSize: 12, color: P.muted })], {
+              borderTop: `1px solid ${P.borderSub}`,
+            }),
+          ]
+        : []),
+    ],
   );
 }
 
-function buildCard(exp: ExperimentCardData): El {
-  const hue = HUE[exp.state];
+function eventSummaryBody(card: EventCardData): El {
+  return el(
+    "div",
+    { display: "flex", flexDirection: "column", gap: 12, padding: "20px 24px" },
+    [
+      ...card.summary.map((line) =>
+        txt(plainClamp(line, 240), { fontSize: 17, color: P.text }),
+      ),
+      ...(card.table ? [tableEl(card.table)] : []),
+    ],
+  );
+}
+
+function buildCard(card: CardData): El {
+  const hue = HUE[card.state];
+  if (!isResultsCard(card)) {
+    return cardShell(hue, [
+      headerEl(card),
+      eventSummaryBody(card),
+      footerEl([card.dates]),
+    ]);
+  }
+  const exp = card;
   let body: El;
   let footerItems: (string | undefined)[];
 
-  if (exp.summary) {
-    body = eventSummaryBody(exp.summary);
-    footerItems = [exp.dates];
-  } else if (exp.state === "started") {
+  if (exp.state === "started") {
     body = startedBody(exp);
     footerItems = [exp.variants.join(" · "), exp.dates, exp.ds];
   } else if (exp.state === "warning") {
@@ -1463,7 +1566,7 @@ function statusPillEl(status: "running" | "stopped"): El {
 }
 
 // Derive the event when the caller didn't set one (samples / assistant path).
-function compactEventFor(exp: ExperimentCardData): CompactEvent {
+function compactEventFor(exp: CardIdentity): CompactEvent {
   if (exp.event) return exp.event;
   switch (exp.state) {
     case "started":
@@ -1551,7 +1654,7 @@ function compactBannerEl(
 }
 
 // Name row on the white body, directly under the banner.
-function compactNameRowEl(exp: ExperimentCardData): El {
+function compactNameRowEl(exp: CardIdentity): El {
   return el(
     "div",
     {
@@ -1580,7 +1683,6 @@ function compactHero(
   event: CompactEvent,
   hue: Hue,
 ): El {
-  if (exp.summary) return eventSummaryBody(exp.summary);
   const accentText = P.st[hue];
   const r = exp.rows[0];
 
@@ -1814,30 +1916,36 @@ function compactHero(
   );
 }
 
-function buildCompactCard(exp: ExperimentCardData): El {
-  const event = compactEventFor(exp);
+function compactFooterItems(
+  exp: ExperimentCardData,
+  event: CompactEvent,
+): (string | undefined)[] {
+  // Running-state events (no end date) omit the date range from the footer.
+  if (event === "started") return [exp.variants.join(" · "), exp.dates, exp.ds];
+  if (event === "warning") {
+    return [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds];
+  }
+  return [
+    exp.days,
+    exp.users ? `${exp.users} users` : undefined,
+    exp.dates,
+    exp.ds,
+  ];
+}
+
+function buildCompactCard(card: CardData): El {
+  const event = compactEventFor(card);
   const ev = COMPACT_EVENT[event];
-  const r0 = exp.rows[0];
   // Event hue drives the rail + eyebrow; win/ship tint by
   // direction (a "ship recommended" with a down metric goes red).
   let hue = ev.hue;
-  if (event === "won" && r0?.dir === "down") {
+  if (isResultsCard(card) && event === "won" && card.rows[0]?.dir === "down") {
     hue = "red";
   }
 
-  // Running-state events (no end date) omit the date range from the footer.
-  const runningEvent = event === "warning";
-  const footerItems =
-    event === "started"
-      ? [exp.variants.join(" · "), exp.dates, exp.ds]
-      : runningEvent
-        ? [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds]
-        : [
-            exp.days,
-            exp.users ? `${exp.users} users` : undefined,
-            exp.dates,
-            exp.ds,
-          ];
+  const [hero, footerItems] = isResultsCard(card)
+    ? [compactHero(card, event, hue), compactFooterItems(card, event)]
+    : [eventSummaryBody(card), [card.dates]];
 
   // Rail-less panel: the solid banner carries the status color. The hero wrapper
   // flex-grows and centers its content so short cards sit at min-height without
@@ -1856,7 +1964,7 @@ function buildCompactCard(exp: ExperimentCardData): El {
     },
     [
       compactBannerEl(ev, hue),
-      compactNameRowEl(exp),
+      compactNameRowEl(card),
       el(
         "div",
         {
@@ -1866,7 +1974,7 @@ function buildCompactCard(exp: ExperimentCardData): El {
           justifyContent: "center",
           padding: "16px 22px 18px",
         },
-        [compactHero(exp, event, hue)],
+        [hero],
       ),
       compactFooterEl(footerItems),
     ],
@@ -1956,9 +2064,7 @@ async function rasterize(root: El, width = CARD_WIDTH): Promise<Buffer> {
  * This is one card *style*; callers should go through `renderExperimentCard`
  * in `./cards`, which dispatches by style, rather than calling this directly.
  */
-export async function renderDetailedCard(
-  exp: ExperimentCardData,
-): Promise<Buffer> {
+export async function renderDetailedCard(exp: CardData): Promise<Buffer> {
   return rasterize(buildCard(exp));
 }
 
@@ -1967,9 +2073,7 @@ export async function renderDetailedCard(
  * per-event notifications. Uses a colored event banner and a narrow layout.
  * Callers should use `renderExperimentCard` in `./experimentCards`.
  */
-export async function renderCompactCard(
-  exp: ExperimentCardData,
-): Promise<Buffer> {
+export async function renderCompactCard(exp: CardData): Promise<Buffer> {
   return rasterize(buildCompactCard(exp), COMPACT_WIDTH);
 }
 
@@ -2043,9 +2147,7 @@ function darkCompactBody(node: El): El {
   };
 }
 
-export async function renderCompactDarkCard(
-  exp: ExperimentCardData,
-): Promise<Buffer> {
+export async function renderCompactDarkCard(exp: CardData): Promise<Buffer> {
   const light = buildCompactCard(exp);
   const dark = darkCompactBody(light);
   if (

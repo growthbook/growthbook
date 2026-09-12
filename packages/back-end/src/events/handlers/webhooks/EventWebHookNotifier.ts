@@ -94,6 +94,7 @@ export class EventWebHookNotifier implements Notifier {
     const { eventId, eventWebHookId } = job.attrs.data;
 
     const event = await getEvent(eventId);
+
     if (!event) {
       // We should never get here.
       throw new Error(
@@ -209,7 +210,7 @@ export class EventWebHookNotifier implements Notifier {
             token: botToken,
             png: card.png,
             filename: "experiment-card.png",
-            title: card.caption,
+            title: card.altText,
             channelId,
             initialComment: card.caption,
           });
