@@ -216,28 +216,6 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
         changes,
       });
     }
-
-    try {
-      await notifyAutoUpdate({ context, experiment, success: true });
-    } catch (e) {
-      logger.error(e, "Failed to notify auto-update success: " + experimentId);
-      try {
-        await updateExperiment({
-          context,
-          experiment,
-          changes: {
-            pastNotifications: (experiment.pastNotifications || []).filter(
-              (notification) => notification !== "auto-update",
-            ),
-          },
-        });
-      } catch (err) {
-        logger.error(
-          err,
-          "Failed to clear auto-update notification marker: " + experimentId,
-        );
-      }
-    }
   } catch (e) {
     // Lock contention is transient so we don't disable auto-updates
     if (e instanceof ConcurrentIncrementalRefreshError) {

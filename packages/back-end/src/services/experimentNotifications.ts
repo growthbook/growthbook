@@ -27,7 +27,11 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
-import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import {
+  createEvent,
+  CreateEventData,
+  getLatestAutoUpdateFailEvent,
+} from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
@@ -103,7 +107,10 @@ export const memoizeNotification = async ({
   });
 };
 
-export const notifyAutoUpdate = ({
+const isLater = (left: Date | undefined, right: Date) =>
+  !!left && new Date(left).getTime() > right.getTime();
+
+export const notifyAutoUpdate = async ({
   context,
   experiment,
   success,
@@ -112,31 +119,38 @@ export const notifyAutoUpdate = ({
   experiment: ExperimentInterface;
   success: boolean;
 }) => {
-  const dispatch = () =>
-    dispatchEvent({
-      context,
-      experiment,
-      event: "warning",
-      data: {
-        object: {
-          type: "auto-update",
-          success,
-          experimentId: experiment.id,
-          experimentName: experiment.name,
-        },
-      },
-    });
+  if (success) return;
 
-  if (!success && experiment.pastNotifications?.includes("auto-update")) {
-    return dispatch();
+  const fail = await getLatestAutoUpdateFailEvent({
+    organizationId: context.org.id,
+    experimentId: experiment.id,
+  });
+  if (fail) {
+    const lastSuccess = experiment.phases?.length
+      ? await getLatestSuccessfulSnapshot({
+          context,
+          experiment: experiment.id,
+          phase: experiment.phases.length - 1,
+          type: "standard",
+        })
+      : null;
+    if (!isLater(lastSuccess?.dateCreated, fail.dateCreated)) {
+      return;
+    }
   }
 
-  return memoizeNotification({
+  return dispatchEvent({
     context,
     experiment,
-    type: "auto-update",
-    triggered: !success,
-    dispatch,
+    event: "warning",
+    data: {
+      object: {
+        type: "auto-update",
+        success,
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+      },
+    },
   });
 };
 
