@@ -43,6 +43,7 @@ import {
   isDraftStatus,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
+  assertValidRuleEnvironments,
   resolveOrCreateRevision,
   validateRuleAttributes,
   validatePrerequisiteConditions,
@@ -54,6 +55,7 @@ import {
   assertValidRuleConfigKeys,
   composeConfigBacking,
   resolveScopeFromInput,
+  assertCanUseRuleScheduling,
 } from "./v2Shared";
 
 export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
@@ -68,6 +70,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
 
   const { schedule } = req.body;
   const inlineRampSchedule = req.body.rampSchedule;
+  assertCanUseRuleScheduling(req.context, {
+    schedule,
+    rampSchedule: inlineRampSchedule,
+  });
   const ruleInput = req.body.rule as RuleCreateInputV2;
 
   // Capture config-backing inputs before the experiment-ref variation backfill
@@ -88,6 +94,9 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       "rampSchedule and schedule are mutually exclusive. Provide one or the other, not both.",
     );
   }
+  // v1 validates its single `environment`; do the same for the v2 list
+  // before a draft is created.
+  assertValidRuleEnvironments(req.context, [ruleInput]);
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -231,7 +240,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
       if (!req.context.hasPremiumFeature("safe-rollout")) {
         req.context.throwPlanDoesNotAllowError(
-          "Safe Rollout rules require an Enterprise plan.",
+          "Safe Rollout rules require a Pro plan or above.",
         );
       }
 

@@ -2763,8 +2763,19 @@ export function getApiFeatureObjV2({
     }
   });
 
+  // Like the revision read model: drop environment ids that no longer exist
+  // (or don't apply to this feature), so a GET can be posted back unchanged.
+  const applicableEnvs = new Set(
+    getApplicableEnvIds(getEnvironments(organization), feature),
+  );
   const apiRules: ApiFeatureRuleV2[] = (feature.rules ?? []).map((rule) => {
-    const normalized = normalizeRuleForApiV2(rule);
+    const base = normalizeRuleForApiV2(rule);
+    const normalized = base.environments
+      ? {
+          ...base,
+          environments: base.environments.filter((e) => applicableEnvs.has(e)),
+        }
+      : base;
     const rampScheduleId =
       rampScheduleMap?.get(stemRuleId(rule.id ?? "")) ?? undefined;
     return rampScheduleId ? { ...normalized, rampScheduleId } : normalized;

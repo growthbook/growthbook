@@ -67,7 +67,9 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidRuleProjectIds,
+  assertValidChangedRuleProjectIds,
+  assertUniqueRuleIdsByEnv,
+  assertValidChangedRuleExperimentIds,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
   extractRevisionMetadata,
@@ -154,7 +156,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
     }
 
-    validateEnvRulesScheduleRules(req.body.environments, req.context);
+    validateEnvRulesScheduleRules(
+      req.body.environments,
+      req.context,
+      feature.rules ?? [],
+    );
+    assertUniqueRuleIdsByEnv(req.body.environments);
 
     // ensure default value matches value type
     let defaultValue;
@@ -373,7 +380,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             featureProject: effectiveProject,
           })
         : [];
-    await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    await assertValidChangedRuleProjectIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await assertValidChangedRuleExperimentIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
     await validateChangedRuleReferences(
       inboundFlatRules,
       feature.rules ?? [],

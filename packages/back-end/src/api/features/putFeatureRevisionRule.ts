@@ -1,5 +1,9 @@
 import isEqual from "lodash/isEqual";
-import { getAttributeScopeProjectIds, ruleAppliesToEnv } from "shared/util";
+import {
+  getAttributeScopeProjectIds,
+  ruleAppliesToEnv,
+  isScheduledRule,
+} from "shared/util";
 import {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
@@ -37,6 +41,7 @@ import {
   validateRuleReferences,
   resolveOrCreateRevision,
 } from "./validations";
+import { assertCanUseRuleScheduling } from "./v2Shared";
 
 export function applyPatch(
   existing: FeatureRule,
@@ -284,6 +289,15 @@ export const putFeatureRevisionRule = createApiRequestHandler(
           req.params.ruleId,
           environment,
         );
+    }
+    // Only newly introduced scheduling is plan-gated; an already-scheduled
+    // rule can be edited or cleared on any plan.
+    if (!isScheduledRule(oldRule) && liveSchedulesForRule.length === 0) {
+      assertCanUseRuleScheduling(req.context, {
+        schedule,
+        scheduleRules: patch.scheduleRules,
+        rampSchedule: inlineRampSchedule,
+      });
     }
     const updatedRule = applyPatch(oldRule, patch);
 

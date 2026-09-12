@@ -53,6 +53,7 @@ import {
   validatePrerequisiteConditions,
   validateRuleReferences,
 } from "./validations";
+import { assertCanUseRuleScheduling } from "./v2Shared";
 
 const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 
@@ -150,6 +151,11 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
   const { environment, schedule } = req.body;
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
+  assertCanUseRuleScheduling(req.context, {
+    schedule,
+    scheduleRules: req.body.rule.scheduleRules,
+    rampSchedule: inlineRampSchedule,
+  });
   const ruleInput = req.body.rule;
 
   const { revision, created } = await resolveOrCreateRevision(
@@ -241,7 +247,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
       if (!req.context.hasPremiumFeature("safe-rollout")) {
         req.context.throwPlanDoesNotAllowError(
-          "Safe Rollout rules require an Enterprise plan.",
+          "Safe Rollout rules require a Pro plan or above.",
         );
       }
 

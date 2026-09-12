@@ -11,7 +11,7 @@ import {
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
-import { validateCondition } from "shared/util";
+import { findStoredRuleCounterpart, validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
@@ -147,6 +147,20 @@ export function assertValidEnvironment(
   }
 }
 
+// Same check for the `environments` list a v2 rule is scoped to. A rule with
+// `allEnvironments: true` is skipped, since its list is discarded.
+export function assertValidRuleEnvironments(
+  context: ApiReqContext,
+  rules: { allEnvironments?: boolean; environments?: string[] }[],
+): void {
+  for (const rule of rules) {
+    if (rule.allEnvironments === true) continue;
+    for (const environment of rule.environments ?? []) {
+      assertValidEnvironment(context, environment);
+    }
+  }
+}
+
 // Build a RevisionRampCreateAction from start/end dates (enable/disable).
 // `environment` is intentionally absent — new actions target by `ruleId` only.
 //
@@ -237,10 +251,9 @@ export async function validateChangedRuleReferences(
   stored: FeatureRule[],
   context: ApiReqContext,
 ): Promise<void> {
-  const storedById = new Map(stored.map((r) => [r.id, r]));
   await validateRulesReferences(
     inbound.flatMap((rule) => {
-      const prior = rule.id ? storedById.get(rule.id) : undefined;
+      const prior = findStoredRuleCounterpart(stored, rule);
       const conditionChanged =
         !prior || (prior.condition || "{}") !== (rule.condition || "{}");
       const savedGroupsChanged =

@@ -697,6 +697,17 @@ function isValidISOTimestamp(timestamp: string): boolean {
   );
 }
 
+// A rule that already carries a schedule of either shape; plan gates treat
+// changes to such a rule as edits, not as newly introduced scheduling.
+export function isScheduledRule(
+  rule: Pick<FeatureRule, "scheduleRules" | "scheduleType"> | undefined,
+): boolean {
+  if (!rule) return false;
+  return (
+    (rule.scheduleType ?? "none") !== "none" || !!rule.scheduleRules?.length
+  );
+}
+
 // Validate scheduleRules business logic
 export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
   // Optional field - no validation needed if empty

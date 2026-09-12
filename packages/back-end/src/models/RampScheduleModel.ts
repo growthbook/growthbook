@@ -580,12 +580,6 @@ export class RampScheduleModel extends BaseClass {
       throw new NotFoundError("Ramp schedule not found");
     }
 
-    if (!this.context.hasPremiumFeature("ramp-schedules")) {
-      this.context.throwPlanDoesNotAllowError(
-        "Ramp schedules require an Enterprise plan.",
-      );
-    }
-
     // Locked so the read-modify-write can't clobber a concurrent advance.
     return runLockedRampScheduleAction(
       this.context,

@@ -1,4 +1,5 @@
 import {
+  assertValidRuleEnvironments,
   validateRuleAttributes,
   validateRulesReferences,
 } from "back-end/src/api/features/validations";
@@ -214,5 +215,53 @@ describe("validateRulesReferences", () => {
   it("does not load saved groups for an empty rules list", async () => {
     await validateRulesReferences([], ctx);
     expect(getAll).not.toHaveBeenCalled();
+  });
+});
+
+// v2 rule / feature write paths: a rule's `environments` list may only name
+// environments the organization has (v1 checks its single `environment` the
+// same way).
+describe("assertValidRuleEnvironments", () => {
+  const ctx = {
+    org: {
+      settings: {
+        environments: [{ id: "production" }, { id: "qa" }],
+      },
+    },
+  } as unknown as ApiReqContext;
+
+  it("accepts rules that list known environments or none", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { environments: ["production", "qa"] },
+        { environments: [] },
+        {},
+      ]),
+    ).not.toThrow();
+  });
+
+  it("rejects a rule that lists an environment the organization does not have", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { environments: ["production"] },
+        { environments: ["prodution"] },
+      ]),
+    ).toThrow(BadRequestError);
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [{ environments: ["prodution"] }]),
+    ).toThrow('Invalid environment: "prodution"');
+  });
+
+  it("ignores the list on a rule scoped to all environments", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { allEnvironments: true, environments: ["prodution"] },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { allEnvironments: false, environments: ["prodution"] },
+      ]),
+    ).toThrow(BadRequestError);
   });
 });
