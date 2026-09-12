@@ -122,13 +122,16 @@ const TagsInput: FC<{
       legacyHeight
       options={
         tagOptions.map((t) => {
+          const fullTag = getTagById(t.id);
           // Converts Radix color to hex color to make it compatible with MultiSelectField
-          const hexColor = TAG_COLORS_MAP[t.color] ?? DEFAULT_TAG_COLOR;
+          const hexColor =
+            TAG_COLORS_MAP[t.color ?? fullTag?.color ?? "blue"] ??
+            DEFAULT_TAG_COLOR;
           return {
             value: t.id,
-            label: t.id,
+            label: t.label ?? fullTag?.label ?? t.id,
             color: hexColor || "var(--slate-12)",
-            tooltip: t.description,
+            tooltip: t.description ?? fullTag?.description ?? "",
           };
         }) ?? []
       }

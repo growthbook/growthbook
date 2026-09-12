@@ -45,7 +45,11 @@ const SavedLearningsList: FC<{
 }> = ({ learnings, experiments, mutate }) => {
   const { apiCall } = useAuth();
   const { getOwnerDisplay } = useUser();
-  const { projects: orgProjects, getProjectById } = useDefinitions();
+  const {
+    projects: orgProjects,
+    getProjectById,
+    getTagById,
+  } = useDefinitions();
   const orgSettings = useOrgSettings();
   const { aiEnabled } = useAISettings();
   const learningStatuses =
@@ -542,7 +546,7 @@ const SavedLearningsList: FC<{
                           aria-pressed={active}
                         >
                           <Badge
-                            label={t}
+                            label={getTagById(t)?.label ?? t}
                             color="violet"
                             variant={active ? "solid" : "soft"}
                             size="sm"

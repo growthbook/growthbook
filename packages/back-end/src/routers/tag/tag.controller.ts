@@ -34,9 +34,9 @@ export const postTag = async (
   if (!context.permissions.canCreateAndUpdateTag()) {
     context.permissions.throwPermissionError();
   }
-  const { id, color, description } = req.body;
+  const { id, color, description, label } = req.body;
 
-  await addTag(context.org.id, id, color, description);
+  await addTag(context.org.id, id, color, description, label);
 
   res.status(200).json({
     status: 200,

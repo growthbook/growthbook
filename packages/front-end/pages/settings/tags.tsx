@@ -29,9 +29,9 @@ const TagsPage: FC = () => {
     useSearch({
       items: tags || [],
       localStorageKey: "tags",
-      defaultSortField: "id",
+      defaultSortField: "label",
       defaultSortDir: 1,
-      searchFields: ["id^2", "description"],
+      searchFields: ["label^2", "id", "description"],
       pageSize: 50,
       updateSearchQueryOnChange: true,
     });
@@ -97,7 +97,7 @@ const TagsPage: FC = () => {
             >
               <thead>
                 <tr>
-                  <SortableTH field="id" style={{ width: "30%" }}>
+                  <SortableTH field="label" style={{ width: "30%" }}>
                     Tag name
                   </SortableTH>
                   <th style={{ width: "30%" }}>Preview</th>
@@ -118,10 +118,10 @@ const TagsPage: FC = () => {
                             setModalOpen(t);
                           }}
                         >
-                          {t.id}
+                          {t.label ?? t.id}
                         </a>
                       ) : (
-                        <span>{t.id}</span>
+                        <span>{t.label ?? t.id}</span>
                       )}
                     </td>
                     <td className="text-gray">

@@ -3,6 +3,7 @@ import { FaPencilAlt } from "react-icons/fa";
 import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { SlackIntegrationEditParams } from "@/components/SlackIntegrations/slack-integrations-utils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 type SlackIntegrationsListItemProps = {
   slackIntegration: SlackIntegrationInterface;
@@ -17,6 +18,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
   onEditModalOpen,
   projectsMap,
 }) => {
+  const { getTagById } = useDefinitions();
   const onEdit = useCallback(() => {
     onEditModalOpen(slackIntegration.id, slackIntegration);
   }, [slackIntegration, onEditModalOpen]);
@@ -102,7 +104,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
               ) : (
                 slackIntegration.tags.map((tag) => (
                   <span key={tag} className="mr-2 badge badge-purple">
-                    {tag}
+                    {getTagById(tag)?.label ?? tag}
                   </span>
                 ))
               )}
