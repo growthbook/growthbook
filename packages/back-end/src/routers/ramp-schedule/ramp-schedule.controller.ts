@@ -27,6 +27,7 @@ import {
   setRampMonitoringMode,
   startSchedule,
   assertCanControlRampSchedule,
+  assertCanEditRampScheduleConfig,
 } from "back-end/src/services/rampSchedule";
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
@@ -185,12 +186,6 @@ export const putRampSchedule = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.hasPremiumFeature("schedule-feature-flag")) {
-    context.throwPlanDoesNotAllowError(
-      "Ramp schedules require a Pro plan or above.",
-    );
-  }
-
   const schedule = await context.models.rampSchedules.getById(req.params.id);
   if (!schedule) {
     return res
@@ -214,18 +209,6 @@ export const putRampSchedule = async (
           `Cannot update: schedule changed to "${fresh.status}" while the request was in flight`,
         );
       }
-      // Fields the poller executes — fire times and the actions/steps it will
-      // apply — are publish-class to touch on an ARMABLE schedule, for the same
-      // reason the arm itself is: editing them re-aims a live transition the
-      // /actions endpoints would refuse this caller. Name and monitoring edits
-      // stay draft-class (monitoring carries its own assert below).
-      const touchesExecution =
-        "startDate" in body ||
-        "cutoffDate" in body ||
-        body.startActions !== undefined ||
-        body.steps !== undefined ||
-        body.endActions !== undefined;
-
       const updates: Record<string, unknown> = {};
       if (body.name !== undefined) updates.name = body.name;
       if (body.startActions !== undefined)
@@ -275,24 +258,9 @@ export const putRampSchedule = async (
           : fresh.startApprovedAt) as Date | null | undefined,
       });
 
-      // Armable is `computeNextProcessAt` answering non-null — the same function
-      // the poller keys off, rather than a second reading of what "armed" means.
-      // Checked BOTH before and after: a dateless or approval-gated schedule
-      // fires nothing, so editing its steps is draft-class and demanding publish
-      // refused edits nobody could yet act on; but disarming a schedule that IS
-      // armed re-aims a live transition just as arming one does.
-      if (touchesExecution && (fresh.nextProcessAt || updates.nextProcessAt)) {
-        // Both the PRE-edit and POST-edit aim. Checking `fresh` alone authorized
-        // the schedule as it stands, so a dateless schedule with dev-only steps
-        // (draft-class, gate skipped) could be armed in ONE put that also swapped
-        // in production steps — the edit was judged against the aim it replaced.
-        // The incoming steps are what will fire, so they answer too.
-        await assertCanControlRampSchedule(context, fresh);
-        await assertCanControlRampSchedule(context, {
-          ...fresh,
-          ...updates,
-        } as RampScheduleInterface);
-      }
+      // Publish-class gate for execution-field edits on an armable schedule
+      // (monitoring carries its own assert above).
+      await assertCanEditRampScheduleConfig(context, fresh, updates);
 
       const editedFields = Object.keys(updates).filter(
         (k) => k !== "nextProcessAt" && k !== "eventHistory",

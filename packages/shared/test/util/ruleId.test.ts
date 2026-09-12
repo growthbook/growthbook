@@ -5,6 +5,7 @@ import {
   isMigrationSuffixedRuleId,
   parseRuleId,
   RULE_ID_ENV_SUFFIX_DELIMITER,
+  findStoredRuleCounterpart,
 } from "shared/util";
 
 describe("ruleId helpers", () => {
@@ -174,5 +175,46 @@ describe("rampRuleEnvKey with characters encodeURIComponent rejects", () => {
       rampRuleEnvKey("f", "r", "dev"),
     );
     expect(rampRuleEnvKey("f", "r", "dev").startsWith("[")).toBe(false);
+  });
+});
+
+describe("findStoredRuleCounterpart", () => {
+  const stored = [
+    { id: "fr_x__production", environments: ["production"] },
+    { id: "fr_x__dev", environments: ["dev"] },
+    { id: "fr_all", allEnvironments: true },
+  ];
+
+  it("prefers an exact id match", () => {
+    expect(findStoredRuleCounterpart(stored, { id: "fr_x__dev" })?.id).toBe(
+      "fr_x__dev",
+    );
+  });
+
+  it("matches a stemmed v1 post-back to the sibling in the same environment", () => {
+    expect(
+      findStoredRuleCounterpart(stored, {
+        id: "fr_x",
+        environments: ["production"],
+      })?.id,
+    ).toBe("fr_x__production");
+    expect(
+      findStoredRuleCounterpart(stored, { id: "fr_x", environments: ["qa"] }),
+    ).toBeUndefined();
+  });
+
+  it("treats an all-environments rule on either side as overlapping", () => {
+    expect(
+      findStoredRuleCounterpart(stored, {
+        id: "fr_all__production",
+        environments: ["production"],
+      })?.id,
+    ).toBe("fr_all");
+  });
+
+  it("never matches an id-less rule", () => {
+    expect(
+      findStoredRuleCounterpart(stored, { environments: ["production"] }),
+    ).toBeUndefined();
   });
 });

@@ -148,3 +148,24 @@ export function rampRuleEnvKey(
     return JSON.stringify(parts);
   }
 }
+
+// The stored rule an inbound rule stands for: the same id, or — because v1
+// posts a lone sibling back with its id stemmed — the same stem scoped to an
+// overlapping environment.
+export function findStoredRuleCounterpart<
+  T extends { id?: string; allEnvironments?: boolean; environments?: string[] },
+>(stored: T[], rule: T): T | undefined {
+  if (!rule.id) return undefined;
+  const exact = stored.find((s) => s.id === rule.id);
+  if (exact) return exact;
+  const stem = stemRuleId(rule.id);
+  const envs = new Set(rule.environments ?? []);
+  return stored.find(
+    (s) =>
+      !!s.id &&
+      stemRuleId(s.id) === stem &&
+      (s.allEnvironments ||
+        rule.allEnvironments ||
+        (s.environments ?? []).some((e) => envs.has(e))),
+  );
+}

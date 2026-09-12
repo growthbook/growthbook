@@ -1,6 +1,15 @@
-import { validateRuleAttributes } from "back-end/src/api/features/validations";
+import {
+  assertValidRuleEnvironments,
+  validateRuleAttributes,
+  validateRulesReferences,
+} from "back-end/src/api/features/validations";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
+import { getFeature } from "back-end/src/models/FeatureModel";
+
+jest.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: jest.fn(),
+}));
 
 // `validateRuleAttributes` is the V2-side gate for the opt-in
 // `requireRegisteredAttributes` org setting. Most of the underlying
@@ -149,6 +158,110 @@ describe("validateRuleAttributes (V2 helper)", () => {
     // the registered-attributes check off.
     expect(() =>
       validateRuleAttributes({ hashAttribute: "userID" }, ctx, "proj_two"),
+    ).toThrow(BadRequestError);
+  });
+});
+
+// Reject/accept outcomes are pinned end-to-end in ruleReferenceIntegrity.test.ts;
+// this covers what that harness cannot observe.
+describe("validateRulesReferences", () => {
+  const getAll = jest.fn();
+  const ctx = {
+    org: { settings: { attributeSchema: [] } },
+    models: { savedGroups: { getAll } },
+  } as unknown as ApiReqContext;
+
+  beforeEach(() => {
+    getAll.mockReset();
+    getAll.mockResolvedValue([
+      { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
+    ]);
+  });
+
+  it("accepts rules whose conditions parse and whose groups exist, loading saved groups once", async () => {
+    await expect(
+      validateRulesReferences(
+        [
+          { condition: '{"country": "US"}' },
+          { savedGroups: [{ match: "all", ids: ["grp_known"] }] },
+          { condition: '{"id": {"$inGroup": "grp_known"}}' },
+          {},
+        ],
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+    expect(getAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts a prerequisite whose feature exists", async () => {
+    jest
+      .mocked(getFeature)
+      .mockResolvedValueOnce({ id: "parent_flag" } as never);
+    await expect(
+      validateRulesReferences(
+        [
+          {
+            prerequisites: [
+              { id: "parent_flag", condition: '{"value": true}' },
+            ],
+          },
+        ],
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+    expect(getFeature).toHaveBeenCalledWith(ctx, "parent_flag");
+  });
+
+  it("does not load saved groups for an empty rules list", async () => {
+    await validateRulesReferences([], ctx);
+    expect(getAll).not.toHaveBeenCalled();
+  });
+});
+
+// v2 rule / feature write paths: a rule's `environments` list may only name
+// environments the organization has (v1 checks its single `environment` the
+// same way).
+describe("assertValidRuleEnvironments", () => {
+  const ctx = {
+    org: {
+      settings: {
+        environments: [{ id: "production" }, { id: "qa" }],
+      },
+    },
+  } as unknown as ApiReqContext;
+
+  it("accepts rules that list known environments or none", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { environments: ["production", "qa"] },
+        { environments: [] },
+        {},
+      ]),
+    ).not.toThrow();
+  });
+
+  it("rejects a rule that lists an environment the organization does not have", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { environments: ["production"] },
+        { environments: ["prodution"] },
+      ]),
+    ).toThrow(BadRequestError);
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [{ environments: ["prodution"] }]),
+    ).toThrow('Invalid environment: "prodution"');
+  });
+
+  it("ignores the list on a rule scoped to all environments", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { allEnvironments: true, environments: ["prodution"] },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { allEnvironments: false, environments: ["prodution"] },
+      ]),
     ).toThrow(BadRequestError);
   });
 });

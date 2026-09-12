@@ -3,6 +3,7 @@ import {
   getAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
+  isScheduledRule,
 } from "shared/util";
 import {
   RevisionRampCreateAction,
@@ -29,12 +30,13 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  assertValidRuleEnvironments,
   discardIfJustCreated,
   isDraftStatus,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
-  validateRuleConditions,
+  validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
 } from "./validations";
@@ -44,6 +46,7 @@ import {
   assertValidRuleConfigKeys,
   composeConfigBacking,
   resolveScopeFromInput,
+  assertCanUseRuleScheduling,
 } from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(
@@ -65,6 +68,8 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       "rampSchedule and schedule are mutually exclusive. Provide one or the other, not both.",
     );
   }
+  // Same environment-id check as the add endpoint, before a draft is created.
+  assertValidRuleEnvironments(req.context, [patch]);
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -161,6 +166,14 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
           undefined,
         );
     }
+    // Only newly introduced scheduling is plan-gated; an already-scheduled
+    // rule can be edited or cleared on any plan.
+    if (!isScheduledRule(oldRule) && liveSchedulesForRule.length === 0) {
+      assertCanUseRuleScheduling(req.context, {
+        schedule,
+        rampSchedule: inlineRampSchedule,
+      });
+    }
 
     // Apply patch including v2 scope fields.
     const { allEnvironments, environments, ...basePatch } = patch;
@@ -236,12 +249,9 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       rules: [updatedRule as FeatureRule],
     });
 
-    validateRuleConditions({
-      condition:
-        basePatch.condition !== undefined ? updatedRule.condition : undefined,
-      prerequisites:
-        basePatch.prerequisites !== undefined ? updatedRule.prerequisites : [],
-    });
+    if (basePatch.prerequisites !== undefined) {
+      validatePrerequisiteConditions(updatedRule.prerequisites ?? []);
+    }
     // Opt-in registered-attribute check, only on fields the patch actually
     // touches. Validate `changedAttributes` (not `updatedRule`) so an
     // unchanged condition referencing a now-archived attribute doesn't

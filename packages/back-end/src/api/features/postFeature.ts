@@ -25,11 +25,13 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
-import { validateCustomFields } from "./validations";
+import { validateCustomFields, validateRulesReferences } from "./validations";
 import {
   assertValidProjectId,
   assertValidProjectIds,
   assertValidRuleProjectIds,
+  assertUniqueRuleIdsByEnv,
+  assertValidRuleExperimentIds,
   validateEnvRulesScheduleRules,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
@@ -96,6 +98,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   );
 
   validateEnvRulesScheduleRules(req.body.environments, req.context);
+  assertUniqueRuleIdsByEnv(req.body.environments);
 
   if (
     req.context.org.settings?.requireProjectForFeatures &&
@@ -159,6 +162,8 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     req.body.environments ?? {},
   );
   await assertValidRuleProjectIds(feature.rules, req.context);
+  await assertValidRuleExperimentIds(feature.rules, req.context);
+  await validateRulesReferences(feature.rules, req.context);
 
   const jsonSchema = parseApiJsonSchema(
     req.context.org,

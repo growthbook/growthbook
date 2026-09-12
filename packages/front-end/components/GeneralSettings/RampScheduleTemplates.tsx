@@ -512,7 +512,7 @@ export default function RampScheduleTemplates() {
           No templates yet.{" "}
           {hasFeature
             ? "Create one to quickly apply standard ramp schedules to Feature Flag rules."
-            : "Upgrade to Enterprise to create and manage ramp schedule templates."}
+            : "Upgrade to Pro to create and manage ramp schedule templates."}
         </Text>
       ) : (
         <DndContext

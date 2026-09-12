@@ -3,11 +3,23 @@ import {
   findOrganizationById,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
+import { countSDKConnectionsByEnvironment } from "back-end/src/models/SdkConnectionModel";
+import { removeEnvironmentFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
   findOrganizationById: jest.fn(),
   updateOrganization: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/SdkConnectionModel", () => ({
+  countSDKConnectionsByEnvironment: jest.fn().mockResolvedValue(0),
+  findSDKConnectionsByOrganization: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock("back-end/src/models/SlackIntegrationModel", () => ({
+  ...jest.requireActual("back-end/src/models/SlackIntegrationModel"),
+  removeEnvironmentFromSlackIntegration: jest.fn(),
 }));
 
 describe("environements API", () => {
@@ -140,12 +152,41 @@ describe("environements API", () => {
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
       settings: { environments: [{ id: "env2" }] },
     });
+    expect(removeEnvironmentFromSlackIntegration).toHaveBeenCalledWith({
+      organizationId: "org1",
+      envId: "env1",
+    });
     expect(auditMock).toHaveBeenCalledWith({
       details:
         '{"pre":{"id":"env1","description":"env1","toggleOnList":true,"defaultState":true,"projects":["bla"]},"context":{}}',
       entity: { id: "env1", object: "environment" },
       event: "environment.delete",
     });
+  });
+
+  it("refuses to delete an environment that SDK Connections still use", async () => {
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [{ id: "env1" }, { id: "env2" }],
+        },
+      },
+      permissions: {
+        canDeleteEnvironment: () => true,
+      },
+    });
+    jest.mocked(countSDKConnectionsByEnvironment).mockResolvedValueOnce(2);
+
+    const response = await request(app)
+      .delete("/api/v1/environments/env1")
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/still used by 2 SDK Connection/);
+    expect(updateOrganization).not.toHaveBeenCalled();
+    expect(removeEnvironmentFromSlackIntegration).not.toHaveBeenCalled();
+    expect(auditMock).not.toHaveBeenCalled();
   });
 
   it("checks for permission to delete environments", async () => {
