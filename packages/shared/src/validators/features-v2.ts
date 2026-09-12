@@ -9,6 +9,7 @@ import {
   schemaValidationQueryFields,
   skipPaginationQueryField,
   publishBypassedGatesField,
+  readOnlyEcho,
 } from "./shared";
 import {
   ownerInputField,
@@ -460,40 +461,44 @@ const idParams = z
 // embedded alongside the rule definition. Scope defaults to allEnvironments:
 // true so callers only need to supply `environments` when scoping to specific
 // envs.
-const v2RuleScopeInput = z.object({
-  allEnvironments: z
-    .boolean()
-    .optional()
-    .describe("When true the rule applies to all environments (default)."),
-  environments: z
-    .array(z.string())
-    .optional()
-    .describe(
-      "Specific environment IDs this rule applies to. Required when allEnvironments is false.",
-    ),
-  allProjects: z
-    .boolean()
-    .optional()
-    .describe(
-      "When true (the default) the rule applies to every project the feature is delivered to. Set false and supply `projects` to scope the rule.",
-    ),
-  projects: z
-    .array(z.string())
-    .optional()
-    .describe(
-      "Specific project IDs this rule applies to. Used when allProjects is false. An empty array scopes the rule to no project.",
-    ),
-});
+const v2RuleScopeInput = z
+  .object({
+    allEnvironments: z
+      .boolean()
+      .optional()
+      .describe("When true the rule applies to all environments (default)."),
+    environments: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Specific environment IDs this rule applies to. Required when allEnvironments is false.",
+      ),
+    allProjects: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true (the default) the rule applies to every project the feature is delivered to. Set false and supply `projects` to scope the rule.",
+      ),
+    projects: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Specific project IDs this rule applies to. Used when allProjects is false. An empty array scopes the rule to no project.",
+      ),
+  })
+  .strict();
 
 // Re-use the same per-rule shapes from v1 (force, rollout, experiment-ref,
 // experiment) but extend them with scope fields. We build a flat union here
 // because extending a discriminated union in Zod requires touching each
 // member.
 
-const postFeatureSavedGroupTargeting = z.object({
-  matchType: z.enum(["all", "any", "none"]),
-  savedGroups: z.array(z.string()),
-});
+const postFeatureSavedGroupTargeting = z
+  .object({
+    matchType: z.enum(["all", "any", "none"]),
+    savedGroups: z.array(z.string()),
+  })
+  .strict();
 
 const v2RuleSavedGroupInput = {
   savedGroups: z.array(savedGroupTargeting).optional(),
@@ -506,19 +511,23 @@ const v2RuleSavedGroupInput = {
     .meta({ deprecated: true }),
 };
 
-const postFeaturePrerequisite = z.object({
-  id: z.string().describe("Feature ID"),
-  condition: z.string(),
-});
+const postFeaturePrerequisite = z
+  .object({
+    id: z.string().describe("Feature ID"),
+    condition: z.string(),
+  })
+  .strict();
 
-const apiScheduleRule = z.object({
-  timestamp: z
-    .string()
-    .datetime({ offset: true })
-    .nullable()
-    .describe('ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z".'),
-  enabled: z.boolean(),
-});
+const apiScheduleRule = z
+  .object({
+    timestamp: z
+      .string()
+      .datetime({ offset: true })
+      .nullable()
+      .describe('ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z".'),
+    enabled: z.boolean(),
+  })
+  .strict();
 
 const v2SparseRuleField = z
   .boolean()
@@ -538,60 +547,78 @@ const v2RuleConfigInput = z
     "Key of a config to back this value. When set, `value` is a JSON override patch merged on top of the config; omit or null for a plain value.",
   );
 
-const v2RuleForceBase = z.object({
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  condition: z.string().optional(),
-  ...v2RuleSavedGroupInput,
-  prerequisites: z.array(postFeaturePrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRule).optional(),
-  id: z.string().optional(),
-  enabled: z.boolean().optional(),
-  type: z.literal("force"),
-  value: z.string(),
-  config: v2RuleConfigInput,
-  sparse: v2SparseRuleField,
-});
+// Present on GET responses only; anything else unknown is rejected.
+const v2RuleReadOnlyEcho = {
+  pendingRamp: readOnlyEcho,
+  rampScheduleId: readOnlyEcho,
+  scheduleType: readOnlyEcho,
+};
 
-const v2RuleRolloutBase = z.object({
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  condition: z.string().optional(),
-  ...v2RuleSavedGroupInput,
-  prerequisites: z.array(postFeaturePrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRule).optional(),
-  id: z.string().optional(),
-  enabled: z.boolean().optional(),
-  type: z.literal("rollout"),
-  value: z.string(),
-  config: v2RuleConfigInput,
-  sparse: v2SparseRuleField,
-  coverage: z.number(),
-  hashAttribute: z.string(),
-  seed: z
-    .string()
-    .describe("Optional seed for the hash function; defaults to the rule id")
-    .optional(),
-  hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
-});
+const v2RuleForceBase = z
+  .object({
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    condition: z.string().optional(),
+    ...v2RuleSavedGroupInput,
+    ...v2RuleReadOnlyEcho,
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRule).optional(),
+    id: z.string().optional(),
+    enabled: z.boolean().optional(),
+    type: z.literal("force"),
+    value: z.string(),
+    config: v2RuleConfigInput,
+    sparse: v2SparseRuleField,
+  })
+  .strict();
 
-const v2RuleExperimentRefBase = z.object({
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  id: z.string().optional(),
-  enabled: z.boolean().optional(),
-  type: z.literal("experiment-ref"),
-  condition: z.string().optional(),
-  ...v2RuleSavedGroupInput,
-  prerequisites: z.array(postFeaturePrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRule).optional(),
-  variations: z.array(
-    z.object({
-      value: z.string(),
-      variationId: z.string(),
-      config: v2RuleConfigInput,
-    }),
-  ),
-  experimentId: z.string(),
-  sparse: v2SparseRuleField,
-});
+const v2RuleRolloutBase = z
+  .object({
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    condition: z.string().optional(),
+    ...v2RuleSavedGroupInput,
+    ...v2RuleReadOnlyEcho,
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRule).optional(),
+    id: z.string().optional(),
+    enabled: z.boolean().optional(),
+    type: z.literal("rollout"),
+    value: z.string(),
+    config: v2RuleConfigInput,
+    sparse: v2SparseRuleField,
+    coverage: z.number(),
+    hashAttribute: z.string(),
+    seed: z
+      .string()
+      .describe("Optional seed for the hash function; defaults to the rule id")
+      .optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
+  })
+  .strict();
+
+const v2RuleExperimentRefBase = z
+  .object({
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    id: z.string().optional(),
+    enabled: z.boolean().optional(),
+    type: z.literal("experiment-ref"),
+    condition: z.string().optional(),
+    ...v2RuleSavedGroupInput,
+    ...v2RuleReadOnlyEcho,
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRule).optional(),
+    variations: z.array(
+      z
+        .object({
+          value: z.string(),
+          variationId: z.string(),
+          config: v2RuleConfigInput,
+        })
+        .strict(),
+    ),
+    experimentId: z.string(),
+    sparse: v2SparseRuleField,
+  })
+  .strict();
 
 // Preserve-only shape for safe-rollout rules. The bulk POST/PUT v2 endpoints
 // can't create new safe-rollouts (that requires SafeRollout entity creation,
@@ -601,27 +628,32 @@ const v2RuleExperimentRefBase = z.object({
 // validator accepts the rule body with a required `safeRolloutId` pointing
 // at an existing safe-rollout on the same feature. The handler rejects any
 // safeRolloutId that isn't already on the feature.
-const v2RuleSafeRolloutBase = z.object({
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  id: z.string().optional(),
-  enabled: z.boolean().optional(),
-  type: z.literal("safe-rollout"),
-  condition: z.string().optional(),
-  ...v2RuleSavedGroupInput,
-  prerequisites: z.array(postFeaturePrerequisite).optional(),
-  scheduleRules: z.array(apiScheduleRule).optional(),
-  controlValue: z.string(),
-  variationValue: z.string(),
-  hashAttribute: z.string(),
-  trackingKey: z.string().optional(),
-  seed: z.string().optional(),
-  safeRolloutId: z
-    .string()
-    .describe(
-      "ID of an existing SafeRollout on this feature. Bulk POST/PUT cannot create new safe-rollouts; use POST /v2/features/:id/revisions/:version/rules to create one.",
-    ),
-  status: z.enum(["running", "released", "rolled-back", "stopped"]).optional(),
-});
+const v2RuleSafeRolloutBase = z
+  .object({
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    id: z.string().optional(),
+    enabled: z.boolean().optional(),
+    type: z.literal("safe-rollout"),
+    condition: z.string().optional(),
+    ...v2RuleSavedGroupInput,
+    ...v2RuleReadOnlyEcho,
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
+    scheduleRules: z.array(apiScheduleRule).optional(),
+    controlValue: z.string(),
+    variationValue: z.string(),
+    hashAttribute: z.string(),
+    trackingKey: z.string().optional(),
+    seed: z.string().optional(),
+    safeRolloutId: z
+      .string()
+      .describe(
+        "ID of an existing SafeRollout on this feature. Bulk POST/PUT cannot create new safe-rollouts; use POST /v2/features/:id/revisions/:version/rules to create one.",
+      ),
+    status: z
+      .enum(["running", "released", "rolled-back", "stopped"])
+      .optional(),
+  })
+  .strict();
 
 export const postFeatureRuleV2 = z.union([
   v2RuleForceBase.merge(v2RuleScopeInput),
