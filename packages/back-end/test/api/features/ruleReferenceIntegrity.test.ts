@@ -868,7 +868,7 @@ describe("feature rule write contracts", () => {
           schedule: { startDate: "2030-01-01T00:00:00.000Z" },
         })
         .set("Authorization", "Bearer foo");
-      expect(res.body.message).toMatch(/schedule rules/);
+      expect(res.body.message).toMatch(/Pro plan/);
       expect(res.status).toBe(403);
     });
 
@@ -887,7 +887,7 @@ describe("feature rule write contracts", () => {
           },
         })
         .set("Authorization", "Bearer foo");
-      expect(res.body.message).toMatch(/schedule rules/);
+      expect(res.body.message).toMatch(/Pro plan/);
       expect(res.status).toBe(403);
     });
 

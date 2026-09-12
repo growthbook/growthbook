@@ -510,9 +510,9 @@ export function assertUniqueRuleIdsByEnv(
   }
 }
 
-// Plan gates for scheduling on the per-rule endpoints: `schedule` and the
-// legacy inline `scheduleRules` match the bulk shapes, `rampSchedule` matches
-// POST /ramp-schedules.
+// Plan gate for scheduling on the per-rule endpoints. A simple schedule is a
+// one-step ramp, so `schedule`, legacy inline `scheduleRules`, and an inline
+// `rampSchedule` are all the same Pro feature, as on the dashboard.
 export function assertCanUseRuleScheduling(
   context: ApiReqContext,
   input: {
@@ -521,19 +521,14 @@ export function assertCanUseRuleScheduling(
     rampSchedule?: unknown;
   },
 ): void {
-  if (
-    (input.schedule?.startDate ||
-      input.schedule?.endDate ||
-      input.scheduleRules?.length) &&
-    !context.hasPremiumFeature("schedule-feature-flag")
-  ) {
+  const scheduled =
+    input.schedule?.startDate ||
+    input.schedule?.endDate ||
+    input.scheduleRules?.length ||
+    input.rampSchedule;
+  if (scheduled && !context.hasPremiumFeature("schedule-feature-flag")) {
     context.throwPlanDoesNotAllowError(
-      "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
-    );
-  }
-  if (input.rampSchedule && !context.hasPremiumFeature("ramp-schedules")) {
-    context.throwPlanDoesNotAllowError(
-      "Ramp schedules require an Enterprise plan.",
+      "Ramp schedules require a Pro plan or above.",
     );
   }
 }

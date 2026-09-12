@@ -652,31 +652,20 @@ describe("assertCanUseRuleScheduling", () => {
       },
     }) as unknown as ApiReqContext;
 
-  it("gates the schedule shorthand on schedule-feature-flag and rampSchedule on ramp-schedules", () => {
+  it("gates every scheduling shape on the one Pro feature the dashboard uses", () => {
     const schedule = { startDate: "2030-01-01T00:00:00.000Z" };
-    expect(() => assertCanUseRuleScheduling(ctx([]), { schedule })).toThrow(
-      /schedule rules/,
-    );
-    expect(() =>
-      assertCanUseRuleScheduling(ctx(["schedule-feature-flag"]), { schedule }),
-    ).not.toThrow();
-    expect(() =>
-      assertCanUseRuleScheduling(ctx(["schedule-feature-flag"]), {
-        rampSchedule: { steps: [] },
-      }),
-    ).toThrow(/Enterprise/);
-    expect(() =>
-      assertCanUseRuleScheduling(ctx(["ramp-schedules"]), {
-        rampSchedule: { steps: [] },
-      }),
-    ).not.toThrow();
+    const pro = ctx(["schedule-feature-flag"]);
+    for (const input of [
+      { schedule },
+      { scheduleRules: [{ timestamp: null, enabled: true }] },
+      { rampSchedule: { steps: [] } },
+    ]) {
+      expect(() => assertCanUseRuleScheduling(ctx([]), input)).toThrow(
+        /Pro plan/,
+      );
+      expect(() => assertCanUseRuleScheduling(pro, input)).not.toThrow();
+    }
     expect(() => assertCanUseRuleScheduling(ctx([]), {})).not.toThrow();
-    // Legacy inline scheduleRules are the same feature.
-    expect(() =>
-      assertCanUseRuleScheduling(ctx([]), {
-        scheduleRules: [{ timestamp: null, enabled: true }],
-      }),
-    ).toThrow(/schedule rules/);
     expect(() =>
       assertCanUseRuleScheduling(ctx([]), { scheduleRules: [] }),
     ).not.toThrow();
