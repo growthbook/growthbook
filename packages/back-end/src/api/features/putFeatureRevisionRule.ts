@@ -202,6 +202,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   const inlineRampSchedule = req.body.rampSchedule;
   assertCanUseRuleScheduling(req.context, {
     schedule,
+    scheduleRules: req.body.rule.scheduleRules,
     rampSchedule: inlineRampSchedule,
   });
   const patch = req.body.rule;

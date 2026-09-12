@@ -636,6 +636,10 @@ describe("assertUniqueRuleIds", () => {
     expect(() => assertUniqueRuleIdsByEnv(body(["a", "a"], []))).toThrow(
       'Duplicate rule ID(s) in environment "production": a.',
     );
+    // The flattener groups by stem, so a suffixed id and its bare stem collide.
+    expect(() =>
+      assertUniqueRuleIdsByEnv(body(["fr_x__production", "fr_x"], [])),
+    ).toThrow(/fr_x\./);
   });
 });
 
@@ -667,6 +671,15 @@ describe("assertCanUseRuleScheduling", () => {
       }),
     ).not.toThrow();
     expect(() => assertCanUseRuleScheduling(ctx([]), {})).not.toThrow();
+    // Legacy inline scheduleRules are the same feature.
+    expect(() =>
+      assertCanUseRuleScheduling(ctx([]), {
+        scheduleRules: [{ timestamp: null, enabled: true }],
+      }),
+    ).toThrow(/schedule rules/);
+    expect(() =>
+      assertCanUseRuleScheduling(ctx([]), { scheduleRules: [] }),
+    ).not.toThrow();
   });
 });
 

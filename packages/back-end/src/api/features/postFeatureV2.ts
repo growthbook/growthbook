@@ -156,9 +156,9 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     feature.rules = (req.body.rules ?? []).map((rule) =>
       mapV2ApiRuleToFeatureRule(rule),
     );
+    assertUniqueRuleIds(feature.rules);
     assertValidRuleEnvironments(req.context, feature.rules);
     await assertValidRuleProjectIds(feature.rules, req.context);
-    assertUniqueRuleIds(feature.rules);
     await assertValidRuleExperimentIds(feature.rules, req.context);
     // Same condition / saved-group reference checks the per-rule endpoints
     // run; the payload builder silently drops a condition it cannot parse and

@@ -291,13 +291,13 @@ export const updateFeatureV2 = createApiRequestHandler(
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
+    assertUniqueRuleIds(inboundFlatRules);
     assertValidRuleEnvironments(req.context, inboundFlatRules);
     await assertValidChangedRuleProjectIds(
       inboundFlatRules,
       feature.rules ?? [],
       req.context,
     );
-    assertUniqueRuleIds(inboundFlatRules);
     await assertValidChangedRuleExperimentIds(
       inboundFlatRules,
       feature.rules ?? [],

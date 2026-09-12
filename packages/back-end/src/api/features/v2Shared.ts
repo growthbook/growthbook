@@ -10,6 +10,8 @@ import {
   isScopedConfig,
   valueHasConfigExtends,
   parsePlainJSONObject,
+  stemRuleId,
+  findStoredRuleCounterpart,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
@@ -459,11 +461,10 @@ export async function assertValidChangedRuleExperimentIds(
   stored: FeatureRule[],
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
-  const storedById = new Map(stored.map((r) => [r.id, r]));
   await assertValidRuleExperimentIds(
     inbound.filter((rule) => {
       if (rule.type !== "experiment-ref") return false;
-      const prior = rule.id ? storedById.get(rule.id) : undefined;
+      const prior = findStoredRuleCounterpart(stored, rule);
       return (
         !prior ||
         prior.type !== "experiment-ref" ||
@@ -499,21 +500,31 @@ export function assertUniqueRuleIdsByEnv(
   envBody: ApiFeatureEnvSettings | undefined,
 ): void {
   for (const [environment, settings] of Object.entries(envBody ?? {})) {
-    if (settings.rules) assertUniqueRuleIds(settings.rules, environment);
+    // The flattener groups a v1 environment's rules by stem.
+    if (settings.rules) {
+      assertUniqueRuleIds(
+        settings.rules.map((r) => ({ id: r.id && stemRuleId(r.id) })),
+        environment,
+      );
+    }
   }
 }
 
-// Plan gates for the scheduling shorthands on the per-rule endpoints, matching
-// the bulk shapes (`schedule`) and POST /ramp-schedules (`rampSchedule`).
+// Plan gates for scheduling on the per-rule endpoints: `schedule` and the
+// legacy inline `scheduleRules` match the bulk shapes, `rampSchedule` matches
+// POST /ramp-schedules.
 export function assertCanUseRuleScheduling(
   context: ApiReqContext,
   input: {
     schedule?: { startDate?: string | null; endDate?: string | null } | null;
+    scheduleRules?: unknown[] | null;
     rampSchedule?: unknown;
   },
 ): void {
   if (
-    (input.schedule?.startDate || input.schedule?.endDate) &&
+    (input.schedule?.startDate ||
+      input.schedule?.endDate ||
+      input.scheduleRules?.length) &&
     !context.hasPremiumFeature("schedule-feature-flag")
   ) {
     context.throwPlanDoesNotAllowError(
@@ -535,11 +546,10 @@ export async function assertValidChangedRuleProjectIds(
   stored: FeatureRule[],
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
-  const storedById = new Map(stored.map((r) => [r.id, r]));
   const scope = (r: FeatureRule) => [...(r.projects ?? [])].sort().join("\0");
   await assertValidRuleProjectIds(
     inbound.filter((rule) => {
-      const prior = rule.id ? storedById.get(rule.id) : undefined;
+      const prior = findStoredRuleCounterpart(stored, rule);
       return !prior || scope(prior) !== scope(rule);
     }),
     context,

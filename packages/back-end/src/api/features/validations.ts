@@ -11,7 +11,7 @@ import {
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
-import { validateCondition } from "shared/util";
+import { findStoredRuleCounterpart, validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
@@ -251,10 +251,9 @@ export async function validateChangedRuleReferences(
   stored: FeatureRule[],
   context: ApiReqContext,
 ): Promise<void> {
-  const storedById = new Map(stored.map((r) => [r.id, r]));
   await validateRulesReferences(
     inbound.flatMap((rule) => {
-      const prior = rule.id ? storedById.get(rule.id) : undefined;
+      const prior = findStoredRuleCounterpart(stored, rule);
       const conditionChanged =
         !prior || (prior.condition || "{}") !== (rule.condition || "{}");
       const savedGroupsChanged =

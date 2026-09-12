@@ -674,6 +674,71 @@ describe("feature rule write contracts", () => {
     });
   });
 
+  // v1 posts a lone sibling back with its id stemmed; the stored counterpart
+  // must still be found so an unchanged stale scope is not re-checked.
+  describe("v1 partial post-back of a suffixed sibling rule", () => {
+    const sibling = (env: string, projects: string[]) => ({
+      id: `fr_x__${env}`,
+      type: "force",
+      value: "true",
+      description: "",
+      enabled: true,
+      condition: "",
+      savedGroups: [],
+      allEnvironments: false,
+      environments: [env],
+      allProjects: false,
+      projects,
+    });
+
+    it("echoes one environment's rules back unchanged", async () => {
+      await insertFeature("flag_sib", [
+        sibling("production", ["prj_gone"]),
+        sibling("dev", []),
+      ]);
+      await insertDraftRevision("flag_sib");
+      const got = await request(app)
+        .get("/api/v1/features/flag_sib")
+        .set("Authorization", "Bearer foo");
+      const rules = got.body.feature.environments.production.rules;
+      expect(rules).toHaveLength(1);
+      const res = await request(app)
+        .post("/api/v1/features/flag_sib")
+        .send({ environments: { production: { enabled: true, rules } } })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("revision GET → bulk POST", () => {
+    it("a draft rule scoped to a deleted environment reads back filtered and echoes", async () => {
+      const stale = {
+        id: "fr_rev_stale",
+        type: "force",
+        value: "true",
+        description: "",
+        enabled: true,
+        condition: "",
+        savedGroups: [],
+        allEnvironments: false,
+        environments: ["gone_env", "production"],
+      };
+      await insertFeature("flag_rev_stale", [stale]);
+      await insertDraftRevision("flag_rev_stale", [stale]);
+      const got = await request(app)
+        .get("/api/v2/features/flag_rev_stale/revisions/2")
+        .set("Authorization", "Bearer foo");
+      expect(got.body.revision.rules[0].environments).toEqual(["production"]);
+      const res = await request(app)
+        .post("/api/v2/features/flag_rev_stale")
+        .send({ rules: got.body.revision.rules })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+  });
+
   describe("experiment-ref rules on bulk writes", () => {
     const expRef = (experimentId: string, id?: string) => ({
       ...(id && { id }),
@@ -801,6 +866,25 @@ describe("feature rule write contracts", () => {
         .send({
           rule: forceRule({}),
           schedule: { startDate: "2030-01-01T00:00:00.000Z" },
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/schedule rules/);
+      expect(res.status).toBe(403);
+    });
+
+    it("refuses legacy inline scheduleRules on the v1 endpoint without the plan feature", async () => {
+      const res = await request(app)
+        .post(`/api/v1/features/${FLAG}/revisions/2/rules`)
+        .send({
+          environment: "production",
+          rule: {
+            type: "force",
+            value: "true",
+            scheduleRules: [
+              { timestamp: "2030-01-01T00:00:00.000Z", enabled: true },
+              { timestamp: null, enabled: false },
+            ],
+          },
         })
         .set("Authorization", "Bearer foo");
       expect(res.body.message).toMatch(/schedule rules/);
