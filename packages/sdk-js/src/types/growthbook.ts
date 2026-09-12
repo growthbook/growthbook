@@ -616,28 +616,29 @@ export interface StickyAssignmentsDocument {
   assignments: StickyAssignments;
 }
 
-// The v1 representation of a saved group: a bare array of the values in an ID
-// list. Retained under its original name because it is part of this package's
-// public API — widening it in place would break consumers who read from a
-// value declared as this type. New code should use SavedGroupsPayload.
+/**
+ * The v1 shape of a saved group: the values in an ID list. Kept under this name
+ * because it is part of this package's public API. New code should use
+ * SavedGroupsPayload.
+ */
 export type SavedGroupsValues = Record<string, (string | number)[]>;
 
-// The savedGroupReferencesV2 representation of a saved group, covering every
-// group type rather than just ID lists. The `type` discriminator lets a future
-// group kind be added without changing the payload shape or the operator that
-// references it; resolving an unrecognized type must fail closed rather than
-// throw, since the payload may be newer than this SDK.
-export type SavedGroupDefinition =
+/**
+ * The savedGroupReferencesV2 shape of one saved group. Covers every kind of
+ * group, not just ID lists. A `type` this SDK does not know must match nobody
+ * rather than throw, since the payload can be newer than the SDK.
+ */
+export type SavedGroupPayloadEntry =
   | { type: "list"; attributeKey: string; values: (string | number)[] }
   | { type: "condition"; condition: ConditionInterface };
 
-// The savedGroups field as it arrives in a payload. Which representation each
-// entry uses depends on the connection's capabilities, and a single payload is
-// all one or all the other — but narrow per entry rather than assuming, since
-// a cached or hand-edited payload can disagree with what capabilities imply.
+/**
+ * The `savedGroups` field as it arrives in a payload. Entries use either shape
+ * above. Check each entry rather than assuming they all match.
+ */
 export type SavedGroupsPayload = Record<
   string,
-  (string | number)[] | SavedGroupDefinition
+  (string | number)[] | SavedGroupPayloadEntry
 >;
 
 export type BaseLog = {
