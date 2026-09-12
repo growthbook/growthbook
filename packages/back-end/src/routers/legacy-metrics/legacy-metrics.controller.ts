@@ -1,0 +1,233 @@
+import type { Response } from "express";
+import { CreateProps } from "shared/types/base-model";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { MetricInterface } from "shared/types/metric";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
+import {
+  createFactTable,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
+import {
+  archiveMetrics,
+  getMetricsByOrganization,
+} from "back-end/src/models/MetricModel";
+import { addTags } from "back-end/src/models/TagModel";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
+import { refreshColumns } from "back-end/src/services/factTableColumns";
+import { MigrateLegacyMetricsBody } from "./legacy-metrics.validators";
+
+export interface MigrateLegacyMetricsResult {
+  factTableId: string;
+  created: string[];
+  skipped: string[];
+  errors: { id: string; message: string }[];
+}
+
+export interface MigrateLegacyMetricsResponse {
+  status: 200;
+  results: MigrateLegacyMetricsResult[];
+  archived: string[];
+  notArchived: { id: string; reason: string }[];
+  metricGroupsUpdated: number;
+  templatesUpdated: number;
+}
+
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+// Migrates one batch. Idempotent: existing tables and metrics are reused
+export const postMigrateLegacyMetrics = async (
+  req: AuthRequest<MigrateLegacyMetricsBody>,
+  res: Response<MigrateLegacyMetricsResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { groups, archive } = req.body;
+
+  const factTableMap = await getFactTableMap(context);
+  const factMetrics = await context.models.factMetrics.getAll();
+  const factMetricIds = new Set(factMetrics.map((m) => m.id));
+
+  const results: MigrateLegacyMetricsResult[] = groups.map((group) => ({
+    factTableId: group.factTable.id,
+    created: [],
+    skipped: [],
+    errors: [],
+  }));
+
+  const toCreate = groups.filter((g) => !factTableMap.has(g.factTable.id));
+  const datasources = new Map(
+    (
+      await getDataSourcesByIds(context, [
+        ...new Set(toCreate.map((g) => g.factTable.datasource)),
+      ])
+    ).map((d) => [d.id, d]),
+  );
+
+  // Fact metric validation reads a cached table list, so create tables first
+  const failed = new Set<string>();
+  const newTags = new Set<string>();
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i];
+    try {
+      if (!factTableMap.has(group.factTable.id)) {
+        if (group.existing) {
+          throw new Error("Existing Fact Table not found");
+        }
+        const data = { ...group.factTable, columnRefreshPending: false };
+        if (!context.permissions.canCreateFactTable(data)) {
+          context.permissions.throwPermissionError();
+        }
+        const datasource = datasources.get(data.datasource);
+        if (!datasource) throw new Error("Could not find Data Source");
+
+        // Detected types win, but keep the migration's number formats
+        const formats = new Map(
+          (data.columns || []).map((c) => [c.column, c.numberFormat]),
+        );
+        const { columns, needsBackgroundRefresh } = await refreshColumns(
+          context,
+          datasource,
+          { ...data, columns: [] },
+        );
+        if (!columns.length) {
+          throw new Error("SQL did not return any columns");
+        }
+        data.columns = columns.map((c) => ({
+          ...c,
+          numberFormat: formats.get(c.column) || c.numberFormat,
+        }));
+        data.columnRefreshPending = needsBackgroundRefresh;
+
+        const factTable = await createFactTable(context, data);
+        factTableMap.set(factTable.id, factTable);
+        if (needsBackgroundRefresh) {
+          await queueFactTableColumnsRefresh(factTable);
+        }
+        data.tags.forEach((tag) => newTags.add(tag));
+      }
+    } catch (e) {
+      results[i].errors.push({ id: group.factTable.id, message: message(e) });
+      failed.add(group.factTable.id);
+    }
+  }
+
+  if (newTags.size) await addTags(context.org.id, [...newTags]);
+
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i];
+    if (failed.has(group.factTable.id)) continue;
+    for (const metric of group.metrics) {
+      if (factMetricIds.has(metric.id)) {
+        results[i].skipped.push(metric.id);
+        continue;
+      }
+      try {
+        const created = await context.models.factMetrics.create(
+          metric as CreateProps<FactMetricInterface>,
+        );
+        factMetrics.push(created);
+        factMetricIds.add(created.id);
+        results[i].created.push(created.id);
+      } catch (e) {
+        results[i].errors.push({ id: metric.id, message: message(e) });
+      }
+    }
+  }
+
+  // legacy metric id -> fact metric id
+  const idMap = new Map<string, string>();
+  for (const fm of factMetrics) {
+    for (const legacyId of fm.replaces || []) idMap.set(legacyId, fm.id);
+  }
+  const swap = (ids: string[]) => [
+    ...new Set(ids.map((id) => idMap.get(id) ?? id)),
+  ];
+  const changed = (before: string[], after: string[]) =>
+    before.length !== after.length || before.some((id, i) => id !== after[i]);
+
+  let metricGroupsUpdated = 0;
+  if (context.permissions.canUpdateMetricGroup()) {
+    for (const mg of await context.models.metricGroups.getAll()) {
+      const metrics = swap(mg.metrics);
+      if (!changed(mg.metrics, metrics)) continue;
+      await context.models.metricGroups.update(mg, { metrics });
+      metricGroupsUpdated++;
+    }
+  }
+
+  let templatesUpdated = 0;
+  if (orgHasPremiumFeature(context.org, "templates")) {
+    for (const template of await context.models.experimentTemplates.getAll()) {
+      const updates = {
+        goalMetrics: swap(template.goalMetrics || []),
+        secondaryMetrics: swap(template.secondaryMetrics || []),
+        guardrailMetrics: swap(template.guardrailMetrics || []),
+        activationMetric: template.activationMetric
+          ? (idMap.get(template.activationMetric) ?? template.activationMetric)
+          : template.activationMetric,
+      };
+      if (
+        !changed(template.goalMetrics || [], updates.goalMetrics) &&
+        !changed(template.secondaryMetrics || [], updates.secondaryMetrics) &&
+        !changed(template.guardrailMetrics || [], updates.guardrailMetrics) &&
+        updates.activationMetric === template.activationMetric
+      ) {
+        continue;
+      }
+      if (!context.permissions.canUpdateExperimentTemplate(template, updates)) {
+        continue;
+      }
+      await context.models.experimentTemplates.update(template, updates);
+      templatesUpdated++;
+    }
+  }
+
+  const archived: string[] = [];
+  const notArchived: MigrateLegacyMetricsResponse["notArchived"] = [];
+  if (archive) {
+    const legacyIds = [
+      ...new Set(groups.flatMap((g) => g.metrics.flatMap((m) => m.replaces))),
+    ].filter((id) => idMap.has(id));
+    const legacyMetrics = new Map<string, MetricInterface>(
+      (await getMetricsByOrganization(context)).map((m) => [m.id, m]),
+    );
+    // Safe mid-experiment: analysis loads metrics by id, ignoring status
+    const toArchive: MetricInterface[] = [];
+    for (const id of legacyIds) {
+      const metric = legacyMetrics.get(id);
+      if (!metric || metric.status === "archived") continue;
+      // Defensive; the conversion never migrates these
+      if (metric.managedBy === "config" || metric.managedBy === "api") {
+        notArchived.push({
+          id,
+          reason:
+            "Definition is synced from an external source; migrate it there instead",
+        });
+        continue;
+      }
+      if (!context.permissions.canUpdateMetric(metric, {})) {
+        notArchived.push({ id, reason: "No permission to update this metric" });
+        continue;
+      }
+      toArchive.push(metric);
+    }
+    try {
+      await archiveMetrics(context, toArchive);
+      archived.push(...toArchive.map((m) => m.id));
+    } catch (e) {
+      const reason = message(e);
+      notArchived.push(...toArchive.map((m) => ({ id: m.id, reason })));
+    }
+  }
+
+  res.status(200).json({
+    status: 200,
+    results,
+    archived,
+    notArchived,
+    metricGroupsUpdated,
+    templatesUpdated,
+  });
+};

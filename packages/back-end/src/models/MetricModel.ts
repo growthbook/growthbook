@@ -21,6 +21,7 @@ import {
   projectFilterQuery,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import { generateEmbeddings } from "back-end/src/enterprise/services/ai";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { queriesSchema } from "./QueryModel";
@@ -393,7 +394,11 @@ async function findMetrics(
     if (metricIds.has(doc.id)) {
       return;
     }
-    metrics.push(toInterface(doc));
+    // The doc migration fills in defaults, which can re-add an excluded field
+    const metric = toInterface(doc);
+    metrics.push(
+      excludeFields ? (omit(metric, excludeFields) as MetricInterface) : metric,
+    );
     metricIds.add(doc.id);
   });
 
@@ -714,6 +719,33 @@ export async function updateMetric(
       definitionsScope(metric.projects, updates.projects ?? metric.projects),
     );
   }
+}
+
+// Bulk `updateMetric`. Callers must check permissions and exclude config/api metrics
+export async function archiveMetrics(
+  context: ReqContext | ApiReqContext,
+  metrics: MetricInterface[],
+) {
+  if (!metrics.length) return;
+
+  const updates: Partial<MetricInterface> = {
+    status: "archived",
+    dateUpdated: new Date(),
+  };
+  await MetricModel.updateMany(
+    { id: { $in: metrics.map((m) => m.id) }, organization: context.org.id },
+    { $set: updates },
+  );
+
+  await promiseAllChunks(
+    metrics.map(
+      (metric) => () =>
+        audit.logUpdate(context, metric, { ...metric, ...updates }),
+    ),
+    5,
+  );
+
+  await touchDefinitionsVersion(context.org.id);
 }
 
 export async function removeSegmentFromAllMetrics(
