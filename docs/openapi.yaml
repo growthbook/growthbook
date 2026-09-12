@@ -945,6 +945,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1050,6 +1058,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1177,6 +1193,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1295,6 +1319,58 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    additionalProperties: false
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1393,6 +1469,106 @@ paths:
                                       - value
                                       - weight
                                     additionalProperties: false
+                                experimentType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hypothesis:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hashVersion:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                datasource:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                exposureQueryId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                goalMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                secondaryMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                guardrailMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                activationMetric:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                segment:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                skipPartialData:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                regressionAdjustmentEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingTuningParameter:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                statsEngine:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStage:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStageDateStarted:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                templateId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                customFields:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                               required:
                                 - condition
                                 - type
@@ -1428,6 +1604,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1533,6 +1719,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1660,6 +1856,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1778,6 +1984,60 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
+                                        additionalProperties: false
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1876,6 +2136,131 @@ paths:
                                           - value
                                           - weight
                                         additionalProperties: false
+                                    experimentType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hypothesis:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hashVersion:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    datasource:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    exposureQueryId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    goalMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    secondaryMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    guardrailMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    activationMetric:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    segment:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    skipPartialData:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    regressionAdjustmentEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingTuningParameter:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    statsEngine:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStage:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStageDateStarted:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    templateId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    customFields:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                   required:
                                     - condition
                                     - type
@@ -2094,6 +2479,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2199,6 +2592,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2326,6 +2727,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2444,6 +2853,58 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    additionalProperties: false
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2542,6 +3003,106 @@ paths:
                                       - value
                                       - weight
                                     additionalProperties: false
+                                experimentType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hypothesis:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hashVersion:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                datasource:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                exposureQueryId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                goalMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                secondaryMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                guardrailMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                activationMetric:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                segment:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                skipPartialData:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                regressionAdjustmentEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingTuningParameter:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                statsEngine:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStage:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStageDateStarted:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                templateId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                customFields:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                               required:
                                 - condition
                                 - type
@@ -2577,6 +3138,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2682,6 +3253,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2809,6 +3390,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2927,6 +3518,60 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
+                                        additionalProperties: false
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -3025,6 +3670,131 @@ paths:
                                           - value
                                           - weight
                                         additionalProperties: false
+                                    experimentType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hypothesis:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hashVersion:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    datasource:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    exposureQueryId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    goalMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    secondaryMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    guardrailMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    activationMetric:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    segment:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    skipPartialData:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    regressionAdjustmentEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingTuningParameter:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    statsEngine:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStage:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStageDateStarted:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    templateId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    customFields:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                   required:
                                     - condition
                                     - type
@@ -7306,6 +8076,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -7442,6 +8224,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -7602,6 +8396,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -7753,6 +8559,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8102,6 +8920,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8238,6 +9068,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8398,6 +9240,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8549,6 +9403,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:

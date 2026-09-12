@@ -265,6 +265,13 @@ export function mapV2ApiRuleToFeatureRule(
     enabled: ruleInput.enabled ?? true,
     condition: ruleInput.condition ?? "",
     savedGroups: resolveSavedGroupsInput(ruleInput),
+    // Emitted on GET; dropping them broke the fetch → edit → send-back loop.
+    ...(ruleInput.prerequisites !== undefined && {
+      prerequisites: ruleInput.prerequisites,
+    }),
+    ...(ruleInput.scheduleRules !== undefined && {
+      scheduleRules: ruleInput.scheduleRules,
+    }),
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
     allProjects: resolvedAllProjects,
@@ -436,6 +443,30 @@ export async function assertValidHoldout(
   });
 }
 
+// v2 counterpart on the flat rules array: same plan gate and business rules,
+// keyed by rule index. Empty arrays pass so a round-trip of an unscheduled
+// rule never trips the plan gate.
+export function validateRulesScheduleRules(
+  rules: FeatureRule[],
+  context: ApiReqContext,
+): void {
+  rules.forEach((rule, i) => {
+    if (!rule.scheduleRules?.length) return;
+    if (!context.hasPremiumFeature("schedule-feature-flag")) {
+      context.throwPlanDoesNotAllowError(
+        "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
+      );
+    }
+    try {
+      validateScheduleRules(rule.scheduleRules);
+    } catch (error) {
+      throw new BadRequestError(
+        `Invalid scheduleRules on rule ${i + 1}: ${error.message}`,
+      );
+    }
+  });
+}
+
 // Pro/Enterprise gated. Validates scheduleRules on v1-shape env rules.
 export function validateEnvRulesScheduleRules(
   envBody: ApiFeatureEnvSettings | undefined,
@@ -445,7 +476,7 @@ export function validateEnvRulesScheduleRules(
   for (const [envName, envSettings] of Object.entries(envBody)) {
     if (!envSettings.rules) continue;
     envSettings.rules.forEach((rule, ruleIndex) => {
-      if (!rule.scheduleRules) return;
+      if (!rule.scheduleRules?.length) return;
       if (!context.hasPremiumFeature("schedule-feature-flag")) {
         throw new Error(
           "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
