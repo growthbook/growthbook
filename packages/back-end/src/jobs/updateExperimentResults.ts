@@ -136,6 +136,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     return;
   }
 
+  let currentSnapshot;
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
@@ -195,7 +196,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       reweight,
     });
     await queryRunner.waitForResults();
-    const currentSnapshot = queryRunner.model;
+    currentSnapshot = queryRunner.model;
 
     logger.info(
       "Successfully Refreshed Results for experiment " + experimentId,
@@ -228,26 +229,32 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     }
 
     logger.error(e, "Failed to update experiment: " + experimentId);
-    // Turn off auto-updating for the future (bandits keep retrying unless the failure is deterministic)
+    // Bandits keep retrying unless the failure is deterministic
     if (
-      experiment.type === "multi-armed-bandit" &&
-      !(e instanceof UnrecoverableSnapshotError)
+      experiment.type !== "multi-armed-bandit" ||
+      e instanceof UnrecoverableSnapshotError
     ) {
-      return;
+      try {
+        await updateExperiment({
+          context,
+          experiment,
+          changes: {
+            autoSnapshots: false,
+          },
+        });
+      } catch (err) {
+        logger.error(err, "Failed to turn off autoSnapshots: " + experimentId);
+      }
     }
     try {
-      await updateExperiment({
+      await notifyAutoUpdate({
         context,
         experiment,
-        changes: {
-          autoSnapshots: false,
-        },
+        success: false,
+        ignoreSnapshot: currentSnapshot,
       });
-
-      await notifyAutoUpdate({ context, experiment, success: true });
-    } catch (e) {
-      logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
-      await notifyAutoUpdate({ context, experiment, success: false });
+    } catch (err) {
+      logger.error(err, "Failed to notify auto-update failure: " + experimentId);
     }
   }
 };

@@ -1079,7 +1079,7 @@ export async function getLatestSuccessfulSnapshot({
 }: {
   context: Context;
   experiment: string;
-  phase: number;
+  phase?: number;
   dimension?: string;
   beforeSnapshot?: Pick<ExperimentSnapshotInterface, "dateCreated">;
   type?: SnapshotType;
@@ -1087,7 +1087,7 @@ export async function getLatestSuccessfulSnapshot({
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,
     experiment,
-    phase,
+    ...(phase !== undefined ? { phase } : {}),
     dimension: dimension || null,
   };
   if (type) {

@@ -123,9 +123,8 @@ export const createEventWithPayload = async <
   // Save event history even when webhook and legacy Slack dispatch is skipped.
   notify?: boolean;
 }) => {
+  const eventId = `event-${randomUUID()}`;
   try {
-    const eventId = `event-${randomUUID()}`;
-
     const doc = await EventModel.create({
       id: eventId,
       version: MODEL_VERSION,
@@ -145,6 +144,11 @@ export const createEventWithPayload = async <
     if (notify) await new EventNotifier(event.id).perform();
   } catch (e) {
     logger.error(e);
+    try {
+      await EventModel.deleteOne({ id: eventId });
+    } catch (err) {
+      logger.error(err);
+    }
   }
 };
 
@@ -377,4 +381,25 @@ export const getLatestEventsForOrganization = async (
     .limit(limit);
 
   return docs.map(toInterface) as EventInterface[];
+};
+
+export const getLatestAutoUpdateFailEvent = async ({
+  organizationId,
+  experimentId,
+}: {
+  organizationId: string;
+  experimentId: string;
+}): Promise<{ dateCreated: Date } | null> => {
+  const doc = await EventModel.findOne({
+    organizationId,
+    objectId: experimentId,
+    event: "experiment.warning",
+    "data.data.object.type": "auto-update",
+    "data.data.object.success": false,
+  })
+    .sort({ dateCreated: -1 })
+    .lean();
+
+  const dateCreated = (doc as { dateCreated?: Date } | null)?.dateCreated;
+  return dateCreated ? { dateCreated: new Date(dateCreated) } : null;
 };
