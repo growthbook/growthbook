@@ -559,6 +559,61 @@ describe("feature rule write contracts", () => {
     });
   });
 
+  // A stored rule can still name an environment that was since deleted. The
+  // v2 read model drops it, so a GET posted back unchanged is accepted while a
+  // newly introduced unknown id is still rejected.
+  describe("v2 bulk update with a stale stored environment", () => {
+    beforeEach(async () => {
+      await insertFeature("flag_stale_env", [
+        {
+          id: "fr_stale_env",
+          type: "force",
+          value: "true",
+          description: "",
+          enabled: true,
+          condition: "",
+          savedGroups: [],
+          allEnvironments: false,
+          environments: ["gone_env", "production"],
+        },
+      ]);
+      await insertDraftRevision("flag_stale_env");
+    });
+
+    it("reads back without the deleted environment and round-trips", async () => {
+      const got = await request(app)
+        .get("/api/v2/features/flag_stale_env")
+        .set("Authorization", "Bearer foo");
+      expect(got.status).toBe(200);
+      expect(got.body.feature.rules[0].environments).toEqual(["production"]);
+
+      const echoed = await request(app)
+        .post("/api/v2/features/flag_stale_env")
+        .send({ rules: got.body.feature.rules })
+        .set("Authorization", "Bearer foo");
+      expect(echoed.body.message).toBeUndefined();
+      expect(echoed.status).toBe(200);
+    });
+
+    it("still rejects a newly introduced unknown environment", async () => {
+      const res = await request(app)
+        .post("/api/v2/features/flag_stale_env")
+        .send({
+          rules: [
+            {
+              type: "force",
+              value: "true",
+              allEnvironments: false,
+              environments: ["prodution"],
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/Invalid environment: "prodution"/);
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe("v2 bulk (POST /api/v2/features)", () => {
     const create = (rules: Record<string, unknown>[], id = "flag_v2_bulk") =>
       request(app)
