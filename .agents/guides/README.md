@@ -8,5 +8,9 @@ This directory is the canonical home for detailed repository guidance shared by 
 - `permissions.md` — permission and commercial-feature patterns
 - `ui-copy-style.md` — casing and phrasing for all user-facing copy (front-end UI and back-end/API messages)
 - `docs.md` — Mintlify MDX frontmatter (quote YAML values that contain a colon)
-- `frontend/` — React and data-fetching patterns
+- `frontend/` — React and UI component patterns, data fetching, icons, accessibility, and UI states
 - `backend/` — API, model, and legacy-model migration patterns
+
+The sibling `.agents/prompts/` directory holds version-controlled prompts for automation that reviews this repo, so they stay in sync with the guides above.
+
+- `../prompts/design-review.md` — the automated design-review prompt (review mechanics; rules live in the guides)

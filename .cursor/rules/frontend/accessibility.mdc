@@ -1,0 +1,8 @@
+---
+description: "Keyboard and screen-reader requirements for front-end UI: accessible names, focus, disclosure state"
+globs: packages/front-end/**/*.tsx,packages/front-end/**/*.ts
+alwaysApply: false
+---
+# Front-end Accessibility
+
+Before adding or changing an interactive element or form control, read and follow `.agents/guides/frontend/accessibility.md`.
