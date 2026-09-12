@@ -1381,10 +1381,12 @@ const postFeatureSavedGroupTargeting = z
   })
   .strict();
 
-const postFeaturePrerequisite = z.object({
-  id: z.string().describe("Feature ID"),
-  condition: z.string(),
-});
+const postFeaturePrerequisite = z
+  .object({
+    id: z.string().describe("Feature ID"),
+    condition: z.string(),
+  })
+  .strict();
 
 const postSparseRuleField = z
   .boolean()
@@ -1437,7 +1439,7 @@ const postFeatureForceRule = z
       .describe("Applied to everyone by default.")
       .optional(),
     ...v1RuleSavedGroupInput,
-    prerequisites: z.array(apiRevisionPrerequisite).optional(),
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
     scheduleRules: z.array(apiScheduleRuleValidator).optional(),
     id: z.string().optional(),
     enabled: z.boolean().describe("Enabled by default").optional(),
@@ -1527,7 +1529,7 @@ const postFeatureExperimentRule = z
       })
       .optional(),
     coverage: z.number().optional(),
-    prerequisites: z.array(apiRevisionPrerequisite).optional(),
+    prerequisites: z.array(postFeaturePrerequisite).optional(),
     scheduleRules: z.array(apiScheduleRuleValidator).optional(),
     values: z
       .array(

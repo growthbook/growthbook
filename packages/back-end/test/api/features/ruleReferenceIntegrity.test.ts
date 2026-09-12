@@ -440,6 +440,16 @@ describe("rule reference integrity (v2 per-rule endpoints)", () => {
         /Unrecognized key/,
       ],
       [
+        "an unknown key nested in prerequisites",
+        {
+          prerequisites: [
+            { id: "parent_flag", condition: "{}", enabled: true },
+          ],
+        },
+        400,
+        /Unrecognized key/,
+      ],
+      [
         "an unknown targeted group",
         { savedGroups: [{ match: "all", ids: ["grp_missing"] }] },
         404,
