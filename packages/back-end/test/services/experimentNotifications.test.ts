@@ -5,8 +5,9 @@ import {
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
   createEvent,
-  getLatestAutoUpdateEvent,
+  getLatestAutoUpdateFailEvent,
 } from "back-end/src/models/EventModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   updateExperiment: jest.fn(),
@@ -14,11 +15,18 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/EventModel", () => ({
   createEvent: jest.fn(),
-  getLatestAutoUpdateEvent: jest.fn(),
+  getLatestAutoUpdateFailEvent: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  getLatestSuccessfulSnapshot: jest.fn(),
 }));
 
 const createEventMock = createEvent as jest.Mock;
-const getLatestAutoUpdateEventMock = getLatestAutoUpdateEvent as jest.Mock;
+const getLatestAutoUpdateFailEventMock =
+  getLatestAutoUpdateFailEvent as jest.Mock;
+const getLatestSuccessfulSnapshotMock =
+  getLatestSuccessfulSnapshot as jest.Mock;
 
 describe("memoizeNotification", () => {
   it("calls the handler when notification is triggered and hasn't been dispatched yet", async () => {
@@ -87,37 +95,38 @@ describe("memoizeNotification", () => {
 });
 
 describe("notifyAutoUpdate", () => {
+  const failAt = new Date("2026-09-11T00:00:00.000Z");
   const context = { org: { id: "org_1" } };
   const experiment = {
     id: "exp_1",
     name: "Exp",
     archived: true,
+    dateUpdated: new Date("2026-09-10T00:00:00.000Z"),
+    phases: [{}],
   };
 
   beforeEach(() => {
     createEventMock.mockReset();
-    getLatestAutoUpdateEventMock.mockReset();
-    getLatestAutoUpdateEventMock.mockResolvedValue(null);
+    getLatestAutoUpdateFailEventMock.mockReset();
+    getLatestSuccessfulSnapshotMock.mockReset();
+    getLatestAutoUpdateFailEventMock.mockResolvedValue(null);
+    getLatestSuccessfulSnapshotMock.mockResolvedValue(null);
   });
 
-  it("creates a warning event when the latest auto-update event is not a fail", async () => {
+  it("creates a warning event when there is no fail event", async () => {
     await notifyAutoUpdate({
       context,
       experiment,
       success: false,
     });
 
-    expect(getLatestAutoUpdateEventMock).toHaveBeenCalledWith({
-      organizationId: "org_1",
-      experimentId: "exp_1",
-    });
-    expect(createEventMock).toHaveBeenCalledWith(
-      expect.objectContaining({ notify: true }),
-    );
+    expect(createEventMock).toHaveBeenCalled();
   });
 
-  it("does not create a warning event when the latest auto-update event is a fail", async () => {
-    getLatestAutoUpdateEventMock.mockResolvedValue({ success: false });
+  it("does not create a warning event when a fail event exists and Results have not worked since", async () => {
+    getLatestAutoUpdateFailEventMock.mockResolvedValue({
+      dateCreated: failAt,
+    });
 
     await notifyAutoUpdate({
       context,
@@ -128,24 +137,48 @@ describe("notifyAutoUpdate", () => {
     expect(createEventMock).not.toHaveBeenCalled();
   });
 
-  it("records a success event without Slack", async () => {
+  it("creates a warning event when Results have worked since the fail event", async () => {
+    getLatestAutoUpdateFailEventMock.mockResolvedValue({
+      dateCreated: failAt,
+    });
+    getLatestSuccessfulSnapshotMock.mockResolvedValue({
+      dateCreated: new Date("2026-09-12T00:00:00.000Z"),
+    });
+
+    await notifyAutoUpdate({
+      context,
+      experiment,
+      success: false,
+    });
+
+    expect(createEventMock).toHaveBeenCalled();
+  });
+
+  it("creates a warning event when auto-refresh was turned back on after the fail event", async () => {
+    getLatestAutoUpdateFailEventMock.mockResolvedValue({
+      dateCreated: failAt,
+    });
+
+    await notifyAutoUpdate({
+      context,
+      experiment: {
+        ...experiment,
+        dateUpdated: new Date("2026-09-12T00:00:00.000Z"),
+      },
+      success: false,
+    });
+
+    expect(createEventMock).toHaveBeenCalled();
+  });
+
+  it("does not create a warning event on success", async () => {
     await notifyAutoUpdate({
       context,
       experiment,
       success: true,
     });
 
-    expect(getLatestAutoUpdateEventMock).not.toHaveBeenCalled();
-    expect(createEventMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        notify: false,
-        data: expect.objectContaining({
-          object: expect.objectContaining({
-            type: "auto-update",
-            success: true,
-          }),
-        }),
-      }),
-    );
+    expect(getLatestAutoUpdateFailEventMock).not.toHaveBeenCalled();
+    expect(createEventMock).not.toHaveBeenCalled();
   });
 });

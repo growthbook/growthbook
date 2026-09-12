@@ -30,7 +30,7 @@ import { Context } from "back-end/src/models/BaseModel";
 import {
   createEvent,
   CreateEventData,
-  getLatestAutoUpdateEvent,
+  getLatestAutoUpdateFailEvent,
 } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
@@ -107,6 +107,9 @@ export const memoizeNotification = async ({
   });
 };
 
+const isLater = (left: Date | undefined, right: Date) =>
+  !!left && new Date(left).getTime() > right.getTime();
+
 export const notifyAutoUpdate = async ({
   context,
   experiment,
@@ -116,13 +119,28 @@ export const notifyAutoUpdate = async ({
   experiment: ExperimentInterface;
   success: boolean;
 }) => {
-  if (!success) {
-    const latest = await getLatestAutoUpdateEvent({
-      organizationId: context.org.id,
-      experimentId: experiment.id,
-    });
-    if (latest?.success === false) return;
+  if (success) return;
+
+  const fail = await getLatestAutoUpdateFailEvent({
+    organizationId: context.org.id,
+    experimentId: experiment.id,
+  });
+  if (fail) {
+    const newStreak = isLater(experiment.dateUpdated, fail.dateCreated);
+    const lastSuccess =
+      !newStreak && experiment.phases?.length
+        ? await getLatestSuccessfulSnapshot({
+            context,
+            experiment: experiment.id,
+            phase: experiment.phases.length - 1,
+            type: "standard",
+          })
+        : null;
+    if (!newStreak && !isLater(lastSuccess?.dateCreated, fail.dateCreated)) {
+      return;
+    }
   }
+
   return dispatchEvent({
     context,
     experiment,
@@ -135,7 +153,6 @@ export const notifyAutoUpdate = async ({
         experimentName: experiment.name,
       },
     },
-    notify: !success,
   });
 };
 
