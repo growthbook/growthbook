@@ -114,10 +114,12 @@ export const notifyAutoUpdate = async ({
   context,
   experiment,
   success,
+  ignoreSnapshot,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   success: boolean;
+  ignoreSnapshot?: Pick<ExperimentSnapshotInterface, "dateCreated">;
 }) => {
   if (success) return;
 
@@ -130,6 +132,7 @@ export const notifyAutoUpdate = async ({
       context,
       experiment: experiment.id,
       type: "standard",
+      ...(ignoreSnapshot ? { beforeSnapshot: ignoreSnapshot } : {}),
     });
     if (!isLater(lastSuccess?.dateCreated, fail.dateCreated)) {
       return;

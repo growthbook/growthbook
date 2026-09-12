@@ -159,6 +159,28 @@ describe("notifyAutoUpdate", () => {
     });
   });
 
+  it("ignores this failed run's snapshot when deciding if Results have worked", async () => {
+    const thisRun = { dateCreated: new Date("2026-09-12T00:00:00.000Z") };
+    getLatestAutoUpdateFailEventMock.mockResolvedValue({
+      dateCreated: failAt,
+    });
+
+    await notifyAutoUpdate({
+      context,
+      experiment,
+      success: false,
+      ignoreSnapshot: thisRun,
+    });
+
+    expect(getLatestSuccessfulSnapshotMock).toHaveBeenCalledWith({
+      context,
+      experiment: "exp_1",
+      type: "standard",
+      beforeSnapshot: thisRun,
+    });
+    expect(createEventMock).not.toHaveBeenCalled();
+  });
+
   it("does not create a warning event on success", async () => {
     await notifyAutoUpdate({
       context,

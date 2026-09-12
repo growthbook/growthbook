@@ -123,9 +123,8 @@ export const createEventWithPayload = async <
   // Save event history even when webhook and legacy Slack dispatch is skipped.
   notify?: boolean;
 }) => {
+  const eventId = `event-${randomUUID()}`;
   try {
-    const eventId = `event-${randomUUID()}`;
-
     const doc = await EventModel.create({
       id: eventId,
       version: MODEL_VERSION,
@@ -145,6 +144,11 @@ export const createEventWithPayload = async <
     if (notify) await new EventNotifier(event.id).perform();
   } catch (e) {
     logger.error(e);
+    try {
+      await EventModel.deleteOne({ id: eventId });
+    } catch (err) {
+      logger.error(err);
+    }
   }
 };
 
