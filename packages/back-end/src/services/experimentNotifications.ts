@@ -27,11 +27,7 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
-import {
-  createEvent,
-  CreateEventData,
-  getLatestAutoUpdateFailEvent,
-} from "back-end/src/models/EventModel";
+import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
@@ -107,10 +103,7 @@ export const memoizeNotification = async ({
   });
 };
 
-const isLater = (left: Date | undefined, right: Date) =>
-  !!left && new Date(left).getTime() > right.getTime();
-
-export const notifyAutoUpdate = async ({
+export const notifyAutoUpdate = ({
   context,
   experiment,
   success,
@@ -118,41 +111,27 @@ export const notifyAutoUpdate = async ({
   context: Context;
   experiment: ExperimentInterface;
   success: boolean;
-}) => {
-  if (success) return;
-
-  const fail = await getLatestAutoUpdateFailEvent({
-    organizationId: context.org.id,
-    experimentId: experiment.id,
-  });
-  if (fail) {
-    const lastSuccess = experiment.phases?.length
-      ? await getLatestSuccessfulSnapshot({
-          context,
-          experiment: experiment.id,
-          phase: experiment.phases.length - 1,
-          type: "standard",
-        })
-      : null;
-    if (!isLater(lastSuccess?.dateCreated, fail.dateCreated)) {
-      return;
-    }
-  }
-
-  return dispatchEvent({
+}) =>
+  memoizeNotification({
     context,
     experiment,
-    event: "warning",
-    data: {
-      object: {
-        type: "auto-update",
-        success,
-        experimentId: experiment.id,
-        experimentName: experiment.name,
-      },
-    },
+    type: "auto-update",
+    triggered: !success,
+    dispatch: () =>
+      dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "auto-update",
+            success,
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      }),
   });
-};
 
 // Fires on every failed attempt of the scheduled-status-update job (not
 // memoized). Each event carries the attempt count and whether another retry
