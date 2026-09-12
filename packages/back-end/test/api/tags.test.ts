@@ -163,6 +163,38 @@ describe("tags API", () => {
     expect(await getAllTags("org1")).toHaveLength(1);
   });
 
+  it("does not overwrite a renamed tag when creating with its hidden id", async () => {
+    await postTag({
+      id: "backend",
+      label: "Backend Engineering",
+      color: "blue",
+      description: "Original tag",
+      createOnly: true,
+    });
+
+    const response = await postTag({
+      id: "backend",
+      label: "backend",
+      color: "gold",
+      description: "Should not overwrite",
+      createOnly: true,
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      status: 400,
+      message: "A tag with this name already exists or was previously renamed.",
+    });
+    expect(await getAllTags("org1")).toEqual([
+      {
+        id: "backend",
+        label: "Backend Engineering",
+        color: "blue",
+        description: "Original tag",
+      },
+    ]);
+  });
+
   it("stores tag ids containing dots as literal settings keys", async () => {
     const response = await postTag({
       id: "backend.api",

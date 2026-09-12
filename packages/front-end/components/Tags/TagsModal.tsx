@@ -64,6 +64,7 @@ export default function TagsModal({
             ...value,
             id: existing?.id ?? label,
             label,
+            createOnly: !existing?.id,
           }),
         });
         await onSuccess();

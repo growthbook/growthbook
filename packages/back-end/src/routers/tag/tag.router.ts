@@ -17,6 +17,7 @@ router.post(
         color: z.string(),
         description: z.string(),
         label: z.string().optional(),
+        createOnly: z.boolean().optional(),
       })
       .strict(),
   }),

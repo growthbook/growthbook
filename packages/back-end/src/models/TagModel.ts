@@ -19,6 +19,11 @@ const TagModel = mongoose.model<TagDBInterface>("Tag", tagSchema);
 const MIN_TAG_LENGTH = 2;
 const MAX_TAG_LENGTH = 64;
 
+type AddTagOptions = {
+  label?: string;
+  createOnly?: boolean;
+};
+
 function getTagLabel(
   tag: string,
   settings: TagDBInterface["settings"],
@@ -75,8 +80,10 @@ export async function addTag(
   tag: string,
   color: string,
   description: string,
-  label?: string,
+  options: AddTagOptions = {},
 ) {
+  const { label, createOnly = false } = options;
+
   if (tag.length < MIN_TAG_LENGTH || tag.length > MAX_TAG_LENGTH) {
     throw new Error(
       `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`,
@@ -89,6 +96,12 @@ export async function addTag(
   const existing = await TagModel.findOne({
     organization,
   });
+  if (createOnly && existing?.tags?.includes(tag)) {
+    throw new BadRequestError(
+      "A tag with this name already exists or was previously renamed.",
+    );
+  }
+
   const settings = existing?.settings || {};
   const resolvedLabel = label ?? getTagLabel(tag, settings);
 
