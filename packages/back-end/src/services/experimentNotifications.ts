@@ -126,14 +126,11 @@ export const notifyAutoUpdate = async ({
     experimentId: experiment.id,
   });
   if (fail) {
-    const lastSuccess = experiment.phases?.length
-      ? await getLatestSuccessfulSnapshot({
-          context,
-          experiment: experiment.id,
-          phase: experiment.phases.length - 1,
-          type: "standard",
-        })
-      : null;
+    const lastSuccess = await getLatestSuccessfulSnapshot({
+      context,
+      experiment: experiment.id,
+      type: "standard",
+    });
     if (!isLater(lastSuccess?.dateCreated, fail.dateCreated)) {
       return;
     }

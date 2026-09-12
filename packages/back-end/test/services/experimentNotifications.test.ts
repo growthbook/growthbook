@@ -152,6 +152,11 @@ describe("notifyAutoUpdate", () => {
     });
 
     expect(createEventMock).toHaveBeenCalled();
+    expect(getLatestSuccessfulSnapshotMock).toHaveBeenCalledWith({
+      context,
+      experiment: "exp_1",
+      type: "standard",
+    });
   });
 
   it("does not create a warning event on success", async () => {
