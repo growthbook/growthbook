@@ -1,8 +1,7 @@
 import { validateScheduleRules } from "shared/util";
 
-// The API schemas accept any RFC 3339 date-time; the validator must accept the
-// same set and only reject garbage. Canonical spelling is handled at write
-// time (addIdsToFlatRules), not here.
+// Accepts the same RFC 3339 set the API schemas do; canonical spelling is
+// applied at write time (addIdsToFlatRules), not here.
 describe("validateScheduleRules timestamps", () => {
   const pair = (start: string | null, end: string | null = null) => [
     { timestamp: start, enabled: true },

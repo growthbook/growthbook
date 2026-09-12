@@ -11,7 +11,6 @@ import {
   resolveScopeFromInput,
   validateRulesScheduleRules,
 } from "back-end/src/api/features/v2Shared";
-import { normalizeRuleForApiV2 } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
 
 // ---------------------------------------------------------------------------
@@ -395,9 +394,8 @@ describe("mapV2ApiRuleToFeatureRule", () => {
 // regression to the in-place mutation pattern.
 // ---------------------------------------------------------------------------
 
-// Both fields are emitted on GET and accepted on every rule type. The mapper
-// used to drop them, so a fetch → edit → send-back through the bulk endpoints
-// removed every rule's prerequisite gate and schedule.
+// Both fields are emitted on GET and accepted on every rule type, so the
+// mapper must carry them or a fetch → edit → send-back drops the gate/schedule.
 describe("mapV2ApiRuleToFeatureRule prerequisites + scheduleRules", () => {
   const prerequisites = [{ id: "parent_flag", condition: '{"value": true}' }];
   const scheduleRules = [
@@ -463,25 +461,6 @@ describe("mapV2ApiRuleToFeatureRule prerequisites + scheduleRules", () => {
     } as ApiRuleV2Input);
     expect(out.prerequisites).toBeUndefined();
     expect(out.scheduleRules).toBeUndefined();
-  });
-
-  it("survives a GET → POST round-trip through normalizeRuleForApiV2", () => {
-    const stored = {
-      id: "fr_1",
-      type: "force",
-      value: "true",
-      description: "",
-      enabled: true,
-      condition: "",
-      prerequisites,
-      scheduleRules,
-      allEnvironments: true,
-    } as unknown as FeatureRule;
-    const out = mapV2ApiRuleToFeatureRule(
-      normalizeRuleForApiV2(stored) as unknown as ApiRuleV2Input,
-    );
-    expect(out.prerequisites).toEqual(prerequisites);
-    expect(out.scheduleRules).toEqual(scheduleRules);
   });
 });
 

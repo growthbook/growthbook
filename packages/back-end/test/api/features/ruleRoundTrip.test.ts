@@ -5,10 +5,8 @@ import {
   normalizeRuleForFeatureEnv,
 } from "back-end/src/services/features";
 
-// The write schemas are strict, so every key the READ models actually emit —
-// not just what the response schemas declare — must be accepted on write.
-// This drives fully-populated stored rules through the same emitters the GET
-// handlers use and feeds the output straight back to the write schemas.
+// Every key the read-model emitters actually produce must be accepted by the
+// strict write schemas: stored rule → GET emitter → write schema.
 
 const stored = {
   id: "fr_1",

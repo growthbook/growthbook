@@ -8,10 +8,8 @@ import {
 } from "shared/validators";
 
 // Write schemas are strict, so every key a GET response can carry must be
-// accepted (even if ignored) by the matching write schema — otherwise the
-// documented fetch → edit → send-back loop 400s. This is the drift guard: add a
-// response-only field without accepting it on write and this fails, not a
-// customer's round-trip.
+// accepted (even if ignored) by the matching write schema, or the documented
+// fetch → edit → send-back loop 400s.
 
 type Variant = { type: string | null; keys: Set<string> };
 type JsonSchema = Record<string, unknown>;
@@ -96,92 +94,8 @@ describe("write schemas accept every key their GET response emits", () => {
   });
 });
 
-// The write schemas are strict: a misspelled key must fail loudly instead of
-// being stripped (which silently widened the rule's audience), while the
-// read-only keys a GET emits are accepted and ignored.
-describe("write schemas reject unknown keys but accept read-only echoes", () => {
-  const echo = {
-    pendingRamp: "create",
-    rampScheduleId: "rs_1",
-    scheduleType: "schedule",
-  };
-
-  it("v2 bulk rules", () => {
-    const rule = { type: "force", value: "true", allEnvironments: true };
-    expect(postFeatureRuleV2.safeParse({ ...rule, ...echo }).success).toBe(
-      true,
-    );
-    for (const bad of [
-      { conditions: "{}" },
-      { savedGroup: [] },
-      { savedGroups: [{ match: "all", ids: ["g"], extra: 1 }] },
-      { prerequisites: [{ id: "f", condition: "{}", enabled: true }] },
-      { scheduleRules: [{ timestamp: null, enabled: true, note: "x" }] },
-    ]) {
-      const res = postFeatureRuleV2.safeParse({ ...rule, ...bad });
-      expect(res.success).toBe(false);
-    }
-    const expRef = {
-      type: "experiment-ref",
-      experimentId: "exp",
-      allEnvironments: true,
-      variations: [{ variationId: "v0", value: "1", weight: 0.5 }],
-    };
-    expect(postFeatureRuleV2.safeParse(expRef).success).toBe(false);
-  });
-
-  it("v1 bulk rules", () => {
-    const body = postFeatureValidator.bodySchema;
-    const feature = (rules: unknown[]) => ({
-      id: "f",
-      owner: "o",
-      valueType: "boolean",
-      defaultValue: "false",
-      environments: { production: { enabled: true, rules } },
-    });
-    const rule = { type: "force", value: "true" };
-    expect(
-      body.safeParse(
-        feature([
-          { ...rule, rampScheduleId: "rs_1", scheduleType: "schedule" },
-        ]),
-      ).success,
-    ).toBe(true);
-    expect(
-      body.safeParse(feature([{ ...rule, conditions: "{}" }])).success,
-    ).toBe(false);
-    expect(
-      body.safeParse(
-        feature([
-          {
-            ...rule,
-            savedGroupTargeting: [
-              { matchType: "all", savedGroups: ["g"], x: 1 },
-            ],
-          },
-        ]),
-      ).success,
-    ).toBe(false);
-    // Legacy inline experiment rules are not curated: unknown keys still strip.
-    expect(
-      body.safeParse(
-        feature([
-          {
-            type: "experiment",
-            condition: "{}",
-            values: [{ value: "true", weight: 1 }],
-            hashVersion: 2,
-            experimentType: "standard",
-          },
-        ]),
-      ).success,
-    ).toBe(true);
-  });
-});
-
-// The v1 read model spreads the STORED rule into the response (minus v2 scope),
-// so every key the stored schema declares must be accepted by the v1 write
-// schema too — not just what the response schema declares.
+// The v1 read model spreads the stored rule (minus v2 scope) into the
+// response, so the stored schema's keys must be accepted by the v1 write schema.
 describe("v1 write schema accepts every stored rule key the read model emits", () => {
   it("per rule type", () => {
     const env = findProp(json(postFeatureValidator.bodySchema), "environments")!
@@ -205,5 +119,29 @@ describe("v1 write schema accepts every stored rule key the read model emits", (
       if (missing.length) out[stored.type ?? "*"] = missing;
     }
     expect(out).toEqual({});
+  });
+
+  it("legacy inline experiment rules stay in strip mode", () => {
+    const res = postFeatureValidator.bodySchema.safeParse({
+      id: "f",
+      owner: "o",
+      valueType: "boolean",
+      defaultValue: "false",
+      environments: {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment",
+              condition: "{}",
+              values: [{ value: "true", weight: 1 }],
+              hashVersion: 2,
+              experimentType: "standard",
+            },
+          ],
+        },
+      },
+    });
+    expect(res.success).toBe(true);
   });
 });

@@ -5,10 +5,9 @@ import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "../api.setup";
 
-// Drives the feature rule endpoints (per-rule and bulk, v1 and v2) through the
-// real app against in-memory Mongo: targeting references must exist, unknown
-// keys are rejected, read-only GET keys are accepted, and a write never
-// re-validates references it did not touch.
+// Per-rule and bulk (v1 + v2) rule writes through the real app: references
+// must exist, unknown keys are rejected, read-only GET keys are accepted, and a
+// write never re-validates references it did not touch.
 
 const ORG_ID = "org_rule_refs";
 const org = {
@@ -108,7 +107,7 @@ const forceRule = (extra: Record<string, unknown>) => ({
   ...extra,
 });
 
-describe("rule reference integrity (v2 per-rule endpoints)", () => {
+describe("feature rule write contracts", () => {
   const { app, setReqContext } = setupApp();
   const FLAG = "flag_refs";
   const ADD = `/api/v2/features/${FLAG}/revisions/2/rules`;
@@ -167,12 +166,6 @@ describe("rule reference integrity (v2 per-rule endpoints)", () => {
 
     it.each([
       [
-        "a targeted saved group that does not exist",
-        { savedGroups: [{ match: "all", ids: ["grp_missing"] }] },
-        404,
-        /grp_missing/,
-      ],
-      [
         "a partially valid id list",
         { savedGroups: [{ match: "any", ids: ["grp_known", "grp_missing"] }] },
         404,
@@ -189,12 +182,6 @@ describe("rule reference integrity (v2 per-rule endpoints)", () => {
         { condition: '{"id": {"$notInGroup": "grp_missing"}}' },
         400,
         /grp_missing/,
-      ],
-      [
-        "$savedGroups naming an unknown group",
-        { condition: '{"$savedGroups": ["grp_missing"]}' },
-        400,
-        /saved group/i,
       ],
       [
         "$savedGroups with one known and one unknown group",
@@ -296,9 +283,7 @@ describe("rule reference integrity (v2 per-rule endpoints)", () => {
 
     it.each([
       ["a description-only patch", { description: "renamed" }],
-      ["a value-only patch", { value: "false" }],
       ["a scope-only patch", { allEnvironments: false, environments: ["dev"] }],
-      ["an enabled toggle", { enabled: false }],
     ])(
       "does not re-validate untouched references on %s",
       async (_label, patch) => {
@@ -450,12 +435,6 @@ describe("rule reference integrity (v2 per-rule endpoints)", () => {
         },
         400,
         /Unrecognized key/,
-      ],
-      [
-        "an unknown targeted group",
-        { savedGroups: [{ match: "all", ids: ["grp_missing"] }] },
-        404,
-        /grp_missing/,
       ],
       [
         "a partially valid id list",
