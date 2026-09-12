@@ -112,7 +112,7 @@ export default function ContextualBanditOverviewTable({
   formatMean,
   formatWeight,
 }: {
-  variations: { id: string; name: string }[];
+  variations: { id: string; name: string; index: number }[];
   means: (number | null)[];
   weights: (number | null)[];
   units: number[];
@@ -127,13 +127,13 @@ export default function ContextualBanditOverviewTable({
   const rows: OverviewRow[] = useMemo(
     () =>
       variations
-        .map((v, index) => ({
+        .map((v, i) => ({
           id: v.id,
-          index,
+          index: v.index,
           name: v.name,
-          mean: means[index] ?? null,
-          weight: weights[index] ?? null,
-          units: units[index] ?? 0,
+          mean: means[i] ?? null,
+          weight: weights[i] ?? null,
+          units: units[i] ?? 0,
         }))
         .sort((a, b) => (b.weight ?? -Infinity) - (a.weight ?? -Infinity)),
     [variations, means, weights, units],

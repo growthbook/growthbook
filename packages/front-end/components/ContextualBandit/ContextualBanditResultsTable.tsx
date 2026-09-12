@@ -248,14 +248,22 @@ export default function ContextualBanditResultsTable({
   );
   const variations = useMemo(
     () => [
-      ...overallVariations.map((v) => {
-        const current = cb.variations.find((c) => c.id === v.variationId);
+      ...overallVariations.map((v, i) => {
+        const canonical = cb.variations.findIndex(
+          (c) => c.id === v.variationId,
+        );
+        const current = canonical >= 0 ? cb.variations[canonical] : undefined;
         return {
           id: v.variationId,
           name: current?.name ?? v.variationName ?? "Removed variation",
+          index: canonical >= 0 ? canonical : i,
         };
       }),
-      ...pendingActiveVariations.map((v) => ({ id: v.id, name: v.name })),
+      ...pendingActiveVariations.map((v) => ({
+        id: v.id,
+        name: v.name,
+        index: cb.variations.findIndex((c) => c.id === v.id),
+      })),
     ],
     [overallVariations, cb.variations, pendingActiveVariations],
   );
@@ -299,11 +307,11 @@ export default function ContextualBanditResultsTable({
 
   const comparisonColumns: HeatmapColumn[] = useMemo(
     () =>
-      variations.map((v, index) => ({
+      variations.map((v) => ({
         key: v.id,
         header: (
           <Tooltip content={v.name} side="top">
-            <VariationNumber number={index} />
+            <VariationNumber number={v.index} />
           </Tooltip>
         ),
         align: "center",
