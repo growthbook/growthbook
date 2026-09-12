@@ -30,7 +30,7 @@ import { Context } from "back-end/src/models/BaseModel";
 import {
   createEvent,
   CreateEventData,
-  hasAutoUpdateFailEventSince,
+  getLatestAutoUpdateEvent,
 } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
@@ -116,15 +116,12 @@ export const notifyAutoUpdate = async ({
   experiment: ExperimentInterface;
   success: boolean;
 }) => {
-  if (success) return;
-  if (
-    await hasAutoUpdateFailEventSince({
+  if (!success) {
+    const latest = await getLatestAutoUpdateEvent({
       organizationId: context.org.id,
       experimentId: experiment.id,
-      since: experiment.dateUpdated,
-    })
-  ) {
-    return;
+    });
+    if (latest?.success === false) return;
   }
   return dispatchEvent({
     context,
@@ -138,6 +135,7 @@ export const notifyAutoUpdate = async ({
         experimentName: experiment.name,
       },
     },
+    notify: !success,
   });
 };
 
