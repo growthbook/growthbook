@@ -172,7 +172,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     // If the values, condition, projects, or archived state change, we need to
     // invalidate cached feature rules. `archived` IS refreshed: the archive
     // guard is only a bypassable warning, so a still-referenced group can be
-    // archived (ignoreWarnings) — `filterUsedSavedGroups` then drops it from
+    // archived (ignoreWarnings) — `getUsedSavedGroupIds` then drops it from
     // every referencing feature's payload, and unarchiving restores it, both
     // of which change served values.
     if (

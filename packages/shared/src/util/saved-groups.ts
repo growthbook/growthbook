@@ -7,6 +7,7 @@ import {
 import { AttributeMap } from "shared/types/feature";
 import {
   GroupMap,
+  SavedGroupForPayload,
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/types/saved-group";
@@ -68,18 +69,21 @@ export function getSavedGroupsValuesFromInterfaces(
   ) as SavedGroupsValues;
 }
 
+// Accepts (string | number)[] because a GroupMap's values may already have been
+// coerced upstream, unlike a raw SavedGroupInterface whose values are always
+// strings. Re-coercing an already-numeric value is a no-op.
 export function getTypedSavedGroupValues(
-  values: string[],
+  values: (string | number)[],
   type?: string,
-): string[] | number[] {
+): (string | number)[] {
   if (type === "number") {
-    return values.map((v) => parseFloat(v));
+    return values.map((v) => (typeof v === "number" ? v : parseFloat(v)));
   }
   return values;
 }
 
 export function getSavedGroupValueType(
-  group: SavedGroupInterface,
+  group: SavedGroupForPayload,
   organization: Pick<OrganizationInterface, "settings">,
 ): string {
   const attributes = organization.settings?.attributeSchema;

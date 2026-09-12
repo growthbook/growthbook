@@ -11,15 +11,22 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { ContextualBanditInterface, HoldoutInterface } from "shared/validators";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  SDKAttributeSchema,
+} from "shared/types/organization";
 import { FeatureDefinition } from "shared/types/sdk";
-import { getSDKCapabilities } from "shared/sdk-versioning";
+import { ConditionInterface } from "@growthbook/growthbook";
+import { getSDKCapabilities, SDKCapability } from "shared/sdk-versioning";
 import { ApiReqContext } from "back-end/types/api";
 import {
   buildSDKPayloadForConnection,
   getFeatureDefinitionsResponse,
+  applySavedGroupHashing,
+  getUsedSavedGroupIds,
   type SDKPayloadRawData,
   type ConnectionPayloadOptions,
+  withoutUnsupportedSavedGroupCapabilities,
 } from "back-end/src/services/features";
 import { getFeatureDefinition } from "back-end/src/util/features";
 
@@ -2106,5 +2113,170 @@ describe("SDK payload generation (scenario-specific)", () => {
       });
       expect(devDef?.rules ?? []).toEqual([]);
     });
+  });
+});
+
+function savedGroupFixture(
+  props: Pick<SavedGroupInterface, "id" | "type"> &
+    Partial<SavedGroupInterface>,
+): SavedGroupInterface {
+  return {
+    organization: "org-1",
+    groupName: props.id,
+    owner: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    ...props,
+  };
+}
+
+describe("applySavedGroupHashing with condition groups", () => {
+  const attributes: SDKAttributeSchema = [
+    { property: "email", datatype: "secureString" },
+    { property: "country", datatype: "string" },
+  ];
+
+  it("hashes secure attributes inside a condition group's condition", () => {
+    const groups: SavedGroupInterface[] = [
+      savedGroupFixture({
+        id: "cond_1",
+        type: "condition",
+        condition: JSON.stringify({ email: "a@b.com", country: "US" }),
+      }),
+    ];
+
+    const [hashed] = applySavedGroupHashing(groups, attributes, "salt");
+    const condition = JSON.parse(hashed.condition as string);
+    // secure attribute is hashed, non-secure is untouched
+    expect(condition.email).not.toBe("a@b.com");
+    expect(condition.country).toBe("US");
+  });
+
+  it("leaves an unparseable condition untouched rather than throwing", () => {
+    const groups: SavedGroupInterface[] = [
+      savedGroupFixture({
+        id: "cond_bad",
+        type: "condition",
+        condition: "{not json",
+      }),
+    ];
+
+    expect(() =>
+      applySavedGroupHashing(groups, attributes, "salt"),
+    ).not.toThrow();
+    expect(
+      applySavedGroupHashing(groups, attributes, "salt")[0].condition,
+    ).toBe("{not json");
+  });
+
+  it("still hashes list group values", () => {
+    const groups: SavedGroupInterface[] = [
+      savedGroupFixture({
+        id: "list_1",
+        type: "list",
+        attributeKey: "email",
+        values: ["a@b.com"],
+      }),
+    ];
+
+    const [hashed] = applySavedGroupHashing(groups, attributes, "salt");
+    expect(hashed.values?.[0]).not.toBe("a@b.com");
+  });
+});
+
+describe("getUsedSavedGroupIds", () => {
+  const groupMap: GroupMap = new Map([
+    ["list_1", { type: "list", attributeKey: "country", values: ["US"] }],
+    [
+      "cond_1",
+      {
+        type: "condition",
+        condition: JSON.stringify({ $savedGroups: ["list_1"] }),
+      },
+    ],
+    ["unused", { type: "list", attributeKey: "x", values: ["1"] }],
+  ]);
+
+  const featureWith = (
+    condition: ConditionInterface,
+  ): Record<string, FeatureDefinition> => ({
+    f: { defaultValue: "a", rules: [{ condition }] },
+  });
+
+  it("collects ids from the wire operator", () => {
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ $savedGroup: "list_1" }),
+        [],
+        groupMap,
+      ),
+    ).toEqual(new Set(["list_1"]));
+  });
+
+  it("collects ids from the legacy list operators", () => {
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ country: { $inGroup: "list_1" } }),
+        [],
+        groupMap,
+      ),
+    ).toEqual(new Set(["list_1"]));
+  });
+
+  it("includes groups reachable only through a shipped condition", () => {
+    // cond_1 references list_1, which no walk of the feature tree can see
+    expect(
+      getUsedSavedGroupIds(
+        featureWith({ $savedGroup: "cond_1" }),
+        [],
+        groupMap,
+      ),
+    ).toEqual(new Set(["cond_1", "list_1"]));
+  });
+
+  it("excludes groups nothing references", () => {
+    const used = getUsedSavedGroupIds(
+      featureWith({ $savedGroup: "list_1" }),
+      [],
+      groupMap,
+    );
+    expect(used.has("unused")).toBe(false);
+  });
+});
+
+describe("withoutUnsupportedSavedGroupCapabilities", () => {
+  const caps: SDKCapability[] = [
+    "savedGroupReferences",
+    "savedGroupReferencesV2",
+    "prerequisites",
+  ];
+
+  it("leaves a normal connection alone", () => {
+    expect(
+      withoutUnsupportedSavedGroupCapabilities(caps, {
+        remoteEvalEnabled: false,
+      }),
+    ).toEqual(caps);
+  });
+
+  it("leaves a connection with no remoteEval setting alone", () => {
+    expect(withoutUnsupportedSavedGroupCapabilities(caps, {})).toEqual(caps);
+  });
+
+  it("drops only savedGroupReferencesV2 for a remote-eval connection", () => {
+    // proxy-eval does not know $savedGroup yet, so those payloads stay inlined
+    expect(
+      withoutUnsupportedSavedGroupCapabilities(caps, {
+        remoteEvalEnabled: true,
+      }),
+    ).toEqual(["savedGroupReferences", "prerequisites"]);
+  });
+
+  it("is a no-op when the capability was not there to begin with", () => {
+    expect(
+      withoutUnsupportedSavedGroupCapabilities(["prerequisites"], {
+        remoteEvalEnabled: true,
+      }),
+    ).toEqual(["prerequisites"]);
   });
 });
