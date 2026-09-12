@@ -53,6 +53,7 @@ import {
   validatePrerequisiteConditions,
   validateRuleReferences,
 } from "./validations";
+import { assertCanUseRuleScheduling } from "./v2Shared";
 
 const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 
@@ -150,6 +151,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
   const { environment, schedule } = req.body;
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
+  assertCanUseRuleScheduling(req.context, {
+    schedule,
+    rampSchedule: inlineRampSchedule,
+  });
   const ruleInput = req.body.rule;
 
   const { revision, created } = await resolveOrCreateRevision(

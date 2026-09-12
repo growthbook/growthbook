@@ -1,8 +1,14 @@
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { ReqContext } from "back-end/types/organization";
 import type { ApiReqContext } from "back-end/types/api";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {
   ApiRuleV2Input,
+  assertCanUseRuleScheduling,
+  assertUniqueRuleIds,
+  assertUniqueRuleIdsByEnv,
+  assertValidChangedRuleExperimentIds,
+  assertValidRuleExperimentIds,
   assertValidRuleProjectIds,
   validateEnvRulesScheduleRules,
   composeConfigBacking,
@@ -26,6 +32,10 @@ import { BadRequestError } from "back-end/src/util/errors";
 //      `safeRolloutId` on `existingFeature`, otherwise the bulk path throws.
 //      New safe-rollouts must go through the per-rule add endpoint.
 // ---------------------------------------------------------------------------
+
+jest.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentsByIds: jest.fn(),
+}));
 
 describe("resolveScopeFromInput", () => {
   it("allEnvironments:true drops environments[]", () => {
@@ -597,5 +607,112 @@ describe("assertValidRuleProjectIds", () => {
     await expect(
       assertValidRuleProjectIds([rule(["p1"]), rule(["ghost"])], context),
     ).rejects.toThrow(/rule project ids.*ghost/);
+  });
+});
+
+describe("assertUniqueRuleIds", () => {
+  it("rejects a repeated id and ignores blank ones", () => {
+    expect(() =>
+      assertUniqueRuleIds([
+        { id: "a" },
+        { id: "" },
+        {},
+        { id: "b" },
+        { id: "a" },
+      ]),
+    ).toThrow("Duplicate rule ID(s): a.");
+    expect(() =>
+      assertUniqueRuleIds([{ id: "a" }, { id: "" }, {}]),
+    ).not.toThrow();
+  });
+
+  it("v1 shape: checks each environment on its own", () => {
+    const body = (prod: string[], dev: string[]) =>
+      ({
+        production: { enabled: true, rules: prod.map((id) => ({ id })) },
+        dev: { enabled: true, rules: dev.map((id) => ({ id })) },
+      }) as Parameters<typeof assertUniqueRuleIdsByEnv>[0];
+    expect(() => assertUniqueRuleIdsByEnv(body(["a"], ["a"]))).not.toThrow();
+    expect(() => assertUniqueRuleIdsByEnv(body(["a", "a"], []))).toThrow(
+      'Duplicate rule ID(s) in environment "production": a.',
+    );
+  });
+});
+
+describe("assertCanUseRuleScheduling", () => {
+  const ctx = (features: string[]) =>
+    ({
+      hasPremiumFeature: (f: string) => features.includes(f),
+      throwPlanDoesNotAllowError: (message: string) => {
+        throw new Error(message);
+      },
+    }) as unknown as ApiReqContext;
+
+  it("gates the schedule shorthand on schedule-feature-flag and rampSchedule on ramp-schedules", () => {
+    const schedule = { startDate: "2030-01-01T00:00:00.000Z" };
+    expect(() => assertCanUseRuleScheduling(ctx([]), { schedule })).toThrow(
+      /schedule rules/,
+    );
+    expect(() =>
+      assertCanUseRuleScheduling(ctx(["schedule-feature-flag"]), { schedule }),
+    ).not.toThrow();
+    expect(() =>
+      assertCanUseRuleScheduling(ctx(["schedule-feature-flag"]), {
+        rampSchedule: { steps: [] },
+      }),
+    ).toThrow(/Enterprise/);
+    expect(() =>
+      assertCanUseRuleScheduling(ctx(["ramp-schedules"]), {
+        rampSchedule: { steps: [] },
+      }),
+    ).not.toThrow();
+    expect(() => assertCanUseRuleScheduling(ctx([]), {})).not.toThrow();
+  });
+});
+
+describe("assertValidRuleExperimentIds", () => {
+  const context = {} as ApiReqContext;
+  const ref = (id: string, experimentId: string) =>
+    ({ id, type: "experiment-ref", experimentId }) as FeatureRule;
+
+  beforeEach(() => {
+    jest.mocked(getExperimentsByIds).mockReset();
+    jest
+      .mocked(getExperimentsByIds)
+      .mockImplementation(async (_ctx, ids) =>
+        ids.filter((i) => i === "exp_known").map((id) => ({ id }) as never),
+      );
+  });
+
+  it("looks up each referenced experiment once and reports the first missing one", async () => {
+    await expect(
+      assertValidRuleExperimentIds(
+        [
+          ref("r1", "exp_known"),
+          ref("r2", "exp_known"),
+          { type: "force" } as FeatureRule,
+        ],
+        context,
+      ),
+    ).resolves.toBeUndefined();
+    expect(getExperimentsByIds).toHaveBeenCalledWith(context, ["exp_known"]);
+    await expect(
+      assertValidRuleExperimentIds([ref("r1", "exp_missing")], context),
+    ).rejects.toThrow('Could not find experiment "exp_missing"');
+  });
+
+  it("update form: skips references unchanged from the stored rule", async () => {
+    const stored = [ref("r1", "exp_gone")];
+    await expect(
+      assertValidChangedRuleExperimentIds(stored, stored, context),
+    ).resolves.toBeUndefined();
+    expect(getExperimentsByIds).not.toHaveBeenCalled();
+    await expect(
+      assertValidChangedRuleExperimentIds(
+        [ref("r1", "exp_missing")],
+        stored,
+        context,
+      ),
+    ).rejects.toThrow(/exp_missing/);
   });
 });

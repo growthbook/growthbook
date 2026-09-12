@@ -42,6 +42,8 @@ import {
   assertValidProjectId,
   assertValidProjectIds,
   assertValidRuleProjectIds,
+  assertUniqueRuleIds,
+  assertValidRuleExperimentIds,
   validateRulesScheduleRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
@@ -156,6 +158,8 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     );
     assertValidRuleEnvironments(req.context, feature.rules);
     await assertValidRuleProjectIds(feature.rules, req.context);
+    assertUniqueRuleIds(feature.rules);
+    await assertValidRuleExperimentIds(feature.rules, req.context);
     // Same condition / saved-group reference checks the per-rule endpoints
     // run; the payload builder silently drops a condition it cannot parse and
     // unknown group ids, which widens the rule's audience.

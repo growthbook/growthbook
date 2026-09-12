@@ -37,6 +37,7 @@ import {
   validateRuleReferences,
   resolveOrCreateRevision,
 } from "./validations";
+import { assertCanUseRuleScheduling } from "./v2Shared";
 
 export function applyPatch(
   existing: FeatureRule,
@@ -199,6 +200,10 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   const { environment, schedule } = req.body;
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
+  assertCanUseRuleScheduling(req.context, {
+    schedule,
+    rampSchedule: inlineRampSchedule,
+  });
   const patch = req.body.rule;
 
   const { revision, created } = await resolveOrCreateRevision(

@@ -45,6 +45,7 @@ import {
   assertValidRuleConfigKeys,
   composeConfigBacking,
   resolveScopeFromInput,
+  assertCanUseRuleScheduling,
 } from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(
@@ -59,6 +60,10 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
 
   const { schedule } = req.body;
   const inlineRampSchedule = req.body.rampSchedule;
+  assertCanUseRuleScheduling(req.context, {
+    schedule,
+    rampSchedule: inlineRampSchedule,
+  });
   const patch = req.body.rule as RulePatchInputV2;
 
   if (inlineRampSchedule && (schedule?.startDate || schedule?.endDate)) {

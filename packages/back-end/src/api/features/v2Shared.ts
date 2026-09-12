@@ -14,7 +14,8 @@ import {
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 
 // A flag can't carry its own JSON schema while it's a config-backed ("Config
@@ -426,6 +427,104 @@ export async function assertValidRuleProjectIds(
     new Set((rules ?? []).flatMap((r) => r.projects ?? [])),
   );
   await assertValidProjectIds(ids, context, "rule");
+}
+
+// Experiment-ref rules must point at an experiment the caller can read; the
+// per-rule add endpoint already checks this.
+export async function assertValidRuleExperimentIds(
+  rules: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const ids = Array.from(
+    new Set(
+      rules.flatMap((r) =>
+        r.type === "experiment-ref" ? [r.experimentId] : [],
+      ),
+    ),
+  );
+  if (!ids.length) return;
+  const found = new Set(
+    (await getExperimentsByIds(context, ids)).map((e) => e.id),
+  );
+  const missing = ids.find((id) => !found.has(id));
+  if (missing) {
+    throw new NotFoundError(`Could not find experiment "${missing}"`);
+  }
+}
+
+// Update form: an unchanged experiment reference is not re-checked, so a rule
+// pointing at a since-deleted experiment can be posted back unchanged.
+export async function assertValidChangedRuleExperimentIds(
+  inbound: FeatureRule[],
+  stored: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const storedById = new Map(stored.map((r) => [r.id, r]));
+  await assertValidRuleExperimentIds(
+    inbound.filter((rule) => {
+      if (rule.type !== "experiment-ref") return false;
+      const prior = rule.id ? storedById.get(rule.id) : undefined;
+      return (
+        !prior ||
+        prior.type !== "experiment-ref" ||
+        prior.experimentId !== rule.experimentId
+      );
+    }),
+    context,
+  );
+}
+
+// Rule ids must be unique within one rules array (the v2 flat list, or one v1
+// environment); a repeated id makes update-by-id ambiguous.
+export function assertUniqueRuleIds(
+  rules: { id?: string }[],
+  environment?: string,
+): void {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const rule of rules) {
+    if (!rule.id) continue;
+    if (seen.has(rule.id)) duplicates.add(rule.id);
+    seen.add(rule.id);
+  }
+  if (duplicates.size) {
+    const where = environment ? ` in environment "${environment}"` : "";
+    throw new BadRequestError(
+      `Duplicate rule ID(s)${where}: ${[...duplicates].join(", ")}.`,
+    );
+  }
+}
+
+export function assertUniqueRuleIdsByEnv(
+  envBody: ApiFeatureEnvSettings | undefined,
+): void {
+  for (const [environment, settings] of Object.entries(envBody ?? {})) {
+    if (settings.rules) assertUniqueRuleIds(settings.rules, environment);
+  }
+}
+
+// Plan gates for the scheduling shorthands on the per-rule endpoints, matching
+// the bulk shapes (`schedule`) and POST /ramp-schedules (`rampSchedule`).
+export function assertCanUseRuleScheduling(
+  context: ApiReqContext,
+  input: {
+    schedule?: { startDate?: string | null; endDate?: string | null } | null;
+    rampSchedule?: unknown;
+  },
+): void {
+  if (
+    (input.schedule?.startDate || input.schedule?.endDate) &&
+    !context.hasPremiumFeature("schedule-feature-flag")
+  ) {
+    context.throwPlanDoesNotAllowError(
+      "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
+    );
+  }
+  if (input.rampSchedule && !context.hasPremiumFeature("ramp-schedules")) {
+    context.throwPlanDoesNotAllowError(
+      "Ramp schedules require an Enterprise plan.",
+    );
+  }
 }
 
 // Update form: a rule whose project scope is unchanged from the stored rule

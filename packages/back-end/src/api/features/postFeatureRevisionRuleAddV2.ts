@@ -55,6 +55,7 @@ import {
   assertValidRuleConfigKeys,
   composeConfigBacking,
   resolveScopeFromInput,
+  assertCanUseRuleScheduling,
 } from "./v2Shared";
 
 export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
@@ -69,6 +70,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
 
   const { schedule } = req.body;
   const inlineRampSchedule = req.body.rampSchedule;
+  assertCanUseRuleScheduling(req.context, {
+    schedule,
+    rampSchedule: inlineRampSchedule,
+  });
   const ruleInput = req.body.rule as RuleCreateInputV2;
 
   // Capture config-backing inputs before the experiment-ref variation backfill

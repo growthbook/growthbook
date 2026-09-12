@@ -20,14 +20,14 @@ const org = {
   settings: { environments: [{ id: "production" }, { id: "dev" }] },
 } as unknown as OrganizationInterface;
 
-function makeContext(): ReqContextClass {
+function makeContext(premium = true): ReqContextClass {
   const context = new ReqContextClass({
     org,
     auditUser: { type: "api_key", apiKey: "key_engineer" },
     role: "engineer",
     req: { query: {}, headers: {}, body: {} } as unknown as Request,
   });
-  context.hasPremiumFeature = () => true;
+  context.hasPremiumFeature = () => premium;
   return context;
 }
 
@@ -669,6 +669,146 @@ describe("feature rule write contracts", () => {
         .post("/api/v1/features/flag_stale_prj")
         .send({ environments: { production: { enabled: true, rules } } })
         .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("experiment-ref rules on bulk writes", () => {
+    const expRef = (experimentId: string, id?: string) => ({
+      ...(id && { id }),
+      type: "experiment-ref",
+      experimentId,
+      variations: [
+        { variationId: "v0", value: "false" },
+        { variationId: "v1", value: "true" },
+      ],
+      allEnvironments: true,
+    });
+
+    it("v2 create rejects a rule pointing at an experiment that does not exist", async () => {
+      const res = await request(app)
+        .post("/api/v2/features")
+        .send({
+          id: "flag_expref",
+          owner: "reftest",
+          valueType: "boolean",
+          defaultValue: "false",
+          rules: [expRef("exp_missing")],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(
+        /Could not find experiment "exp_missing"/,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("v2 update echoes a rule whose experiment has since been deleted, but rejects a new unknown one", async () => {
+      const stale = {
+        id: "fr_expref",
+        type: "experiment-ref",
+        experimentId: "exp_gone",
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+        description: "",
+        enabled: true,
+        condition: "",
+        savedGroups: [],
+        allEnvironments: true,
+      };
+      await insertFeature("flag_stale_exp", [stale]);
+      await insertDraftRevision("flag_stale_exp");
+      const got = await request(app)
+        .get("/api/v2/features/flag_stale_exp")
+        .set("Authorization", "Bearer foo");
+      let res = await request(app)
+        .post("/api/v2/features/flag_stale_exp")
+        .send({ rules: got.body.feature.rules })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+      res = await request(app)
+        .post("/api/v2/features/flag_stale_exp")
+        .send({ rules: [expRef("exp_other_missing", "fr_expref")] })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/exp_other_missing/);
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("duplicate rule ids in one payload", () => {
+    it("v2 bulk rejects a repeated id", async () => {
+      const res = await request(app)
+        .post("/api/v2/features")
+        .send({
+          id: "flag_dupe",
+          owner: "reftest",
+          valueType: "boolean",
+          defaultValue: "false",
+          rules: [
+            { ...forceRule({}), id: "fr_dupe" },
+            { ...forceRule({ value: "false" }), id: "fr_dupe" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/Duplicate rule ID\(s\): fr_dupe/);
+      expect(res.status).toBe(400);
+    });
+
+    it("v1 bulk rejects a repeated id within one environment but allows siblings across environments", async () => {
+      const rule = { id: "fr_sib", type: "force", value: "true" };
+      let res = await request(app)
+        .post("/api/v1/features")
+        .send({
+          id: "flag_v1_dupe",
+          owner: "reftest",
+          valueType: "boolean",
+          defaultValue: "false",
+          environments: { production: { enabled: true, rules: [rule, rule] } },
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/in environment "production": fr_sib/);
+      expect(res.status).toBe(400);
+      res = await request(app)
+        .post("/api/v1/features")
+        .send({
+          id: "flag_v1_sib",
+          owner: "reftest",
+          valueType: "boolean",
+          defaultValue: "false",
+          environments: {
+            production: { enabled: true, rules: [rule] },
+            dev: { enabled: true, rules: [rule] },
+          },
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("scheduling shorthand plan gate on the per-rule endpoints", () => {
+    beforeEach(async () => {
+      setReqContext(makeContext(false));
+      await insertDraftRevision(FLAG);
+    });
+
+    it("refuses the schedule shorthand without the plan feature", async () => {
+      const res = await request(app)
+        .post(ADD)
+        .send({
+          rule: forceRule({}),
+          schedule: { startDate: "2030-01-01T00:00:00.000Z" },
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/schedule rules/);
+      expect(res.status).toBe(403);
+    });
+
+    it("still accepts an unscheduled rule", async () => {
+      const res = await add(forceRule({}));
       expect(res.body.message).toBeUndefined();
       expect(res.status).toBe(200);
     });
