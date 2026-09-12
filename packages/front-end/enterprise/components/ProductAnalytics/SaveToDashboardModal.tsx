@@ -177,7 +177,11 @@ export default function SaveToDashboardModal({
           projects: formValues.projects,
           experimentId: "",
           blocks: [newBlock],
-          globalControls: DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
+          // Seed new dashboard with the exploration's date range.
+          globalControls: {
+            ...DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
+            dateRange: { ...config.dateRange },
+          },
         }),
       });
       if (res.status !== 200) throw new Error("Failed to create dashboard");

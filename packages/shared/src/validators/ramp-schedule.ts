@@ -147,6 +147,12 @@ export const rampScheduleStatusArray = [
   "rolled-back",
 ] as const;
 export type RampScheduleStatus = (typeof rampScheduleStatusArray)[number];
+export const TERMINAL_RAMP_SCHEDULE_STATUSES: RampScheduleStatus[] = [
+  "completed",
+  "rolled-back",
+];
+export const isTerminalRampScheduleStatus = (status: RampScheduleStatus) =>
+  TERMINAL_RAMP_SCHEDULE_STATUSES.includes(status);
 
 export const rampEventTypeArray = [
   "started",

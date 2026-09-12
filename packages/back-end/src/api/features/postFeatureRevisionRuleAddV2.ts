@@ -46,7 +46,7 @@ import {
   assertValidRuleEnvironments,
   resolveOrCreateRevision,
   validateRuleAttributes,
-  validateRuleConditions,
+  validatePrerequisiteConditions,
   validateRuleReferences,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
@@ -219,7 +219,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       rules: [rule as FeatureRule],
     });
 
-    validateRuleConditions(rule);
+    validatePrerequisiteConditions(rule.prerequisites ?? []);
     // Opt-in registered-attribute check before any side effects (safe-rollout
     // create, revision update). New rules have no baseline, so this validates
     // every attribute-bearing field on the incoming rule.

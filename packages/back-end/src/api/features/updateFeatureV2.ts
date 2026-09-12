@@ -54,6 +54,7 @@ import {
 import { validateEnvKeys } from "./postFeature";
 import {
   assertValidRuleEnvironments,
+  validateChangedRuleReferences,
   validateCustomFields,
   validateRuleAttributes,
 } from "./validations";
@@ -67,6 +68,7 @@ import {
   assertValidProjectId,
   assertValidProjectIds,
   assertValidRuleProjectIds,
+  validateRulesScheduleRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -289,6 +291,12 @@ export const updateFeatureV2 = createApiRequestHandler(
     );
     assertValidRuleEnvironments(req.context, inboundFlatRules);
     await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    await validateChangedRuleReferences(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    validateRulesScheduleRules(inboundFlatRules, req.context);
     // Request-supplied config keys must exist, be live, and belong to the
     // default config's family — same gate as the revision rule endpoints.
     await assertValidRuleConfigKeys(

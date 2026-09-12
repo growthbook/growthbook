@@ -41,6 +41,10 @@ export const TOOL_STATUS_LABELS: Record<string, string> = {
   search: "Searching...",
   getAvailableColumns: "Inspecting data shape...",
   getColumnValues: "Inspecting values...",
+  searchTables: "Searching tables...",
+  getTableSchema: "Reading table schema...",
+  previewColumnValues: "Previewing values...",
+  runQuery: "Running SQL query...",
 };
 
 function groupIntoBlocks(
@@ -90,7 +94,8 @@ function classifyAssistantBlockMessages(msgs: AIChatMessage[]): {
     if (msg.role === "tool") {
       const hasChart = msg.content.some(
         (part) =>
-          part.toolName === "runExploration" &&
+          (part.toolName === "runExploration" ||
+            part.toolName === "runQuery") &&
           chartDataFromToolResult(part.result) !== null,
       );
       if (hasChart) {
@@ -369,7 +374,10 @@ export default function ChatMessageList({
       return msg.content.map((part, i) => {
         const pairedCall = findToolCallPart(messages, part);
 
-        if (part.toolName === "runExploration") {
+        if (
+          part.toolName === "runExploration" ||
+          part.toolName === "runQuery"
+        ) {
           const chartData = chartDataFromToolResult(part.result);
           if (chartData) {
             return (

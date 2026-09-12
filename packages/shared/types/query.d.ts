@@ -120,6 +120,8 @@ export type QueryType =
   // Session replay metadata queries
   | "sessionReplayList"
   | "sessionReplayDetail"
+  // AI agent SQL queries (Ask Your Data)
+  | "askDataAgentQuery"
 
   // ---
   // Legacy, should be deprecated

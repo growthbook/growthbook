@@ -413,6 +413,9 @@ tags:
     description: >-
       Hold a share of traffic out of all experiments to measure their combined
       effect.
+  - name: AutoRuns
+    x-displayName: Auto Runs
+    description: ''
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -425,6 +428,9 @@ tags:
   - name: Attribute_model
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
+  - name: AutoRun_model
+    x-displayName: Auto Run
+    description: <SchemaDefinition schemaRef="#/components/schemas/AutoRun" />
   - name: CodeRef_model
     x-displayName: Code Ref
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
@@ -939,6 +945,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1044,6 +1058,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1171,6 +1193,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1289,6 +1319,58 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    additionalProperties: false
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -1387,6 +1469,106 @@ paths:
                                       - value
                                       - weight
                                     additionalProperties: false
+                                experimentType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hypothesis:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hashVersion:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                datasource:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                exposureQueryId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                goalMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                secondaryMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                guardrailMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                activationMetric:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                segment:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                skipPartialData:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                regressionAdjustmentEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingTuningParameter:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                statsEngine:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStage:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStageDateStarted:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                templateId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                customFields:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                               required:
                                 - condition
                                 - type
@@ -1422,6 +1604,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1527,6 +1719,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1654,6 +1856,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1772,6 +1984,60 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
+                                        additionalProperties: false
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -1870,6 +2136,131 @@ paths:
                                           - value
                                           - weight
                                         additionalProperties: false
+                                    experimentType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hypothesis:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hashVersion:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    datasource:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    exposureQueryId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    goalMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    secondaryMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    guardrailMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    activationMetric:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    segment:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    skipPartialData:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    regressionAdjustmentEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingTuningParameter:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    statsEngine:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStage:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStageDateStarted:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    templateId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    customFields:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                   required:
                                     - condition
                                     - type
@@ -2088,6 +2479,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2193,6 +2592,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2320,6 +2727,14 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2438,6 +2853,58 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                rampScheduleId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                scheduleType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                savedGroups:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                savedGroupTargeting:
+                                  description: >-
+                                    Deprecated — use `savedGroups`. Accepted so
+                                    a GET response can be posted back unchanged;
+                                    `savedGroups` takes precedence if both are
+                                    sent.
+                                  deprecated: true
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    additionalProperties: false
                                 description:
                                   type: string
                                   maxLength: 10000
@@ -2536,6 +3003,106 @@ paths:
                                       - value
                                       - weight
                                     additionalProperties: false
+                                experimentType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hypothesis:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hashVersion:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                datasource:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                exposureQueryId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                goalMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                secondaryMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                guardrailMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                activationMetric:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                segment:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                skipPartialData:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                regressionAdjustmentEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingTuningParameter:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                statsEngine:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStage:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStageDateStarted:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                templateId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                customFields:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                               required:
                                 - condition
                                 - type
@@ -2571,6 +3138,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2676,6 +3253,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2803,6 +3390,16 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -2921,6 +3518,60 @@ paths:
                                       type: array
                                       items:
                                         type: string
+                                    rampScheduleId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    scheduleType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    savedGroups:
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    savedGroupTargeting:
+                                      description: >-
+                                        Deprecated — use `savedGroups`. Accepted
+                                        so a GET response can be posted back
+                                        unchanged; `savedGroups` takes
+                                        precedence if both are sent.
+                                      deprecated: true
+                                      type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          matchType:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - any
+                                              - none
+                                          savedGroups:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - matchType
+                                          - savedGroups
+                                        additionalProperties: false
                                     description:
                                       type: string
                                       maxLength: 10000
@@ -3019,6 +3670,131 @@ paths:
                                           - value
                                           - weight
                                         additionalProperties: false
+                                    experimentType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hypothesis:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hashVersion:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    datasource:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    exposureQueryId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    goalMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    secondaryMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    guardrailMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    activationMetric:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    segment:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    skipPartialData:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    regressionAdjustmentEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingTuningParameter:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    statsEngine:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStage:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStageDateStarted:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    templateId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    customFields:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                   required:
                                     - condition
                                     - type
@@ -7300,6 +8076,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -7436,6 +8224,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -7596,6 +8396,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -7747,6 +8559,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8096,6 +8920,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8232,6 +9068,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8392,6 +9240,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -8543,6 +9403,18 @@ paths:
                                 - matchType
                                 - savedGroups
                               additionalProperties: false
+                          pendingRamp:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          rampScheduleId:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
+                          scheduleType:
+                            description: >-
+                              Read-only; ignored on write. Accepted so a GET
+                              response can be posted back unchanged.
                           prerequisites:
                             type: array
                             items:
@@ -9005,6 +9877,8 @@ paths:
                                 - abandoned-draft
                                 - toggled-off
                                 - active-experiment
+                                - temp-rollout
+                                - old-temp-rollout
                                 - has-rules
                             - type: 'null'
                         neverStale:
@@ -9027,6 +9901,8 @@ paths:
                                       - abandoned-draft
                                       - toggled-off
                                       - active-experiment
+                                      - temp-rollout
+                                      - old-temp-rollout
                                       - has-rules
                                       - recently-updated
                                       - active-draft
@@ -9034,6 +9910,11 @@ paths:
                                   - type: 'null'
                               evaluatesTo:
                                 type: string
+                              tempRollout:
+                                type: string
+                                enum:
+                                  - temp-rollout
+                                  - old-temp-rollout
                             required:
                               - isStale
                               - reason
@@ -15736,6 +16617,49 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/experiment-names' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/comment:
+    post:
+      operationId: postExperimentComment
+      summary: Post a comment on an experiment
+      description: Adds a new comment to an experiment's discussion thread.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                  minLength: 1
+              required:
+                - comment
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                required:
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/comment' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"comment":"This looks good to ship."}'
   /v1/experiments/{id}/visual-changesets:
     get:
       operationId: listVisualChangesets
@@ -19326,6 +20250,423 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/data-sources/{dataSourceId}/information-schema'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/sql/search-tables:
+    post:
+      operationId: searchWarehouseTables
+      summary: Search warehouse tables
+      tags:
+        - data-sources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the data source
+          schema:
+            description: The id of the data source
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  description: >-
+                    Case-insensitive substring match on table name. Empty
+                    returns all.
+                  type: string
+                limit:
+                  description: Max results to return. Defaults to 20.
+                  type: integer
+                  minimum: 1
+                  maximum: 50
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tables:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/tables'
+                  total:
+                    type: number
+                  schemas:
+                    type: array
+                    items:
+                      type: string
+                  datasourceType:
+                    type: string
+                required:
+                  - tables
+                  - total
+                  - schemas
+                  - datasourceType
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/sql/search-tables'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/sql/table-schema:
+    post:
+      operationId: getWarehouseTableSchema
+      summary: Get warehouse table schemas
+      tags:
+        - data-sources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the data source
+          schema:
+            description: The id of the data source
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tables:
+                  minItems: 1
+                  maxItems: 5
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      databaseName:
+                        type: string
+                      tableSchema:
+                        type: string
+                      tableName:
+                        type: string
+                    required:
+                      - databaseName
+                      - tableSchema
+                      - tableName
+                    additionalProperties: false
+              required:
+                - tables
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tables:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        database:
+                          type: string
+                        schema:
+                          type: string
+                        table:
+                          type: string
+                        columns:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              type:
+                                type: string
+                              description:
+                                type: string
+                            required:
+                              - name
+                              - type
+                            additionalProperties: false
+                      required:
+                        - database
+                        - schema
+                        - table
+                        - columns
+                      additionalProperties: false
+                required:
+                  - tables
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/sql/table-schema'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/sql/preview-values:
+    post:
+      operationId: previewWarehouseColumnValues
+      summary: Preview distinct column values
+      tags:
+        - data-sources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the data source
+          schema:
+            description: The id of the data source
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                databaseName:
+                  description: Database or project name.
+                  type: string
+                tableSchema:
+                  description: Schema or dataset name.
+                  type: string
+                tableName:
+                  description: Table name (unqualified).
+                  type: string
+                columns:
+                  minItems: 1
+                  maxItems: 3
+                  type: array
+                  items:
+                    type: string
+                limit:
+                  description: Max rows to return. Defaults to 20.
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+              required:
+                - databaseName
+                - tableSchema
+                - tableName
+                - columns
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        const: success
+                      table:
+                        type: string
+                      columns:
+                        type: array
+                        items:
+                          type: string
+                      rows:
+                        type: array
+                        items:
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties: {}
+                      rowCount:
+                        type: number
+                      warning:
+                        type: string
+                    required:
+                      - status
+                      - table
+                      - columns
+                      - rows
+                      - rowCount
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        const: error
+                      message:
+                        type: string
+                    required:
+                      - status
+                      - message
+                    additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/sql/preview-values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/data-sources/{id}/sql/run-query:
+    post:
+      operationId: runSqlQuery
+      summary: Execute a read-only SQL query
+      tags:
+        - data-sources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the data source
+          schema:
+            description: The id of the data source
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sql:
+                  description: A read-only SELECT or WITH query.
+                  type: string
+                purpose:
+                  description: One-line description of what this query answers.
+                  type: string
+                confirm:
+                  description: >-
+                    Set to true to execute a query that previously returned
+                    confirmation_required.
+                  type: boolean
+                tableMetadata:
+                  description: >-
+                    Table metadata from earlier discovery steps. When provided,
+                    the response includes an explorationUrl for viewing results
+                    in the product analytics explorer.
+                  type: object
+                  properties:
+                    table:
+                      description: Table name, e.g. 'events'
+                      type: string
+                    path:
+                      description: Fully qualified path, e.g. 'db.schema.events'
+                      type: string
+                    timestampColumn:
+                      description: A date/timestamp column name
+                      type: string
+                    columnTypes:
+                      description: Map of column names to types
+                      type: object
+                      propertyNames:
+                        type: string
+                      additionalProperties:
+                        type: string
+                        enum:
+                          - string
+                          - number
+                          - date
+                          - boolean
+                          - other
+                  required:
+                    - table
+                    - path
+                    - timestampColumn
+                    - columnTypes
+                  additionalProperties: false
+              required:
+                - sql
+                - purpose
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        const: success
+                      summary:
+                        type: string
+                      rowCount:
+                        type: number
+                      columns:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            dataType:
+                              type: string
+                          required:
+                            - name
+                          additionalProperties: false
+                      resultCsv:
+                        type: string
+                      truncated:
+                        type: boolean
+                      durationMs:
+                        type: number
+                      sql:
+                        type: string
+                      explorationUrl:
+                        type: string
+                      explorationId:
+                        type: string
+                      notice:
+                        type: string
+                    required:
+                      - status
+                      - summary
+                      - rowCount
+                      - columns
+                      - resultCsv
+                      - truncated
+                      - durationMs
+                      - sql
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        const: confirmation_required
+                      estimatedBytesProcessed:
+                        type: number
+                      estimatedCostUsd:
+                        type: number
+                      sql:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - status
+                      - estimatedBytesProcessed
+                      - sql
+                      - message
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        const: error
+                      message:
+                        type: string
+                    required:
+                      - status
+                      - message
+                    additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/data-sources/{id}/sql/run-query' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/visual-changesets/{id}:
     get:
@@ -27648,6 +28989,7 @@ paths:
                     - ''
                     - currency
                     - time:seconds
+                    - time:milliseconds
                     - memory:bytes
                     - memory:kilobytes
                 datatype:
@@ -27720,6 +29062,7 @@ paths:
                     - ''
                     - currency
                     - time:seconds
+                    - time:milliseconds
                     - memory:bytes
                     - memory:kilobytes
                 datatype:
@@ -36707,6 +38050,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: metric
@@ -37083,6 +38434,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: fact_table
@@ -37468,6 +38827,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: data_source
@@ -37870,6 +39237,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: funnel
@@ -38272,6 +39647,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: sql
@@ -40095,6 +41478,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: metric
@@ -40477,6 +41868,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: fact_table
@@ -40868,6 +42267,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: data_source
@@ -41276,6 +42683,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: sql
@@ -41687,6 +43102,14 @@ paths:
                                     enum:
                                       - total
                                       - per_unit
+                                  chartSettings:
+                                    type: object
+                                    properties:
+                                      categoryAxisLabel:
+                                        type: string
+                                      valueAxisLabel:
+                                        type: string
+                                    additionalProperties: false
                                   type:
                                     type: string
                                     const: funnel
@@ -43604,6 +45027,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: metric
@@ -43980,6 +45411,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: fact_table
@@ -44365,6 +45804,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: data_source
@@ -44767,6 +46214,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: funnel
@@ -45169,6 +46624,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: sql
@@ -47858,6 +49321,14 @@ paths:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: metric
@@ -48228,6 +49699,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: metric
@@ -48543,6 +50022,14 @@ paths:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: fact_table
@@ -48922,6 +50409,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: fact_table
@@ -49246,6 +50741,14 @@ paths:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: data_source
@@ -49642,6 +51145,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: data_source
@@ -49983,6 +51494,14 @@ paths:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: sql
@@ -50382,6 +51901,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: sql
@@ -50726,6 +52253,14 @@ paths:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: funnel
@@ -51118,6 +52653,14 @@ paths:
                                 enum:
                                   - total
                                   - per_unit
+                              chartSettings:
+                                type: object
+                                properties:
+                                  categoryAxisLabel:
+                                    type: string
+                                  valueAxisLabel:
+                                    type: string
+                                additionalProperties: false
                               type:
                                 type: string
                                 const: funnel
@@ -53677,6 +55220,332 @@ paths:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/stop' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/auto-runs:
+    post:
+      operationId: createAutoRun
+      summary: Create a single autoRun
+      tags:
+        - AutoRuns
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Open an auto run. Everything it creates is appended afterwards
+              type: object
+              properties:
+                source:
+                  type: string
+                  enum:
+                    - cli-wizard
+                    - skill
+                agent:
+                  type: string
+                  maxLength: 50
+                metadata:
+                  type: object
+                  propertyNames:
+                    type: string
+                    maxLength: 60
+                  additionalProperties:
+                    anyOf:
+                      - type: string
+                        maxLength: 500
+                      - type: number
+                      - type: boolean
+                      - type: 'null'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  autoRun:
+                    $ref: '#/components/schemas/AutoRun'
+                required:
+                  - autoRun
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/auto-runs' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listAutoRuns
+      summary: Get all autoRuns
+      tags:
+        - AutoRuns
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  autoRuns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AutoRun'
+                required:
+                  - autoRuns
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/auto-runs' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/auto-runs/{id}:
+    get:
+      operationId: getAutoRun
+      summary: Get a single autoRun
+      tags:
+        - AutoRuns
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  autoRun:
+                    $ref: '#/components/schemas/AutoRun'
+                required:
+                  - autoRun
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/auto-runs/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateAutoRun
+      summary: Update a single autoRun
+      tags:
+        - AutoRuns
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Record the outcome of an auto run
+              type: object
+              properties:
+                metadata:
+                  type: object
+                  propertyNames:
+                    type: string
+                    maxLength: 60
+                  additionalProperties:
+                    anyOf:
+                      - type: string
+                        maxLength: 500
+                      - type: number
+                      - type: boolean
+                      - type: 'null'
+                checks:
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        maxLength: 100
+                      ok:
+                        type: boolean
+                      required:
+                        type: boolean
+                    required:
+                      - name
+                      - ok
+                      - required
+                    additionalProperties: false
+                outcome:
+                  type: string
+                  enum:
+                    - completed
+                    - partial
+                    - failed
+                failureReason:
+                  type: string
+                  maxLength: 1000
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  autoRun:
+                    $ref: '#/components/schemas/AutoRun'
+                required:
+                  - autoRun
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/auto-runs/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/auto-runs/{id}/artifacts:
+    post:
+      operationId: appendAutoRunArtifact
+      summary: Record something an auto run created
+      tags:
+        - AutoRuns
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Record something the run created
+              type: object
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - sdk-connection
+                    - feature
+                    - experiment
+                    - attribute
+                    - metric
+                    - fact-table
+                id:
+                  description: Id, or key for Feature Flags
+                  type: string
+                  maxLength: 200
+                label:
+                  type: string
+                  maxLength: 200
+                by:
+                  type: string
+                  enum:
+                    - developer
+                    - growthbook
+                detail:
+                  description: Evidence or summary, e.g. 'boolean, off in dev'
+                  anyOf:
+                    - type: string
+                      maxLength: 500
+                    - type: 'null'
+              required:
+                - kind
+                - id
+                - label
+                - by
+                - detail
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                id: AutoRun
+                type: object
+                properties:
+                  id:
+                    type: string
+                  dateCreated:
+                    type: string
+                    format: date-time
+                  dateUpdated:
+                    type: string
+                    format: date-time
+                  source:
+                    type: string
+                    enum:
+                      - cli-wizard
+                      - skill
+                  agent:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  createdBy:
+                    description: Id of the user who ran the wizard
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  metadata:
+                    $ref: '#/components/schemas/metadata'
+                  artifacts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/artifacts'
+                  checks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/checks'
+                  outcome:
+                    anyOf:
+                      - type: string
+                        enum:
+                          - completed
+                          - partial
+                          - failed
+                      - type: 'null'
+                  failureReason:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  dateCompleted:
+                    anyOf:
+                      - type: string
+                        format: date-time
+                      - type: 'null'
+                  url:
+                    description: >-
+                      Absolute URL of the run's page in the app. Built
+                      server-side so callers never guess the app origin
+                    type: string
+                required:
+                  - id
+                  - dateCreated
+                  - dateUpdated
+                  - source
+                  - agent
+                  - createdBy
+                  - metadata
+                  - artifacts
+                  - checks
+                  - outcome
+                  - failureReason
+                  - dateCompleted
+                  - url
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/auto-runs/{id}/artifacts' \
               -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
@@ -62506,6 +64375,7 @@ components:
             - ''
             - currency
             - time:seconds
+            - time:milliseconds
             - memory:bytes
             - memory:kilobytes
         jsonFields:
@@ -62630,6 +64500,7 @@ components:
             - ''
             - currency
             - time:seconds
+            - time:milliseconds
             - memory:bytes
             - memory:kilobytes
         jsonFields:
@@ -67161,6 +69032,14 @@ components:
                         enum:
                           - total
                           - per_unit
+                      chartSettings:
+                        type: object
+                        properties:
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
+                        additionalProperties: false
                       type:
                         type: string
                         const: metric
@@ -67543,6 +69422,14 @@ components:
                         enum:
                           - total
                           - per_unit
+                      chartSettings:
+                        type: object
+                        properties:
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
+                        additionalProperties: false
                       type:
                         type: string
                         const: fact_table
@@ -67934,6 +69821,14 @@ components:
                         enum:
                           - total
                           - per_unit
+                      chartSettings:
+                        type: object
+                        properties:
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
+                        additionalProperties: false
                       type:
                         type: string
                         const: data_source
@@ -68342,6 +70237,14 @@ components:
                         enum:
                           - total
                           - per_unit
+                      chartSettings:
+                        type: object
+                        properties:
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
+                        additionalProperties: false
                       type:
                         type: string
                         const: sql
@@ -68753,6 +70656,14 @@ components:
                         enum:
                           - total
                           - per_unit
+                      chartSettings:
+                        type: object
+                        properties:
+                          categoryAxisLabel:
+                            type: string
+                          valueAxisLabel:
+                            type: string
+                        additionalProperties: false
                       type:
                         type: string
                         const: funnel
@@ -69854,6 +71765,14 @@ components:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: metric
@@ -70118,6 +72037,14 @@ components:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: fact_table
@@ -70391,6 +72318,14 @@ components:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: data_source
@@ -70681,6 +72616,14 @@ components:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: sql
@@ -70974,6 +72917,14 @@ components:
                   enum:
                     - total
                     - per_unit
+                chartSettings:
+                  type: object
+                  properties:
+                    categoryAxisLabel:
+                      type: string
+                    valueAxisLabel:
+                      type: string
+                  additionalProperties: false
                 type:
                   type: string
                   const: funnel
@@ -71712,6 +73663,139 @@ components:
         - environments
         - linkedFeatures
         - linkedExperiments
+      additionalProperties: false
+    AutoRun:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum:
+            - cli-wizard
+            - skill
+        agent:
+          anyOf:
+            - type: string
+            - type: 'null'
+        createdBy:
+          description: Id of the user who ran the wizard
+          anyOf:
+            - type: string
+            - type: 'null'
+        metadata:
+          description: >-
+            What the wizard learned about the environment it ran in — language,
+            packageManager, framework, versions. Open by design; do not rely on
+            any single key being present
+          type: object
+          propertyNames:
+            type: string
+            maxLength: 60
+          additionalProperties:
+            anyOf:
+              - type: string
+                maxLength: 500
+              - type: number
+              - type: boolean
+              - type: 'null'
+        artifacts:
+          type: array
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+                enum:
+                  - sdk-connection
+                  - feature
+                  - experiment
+                  - attribute
+                  - metric
+                  - fact-table
+              id:
+                type: string
+              label:
+                type: string
+              by:
+                type: string
+                enum:
+                  - developer
+                  - growthbook
+              detail:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              dateCreated:
+                type: string
+                format: date-time
+            required:
+              - kind
+              - id
+              - label
+              - by
+              - detail
+              - dateCreated
+            additionalProperties: false
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                maxLength: 100
+              ok:
+                type: boolean
+              required:
+                type: boolean
+            required:
+              - name
+              - ok
+              - required
+            additionalProperties: false
+        outcome:
+          anyOf:
+            - type: string
+              enum:
+                - completed
+                - partial
+                - failed
+            - type: 'null'
+        failureReason:
+          anyOf:
+            - type: string
+            - type: 'null'
+        dateCompleted:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        url:
+          description: >-
+            Absolute URL of the run's page in the app. Built server-side so
+            callers never guess the app origin
+          type: string
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - source
+        - agent
+        - createdBy
+        - metadata
+        - artifacts
+        - checks
+        - outcome
+        - failureReason
+        - dateCompleted
+        - url
       additionalProperties: false
     ExperimentSnapshot:
       type: object
@@ -72501,10 +74585,13 @@ components:
             description: >
               Reason for the feature's stale or non-stale status. `never-stale`
               when stale detection is disabled. Non-stale reasons:
-              `recently-updated`, `active-draft`, `has-dependents`. Stale
-              reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`,
-              `toggled-off`. Null when non-stale with no single cause (see
-              staleByEnv).
+              `recently-updated`, `active-draft`, `has-dependents`,
+              `temp-rollout` (a rule serves a recently stopped experiment's
+              released variation). Stale reasons: `no-rules`, `rules-one-sided`,
+              `abandoned-draft`, `toggled-off`, `old-temp-rollout` (the
+              environment only serves the released variation of an experiment
+              stopped more than 30 days ago). Null when non-stale with no single
+              cause (see staleByEnv).
             anyOf:
               - type: string
                 enum:
@@ -72517,6 +74604,8 @@ components:
                   - abandoned-draft
                   - toggled-off
                   - active-experiment
+                  - temp-rollout
+                  - old-temp-rollout
                   - has-rules
               - type: 'null'
           neverStale:
@@ -72547,6 +74636,8 @@ components:
                         - abandoned-draft
                         - toggled-off
                         - active-experiment
+                        - temp-rollout
+                        - old-temp-rollout
                         - has-rules
                         - recently-updated
                         - active-draft
@@ -72559,6 +74650,16 @@ components:
                     `feature.defaultValue`. Only present when the value is
                     deterministic or the environment is toggled off.
                   type: string
+                tempRollout:
+                  description: >
+                    Present when a reachable rule still serves a stopped
+                    experiment's released variation (a temporary rollout that
+                    can be cleaned up). `old-temp-rollout` once the experiment
+                    has been stopped for more than 30 days.
+                  type: string
+                  enum:
+                    - temp-rollout
+                    - old-temp-rollout
               required:
                 - isStale
                 - reason
@@ -73658,6 +75759,23 @@ components:
         - datasourceId
         - variations
       additionalProperties: false
+    tables:
+      type: object
+      properties:
+        database:
+          type: string
+        schema:
+          type: string
+        table:
+          type: string
+        columnCount:
+          type: number
+      required:
+        - database
+        - schema
+        - table
+        - columnCount
+      additionalProperties: false
     savedGroups:
       type: object
       properties:
@@ -74684,6 +76802,73 @@ components:
         - source
         - similarity
       additionalProperties: false
+    metadata:
+      description: >-
+        What the wizard learned about the environment it ran in — language,
+        packageManager, framework, versions. Open by design; do not rely on any
+        single key being present
+      type: object
+      propertyNames:
+        type: string
+        maxLength: 60
+      additionalProperties:
+        anyOf:
+          - type: string
+            maxLength: 500
+          - type: number
+          - type: boolean
+          - type: 'null'
+    artifacts:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+            - sdk-connection
+            - feature
+            - experiment
+            - attribute
+            - metric
+            - fact-table
+        id:
+          type: string
+        label:
+          type: string
+        by:
+          type: string
+          enum:
+            - developer
+            - growthbook
+        detail:
+          anyOf:
+            - type: string
+            - type: 'null'
+        dateCreated:
+          type: string
+          format: date-time
+      required:
+        - kind
+        - id
+        - label
+        - by
+        - detail
+        - dateCreated
+      additionalProperties: false
+    checks:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        ok:
+          type: boolean
+        required:
+          type: boolean
+      required:
+        - name
+        - ok
+        - required
+      additionalProperties: false
   securitySchemes:
     bearerAuth:
       type: http
@@ -74761,12 +76946,14 @@ x-tagGroups:
       - RampScheduleTemplates
       - Learnings
       - Holdouts
+      - AutoRuns
   - name: Models
     tags:
       - AggregatedFactTable_model
       - AnalyticsExploration_model
       - Archetype_model
       - Attribute_model
+      - AutoRun_model
       - CodeRef_model
       - Config_model
       - ConfigKeyUsage_model

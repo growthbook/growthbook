@@ -1,4 +1,6 @@
 import { ExperimentInterface } from "shared/types/experiment";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { expandMetricGroups } from "shared/experiments";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import {
   ExperimentType,
@@ -86,6 +88,7 @@ async function computeScheduledVerdict(
   context: Context,
   experiment: ExperimentInterface,
   tiebreakerMetricId: string | undefined,
+  metricGroups: MetricGroupInterface[],
 ): Promise<ScheduledVerdict | null> {
   if (!canAutoShip(context)) return null;
 
@@ -101,12 +104,17 @@ async function computeScheduledVerdict(
   };
 
   const resultsStatus = experiment.analysisSummary?.resultsStatus;
-  if (!experiment.goalMetrics.length || !resultsStatus) return inconclusive;
+  const expandedGoalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    metricGroups,
+  );
+  if (!expandedGoalMetrics.length || !resultsStatus) return inconclusive;
 
   const overallStatus = getExperimentResultStatus({
     experimentData: experiment,
     healthSettings: getHealthSettings(context.org.settings, true),
     decisionCriteria,
+    metricGroups,
   });
   if (
     overallStatus?.status === "unhealthy" &&
@@ -122,8 +130,11 @@ async function computeScheduledVerdict(
   const resultStatus = getDecisionFrameworkStatus({
     resultsStatus,
     decisionCriteria,
-    goalMetrics: experiment.goalMetrics,
-    guardrailMetrics: experiment.guardrailMetrics,
+    goalMetrics: expandedGoalMetrics,
+    guardrailMetrics: expandMetricGroups(
+      experiment.guardrailMetrics,
+      metricGroups,
+    ),
     scheduledEndPassed: true,
   });
   if (!resultStatus) return inconclusive;
@@ -189,9 +200,11 @@ const resolveForceShipTarget = (
 export async function applyScheduledExperimentStop({
   context,
   experiment,
+  metricGroups,
 }: {
   context: Context;
   experiment: ExperimentInterface;
+  metricGroups: MetricGroupInterface[];
 }): Promise<ScheduledStopOutcome> {
   const plan = experiment.statusUpdateSchedule?.scheduledStopPlan;
   const mode = plan?.mode ?? "notify";
@@ -206,6 +219,7 @@ export async function applyScheduledExperimentStop({
       context,
       experiment,
       tiebreakerMetricId,
+      metricGroups,
     );
     if (verdict?.results === "won" && verdict.winnerVariationId) {
       await stopExperiment({
@@ -274,6 +288,7 @@ export async function applyScheduledExperimentStop({
       context,
       experiment,
       tiebreakerMetricId,
+      metricGroups,
     );
     await stopExperiment({
       context,
@@ -299,6 +314,7 @@ export async function applyScheduledExperimentStop({
       context,
       experiment,
       tiebreakerMetricId,
+      metricGroups,
     );
     await stopExperiment({
       context,
@@ -319,6 +335,7 @@ export async function applyScheduledExperimentStop({
     context,
     experiment,
     tiebreakerMetricId,
+    metricGroups,
   );
   logger.info(
     `Scheduled end reached; keeping experiment ${experiment.id} running (notify).`,

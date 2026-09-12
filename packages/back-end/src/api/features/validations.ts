@@ -9,6 +9,7 @@ import {
   ACTIVE_DRAFT_STATUSES,
   inlineRampScheduleInput,
 } from "shared/validators";
+import isEqual from "lodash/isEqual";
 import { z } from "zod";
 import { validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
@@ -212,16 +213,75 @@ export const validateCustomFields = async (
   });
 };
 
+type SavedGroupMap = Awaited<ReturnType<typeof getSavedGroupMap>>;
+
 // Verify saved-group and prerequisite references in a rule exist. Call on
 // the final rule — saved groups are loaded once.
 export async function validateRuleReferences(
   rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
   context: ApiReqContext,
 ): Promise<void> {
-  const allSavedGroups = await context.models.savedGroups.getAll();
-  const groupMap = await getSavedGroupMap(context, allSavedGroups);
-  const savedGroupIds = new Set(allSavedGroups.map((sg) => sg.id));
+  return validateRuleReferencesWithGroups(
+    rule,
+    await getSavedGroupMap(context),
+    context,
+  );
+}
 
+// Bulk form for endpoints that take a whole rules array (feature create /
+// update, v1 and v2): the per-rule checks, with saved groups loaded once.
+export async function validateRulesReferences(
+  rules: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">[],
+  context: ApiReqContext,
+): Promise<void> {
+  if (!rules.length) return;
+  const groupMap = await getSavedGroupMap(context);
+  for (const rule of rules) {
+    validatePrerequisiteConditions(rule.prerequisites ?? []);
+    await validateRuleReferencesWithGroups(rule, groupMap, context);
+  }
+}
+
+// Update form: a bulk write replaces the rules array, but only fields that
+// differ from the stored rule with the same id are checked, so resending a
+// stored rule unchanged never re-validates references the caller cannot read
+// (saved groups and features are read-filtered).
+export async function validateChangedRuleReferences(
+  inbound: FeatureRule[],
+  stored: FeatureRule[],
+  context: ApiReqContext,
+): Promise<void> {
+  const storedById = new Map(stored.map((r) => [r.id, r]));
+  await validateRulesReferences(
+    inbound.flatMap((rule) => {
+      const prior = rule.id ? storedById.get(rule.id) : undefined;
+      const conditionChanged =
+        !prior || (prior.condition || "{}") !== (rule.condition || "{}");
+      const savedGroupsChanged =
+        !prior || !isEqual(prior.savedGroups ?? [], rule.savedGroups ?? []);
+      const prerequisitesChanged =
+        !prior || !isEqual(prior.prerequisites ?? [], rule.prerequisites ?? []);
+      if (!conditionChanged && !savedGroupsChanged && !prerequisitesChanged) {
+        return [];
+      }
+      return [
+        {
+          condition: conditionChanged ? rule.condition : undefined,
+          savedGroups: savedGroupsChanged ? rule.savedGroups : [],
+          prerequisites: prerequisitesChanged ? rule.prerequisites : undefined,
+        },
+      ];
+    }),
+    context,
+  );
+}
+
+async function validateRuleReferencesWithGroups(
+  rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
+  groupMap: SavedGroupMap,
+  context: ApiReqContext,
+): Promise<void> {
+  const savedGroupIds = new Set(groupMap.keys());
   for (const sg of rule.savedGroups ?? []) {
     for (const id of sg.ids) {
       if (!savedGroupIds.has(id)) {
@@ -302,19 +362,6 @@ function findInvalidInGroupId(
     }
   }
   return null;
-}
-
-// Validate rule + per-prerequisite conditions; throws on the first invalid.
-export function validateRuleConditions(
-  rule: Pick<FeatureRule, "condition" | "prerequisites">,
-): void {
-  if (rule.condition) {
-    const res = validateCondition(rule.condition);
-    if (!res.success) {
-      throw new BadRequestError(`Invalid rule condition: ${res.error}`);
-    }
-  }
-  validatePrerequisiteConditions(rule.prerequisites ?? []);
 }
 
 // Opt-in check (org setting `requireRegisteredAttributes`): rejects rules
