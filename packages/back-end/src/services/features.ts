@@ -53,7 +53,10 @@ import {
   featurePublishFootprint,
   holdoutEnvsForChange,
 } from "shared/permissions";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getActiveVariations,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
 import {
@@ -150,7 +153,11 @@ import {
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  ApprovalRequiredError,
+  BadRequestError,
+  SoftWarningError,
+} from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
 import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
@@ -719,12 +726,13 @@ export function filterUsedContextualBandits(
   usedIds.forEach((id) => {
     const cb = cbMap.get(id);
     if (!cb) return;
+    const activeVariations = getActiveVariations(cb.variations);
     map[id] = {
       banditVersion: cb.banditVersion,
       contexts: (cb.currentLeafWeights ?? []).map((lw) => ({
         leafId: lw.leafId,
         condition: lw.condition,
-        weights: pairedWeightsToPositional(lw.weights, cb.variations),
+        weights: pairedWeightsToPositional(lw.weights, activeVariations),
       })),
     };
   });
@@ -4103,18 +4111,48 @@ export async function revisionRequiresReview(
   });
 }
 
-// Throws if the draft requires approval and the caller cannot bypass.
 export async function assertCanAutoPublish(
   context: ReqContext,
   feature: FeatureInterface,
   draft: FeatureRevisionInterface,
 ): Promise<void> {
-  const requiresReview = await revisionRequiresReview(context, feature, draft);
+  const requireReviews = context.org.settings?.requireReviews;
+  const reviewsConfigured =
+    context.hasPremiumFeature("require-approvals") &&
+    (requireReviews === true ||
+      (Array.isArray(requireReviews) &&
+        requireReviews.some((r) => r?.requireReviewOn)));
 
-  if (
-    requiresReview &&
-    !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
-  ) {
+  const requiresReview = await revisionRequiresReview(context, feature, draft, {
+    treatUnresolvedBaseAsReview: reviewsConfigured,
+  });
+  if (!requiresReview) return;
+
+  if (!context.permissions.canBypassFlagApprovalChecks(feature, "feature")) {
     context.permissions.throwPermissionError();
   }
+}
+
+export async function assertCanAutoPublishForContextualBandit(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+): Promise<void> {
+  const requireReviews = context.org.settings?.requireReviews;
+  const reviewsConfigured =
+    context.hasPremiumFeature("require-approvals") &&
+    (requireReviews === true ||
+      (Array.isArray(requireReviews) &&
+        requireReviews.some((r) => r?.requireReviewOn)));
+
+  const requiresReview = await revisionRequiresReview(context, feature, draft, {
+    treatUnresolvedBaseAsReview: reviewsConfigured,
+  });
+  if (!requiresReview) return;
+
+  if (draft.status === "approved") return;
+
+  throw new ApprovalRequiredError(
+    `Draft #${draft.version} of ${feature.id} requires approval before it can be published.`,
+  );
 }

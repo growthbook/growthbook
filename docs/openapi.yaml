@@ -46916,43 +46916,6 @@ paths:
                   type: string
                 hashAttribute:
                   type: string
-                variations:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      name:
-                        type: string
-                      description:
-                        type: string
-                        maxLength: 10000
-                      key:
-                        type: string
-                      screenshots:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            path:
-                              type: string
-                            width:
-                              type: number
-                            height:
-                              type: number
-                            description:
-                              type: string
-                              maxLength: 10000
-                          required:
-                            - path
-                          additionalProperties: false
-                    required:
-                      - id
-                      - name
-                      - key
-                      - screenshots
-                    additionalProperties: false
                 datasource:
                   type: string
                 contextualBanditQueryId:
@@ -47043,19 +47006,6 @@ paths:
                     additionalProperties: false
                 seed:
                   type: string
-                variationWeights:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      variationId:
-                        type: string
-                      weight:
-                        type: number
-                    required:
-                      - variationId
-                      - weight
-                    additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -47331,6 +47281,120 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/refresh' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/variations:
+    post:
+      operationId: updateContextualBanditVariations
+      summary: Add or remove Contextual Bandit variations
+      description: >-
+        Replaces the full set of active variations on a Contextual Bandit. Send
+        every variation you want to keep (by `id`) plus any new ones (omit `id`
+        for the server to assign one); any active variation not in the request
+        is deactivated and cannot be re-added. Weights are reconciled
+        server-side. New arms require a value in `newVariationValues` for every
+        linked feature; running CBs publish it, draft CBs stage it until start.
+        Under an approval flow, unapproved drafts leave the added arm `pending`
+        (zero weight, filtered from the SDK) until every linked feature's draft
+        is live. Concurrent calls are safe — the server diffs under a CAS retry.
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                variations:
+                  description: >-
+                    Complete list of variations to keep. Pass each variation
+                    with a stable `id`; a new arm's `id` is any unique string
+                    you choose (the same value you use as the key in
+                    `newVariationValues`). Any active variation not in this list
+                    is deactivated.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      key:
+                        type: string
+                      screenshots:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            path:
+                              type: string
+                            width:
+                              type: number
+                            height:
+                              type: number
+                            description:
+                              type: string
+                              maxLength: 10000
+                          required:
+                            - path
+                          additionalProperties: false
+                    required:
+                      - id
+                      - name
+                      - key
+                    additionalProperties: false
+                newVariationValues:
+                  description: >-
+                    Value to set on each linked feature for each new arm, keyed
+                    by the `id` you supplied for that arm in `variations`:
+                    `{featureId: {variationId: value}}`. Required for every
+                    added arm when the Contextual Bandit has linked features.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties:
+                      type: string
+              required:
+                - variations
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBandit:
+                    $ref: '#/components/schemas/ContextualBandit'
+                  featureDraftPublishFailures:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/featureDraftPublishFailures'
+                required:
+                  - contextualBandit
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/variations'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits/{id}/cancel:
     post:
@@ -70861,6 +70925,11 @@ components:
                 type: string
               description:
                 type: string
+              status:
+                type: string
+                enum:
+                  - active
+                  - pending
             required:
               - id
               - key
@@ -76695,6 +76764,20 @@ components:
             - locked
       required:
         - mode
+      additionalProperties: false
+    featureDraftPublishFailures:
+      type: object
+      properties:
+        featureId:
+          type: string
+        revisionVersion:
+          type: number
+        reason:
+          type: string
+      required:
+        - featureId
+        - revisionVersion
+        - reason
       additionalProperties: false
     columns:
       type: object
