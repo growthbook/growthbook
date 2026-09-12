@@ -3,6 +3,7 @@ import {
   ContextualBanditDefinition,
   FeatureDefinition,
   FeatureResult,
+  FeatureResultReason,
   Experiment,
   FeatureResultSource,
   Result,
@@ -226,6 +227,7 @@ export function evalFeature<V = unknown>(
 
   // Get the feature
   const feature: FeatureDefinition<V> = ctx.global.features[id];
+  let defaultReason: FeatureResultReason = "defaultValue";
 
   // Loop through the rules
   if (feature.rules) {
@@ -332,7 +334,9 @@ export function evalFeature<V = unknown>(
           });
         }
 
-        return getFeatureResult(ctx, id, rule.force as V, "force", rule.id);
+        return getFeatureResult(ctx, id, rule.force as V, "force", {
+          ruleId: rule.id,
+        });
       }
       // Contextual bandit rules carry their variations under
       // `contextualVariations` so older SDKs skip them; read either field here.
@@ -377,22 +381,19 @@ export function evalFeature<V = unknown>(
       }
 
       // Only return a value if the user is part of the experiment
-      const { result } = runExperiment(exp, id, ctx);
+      const { result, reason } = runExperiment(exp, id, ctx);
       if (exp.contextualBandit && !(result.hashUsed && result.inExperiment)) {
         delete exp.contextualBandit;
       }
       ctx.global.onExperimentEval && ctx.global.onExperimentEval(exp, result);
       if (result.inExperiment && !result.passthrough) {
-        return getFeatureResult(
-          ctx,
-          id,
-          result.value,
-          "experiment",
-          rule.id,
-          exp,
+        return getFeatureResult(ctx, id, result.value, "experiment", {
+          ruleId: rule.id,
+          experiment: exp,
           result,
-        );
+        });
       }
+      defaultReason = reason ?? "defaultValue";
     }
   }
 
@@ -408,6 +409,7 @@ export function evalFeature<V = unknown>(
     id,
     feature.defaultValue === undefined ? null : feature.defaultValue,
     "defaultValue",
+    { reason: defaultReason },
   );
 }
 
@@ -418,6 +420,7 @@ export function runExperiment<T>(
 ): {
   result: Result<T>;
   trackingCall?: Promise<void>;
+  reason?: "targetingMismatch" | "coverageExcluded";
 } {
   const key = experiment.key;
   const numVariations = experiment.variations.length;
@@ -597,6 +600,7 @@ export function runExperiment<T>(
         });
       return {
         result: getExperimentResult(ctx, experiment, -1, false, featureId),
+        reason: "targetingMismatch",
       };
     }
 
@@ -706,6 +710,7 @@ export function runExperiment<T>(
       });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
+      reason: "coverageExcluded",
     };
   }
 
@@ -826,15 +831,20 @@ function getFeatureResult<T>(
   key: string,
   value: T,
   source: FeatureResultSource,
-  ruleId?: string,
-  experiment?: Experiment<T>,
-  result?: Result<T>,
+  options: {
+    ruleId?: string;
+    experiment?: Experiment<T>;
+    result?: Result<T>;
+    reason?: FeatureResultReason;
+  } = {},
 ): FeatureResult<T> {
+  const { ruleId, experiment, result, reason = source } = options;
   const ret: FeatureResult = {
     value,
     on: !!value,
     off: !value,
     source,
+    reason,
     ruleId: ruleId || "",
   };
   if (experiment) ret.experiment = experiment;

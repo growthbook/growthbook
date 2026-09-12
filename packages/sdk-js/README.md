@@ -471,9 +471,14 @@ const result = gb.evalFeature("my-feature");
 // The value of the feature (or `null` if not defined)
 console.log(result.value);
 
-// Why the value was assigned to the user
+// Where the value came from
 // One of: `override`, `unknownFeature`, `defaultValue`, `force`, or `experiment`
 console.log(result.source);
+
+// Why evaluation produced this value
+// Usually matches `source`, but can be `targetingMismatch` or
+// `coverageExcluded` when an experiment rule falls through to the default
+console.log(result.reason);
 
 // The string id of the rule (if any) which was used
 console.log(result.ruleId);
