@@ -390,9 +390,13 @@ Simple schedules (a rule's `schedule` start/end shorthand, and legacy inline
 `scheduleRules`) and multi-step ramp schedules run on the same engine: the
 shorthand becomes a one-step ramp action. Gate them the same way.
 
-- The feature key is the Pro `schedule-feature-flag`. Both it and
-  `ramp-schedules` are in `commercialFeaturesPro` (`shared/src/enterprise/license-consts.ts`),
-  so nothing about ramps is Enterprise-only in code today.
+- The whole ramp family is Pro: `schedule-feature-flag`, `ramp-schedules`, and
+  `safe-rollout` all sit in `commercialFeaturesPro`
+  (`shared/src/enterprise/license-consts.ts`), and every refusal says "a Pro
+  plan or above". A simple schedule is a one-step ramp and a safe rollout is a
+  monitored ramp, so the three cannot sit on different tiers. If the tier ever
+  changes, move the keys in `license-consts.ts`; never encode a tier in a
+  message or an endpoint.
 - Only _new_ scheduling is gated. An org that has dropped below Pro (expired
   license, self-hosted OSS) must still be able to edit, pause, cancel, or clear
   the schedules it already has, so it can wind them down. Concretely: the engine
@@ -406,10 +410,3 @@ shorthand becomes a one-step ramp action. Gate them the same way.
   whose stored counterpart was unscheduled; and the ramp-schedule update
   endpoints (dashboard and REST) carry no plan gate at all. Reuse those helpers
   rather than adding an inline check.
-- Creating a ramp through the REST ramp-management endpoint
-  (`POST /ramp-schedules`) checks `ramp-schedules` and words the error as
-  Enterprise. That wording predates the shared engine and is inconsistent with
-  both the key's tier and the dashboard; it is a product decision whether
-  multi-step ramps should become Enterprise-only. If they do, gate on the
-  artifact (step count, hold conditions, monitoring) at the engine chokepoint,
-  not per endpoint.

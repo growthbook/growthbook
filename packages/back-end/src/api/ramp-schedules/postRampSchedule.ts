@@ -165,11 +165,9 @@ export const postRampSchedule = createApiRequestHandler(
 )(async (req) => {
   const body = req.body;
 
-  // REST uses the Enterprise "ramp-schedules" gate; the dashboard uses the
-  // Pro "schedule-feature-flag" gate since simple schedules share the infra.
   if (!req.context.hasPremiumFeature("ramp-schedules")) {
     req.context.throwPlanDoesNotAllowError(
-      "Ramp schedules require an Enterprise plan.",
+      "Ramp schedules require a Pro plan or above.",
     );
   }
 
