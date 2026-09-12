@@ -614,6 +614,66 @@ describe("feature rule write contracts", () => {
     });
   });
 
+  // Deleting a project scrubs feature.project and targetingProjects but not
+  // rule scopes, so a stored rule can still name a gone project. An unchanged
+  // scope is not re-checked on update; a newly introduced unknown id is.
+  describe("bulk update with a stale rule project scope", () => {
+    const stale = {
+      id: "fr_stale_prj",
+      type: "force",
+      value: "true",
+      description: "",
+      enabled: true,
+      condition: "",
+      savedGroups: [],
+      allEnvironments: true,
+      allProjects: false,
+      projects: ["prj_gone"],
+    };
+    beforeEach(async () => {
+      await insertFeature("flag_stale_prj", [stale]);
+      await insertDraftRevision("flag_stale_prj");
+    });
+
+    it("v2: echoes the GET back unchanged", async () => {
+      const got = await request(app)
+        .get("/api/v2/features/flag_stale_prj")
+        .set("Authorization", "Bearer foo");
+      expect(got.body.feature.rules[0].projects).toEqual(["prj_gone"]);
+      const res = await request(app)
+        .post("/api/v2/features/flag_stale_prj")
+        .send({ rules: got.body.feature.rules })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+
+    it("v2: still rejects a changed scope naming an unknown project", async () => {
+      const res = await request(app)
+        .post("/api/v2/features/flag_stale_prj")
+        .send({
+          rules: [{ ...stale, projects: ["prj_gone", "prj_missing"] }],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/prj_missing/);
+      expect(res.status).toBe(400);
+    });
+
+    it("v1: echoes the GET back unchanged", async () => {
+      const got = await request(app)
+        .get("/api/v1/features/flag_stale_prj")
+        .set("Authorization", "Bearer foo");
+      const rules = got.body.feature.environments.production.rules;
+      expect(rules[0].projects).toEqual(["prj_gone"]);
+      const res = await request(app)
+        .post("/api/v1/features/flag_stale_prj")
+        .send({ environments: { production: { enabled: true, rules } } })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    });
+  });
+
   describe("v2 bulk (POST /api/v2/features)", () => {
     const create = (rules: Record<string, unknown>[], id = "flag_v2_bulk") =>
       request(app)

@@ -428,6 +428,25 @@ export async function assertValidRuleProjectIds(
   await assertValidProjectIds(ids, context, "rule");
 }
 
+// Update form: a rule whose project scope is unchanged from the stored rule
+// with the same id is not re-checked, so a rule still scoped to a since-deleted
+// project can be posted back unchanged while a new unknown id is rejected.
+export async function assertValidChangedRuleProjectIds(
+  inbound: FeatureRule[],
+  stored: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const storedById = new Map(stored.map((r) => [r.id, r]));
+  const scope = (r: FeatureRule) => [...(r.projects ?? [])].sort().join("\0");
+  await assertValidRuleProjectIds(
+    inbound.filter((rule) => {
+      const prior = rule.id ? storedById.get(rule.id) : undefined;
+      return !prior || scope(prior) !== scope(rule);
+    }),
+    context,
+  );
+}
+
 // `null` (explicit removal) and `undefined` (no change) are both no-ops.
 // Validates both read access and the Holdout's Project scope.
 export async function assertValidHoldout(

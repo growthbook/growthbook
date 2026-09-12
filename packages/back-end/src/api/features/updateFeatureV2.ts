@@ -67,7 +67,7 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidRuleProjectIds,
+  assertValidChangedRuleProjectIds,
   validateRulesScheduleRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
@@ -290,7 +290,11 @@ export const updateFeatureV2 = createApiRequestHandler(
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
     assertValidRuleEnvironments(req.context, inboundFlatRules);
-    await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    await assertValidChangedRuleProjectIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
     await validateChangedRuleReferences(
       inboundFlatRules,
       feature.rules ?? [],
