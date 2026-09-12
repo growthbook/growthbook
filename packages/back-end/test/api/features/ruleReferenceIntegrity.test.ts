@@ -368,8 +368,6 @@ describe("rule reference integrity (v2 per-rule endpoints)", () => {
     });
   });
 
-  // The v1 mapper still runs a map-less condition check first, so `$savedGroups`
-  // is rejected on v1 bulk regardless of the group.
   describe("v1 bulk (POST /api/v1/features, POST /api/v1/features/:id)", () => {
     const create = (rules: Record<string, unknown>[], id = "flag_v1_bulk") =>
       request(app)
@@ -401,6 +399,10 @@ describe("rule reference integrity (v2 per-rule endpoints)", () => {
             { matchType: "any", savedGroups: ["grp_known"] },
           ],
         },
+      ],
+      [
+        "$savedGroups on a known group (UI operator)",
+        { condition: '{"$savedGroups": ["grp_known"]}' },
       ],
       [
         "$inGroup on a known group",

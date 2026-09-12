@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   apiFeatureRuleV2Validator,
   apiFeatureRuleValidator,
+  featureRule,
   postFeatureRuleV2,
   postFeatureValidator,
 } from "shared/validators";
@@ -161,5 +162,48 @@ describe("write schemas reject unknown keys but accept read-only echoes", () => 
         ]),
       ).success,
     ).toBe(false);
+    // Legacy inline experiment rules are not curated: unknown keys still strip.
+    expect(
+      body.safeParse(
+        feature([
+          {
+            type: "experiment",
+            condition: "{}",
+            values: [{ value: "true", weight: 1 }],
+            hashVersion: 2,
+            experimentType: "standard",
+          },
+        ]),
+      ).success,
+    ).toBe(true);
+  });
+});
+
+// The v1 read model spreads the STORED rule into the response (minus v2 scope),
+// so every key the stored schema declares must be accepted by the v1 write
+// schema too — not just what the response schema declares.
+describe("v1 write schema accepts every stored rule key the read model emits", () => {
+  it("per rule type", () => {
+    const env = findProp(json(postFeatureValidator.bodySchema), "environments")!
+      .additionalProperties as JsonSchema;
+    const rules = findProp(env, "rules")!.items as JsonSchema;
+    const inputs = variants(rules);
+    const emittedOnly = ["savedGroupTargeting"];
+    const notEmitted = new Set(["allEnvironments", "environments"]);
+    const out: Record<string, string[]> = {};
+    for (const stored of variants(json(featureRule))) {
+      if (stored.type === "experiment") continue;
+      const accepted = new Set(
+        inputs
+          .filter((i) => i.type === stored.type)
+          .flatMap((i) => [...i.keys]),
+      );
+      if (accepted.size === 0) continue;
+      const missing = [...stored.keys, ...emittedOnly]
+        .filter((k) => !notEmitted.has(k) && !accepted.has(k))
+        .sort();
+      if (missing.length) out[stored.type ?? "*"] = missing;
+    }
+    expect(out).toEqual({});
   });
 });

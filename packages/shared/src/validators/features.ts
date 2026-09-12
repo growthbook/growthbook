@@ -1495,16 +1495,20 @@ const postFeatureExperimentRefRule = z
     prerequisites: z.array(postFeaturePrerequisite).optional(),
     scheduleRules: z.array(apiScheduleRuleValidator).optional(),
     variations: z.array(
-      z.object({
-        value: z.string(),
-        variationId: z.string(),
-      }),
+      z
+        .object({
+          value: z.string(),
+          variationId: z.string(),
+        })
+        .strict(),
     ),
     experimentId: z.string(),
     sparse: postSparseRuleField,
   })
   .strict();
 
+// Legacy inline experiment rules stay in strip mode: the read model spreads
+// every stored key and this type's fields are not curated for round-trips.
 const postFeatureExperimentRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
@@ -1554,7 +1558,7 @@ const postFeatureExperimentRule = z
       .optional()
       .meta({ deprecated: true }),
   })
-  .strict();
+  .strip();
 
 const postFeatureRule = z.union([
   postFeatureForceRule,

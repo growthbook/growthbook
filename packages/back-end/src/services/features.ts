@@ -37,7 +37,6 @@ import {
   stemRuleId,
   stripConfigExtends,
   toApiNamespace,
-  validateCondition,
   validateFeatureValue,
 } from "shared/util";
 import {
@@ -2162,7 +2161,7 @@ export function addIdsToFlatRules(
     if (!r.id) {
       r.id = generateRuleId();
     }
-    // The API accepts any RFC 3339 date-time (offsets, no fractional seconds);
+    // The API accepts any RFC 3339 date-time (offsets, optional fractions);
     // store the one canonical spelling so round-trips compare equal.
     r.scheduleRules?.forEach((s) => {
       if (s.timestamp === null) return;
@@ -3384,13 +3383,6 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   const attributeScope =
     getAttributeScopeProjectIds(attributeScopeEntity ?? feature) ?? undefined;
   return rules.map((r) => {
-    const conditionRes = validateCondition(r.condition);
-    if (!conditionRes.success) {
-      throw new Error(
-        "Invalid targeting condition JSON: " + conditionRes.error,
-      );
-    }
-
     // Opt-in attribute registration check (org-level setting). Only validate
     // fields that changed so pre-existing violations don't block unrelated edits.
     const ruleWithAttrs = r as {

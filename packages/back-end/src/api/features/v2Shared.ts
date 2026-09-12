@@ -476,7 +476,7 @@ export function validateEnvRulesScheduleRules(
   for (const [envName, envSettings] of Object.entries(envBody)) {
     if (!envSettings.rules) continue;
     envSettings.rules.forEach((rule, ruleIndex) => {
-      if (!rule.scheduleRules) return;
+      if (!rule.scheduleRules?.length) return;
       if (!context.hasPremiumFeature("schedule-feature-flag")) {
         throw new Error(
           "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",

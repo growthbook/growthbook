@@ -4,6 +4,7 @@ import type { ApiReqContext } from "back-end/types/api";
 import {
   ApiRuleV2Input,
   assertValidRuleProjectIds,
+  validateEnvRulesScheduleRules,
   composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
@@ -502,6 +503,20 @@ describe("validateRulesScheduleRules", () => {
   it("skips rules with no or empty scheduleRules without consulting the plan", () => {
     const context = ctx(false);
     validateRulesScheduleRules([rule(), rule([])], context);
+    expect(context.hasPremiumFeature).not.toHaveBeenCalled();
+  });
+
+  it("v1 shape: an empty scheduleRules array is unscheduled and skips the plan gate", () => {
+    const context = ctx(false);
+    validateEnvRulesScheduleRules(
+      {
+        production: {
+          enabled: true,
+          rules: [{ type: "force", value: "true", scheduleRules: [] }],
+        },
+      } as Parameters<typeof validateEnvRulesScheduleRules>[0],
+      context,
+    );
     expect(context.hasPremiumFeature).not.toHaveBeenCalled();
   });
 
