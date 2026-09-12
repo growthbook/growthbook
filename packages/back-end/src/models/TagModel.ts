@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { TagDBInterface, TagInterface } from "shared/types/tag";
 import { touchDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
+import { BadRequestError } from "back-end/src/util/errors";
 
 const tagSchema = new mongoose.Schema({
   organization: {
@@ -18,6 +19,18 @@ const TagModel = mongoose.model<TagDBInterface>("Tag", tagSchema);
 const MIN_TAG_LENGTH = 2;
 const MAX_TAG_LENGTH = 64;
 
+type AddTagOptions = {
+  label?: string;
+  createOnly?: boolean;
+};
+
+function getTagLabel(
+  tag: string,
+  settings: TagDBInterface["settings"],
+): string {
+  return settings[tag]?.label ?? tag;
+}
+
 function toTagInterface(doc: TagDocument | null): TagInterface[] {
   if (!doc) return [];
   const json = doc.toJSON<TagDBInterface>();
@@ -28,6 +41,7 @@ function toTagInterface(doc: TagDocument | null): TagInterface[] {
       id: t,
       color: settings[t]?.color || "#029dd1",
       description: settings[t]?.description || "",
+      label: getTagLabel(t, settings),
     };
   });
 }
@@ -66,7 +80,10 @@ export async function addTag(
   tag: string,
   color: string,
   description: string,
+  options: AddTagOptions = {},
 ) {
+  const { label, createOnly = false } = options;
+
   if (tag.length < MIN_TAG_LENGTH || tag.length > MAX_TAG_LENGTH) {
     throw new Error(
       `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`,
@@ -79,8 +96,34 @@ export async function addTag(
   const existing = await TagModel.findOne({
     organization,
   });
+  if (createOnly && existing?.tags?.includes(tag)) {
+    throw new BadRequestError(
+      "A tag with this name already exists or was previously renamed.",
+    );
+  }
+
   const settings = existing?.settings || {};
-  settings[tag] = { color, description };
+  const resolvedLabel = label ?? getTagLabel(tag, settings);
+
+  if (
+    resolvedLabel.length < MIN_TAG_LENGTH ||
+    resolvedLabel.length > MAX_TAG_LENGTH
+  ) {
+    throw new BadRequestError(
+      `Tag names must be between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characters long.`,
+    );
+  }
+
+  const duplicateLabel = (existing?.tags || []).some(
+    (existingTag) =>
+      existingTag !== tag &&
+      getTagLabel(existingTag, settings) === resolvedLabel,
+  );
+  if (duplicateLabel) {
+    throw new BadRequestError("A tag with this name already exists.");
+  }
+
+  settings[tag] = { color, description, label: resolvedLabel };
 
   await TagModel.updateOne(
     { organization },

@@ -13,7 +13,11 @@ import { removeTagFromExperiments } from "back-end/src/models/ExperimentModel";
 
 // region POST /tag
 
-type CreateTagRequest = AuthRequest<TagInterface>;
+type CreateTagRequest = AuthRequest<
+  TagInterface & {
+    createOnly?: boolean;
+  }
+>;
 
 type CreateTagResponse = {
   status: 200;
@@ -34,9 +38,12 @@ export const postTag = async (
   if (!context.permissions.canCreateAndUpdateTag()) {
     context.permissions.throwPermissionError();
   }
-  const { id, color, description } = req.body;
+  const { id, color, description, label, createOnly } = req.body;
 
-  await addTag(context.org.id, id, color, description);
+  await addTag(context.org.id, id, color, description, {
+    label,
+    createOnly,
+  });
 
   res.status(200).json({
     status: 200,

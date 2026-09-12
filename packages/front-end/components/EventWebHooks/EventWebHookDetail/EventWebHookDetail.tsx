@@ -59,7 +59,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   isModalOpen,
   editError,
 }) => {
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, getTagById } = useDefinitions();
   const permissionsUtils = usePermissionsUtil();
   const workspaceUIEnabled = useFeatureIsOn("slack-workspace-ui");
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -355,7 +355,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
                   {tags.map((tag) => (
                     <Badge
                       key={tag}
-                      label={tag}
+                      label={getTagById(tag)?.label ?? tag}
                       color="purple"
                       variant="soft"
                     />
