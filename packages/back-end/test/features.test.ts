@@ -1,7 +1,12 @@
 import cloneDeep from "lodash/cloneDeep";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import { getSavedGroupPayloadStrategy } from "shared/sdk-versioning";
 import { FeatureDefinition } from "shared/types/sdk";
-import { FeatureInterface, ScheduleRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  SavedGroupTargeting,
+  ScheduleRule,
+} from "shared/types/feature";
 import {
   OrganizationInterface,
   SDKAttribute,
@@ -28,10 +33,21 @@ import {
   getEnabledEnvironments,
   getFeatureDefinition,
   getJSONValue,
-  getParsedCondition,
+  mergeConditionAndSavedGroups,
   getSDKPayloadKeysByDiff,
   roundVariationWeight,
 } from "back-end/src/util/features";
+
+// Test helpers for the two formats these tests cover. Passing no capabilities
+// means no SDK connection, which is what previews and the in-app evaluators do.
+const v1Strategy = (groupMap: GroupMap) =>
+  getSavedGroupPayloadStrategy({ groupMap });
+const v2Strategy = (groupMap: GroupMap) =>
+  getSavedGroupPayloadStrategy({
+    capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+    savedGroupReferencesEnabled: true,
+    groupMap,
+  });
 
 // Minimal constant fixture for payload-resolution tests.
 function makeConstant(
@@ -84,7 +100,7 @@ const baseOrganization: OrganizationInterface = {
   invites: [],
 };
 
-describe("getParsedCondition", () => {
+describe("mergeConditionAndSavedGroups", () => {
   it("compiles correctly", () => {
     groupMap.clear();
     groupMap.set("a", {
@@ -129,32 +145,50 @@ describe("getParsedCondition", () => {
     });
 
     // No condition or saved group
-    expect(getParsedCondition(groupMap, "", [])).toBeUndefined();
+    expect(
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups: [],
+      }),
+    ).toBeUndefined();
 
     // Single empty saved group
     expect(
-      getParsedCondition(groupMap, "", [{ match: "any", ids: ["empty"] }]),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups: [{ match: "any", ids: ["empty"] }],
+      }),
     ).toBeUndefined();
 
     // No saved groups
     expect(
-      getParsedCondition(groupMap, JSON.stringify({ country: "US" }), []),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: JSON.stringify({ country: "US" }),
+        savedGroups: [],
+      }),
     ).toEqual({ country: "US" });
 
     // Saved group in condition
     expect(
-      getParsedCondition(
-        groupMap,
-        JSON.stringify({ id: { $inGroup: "a" } }),
-        [],
-      ),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: JSON.stringify({ id: { $inGroup: "a" } }),
+        savedGroups: [],
+      }),
     ).toEqual({
       id: { $inGroup: "a" },
     });
 
     // Single saved group
     expect(
-      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }]),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups: [{ match: "any", ids: ["a"] }],
+      }),
     ).toEqual({
       id_a: {
         $inGroup: "a",
@@ -163,7 +197,11 @@ describe("getParsedCondition", () => {
 
     // Legacy saved group still uses inGroup operator (to be scrubbed later)
     expect(
-      getParsedCondition(groupMap, "", [{ match: "any", ids: ["legacy"] }]),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups: [{ match: "any", ids: ["legacy"] }],
+      }),
     ).toEqual({
       id_a: {
         $inGroup: "legacy",
@@ -172,30 +210,38 @@ describe("getParsedCondition", () => {
 
     // Only 1 valid saved group
     expect(
-      getParsedCondition(groupMap, "", [
-        { match: "any", ids: ["b", "empty", "g"] },
-        { match: "all", ids: ["g", "empty"] },
-      ]),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups: [
+          { match: "any", ids: ["b", "empty", "g"] },
+          { match: "all", ids: ["g", "empty"] },
+        ],
+      }),
     ).toEqual({
       id_b: { $inGroup: "b" },
     });
 
     // Condition + a bunch of saved groups
     expect(
-      getParsedCondition(groupMap, JSON.stringify({ country: "US" }), [
-        {
-          match: "all",
-          ids: ["a", "b", "x"],
-        },
-        {
-          match: "any",
-          ids: ["c", "d"],
-        },
-        {
-          match: "none",
-          ids: ["e", "f"],
-        },
-      ]),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: JSON.stringify({ country: "US" }),
+        savedGroups: [
+          {
+            match: "all",
+            ids: ["a", "b", "x"],
+          },
+          {
+            match: "any",
+            ids: ["c", "d"],
+          },
+          {
+            match: "none",
+            ids: ["e", "f"],
+          },
+        ],
+      }),
     ).toEqual({
       $and: [
         // Attribute targeting
@@ -278,39 +324,47 @@ describe("getParsedCondition", () => {
     });
 
     expect(
-      getParsedCondition(groupMap, "", [
-        {
-          match: "all",
-          ids: ["a", "b", "c", "d", "e", "f", "g", "h"],
-        },
-        {
-          match: "any",
-          ids: ["a", "b", "c", "d", "e", "f", "g"],
-        },
-        {
-          match: "none",
-          ids: ["a", "b", "c", "d", "e", "f", "g"],
-        },
-      ]),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups: [
+          {
+            match: "all",
+            ids: ["a", "b", "c", "d", "e", "f", "g", "h"],
+          },
+          {
+            match: "any",
+            ids: ["a", "b", "c", "d", "e", "f", "g"],
+          },
+          {
+            match: "none",
+            ids: ["a", "b", "c", "d", "e", "f", "g"],
+          },
+        ],
+      }),
     ).toEqual({
       id: 1,
     });
 
     expect(
-      getParsedCondition(groupMap, "", [
-        {
-          match: "all",
-          ids: ["a", "b", "c", "d", "e", "f", "g"],
-        },
-        {
-          match: "any",
-          ids: ["a", "b", "c", "d", "e", "f", "g"],
-        },
-        {
-          match: "none",
-          ids: ["a", "b", "c", "d", "e", "f", "g"],
-        },
-      ]),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups: [
+          {
+            match: "all",
+            ids: ["a", "b", "c", "d", "e", "f", "g"],
+          },
+          {
+            match: "any",
+            ids: ["a", "b", "c", "d", "e", "f", "g"],
+          },
+          {
+            match: "none",
+            ids: ["a", "b", "c", "d", "e", "f", "g"],
+          },
+        ],
+      }),
     ).toEqual(undefined);
 
     groupMap.clear();
@@ -331,7 +385,11 @@ describe("getParsedCondition", () => {
     });
 
     expect(
-      getParsedCondition(groupMap, "", [{ match: "all", ids: ["a", "b"] }]),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups: [{ match: "all", ids: ["a", "b"] }],
+      }),
     ).toEqual({
       attr: {
         $inGroup: "a",
@@ -339,7 +397,11 @@ describe("getParsedCondition", () => {
     });
 
     expect(
-      getParsedCondition(groupMap, "", [{ match: "none", ids: ["a", "b"] }]),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups: [{ match: "none", ids: ["a", "b"] }],
+      }),
     ).toEqual({
       attr: {
         $notInGroup: "a",
@@ -368,20 +430,24 @@ describe("getParsedCondition", () => {
     });
 
     expect(
-      getParsedCondition(groupMap, "", [
-        {
-          match: "all",
-          ids: ["a", "b"],
-        },
-        {
-          match: "any",
-          ids: ["a", "b"],
-        },
-        {
-          match: "none",
-          ids: ["a", "b"],
-        },
-      ]),
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups: [
+          {
+            match: "all",
+            ids: ["a", "b"],
+          },
+          {
+            match: "any",
+            ids: ["a", "b"],
+          },
+          {
+            match: "none",
+            ids: ["a", "b"],
+          },
+        ],
+      }),
     ).toEqual({
       $and: [
         {
@@ -452,18 +518,18 @@ describe("getParsedCondition", () => {
     });
 
     expect(
-      getParsedCondition(
-        groupMap,
-        JSON.stringify({
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: JSON.stringify({
           country: "US",
         }),
-        [
+        savedGroups: [
           {
             match: "all",
             ids: ["a"],
           },
         ],
-      ),
+      }),
     ).toEqual({
       $and: [
         {
@@ -3877,5 +3943,294 @@ describe("validateFeatureRuleValues", () => {
         ],
       } as never),
     ).toThrow();
+  });
+});
+
+describe("mergeConditionAndSavedGroups with referencesV2", () => {
+  const groupMap: GroupMap = new Map();
+  beforeEach(() => {
+    groupMap.clear();
+    groupMap.set("list_a", {
+      type: "list",
+      values: ["0"],
+      attributeKey: "id_a",
+    });
+    groupMap.set("list_b", {
+      type: "list",
+      values: ["1"],
+      attributeKey: "id_b",
+    });
+    groupMap.set("cond_a", {
+      type: "condition",
+      condition: JSON.stringify({ browser: "chrome" }),
+    });
+  });
+
+  it("references both group types with the singular wire operator", () => {
+    expect(
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v2Strategy(groupMap),
+        condition: "",
+        savedGroups: [{ match: "all", ids: ["list_a", "cond_a"] }],
+      }),
+    ).toEqual({
+      $and: [{ $savedGroup: "list_a" }, { $savedGroup: "cond_a" }],
+    });
+  });
+
+  it("builds an $or for match: any", () => {
+    expect(
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v2Strategy(groupMap),
+        condition: "",
+        savedGroups: [{ match: "any", ids: ["list_a", "list_b"] }],
+      }),
+    ).toEqual({
+      $or: [{ $savedGroup: "list_a" }, { $savedGroup: "list_b" }],
+    });
+  });
+
+  it("returns a bare reference for a single-id any or all", () => {
+    expect(
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v2Strategy(groupMap),
+        condition: "",
+        savedGroups: [{ match: "any", ids: ["list_a"] }],
+      }),
+    ).toEqual({ $savedGroup: "list_a" });
+    expect(
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v2Strategy(groupMap),
+        condition: "",
+        savedGroups: [{ match: "all", ids: ["list_a"] }],
+      }),
+    ).toEqual({ $savedGroup: "list_a" });
+  });
+
+  it("builds match: none as an AND of NOTs, not a negated group", () => {
+    const condition = mergeConditionAndSavedGroups({
+      savedGroupStrategy: v2Strategy(groupMap),
+      condition: "",
+      savedGroups: [{ match: "none", ids: ["list_a", "cond_a"] }],
+    });
+    // "in neither", not "not in both"
+    expect(condition).toEqual({
+      $and: [
+        { $not: { $savedGroup: "list_a" } },
+        { $not: { $savedGroup: "cond_a" } },
+      ],
+    });
+  });
+
+  it("combines the rule condition with references in one flat $and", () => {
+    expect(
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v2Strategy(groupMap),
+        condition: JSON.stringify({ country: "US" }),
+        savedGroups: [
+          { match: "all", ids: ["list_a"] },
+          { match: "none", ids: ["cond_a"] },
+        ],
+      }),
+    ).toEqual({
+      $and: [
+        { country: "US" },
+        { $savedGroup: "list_a" },
+        { $not: { $savedGroup: "cond_a" } },
+      ],
+    });
+  });
+
+  it("keeps $inGroup references and expands condition groups under referencesV1", () => {
+    const savedGroups: SavedGroupTargeting[] = [
+      { match: "all", ids: ["list_a", "cond_a"] },
+    ];
+    expect(
+      mergeConditionAndSavedGroups({
+        savedGroupStrategy: v1Strategy(groupMap),
+        condition: "",
+        savedGroups,
+      }),
+    ).toEqual({
+      $and: [{ id_a: { $inGroup: "list_a" } }, { browser: "chrome" }],
+    });
+  });
+});
+
+describe("mergeConditionAndSavedGroups across all three formats", () => {
+  const org = {
+    settings: {
+      attributeSchema: [
+        { property: "country", datatype: "string" },
+        { property: "id", datatype: "string" },
+      ],
+    },
+  } as OrganizationInterface;
+
+  const groupMap: GroupMap = new Map([
+    ["list_a", { type: "list", attributeKey: "id", values: ["1", "2"] }],
+    ["list_b", { type: "list", attributeKey: "country", values: ["US"] }],
+    [
+      "cond_a",
+      { type: "condition", condition: JSON.stringify({ browser: "chrome" }) },
+    ],
+  ]);
+
+  const inline = () =>
+    getSavedGroupPayloadStrategy({
+      capabilities: ["looseUnmarshalling"],
+      groupMap,
+      organization: org,
+    });
+  const v1 = () =>
+    getSavedGroupPayloadStrategy({
+      capabilities: ["savedGroupReferences"],
+      savedGroupReferencesEnabled: true,
+      groupMap,
+      organization: org,
+    });
+  const v2 = () =>
+    getSavedGroupPayloadStrategy({
+      capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+      savedGroupReferencesEnabled: true,
+      groupMap,
+      organization: org,
+    });
+
+  // Runs a rule through one strategy the way getFeatureDefinition does:
+  // merge, then finalize (a no-op for the two reference formats).
+  const build = (
+    strategy: ReturnType<typeof getSavedGroupPayloadStrategy>,
+    condition: string | undefined,
+    savedGroups: SavedGroupTargeting[] | undefined,
+  ) => {
+    const out = mergeConditionAndSavedGroups({
+      savedGroupStrategy: strategy,
+      condition,
+      savedGroups,
+    });
+    if (out) strategy.finalizeCondition(out);
+    return out;
+  };
+
+  it("attribute targeting only, unchanged by every format", () => {
+    const cond = JSON.stringify({ country: "US", age: { $gt: 18 } });
+    [inline(), v1(), v2()].forEach((s) => {
+      expect(build(s, cond, [])).toEqual({ country: "US", age: { $gt: 18 } });
+    });
+  });
+
+  it("one ID list group", () => {
+    const sg: SavedGroupTargeting[] = [{ match: "all", ids: ["list_a"] }];
+    expect(build(inline(), "", sg)).toEqual({ id: { $in: ["1", "2"] } });
+    expect(build(v1(), "", sg)).toEqual({ id: { $inGroup: "list_a" } });
+    expect(build(v2(), "", sg)).toEqual({ $savedGroup: "list_a" });
+  });
+
+  it("one condition group", () => {
+    const sg: SavedGroupTargeting[] = [{ match: "all", ids: ["cond_a"] }];
+    // Only v2 has a reference form for condition groups
+    expect(build(inline(), "", sg)).toEqual({ browser: "chrome" });
+    expect(build(v1(), "", sg)).toEqual({ browser: "chrome" });
+    expect(build(v2(), "", sg)).toEqual({ $savedGroup: "cond_a" });
+  });
+
+  it("attribute targeting plus both group types", () => {
+    const cond = JSON.stringify({ country: "US" });
+    const sg: SavedGroupTargeting[] = [
+      { match: "all", ids: ["list_a", "cond_a"] },
+    ];
+    expect(build(inline(), cond, sg)).toEqual({
+      $and: [
+        { country: "US" },
+        { id: { $in: ["1", "2"] } },
+        { browser: "chrome" },
+      ],
+    });
+    expect(build(v1(), cond, sg)).toEqual({
+      $and: [
+        { country: "US" },
+        { id: { $inGroup: "list_a" } },
+        { browser: "chrome" },
+      ],
+    });
+    expect(build(v2(), cond, sg)).toEqual({
+      $and: [
+        { country: "US" },
+        { $savedGroup: "list_a" },
+        { $savedGroup: "cond_a" },
+      ],
+    });
+  });
+
+  it("match: any becomes an $or in every format", () => {
+    const sg: SavedGroupTargeting[] = [
+      { match: "any", ids: ["list_a", "list_b"] },
+    ];
+    expect(build(inline(), "", sg)).toEqual({
+      $or: [{ id: { $in: ["1", "2"] } }, { country: { $in: ["US"] } }],
+    });
+    expect(build(v1(), "", sg)).toEqual({
+      $or: [
+        { id: { $inGroup: "list_a" } },
+        { country: { $inGroup: "list_b" } },
+      ],
+    });
+    expect(build(v2(), "", sg)).toEqual({
+      $or: [{ $savedGroup: "list_a" }, { $savedGroup: "list_b" }],
+    });
+  });
+
+  it("match: none becomes an AND of NOTs in every format", () => {
+    const sg: SavedGroupTargeting[] = [
+      { match: "none", ids: ["list_a", "cond_a"] },
+    ];
+    expect(build(inline(), "", sg)).toEqual({
+      $and: [{ id: { $nin: ["1", "2"] } }, { $not: { browser: "chrome" } }],
+    });
+    expect(build(v1(), "", sg)).toEqual({
+      $and: [
+        { id: { $notInGroup: "list_a" } },
+        { $not: { browser: "chrome" } },
+      ],
+    });
+    expect(build(v2(), "", sg)).toEqual({
+      $and: [
+        { $not: { $savedGroup: "list_a" } },
+        { $not: { $savedGroup: "cond_a" } },
+      ],
+    });
+  });
+
+  it("several match modes on one rule", () => {
+    const sg: SavedGroupTargeting[] = [
+      { match: "all", ids: ["list_a"] },
+      { match: "any", ids: ["list_b", "cond_a"] },
+      { match: "none", ids: ["cond_a"] },
+    ];
+    expect(build(v2(), JSON.stringify({ country: "US" }), sg)).toEqual({
+      $and: [
+        { country: "US" },
+        { $savedGroup: "list_a" },
+        { $or: [{ $savedGroup: "list_b" }, { $savedGroup: "cond_a" }] },
+        { $not: { $savedGroup: "cond_a" } },
+      ],
+    });
+  });
+
+  it("a rule targeting nothing yields no condition in any format", () => {
+    [inline(), v1(), v2()].forEach((s) => {
+      expect(build(s, "", [])).toBeUndefined();
+      expect(build(s, "{}", undefined)).toBeUndefined();
+    });
+  });
+
+  it("drops a group that is not in the map, in every format", () => {
+    const sg: SavedGroupTargeting[] = [{ match: "all", ids: ["gone"] }];
+    [inline(), v1(), v2()].forEach((s) => {
+      expect(build(s, JSON.stringify({ country: "US" }), sg)).toEqual({
+        country: "US",
+      });
+    });
   });
 });
