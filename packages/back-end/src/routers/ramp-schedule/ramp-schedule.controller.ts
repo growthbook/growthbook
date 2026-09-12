@@ -186,12 +186,6 @@ export const putRampSchedule = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.hasPremiumFeature("schedule-feature-flag")) {
-    context.throwPlanDoesNotAllowError(
-      "Ramp schedules require a Pro plan or above.",
-    );
-  }
-
   const schedule = await context.models.rampSchedules.getById(req.params.id);
   if (!schedule) {
     return res

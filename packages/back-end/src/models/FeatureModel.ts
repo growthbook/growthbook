@@ -2861,8 +2861,12 @@ async function createRampSchedulesForRevision(
   for (const action of actions) {
     if (action.mode !== "create" && action.mode !== "update") continue;
 
-    // Pro gate — see postRampSchedule.ts for rationale.
-    if (!context.hasPremiumFeature("schedule-feature-flag")) {
+    // Pro gate on new schedules only; editing an existing one stays allowed on
+    // any plan — see .agents/guides/backend/api-patterns.md.
+    if (
+      action.mode === "create" &&
+      !context.hasPremiumFeature("schedule-feature-flag")
+    ) {
       context.throwPlanDoesNotAllowError(
         "Ramp schedules require a Pro plan or above.",
       );
