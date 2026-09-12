@@ -3477,6 +3477,8 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           trackingKey: r.trackingKey ?? "",
           enabled: r.enabled != null ? r.enabled : true,
           description: r.description ?? "",
+          condition: r.condition,
+          savedGroups: resolveSavedGroupsInput(r) ?? [],
           values: values,
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
