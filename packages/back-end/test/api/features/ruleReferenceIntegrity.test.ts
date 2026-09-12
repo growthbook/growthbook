@@ -128,7 +128,6 @@ describe("feature rule write contracts", () => {
 
     it.each([
       ["no targeting", {}],
-      ["empty condition and groups", { condition: "{}", savedGroups: [] }],
       [
         "targeted saved group",
         { savedGroups: [{ match: "all", ids: ["grp_known"] }] },

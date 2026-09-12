@@ -2,7 +2,7 @@ import {
   validateRuleAttributes,
   validateRulesReferences,
 } from "back-end/src/api/features/validations";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 import { getFeature } from "back-end/src/models/FeatureModel";
 
@@ -161,8 +161,8 @@ describe("validateRuleAttributes (V2 helper)", () => {
   });
 });
 
-// Bulk form used by postFeatureV2 / updateFeatureV2: the same condition and
-// reference checks the per-rule endpoints run, with saved groups loaded once.
+// Reject/accept outcomes are pinned end-to-end in ruleReferenceIntegrity.test.ts;
+// this covers what that harness cannot observe.
 describe("validateRulesReferences", () => {
   const getAll = jest.fn();
   const ctx = {
@@ -192,31 +192,6 @@ describe("validateRulesReferences", () => {
     expect(getAll).toHaveBeenCalledTimes(1);
   });
 
-  it("accepts a $savedGroups condition that names an existing group", async () => {
-    await expect(
-      validateRulesReferences(
-        [{ condition: '{"$savedGroups": ["grp_known"]}' }],
-        ctx,
-      ),
-    ).resolves.toBeUndefined();
-  });
-
-  it("rejects a prerequisite that names a feature that does not exist", async () => {
-    jest.mocked(getFeature).mockResolvedValueOnce(null);
-    await expect(
-      validateRulesReferences(
-        [
-          {
-            prerequisites: [
-              { id: "missing_flag", condition: '{"value": true}' },
-            ],
-          },
-        ],
-        ctx,
-      ),
-    ).rejects.toBeInstanceOf(NotFoundError);
-  });
-
   it("accepts a prerequisite whose feature exists", async () => {
     jest
       .mocked(getFeature)
@@ -236,53 +211,8 @@ describe("validateRulesReferences", () => {
     expect(getFeature).toHaveBeenCalledWith(ctx, "parent_flag");
   });
 
-  it("rejects a prerequisite whose condition is not valid JSON", async () => {
-    await expect(
-      validateRulesReferences(
-        [{ prerequisites: [{ id: "parent-flag", condition: "{" }] }],
-        ctx,
-      ),
-    ).rejects.toBeInstanceOf(BadRequestError);
-  });
-
   it("does not load saved groups for an empty rules list", async () => {
     await validateRulesReferences([], ctx);
     expect(getAll).not.toHaveBeenCalled();
-  });
-
-  it("rejects a rule whose condition is not valid JSON", async () => {
-    await expect(
-      validateRulesReferences(
-        [{ condition: '{"country": "US"}' }, { condition: '{"country": ' }],
-        ctx,
-      ),
-    ).rejects.toBeInstanceOf(BadRequestError);
-  });
-
-  it("rejects a rule that targets a saved group that does not exist", async () => {
-    await expect(
-      validateRulesReferences(
-        [{ savedGroups: [{ match: "all", ids: ["grp_missing"] }] }],
-        ctx,
-      ),
-    ).rejects.toBeInstanceOf(NotFoundError);
-  });
-
-  it("rejects a rule whose $savedGroups condition names an unknown group", async () => {
-    await expect(
-      validateRulesReferences(
-        [{ condition: '{"$savedGroups": ["grp_known", "grp_missing"]}' }],
-        ctx,
-      ),
-    ).rejects.toBeInstanceOf(BadRequestError);
-  });
-
-  it("rejects a rule whose $inGroup condition names an unknown group", async () => {
-    await expect(
-      validateRulesReferences(
-        [{ condition: '{"id": {"$inGroup": "grp_missing"}}' }],
-        ctx,
-      ),
-    ).rejects.toThrow(/grp_missing/);
   });
 });

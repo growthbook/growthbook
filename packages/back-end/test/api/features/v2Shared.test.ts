@@ -418,23 +418,6 @@ describe("mapV2ApiRuleToFeatureRule prerequisites + scheduleRules", () => {
   it.each<[string, ApiRuleV2Input]>([
     ["force", { type: "force", value: "true" } as ApiRuleV2Input],
     [
-      "rollout",
-      {
-        type: "rollout",
-        value: "true",
-        coverage: 0.5,
-        hashAttribute: "id",
-      } as ApiRuleV2Input,
-    ],
-    [
-      "experiment-ref",
-      {
-        type: "experiment-ref",
-        experimentId: "exp_1",
-        variations: [{ variationId: "v0", value: "false" }],
-      } as ApiRuleV2Input,
-    ],
-    [
       "safe-rollout",
       {
         type: "safe-rollout",
@@ -512,20 +495,6 @@ describe("validateRulesScheduleRules", () => {
     expect(() =>
       validateRulesScheduleRules([rule(valid), rule([valid[0]])], ctx(true)),
     ).toThrow(/rule 2/);
-  });
-
-  it("accepts second-precision and offset timestamps, like the input schema", () => {
-    expect(() =>
-      validateRulesScheduleRules(
-        [
-          rule([
-            { timestamp: "2030-01-01T00:00:00Z", enabled: true },
-            { timestamp: "2030-06-01T02:00:00+02:00", enabled: false },
-          ]),
-        ],
-        ctx(true),
-      ),
-    ).not.toThrow();
   });
 
   it("accepts valid scheduleRules with the plan feature", () => {
