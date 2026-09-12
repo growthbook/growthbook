@@ -383,3 +383,25 @@ Call the helper on the final API-shaped object — don't try to look up owner em
 | **Audience**       | GrowthBook web app                 | Customer integrations              |
 | **Documentation**  | Internal only                      | OpenAPI spec                       |
 | **URL Prefix**     | `/api/*`                           | `/api/v1/*`                        |
+
+## Plan gating for scheduling and ramps
+
+Simple schedules (a rule's `schedule` start/end shorthand, and legacy inline
+`scheduleRules`) and multi-step ramp schedules run on the same engine: the
+shorthand becomes a one-step ramp action. Gate them the same way.
+
+- The feature key is the Pro `schedule-feature-flag`. Both it and
+  `ramp-schedules` are in `commercialFeaturesPro` (`shared/src/enterprise/license-consts.ts`),
+  so nothing about ramps is Enterprise-only in code today.
+- The engine chokepoint, `createRampSchedulesForRevision` in `FeatureModel`,
+  gates on `schedule-feature-flag` for every authoring path (dashboard, per-rule
+  REST, bulk REST). Endpoint-level gates exist so a caller is refused when they
+  author, not when the revision publishes; use `assertCanUseRuleScheduling`
+  (per-rule) or `validateRulesScheduleRules` / `validateEnvRulesScheduleRules`
+  (bulk) rather than a new inline check.
+- The REST ramp-management endpoints (`POST /ramp-schedules`, the ramp-schedule
+  model's API update) check `ramp-schedules` and word the error as Enterprise.
+  That wording predates the shared engine and is inconsistent with both the key's
+  tier and the dashboard; it is a product decision whether multi-step ramps
+  should become Enterprise-only. If they do, gate on the artifact (step count,
+  hold conditions, monitoring) at the engine chokepoint, not per endpoint.

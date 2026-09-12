@@ -511,8 +511,12 @@ export function assertUniqueRuleIdsByEnv(
 }
 
 // Plan gate for scheduling on the per-rule endpoints. A simple schedule is a
-// one-step ramp, so `schedule`, legacy inline `scheduleRules`, and an inline
-// `rampSchedule` are all the same Pro feature, as on the dashboard.
+// one-step ramp on the same engine, so `schedule`, legacy inline
+// `scheduleRules`, and an inline `rampSchedule` are all the Pro
+// `schedule-feature-flag` feature — the gate the dashboard and
+// `createRampSchedulesForRevision` (the engine chokepoint) already apply. Only
+// the REST ramp-management endpoints word their check as Enterprise; see
+// .agents/guides/backend/api-patterns.md "Plan gating for scheduling".
 export function assertCanUseRuleScheduling(
   context: ApiReqContext,
   input: {
