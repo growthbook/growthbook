@@ -510,13 +510,14 @@ export function assertUniqueRuleIdsByEnv(
   }
 }
 
-// Plan gate for scheduling on the per-rule endpoints. A simple schedule is a
-// one-step ramp on the same engine, so `schedule`, legacy inline
-// `scheduleRules`, and an inline `rampSchedule` are all the Pro
-// `schedule-feature-flag` feature — the gate the dashboard and
-// `createRampSchedulesForRevision` (the engine chokepoint) already apply. Only
-// the REST ramp-management endpoints word their check as Enterprise; see
-// .agents/guides/backend/api-patterns.md "Plan gating for scheduling".
+// Plan gate for scheduling. A simple schedule is a one-step ramp on the same
+// engine, so `schedule`, legacy inline `scheduleRules`, and an inline
+// `rampSchedule` are all the Pro `schedule-feature-flag` feature — the gate the
+// dashboard and `createRampSchedulesForRevision` (the engine chokepoint) apply.
+// Only newly introduced scheduling is gated: callers skip this for a rule that
+// is already scheduled, so an org that has dropped below Pro can still edit or
+// remove what it has. See .agents/guides/backend/api-patterns.md "Plan gating
+// for scheduling and ramps".
 export function assertCanUseRuleScheduling(
   context: ApiReqContext,
   input: {
@@ -535,6 +536,16 @@ export function assertCanUseRuleScheduling(
       "Ramp schedules require a Pro plan or above.",
     );
   }
+}
+
+export function isScheduledRule(
+  rule: Pick<FeatureRule, "scheduleRules" | "scheduleType"> | undefined,
+): boolean {
+  if (!rule) return false;
+  return (
+    (rule.scheduleType ?? "none") !== "none" ||
+    !!rule.scheduleRules?.some((r) => r.timestamp)
+  );
 }
 
 // Update form: a rule whose project scope is unchanged from the stored rule
@@ -573,13 +584,19 @@ export async function assertValidHoldout(
 // v2 counterpart on the flat rules array: same plan gate and business rules,
 // keyed by rule index. Empty arrays pass so a round-trip of an unscheduled
 // rule never trips the plan gate.
+// The plan gate applies only to rules not already scheduled in `stored`, so a
+// downgraded org can still echo, edit, or clear an existing schedule.
 export function validateRulesScheduleRules(
   rules: FeatureRule[],
   context: ApiReqContext,
+  stored: FeatureRule[] = [],
 ): void {
   rules.forEach((rule, i) => {
     if (!rule.scheduleRules?.length) return;
-    if (!context.hasPremiumFeature("schedule-feature-flag")) {
+    if (
+      !isScheduledRule(findStoredRuleCounterpart(stored, rule)) &&
+      !context.hasPremiumFeature("schedule-feature-flag")
+    ) {
       context.throwPlanDoesNotAllowError(
         "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
       );
@@ -594,18 +611,33 @@ export function validateRulesScheduleRules(
   });
 }
 
-// Pro/Enterprise gated. Validates scheduleRules on v1-shape env rules.
+// v1-shape counterpart of validateRulesScheduleRules. A stored (flat, v2-scoped)
+// rule is the counterpart of an inbound env rule when the ids match, or the id
+// stems match and the stored rule covers that environment.
 export function validateEnvRulesScheduleRules(
   envBody: ApiFeatureEnvSettings | undefined,
   context: ApiReqContext,
+  stored: FeatureRule[] = [],
 ): void {
   if (!envBody) return;
   for (const [envName, envSettings] of Object.entries(envBody)) {
     if (!envSettings.rules) continue;
     envSettings.rules.forEach((rule, ruleIndex) => {
       if (!rule.scheduleRules?.length) return;
-      if (!context.hasPremiumFeature("schedule-feature-flag")) {
-        throw new Error(
+      const ruleId = rule.id;
+      const prior = ruleId
+        ? stored.find(
+            (s) =>
+              s.id === ruleId ||
+              (stemRuleId(s.id) === stemRuleId(ruleId) &&
+                (s.allEnvironments || s.environments?.includes(envName))),
+          )
+        : undefined;
+      if (
+        !isScheduledRule(prior) &&
+        !context.hasPremiumFeature("schedule-feature-flag")
+      ) {
+        context.throwPlanDoesNotAllowError(
           "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
         );
       }

@@ -854,48 +854,152 @@ describe("feature rule write contracts", () => {
     });
   });
 
-  describe("scheduling shorthand plan gate on the per-rule endpoints", () => {
+  // Only newly introduced scheduling is plan-gated. An org that has dropped
+  // below Pro can still edit or clear the schedules it already has.
+  describe("scheduling plan gate", () => {
+    const FLAG_SCHED = "flag_sched";
+    const legacyScheduleRules = [
+      { timestamp: "2030-01-01T00:00:00.000Z", enabled: true },
+      { timestamp: null, enabled: false },
+    ];
+    const scheduled = {
+      ...forceRule({ id: "fr_sched", description: "", enabled: true }),
+      scheduleRules: legacyScheduleRules,
+      scheduleType: "schedule",
+    };
+    const plain = forceRule({ id: "fr_plain", description: "", enabled: true });
+    const schedule = { startDate: "2031-01-01T00:00:00.000Z" };
+    const v2Echo = (rule: Record<string, unknown>) => ({
+      id: rule.id,
+      type: "force",
+      value: "true",
+      allEnvironments: true,
+      scheduleRules: rule.scheduleRules,
+    });
+    const v1Env = (rules: Record<string, unknown>[]) => ({
+      environments: { production: { enabled: true, rules } },
+    });
+    const send = (method: "post" | "put", path: string, body: unknown) => {
+      const agent = request(app);
+      return agent[method](`/api/${path}`)
+        .send(body)
+        .set("Authorization", "Bearer foo");
+    };
+    const RULES_V2 = `v2/features/${FLAG_SCHED}/revisions/2/rules`;
+    const RULES_V1 = `v1/features/${FLAG_SCHED}/revisions/2/rules`;
+
     beforeEach(async () => {
       setReqContext(makeContext(false));
-      await insertDraftRevision(FLAG);
+      await insertFeature(FLAG_SCHED, [scheduled, plain]);
+      await insertDraftRevision(FLAG_SCHED, [scheduled, plain]);
     });
 
-    it("refuses the schedule shorthand without the plan feature", async () => {
-      const res = await request(app)
-        .post(ADD)
-        .send({
-          rule: forceRule({}),
-          schedule: { startDate: "2030-01-01T00:00:00.000Z" },
-        })
-        .set("Authorization", "Bearer foo");
-      expect(res.body.message).toMatch(/Pro plan/);
-      expect(res.status).toBe(403);
-    });
+    it.each([
+      [
+        "v2 add with the schedule shorthand",
+        () => send("post", RULES_V2, { rule: forceRule({}), schedule }),
+      ],
+      [
+        "v1 add with legacy scheduleRules",
+        () =>
+          send("post", RULES_V1, {
+            environment: "production",
+            rule: {
+              type: "force",
+              value: "true",
+              scheduleRules: legacyScheduleRules,
+            },
+          }),
+      ],
+      [
+        "v2 patch scheduling an unscheduled rule",
+        () => send("put", `${RULES_V2}/fr_plain`, { rule: {}, schedule }),
+      ],
+      [
+        "v2 bulk scheduling an unscheduled rule",
+        () =>
+          send("post", `v2/features/${FLAG_SCHED}`, {
+            rules: [v2Echo({ ...plain, scheduleRules: legacyScheduleRules })],
+          }),
+      ],
+      [
+        "v1 bulk scheduling an unscheduled rule",
+        () =>
+          send(
+            "post",
+            `v1/features/${FLAG_SCHED}`,
+            v1Env([
+              {
+                id: "fr_plain",
+                type: "force",
+                value: "true",
+                scheduleRules: legacyScheduleRules,
+              },
+            ]),
+          ),
+      ],
+    ])(
+      "refuses newly introduced scheduling without the plan feature: %s",
+      async (_label, go) => {
+        const res = await go();
+        expect(res.body.message).toMatch(/Pro/);
+        expect(res.status).toBe(403);
+      },
+    );
 
-    it("refuses legacy inline scheduleRules on the v1 endpoint without the plan feature", async () => {
-      const res = await request(app)
-        .post(`/api/v1/features/${FLAG}/revisions/2/rules`)
-        .send({
-          environment: "production",
-          rule: {
-            type: "force",
-            value: "true",
-            scheduleRules: [
-              { timestamp: "2030-01-01T00:00:00.000Z", enabled: true },
-              { timestamp: null, enabled: false },
-            ],
-          },
-        })
-        .set("Authorization", "Bearer foo");
-      expect(res.body.message).toMatch(/Pro plan/);
-      expect(res.status).toBe(403);
-    });
-
-    it("still accepts an unscheduled rule", async () => {
-      const res = await add(forceRule({}));
-      expect(res.body.message).toBeUndefined();
-      expect(res.status).toBe(200);
-    });
+    it.each([
+      [
+        "v1 patch editing an existing schedule",
+        () =>
+          send("put", `${RULES_V1}/fr_sched`, {
+            environment: "production",
+            rule: {},
+            schedule,
+          }),
+      ],
+      [
+        "v2 patch editing an existing schedule",
+        () => send("put", `${RULES_V2}/fr_sched`, { rule: {}, schedule }),
+      ],
+      [
+        "v1 patch clearing an existing schedule",
+        () =>
+          send("put", `${RULES_V1}/fr_sched`, {
+            environment: "production",
+            rule: { scheduleRules: [] },
+          }),
+      ],
+      [
+        "v2 bulk echoing an existing schedule",
+        () =>
+          send("post", `v2/features/${FLAG_SCHED}`, {
+            rules: [v2Echo(scheduled), v2Echo(plain)],
+          }),
+      ],
+      [
+        "v1 bulk echoing an existing schedule",
+        () =>
+          send(
+            "post",
+            `v1/features/${FLAG_SCHED}`,
+            v1Env([
+              {
+                id: "fr_sched",
+                type: "force",
+                value: "true",
+                scheduleRules: legacyScheduleRules,
+              },
+            ]),
+          ),
+      ],
+    ])(
+      "lets a downgraded org modify or remove an existing schedule: %s",
+      async (_label, go) => {
+        const res = await go();
+        expect(res.body.message).toBeUndefined();
+        expect(res.status).toBe(200);
+      },
+    );
   });
 
   describe("v2 bulk (POST /api/v2/features)", () => {

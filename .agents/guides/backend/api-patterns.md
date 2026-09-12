@@ -393,15 +393,21 @@ shorthand becomes a one-step ramp action. Gate them the same way.
 - The feature key is the Pro `schedule-feature-flag`. Both it and
   `ramp-schedules` are in `commercialFeaturesPro` (`shared/src/enterprise/license-consts.ts`),
   so nothing about ramps is Enterprise-only in code today.
-- The engine chokepoint, `createRampSchedulesForRevision` in `FeatureModel`,
-  gates on `schedule-feature-flag` for every authoring path (dashboard, per-rule
-  REST, bulk REST). Endpoint-level gates exist so a caller is refused when they
-  author, not when the revision publishes; use `assertCanUseRuleScheduling`
-  (per-rule) or `validateRulesScheduleRules` / `validateEnvRulesScheduleRules`
-  (bulk) rather than a new inline check.
-- The REST ramp-management endpoints (`POST /ramp-schedules`, the ramp-schedule
-  model's API update) check `ramp-schedules` and word the error as Enterprise.
-  That wording predates the shared engine and is inconsistent with both the key's
-  tier and the dashboard; it is a product decision whether multi-step ramps
-  should become Enterprise-only. If they do, gate on the artifact (step count,
-  hold conditions, monitoring) at the engine chokepoint, not per endpoint.
+- Only _new_ scheduling is gated. An org that has dropped below Pro (expired
+  license, self-hosted OSS) must still be able to edit, pause, cancel, or clear
+  the schedules it already has, so it can wind them down. Concretely: the engine
+  chokepoint `createRampSchedulesForRevision` in `FeatureModel` gates `create`
+  ramp actions but not `update`; the per-rule REST endpoints skip
+  `assertCanUseRuleScheduling` when the stored rule is already scheduled
+  (`isScheduledRule`) or a live ramp targets it; the bulk validators
+  `validateRulesScheduleRules` / `validateEnvRulesScheduleRules` gate only rules
+  whose stored counterpart was unscheduled; and the ramp-schedule update
+  endpoints (dashboard and REST) carry no plan gate at all. Reuse those helpers
+  rather than adding an inline check.
+- Creating a ramp through the REST ramp-management endpoint
+  (`POST /ramp-schedules`) checks `ramp-schedules` and words the error as
+  Enterprise. That wording predates the shared engine and is inconsistent with
+  both the key's tier and the dashboard; it is a product decision whether
+  multi-step ramps should become Enterprise-only. If they do, gate on the
+  artifact (step count, hold conditions, monitoring) at the engine chokepoint,
+  not per endpoint.

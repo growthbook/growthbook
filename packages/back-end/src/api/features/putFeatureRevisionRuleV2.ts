@@ -46,6 +46,7 @@ import {
   composeConfigBacking,
   resolveScopeFromInput,
   assertCanUseRuleScheduling,
+  isScheduledRule,
 } from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(
@@ -60,10 +61,6 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
 
   const { schedule } = req.body;
   const inlineRampSchedule = req.body.rampSchedule;
-  assertCanUseRuleScheduling(req.context, {
-    schedule,
-    rampSchedule: inlineRampSchedule,
-  });
   const patch = req.body.rule as RulePatchInputV2;
 
   if (inlineRampSchedule && (schedule?.startDate || schedule?.endDate)) {
@@ -168,6 +165,14 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
           req.params.ruleId,
           undefined,
         );
+    }
+    // Only newly introduced scheduling is plan-gated; an already-scheduled
+    // rule can be edited or cleared on any plan.
+    if (!isScheduledRule(oldRule) && liveSchedulesForRule.length === 0) {
+      assertCanUseRuleScheduling(req.context, {
+        schedule,
+        rampSchedule: inlineRampSchedule,
+      });
     }
 
     // Apply patch including v2 scope fields.

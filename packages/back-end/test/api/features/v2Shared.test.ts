@@ -496,6 +496,49 @@ describe("validateRulesScheduleRules", () => {
     expect(() => validateRulesScheduleRules([rule(valid)], ctx(false))).toThrow(
       /schedule rules/,
     );
+    const unscheduledStored = { ...rule([]), id: "fr_1" } as FeatureRule;
+    expect(() =>
+      validateRulesScheduleRules(
+        [{ ...rule(valid), id: "fr_1" } as FeatureRule],
+        ctx(false),
+        [unscheduledStored],
+      ),
+    ).toThrow(/schedule rules/);
+  });
+
+  it("does not consult the plan when the stored counterpart is already scheduled", () => {
+    const stored = { ...rule(valid), id: "fr_1", allEnvironments: true };
+    const edited = [
+      valid[0],
+      { timestamp: "2031-01-01T00:00:00.000Z", enabled: false },
+    ];
+    const v2 = ctx(false);
+    validateRulesScheduleRules(
+      [{ ...rule(edited), id: "fr_1" } as FeatureRule],
+      v2,
+      [stored],
+    );
+    expect(v2.hasPremiumFeature).not.toHaveBeenCalled();
+
+    const v1 = ctx(false);
+    validateEnvRulesScheduleRules(
+      {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_1__production",
+              type: "force",
+              value: "true",
+              scheduleRules: edited,
+            },
+          ],
+        },
+      } as Parameters<typeof validateEnvRulesScheduleRules>[0],
+      v1,
+      [stored],
+    );
+    expect(v1.hasPremiumFeature).not.toHaveBeenCalled();
   });
 
   it("rejects malformed scheduleRules and names the rule", () => {
