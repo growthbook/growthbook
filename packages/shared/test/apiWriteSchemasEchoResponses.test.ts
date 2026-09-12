@@ -106,7 +106,6 @@ describe("v1 write schema accepts every stored rule key the read model emits", (
     const notEmitted = new Set(["allEnvironments", "environments"]);
     const out: Record<string, string[]> = {};
     for (const stored of variants(json(featureRule))) {
-      if (stored.type === "experiment") continue;
       const accepted = new Set(
         inputs
           .filter((i) => i.type === stored.type)
@@ -121,27 +120,23 @@ describe("v1 write schema accepts every stored rule key the read model emits", (
     expect(out).toEqual({});
   });
 
-  it("legacy inline experiment rules stay in strip mode", () => {
-    const res = postFeatureValidator.bodySchema.safeParse({
-      id: "f",
-      owner: "o",
-      valueType: "boolean",
-      defaultValue: "false",
-      environments: {
-        production: {
-          enabled: true,
-          rules: [
-            {
-              type: "experiment",
-              condition: "{}",
-              values: [{ value: "true", weight: 1 }],
-              hashVersion: 2,
-              experimentType: "standard",
-            },
-          ],
-        },
-      },
-    });
-    expect(res.success).toBe(true);
+  it("legacy inline experiment rules echo stored keys but reject typos", () => {
+    const rule = {
+      type: "experiment",
+      condition: "{}",
+      values: [{ value: "true", weight: 1 }],
+    };
+    const body = (r: object) =>
+      postFeatureValidator.bodySchema.safeParse({
+        id: "f",
+        owner: "o",
+        valueType: "boolean",
+        defaultValue: "false",
+        environments: { production: { enabled: true, rules: [r] } },
+      }).success;
+    expect(body({ ...rule, hashVersion: 2, experimentType: "standard" })).toBe(
+      true,
+    );
+    expect(body({ ...rule, savedGroup: [] })).toBe(false);
   });
 });

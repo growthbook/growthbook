@@ -1469,6 +1469,106 @@ paths:
                                       - value
                                       - weight
                                     additionalProperties: false
+                                experimentType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hypothesis:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hashVersion:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                datasource:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                exposureQueryId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                goalMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                secondaryMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                guardrailMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                activationMetric:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                segment:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                skipPartialData:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                regressionAdjustmentEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingTuningParameter:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                statsEngine:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStage:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStageDateStarted:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                templateId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                customFields:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                               required:
                                 - condition
                                 - type
@@ -2036,6 +2136,131 @@ paths:
                                           - value
                                           - weight
                                         additionalProperties: false
+                                    experimentType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hypothesis:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hashVersion:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    datasource:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    exposureQueryId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    goalMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    secondaryMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    guardrailMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    activationMetric:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    segment:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    skipPartialData:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    regressionAdjustmentEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingTuningParameter:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    statsEngine:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStage:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStageDateStarted:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    templateId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    customFields:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                   required:
                                     - condition
                                     - type
@@ -2778,6 +3003,106 @@ paths:
                                       - value
                                       - weight
                                     additionalProperties: false
+                                experimentType:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hypothesis:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                hashVersion:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                datasource:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                exposureQueryId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                goalMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                secondaryMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                guardrailMetrics:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                activationMetric:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                segment:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                skipPartialData:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                regressionAdjustmentEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingEnabled:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                sequentialTestingTuningParameter:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                statsEngine:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStage:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditStageDateStarted:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditScheduleUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditBurnInUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowValue:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                banditConversionWindowUnit:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                templateId:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
+                                customFields:
+                                  description: >-
+                                    Read-only; ignored on write. Accepted so a
+                                    GET response can be posted back unchanged.
                               required:
                                 - condition
                                 - type
@@ -3345,6 +3670,131 @@ paths:
                                           - value
                                           - weight
                                         additionalProperties: false
+                                    experimentType:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hypothesis:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    hashVersion:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    datasource:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    exposureQueryId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    goalMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    secondaryMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    guardrailMetrics:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    activationMetric:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    segment:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    skipPartialData:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    regressionAdjustmentEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingEnabled:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    sequentialTestingTuningParameter:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    statsEngine:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStage:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditStageDateStarted:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditScheduleUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditBurnInUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowValue:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    banditConversionWindowUnit:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    templateId:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
+                                    customFields:
+                                      description: >-
+                                        Read-only; ignored on write. Accepted so
+                                        a GET response can be posted back
+                                        unchanged.
                                   required:
                                     - condition
                                     - type

@@ -11,6 +11,7 @@ import {
   publishOverrideBodyFields,
   publishBypassedGatesField,
   readOnlyEcho,
+  storedOnlyEcho,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import {
@@ -1507,58 +1508,64 @@ const postFeatureExperimentRefRule = z
   })
   .strict();
 
-// Legacy inline experiment rules stay in strip mode: the read model spreads
-// every stored key and this type's fields are not curated for round-trips.
+const postFeatureExperimentRuleFields = {
+  ...postFeatureRuleProjectScopeShape,
+  ...v1RuleReadOnlyEcho,
+  ...v1RuleSavedGroupInput,
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  condition: z.string(),
+  id: z.string().optional(),
+  enabled: z.boolean().describe("Enabled by default").optional(),
+  type: z.literal("experiment"),
+  trackingKey: z.string().optional(),
+  hashAttribute: z.string().optional(),
+  fallbackAttribute: z.string().optional(),
+  disableStickyBucketing: z.boolean().optional(),
+  bucketVersion: z.number().optional(),
+  minBucketVersion: z.number().optional(),
+  namespace: z
+    .object({
+      enabled: z.boolean(),
+      name: z.string(),
+      range: z.array(z.number()).min(2).max(2),
+    })
+    .optional(),
+  coverage: z.number().optional(),
+  prerequisites: z.array(postFeaturePrerequisite).optional(),
+  scheduleRules: z.array(apiScheduleRuleValidator).optional(),
+  values: z
+    .array(
+      z.object({
+        value: z.string(),
+        weight: z.number(),
+        name: z.string().optional(),
+      }),
+    )
+    .optional(),
+  value: z
+    .array(
+      z.object({
+        value: z.string(),
+        weight: z.number(),
+        name: z.string().optional(),
+      }),
+    )
+    .describe(
+      "Support passing values under the value key as that was the original spec for FeatureExperimentRules",
+    )
+    .optional()
+    .meta({ deprecated: true }),
+};
+
+// Legacy inline experiment rules are not curated: whatever the stored schema
+// declares beyond the write fields is accepted and ignored, so a GET (which
+// spreads the stored rule) posts back, while misspelled keys are still rejected.
 const postFeatureExperimentRule = z
   .object({
-    ...postFeatureRuleProjectScopeShape,
-    ...v1RuleReadOnlyEcho,
-    ...v1RuleSavedGroupInput,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-    condition: z.string(),
-    id: z.string().optional(),
-    enabled: z.boolean().describe("Enabled by default").optional(),
-    type: z.literal("experiment"),
-    trackingKey: z.string().optional(),
-    hashAttribute: z.string().optional(),
-    fallbackAttribute: z.string().optional(),
-    disableStickyBucketing: z.boolean().optional(),
-    bucketVersion: z.number().optional(),
-    minBucketVersion: z.number().optional(),
-    namespace: z
-      .object({
-        enabled: z.boolean(),
-        name: z.string(),
-        range: z.array(z.number()).min(2).max(2),
-      })
-      .optional(),
-    coverage: z.number().optional(),
-    prerequisites: z.array(postFeaturePrerequisite).optional(),
-    scheduleRules: z.array(apiScheduleRuleValidator).optional(),
-    values: z
-      .array(
-        z.object({
-          value: z.string(),
-          weight: z.number(),
-          name: z.string().optional(),
-        }),
-      )
-      .optional(),
-    value: z
-      .array(
-        z.object({
-          value: z.string(),
-          weight: z.number(),
-          name: z.string().optional(),
-        }),
-      )
-      .describe(
-        "Support passing values under the value key as that was the original spec for FeatureExperimentRules",
-      )
-      .optional()
-      .meta({ deprecated: true }),
+    ...postFeatureExperimentRuleFields,
+    ...storedOnlyEcho(experimentRule.shape, postFeatureExperimentRuleFields),
   })
-  .strip();
+  .strict();
 
 const postFeatureRule = z.union([
   postFeatureForceRule,
