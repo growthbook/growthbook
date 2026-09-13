@@ -1415,32 +1415,35 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
   return rampScheduleToApiInterface(updated);
 });
 
-const putStepSchema = z.object({
-  interval: z
-    .number()
-    .positive()
-    .nullable()
-    .describe(
-      "Hold duration in seconds before this step's gates are evaluated. `null` means no time gate.",
-    ),
-  monitored: z
-    .boolean()
-    .optional()
-    .describe(
-      "When true, this step runs A/B traffic analysis while active. Applies only to future steps — cannot be changed on the currently executing step.",
-    ),
-  holdConditions: stepHoldConditions
-    .optional()
-    .describe(
-      "Additional gates that must clear before the step advances: `minSampleSize` and/or `requiresApproval`.",
-    ),
-  approvalNotes: z
-    .string()
-    .nullish()
-    .describe(
-      "Optional notes shown to approvers when the step is awaiting approval.",
-    ),
-});
+export const putStepSchema = z
+  .object({
+    interval: z
+      .number()
+      .positive()
+      .nullable()
+      .describe(
+        "Hold duration in seconds before this step's gates are evaluated. `null` means no time gate.",
+      ),
+    monitored: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, this step runs A/B traffic analysis while active. Applies only to future steps — cannot be changed on the currently executing step.",
+      ),
+    holdConditions: stepHoldConditions
+      .strict()
+      .optional()
+      .describe(
+        "Additional gates that must clear before the step advances: `minSampleSize` and/or `requiresApproval`.",
+      ),
+    approvalNotes: z
+      .string()
+      .nullish()
+      .describe(
+        "Optional notes shown to approvers when the step is awaiting approval.",
+      ),
+  })
+  .strict();
 
 export const updateStepsRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,

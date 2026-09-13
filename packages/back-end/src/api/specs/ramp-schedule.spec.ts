@@ -149,30 +149,34 @@ const createBodySchema = z
 // --- Update body schemas ---
 
 // API update body action — relaxed version of patch-rule for partial updates
-const putBodyAction = z.object({
-  targetType: z.literal("feature-rule").optional(),
-  targetId: z.string().optional(),
-  patch: featureRulePatch.optional(),
-});
+const putBodyAction = z
+  .object({
+    targetType: z.literal("feature-rule").optional(),
+    targetId: z.string().optional(),
+    patch: featureRulePatch.strict().optional(),
+  })
+  .strict();
 
-const putBodyStep = z.object({
-  interval: z
-    .number()
-    .positive()
-    .nullable()
-    .describe(
-      "Hold duration in seconds before this step's gates are evaluated. null = no time gate (advance as soon as holdConditions clear).",
-    ),
-  actions: z.array(putBodyAction).optional(),
-  approvalNotes: z.string().nullish(),
-  monitored: z
-    .boolean()
-    .default(false)
-    .describe(
-      "When true, this step runs A/B traffic analysis while active. Enrolled users are split 50/50 between control and variation, so a coverage of 1.0 means 50% of users see the variation. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts when transitioning between monitored and unmonitored steps.",
-    ),
-  holdConditions: stepHoldConditions.optional(),
-});
+const putBodyStep = z
+  .object({
+    interval: z
+      .number()
+      .positive()
+      .nullable()
+      .describe(
+        "Hold duration in seconds before this step's gates are evaluated. null = no time gate (advance as soon as holdConditions clear).",
+      ),
+    actions: z.array(putBodyAction).optional(),
+    approvalNotes: z.string().nullish(),
+    monitored: z
+      .boolean()
+      .default(false)
+      .describe(
+        "When true, this step runs A/B traffic analysis while active. Enrolled users are split 50/50 between control and variation, so a coverage of 1.0 means 50% of users see the variation. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts when transitioning between monitored and unmonitored steps.",
+      ),
+    holdConditions: stepHoldConditions.strict().optional(),
+  })
+  .strict();
 
 const updateBodySchema = z.object({
   name: z.string().optional(),

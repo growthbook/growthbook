@@ -492,10 +492,17 @@ const apiRampStepCommon = {
   holdConditions: stepHoldConditions.optional(),
 };
 
-export const apiTemplateRampStep = z.object({
-  ...apiRampStepCommon,
-  actions: z.array(templateRampStepAction),
-});
+export const apiTemplateRampStep = z
+  .object({
+    ...apiRampStepCommon,
+    holdConditions: stepHoldConditions.strict().optional(),
+    actions: z.array(
+      templateRampStepAction
+        .extend({ patch: templateFeatureRulePatch.strict() })
+        .strict(),
+    ),
+  })
+  .strict();
 export type ApiTemplateRampStep = z.infer<typeof apiTemplateRampStep>;
 
 export const apiRampScheduleTemplateValidator = namedSchema(
