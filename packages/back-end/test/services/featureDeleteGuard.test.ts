@@ -12,23 +12,6 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllExperimentsForStaleGraph: jest.fn(),
 }));
 
-jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
-  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("none"),
-  SdkConnectionCacheModel: jest.fn(),
-}));
-
-jest.mock("back-end/src/init/config", () => ({
-  usingFileConfig: false,
-  getConfigMetrics: jest.fn().mockReturnValue([]),
-  getConfigDimensions: jest.fn().mockReturnValue([]),
-  getConfigSegments: jest.fn().mockReturnValue([]),
-  getConfigOrganizationSettings: jest.fn().mockReturnValue({}),
-}));
-
-jest.mock("back-end/src/services/python", () => ({
-  statsServerPool: { acquire: jest.fn(), release: jest.fn() },
-}));
-
 // Deleting a flag that something still gates on as a prerequisite would leave
 // that dependent pointing at nothing, and the payload builder then drops it
 // silently. Live features and unarchived experiments both block the delete.

@@ -265,13 +265,16 @@ describe("assertValidPrerequisiteParents", () => {
       prerequisites: parents.map((p) => ({ id: p, condition: "{}" })),
     }) as unknown as FeatureInterface;
   // Direct parents load with the caller's context; ancestors with the scan
-  // context, keyed by requested ids.
-  const stub = (byId: Record<string, FeatureInterface>) =>
+  // context. Resolves requested ids against whichever map the context gets.
+  const stub = (
+    visible: (context: unknown) => Record<string, FeatureInterface>,
+  ) =>
     jest
       .mocked(getAllFeaturesWithoutEditorFields)
-      .mockImplementation(async (_context, opts) =>
-        (opts?.ids ?? []).flatMap((id) => (byId[id] ? [byId[id]] : [])),
-      );
+      .mockImplementation(async (context, opts) => {
+        const byId = visible(context);
+        return (opts?.ids ?? []).flatMap((id) => (byId[id] ? [byId[id]] : []));
+      });
 
   beforeEach(() => jest.mocked(getAllFeaturesWithoutEditorFields).mockReset());
 
@@ -284,16 +287,7 @@ describe("assertValidPrerequisiteParents", () => {
     // c -> p -> hidden -> c; `hidden` only resolves for the scan context.
     const p = flag("p", "hidden");
     const hidden = flag("hidden", "c");
-    jest
-      .mocked(getAllFeaturesWithoutEditorFields)
-      .mockImplementation(async (context, opts) => {
-        const visible = context === scanContext ? { p, hidden } : { p };
-        return (opts?.ids ?? []).flatMap((id) =>
-          visible[id as keyof typeof visible]
-            ? [visible[id as keyof typeof visible]]
-            : [],
-        );
-      });
+    stub((context) => (context === scanContext ? { p, hidden } : { p }));
     await expect(
       assertValidPrerequisiteParents(ctx, flag("c", "p")),
     ).rejects.toThrow(/circular dependency/);
@@ -302,7 +296,7 @@ describe("assertValidPrerequisiteParents", () => {
   it("refuses a chain still open after the depth limit", async () => {
     const byId: Record<string, FeatureInterface> = {};
     for (let i = 0; i < 60; i++) byId[`n${i}`] = flag(`n${i}`, `n${i + 1}`);
-    stub(byId);
+    stub(() => byId);
     await expect(
       assertValidPrerequisiteParents(ctx, flag("c", "n0")),
     ).rejects.toThrow(/too deep/);
