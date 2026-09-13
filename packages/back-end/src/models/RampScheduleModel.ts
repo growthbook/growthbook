@@ -18,6 +18,11 @@ import {
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
+  assertRampScheduleReplanAllowed,
+  changesRampPlan,
+} from "back-end/src/services/rampPlanReview";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
   appendRampEvent,
   assertCanEditRampScheduleConfig,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
@@ -576,8 +581,16 @@ export class RampScheduleModel extends BaseClass {
   ) {
     // Neutral not-found for unknown ids; the lock helper's "no longer exists"
     // message is reserved for the deleted-while-locked race.
-    if (!(await this.getById(req.params.id))) {
+    const schedule = await this.getById(req.params.id);
+    if (!schedule) {
       throw new NotFoundError("Ramp schedule not found");
+    }
+    if (schedule.targets.length && changesRampPlan(req.body)) {
+      await assertRampScheduleReplanAllowed(
+        this.context,
+        schedule,
+        canUseRestApiBypassSetting(req),
+      );
     }
 
     // Locked so the read-modify-write can't clobber a concurrent advance.
