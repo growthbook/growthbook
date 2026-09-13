@@ -1,14 +1,78 @@
 ---
 title: Slack integration
 toc_max_heading_level: 5
-description: "Receive GrowthBook event alerts in a Slack channel: create an incoming webhook, connect it in GrowthBook, and subscribe to the events you care about."
+description: "Connect Slack workspaces and channels to GrowthBook, choose notification filters and experiment cards, and manage existing incoming webhooks."
 ---
-
-import { ExternalLink } from "/snippets/ExternalLink.jsx";
 
 The GrowthBook Slack integration allows you to receive alerts for the events that you care about in a Slack channel of your choosing.
 
-## Creating and configuring an app in Slack
+## Connect a Slack workspace
+
+When workspace connections are enabled for your GrowthBook instance, open
+**Integrations → Slack**, click **Connect to Slack**, and authorize the app.
+You need permission to manage integrations in GrowthBook. Select the correct
+GrowthBook organization before starting the installation.
+
+Add channels after connecting the workspace. GrowthBook joins public channels
+automatically. For a private channel, invite the GrowthBook bot to the channel
+first, then select it in GrowthBook.
+
+Each channel has its own event, project, environment, and tag filters. Select
+at least one event before saving. You can pause a channel, reconnect its
+workspace to update authorization, or disconnect it from the Slack integrations
+page. These connections use Event Webhooks for delivery and logs.
+
+### Experiment cards
+
+Channel settings offer text-only, compact, and detailed experiment cards.
+Currently, only sample ratio mismatch (SRM) warnings produce cards. Significance
+notifications and other warning types remain text-only. If a card cannot be
+rendered or uploaded, GrowthBook sends the original text notification instead.
+Cards require the Slack app's `files:write` permission; reconnect the workspace
+when prompted to grant updated permissions.
+
+### Existing connections
+
+Existing Slack connections and incoming webhooks continue delivering notifications.
+You do not need to reconnect them just to keep receiving alerts. If you see the
+legacy Slack settings instead of workspace connections, continue managing your
+existing connections there. Incoming webhook setup is documented below.
+
+When migrating a channel to a workspace connection, test the new connection
+before disabling the old one. Leaving both enabled can produce duplicate alerts.
+
+### Self-hosted workspace setup
+
+Create a Slack app for your instance and configure its OAuth redirect URL as
+`https://YOUR_GROWTHBOOK_APP_HOST/integrations/slack`, matching your GrowthBook
+`APP_ORIGIN`. Set `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` on the API server,
+then restart it. Workspace management must also be enabled for your instance
+through the `slack-workspace-ui` feature flag.
+
+The current OAuth flow requests these bot scopes:
+
+- `chat:write`
+- `files:write`
+- `channels:read`
+- `groups:read`
+- `channels:join`
+- `assistant:write`
+- `im:history`
+- `app_mentions:read`
+- `commands`
+- `links:read`
+- `links:write`
+
+The assistant, direct-message history, mention, command, and link scopes are
+requested ahead of the planned assistant and link-preview functionality to avoid
+another authorization step when those features land. Granting these scopes does
+not enable those features in this release. Notifications do not require an
+inbound events URL. `SLACK_SIGNING_SECRET` is not used by this outbound
+notification flow.
+
+## Legacy incoming webhook setup
+
+### Creating and configuring an app in Slack
 
 ### Create a Slack app
 
