@@ -36,7 +36,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
-  assertValidPrerequisiteParents,
+  assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
@@ -301,15 +301,10 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     // Fold updated rule back into flat array at the same index.
     const newRules = flatRules.map((r, i) => (i === idx ? updatedRule : r));
     const changes: RevisionChanges = { rules: newRules };
-    await assertValidPrerequisiteParents(
-      req.context,
-      {
-        ...feature,
-        rules: newRules,
-        prerequisites: revision.prerequisites ?? feature.prerequisites,
-      },
-      { ...feature, rules: flatRules },
-    );
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: flatRules,
+      after: newRules,
+    });
 
     const usesLegacyScheduling =
       oldRule.type === "experiment-ref" || oldRule.type === "safe-rollout";

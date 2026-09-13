@@ -20,7 +20,8 @@ import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import {
   createRevision,
   discardRevision,
@@ -338,34 +339,37 @@ function prerequisiteIdsOf(
   return ids;
 }
 
-// Bounds a pathological chain issuing a query per hop; anything deeper is left
-// to the payload builder's own cycle guard.
-const MAX_PREREQUISITE_DEPTH = 10;
+// One query per hop; a real prerequisite chain is a handful deep, so a walk
+// still open after this many hops is refused rather than left unchecked.
+const MAX_PREREQUISITE_DEPTH = 50;
 
-// Every ancestor of `seeds`, one query per hop. Follows disabled rules too,
-// matching isFeatureCyclic.
+// Every ancestor of `seeds`. Loaded through the org-wide scan context (as the
+// delete guard does) so an ancestor in a project the caller cannot read still
+// contributes its edges; the caller never sees these documents. Follows
+// disabled rules too, matching isFeatureCyclic.
 async function loadPrerequisiteAncestors(
   context: ApiReqContext,
   seeds: FeatureInterface[],
 ): Promise<Map<string, FeatureInterface>> {
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
   const loaded = new Map(seeds.map((f) => [f.id, f]));
   let frontier = seeds;
-  for (
-    let depth = 0;
-    frontier.length && depth < MAX_PREREQUISITE_DEPTH;
-    depth++
-  ) {
+  for (let depth = 0; ; depth++) {
     const wanted = [
       ...new Set(frontier.flatMap((f) => [...prerequisiteIdsOf(f)])),
     ].filter((id) => !loaded.has(id));
-    if (!wanted.length) break;
-    frontier = await getAllFeatures(context, {
+    if (!wanted.length) return loaded;
+    if (depth >= MAX_PREREQUISITE_DEPTH) {
+      throw new BadRequestError("Prerequisite chain is too deep to validate");
+    }
+    frontier = await getAllFeaturesWithoutEditorFields(scanContext, {
       ids: wanted,
       includeArchived: true,
     });
     frontier.forEach((f) => loaded.set(f.id, f));
   }
-  return loaded;
 }
 
 // A prerequisite may point only at an existing, unarchived boolean flag that
@@ -390,7 +394,7 @@ export async function assertValidPrerequisiteParents(
     );
   }
 
-  const parents = await getAllFeatures(context, {
+  const parents = await getAllFeaturesWithoutEditorFields(context, {
     ids: added,
     includeArchived: true,
   });
@@ -412,12 +416,28 @@ export async function assertValidPrerequisiteParents(
 
   const graph = await loadPrerequisiteAncestors(context, parents);
   graph.set(candidate.id, candidate);
-  const [cyclic, via] = isFeatureCyclic(candidate, graph);
-  if (cyclic) {
+  if (isFeatureCyclic(candidate, graph)[0]) {
+    const names = added.map((id) => `"${id}"`).join(", ");
     throw new BadRequestError(
-      `Prerequisite "${via}" would create a circular dependency`,
+      `Prerequisite ${names} would create a circular dependency`,
     );
   }
+}
+
+// Per-rule endpoints: the revision's rules before and after the change, with
+// the revision's own prerequisites list when it has one.
+export async function assertValidRevisionRulePrerequisites(
+  context: ApiReqContext,
+  feature: FeatureInterface,
+  revision: Pick<FeatureRevisionInterface, "prerequisites">,
+  rules: { before: FeatureRule[]; after: FeatureRule[] },
+): Promise<void> {
+  const prerequisites = revision.prerequisites ?? feature.prerequisites;
+  await assertValidPrerequisiteParents(
+    context,
+    { ...feature, rules: rules.after, prerequisites },
+    { rules: rules.before, prerequisites },
+  );
 }
 
 // Returns an error string if any $inGroup/$notInGroup refs an unknown group.

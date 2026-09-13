@@ -214,6 +214,14 @@ describe("prerequisite parents on REST feature writes", () => {
       /circular/,
     ],
     [
+      "v2 bulk update, rule prerequisite",
+      () =>
+        send("post", `/api/v2/features/${FLAG}`, {
+          rules: [forceRule({ prerequisites: [prereq("parent_archived")] })],
+        }),
+      /is archived/,
+    ],
+    [
       "v1 bulk update, rule prerequisite",
       () =>
         send("post", `/api/v1/features/${FLAG}`, {

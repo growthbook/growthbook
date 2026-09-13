@@ -437,7 +437,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     req.context,
     {
       ...feature,
-      rules: updates.rules ?? feature.rules,
+      rules: inboundFlatRules ?? feature.rules,
       prerequisites: updates.prerequisites ?? feature.prerequisites,
     },
     feature,
