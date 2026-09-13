@@ -498,7 +498,18 @@ export const apiTemplateRampStep = z
     holdConditions: stepHoldConditions.strict().optional(),
     actions: z.array(
       templateRampStepAction
-        .extend({ patch: templateFeatureRulePatch.strict() })
+        .extend({
+          patch: templateFeatureRulePatch
+            .extend({
+              force: z
+                .unknown()
+                .optional()
+                .describe(
+                  "Ignored: templates never carry force values. Accepted so a schedule's steps can be copied into a template.",
+                ),
+            })
+            .strict(),
+        })
         .strict(),
     ),
   })

@@ -1,6 +1,7 @@
 import type { ZodType } from "zod";
 import {
   putFeatureRevisionRuleRampScheduleValidator,
+  putFeatureRevisionRuleRampScheduleV2Validator,
   postFeatureRevisionRuleAddValidator,
 } from "shared/validators";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
@@ -63,9 +64,23 @@ const surfaces: [string, ZodType, (step: Step) => unknown, string, boolean][] =
       true,
     ],
     [
+      "revision ramp-schedule (v2)",
+      putFeatureRevisionRuleRampScheduleV2Validator.bodySchema,
+      (s) => ({ steps: [s] }),
+      "steps.0",
+      true,
+    ],
+    [
       "template create",
       rampScheduleTemplateApiSpec.schemas.createBody,
       (s) => ({ name: "t", steps: [s] }),
+      "steps.0",
+      true,
+    ],
+    [
+      "template update",
+      rampScheduleTemplateApiSpec.schemas.updateBody,
+      (s) => ({ steps: [s] }),
       "steps.0",
       true,
     ],
@@ -122,12 +137,14 @@ describe.each(surfaces)(
       });
     }
 
-    it("still accepts an echoed step and an approval-only step", () => {
-      const { actions, ...stepWithoutActions } = echoedStep;
-      const echoed = hasActions
-        ? { ...stepWithoutActions, actions }
-        : stepWithoutActions;
-      expect(schema.safeParse(wrap(echoed)).success).toBe(true);
+    it("still accepts a step echoed from a GET and an approval-only step", () => {
+      // Force-rule patches carry `force`; a template copy tolerates it.
+      const withForce = {
+        ...echoedStep,
+        actions: [{ ...action, patch: { ...action.patch, force: "on" } }],
+      };
+      expect(schema.safeParse(wrap(echoedStep)).success).toBe(true);
+      expect(schema.safeParse(wrap(withForce)).success).toBe(true);
       expect(schema.safeParse(wrap(approvalOnly)).success).toBe(true);
     });
   },

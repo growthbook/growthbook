@@ -35125,6 +35125,10 @@ paths:
                   items:
                     type: object
                     properties:
+                      actions:
+                        description: >-
+                          Read-only; ignored on write. Accepted so a GET
+                          response can be posted back unchanged.
                       interval:
                         description: >-
                           Hold duration in seconds before this step's gates are
@@ -53348,6 +53352,11 @@ paths:
                                   anyOf:
                                     - type: boolean
                                     - type: 'null'
+                                force:
+                                  description: >-
+                                    Ignored: templates never carry force values.
+                                    Accepted so a schedule's steps can be copied
+                                    into a template.
                               required:
                                 - ruleId
                               additionalProperties: false
@@ -53647,6 +53656,11 @@ paths:
                                   anyOf:
                                     - type: boolean
                                     - type: 'null'
+                                force:
+                                  description: >-
+                                    Ignored: templates never carry force values.
+                                    Accepted so a schedule's steps can be copied
+                                    into a template.
                               required:
                                 - ruleId
                               additionalProperties: false
@@ -73220,6 +73234,11 @@ components:
                           anyOf:
                             - type: boolean
                             - type: 'null'
+                        force:
+                          description: >-
+                            Ignored: templates never carry force values.
+                            Accepted so a schedule's steps can be copied into a
+                            template.
                       required:
                         - ruleId
                       additionalProperties: false

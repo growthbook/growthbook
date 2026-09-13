@@ -8,6 +8,7 @@ import {
   lockdownConfigSchema,
   stepHoldConditions,
   isAwaitingStartApproval,
+  readOnlyEcho,
 } from "shared/validators";
 import type { RampScheduleInterface } from "shared/validators";
 import {
@@ -1417,6 +1418,9 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
 
 export const putStepSchema = z
   .object({
+    // The handler keeps each position's stored actions; accepted so a GET
+    // response can be edited and sent back.
+    actions: readOnlyEcho,
     interval: z
       .number()
       .positive()
