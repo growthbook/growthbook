@@ -51,10 +51,10 @@ import {
   dispatchFeatureRevisionEvent,
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertValidRuleEnvironments,
-  assertValidPrerequisiteParents,
   validateChangedRuleReferences,
   validateCustomFields,
   validateRuleAttributes,

@@ -11,11 +11,11 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import {
   discardIfJustCreated,
   isDraftStatus,
   validatePrerequisiteConditions,
-  assertValidPrerequisiteParents,
   validatePrerequisiteReferences,
   resolveOrCreateRevision,
 } from "./validations";

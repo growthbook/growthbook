@@ -25,11 +25,8 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
-import {
-  assertValidPrerequisiteParents,
-  validateCustomFields,
-  validateRulesReferences,
-} from "./validations";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import { validateCustomFields, validateRulesReferences } from "./validations";
 import {
   assertValidProjectId,
   assertValidProjectIds,

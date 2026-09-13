@@ -21,6 +21,7 @@ import {
   lazyAttributeScope,
 } from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
+import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
 import {
   startExperiment,
   validateExperimentChange,
@@ -340,6 +341,14 @@ export const updateExperiment = createApiRequestHandler(
   );
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  if (changes.phases) {
+    await assertValidExperimentPrerequisites(
+      req.context,
+      changes.phases[changes.phases.length - 1]?.prerequisites,
+      experiment.phases[experiment.phases.length - 1]?.prerequisites,
+    );
+  }
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.

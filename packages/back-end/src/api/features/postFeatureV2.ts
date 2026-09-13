@@ -29,10 +29,10 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import {
   assertValidRuleEnvironments,
-  assertValidPrerequisiteParents,
   validateCustomFields,
   validateRuleAttributes,
   validateRulesReferences,

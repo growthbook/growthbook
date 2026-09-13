@@ -54,9 +54,9 @@ import {
 } from "back-end/src/services/featureRevisionEvents";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
 import {
-  assertValidPrerequisiteParents,
   validateChangedRuleReferences,
   validateCustomFields,
 } from "./validations";

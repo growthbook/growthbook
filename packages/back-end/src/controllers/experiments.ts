@@ -166,6 +166,7 @@ import {
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
+import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
 import {
   ExperimentLinkedFeatureValueUpdate,
   updateExperimentRefVariations,
@@ -1416,6 +1417,11 @@ export async function postExperiments(
         }),
       );
     }
+
+    await assertValidExperimentPrerequisites(
+      context,
+      obj.phases[obj.phases.length - 1]?.prerequisites,
+    );
 
     const experiment = await createExperiment({
       data: obj,
@@ -2918,6 +2924,11 @@ export async function putExperimentPhase(
     ...phases[i],
     ...phase,
   };
+  await assertValidExperimentPrerequisites(
+    context,
+    phases[i].prerequisites,
+    experiment.phases[i].prerequisites,
+  );
   changes.phases = phases;
 
   if (experiment.type === "multi-armed-bandit") {
@@ -3045,6 +3056,11 @@ export async function postExperimentTargeting(
   );
 
   const phases = [...experiment.phases];
+  await assertValidExperimentPrerequisites(
+    context,
+    prerequisites,
+    phases[phases.length - 1]?.prerequisites,
+  );
 
   if (experiment.type === "holdout" && phases.length) {
     // Later phases feed analysis settings, so keep them aligned with payload targeting.
@@ -3235,6 +3251,11 @@ export async function postExperimentPhase(
     dateEnded: undefined,
     reason: "",
   });
+  await assertValidExperimentPrerequisites(
+    context,
+    data.prerequisites,
+    experiment.phases[experiment.phases.length - 1]?.prerequisites,
+  );
 
   try {
     changes.phases = phases;

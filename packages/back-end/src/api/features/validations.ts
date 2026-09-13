@@ -11,17 +11,12 @@ import {
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
-import {
-  findStoredRuleCounterpart,
-  isFeatureCyclic,
-  validateCondition,
-} from "shared/util";
+import { findStoredRuleCounterpart, validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
-import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import {
   createRevision,
   discardRevision,
@@ -325,102 +320,6 @@ export async function validatePrerequisiteReferences(
         );
       }
     }
-  }
-}
-
-function prerequisiteIdsOf(
-  feature: Pick<FeatureInterface, "prerequisites" | "rules">,
-): Set<string> {
-  const ids = new Set<string>();
-  (feature.prerequisites ?? []).forEach((p) => ids.add(p.id));
-  (feature.rules ?? []).forEach((rule) =>
-    (rule.prerequisites ?? []).forEach((p) => ids.add(p.id)),
-  );
-  return ids;
-}
-
-// One query per hop; a real prerequisite chain is a handful deep, so a walk
-// still open after this many hops is refused rather than left unchecked.
-const MAX_PREREQUISITE_DEPTH = 50;
-
-// Every ancestor of `seeds`. Loaded through the org-wide scan context (as the
-// delete guard does) so an ancestor in a project the caller cannot read still
-// contributes its edges; the caller never sees these documents. Follows
-// disabled rules too, matching isFeatureCyclic.
-async function loadPrerequisiteAncestors(
-  context: ApiReqContext,
-  seeds: FeatureInterface[],
-): Promise<Map<string, FeatureInterface>> {
-  const scanContext =
-    context.scanContextOverride ??
-    getContextForAgendaJobByOrgObject(context.org);
-  const loaded = new Map(seeds.map((f) => [f.id, f]));
-  let frontier = seeds;
-  for (let depth = 0; ; depth++) {
-    const wanted = [
-      ...new Set(frontier.flatMap((f) => [...prerequisiteIdsOf(f)])),
-    ].filter((id) => !loaded.has(id));
-    if (!wanted.length) return loaded;
-    if (depth >= MAX_PREREQUISITE_DEPTH) {
-      throw new BadRequestError("Prerequisite chain is too deep to validate");
-    }
-    frontier = await getAllFeaturesWithoutEditorFields(scanContext, {
-      ids: wanted,
-      includeArchived: true,
-    });
-    frontier.forEach((f) => loaded.set(f.id, f));
-  }
-}
-
-// A prerequisite may point only at an existing, unarchived boolean flag that
-// does not itself depend on the feature being written — the same constraints
-// the dashboard's prerequisite picker applies. Only parents this write
-// introduces (present in `candidate`, absent from `stored`) are checked, so a
-// feature already pointing at a since-archived parent still posts back
-// unchanged, and the cycle walk loads just the new parents' ancestor chains.
-export async function assertValidPrerequisiteParents(
-  context: ApiReqContext,
-  candidate: FeatureInterface,
-  stored?: Pick<FeatureInterface, "prerequisites" | "rules">,
-): Promise<void> {
-  const prior = stored ? prerequisiteIdsOf(stored) : new Set<string>();
-  const added = [...prerequisiteIdsOf(candidate)].filter(
-    (id) => !prior.has(id),
-  );
-  if (!added.length) return;
-  if (added.includes(candidate.id)) {
-    throw new BadRequestError(
-      `Feature "${candidate.id}" cannot be its own prerequisite`,
-    );
-  }
-
-  const parents = await getAllFeaturesWithoutEditorFields(context, {
-    ids: added,
-    includeArchived: true,
-  });
-  const byId = new Map(parents.map((f) => [f.id, f]));
-  for (const id of added) {
-    const parent = byId.get(id);
-    if (!parent) {
-      throw new NotFoundError(`Prerequisite feature "${id}" not found`);
-    }
-    if (parent.archived) {
-      throw new BadRequestError(`Prerequisite feature "${id}" is archived`);
-    }
-    if (parent.valueType !== "boolean") {
-      throw new BadRequestError(
-        `Prerequisite feature "${id}" must be a boolean feature, not ${parent.valueType}`,
-      );
-    }
-  }
-
-  const graph = await loadPrerequisiteAncestors(context, parents);
-  graph.set(candidate.id, candidate);
-  if (isFeatureCyclic(candidate, graph)[0]) {
-    const names = added.map((id) => `"${id}"`).join(", ");
-    throw new BadRequestError(
-      `Prerequisite ${names} would create a circular dependency`,
-    );
   }
 }
 
