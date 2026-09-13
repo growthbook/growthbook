@@ -111,18 +111,22 @@ describe("assertRampScheduleReplanAllowed", () => {
     });
   });
 
-  it("refuses when a targeted feature is not readable, and skips loading under the REST bypass", async () => {
+  it("refuses a target the caller cannot read, even under the REST bypass", async () => {
     jest
       .mocked(getAllFeatures)
       .mockResolvedValue([{ id: "anchor" }] as FeatureInterface[]);
     await expect(
       assertRampScheduleReplanAllowed(ctx(["anchor", "other"]), schedule),
     ).rejects.toThrow(/"other" is not readable/);
-    jest.mocked(getAllFeatures).mockClear();
+    await expect(
+      assertRampScheduleReplanAllowed(ctx([]), schedule, true),
+    ).rejects.toThrow(/"other" is not readable/);
+  });
+
+  it("the REST bypass waives review, not readability", async () => {
     await expect(
       assertRampScheduleReplanAllowed(ctx([]), schedule, true),
     ).resolves.toBeUndefined();
-    expect(getAllFeatures).not.toHaveBeenCalled();
   });
 });
 

@@ -40,7 +40,7 @@ export async function assertRampScheduleReplanAllowed(
   schedule: Pick<RampScheduleInterface, "entityId" | "targets">,
   restApiBypass = false,
 ): Promise<void> {
-  if (!reviewIsOn(context) || restApiBypass) return;
+  if (!reviewIsOn(context)) return;
   const ids = [
     ...new Set([schedule.entityId, ...schedule.targets.map((t) => t.entityId)]),
   ];
@@ -60,7 +60,7 @@ export async function assertRampScheduleReplanAllowed(
         `Cannot re-plan this ramp schedule: its target feature "${id}" is not readable`,
       );
     }
-    assertRampPlanChangeAllowed(context, feature);
+    assertRampPlanChangeAllowed(context, feature, restApiBypass);
   }
 }
 
