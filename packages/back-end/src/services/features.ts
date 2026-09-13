@@ -130,6 +130,7 @@ import {
   getAllFeaturesWithoutEditorFields,
 } from "back-end/src/models/FeatureModel";
 import {
+  getAllExperimentsForStaleGraph,
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
   getAllVisualExperiments,
@@ -851,20 +852,44 @@ export async function getFeaturesDependingOnAsPrerequisite(
 // Block deleting a feature that live features still list as a prerequisite —
 // deletion would dangle their gate and drop them from the SDK payload. Matches
 // the copy style of assertConstantArchivable / assertSavedGroupDeletable.
+// Unarchived experiments whose latest phase gates on `featureId`. Projected
+// loader — reads only id/status/phases.prerequisites.
+export async function getExperimentsDependingOnAsPrerequisite(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<string[]> {
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
+  const experiments = await getAllExperimentsForStaleGraph(scanContext);
+  return experiments
+    .filter((e) =>
+      e.phases.slice(-1)[0]?.prerequisites?.some((p) => p.id === featureId),
+    )
+    .map((e) => e.id);
+}
+
 export async function assertFeatureDeletable(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<void> {
-  const dependents = await getFeaturesDependingOnAsPrerequisite(
-    context,
-    featureId,
-  );
-  if (!dependents.length) return;
+  const [features, experiments] = await Promise.all([
+    getFeaturesDependingOnAsPrerequisite(context, featureId),
+    getExperimentsDependingOnAsPrerequisite(context, featureId),
+  ]);
+  if (!features.length && !experiments.length) return;
   // Count only — the dependent scan is org-wide (so a dependent in a project
   // the caller can't read still blocks), so naming ids would disclose
-  // cross-project features. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
+  // cross-project resources. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
+  const parts = [
+    [features.length, "live Feature Flag(s)"],
+    [experiments.length, "Experiment(s)"],
+  ]
+    .filter(([n]) => n)
+    .map(([n, label]) => `${n} ${label}`)
+    .join(" and ");
   throw new BadRequestError(
-    `Cannot delete Feature Flag: it is still used as a prerequisite by ${dependents.length} live Feature Flag(s). Remove these references first.`,
+    `Cannot delete Feature Flag: it is still used as a prerequisite by ${parts}. Remove these references first.`,
   );
 }
 

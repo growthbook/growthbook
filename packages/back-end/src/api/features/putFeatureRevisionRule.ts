@@ -37,6 +37,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
+  assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
@@ -337,19 +338,13 @@ export const putFeatureRevisionRule = createApiRequestHandler(
         getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
       );
     }
-    if (
-      patch.condition !== undefined ||
-      patch.savedGroups !== undefined ||
-      patch.prerequisites !== undefined
-    ) {
+    if (patch.condition !== undefined || patch.savedGroups !== undefined) {
       await validateRuleReferences(
         {
           condition:
             patch.condition !== undefined ? updatedRule.condition : undefined,
           savedGroups:
             patch.savedGroups !== undefined ? updatedRule.savedGroups : [],
-          prerequisites:
-            patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
         },
         req.context,
       );
@@ -364,6 +359,10 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     );
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: flatRules,
+      after: newRules,
+    });
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule

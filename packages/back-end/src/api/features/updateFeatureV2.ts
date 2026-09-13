@@ -51,6 +51,7 @@ import {
   dispatchFeatureRevisionEvent,
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertValidRuleEnvironments,
@@ -431,6 +432,16 @@ export const updateFeatureV2 = createApiRequestHandler(
   const { metadata: metadataChanges, remaining: updatesAfterMetadata } =
     extractRevisionMetadata(updates);
   updates = updatesAfterMetadata;
+
+  await assertValidPrerequisiteParents(
+    req.context,
+    {
+      ...feature,
+      rules: inboundFlatRules ?? feature.rules,
+      prerequisites: updates.prerequisites ?? feature.prerequisites,
+    },
+    feature,
+  );
 
   const newPrerequisites = updates.prerequisites ?? null;
   if (newPrerequisites !== null) {
