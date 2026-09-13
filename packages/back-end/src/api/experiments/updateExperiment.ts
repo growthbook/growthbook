@@ -345,10 +345,18 @@ export const updateExperiment = createApiRequestHandler(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
+  // The served (latest) phase is checked against the latest stored phase;
+  // earlier phases are history, so any parent the stored experiment already
+  // references is not re-validated when they are echoed or reordered.
   if (changes.phases) {
     await assertValidExperimentPrerequisites(
       req.context,
-      phasePrerequisites(changes.phases),
+      changes.phases[changes.phases.length - 1]?.prerequisites,
+      experiment.phases[experiment.phases.length - 1]?.prerequisites,
+    );
+    await assertValidExperimentPrerequisites(
+      req.context,
+      phasePrerequisites(changes.phases.slice(0, -1)),
       phasePrerequisites(experiment.phases),
     );
   }
