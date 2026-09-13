@@ -35,7 +35,7 @@
     "@stripe/react-stripe-js": "^3.1.1",
     "@stripe/stripe-js": "^5.5.0",
     "@tanstack/react-virtual": "^3.13.26",
-    "@tiptap/core": "3.30.0",
+    "@tiptap/core": "3.30.5",
     "@tiptap/extension-document": "3.30.0",
     "@tiptap/extension-hard-break": "3.30.0",
     "@tiptap/extension-mention": "3.30.0",
