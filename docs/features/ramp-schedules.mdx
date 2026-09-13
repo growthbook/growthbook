@@ -158,16 +158,14 @@ Use **Save as template** to store a schedule's steps and end state as a **Ramp S
 
 ## Managing via the API
 
-Ramp Schedules have a full REST API under `/ramp-schedules`. This example attaches a three-step ramp to an existing rule, with the final step gated on approval:
+The recommended way to attach a ramp schedule to a rule, or to change the plan of one that is already attached, is through a draft revision. The plan is then reviewed and published like any other rule change, and the scheduler carries it out step by step afterwards.
 
 ```bash
-curl -X POST https://api.growthbook.io/api/v1/ramp-schedules \
+# Stage a three-step ramp on a rule in a new draft; the final step waits for approval
+curl -X PUT https://api.growthbook.io/api/v2/features/checkout-v2/revisions/new/rules/fr_abc123/ramp-schedule \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Checkout v2 rollout",
-    "featureId": "checkout-v2",
-    "ruleId": "fr_abc123",
     "steps": [
       { "interval": 3600, "actions": [{ "patch": { "coverage": 0.1 } }] },
       { "interval": 86400, "actions": [{ "patch": { "coverage": 0.5 } }] },
@@ -175,9 +173,17 @@ curl -X POST https://api.growthbook.io/api/v1/ramp-schedules \
         "actions": [{ "patch": { "coverage": 1.0 } }] }
     ]
   }'
+
+# Publish the draft (goes through review if the project requires it)
+curl -X POST https://api.growthbook.io/api/v2/features/checkout-v2/revisions/<version>/publish \
+  -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-When you pass both `featureId` and `ruleId`, GrowthBook fills in the target on every action, so you only supply the fields you want to change. See the [API reference](/api) for the full set of endpoints and lifecycle actions.
+To replace the plan on a rule that already has a schedule, stage a new one the same way: publishing it replaces the existing schedule for that rule.
+
+Once a schedule is live, operate it with the lifecycle actions under `/api/v1/ramp-schedules/{id}/actions/…` (`start`, `pause`, `resume`, `advance`, `approve-step`, `rollback`, `complete`, `restart`). These run the reviewed plan and are never review-gated. Look up the schedule id from the rule's `rampScheduleId` field or with `GET /api/v1/ramp-schedules?ruleId=…`.
+
+The `/api/v1/ramp-schedules` endpoints can also create a schedule attached to a rule, add a target, or edit an attached schedule's steps and dates directly, without a revision. Because that skips review, those operations are only available to credentials that may bypass approval whenever the organization requires review anywhere; other callers receive a `403` pointing at the revision endpoint above. See the [API reference](/api) for the full set of endpoints.
 
 ## What's next
 

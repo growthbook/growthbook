@@ -3873,6 +3873,20 @@ export function getRevisionReviewRequirement({
 }
 
 // Boolean form, for callers that only ask whether review is needed.
+// Whether review is required anywhere in the org: the legacy boolean, or any
+// rule with its own switch on. Used to decide when writes that would skip the
+// revision review flow altogether must be reserved for approval-bypass callers.
+export function orgRequiresAnyReview(
+  settings: Pick<OrganizationSettings, "requireReviews"> | undefined,
+  requireApprovalsLicensed = true,
+): boolean {
+  if (!requireApprovalsLicensed) return false;
+  const requireReviews = settings?.requireReviews;
+  return Array.isArray(requireReviews)
+    ? requireReviews.some((rule) => !!rule.requireReviewOn)
+    : !!requireReviews;
+}
+
 export function checkIfRevisionNeedsReview(
   args: Parameters<typeof getRevisionReviewRequirement>[0],
 ): boolean {

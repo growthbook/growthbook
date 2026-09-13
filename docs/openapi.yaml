@@ -32266,6 +32266,16 @@ paths:
     post:
       operationId: postRampSchedule
       summary: Create a ramp schedule
+      description: >-
+        Creates a ramp schedule, optionally attached to a published feature rule
+        by passing `featureId` and `ruleId` together (the target is then
+        injected into every action). Attaching on creation skips the revision
+        review flow, so when the organization requires review anywhere it is
+        limited to credentials that may bypass approval. The reviewed way to
+        attach a plan is `PUT
+        /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule`
+        followed by a publish. Without a target the schedule is a free-standing
+        skeleton in `pending` status. Requires a Pro plan or above.
       tags:
         - ramp-schedules
       requestBody:
@@ -33178,6 +33188,18 @@ paths:
 
         compatibility with pre-v2 ramps but is deprecated and no longer
         required.
+
+
+        This skips the revision review flow, so when the organization requires
+        review
+
+        anywhere it is limited to credentials that may bypass approval. The
+        reviewed way
+
+        to attach a plan is `PUT
+        /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule`
+
+        followed by a publish.
       tags:
         - ramp-schedules
       parameters:
@@ -53886,6 +53908,19 @@ paths:
 
         Only allowed when the schedule is in `pending`, `ready`, or `paused`
         status.
+
+
+        Changing `steps`, `startActions`, `endActions`, `startDate`, or
+        `cutoffDate` on a
+
+        schedule that is attached to a rule skips the revision review flow, so
+        when the
+
+        organization requires review anywhere it is limited to credentials that
+        may
+
+        bypass approval. Otherwise stage a new plan on a draft revision and
+        publish it.
 
 
         **targetId shorthand**: When providing `steps` or `endActions`, you may

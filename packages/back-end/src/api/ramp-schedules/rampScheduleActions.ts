@@ -44,6 +44,8 @@ import {
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { assertRampPlanChangeAllowed } from "back-end/src/services/rampPlanReview";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -500,7 +502,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
   operationId: "addTargetRampSchedule",
   summary: "Add a target rule to a ramp schedule",
   description:
-    "Attaches an additional feature rule to this ramp schedule. The `ruleId`\nmust identify a rule that is already published and must not already be\ncontrolled by another schedule. `environment` is accepted for backward\ncompatibility with pre-v2 ramps but is deprecated and no longer required.\n",
+    "Attaches an additional feature rule to this ramp schedule. The `ruleId`\nmust identify a rule that is already published and must not already be\ncontrolled by another schedule. `environment` is accepted for backward\ncompatibility with pre-v2 ramps but is deprecated and no longer required.\n\nThis skips the revision review flow, so when the organization requires review\nanywhere it is limited to credentials that may bypass approval. The reviewed way\nto attach a plan is `PUT /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule`\nfollowed by a publish.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -525,6 +527,11 @@ export const addTargetRampSchedule = createApiRequestHandler({
   ) => {
     const feature = await getFeature(req.context, featureId);
     if (!feature) throw new Error(`Feature '${featureId}' not found`);
+    assertRampPlanChangeAllowed(
+      req.context,
+      feature,
+      canUseRestApiBypassSetting(req),
+    );
     // The schedule gate covered its existing targets; the flag being attached
     // needs the same authority, or a schedule anchored in one project becomes a
     // lever over flags in another.
