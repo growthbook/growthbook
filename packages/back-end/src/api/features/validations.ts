@@ -224,7 +224,7 @@ type SavedGroupMap = Awaited<ReturnType<typeof getSavedGroupMap>>;
 // saved groups are loaded once. Prerequisite parents are checked separately
 // by assertValidPrerequisiteParents.
 export async function validateRuleReferences(
-  rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
+  rule: Pick<FeatureRule, "condition" | "savedGroups">,
   context: ApiReqContext,
 ): Promise<void> {
   validateRuleReferencesWithGroups(rule, await getSavedGroupMap(context));
@@ -278,7 +278,7 @@ export async function validateChangedRuleReferences(
 }
 
 function validateRuleReferencesWithGroups(
-  rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
+  rule: Pick<FeatureRule, "condition" | "savedGroups">,
   groupMap: SavedGroupMap,
 ): void {
   const savedGroupIds = new Set(groupMap.keys());

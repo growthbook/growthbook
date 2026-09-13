@@ -278,8 +278,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     }
     if (
       basePatch.condition !== undefined ||
-      basePatch.savedGroups !== undefined ||
-      basePatch.prerequisites !== undefined
+      basePatch.savedGroups !== undefined
     ) {
       await validateRuleReferences(
         {
@@ -289,10 +288,6 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
               : undefined,
           savedGroups:
             basePatch.savedGroups !== undefined ? updatedRule.savedGroups : [],
-          prerequisites:
-            basePatch.prerequisites !== undefined
-              ? updatedRule.prerequisites
-              : [],
         },
         req.context,
       );
