@@ -25,7 +25,11 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
-import { validateCustomFields, validateRulesReferences } from "./validations";
+import {
+  assertValidPrerequisiteParents,
+  validateCustomFields,
+  validateRulesReferences,
+} from "./validations";
 import {
   assertValidProjectId,
   assertValidProjectIds,
@@ -164,6 +168,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   await assertValidRuleProjectIds(feature.rules, req.context);
   await assertValidRuleExperimentIds(feature.rules, req.context);
   await validateRulesReferences(feature.rules, req.context);
+  await assertValidPrerequisiteParents(req.context, feature);
 
   const jsonSchema = parseApiJsonSchema(
     req.context.org,

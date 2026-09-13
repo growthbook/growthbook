@@ -15,6 +15,7 @@ import {
   discardIfJustCreated,
   isDraftStatus,
   validatePrerequisiteConditions,
+  assertValidPrerequisiteParents,
   validatePrerequisiteReferences,
   resolveOrCreateRevision,
 } from "./validations";
@@ -54,6 +55,12 @@ export async function setRevisionPrerequisites(
     }
 
     await validatePrerequisiteReferences(body.prerequisites, context);
+    const rules = revision.rules ?? feature.rules;
+    await assertValidPrerequisiteParents(
+      context,
+      { ...feature, rules, prerequisites: body.prerequisites },
+      { rules, prerequisites: revision.prerequisites ?? feature.prerequisites },
+    );
 
     await updateRevision(
       context,

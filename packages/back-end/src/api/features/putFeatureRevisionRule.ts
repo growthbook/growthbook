@@ -37,6 +37,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
+  assertValidPrerequisiteParents,
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
@@ -364,6 +365,15 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     );
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidPrerequisiteParents(
+      req.context,
+      {
+        ...feature,
+        rules: newRules,
+        prerequisites: revision.prerequisites ?? feature.prerequisites,
+      },
+      { ...feature, rules: flatRules },
+    );
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule

@@ -56,6 +56,7 @@ import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fie
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
 import {
+  assertValidPrerequisiteParents,
   validateChangedRuleReferences,
   validateCustomFields,
 } from "./validations";
@@ -530,6 +531,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     updates = updatesAfterMetadata;
 
     // 4. prerequisites
+    await assertValidPrerequisiteParents(
+      req.context,
+      {
+        ...feature,
+        rules: revisedRulesFlat,
+        prerequisites: updates.prerequisites ?? feature.prerequisites,
+      },
+      feature,
+    );
     const newPrerequisites = updates.prerequisites ?? null;
     if (newPrerequisites !== null) {
       delete updates.prerequisites;

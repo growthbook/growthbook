@@ -5,10 +5,9 @@ import {
 } from "back-end/src/api/features/validations";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
-import { getFeature } from "back-end/src/models/FeatureModel";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
+  getAllFeatures: jest.fn(),
 }));
 
 // `validateRuleAttributes` is the V2-side gate for the opt-in
@@ -191,25 +190,6 @@ describe("validateRulesReferences", () => {
       ),
     ).resolves.toBeUndefined();
     expect(getAll).toHaveBeenCalledTimes(1);
-  });
-
-  it("accepts a prerequisite whose feature exists", async () => {
-    jest
-      .mocked(getFeature)
-      .mockResolvedValueOnce({ id: "parent_flag" } as never);
-    await expect(
-      validateRulesReferences(
-        [
-          {
-            prerequisites: [
-              { id: "parent_flag", condition: '{"value": true}' },
-            ],
-          },
-        ],
-        ctx,
-      ),
-    ).resolves.toBeUndefined();
-    expect(getFeature).toHaveBeenCalledWith(ctx, "parent_flag");
   });
 
   it("does not load saved groups for an empty rules list", async () => {

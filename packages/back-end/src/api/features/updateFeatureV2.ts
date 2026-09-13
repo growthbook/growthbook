@@ -54,6 +54,7 @@ import {
 import { validateEnvKeys } from "./postFeature";
 import {
   assertValidRuleEnvironments,
+  assertValidPrerequisiteParents,
   validateChangedRuleReferences,
   validateCustomFields,
   validateRuleAttributes,
@@ -431,6 +432,16 @@ export const updateFeatureV2 = createApiRequestHandler(
   const { metadata: metadataChanges, remaining: updatesAfterMetadata } =
     extractRevisionMetadata(updates);
   updates = updatesAfterMetadata;
+
+  await assertValidPrerequisiteParents(
+    req.context,
+    {
+      ...feature,
+      rules: updates.rules ?? feature.rules,
+      prerequisites: updates.prerequisites ?? feature.prerequisites,
+    },
+    feature,
+  );
 
   const newPrerequisites = updates.prerequisites ?? null;
   if (newPrerequisites !== null) {

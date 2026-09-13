@@ -11,12 +11,16 @@ import {
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
-import { findStoredRuleCounterpart, validateCondition } from "shared/util";
+import {
+  findStoredRuleCounterpart,
+  isFeatureCyclic,
+  validateCondition,
+} from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { getFeature } from "back-end/src/models/FeatureModel";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
   discardRevision,
@@ -215,17 +219,14 @@ export const validateCustomFields = async (
 
 type SavedGroupMap = Awaited<ReturnType<typeof getSavedGroupMap>>;
 
-// Verify saved-group and prerequisite references in a rule exist. Call on
-// the final rule — saved groups are loaded once.
+// Verify the saved-group references in a rule exist. Call on the final rule —
+// saved groups are loaded once. Prerequisite parents are checked separately
+// by assertValidPrerequisiteParents.
 export async function validateRuleReferences(
   rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
   context: ApiReqContext,
 ): Promise<void> {
-  return validateRuleReferencesWithGroups(
-    rule,
-    await getSavedGroupMap(context),
-    context,
-  );
+  validateRuleReferencesWithGroups(rule, await getSavedGroupMap(context));
 }
 
 // Bulk form for endpoints that take a whole rules array (feature create /
@@ -238,7 +239,7 @@ export async function validateRulesReferences(
   const groupMap = await getSavedGroupMap(context);
   for (const rule of rules) {
     validatePrerequisiteConditions(rule.prerequisites ?? []);
-    await validateRuleReferencesWithGroups(rule, groupMap, context);
+    validateRuleReferencesWithGroups(rule, groupMap);
   }
 }
 
@@ -275,11 +276,10 @@ export async function validateChangedRuleReferences(
   );
 }
 
-async function validateRuleReferencesWithGroups(
+function validateRuleReferencesWithGroups(
   rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
   groupMap: SavedGroupMap,
-  context: ApiReqContext,
-): Promise<void> {
+): void {
   const savedGroupIds = new Set(groupMap.keys());
   for (const sg of rule.savedGroups ?? []) {
     for (const id of sg.ids) {
@@ -301,16 +301,10 @@ async function validateRuleReferencesWithGroups(
     if (inGroupError)
       throw new BadRequestError(`Invalid rule condition: ${inGroupError}`);
   }
-
-  for (const prereq of rule.prerequisites ?? []) {
-    const prereqFeature = await getFeature(context, prereq.id);
-    if (!prereqFeature) {
-      throw new NotFoundError(`Prerequisite feature "${prereq.id}" not found`);
-    }
-  }
 }
 
-// Reference checks for a feature-level prerequisites list.
+// Saved-group references inside a feature-level prerequisites list; the
+// parents themselves are checked by assertValidPrerequisiteParents.
 export async function validatePrerequisiteReferences(
   prerequisites: FeaturePrerequisite[],
   context: ApiReqContext,
@@ -330,10 +324,99 @@ export async function validatePrerequisiteReferences(
         );
       }
     }
-    const prereqFeature = await getFeature(context, prereq.id);
-    if (!prereqFeature) {
-      throw new NotFoundError(`Prerequisite feature "${prereq.id}" not found`);
+  }
+}
+
+function prerequisiteIdsOf(
+  feature: Pick<FeatureInterface, "prerequisites" | "rules">,
+): Set<string> {
+  const ids = new Set<string>();
+  (feature.prerequisites ?? []).forEach((p) => ids.add(p.id));
+  (feature.rules ?? []).forEach((rule) =>
+    (rule.prerequisites ?? []).forEach((p) => ids.add(p.id)),
+  );
+  return ids;
+}
+
+// Bounds a pathological chain issuing a query per hop; anything deeper is left
+// to the payload builder's own cycle guard.
+const MAX_PREREQUISITE_DEPTH = 10;
+
+// Every ancestor of `seeds`, one query per hop. Follows disabled rules too,
+// matching isFeatureCyclic.
+async function loadPrerequisiteAncestors(
+  context: ApiReqContext,
+  seeds: FeatureInterface[],
+): Promise<Map<string, FeatureInterface>> {
+  const loaded = new Map(seeds.map((f) => [f.id, f]));
+  let frontier = seeds;
+  for (
+    let depth = 0;
+    frontier.length && depth < MAX_PREREQUISITE_DEPTH;
+    depth++
+  ) {
+    const wanted = [
+      ...new Set(frontier.flatMap((f) => [...prerequisiteIdsOf(f)])),
+    ].filter((id) => !loaded.has(id));
+    if (!wanted.length) break;
+    frontier = await getAllFeatures(context, {
+      ids: wanted,
+      includeArchived: true,
+    });
+    frontier.forEach((f) => loaded.set(f.id, f));
+  }
+  return loaded;
+}
+
+// A prerequisite may point only at an existing, unarchived boolean flag that
+// does not itself depend on the feature being written — the same constraints
+// the dashboard's prerequisite picker applies. Only parents this write
+// introduces (present in `candidate`, absent from `stored`) are checked, so a
+// feature already pointing at a since-archived parent still posts back
+// unchanged, and the cycle walk loads just the new parents' ancestor chains.
+export async function assertValidPrerequisiteParents(
+  context: ApiReqContext,
+  candidate: FeatureInterface,
+  stored?: Pick<FeatureInterface, "prerequisites" | "rules">,
+): Promise<void> {
+  const prior = stored ? prerequisiteIdsOf(stored) : new Set<string>();
+  const added = [...prerequisiteIdsOf(candidate)].filter(
+    (id) => !prior.has(id),
+  );
+  if (!added.length) return;
+  if (added.includes(candidate.id)) {
+    throw new BadRequestError(
+      `Feature "${candidate.id}" cannot be its own prerequisite`,
+    );
+  }
+
+  const parents = await getAllFeatures(context, {
+    ids: added,
+    includeArchived: true,
+  });
+  const byId = new Map(parents.map((f) => [f.id, f]));
+  for (const id of added) {
+    const parent = byId.get(id);
+    if (!parent) {
+      throw new NotFoundError(`Prerequisite feature "${id}" not found`);
     }
+    if (parent.archived) {
+      throw new BadRequestError(`Prerequisite feature "${id}" is archived`);
+    }
+    if (parent.valueType !== "boolean") {
+      throw new BadRequestError(
+        `Prerequisite feature "${id}" must be a boolean feature, not ${parent.valueType}`,
+      );
+    }
+  }
+
+  const graph = await loadPrerequisiteAncestors(context, parents);
+  graph.set(candidate.id, candidate);
+  const [cyclic, via] = isFeatureCyclic(candidate, graph);
+  if (cyclic) {
+    throw new BadRequestError(
+      `Prerequisite "${via}" would create a circular dependency`,
+    );
   }
 }
 

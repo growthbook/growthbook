@@ -32,6 +32,7 @@ import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import {
   assertValidRuleEnvironments,
+  assertValidPrerequisiteParents,
   validateCustomFields,
   validateRuleAttributes,
   validateRulesReferences,
@@ -164,6 +165,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     // run; the payload builder silently drops a condition it cannot parse and
     // unknown group ids, which widens the rule's audience.
     await validateRulesReferences(feature.rules, req.context);
+    await assertValidPrerequisiteParents(req.context, feature);
     validateRulesScheduleRules(feature.rules, req.context);
 
     // Config backing comes through dedicated fields — reject a raw `@config:`

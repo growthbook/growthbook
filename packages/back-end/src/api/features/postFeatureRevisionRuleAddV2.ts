@@ -46,6 +46,7 @@ import {
   assertValidRuleEnvironments,
   resolveOrCreateRevision,
   validateRuleAttributes,
+  assertValidPrerequisiteParents,
   validatePrerequisiteConditions,
   validateRuleReferences,
 } from "./validations";
@@ -321,6 +322,15 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     const newRules: FeatureRule[] = [...baseRules, stampedRule];
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidPrerequisiteParents(
+      req.context,
+      {
+        ...feature,
+        rules: newRules,
+        prerequisites: revision.prerequisites ?? feature.prerequisites,
+      },
+      { ...feature, rules: baseRules },
+    );
 
     if (resolvedRampAction) {
       const existing = revision.rampActions ?? [];
