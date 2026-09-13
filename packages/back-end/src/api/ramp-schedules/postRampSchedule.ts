@@ -185,14 +185,16 @@ export const postRampSchedule = createApiRequestHandler(
     if (!feature) {
       throw new NotFoundError(`Feature '${body.featureId}' not found`);
     }
+    if (body.ruleId) {
+      assertRampPlanChangeAllowed(
+        req.context,
+        feature,
+        canUseRestApiBypassSetting(req),
+      );
+    }
   }
 
   if (hasTarget) {
-    assertRampPlanChangeAllowed(
-      req.context,
-      feature!,
-      canUseRestApiBypassSetting(req),
-    );
     const envSuffix = body.environment
       ? ` in environment '${body.environment}'`
       : "";

@@ -18,7 +18,7 @@ import {
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
-  assertRampPlanChangeAllowed,
+  assertRampScheduleReplanAllowed,
   changesRampPlan,
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -586,16 +586,11 @@ export class RampScheduleModel extends BaseClass {
       throw new NotFoundError("Ramp schedule not found");
     }
     if (schedule.targets.length && changesRampPlan(req.body)) {
-      // Lazy: FeatureModel reaches this module through the services layer.
-      const { getFeature } = await import("back-end/src/models/FeatureModel");
-      const feature = await getFeature(this.context, schedule.entityId);
-      if (feature) {
-        assertRampPlanChangeAllowed(
-          this.context,
-          feature,
-          canUseRestApiBypassSetting(req),
-        );
-      }
+      await assertRampScheduleReplanAllowed(
+        this.context,
+        schedule,
+        canUseRestApiBypassSetting(req),
+      );
     }
 
     // Locked so the read-modify-write can't clobber a concurrent advance.

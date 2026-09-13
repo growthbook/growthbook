@@ -34,7 +34,7 @@ import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnap
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
-  assertRampPlanChangeAllowed,
+  assertRampScheduleReplanAllowed,
   changesRampPlan,
 } from "back-end/src/services/rampPlanReview";
 import { ConflictError } from "back-end/src/util/errors";
@@ -131,8 +131,10 @@ export const postRampSchedule = async (
 
   const body = req.body;
   if (body.targets?.length) {
-    const feature = await getFeature(context, body.entityId);
-    if (feature) assertRampPlanChangeAllowed(context, feature);
+    await assertRampScheduleReplanAllowed(context, {
+      entityId: body.entityId,
+      targets: body.targets,
+    });
   }
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
@@ -218,8 +220,7 @@ export const putRampSchedule = async (
         );
       }
       if (fresh.targets.length && changesRampPlan(body)) {
-        const feature = await getFeature(context, fresh.entityId);
-        if (feature) assertRampPlanChangeAllowed(context, feature);
+        await assertRampScheduleReplanAllowed(context, fresh);
       }
       const updates: Record<string, unknown> = {};
       if (body.name !== undefined) updates.name = body.name;

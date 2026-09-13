@@ -44,7 +44,10 @@ import {
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { assertRampPlanChangeAllowed } from "back-end/src/services/rampPlanReview";
+import {
+  assertRampPlanChangeAllowed,
+  assertRampScheduleReplanAllowed,
+} from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
@@ -1456,7 +1459,7 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   operationId: "updateRampScheduleSteps",
   summary: "Update ramp schedule steps",
   description:
-    "Fully replaces the steps array for a ramp schedule. Only allowed when the schedule is in a non-running, non-terminal state (`ready`, `pending`, or `paused`). Pause a running schedule first; restart a terminal schedule first.\n\n**Step actions** (coverage/targeting patches) are not accepted here — they change the SDK payload and must go through a feature revision draft. Existing step actions are preserved for each position. Use `PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` to modify coverage/targeting.\n",
+    "Fully replaces the steps array for a ramp schedule. Only allowed when the schedule is in a non-running, non-terminal state (`ready`, `pending`, or `paused`). Pause a running schedule first; restart a terminal schedule first.\n\nOn a schedule attached to a rule this skips the revision review flow, so when the organization requires review anywhere it is limited to credentials that may bypass approval.\n\n**Step actions** (coverage/targeting patches) are not accepted here — they change the SDK payload and must go through a feature revision draft. Existing step actions are preserved for each position. Use `PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` to modify coverage/targeting.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -1464,6 +1467,13 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
+  if (schedule.targets.length) {
+    await assertRampScheduleReplanAllowed(
+      req.context,
+      schedule,
+      canUseRestApiBypassSetting(req),
+    );
+  }
 
   const { schedule: updated } = await runControlledRampScheduleAction(
     req.context,

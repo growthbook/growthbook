@@ -1,5 +1,6 @@
 import { orgRequiresAnyReview, PermissionError } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
+import type { RampScheduleInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -16,14 +17,7 @@ export function assertRampPlanChangeAllowed(
   feature: FeatureInterface,
   restApiBypass = false,
 ): void {
-  if (
-    !orgRequiresAnyReview(
-      context.org.settings,
-      context.hasPremiumFeature("require-approvals"),
-    )
-  ) {
-    return;
-  }
+  if (!reviewIsOn(context)) return;
   if (
     restApiBypass ||
     context.permissions.canBypassFlagApprovalChecks(feature, "feature")
@@ -37,7 +31,34 @@ export function assertRampPlanChangeAllowed(
   );
 }
 
+// A schedule can target rules on several features, and bypass authority is
+// project-scoped, so re-planning an attached schedule needs it on every
+// targeted feature, not just the anchor.
+export async function assertRampScheduleReplanAllowed(
+  context: ReqContext | ApiReqContext,
+  schedule: Pick<RampScheduleInterface, "entityId" | "targets">,
+  restApiBypass = false,
+): Promise<void> {
+  if (!reviewIsOn(context)) return;
+  const ids = [
+    ...new Set([schedule.entityId, ...schedule.targets.map((t) => t.entityId)]),
+  ];
+  // Lazy: FeatureModel reaches the ramp model through the services layer.
+  const { getAllFeatures } = await import("back-end/src/models/FeatureModel");
+  for (const feature of await getAllFeatures(context, { ids })) {
+    assertRampPlanChangeAllowed(context, feature, restApiBypass);
+  }
+}
+
+function reviewIsOn(context: ReqContext | ApiReqContext): boolean {
+  return orgRequiresAnyReview(
+    context.org.settings,
+    context.hasPremiumFeature("require-approvals"),
+  );
+}
+
 // Fields on a schedule update that change what the scheduler will apply.
+// Clearing a date (`null`) counts: it removes a reviewed start or cutoff.
 export function changesRampPlan(body: Record<string, unknown>): boolean {
   return [
     "steps",
@@ -45,5 +66,5 @@ export function changesRampPlan(body: Record<string, unknown>): boolean {
     "endActions",
     "startDate",
     "cutoffDate",
-  ].some((field) => body[field] !== undefined && body[field] !== null);
+  ].some((field) => field in body && body[field] !== undefined);
 }
