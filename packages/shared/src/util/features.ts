@@ -3872,7 +3872,6 @@ export function getRevisionReviewRequirement({
   return { required: rules.length > 0, rules };
 }
 
-// Boolean form, for callers that only ask whether review is needed.
 // Whether review is required anywhere in the org: the legacy boolean, or any
 // rule with its own switch on. Used to decide when writes that would skip the
 // revision review flow altogether must be reserved for approval-bypass callers.
@@ -3887,6 +3886,7 @@ export function orgRequiresAnyReview(
     : !!requireReviews;
 }
 
+// Boolean form, for callers that only ask whether review is needed.
 export function checkIfRevisionNeedsReview(
   args: Parameters<typeof getRevisionReviewRequirement>[0],
 ): boolean {

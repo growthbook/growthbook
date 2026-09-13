@@ -179,7 +179,7 @@ curl -X POST https://api.growthbook.io/api/v2/features/checkout-v2/revisions/<ve
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-To replace the plan on a rule that already has a schedule, stage a new one the same way: publishing it replaces the existing schedule for that rule.
+To change the plan on a rule that already has a schedule, stage a new one the same way: publishing it replaces the plan of the existing schedule for that rule.
 
 Once a schedule is live, operate it with the lifecycle actions under `/api/v1/ramp-schedules/{id}/actions/…` (`start`, `pause`, `resume`, `advance`, `approve-step`, `rollback`, `complete`, `restart`). These run the reviewed plan and are never review-gated. Look up the schedule id from the rule's `rampScheduleId` field or with `GET /api/v1/ramp-schedules?ruleId=…`.
 

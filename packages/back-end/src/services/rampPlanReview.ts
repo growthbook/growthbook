@@ -33,20 +33,34 @@ export function assertRampPlanChangeAllowed(
 
 // A schedule can target rules on several features, and bypass authority is
 // project-scoped, so re-planning an attached schedule needs it on every
-// targeted feature, not just the anchor.
+// targeted feature, not just the anchor. A target the caller cannot read (or
+// that no longer exists) cannot be vouched for and refuses the change.
 export async function assertRampScheduleReplanAllowed(
   context: ReqContext | ApiReqContext,
   schedule: Pick<RampScheduleInterface, "entityId" | "targets">,
   restApiBypass = false,
 ): Promise<void> {
-  if (!reviewIsOn(context)) return;
+  if (!reviewIsOn(context) || restApiBypass) return;
   const ids = [
     ...new Set([schedule.entityId, ...schedule.targets.map((t) => t.entityId)]),
   ];
-  // Lazy: FeatureModel reaches the ramp model through the services layer.
+  // Lazy: a static FeatureModel import here is evaluated before the ramp
+  // model finishes loading and trips the FeatureModel <-> RampScheduleModel
+  // cycle at startup.
   const { getAllFeatures } = await import("back-end/src/models/FeatureModel");
-  for (const feature of await getAllFeatures(context, { ids })) {
-    assertRampPlanChangeAllowed(context, feature, restApiBypass);
+  const features = await getAllFeatures(context, {
+    ids,
+    includeArchived: true,
+  });
+  const byId = new Map(features.map((f) => [f.id, f]));
+  for (const id of ids) {
+    const feature = byId.get(id);
+    if (!feature) {
+      throw new PermissionError(
+        `Cannot re-plan this ramp schedule: its target feature "${id}" is not readable`,
+      );
+    }
+    assertRampPlanChangeAllowed(context, feature);
   }
 }
 
