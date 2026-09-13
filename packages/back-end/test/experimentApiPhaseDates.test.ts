@@ -5,6 +5,7 @@ import { toExperimentApiInterface } from "back-end/src/services/experiments";
 // Legacy experiment docs can carry a phase with no dateStarted. The serializer
 // must not throw on them: one bad phase used to 400 an entire page of
 // GET /api/v1/experiments (issue #3841).
+// The experiment-level dateCreated/dateUpdated are guarded the same way.
 const context = {
   org: { id: "org_1", settings: {} },
   models: { projects: { getById: async () => null } },
@@ -66,5 +67,27 @@ describe("toExperimentApiInterface phase dates", () => {
     );
     expect(api.phases[0].dateStarted).toBe("");
     expect(api.phases[0].dateEnded).toBe("");
+  });
+});
+
+describe("toExperimentApiInterface experiment dates", () => {
+  it("serializes experiment dates that are set", async () => {
+    const api = await toExperimentApiInterface(
+      context,
+      experimentWithPhaseDate(new Date("2024-03-01T00:00:00.000Z")),
+    );
+    expect(api.dateCreated).toBe("2024-01-01T00:00:00.000Z");
+    expect(api.dateUpdated).toBe("2024-01-02T00:00:00.000Z");
+  });
+
+  it("serializes missing experiment dates instead of throwing", async () => {
+    const experiment = {
+      ...experimentWithPhaseDate(new Date("2024-03-01T00:00:00.000Z")),
+      dateCreated: null,
+      dateUpdated: null,
+    } as unknown as ExperimentInterface;
+    const api = await toExperimentApiInterface(context, experiment);
+    expect(api.dateCreated).toBe("");
+    expect(api.dateUpdated).toBe("");
   });
 });
