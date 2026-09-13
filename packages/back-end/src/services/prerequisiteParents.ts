@@ -116,9 +116,10 @@ export async function assertValidPrerequisiteParents(
   }
 }
 
-// Experiment writes: the phase's prerequisites as they will be stored versus
-// as they are stored now. Experiments are leaves of the prerequisite graph, so
-// there is no cycle to walk.
+// Experiment writes: the prerequisites as they will be stored versus as they
+// are stored now — a single phase's, or every phase's when the whole array is
+// replaced. Experiments are leaves of the prerequisite graph, so there is no
+// cycle to walk.
 export async function assertValidExperimentPrerequisites(
   context: Context,
   inbound: FeaturePrerequisite[] | undefined,
@@ -129,4 +130,10 @@ export async function assertValidExperimentPrerequisites(
     (id) => !prior.has(id),
   );
   if (added.length) await loadValidParents(context, added);
+}
+
+export function phasePrerequisites(
+  phases: { prerequisites?: FeaturePrerequisite[] }[] | undefined,
+): FeaturePrerequisite[] {
+  return (phases ?? []).flatMap((p) => p.prerequisites ?? []);
 }

@@ -28,7 +28,10 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
+import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -337,7 +340,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     await assertValidExperimentPrerequisites(
       req.context,
-      newExperiment.phases[newExperiment.phases.length - 1]?.prerequisites,
+      phasePrerequisites(newExperiment.phases),
     );
 
     const experiment = await createExperiment({

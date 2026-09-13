@@ -166,7 +166,10 @@ import {
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
-import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
+import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
 import {
   ExperimentLinkedFeatureValueUpdate,
   updateExperimentRefVariations,
@@ -1420,7 +1423,7 @@ export async function postExperiments(
 
     await assertValidExperimentPrerequisites(
       context,
-      obj.phases[obj.phases.length - 1]?.prerequisites,
+      phasePrerequisites(obj.phases),
     );
 
     const experiment = await createExperiment({

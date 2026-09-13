@@ -47,6 +47,8 @@ jest.mock("../../src/models/DataSourceModel", () => ({
 
 jest.mock("../../src/services/prerequisiteParents", () => ({
   assertValidExperimentPrerequisites: jest.fn(),
+  phasePrerequisites: (phases: { prerequisites?: unknown[] }[] = []) =>
+    phases.flatMap((p) => p.prerequisites ?? []),
 }));
 
 describe("experiments API", () => {
