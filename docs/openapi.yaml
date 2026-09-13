@@ -35087,6 +35087,11 @@ paths:
         terminal schedule first.
 
 
+        On a schedule attached to a rule this skips the revision review flow, so
+        when the organization requires review anywhere it is limited to
+        credentials that may bypass approval.
+
+
         **Step actions** (coverage/targeting patches) are not accepted here —
         they change the SDK payload and must go through a feature revision
         draft. Existing step actions are preserved for each position. Use `PUT
