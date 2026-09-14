@@ -913,10 +913,8 @@ paths:
                     type: string
                 environments:
                   description: >-
-                    Per-environment settings, keyed by environment ID. On
-                    create, environments not listed take the organization's
-                    default state for that environment; on update, they keep
-                    their current settings.
+                    Per-environment settings, keyed by environment ID. Unlisted
+                    environments take the organization's default state.
                   type: object
                   propertyNames:
                     type: string
@@ -2451,6 +2449,9 @@ paths:
                   items:
                     type: string
                 environments:
+                  description: >-
+                    Per-environment settings, keyed by environment ID. Unlisted
+                    environments are unchanged.
                   type: object
                   propertyNames:
                     type: string
@@ -8151,10 +8152,9 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Supplying this list scopes the rule to those
-                              environments; an empty list, or allEnvironments
-                              false with no list, scopes it to no environment.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; an empty list scopes the
+                              rule to no environment.
                             type: array
                             items:
                               type: string
@@ -8316,10 +8316,9 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Supplying this list scopes the rule to those
-                              environments; an empty list, or allEnvironments
-                              false with no list, scopes it to no environment.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; an empty list scopes the
+                              rule to no environment.
                             type: array
                             items:
                               type: string
@@ -8482,10 +8481,9 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Supplying this list scopes the rule to those
-                              environments; an empty list, or allEnvironments
-                              false with no list, scopes it to no environment.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; an empty list scopes the
+                              rule to no environment.
                             type: array
                             items:
                               type: string
@@ -8641,10 +8639,9 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Supplying this list scopes the rule to those
-                              environments; an empty list, or allEnvironments
-                              false with no list, scopes it to no environment.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; an empty list scopes the
+                              rule to no environment.
                             type: array
                             items:
                               type: string
@@ -9003,10 +9000,9 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Supplying this list scopes the rule to those
-                              environments; an empty list, or allEnvironments
-                              false with no list, scopes it to no environment.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; an empty list scopes the
+                              rule to no environment.
                             type: array
                             items:
                               type: string
@@ -9168,10 +9164,9 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Supplying this list scopes the rule to those
-                              environments; an empty list, or allEnvironments
-                              false with no list, scopes it to no environment.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; an empty list scopes the
+                              rule to no environment.
                             type: array
                             items:
                               type: string
@@ -9334,10 +9329,9 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Supplying this list scopes the rule to those
-                              environments; an empty list, or allEnvironments
-                              false with no list, scopes it to no environment.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; an empty list scopes the
+                              rule to no environment.
                             type: array
                             items:
                               type: string
@@ -9493,10 +9487,9 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Supplying this list scopes the rule to those
-                              environments; an empty list, or allEnvironments
-                              false with no list, scopes it to no environment.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; an empty list scopes the
+                              rule to no environment.
                             type: array
                             items:
                               type: string
@@ -11756,8 +11749,12 @@ paths:
                     variationValue:
                       type: string
                     allEnvironments:
+                      description: Omit both scope fields to keep the current scope.
                       type: boolean
                     environments:
+                      description: >-
+                        Environment IDs the rule applies to. Ignored when
+                        allEnvironments is true.
                       type: array
                       items:
                         type: string
@@ -59989,15 +59986,13 @@ components:
             additionalProperties: false
         allEnvironments:
           description: >-
-            When true the rule applies to all environments. A rule sent with
-            neither allEnvironments nor environments applies to all
-            environments; supplying environments alone scopes it to those.
+            When true the rule applies to all environments. Omit both scope
+            fields to apply to all environments.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Supplying this list
-            scopes the rule to those environments; ignored when allEnvironments
-            is true.
+            Environment IDs the rule applies to. Ignored when allEnvironments is
+            true.
           type: array
           items:
             type: string
@@ -60097,15 +60092,13 @@ components:
             additionalProperties: false
         allEnvironments:
           description: >-
-            When true the rule applies to all environments. A rule sent with
-            neither allEnvironments nor environments applies to all
-            environments; supplying environments alone scopes it to those.
+            When true the rule applies to all environments. Omit both scope
+            fields to apply to all environments.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Supplying this list
-            scopes the rule to those environments; ignored when allEnvironments
-            is true.
+            Environment IDs the rule applies to. Ignored when allEnvironments is
+            true.
           type: array
           items:
             type: string
@@ -60193,15 +60186,13 @@ components:
             additionalProperties: false
         allEnvironments:
           description: >-
-            When true the rule applies to all environments. A rule sent with
-            neither allEnvironments nor environments applies to all
-            environments; supplying environments alone scopes it to those.
+            When true the rule applies to all environments. Omit both scope
+            fields to apply to all environments.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Supplying this list
-            scopes the rule to those environments; ignored when allEnvironments
-            is true.
+            Environment IDs the rule applies to. Ignored when allEnvironments is
+            true.
           type: array
           items:
             type: string

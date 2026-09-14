@@ -1664,7 +1664,7 @@ const postFeatureBody = z
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
-        "Per-environment settings, keyed by environment ID. On create, environments not listed take the organization's default state for that environment; on update, they keep their current settings.",
+        "Per-environment settings, keyed by environment ID. Unlisted environments take the organization's default state.",
       )
       .optional(),
     prerequisites: z
@@ -1719,7 +1719,12 @@ const updateFeatureBody = z
         "List of associated tags. Will override tags completely with submitted list",
       )
       .optional(),
-    environments: z.record(z.string(), postFeatureEnvironment).optional(),
+    environments: z
+      .record(z.string(), postFeatureEnvironment)
+      .describe(
+        "Per-environment settings, keyed by environment ID. Unlisted environments are unchanged.",
+      )
+      .optional(),
     prerequisites: z
       .array(z.string())
       .describe("Feature IDs. Each feature must evaluate to `true`")

@@ -148,13 +148,13 @@ const ruleScopeInput = {
     .boolean()
     .optional()
     .describe(
-      "When true the rule applies to all environments. A rule sent with neither allEnvironments nor environments applies to all environments; supplying environments alone scopes it to those.",
+      "When true the rule applies to all environments. Omit both scope fields to apply to all environments.",
     ),
   environments: z
     .array(z.string())
     .optional()
     .describe(
-      "Specific environment IDs this rule applies to. Supplying this list scopes the rule to those environments; ignored when allEnvironments is true.",
+      "Environment IDs the rule applies to. Ignored when allEnvironments is true.",
     ),
 };
 
@@ -347,8 +347,16 @@ const rulePatchSchemaV2 = z
     controlValue: z.string().optional(),
     variationValue: z.string().optional(),
     // V2: scope can be updated via patch
-    allEnvironments: z.boolean().optional(),
-    environments: z.array(z.string()).optional(),
+    allEnvironments: z
+      .boolean()
+      .optional()
+      .describe("Omit both scope fields to keep the current scope."),
+    environments: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Environment IDs the rule applies to. Ignored when allEnvironments is true.",
+      ),
   })
   .strict();
 
