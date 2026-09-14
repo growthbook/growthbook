@@ -29,8 +29,6 @@ import {
 import {
   FilterDataForNotificationEvent,
   getFilterDataForNotificationEvent,
-  getExperimentUrlFormatted,
-  getExperimentUrlAndNameFormatted,
 } from "back-end/src/events/handlers/utils";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { getEvent } from "back-end/src/models/EventModel";
@@ -1379,7 +1377,13 @@ const buildSlackMessageForConfigRevisionEvent = (
 
 // region Event-specific messages -> Experiment
 
-export { getExperimentUrlFormatted, getExperimentUrlAndNameFormatted };
+export const getExperimentUrlFormatted = (experimentId: string): string =>
+  `\n• <${APP_ORIGIN}/experiment/${experimentId}|View Experiment>`;
+
+export const getExperimentUrlAndNameFormatted = (
+  experimentId: string,
+  experimentName: string,
+): string => `<${APP_ORIGIN}/experiment/${experimentId}|${experimentName}>`;
 
 const buildSlackMessageForExperimentCreatedEvent = async (
   { id: experimentId, name: experimentName }: { id: string; name: string },

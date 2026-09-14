@@ -3,11 +3,12 @@ import {
   NotificationCardFormat,
 } from "shared/validators";
 import {
-  CardData,
   renderDetailedCard,
   renderCompactCard,
   renderCompactDarkCard,
 } from "back-end/src/services/notificationCards/cardImages";
+
+import type { CardData } from "back-end/src/services/notificationCards/types";
 
 // A card style is one platform-neutral visual treatment for rendering
 // CardData into a PNG. The data model is intentionally style-agnostic — every

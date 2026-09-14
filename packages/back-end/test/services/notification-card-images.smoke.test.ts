@@ -1,9 +1,9 @@
 import { buildExperimentSrmCard } from "back-end/src/services/notificationCards/producers/experimentSrmCard";
-import {
-  type CardState,
-  type CompactEvent,
-  sampleCard,
-} from "back-end/src/services/notificationCards/cardImages";
+import type {
+  CardState,
+  CompactEvent,
+} from "back-end/src/services/notificationCards/types";
+import { sampleCard } from "back-end/src/services/notificationCards/cardImages";
 import { renderCard } from "back-end/src/services/notificationCards/cardStyles";
 import { notificationCardSamples } from "./notificationCard.fixtures";
 

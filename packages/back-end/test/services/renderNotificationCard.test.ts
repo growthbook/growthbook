@@ -34,9 +34,9 @@ describe("renderNotificationCard", () => {
     ).resolves.toEqual({
       png: Buffer.from("png"),
       altText: "Checkout - Health issue",
-      caption: expect.stringMatching(
-        /^<https?:\/\/[^|]+\/experiment\/exp-1\|Checkout> - Health issue$/,
-      ),
+      objectUrl: expect.stringMatching(/^https?:\/\/.+\/experiment\/exp-1$/),
+      objectName: "Checkout",
+      eventLabel: "Health issue",
     });
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({

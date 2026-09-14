@@ -3,7 +3,10 @@ import type { NotificationEventName } from "shared/types/events/base-types";
 import type { NotificationCardFormat } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import { renderCard } from "back-end/src/services/notificationCards/cardStyles";
-import type { NotificationCardProducer } from "back-end/src/services/notificationCards/types";
+import type {
+  NotificationCard,
+  NotificationCardProducer,
+} from "back-end/src/services/notificationCards/types";
 import { buildExperimentSrmCard } from "back-end/src/services/notificationCards/producers/experimentSrmCard";
 
 const PRODUCERS: Partial<
@@ -12,11 +15,9 @@ const PRODUCERS: Partial<
   "experiment.warning": buildExperimentSrmCard,
 };
 
-export interface RenderedNotificationCard {
+export type RenderedNotificationCard = Omit<NotificationCard, "data"> & {
   png: Buffer;
-  altText: string;
-  caption: string;
-}
+};
 
 export async function renderNotificationCard(
   event: NotificationEvent,
@@ -24,12 +25,12 @@ export async function renderNotificationCard(
 ): Promise<RenderedNotificationCard | null> {
   const card = PRODUCERS[event.event]?.(event);
   if (!card) return null;
+  const { data, ...metadata } = card;
 
   try {
     return {
-      png: await renderCard(card.data, format),
-      altText: card.altText,
-      caption: card.caption,
+      png: await renderCard(data, format),
+      ...metadata,
     };
   } catch (error) {
     logger.warn(error, `Notification card: failed to render ${event.event}`);

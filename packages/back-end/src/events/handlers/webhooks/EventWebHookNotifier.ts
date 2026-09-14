@@ -1,5 +1,4 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import { DEFAULT_NOTIFICATION_SETTINGS } from "shared/validators";
 import {
   EventWebHookInterface,
   EventWebHookMethod,
@@ -20,16 +19,11 @@ import {
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
-import {
-  isSlackWorkspacePlaceholderUrl,
-  postSlackMessageResult,
-  uploadSlackImageFile,
-} from "back-end/src/services/slack/slackWebApi";
-import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
+import { isSlackWorkspacePlaceholderUrl } from "back-end/src/services/slack/slackWebApi";
+import { deliverSlackNotification } from "back-end/src/services/slack/deliverSlackNotification";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
-import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -128,183 +122,87 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const payload = await (async () => {
-      let invalidPayloadType: never;
-
-      // There might be very old webhook definitions who don't have
-      // a payloadType at all. Assume "raw" in this case.
-      const payloadType = eventWebHook.payloadType || "raw";
-
-      switch (payloadType) {
-        case "json": {
-          if (!event.version) throw new Error("Internal error");
-          return event.data;
-        }
-
-        case "raw": {
-          const legacyPayload: LegacyNotificationEvent | undefined =
-            event.version
-              ? getLegacyMessageForNotificationEvent(event.data)
-              : event.data;
-          return legacyPayload;
-        }
-
-        case "slack": {
-          if (!event.version)
-            return getSlackMessageForLegacyNotificationEvent(
-              event.data,
-              eventId,
-            );
-          return getSlackMessageForNotificationEvent(event.data, eventId);
-        }
-
-        case "discord": {
-          const data = await (!event.version
-            ? getSlackMessageForLegacyNotificationEvent(event.data, eventId)
-            : getSlackMessageForNotificationEvent(event.data, eventId));
-
-          if (!data) return null;
-
-          return { content: data.text };
-        }
-
-        default:
-          invalidPayloadType = payloadType;
-          throw `Invalid payload type: ${invalidPayloadType}`;
+    const method = eventWebHook.method || "POST";
+    const context = getContextForAgendaJobByOrgObject(organization);
+    const delivery = await (async () => {
+      if (
+        (eventWebHook.payloadType || "raw") === "slack" &&
+        isSlackWorkspacePlaceholderUrl(eventWebHook.url)
+      ) {
+        return deliverSlackNotification({ context, event, eventWebHook });
       }
+
+      const payload = await (async () => {
+        let invalidPayloadType: never;
+
+        // There might be very old webhook definitions who don't have
+        // a payloadType at all. Assume "raw" in this case.
+        const payloadType = eventWebHook.payloadType || "raw";
+
+        switch (payloadType) {
+          case "json": {
+            if (!event.version) throw new Error("Internal error");
+            return event.data;
+          }
+
+          case "raw": {
+            const legacyPayload: LegacyNotificationEvent | undefined =
+              event.version
+                ? getLegacyMessageForNotificationEvent(event.data)
+                : event.data;
+            return legacyPayload;
+          }
+
+          case "slack": {
+            if (!event.version)
+              return getSlackMessageForLegacyNotificationEvent(
+                event.data,
+                eventId,
+              );
+            return getSlackMessageForNotificationEvent(event.data, eventId);
+          }
+
+          case "discord": {
+            const data = await (!event.version
+              ? getSlackMessageForLegacyNotificationEvent(event.data, eventId)
+              : getSlackMessageForNotificationEvent(event.data, eventId));
+
+            if (!data) return null;
+
+            return { content: data.text };
+          }
+
+          default:
+            invalidPayloadType = payloadType;
+            throw `Invalid payload type: ${invalidPayloadType}`;
+        }
+      })();
+      if (!payload) {
+        // Unsupported events return a null payload
+        return null;
+      }
+
+      const origin = new URL(eventWebHook.url).origin;
+
+      const applySecrets =
+        await context.models.webhookSecrets.getBackEndSecretsReplacer(origin);
+
+      const result = await EventWebHookNotifier.sendDataToWebHook({
+        payload,
+        eventWebHook,
+        method,
+        applySecrets,
+      });
+
+      return { result, payload };
     })();
-    if (!payload) {
-      // Unsupported events return a null payload
+
+    // If the delivery is null, we don't need to do anything
+    if (!delivery) {
       return;
     }
 
-    const method = eventWebHook.method || "POST";
-    const logPayload = payload as Record<string, unknown>;
-    const context = getContextForAgendaJobByOrgObject(organization);
-
-    if (
-      (eventWebHook.payloadType || "raw") === "slack" &&
-      isSlackWorkspacePlaceholderUrl(eventWebHook.url)
-    ) {
-      const teamId = eventWebHook.slack?.teamId;
-      const connection = teamId
-        ? await context.models.slackWorkspaceConnections.getByTeamId(teamId)
-        : null;
-      const botToken = connection
-        ? decryptSlackBotToken(connection.encryptedBotAccessToken)
-        : null;
-      const channelId = eventWebHook.slack?.channelId;
-
-      if (botToken && channelId) {
-        const notificationSettings =
-          eventWebHook.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
-        const card =
-          event.version && notificationSettings.type === "image"
-            ? await renderNotificationCard(
-                event.data,
-                notificationSettings.cardFormat,
-              )
-            : null;
-        if (card) {
-          const fileId = await uploadSlackImageFile({
-            token: botToken,
-            png: card.png,
-            filename: "notification-card.png",
-            title: card.altText,
-            channelId,
-            initialComment: card.caption,
-          });
-          if (fileId) {
-            return EventWebHookNotifier.handleWebHookSuccess({
-              job,
-              webHookResult: {
-                result: "success",
-                statusCode: 200,
-                responseBody: fileId,
-              },
-              organizationId: organization.id,
-              event: event.event,
-              url: eventWebHook.url,
-              method,
-              payload: logPayload,
-            });
-          }
-        }
-
-        // Text remains the compatibility fallback for events without cards and
-        // workspaces whose existing token does not yet include files:write.
-        const text =
-          typeof logPayload.text === "string" ? logPayload.text : null;
-        if (!text) return;
-        const blocks = Array.isArray(logPayload.blocks)
-          ? logPayload.blocks
-          : undefined;
-
-        const result = await postSlackMessageResult({
-          token: botToken,
-          channel: channelId,
-          text,
-          blocks,
-        });
-
-        if (result.ok) {
-          return EventWebHookNotifier.handleWebHookSuccess({
-            job,
-            webHookResult: {
-              result: "success",
-              statusCode: 200,
-              responseBody: result.ts || "ok",
-            },
-            organizationId: organization.id,
-            event: event.event,
-            url: eventWebHook.url,
-            method,
-            payload: logPayload,
-          });
-        }
-
-        return EventWebHookNotifier.handleWebHookError({
-          job,
-          webHookResult: {
-            result: "error",
-            statusCode: null,
-            error: `Slack delivery failed: ${result.error}`,
-          },
-          organizationId: organization.id,
-          event: event.event,
-          url: eventWebHook.url,
-          method,
-          payload: logPayload,
-        });
-      }
-
-      return EventWebHookNotifier.handleWebHookError({
-        job,
-        webHookResult: {
-          result: "error",
-          statusCode: null,
-          error:
-            "Slack delivery failed: no bot token or channel for this connection (reconnect the Slack workspace)",
-        },
-        organizationId: organization.id,
-        event: event.event,
-        url: eventWebHook.url,
-        method,
-        payload: logPayload,
-      });
-    }
-
-    const origin = new URL(eventWebHook.url).origin;
-
-    const applySecrets =
-      await context.models.webhookSecrets.getBackEndSecretsReplacer(origin);
-
-    const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
-      payload,
-      eventWebHook,
-      method,
-      applySecrets,
-    });
+    const { result: webHookResult, payload: logPayload } = delivery;
 
     switch (webHookResult.result) {
       case "success":

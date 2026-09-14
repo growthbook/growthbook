@@ -3,6 +3,17 @@ import path from "path";
 import satori from "satori";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import { logger } from "back-end/src/util/logger";
+import type {
+  CardState,
+  CardGoalRow,
+  CardCiMetric,
+  CardTable,
+  CardIdentity,
+  EventCardData,
+  ExperimentCardData,
+  CardData,
+  CompactEvent,
+} from "back-end/src/services/notificationCards/types";
 
 // Server-side notification-card rendering. The renderer is platform-neutral:
 // delivery adapters can send the resulting PNG to Slack, Teams, Discord, or
@@ -167,13 +178,6 @@ const TAG_COLORS: { bg: string; fg: string }[] = [
 ];
 
 type Hue = "violet" | "blue" | "green" | "red" | "amber" | "slate";
-export type CardState =
-  | "started"
-  | "running"
-  | "winner"
-  | "loser"
-  | "stopped"
-  | "warning";
 
 const HUE: Record<CardState, Hue> = {
   started: "violet",
@@ -207,98 +211,8 @@ const CI_DOMAIN: [number, number] = [-10, 10];
 const INTERVAL_W = 320;
 const INTERVAL_PAD_LEFT = 28;
 
-// ---------------------------------------------------------------------------
-// Data model (mirrors the prototype's EXPS shape).
-// ---------------------------------------------------------------------------
-
-export interface CardGoalRow {
-  v: string; // variation name
-  i: number; // variation index (number circle)
-  ctrl: string;
-  vr: string;
-  cn?: string;
-  vn?: string;
-  ctw?: string; // "99.1%"
-  chg?: string; // "+6.1%"
-  dir?: "up" | "down";
-  vio?: { c: number; s: number }; // violin center (lift %) + spread
-  ci?: { lo: number; hi: number; pt: number };
-  muted?: boolean;
-}
-
-export interface CardCiMetric {
-  name: string;
-  ctrl: string;
-  vr: string;
-  chg?: string;
-  dir?: "up" | "down";
-  ci: { lo: number; hi: number; pt: number };
-  sig?: boolean;
-}
-
-export interface CardTable {
-  columns: string[];
-  rows: string[][];
-  note?: string;
-}
-
-// Header/footer fields shared by every card.
-interface CardIdentity {
-  state: CardState;
-  // The notification *event* the card announces (distinct from `state`/status).
-  // When unset, the compact card derives it from state.
-  event?: CompactEvent;
-  name: string;
-  key: string;
-  tags?: string[];
-  dates?: string;
-  badgeLabel?: string; // overrides the state badge text, e.g. a stopped card with no outcome
-}
-
-// Built from an immutable event payload alone; carries no metric results.
-export interface EventCardData extends CardIdentity {
-  summary: string[];
-  table?: CardTable;
-}
-
-// Results card: adds snapshot-derived metric data. Not produced by any event
-// yet; kept for the upcoming stopped/won/lost cards.
-export interface ExperimentCardData extends CardIdentity {
-  goal: string;
-  variants: string[];
-  users?: string;
-  days?: string;
-  ds?: string;
-  note?: string;
-  rows: CardGoalRow[];
-  secondary?: CardCiMetric[];
-  guardrail?: CardCiMetric[];
-  // Shown above the conclusion for non-started states; and in the started body.
-  hypothesis?: string;
-  // Completed experiments (won / lost / stopped) with a written analysis.
-  conclusion?: { text: string };
-  // Orthogonal to state — an experiment can be Running or Won and still be
-  // flagged unhealthy. Renders a red banner under the header when unhealthy.
-  health?: { status: "healthy" | "unhealthy"; issues: [string, string][] };
-  // started-only
-  metrics?: { goal: string; secondary: string[]; guardrail: string[] };
-  // warning-only
-  srm?: string;
-  p?: string;
-  winningVariation?: string;
-  winningVariationIndex?: number;
-  compactLine?: string; // one-line conclusion fallback for outcome events
-}
-
-export type CardData = EventCardData | ExperimentCardData;
-
 const isResultsCard = (card: CardData): card is ExperimentCardData =>
   "rows" in card;
-
-// A compact notification announces an EVENT (distinct from the experiment's
-// status). started fires while Running; won/lost/stopped once
-// Stopped; warning is a health alert.
-export type CompactEvent = "started" | "won" | "lost" | "stopped" | "warning";
 
 // ---------------------------------------------------------------------------
 // Element helpers (Satori "without JSX" object form).
