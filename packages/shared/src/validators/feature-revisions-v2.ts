@@ -979,6 +979,18 @@ export const putFeatureRevisionMetadataV2Validator = {
       description: z.string().optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),
+      targetingAllProjects: z
+        .boolean()
+        .describe(
+          "Stage delivering this feature to every project. Requires the `targetFeatures` permission unscoped to any project.",
+        )
+        .optional(),
+      targetingProjects: z
+        .array(z.string())
+        .describe(
+          "Stage the secondary project IDs this feature is delivered to. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project.",
+        )
+        .optional(),
       tags: z.array(z.string()).optional(),
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),

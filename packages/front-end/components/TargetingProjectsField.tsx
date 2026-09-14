@@ -23,6 +23,10 @@ export type TargetingProjectsFieldProps = {
   setTargetingProjects: (value: string[]) => void;
   // Noun for the help tooltip (e.g. "feature", "config", "constant").
   entityLabel?: string;
+  // What counts as already targeted. Defaults to the values at mount; a create
+  // (or duplicate) form passes nothing-yet, since the server judges the whole
+  // set as an addition.
+  baseline?: { allProjects: boolean; targetingProjects: string[] };
 } & MarginProps;
 
 export default function TargetingProjectsField({
@@ -32,6 +36,7 @@ export default function TargetingProjectsField({
   targetingProjects,
   setTargetingProjects,
   entityLabel = "feature",
+  baseline: baselineProp,
   ...marginProps
 }: TargetingProjectsFieldProps) {
   const { projects } = useDefinitions();
@@ -42,10 +47,11 @@ export default function TargetingProjectsField({
   // What the editor opened with. Anything already targeted stays selectable
   // for the whole edit, so removing it can be undone without the permission
   // it would take to add it fresh.
-  const [baseline] = useState(() => ({
+  const [mountBaseline] = useState(() => ({
     allProjects,
     targetingProjects,
   }));
+  const baseline = baselineProp ?? mountBaseline;
 
   const canTarget = (projectId: string) =>
     baseline.targetingProjects.includes(projectId) ||

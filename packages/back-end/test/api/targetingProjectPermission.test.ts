@@ -58,6 +58,8 @@ const org = {
 const api = {
   post: (path: string, body: Record<string, unknown> = {}) =>
     request(app).post(path).send(body).set("Authorization", "Bearer x"),
+  put: (path: string, body: Record<string, unknown> = {}) =>
+    request(app).put(path).send(body).set("Authorization", "Bearer x"),
 };
 
 function as(userId: string) {
@@ -192,6 +194,42 @@ describe("all projects", () => {
       targetingAllProjects: true,
     });
     expect(res.status).toBe(status);
+  });
+});
+
+describe("landing a draft that stages a targeting project", () => {
+  it("takes the atom from whoever publishes, and echoes are free", async () => {
+    const id = await seedFeature();
+    as("u_b_editor_targets_a");
+    const staged = await api.put(
+      `/api/v2/features/${id}/revisions/new/metadata`,
+      { targetingProjects: [prjA] },
+    );
+    expect(staged.status).toBe(200);
+    const version = (staged.body as { revision: { version: number } }).revision
+      .version;
+
+    // A colleague without Target in A may keep working on the draft, echoing
+    // its staged targeting, but may not land it.
+    as("u_b_editor");
+    const echoed = await api.put(
+      `/api/v2/features/${id}/revisions/${version}/metadata`,
+      { targetingProjects: [prjA], description: "still staging A" },
+    );
+    expect(echoed.status).toBe(200);
+    const refused = await api.post(
+      `/api/v1/features/${id}/revisions/${version}/publish`,
+      {},
+    );
+    expect(refused.status).toBe(403);
+    expect((refused.body as { message: string }).message).toMatch(/target/i);
+
+    as("u_b_editor_targets_a");
+    const landed = await api.post(
+      `/api/v1/features/${id}/revisions/${version}/publish`,
+      {},
+    );
+    expect(landed.status).toBe(200);
   });
 });
 

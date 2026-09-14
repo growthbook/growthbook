@@ -47,6 +47,25 @@ async function assertReferencesExist(
   });
 }
 
+// Resolution is most-specific-wins with the first match, so two rules naming
+// the same project (or two organization-wide rules) would let order decide.
+function assertTargetingRulesDisjoint(rules: { projects: string[] }[]) {
+  const seen = new Set<string>();
+  rules.forEach((rule) => {
+    const keys = rule.projects.length ? rule.projects : [""];
+    keys.forEach((key) => {
+      if (seen.has(key)) {
+        throw new Error(
+          key
+            ? `Project ${key} appears in more than one targetingReviewMode rule.`
+            : "Only one organization-wide targetingReviewMode rule is allowed.",
+        );
+      }
+      seen.add(key);
+    });
+  });
+}
+
 export const putApprovalSettings = createApiRequestHandler(
   putApprovalSettingsValidator,
 )(async (req) => {
@@ -72,6 +91,7 @@ export const putApprovalSettings = createApiRequestHandler(
     ...(approvalFlows?.savedGroups ?? []),
     ...(targetingReviewMode ?? []),
   ]);
+  assertTargetingRulesDisjoint(targetingReviewMode ?? []);
 
   // An absent selector means the all-projects rule; storage spells that as [].
   const nextSettings = normalizeApprovalRuleSettings({

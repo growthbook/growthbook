@@ -1,4 +1,5 @@
 import type { OrganizationInterface } from "shared/types/organization";
+import { normalizeTargetingInUpdates } from "shared/util";
 import { putFeatureRevisionMetadataValidator } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
 import {
@@ -29,6 +30,8 @@ export type RevisionMetadataBody = {
   description?: string;
   owner?: unknown;
   project?: string;
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
   tags?: string[];
   neverStale?: boolean;
   customFields?: Record<string, unknown>;
@@ -82,11 +85,12 @@ export async function setRevisionMetadata(
     }
   }
 
-  assertTargetingDestination({
-    permissions: context.permissions,
-    existing: feature,
-    proposed: withStagedTargeting(feature, metadataFields),
-  });
+  if (metadataFields.targetingProjects?.length) {
+    await context.models.projects.ensureProjectIdsExist(
+      metadataFields.targetingProjects,
+    );
+  }
+  normalizeTargetingInUpdates(metadataFields, feature);
 
   if (metadataFields.customFields !== undefined) {
     await validateCustomFields(
@@ -110,6 +114,19 @@ export async function setRevisionMetadata(
         `Cannot edit a revision with status "${revision.status}"`,
       );
     }
+
+    // Judged against what the draft already stages, as the dashboard does, so
+    // echoing a colleague's staged targeting is not an addition; landing
+    // re-checks against live.
+    const stagedTargeting = withStagedTargeting(
+      feature,
+      created ? undefined : revision.metadata,
+    );
+    assertTargetingDestination({
+      permissions: context.permissions,
+      existing: stagedTargeting,
+      proposed: withStagedTargeting(stagedTargeting, metadataFields),
+    });
 
     const changes: RevisionChanges = {};
     if (comment !== undefined) changes.comment = comment;

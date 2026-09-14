@@ -4540,6 +4540,19 @@ paths:
                   type: string
                 project:
                   type: string
+                targetingAllProjects:
+                  description: >-
+                    Stage delivering this feature to every project. Requires the
+                    `targetFeatures` permission unscoped to any project.
+                  type: boolean
+                targetingProjects:
+                  description: >-
+                    Stage the secondary project IDs this feature is delivered
+                    to. Adding a project requires the `targetFeatures`
+                    permission (FlagsTarget policy) in that project.
+                  type: array
+                  items:
+                    type: string
                 tags:
                   type: array
                   items:
@@ -10468,6 +10481,19 @@ paths:
                   type: string
                 project:
                   type: string
+                targetingAllProjects:
+                  description: >-
+                    Stage delivering this feature to every project. Requires the
+                    `targetFeatures` permission unscoped to any project.
+                  type: boolean
+                targetingProjects:
+                  description: >-
+                    Stage the secondary project IDs this feature is delivered
+                    to. Adding a project requires the `targetFeatures`
+                    permission (FlagsTarget policy) in that project.
+                  type: array
+                  items:
+                    type: string
                 tags:
                   type: array
                   items:
