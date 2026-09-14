@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo } from "react";
 import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
@@ -22,9 +22,6 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   setBlock,
   dashboardGlobalControls,
   invalidateStaleResults = true,
-  saveAndCloseTrigger,
-  onSaveAndClose,
-  onPreSaveRunSettled,
   hideDataSourceSelector = false,
   sqlExploreConfigOnly = false,
   dashboardHeaderLeadingContent,
@@ -47,11 +44,6 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   invalidateStaleResults?: boolean;
-  saveAndCloseTrigger?: number;
-  onSaveAndClose?: () => void;
-  /** Fires when the pre-save run reaches any terminal state, so the caller can
-   *  stop showing Save & Close as busy whether or not the save follows. */
-  onPreSaveRunSettled?: () => void;
   hideDataSourceSelector?: boolean;
   sqlExploreConfigOnly?: boolean;
   dashboardHeaderLeadingContent?: ReactNode;
@@ -62,28 +54,11 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     draftExploreState,
     setDraftExploreState,
     handleSubmit,
-    loading,
-    error,
     comparisonMode,
     linkedFunnelMetricId,
   } = useExplorerContext();
-  const pendingCloseRef = useRef(false);
-  const onSaveAndCloseRef = useRef(onSaveAndClose);
-  onSaveAndCloseRef.current = onSaveAndClose;
-  const onPreSaveRunSettledRef = useRef(onPreSaveRunSettled);
-  onPreSaveRunSettledRef.current = onPreSaveRunSettled;
-  // Read through refs so a new trigger value is the only thing that starts a
-  // run — both change identity on every draft edit.
-  const handleSubmitRef = useRef(handleSubmit);
-  handleSubmitRef.current = handleSubmit;
-
   const explorerAnalysisId =
     "explorerAnalysisId" in block ? block.explorerAnalysisId : undefined;
-  const comparisonExplorerAnalysisId =
-    "comparisonExplorerAnalysisId" in block
-      ? block.comparisonExplorerAnalysisId
-      : undefined;
-  const compareEnabled = draftExploreState.previousTimeFrame != null;
   const dateControlledBlock = blockUsesDashboardDateControl(block)
     ? block
     : null;
@@ -112,8 +87,6 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       usesDashboardDateRange,
     ],
   );
-  const getEffectiveDraftConfigRef = useRef(getEffectiveDraftConfig);
-  getEffectiveDraftConfigRef.current = getEffectiveDraftConfig;
 
   const nextComparison = useMemo<BlockComparison | undefined>(() => {
     const previousTimeFrame = draftExploreState.previousTimeFrame;
@@ -187,59 +160,6 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     linkedMetricChanged,
     linkedFunnelMetricId,
   ]);
-
-  // When Save & Close is requested and the block is stale, run the analysis
-  // first. Keyed on the trigger value alone: the previous dependency list
-  // re-fired this forced run on every draft edit once the trigger had been
-  // bumped.
-  //
-  // handleSubmit reports whether a run actually started, which is the only
-  // thing that decides whether an analysis id is coming. Releasing here rather
-  // than inferring it from the context state keeps one owner for that call.
-  useEffect(() => {
-    if (!saveAndCloseTrigger) return;
-    pendingCloseRef.current = true;
-    void handleSubmitRef
-      .current({
-        force: true,
-        config: getEffectiveDraftConfigRef.current(),
-      })
-      // A rejection is one more way no analysis id is coming.
-      .catch(() => false)
-      .then((started) => {
-        if (started || !pendingCloseRef.current) return;
-        pendingCloseRef.current = false;
-        onPreSaveRunSettledRef.current?.();
-      });
-  }, [saveAndCloseTrigger]);
-
-  // Once onRunComplete writes the required analysis ids, complete the save.
-  useEffect(() => {
-    if (
-      pendingCloseRef.current &&
-      explorerAnalysisId &&
-      (!compareEnabled ||
-        comparisonExplorerAnalysisId ||
-        (!loading && !needsFetch))
-    ) {
-      pendingCloseRef.current = false;
-      onPreSaveRunSettledRef.current?.();
-      onSaveAndCloseRef.current?.();
-    }
-  }, [
-    compareEnabled,
-    comparisonExplorerAnalysisId,
-    explorerAnalysisId,
-    loading,
-    needsFetch,
-  ]);
-
-  // A run that started and then failed never reaches onRunComplete either.
-  useEffect(() => {
-    if (!pendingCloseRef.current || loading || !error) return;
-    pendingCloseRef.current = false;
-    onPreSaveRunSettledRef.current?.();
-  }, [error, loading]);
 
   return (
     <>

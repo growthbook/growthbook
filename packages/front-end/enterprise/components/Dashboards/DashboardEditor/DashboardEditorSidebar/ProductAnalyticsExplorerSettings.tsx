@@ -50,9 +50,6 @@ interface Props {
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
-  saveAndCloseTrigger?: number;
-  onSaveAndClose?: () => void;
-  onPreSaveRunSettled?: () => void;
   hideDataSourceSelector?: boolean;
   sqlExploreConfigOnly?: boolean;
   dashboardHeaderLeadingContent?: ReactNode;
@@ -62,9 +59,6 @@ export default function ProductAnalyticsExplorerSettings({
   block,
   setBlock,
   dashboardGlobalControls,
-  saveAndCloseTrigger,
-  onSaveAndClose,
-  onPreSaveRunSettled,
   hideDataSourceSelector,
   sqlExploreConfigOnly,
   dashboardHeaderLeadingContent,
@@ -228,9 +222,6 @@ export default function ProductAnalyticsExplorerSettings({
         setBlock={setBlock}
         dashboardGlobalControls={dashboardGlobalControls}
         invalidateStaleResults={!hasStaleDashboardDateResults}
-        saveAndCloseTrigger={saveAndCloseTrigger}
-        onSaveAndClose={onSaveAndClose}
-        onPreSaveRunSettled={onPreSaveRunSettled}
         hideDataSourceSelector={hideDataSourceSelector}
         sqlExploreConfigOnly={sqlExploreConfigOnly}
         dashboardHeaderLeadingContent={dashboardHeaderLeadingContent}

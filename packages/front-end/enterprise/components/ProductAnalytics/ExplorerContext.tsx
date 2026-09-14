@@ -101,13 +101,11 @@ export interface ExplorerContextValue {
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
-  /** Resolves false when no run was started (nothing submittable, managed
-   *  warehouse unavailable, or a cache-only lookup missed). */
   handleSubmit: (options?: {
     force?: boolean;
     config?: ExplorerDraftConfig;
     setDraft?: boolean;
-  }) => Promise<boolean>;
+  }) => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
   /** Seeds the raw table on first Explore entry; leaves a configured draft alone. */
   ensureDefaultSqlExploreConfig: () => void;
@@ -442,13 +440,8 @@ export function ExplorerProvider({
     );
   }, [cleanedDraftExploreState, draftExploreState, getFactTableById]);
 
-  /** Resolves false when no run was started, so a caller waiting on the result
-   *  can stop instead of re-deriving the preconditions below. */
   const doSubmit = useCallback(
-    async (options?: {
-      cache?: CacheOption;
-      config?: ExplorerDraftConfig;
-    }): Promise<boolean> => {
+    async (options?: { cache?: CacheOption; config?: ExplorerDraftConfig }) => {
       const sourceConfig = options?.config ?? draftExploreState;
       const configToSubmit = cleanConfigForSubmission(sourceConfig);
       const previousForRequest = isTimelessSqlExploration(sourceConfig)
@@ -458,10 +451,10 @@ export function ExplorerProvider({
         ? (sourceConfig.comparisonMode ??
           resolveLegacyExplorerComparisonMode(sourceConfig.dateRange))
         : null;
-      if (!isSubmittableConfig(configToSubmit)) return false;
+      if (!isSubmittableConfig(configToSubmit)) return;
 
       if (managedWarehouseUnavailable) {
-        return false;
+        return;
       }
 
       // When comparison is first enabled — or switched to a mode whose window
@@ -522,14 +515,13 @@ export function ExplorerProvider({
           : {}),
       });
 
-      // Ignore out-of-order responses from older in-flight requests. A newer
-      // one is in flight, so from the caller's side a run is still happening.
-      if (requestId !== submitRequestIdRef.current) return true;
+      // Ignore out-of-order responses from older in-flight requests.
+      if (requestId !== submitRequestIdRef.current) return;
 
       // Cache miss when cache=required
       if (cache === "required" && fetchResult === null && !fetchError) {
         setIsStale(true);
-        return false;
+        return;
       }
 
       const submittedConfig: ExplorerDraftConfig =
@@ -741,11 +733,10 @@ export function ExplorerProvider({
           );
         };
         pollTimerRef.current = setTimeout(poll, explorationPollDelayMs(0));
-        return true;
+        return;
       }
 
       finalize(fetchResult, query, fetchError);
-      return true;
     },
     [
       draftExploreState,
@@ -779,15 +770,17 @@ export function ExplorerProvider({
       force?: boolean;
       config?: ExplorerDraftConfig;
       setDraft?: boolean;
-    }): Promise<boolean> => {
+    }) => {
       if (submitOptions?.setDraft && submitOptions.config) {
         skipNextAutoSubmitRef.current = true;
         setDraftExploreState(submitOptions.config);
       }
 
-      return submitOptions?.force
-        ? doSubmit({ cache: "never", config: submitOptions?.config })
-        : doSubmit({ cache: "preferred", config: submitOptions?.config });
+      if (submitOptions?.force) {
+        await doSubmit({ cache: "never", config: submitOptions?.config });
+      } else {
+        await doSubmit({ cache: "preferred", config: submitOptions?.config });
+      }
     },
     [doSubmit, setDraftExploreState],
   );
