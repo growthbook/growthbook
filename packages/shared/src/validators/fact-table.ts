@@ -38,6 +38,7 @@ export const numberFormatValidator = z.enum([
   "",
   "currency",
   "time:seconds",
+  "time:milliseconds",
   "memory:bytes",
   "memory:kilobytes",
 ]);
@@ -529,6 +530,12 @@ export const testFactFilterPropsValidator = z
   })
   .strict();
 
+export const testRowFiltersPropsValidator = z
+  .object({
+    rowFilters: z.array(rowFilterValidator),
+  })
+  .strict();
+
 // ---- API Validators (migrated from openapi.ts) ----
 
 // Corresponds to schemas/FactTableColumn.yaml
@@ -551,6 +558,7 @@ export const apiFactTableColumnValidator = namedSchema(
           "",
           "currency",
           "time:seconds",
+          "time:milliseconds",
           "memory:bytes",
           "memory:kilobytes",
         ])

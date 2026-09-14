@@ -8,6 +8,7 @@ import { z } from "zod";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import {
+  DEFAULT_NOTIFICATION_SETTINGS,
   SlackWorkspaceConnectionFrontEndInterface,
   SlackWorkspaceConnectionInterface,
 } from "shared/validators";
@@ -45,7 +46,8 @@ import {
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
-const SLACK_OAUTH_SCOPE = "chat:write,channels:read,groups:read,channels:join";
+const SLACK_OAUTH_SCOPE =
+  "chat:write,files:write,channels:read,groups:read,channels:join,assistant:write,im:history,app_mentions:read,commands,links:read,links:write";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 const DEFAULT_SLACK_EVENTS = ["experiment.*", "feature.*"];
 
@@ -397,6 +399,7 @@ export const slackEventWebhookToIntegration = (
   tags: eventWebHook.tags,
   lastRunAt: eventWebHook.lastRunAt,
   lastState: eventWebHook.lastState,
+  notificationSettings: eventWebHook.notificationSettings,
   slack: eventWebHook.slack,
 });
 
@@ -490,7 +493,12 @@ export const updateSlackOAuthIntegration = async ({
   id: string;
   updates: Pick<
     EventWebHookInterface,
-    "enabled" | "events" | "projects" | "environments" | "tags"
+    | "enabled"
+    | "events"
+    | "projects"
+    | "environments"
+    | "tags"
+    | "notificationSettings"
   >;
 }): Promise<SlackOAuthIntegrationInterface | null> => {
   const eventWebHook = await getEventWebHookById(id, context.org.id);
@@ -602,6 +610,7 @@ const attachSlackOAuthCode = async ({
       method: "POST",
       headers: {},
       slack: getSlackMetadata(slackOAuthResponse),
+      notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
     });
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
@@ -879,6 +888,7 @@ export const addSlackChannelToWorkspace = async ({
         channelId: channel.id,
         channelName: channel.name,
       },
+      notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
     });
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;

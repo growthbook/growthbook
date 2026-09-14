@@ -21,6 +21,7 @@ import {
   planFeatureRevisionMerge,
 } from "back-end/src/services/featurePublishGates";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import {
   BadRequestError,
   ConflictError,
@@ -240,6 +241,13 @@ export async function publishFeatureRevision(
     !feature.archived
   ) {
     await assertFeatureArchiveDependentsGuard(req.context, feature);
+  }
+  if (!inlineValidationGates) {
+    await assertFeatureMoveDependentsGuard(
+      req.context,
+      feature,
+      mergeChanges.metadata,
+    );
   }
 
   const updatedFeature = await publishRevision({

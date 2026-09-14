@@ -11,12 +11,18 @@ jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   createAgentHandler: () => async () => undefined,
 }));
 
+jest.mock("back-end/src/enterprise/services/ai", () => ({
+  aiTool: (definition: unknown) => definition,
+}));
+
 import type { AIChatMessage } from "shared/ai-chat";
 import {
   _buildGeneralAgentSystemPrompt,
   _coerceBody,
-  _offScreenDashboardUpdate,
+  _offScreenDashboardWrite,
   _requiresMutationConfirmation,
+  _stripConfirmFromSqlBody,
+  _shapeCallApiResult,
 } from "back-end/src/agent/general-agent";
 
 describe("general agent system prompt", () => {
@@ -26,9 +32,10 @@ describe("general agent system prompt", () => {
     expect(prompt).toContain(
       "translate every `gb-call METHOD PATH [body]` example into",
     );
-    expect(prompt).toContain("Never run shell commands");
+    expect(prompt).toContain("every polling `sleep` into a `wait` call");
+    expect(prompt).toContain("run shell commands");
     expect(prompt).toMatch(
-      /Ignore API-key, host,\s+`gb-setup`, and credential instructions/,
+      /Ignore API-key, host,.*`gb-setup`, and credential\s+instructions/s,
     );
   });
 });
@@ -195,6 +202,130 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
       }),
     ).toBe(false);
   });
+
+  it("allows SQL query endpoints without mutation confirmation", () => {
+    const sqlPaths = [
+      "/api/v1/data-sources/ds_123/sql/run-query",
+      "/api/v1/data-sources/ds_123/sql/preview-values",
+      "/api/v1/data-sources/ds_123/sql/search-tables",
+      "/api/v1/data-sources/ds_123/sql/table-schema",
+    ];
+    for (const path of sqlPaths) {
+      expect(_requiresMutationConfirmation({ method: "POST", path })).toBe(
+        false,
+      );
+    }
+  });
+});
+
+describe("stripConfirmFromSqlBody (cost confirmation bypass prevention)", () => {
+  it("strips confirm from SQL run-query bodies", () => {
+    const result = _stripConfirmFromSqlBody(
+      "/api/v1/data-sources/ds_123/sql/run-query",
+      { sql: "SELECT 1", purpose: "test", confirm: true },
+    );
+    expect(result).toEqual({ sql: "SELECT 1", purpose: "test" });
+    expect(result).not.toHaveProperty("confirm");
+  });
+
+  it("strips confirm from other SQL endpoint bodies", () => {
+    const result = _stripConfirmFromSqlBody(
+      "/api/v1/data-sources/ds_123/sql/preview-values",
+      { table: "t", columns: ["c"], confirm: true },
+    );
+    expect(result).not.toHaveProperty("confirm");
+  });
+
+  it("does not strip confirm from non-SQL paths", () => {
+    const body = { name: "test", confirm: true };
+    expect(_stripConfirmFromSqlBody("/api/v1/features", body)).toBe(body);
+  });
+
+  it("passes through non-object bodies unchanged", () => {
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        "string body",
+      ),
+    ).toBe("string body");
+  });
+
+  it("returns null/undefined unchanged", () => {
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        null,
+      ),
+    ).toBeNull();
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        undefined,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("passes through bodies without confirm unchanged", () => {
+    const body = { sql: "SELECT 1", purpose: "test" };
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        body,
+      ),
+    ).toBe(body);
+  });
+});
+
+describe("callApi Product Analytics result shaping", () => {
+  it("retains complete exploration rows", () => {
+    const result = {
+      status: 200,
+      body: {
+        exploration: {
+          id: "ae_1",
+          status: "success",
+          result: {
+            rows: [
+              {
+                dimensions: ["2026-09-01"],
+                values: [
+                  { metricId: "fact__1", numerator: 42, denominator: 7 },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    expect(_shapeCallApiResult(result)).toBe(result);
+  });
+
+  it("replaces an oversized result with a retryable message", () => {
+    const result = {
+      status: 200,
+      body: {
+        exploration: {
+          id: "ae_1",
+          status: "success",
+          config: { type: "metric" },
+          result: {
+            rows: Array.from({ length: 100 }, () => ({
+              payload: "x".repeat(1_000),
+            })),
+          },
+        },
+      },
+    };
+
+    expect(_shapeCallApiResult(result)).toEqual({
+      status: 200,
+      body: {
+        truncated: true,
+        message: expect.stringContaining("reducing the request scope"),
+      },
+    });
+  });
 });
 
 describe("offScreenDashboardUpdate (the dashboard on screen is the only one)", () => {
@@ -215,7 +346,7 @@ describe("offScreenDashboardUpdate (the dashboard on screen is the only one)", (
 
   it("allows an update to the dashboard the user is viewing", () => {
     expect(
-      _offScreenDashboardUpdate(put("/api/v1/dashboards/dash_abc"), viewing),
+      _offScreenDashboardWrite(put("/api/v1/dashboards/dash_abc"), viewing),
     ).toBeUndefined();
   });
 
@@ -226,12 +357,12 @@ describe("offScreenDashboardUpdate (the dashboard on screen is the only one)", (
       "/api/v1/dashboards/dash_abc?foo=1",
       "/api/v1/dashboards/dash_abc/",
     ]) {
-      expect(_offScreenDashboardUpdate(put(path), viewing)).toBeUndefined();
+      expect(_offScreenDashboardWrite(put(path), viewing)).toBeUndefined();
     }
   });
 
   it("rejects an update to any other dashboard, and names both", () => {
-    const rejection = _offScreenDashboardUpdate(
+    const rejection = _offScreenDashboardWrite(
       put("/api/v1/dashboards/dash_other"),
       viewing,
     );
@@ -250,7 +381,7 @@ describe("offScreenDashboardUpdate (the dashboard on screen is the only one)", (
       undefined,
     ]) {
       expect(
-        _offScreenDashboardUpdate(
+        _offScreenDashboardWrite(
           put("/api/v1/dashboards/dash_abc"),
           onPage(page),
         ),
@@ -271,28 +402,45 @@ describe("offScreenDashboardUpdate (the dashboard on screen is the only one)", (
     ];
 
     expect(
-      _offScreenDashboardUpdate(put("/api/v1/dashboards/dash_new"), navigated),
+      _offScreenDashboardWrite(put("/api/v1/dashboards/dash_new"), navigated),
     ).toBeUndefined();
     expect(
-      _offScreenDashboardUpdate(put("/api/v1/dashboards/dash_old"), navigated),
+      _offScreenDashboardWrite(put("/api/v1/dashboards/dash_old"), navigated),
+    ).toMatchObject({ status: "rejected" });
+  });
+
+  it("guards a delete too, not just an update", () => {
+    const del = (path: string) => ({ method: "DELETE" as const, path });
+
+    expect(
+      _offScreenDashboardWrite(del("/api/v1/dashboards/dash_abc"), viewing),
+    ).toBeUndefined();
+    expect(
+      _offScreenDashboardWrite(del("/api/v1/dashboards/dash_other"), viewing),
+    ).toMatchObject({ status: "rejected" });
+    expect(
+      _offScreenDashboardWrite(
+        del("/api/v1/dashboards/dash_abc"),
+        onPage("/product-analytics/dashboards"),
+      ),
     ).toMatchObject({ status: "rejected" });
   });
 
   it("leaves creates, reads, and other resources alone", () => {
     expect(
-      _offScreenDashboardUpdate(
+      _offScreenDashboardWrite(
         { method: "POST", path: "/api/v1/dashboards" },
         onPage("/features/dark-mode"),
       ),
     ).toBeUndefined();
     expect(
-      _offScreenDashboardUpdate(
+      _offScreenDashboardWrite(
         { method: "GET", path: "/api/v1/dashboards/dash_other" },
         viewing,
       ),
     ).toBeUndefined();
     expect(
-      _offScreenDashboardUpdate(
+      _offScreenDashboardWrite(
         put("/api/v1/experiments/exp_1"),
         onPage("/features/dark-mode"),
       ),

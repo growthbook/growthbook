@@ -219,7 +219,6 @@ export function CreateSDKWebhookModal({
         />
       )}
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         header="Create New SDK Webhook"
@@ -616,7 +615,6 @@ const EditSDKWebhooksModal: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header={current.id ? "Update Webhook" : "Create New Webhook"}
