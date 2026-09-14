@@ -481,19 +481,25 @@ export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 // real-time on the live ramp schedule.
 // API variant: targetType/targetId are inferred from the top-level ruleId
 // at publish time.
-const revisionApiRampStepAction = z.object({
-  targetType: z.literal("feature-rule").optional(),
-  targetId: z.string().optional(),
-  patch: featureRulePatch.partial({ ruleId: true }),
-});
+// Strict: a rule field placed on the step or action instead of inside `patch`
+// would otherwise be dropped and the step stored with nothing to apply.
+const revisionApiRampStepAction = z
+  .object({
+    targetType: z.literal("feature-rule").optional(),
+    targetId: z.string().optional(),
+    patch: featureRulePatch.partial({ ruleId: true }).strict(),
+  })
+  .strict();
 
-const revisionApiRampStep = z.object({
-  interval: z.number().positive().nullable(),
-  actions: z.array(revisionApiRampStepAction).optional(),
-  approvalNotes: z.string().nullish(),
-  monitored: z.boolean().optional(),
-  holdConditions: stepHoldConditions.optional(),
-});
+const revisionApiRampStep = z
+  .object({
+    interval: z.number().positive().nullable(),
+    actions: z.array(revisionApiRampStepAction).optional(),
+    approvalNotes: z.string().nullish(),
+    monitored: z.boolean().optional(),
+    holdConditions: stepHoldConditions.strict().optional(),
+  })
+  .strict();
 
 // Stored type — requires targetType/targetId in actions.
 export const revisionRampCreateAction = z.object({
@@ -1664,7 +1670,7 @@ const postFeatureBody = z
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
-        "A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.",
+        'Settings for each environment, keyed by environment ID. Any environment you leave out is enabled or disabled per that environment\'s "Default state for new features" setting.',
       )
       .optional(),
     prerequisites: z
@@ -1719,7 +1725,12 @@ const updateFeatureBody = z
         "List of associated tags. Will override tags completely with submitted list",
       )
       .optional(),
-    environments: z.record(z.string(), postFeatureEnvironment).optional(),
+    environments: z
+      .record(z.string(), postFeatureEnvironment)
+      .describe(
+        "Settings for each environment, keyed by environment ID. Any environment you leave out keeps its current settings.",
+      )
+      .optional(),
     prerequisites: z
       .array(z.string())
       .describe("Feature IDs. Each feature must evaluate to `true`")

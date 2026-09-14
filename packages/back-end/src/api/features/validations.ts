@@ -16,7 +16,7 @@ import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { getFeature } from "back-end/src/models/FeatureModel";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import {
   createRevision,
   discardRevision,
@@ -215,17 +215,14 @@ export const validateCustomFields = async (
 
 type SavedGroupMap = Awaited<ReturnType<typeof getSavedGroupMap>>;
 
-// Verify saved-group and prerequisite references in a rule exist. Call on
-// the final rule — saved groups are loaded once.
+// Verify the saved-group references in a rule exist. Call on the final rule —
+// saved groups are loaded once. Prerequisite parents are checked separately
+// by assertValidPrerequisiteParents.
 export async function validateRuleReferences(
-  rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
+  rule: Pick<FeatureRule, "condition" | "savedGroups">,
   context: ApiReqContext,
 ): Promise<void> {
-  return validateRuleReferencesWithGroups(
-    rule,
-    await getSavedGroupMap(context),
-    context,
-  );
+  validateRuleReferencesWithGroups(rule, await getSavedGroupMap(context));
 }
 
 // Bulk form for endpoints that take a whole rules array (feature create /
@@ -238,7 +235,7 @@ export async function validateRulesReferences(
   const groupMap = await getSavedGroupMap(context);
   for (const rule of rules) {
     validatePrerequisiteConditions(rule.prerequisites ?? []);
-    await validateRuleReferencesWithGroups(rule, groupMap, context);
+    validateRuleReferencesWithGroups(rule, groupMap);
   }
 }
 
@@ -275,11 +272,10 @@ export async function validateChangedRuleReferences(
   );
 }
 
-async function validateRuleReferencesWithGroups(
-  rule: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">,
+function validateRuleReferencesWithGroups(
+  rule: Pick<FeatureRule, "condition" | "savedGroups">,
   groupMap: SavedGroupMap,
-  context: ApiReqContext,
-): Promise<void> {
+): void {
   const savedGroupIds = new Set(groupMap.keys());
   for (const sg of rule.savedGroups ?? []) {
     for (const id of sg.ids) {
@@ -301,16 +297,10 @@ async function validateRuleReferencesWithGroups(
     if (inGroupError)
       throw new BadRequestError(`Invalid rule condition: ${inGroupError}`);
   }
-
-  for (const prereq of rule.prerequisites ?? []) {
-    const prereqFeature = await getFeature(context, prereq.id);
-    if (!prereqFeature) {
-      throw new NotFoundError(`Prerequisite feature "${prereq.id}" not found`);
-    }
-  }
 }
 
-// Reference checks for a feature-level prerequisites list.
+// Saved-group references inside a feature-level prerequisites list; the
+// parents themselves are checked by assertValidPrerequisiteParents.
 export async function validatePrerequisiteReferences(
   prerequisites: FeaturePrerequisite[],
   context: ApiReqContext,
@@ -330,11 +320,23 @@ export async function validatePrerequisiteReferences(
         );
       }
     }
-    const prereqFeature = await getFeature(context, prereq.id);
-    if (!prereqFeature) {
-      throw new NotFoundError(`Prerequisite feature "${prereq.id}" not found`);
-    }
   }
+}
+
+// Per-rule endpoints: the revision's rules before and after the change, with
+// the revision's own prerequisites list when it has one.
+export async function assertValidRevisionRulePrerequisites(
+  context: ApiReqContext,
+  feature: FeatureInterface,
+  revision: Pick<FeatureRevisionInterface, "prerequisites">,
+  rules: { before: FeatureRule[]; after: FeatureRule[] },
+): Promise<void> {
+  const prerequisites = revision.prerequisites ?? feature.prerequisites;
+  await assertValidPrerequisiteParents(
+    context,
+    { ...feature, rules: rules.after, prerequisites },
+    { rules: rules.before, prerequisites },
+  );
 }
 
 // Returns an error string if any $inGroup/$notInGroup refs an unknown group.

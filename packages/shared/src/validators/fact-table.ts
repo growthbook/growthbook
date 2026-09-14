@@ -532,6 +532,12 @@ export const testFactFilterPropsValidator = z
   })
   .strict();
 
+export const testRowFiltersPropsValidator = z
+  .object({
+    rowFilters: z.array(rowFilterValidator),
+  })
+  .strict();
+
 // ---- API Validators (migrated from openapi.ts) ----
 
 // Corresponds to schemas/FactTableColumn.yaml

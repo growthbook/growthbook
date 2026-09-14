@@ -46,11 +46,13 @@ import {
   assertValidRuleEnvironments,
   resolveOrCreateRevision,
   validateRuleAttributes,
+  assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
 import {
+  assertRuleVariationsMatchExperiment,
   assertNoRawConfigExtends,
   assertValidRuleConfigKeys,
   composeConfigBacking,
@@ -154,6 +156,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           value: v.value,
         }));
       }
+      assertRuleVariationsMatchExperiment(ruleInput, experiment);
 
       // Legacy revisions store holdout sparsely, so absence carries the
       // feature's holdout forward. Linking writes are deferred until after
@@ -321,6 +324,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     const newRules: FeatureRule[] = [...baseRules, stampedRule];
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: baseRules,
+      after: newRules,
+    });
 
     if (resolvedRampAction) {
       const existing = revision.rampActions ?? [];

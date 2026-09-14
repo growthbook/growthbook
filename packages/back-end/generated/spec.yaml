@@ -913,10 +913,9 @@ paths:
                     type: string
                 environments:
                   description: >-
-                    A dictionary of environments that are enabled for this
-                    feature. Keys supply the names of environments. Environments
-                    belong to organization and are not specified will be
-                    disabled by default.
+                    Settings for each environment, keyed by environment ID. Any
+                    environment you leave out is enabled or disabled per that
+                    environment's "Default state for new features" setting.
                   type: object
                   propertyNames:
                     type: string
@@ -2451,6 +2450,9 @@ paths:
                   items:
                     type: string
                 environments:
+                  description: >-
+                    Settings for each environment, keyed by environment ID. Any
+                    environment you leave out keeps its current settings.
                   type: object
                   propertyNames:
                     type: string
@@ -8151,8 +8153,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8314,8 +8318,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8478,8 +8484,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8635,8 +8643,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8995,8 +9005,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -9158,8 +9170,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -9322,8 +9336,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -9479,8 +9495,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -11740,8 +11758,12 @@ paths:
                     variationValue:
                       type: string
                     allEnvironments:
+                      description: Omit both scope fields to keep the current scope.
                       type: boolean
                     environments:
+                      description: >-
+                        Environment IDs the rule applies to. Ignored when
+                        allEnvironments is true.
                       type: array
                       items:
                         type: string
@@ -32284,6 +32306,16 @@ paths:
     post:
       operationId: postRampSchedule
       summary: Create a ramp schedule
+      description: >-
+        Creates a ramp schedule, optionally attached to a published feature rule
+        by passing `featureId` and `ruleId` together (the target is then
+        injected into every action). Attaching on creation skips the revision
+        review flow, so when the organization requires review anywhere it is
+        limited to credentials that may bypass approval. The reviewed way to
+        attach a plan is `PUT
+        /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule`
+        followed by a publish. Without a target the schedule is a free-standing
+        skeleton in `pending` status. Requires a Pro plan or above.
       tags:
         - ramp-schedules
       requestBody:
@@ -33196,6 +33228,18 @@ paths:
 
         compatibility with pre-v2 ramps but is deprecated and no longer
         required.
+
+
+        This skips the revision review flow, so when the organization requires
+        review
+
+        anywhere it is limited to credentials that may bypass approval. The
+        reviewed way
+
+        to attach a plan is `PUT
+        /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule`
+
+        followed by a publish.
       tags:
         - ramp-schedules
       parameters:
@@ -35083,6 +35127,11 @@ paths:
         terminal schedule first.
 
 
+        On a schedule attached to a rule this skips the revision review flow, so
+        when the organization requires review anywhere it is limited to
+        credentials that may bypass approval.
+
+
         **Step actions** (coverage/targeting patches) are not accepted here —
         they change the SDK payload and must go through a feature revision
         draft. Existing step actions are preserved for each position. Use `PUT
@@ -35116,6 +35165,10 @@ paths:
                   items:
                     type: object
                     properties:
+                      actions:
+                        description: >-
+                          Read-only; ignored on write. Accepted so a GET
+                          response can be posted back unchanged.
                       interval:
                         description: >-
                           Hold duration in seconds before this step's gates are
@@ -54518,6 +54571,11 @@ paths:
                                   anyOf:
                                     - type: boolean
                                     - type: 'null'
+                                force:
+                                  description: >-
+                                    Ignored: templates never carry force values.
+                                    Accepted so a schedule's steps can be copied
+                                    into a template.
                               required:
                                 - ruleId
                               additionalProperties: false
@@ -54817,6 +54875,11 @@ paths:
                                   anyOf:
                                     - type: boolean
                                     - type: 'null'
+                                force:
+                                  description: >-
+                                    Ignored: templates never carry force values.
+                                    Accepted so a schedule's steps can be copied
+                                    into a template.
                               required:
                                 - ruleId
                               additionalProperties: false
@@ -55083,6 +55146,19 @@ paths:
 
         Only allowed when the schedule is in `pending`, `ready`, or `paused`
         status.
+
+
+        Changing `steps`, `startActions`, `endActions`, `startDate`, or
+        `cutoffDate` on a
+
+        schedule that is attached to a rule skips the revision review flow, so
+        when the
+
+        organization requires review anywhere it is limited to credentials that
+        may
+
+        bypass approval. Otherwise stage a new plan on a draft revision and
+        publish it.
 
 
         **targetId shorthand**: When providing `steps` or `endActions`, you may
@@ -61169,12 +61245,15 @@ components:
               - condition
             additionalProperties: false
         allEnvironments:
-          description: When true the rule applies to all environments. Defaults to false.
+          description: >-
+            When true the rule applies to all environments. Omit both scope
+            fields to apply to all environments.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Used when
-            allEnvironments is false.
+            Environment IDs the rule applies to. Ignored when allEnvironments is
+            true; with allEnvironments false, an omitted or empty list scopes
+            the rule to no environment.
           type: array
           items:
             type: string
@@ -61273,12 +61352,15 @@ components:
               - condition
             additionalProperties: false
         allEnvironments:
-          description: When true the rule applies to all environments. Defaults to false.
+          description: >-
+            When true the rule applies to all environments. Omit both scope
+            fields to apply to all environments.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Used when
-            allEnvironments is false.
+            Environment IDs the rule applies to. Ignored when allEnvironments is
+            true; with allEnvironments false, an omitted or empty list scopes
+            the rule to no environment.
           type: array
           items:
             type: string
@@ -61365,12 +61447,15 @@ components:
               - condition
             additionalProperties: false
         allEnvironments:
-          description: When true the rule applies to all environments. Defaults to false.
+          description: >-
+            When true the rule applies to all environments. Omit both scope
+            fields to apply to all environments.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Used when
-            allEnvironments is false.
+            Environment IDs the rule applies to. Ignored when allEnvironments is
+            true; with allEnvironments false, an omitted or empty list scopes
+            the rule to no environment.
           type: array
           items:
             type: string
@@ -74790,6 +74875,11 @@ components:
                           anyOf:
                             - type: boolean
                             - type: 'null'
+                        force:
+                          description: >-
+                            Ignored: templates never carry force values.
+                            Accepted so a schedule's steps can be copied into a
+                            template.
                       required:
                         - ruleId
                       additionalProperties: false

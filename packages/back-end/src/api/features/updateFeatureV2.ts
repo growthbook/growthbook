@@ -10,6 +10,7 @@ import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -51,6 +52,7 @@ import {
   dispatchFeatureRevisionEvent,
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertValidRuleEnvironments,
@@ -432,6 +434,16 @@ export const updateFeatureV2 = createApiRequestHandler(
     extractRevisionMetadata(updates);
   updates = updatesAfterMetadata;
 
+  await assertValidPrerequisiteParents(
+    req.context,
+    {
+      ...feature,
+      rules: inboundFlatRules ?? feature.rules,
+      prerequisites: updates.prerequisites ?? feature.prerequisites,
+    },
+    feature,
+  );
+
   const newPrerequisites = updates.prerequisites ?? null;
   if (newPrerequisites !== null) {
     delete updates.prerequisites;
@@ -479,6 +491,13 @@ export const updateFeatureV2 = createApiRequestHandler(
     hasHoldoutChange;
 
   if (hasRevisionChanges) {
+    if (hasMetadataChanges) {
+      await assertFeatureMoveDependentsGuard(
+        req.context,
+        feature,
+        metadataChanges,
+      );
+    }
     const revisionChanges: Partial<FeatureRevisionInterface> = {
       ...(hasEnvEnabledChanges
         ? { environmentsEnabled: changedEnvEnabled }
