@@ -242,11 +242,13 @@ export async function publishFeatureRevision(
   ) {
     await assertFeatureArchiveDependentsGuard(req.context, feature);
   }
-  await assertFeatureMoveDependentsGuard(
-    req.context,
-    feature,
-    mergeChanges.metadata,
-  );
+  if (!inlineValidationGates) {
+    await assertFeatureMoveDependentsGuard(
+      req.context,
+      feature,
+      mergeChanges.metadata,
+    );
+  }
 
   const updatedFeature = await publishRevision({
     context: req.context,

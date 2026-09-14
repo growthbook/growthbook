@@ -91,6 +91,7 @@ describe("moving a prerequisite parent", () => {
     jest.mocked(findSDKConnectionsByOrganization).mockResolvedValue([
       {
         projects: ["B"],
+        environment: "production",
         languages: ["javascript"],
         sdkVersion: "1.5.0",
         includeReferencedPrerequisites: false,

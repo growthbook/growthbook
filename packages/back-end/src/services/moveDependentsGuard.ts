@@ -1,10 +1,13 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import {
   buildReverseDependencyIndex,
+  entityTargetsProject,
+  filterProjectsByEnvironmentWithNull,
   getDependentFeatures,
   getTargetingProjectIds,
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
+import type { Environment } from "shared/types/organization";
 import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -15,8 +18,8 @@ import {
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { SoftWarningError } from "back-end/src/util/errors";
-import { logger } from "back-end/src/util/logger";
 
 // A soft (acknowledgeable) guard for moving a flag out of a project that still
 // serves flags or experiments gating on it as a prerequisite. An SDK connection
@@ -34,13 +37,12 @@ type ServedDependents = {
 
 type ConnectionScope = Pick<
   SDKConnectionInterface,
-  "projects" | "includeReferencedPrerequisites" | "languages" | "sdkVersion"
+  | "projects"
+  | "environment"
+  | "includeReferencedPrerequisites"
+  | "languages"
+  | "sdkVersion"
 >;
-
-function servesProject(scope: DeliveryScope, project: string): boolean {
-  const ids = getTargetingProjectIds(scope);
-  return ids === null || ids.includes(project);
-}
 
 function withStaged(
   feature: DeliveryScope,
@@ -61,7 +63,39 @@ export function deliveryScopeNarrowed(
 ): boolean {
   const beforeIds = getTargetingProjectIds(before);
   if (beforeIds === null) return getTargetingProjectIds(after) !== null;
-  return beforeIds.some((p) => p && !servesProject(after, p));
+  return beforeIds.some((p) => p && !entityTargetsProject(after, p));
+}
+
+// The project lists of connections that would keep serving dependents without
+// their parent: they served the parent before the move, do not after, and
+// cannot carry it as a referenced prerequisite. A connection's projects are
+// read the way the payload reads them, narrowed by its environment; one that
+// serves every project always has the parent and is never affected.
+export function getAffectedConnectionProjects(
+  before: DeliveryScope,
+  after: DeliveryScope,
+  connections: ConnectionScope[],
+  environments: Environment[],
+): string[][] {
+  const affected: string[][] = [];
+  for (const conn of connections) {
+    const projects = filterProjectsByEnvironmentWithNull(
+      conn.projects ?? [],
+      environments.find((e) => e.id === conn.environment),
+      true,
+    );
+    if (!projects?.length) continue;
+    if (!projects.some((p) => entityTargetsProject(before, p))) continue;
+    if (projects.some((p) => entityTargetsProject(after, p))) continue;
+    if (
+      conn.includeReferencedPrerequisites &&
+      getConnectionSDKCapabilities(conn).includes("prerequisites")
+    ) {
+      continue;
+    }
+    affected.push(projects);
+  }
+  return affected;
 }
 
 export type StrandedDependents = {
@@ -70,39 +104,17 @@ export type StrandedDependents = {
   experiments: number;
 };
 
-// Connections that would keep serving dependents without their parent: they
-// served the parent before the move, do not after, and cannot carry it as a
-// referenced prerequisite. Connections without a project filter serve every
-// flag and are never affected.
-export function getAffectedConnections<C extends ConnectionScope>(
-  before: DeliveryScope,
-  after: DeliveryScope,
-  connections: C[],
-): C[] {
-  return connections.filter((conn) => {
-    const projects = conn.projects ?? [];
-    if (!projects.length) return false;
-    if (!projects.some((p) => servesProject(before, p))) return false;
-    if (projects.some((p) => servesProject(after, p))) return false;
-    return !(
-      conn.includeReferencedPrerequisites &&
-      getConnectionSDKCapabilities(conn).includes("prerequisites")
-    );
-  });
-}
-
 export function getStrandedDependents(
   dependents: ServedDependents,
-  affectedConnections: ConnectionScope[],
+  affectedConnectionProjects: string[][],
 ): StrandedDependents {
   const features = new Set<string>();
   const experiments = new Set<string>();
   let connections = 0;
-  for (const conn of affectedConnections) {
-    const projects = conn.projects ?? [];
+  for (const projects of affectedConnectionProjects) {
     const served = {
       features: dependents.features.filter((f) =>
-        projects.some((p) => servesProject(f, p)),
+        projects.some((p) => entityTargetsProject(f, p)),
       ),
       experiments: dependents.experiments.filter((e) =>
         projects.includes(e.project ?? ""),
@@ -147,33 +159,34 @@ async function collectDependents(
   };
 }
 
-// Runs where a project or targeting change LANDS (direct update, draft
-// publish, revert). `staged` holds only the fields the change sets.
-export async function assertFeatureMoveDependentsGuard(
+// The warning a landing change would raise, or null. `staged` holds only the
+// fields the change sets. Connections are few and decide whether the org-wide
+// scan is needed at all.
+async function collectMoveWarning(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "id" | ScopeKey>,
   staged: Partial<DeliveryScope> | undefined,
-): Promise<void> {
-  if (!staged) return;
+): Promise<{ message: string; parts: string[] } | null> {
+  if (!staged) return null;
   const after = withStaged(feature, staged);
-  if (!deliveryScopeNarrowed(feature, after)) return;
+  if (!deliveryScopeNarrowed(feature, after)) return null;
 
-  // Connections are few and decide whether the org-wide scan is needed at all.
   const scanContext =
     context.scanContextOverride ??
     getContextForAgendaJobByOrgObject(context.org);
-  const affected = getAffectedConnections(
+  const affected = getAffectedConnectionProjects(
     feature,
     after,
     await findSDKConnectionsByOrganization(scanContext),
+    getEnvironments(scanContext.org),
   );
-  if (!affected.length) return;
+  if (!affected.length) return null;
 
   const stranded = getStrandedDependents(
     await collectDependents(scanContext, feature.id),
     affected,
   );
-  if (!stranded.connections) return;
+  if (!stranded.connections) return null;
 
   const parts = [
     [stranded.features, "feature flag(s)"],
@@ -181,15 +194,44 @@ export async function assertFeatureMoveDependentsGuard(
   ]
     .filter(([n]) => n)
     .map(([n, label]) => `${n} ${label}`);
-  if (context.ignoreWarnings) {
-    logger.info(
-      { featureId: feature.id, userId: context.userId, stranded },
-      "Move-dependents guard overridden",
-    );
-    return;
-  }
-  throw new SoftWarningError(
-    `Moving this feature flag would leave ${parts.join(" and ")} without their prerequisite on ${stranded.connections} SDK Connection(s) that do not include referenced prerequisites. Re-submit with ignoreWarnings to move anyway.`,
+  return {
     parts,
+    message: `Moving this feature flag would leave ${parts.join(" and ")} without their prerequisite on ${stranded.connections} SDK Connection(s) that do not include referenced prerequisites.`,
+  };
+}
+
+// Gate form for the aggregated publish surfaces (interactive REST publish and
+// bulk publish), which report every warning in one 422.
+export async function collectFeatureMoveDependentsGate(
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "id" | ScopeKey>,
+  staged: Partial<DeliveryScope> | undefined,
+): Promise<PublishGate | null> {
+  const warning = await collectMoveWarning(context, feature, staged);
+  if (!warning) return null;
+  return {
+    type: "move-dependents",
+    severity: "warning",
+    messages: [warning.message],
+    override: "ignoreWarnings",
+    requiresPermission: null,
+    resolution: null,
+  };
+}
+
+// Throwing form for the surfaces that land a change directly (dashboard update
+// and reverts, REST update and reverts, armed publishes). Runs before any
+// draft is inserted, so a warning leaves nothing behind.
+export async function assertFeatureMoveDependentsGuard(
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "id" | ScopeKey>,
+  staged: Partial<DeliveryScope> | undefined,
+): Promise<void> {
+  if (context.ignoreWarnings) return;
+  const warning = await collectMoveWarning(context, feature, staged);
+  if (!warning) return;
+  throw new SoftWarningError(
+    `${warning.message} Re-submit with ignoreWarnings to move anyway.`,
+    warning.parts,
   );
 }

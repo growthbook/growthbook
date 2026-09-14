@@ -2860,6 +2860,11 @@ export async function postFeatureRevert(
     context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
     !!org.settings?.revertsBypassApproval;
 
+  await assertFeatureMoveDependentsGuard(
+    context,
+    feature,
+    mergeChanges.metadata,
+  );
   const newRevision = await createRevision({
     context,
     feature,
@@ -2882,11 +2887,6 @@ export async function postFeatureRevert(
   if (mergeChanges.archived === true && !feature.archived) {
     await assertFeatureArchiveDependentsGuard(context, feature);
   }
-  await assertFeatureMoveDependentsGuard(
-    context,
-    feature,
-    mergeChanges.metadata,
-  );
   const updatedFeature = await publishRevision({
     context,
     feature,
@@ -5656,6 +5656,9 @@ export async function putFeature(
         ? `Update ${metadataFieldLabels[changedKeys[0]] ?? changedKeys[0]}`
         : "Update feature"
       : undefined;
+    if (autoPublish) {
+      await assertFeatureMoveDependentsGuard(context, feature, metadataUpdates);
+    }
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,
@@ -5691,7 +5694,6 @@ export async function putFeature(
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
       await assertCanAutoPublish(context, feature, draft);
-      await assertFeatureMoveDependentsGuard(context, feature, metadataUpdates);
       updatedFeature = await publishRevision({
         context,
         feature,

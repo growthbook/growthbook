@@ -5,7 +5,7 @@ import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnect
 import {
   assertFeatureMoveDependentsGuard,
   deliveryScopeNarrowed,
-  getAffectedConnections,
+  getAffectedConnectionProjects,
   getStrandedDependents,
 } from "back-end/src/services/moveDependentsGuard";
 
@@ -20,7 +20,7 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
 }));
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgObject: jest.fn((org) => ({ org })),
-  getEnvironments: jest.fn(() => [{ id: "production" }]),
+  getEnvironments: jest.fn(() => [{ id: "production", projects: [] }]),
 }));
 
 const inA = { project: "A" };
@@ -33,10 +33,12 @@ const conn = (
   } = {},
 ) => ({
   projects,
+  environment: "production",
   languages: ["javascript"],
   sdkVersion: "1.5.0",
   ...extra,
 });
+const envs = (projects: string[] = []) => [{ id: "production", projects }];
 
 describe("deliveryScopeNarrowed", () => {
   it.each([
@@ -66,7 +68,7 @@ describe("deliveryScopeNarrowed", () => {
   });
 });
 
-describe("getAffectedConnections", () => {
+describe("getAffectedConnectionProjects", () => {
   // The parent leaves B for A.
   it.each([
     ["no project filter", conn([]), false],
@@ -87,9 +89,22 @@ describe("getAffectedConnections", () => {
     ],
     ["a connection without prerequisite carrying", conn(["B"]), true],
   ])("%s → affected: %s", (_label, connection, affected) => {
-    expect(getAffectedConnections(inB, inA, [connection])).toHaveLength(
-      affected ? 1 : 0,
-    );
+    expect(
+      getAffectedConnectionProjects(inB, inA, [connection], envs()),
+    ).toHaveLength(affected ? 1 : 0);
+  });
+
+  it("reads a connection's projects through its environment's restriction", () => {
+    // Unfiltered in an environment restricted to B is effectively B-only;
+    // [A, B] in that environment cannot keep the parent through A.
+    expect(
+      getAffectedConnectionProjects(
+        inB,
+        inA,
+        [conn([]), conn(["A", "B"])],
+        envs(["B"]),
+      ),
+    ).toEqual([["B"], ["B"]]);
   });
 });
 
@@ -101,11 +116,7 @@ describe("getStrandedDependents", () => {
 
   it("counts each dependent once across connections and skips connections serving none", () => {
     expect(
-      getStrandedDependents(dependents, [
-        conn(["B"]),
-        conn(["B", "C"]),
-        conn(["C"]),
-      ]),
+      getStrandedDependents(dependents, [["B"], ["B", "C"], ["C"]]),
     ).toEqual({ connections: 2, features: 1, experiments: 1 });
   });
 
@@ -115,7 +126,7 @@ describe("getStrandedDependents", () => {
         features: [{ id: "dep", targetingAllProjects: true }],
         experiments: [],
       },
-      [conn(["B"])],
+      [["B"]],
     );
     expect(res.features).toBe(1);
   });
