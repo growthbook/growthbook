@@ -554,7 +554,9 @@ export default function FeaturesHeader({
                   feature.targetingAllProjects ? (
                     "All Projects"
                   ) : (
-                    <>
+                    // Same tokens Metadata applies to a string value, so the
+                    // list reads like the Project field beside it.
+                    <Text weight="regular" color="text-mid">
                       {(feature.targetingProjects ?? []).map((id, i) => (
                         <span key={id}>
                           {i > 0 ? ", " : ""}
@@ -567,14 +569,12 @@ export default function FeaturesHeader({
                                 </>
                               }
                             >
-                              <Text weight="regular" color="text-mid">
-                                <em>Hidden Project</em>
-                              </Text>
+                              <em>Hidden Project</em>
                             </Tooltip>
                           )}
                         </span>
                       ))}
-                    </>
+                    </Text>
                   )
                 }
               />
