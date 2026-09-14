@@ -192,7 +192,7 @@ export const startPopulationDataQueries = async (
   return queries;
 };
 
-function readMetricData({
+export function readMetricData({
   metric,
   rows,
   metricPrefix,
