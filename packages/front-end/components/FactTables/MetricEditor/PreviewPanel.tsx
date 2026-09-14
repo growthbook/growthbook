@@ -112,12 +112,14 @@ export default function PreviewPanel({
         </Flex>
 
         <Box
+          width="100%"
           style={{
             height:
               view === "preview" && (metric || rows)
                 ? "auto"
                 : "clamp(280px, 40vh, 480px)",
             aspectRatio: metric && view === "preview" ? "16 / 10" : undefined,
+            minHeight: metric && view === "preview" ? "240px" : undefined,
             minWidth: 0,
             overflow: "auto",
           }}
