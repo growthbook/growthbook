@@ -30,7 +30,6 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   assertValidEnvironment,
   discardIfJustCreated,
@@ -44,7 +43,7 @@ import {
 } from "./validations";
 import {
   assertCanUseRuleScheduling,
-  assertRuleVariationsMatchExperiment,
+  assertValidExperimentRefRule,
 } from "./v2Shared";
 
 export function applyPatch(
@@ -308,16 +307,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       updatedRule.type === "experiment-ref" &&
       (patch.experimentId !== undefined || patch.variations !== undefined)
     ) {
-      const experiment = await getExperimentById(
-        req.context,
-        updatedRule.experimentId,
-      );
-      if (!experiment) {
-        throw new NotFoundError(
-          `Could not find experiment "${updatedRule.experimentId}"`,
-        );
-      }
-      assertRuleVariationsMatchExperiment(updatedRule, experiment);
+      await assertValidExperimentRefRule(req.context, updatedRule);
     }
 
     // A coverage patch can convert a force rule to a rollout, which arrives

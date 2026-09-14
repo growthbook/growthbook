@@ -8,6 +8,7 @@ import {
   assertUniqueRuleIds,
   assertUniqueRuleIdsByEnv,
   assertValidChangedRuleExperimentIds,
+  assertRuleVariationsMatchExperiment,
   assertValidRuleExperimentIds,
   assertValidRuleProjectIds,
   validateEnvRulesScheduleRules,
@@ -705,6 +706,42 @@ describe("assertCanUseRuleScheduling", () => {
     expect(() => assertCanUseRuleScheduling(ctx([]), {})).not.toThrow();
     expect(() =>
       assertCanUseRuleScheduling(ctx([]), { scheduleRules: [] }),
+    ).not.toThrow();
+  });
+});
+
+describe("assertRuleVariationsMatchExperiment", () => {
+  const experiment = {
+    variations: [{ id: "v0" }, { id: "v1" }],
+    phases: [{}],
+  } as unknown as Parameters<typeof assertRuleVariationsMatchExperiment>[1];
+  const rule = (...ids: string[]) => ({
+    experimentId: "exp",
+    variations: ids.map((variationId) => ({ variationId })),
+  });
+
+  it.each([
+    [
+      "a stray id",
+      rule("v0", "v9"),
+      /"v9" is not a variation of experiment "exp"/,
+    ],
+    ["a duplicate", rule("v0", "v0"), /Duplicate variationId "v0"/],
+    ["too few arms", rule("v0"), /has 2 variation\(s\) but 1 were specified/],
+    [
+      "a legacy rule with no variations",
+      { experimentId: "exp" },
+      /has 2 variation\(s\) but 0/,
+    ],
+  ])("rejects %s", (_label, input, re) => {
+    expect(() =>
+      assertRuleVariationsMatchExperiment(input, experiment),
+    ).toThrow(re);
+  });
+
+  it("accepts the experiment's arms in any order", () => {
+    expect(() =>
+      assertRuleVariationsMatchExperiment(rule("v1", "v0"), experiment),
     ).not.toThrow();
   });
 });

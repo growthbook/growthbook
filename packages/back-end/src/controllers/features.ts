@@ -290,8 +290,10 @@ import {
   parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
 import {
+  assertExperimentRefRuleVariations,
   assertRuleVariationsMatchExperiment,
   assertValidHoldout,
+  experimentRefChanged,
 } from "back-end/src/api/features/v2Shared";
 import {
   shouldValidateCustomFieldsOnUpdate,
@@ -916,6 +918,7 @@ export async function postFeatures(
   if (flattenedInbound.length > 0) {
     feature.rules = [...(feature.rules ?? []), ...flattenedInbound];
   }
+  await assertExperimentRefRuleVariations(context, feature.rules ?? []);
 
   // Inbound v2 rules (e.g. from FeatureFromExperimentModal) often arrive with
   // `id: ""`; stamp ids so they're addressable by later update/delete ops.
@@ -3785,6 +3788,7 @@ export async function postFeatureExperimentRefRule(
   if (!experiment) {
     throw new Error("Invalid experiment selected");
   }
+  assertRuleVariationsMatchExperiment(rule, experiment);
 
   // allEnvironments:true strips any stale environments[]; false passes the
   // explicit list through. Legacy callers that send neither default to every
@@ -4480,15 +4484,6 @@ export async function putFeatureRule(
   if (!ruleId) {
     throw new Error("Must provide ruleId to identify the rule");
   }
-  if (rule.type === "experiment-ref" && rule.experimentId && rule.variations) {
-    const experiment = await getExperimentById(context, rule.experimentId);
-    if (experiment) {
-      assertRuleVariationsMatchExperiment(
-        { experimentId: rule.experimentId, variations: rule.variations },
-        experiment,
-      );
-    }
-  }
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -4626,6 +4621,12 @@ export async function putFeatureRule(
   // never re-bucketed; a force rule the UI promoted by dropping coverage has no
   // rollout history, so it seeds off its own id. Id first, so nothing mints one.
   const inboundRule = effectiveRule as FeatureRule;
+  if (
+    inboundRule.type === "experiment-ref" &&
+    experimentRefChanged(inboundRule, existingRule)
+  ) {
+    await assertExperimentRefRuleVariations(context, [inboundRule]);
+  }
   if (!inboundRule.id) inboundRule.id = ruleId;
   inheritStoredRolloutSeeds([inboundRule], existingRules);
   addIdsToFlatRules([inboundRule], feature.id);

@@ -19,7 +19,10 @@ import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  getExperimentsByIds,
+} from "back-end/src/models/ExperimentModel";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 
 // A flag can't carry its own JSON schema while it's a config-backed ("Config
@@ -435,7 +438,8 @@ export async function assertValidRuleProjectIds(
 
 type ExperimentRefRuleInput = {
   experimentId: string;
-  variations: { variationId?: string }[];
+  // Absent on some malformed legacy rules; treated as empty.
+  variations?: { variationId?: string }[];
 };
 
 // An experiment-ref rule's variations must be exactly the experiment's
@@ -449,7 +453,8 @@ export function assertRuleVariationsMatchExperiment(
     getLatestPhaseVariations(experiment).map((v) => v.id),
   );
   const seen = new Set<string>();
-  for (const { variationId = "" } of rule.variations) {
+  const variations = rule.variations ?? [];
+  for (const { variationId = "" } of variations) {
     if (!expected.has(variationId)) {
       throw new BadRequestError(
         `Variation "${variationId}" is not a variation of experiment "${rule.experimentId}"`,
@@ -462,9 +467,21 @@ export function assertRuleVariationsMatchExperiment(
   }
   if (seen.size !== expected.size) {
     throw new BadRequestError(
-      `Experiment "${rule.experimentId}" has ${expected.size} variation(s) but ${rule.variations.length} were specified`,
+      `Experiment "${rule.experimentId}" has ${expected.size} variation(s) but ${variations.length} were specified`,
     );
   }
+}
+
+// Single-rule form for the per-rule endpoints.
+export async function assertValidExperimentRefRule(
+  context: ReqContext | ApiReqContext,
+  rule: ExperimentRefRuleInput,
+): Promise<void> {
+  const experiment = await getExperimentById(context, rule.experimentId);
+  if (!experiment) {
+    throw new NotFoundError(`Could not find experiment "${rule.experimentId}"`);
+  }
+  assertRuleVariationsMatchExperiment(rule, experiment);
 }
 
 // Experiment-ref rules must point at an experiment the caller can read, and
@@ -496,6 +513,25 @@ export async function assertValidRuleExperimentIds(
   }
 }
 
+// Whether a write changes which experiment a rule points at or which variation
+// ids it carries — the only changes that can introduce a mismatch.
+export function experimentRefChanged(
+  rule: ExperimentRefRuleInput,
+  prior: FeatureRule | undefined,
+): boolean {
+  const variationIds = (r: ExperimentRefRuleInput) =>
+    (r.variations ?? [])
+      .map((v) => v.variationId ?? "")
+      .sort()
+      .join("\0");
+  return (
+    !prior ||
+    prior.type !== "experiment-ref" ||
+    prior.experimentId !== rule.experimentId ||
+    variationIds(prior) !== variationIds(rule)
+  );
+}
+
 // Update form: a rule whose experiment and variation ids are unchanged is not
 // re-checked, so a rule pointing at a since-deleted or since-edited experiment
 // can be posted back unchanged.
@@ -504,24 +540,39 @@ export async function assertValidChangedRuleExperimentIds(
   stored: FeatureRule[],
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
-  const variationIds = (rule: ExperimentRefRuleInput) =>
-    rule.variations
-      .map((v) => v.variationId ?? "")
-      .sort()
-      .join("\0");
   await assertValidRuleExperimentIds(
-    inbound.filter((rule) => {
-      if (rule.type !== "experiment-ref") return false;
-      const prior = findStoredRuleCounterpart(stored, rule);
-      return (
-        !prior ||
-        prior.type !== "experiment-ref" ||
-        prior.experimentId !== rule.experimentId ||
-        variationIds(prior) !== variationIds(rule)
-      );
-    }),
+    inbound.filter(
+      (rule) =>
+        rule.type === "experiment-ref" &&
+        experimentRefChanged(rule, findStoredRuleCounterpart(stored, rule)),
+    ),
     context,
   );
+}
+
+// Dashboard form: the variation check for every experiment-ref rule whose
+// experiment resolves; a missing experiment is left to downstream validation,
+// as the dashboard paths have always done.
+export async function assertExperimentRefRuleVariations(
+  context: ReqContext | ApiReqContext,
+  rules: FeatureRule[],
+): Promise<void> {
+  const refs = rules.filter(
+    (r): r is Extract<FeatureRule, { type: "experiment-ref" }> =>
+      r.type === "experiment-ref",
+  );
+  if (!refs.length) return;
+  const experiments = new Map(
+    (
+      await getExperimentsByIds(context, [
+        ...new Set(refs.map((r) => r.experimentId)),
+      ])
+    ).map((e) => [e.id, e]),
+  );
+  for (const rule of refs) {
+    const experiment = experiments.get(rule.experimentId);
+    if (experiment) assertRuleVariationsMatchExperiment(rule, experiment);
+  }
 }
 
 // Rule ids must be unique within one rules array (the v2 flat list, or one v1

@@ -131,25 +131,7 @@ describe("experiment-ref rule variations", () => {
     ]);
   });
 
-  it.each([
-    [
-      "an id the experiment does not have",
-      arms("v0", "v9"),
-      /"v9" is not a variation of experiment "exp_ab"/,
-    ],
-    ["a duplicated id", arms("v0", "v0"), /Duplicate variationId "v0"/],
-    [
-      "fewer arms than the experiment",
-      arms("v0"),
-      /has 2 variation\(s\) but 1 were specified/,
-    ],
-  ])("v2 rule add rejects %s", async (_label, variations, re) => {
-    const res = await send("post", RULES_V2, { rule: expRef(variations) });
-    expect(res.body.message).toMatch(re);
-    expect(res.status).toBe(400);
-  });
-
-  it("v2 rule add accepts matching ids in any order, and back-fills when all are omitted", async () => {
+  it("v2 rule add accepts matching ids in any order, back-fills when all are omitted, and counts back-filled arms", async () => {
     for (const variations of [
       arms("v1", "v0"),
       [{ value: "true" }, { value: "false" }],
@@ -158,10 +140,22 @@ describe("experiment-ref rule variations", () => {
       expect(res.body.message).toBeUndefined();
       expect(res.status).toBe(200);
     }
+    const short = await send("post", RULES_V2, {
+      rule: expRef([{ value: "true" }]),
+    });
+    expect(short.body.message).toMatch(
+      /has 2 variation\(s\) but 1 were specified/,
+    );
+    expect(short.status).toBe(400);
   });
 
-  // One case per remaining write path proves the wiring.
+  // One case per write path proves the wiring; the rules themselves are unit
+  // tested in v2Shared.test.ts.
   it.each([
+    [
+      "v2 rule add",
+      () => send("post", RULES_V2, { rule: expRef(arms("v0", "v9")) }),
+    ],
     [
       "v1 rule add",
       () =>
@@ -178,6 +172,14 @@ describe("experiment-ref rule variations", () => {
       "v2 rule patch",
       () =>
         send("put", `${RULES_V2}/fr_exp`, {
+          rule: { variations: arms("v0", "v9") },
+        }),
+    ],
+    [
+      "v1 rule patch",
+      () =>
+        send("put", `/api/v1/features/${FLAG}/revisions/2/rules/fr_exp`, {
+          environment: "production",
           rule: { variations: arms("v0", "v9") },
         }),
     ],
