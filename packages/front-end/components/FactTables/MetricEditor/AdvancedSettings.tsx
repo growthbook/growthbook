@@ -20,7 +20,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
-import Switch from "@/ui/Switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import { Select, SelectItem } from "@/ui/Select";
 import MultiSelectField from "@/ui/MultiSelectField";
 import DataList, { DataListItem } from "@/ui/DataList";
@@ -206,239 +206,323 @@ export default function AdvancedSettings({
           <Text weight="semibold">Advanced settings</Text>
         </summary>
         <Flex direction="column" gap="3" mt="3">
-          {windowOk(formType) &&
-            (canEdit ? (
-              <MetricWindowSettingsForm form={form} type={metricType} />
-            ) : (
-              <Text as="div" mb="3">
-                {windowProse(windowSettings)}
-              </Text>
-            ))}
-          {showsGoalAndSlices &&
-            (canEdit ? (
-              <>
-                <Select
-                  label="Metric goal"
-                  value={form.watch("inverse") ? "1" : "0"}
-                  setValue={(v) => form.setValue("inverse", v === "1")}
-                >
-                  <SelectItem value="0">Increase the metric value</SelectItem>
-                  <SelectItem value="1">Decrease the metric value</SelectItem>
-                </Select>
-                {showsAutoSlices && factTable && (
-                  <Flex direction="column" mt="3" mb="4">
-                    <MultiSelectField
-                      label="Auto Slices"
-                      value={form.watch("metricAutoSlices") || []}
-                      onChange={(metricAutoSlices) =>
-                        form.setValue("metricAutoSlices", metricAutoSlices)
-                      }
-                      options={factTable.columns
-                        .filter((c) => c.isAutoSliceColumn && !c.deleted)
-                        .map((c) => ({
-                          label: c.name || c.column,
-                          value: c.column,
-                        }))}
-                      placeholder="Select Auto Slice columns..."
-                    />
-                  </Flex>
-                )}
-              </>
-            ) : (
-              <DataList
-                columns={1}
-                data={[
-                  {
-                    label: "Metric goal",
-                    value: form.watch("inverse")
-                      ? "Decrease the metric value"
-                      : "Increase the metric value",
-                  },
-                  ...(showsAutoSlices && factTable
-                    ? [
-                        {
-                          label: "Auto Slices",
-                          value:
-                            (form.watch("metricAutoSlices") || [])
-                              .map(
-                                (col) =>
-                                  factTable.columns.find(
-                                    (c) => c.column === col,
-                                  )?.name || col,
-                              )
-                              .join(", ") || "None",
-                        },
-                      ]
-                    : []),
-                ]}
-              />
-            ))}
-
-          <details open={!canEdit || undefined}>
-            <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-              Analysis settings
-            </summary>
-            <Flex direction="column" gap="3" mt="3">
-              {canEdit ? (
-                <>
-                  {windowOk(formType) && <MetricDelaySettings form={form} />}
-                  {cappingOk(formType) && (
-                    <MetricCappingSettingsForm
-                      form={form}
-                      datasourceType={datasource?.type}
-                      metricType={metricType}
-                    />
-                  )}
-                  <Field
-                    label="Target MDE"
-                    type="number"
-                    step="any"
-                    append="%"
-                    {...form.register("targetMDE", { valueAsNumber: true })}
-                    helpText={`The percentage change that you want to reliably detect before ending your experiment. (default ${
-                      metricDefaults.targetMDE * 100
-                    }%)`}
-                  />
-                  <MetricPriorSettingsForm
-                    priorSettings={priorSettings}
-                    setPriorSettings={(v) => form.setValue("priorSettings", v)}
-                    metricDefaults={metricDefaults}
-                  />
-                  {formType !== "quantile" && (
-                    <>
-                      <PremiumTooltip commercialFeature="regression-adjustment">
-                        <Text weight="semibold" as="div" mb="1">
-                          Regression adjustment (CUPED)
-                        </Text>
-                      </PremiumTooltip>
-                      <Switch
-                        label="Override organization-level settings"
-                        value={form.watch("regressionAdjustmentOverride")}
-                        onChange={(v) =>
-                          form.setValue("regressionAdjustmentOverride", v)
+          <Tabs defaultValue="analysis">
+            <TabsList mb="4" aria-label="Advanced settings">
+              <TabsTrigger value="analysis">Analysis Settings</TabsTrigger>
+              <TabsTrigger value="display">Display Settings</TabsTrigger>
+            </TabsList>
+            <TabsContent value="analysis" forceMount>
+              <Flex direction="column" gap="4">
+                {canEdit ? (
+                  <>
+                    {windowOk(formType) && (
+                      <Frame mb="0">
+                        <MetricDelaySettings form={form} />
+                      </Frame>
+                    )}
+                    {cappingOk(formType) && (
+                      <Frame mb="0">
+                        <MetricCappingSettingsForm
+                          form={form}
+                          datasourceType={datasource?.type}
+                          metricType={metricType}
+                        />
+                      </Frame>
+                    )}
+                    <Frame mb="0">
+                      <Field
+                        label={
+                          <>
+                            {" "}
+                            <Text as="div" weight="semibold" mb="2">
+                              Target MDE
+                            </Text>
+                            <Text
+                              as="div"
+                              weight="regular"
+                              color="text-mid"
+                              mb="2"
+                            >{`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
+                              metricDefaults.targetMDE * 100
+                            }%)`}</Text>
+                          </>
                         }
-                        disabled={!hasRegressionAdjustmentFeature}
+                        type="number"
+                        step="any"
+                        append="%"
+                        {...form.register("targetMDE", { valueAsNumber: true })}
                       />
-                      {form.watch("regressionAdjustmentOverride") && (
-                        <Flex direction="column" gap="2" mt="2">
-                          <Checkbox
-                            label="Apply regression adjustment for this metric"
-                            value={!!form.watch("regressionAdjustmentEnabled")}
-                            setValue={(v) =>
-                              form.setValue("regressionAdjustmentEnabled", v)
+                    </Frame>
+                    <Frame mb="0">
+                      <MetricPriorSettingsForm
+                        priorSettings={priorSettings}
+                        setPriorSettings={(v) =>
+                          form.setValue("priorSettings", v)
+                        }
+                        metricDefaults={metricDefaults}
+                      />
+                    </Frame>
+                    {formType !== "quantile" && (
+                      <Frame mb="0">
+                        <PremiumTooltip commercialFeature="regression-adjustment">
+                          <Text weight="semibold" as="div" mb="1">
+                            Regression adjustment (CUPED)
+                          </Text>
+                        </PremiumTooltip>
+                        <Checkbox
+                          label="Override organization-level settings"
+                          value={form.watch("regressionAdjustmentOverride")}
+                          setValue={(v) =>
+                            form.setValue("regressionAdjustmentOverride", v)
+                          }
+                          disabled={!hasRegressionAdjustmentFeature}
+                        />
+                        {form.watch("regressionAdjustmentOverride") && (
+                          <Flex direction="column" gap="2" mt="2">
+                            <Checkbox
+                              label="Apply regression adjustment for this metric"
+                              value={
+                                !!form.watch("regressionAdjustmentEnabled")
+                              }
+                              setValue={(v) =>
+                                form.setValue("regressionAdjustmentEnabled", v)
+                              }
+                              disabled={!hasRegressionAdjustmentFeature}
+                            />
+                            <Field
+                              label="Pre-exposure lookback period (days)"
+                              type="number"
+                              append="days"
+                              min="0"
+                              disabled={!hasRegressionAdjustmentFeature}
+                              {...form.register("regressionAdjustmentDays", {
+                                valueAsNumber: true,
+                              })}
+                            />
+                          </Flex>
+                        )}
+                      </Frame>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {queryItems({
+                      form,
+                      formType,
+                      windowSettings,
+                      priorSettings,
+                      cappingItem,
+                      metricDefaults,
+                      orgSettings,
+                    }).map((item) => (
+                      <Frame key={item.label} mb="0">
+                        <DataList columns={1} data={[item]} />
+                      </Frame>
+                    ))}
+                  </>
+                )}
+                {windowOk(formType) &&
+                  (canEdit ? (
+                    <MetricWindowSettingsForm form={form} type={metricType} />
+                  ) : (
+                    <Text as="div" mb="3">
+                      {windowProse(windowSettings)}
+                    </Text>
+                  ))}
+                {showsGoalAndSlices &&
+                  (canEdit ? (
+                    <>
+                      <Select
+                        label="Metric goal"
+                        value={form.watch("inverse") ? "1" : "0"}
+                        setValue={(v) => form.setValue("inverse", v === "1")}
+                      >
+                        <SelectItem value="0">
+                          Increase the metric value
+                        </SelectItem>
+                        <SelectItem value="1">
+                          Decrease the metric value
+                        </SelectItem>
+                      </Select>
+                      {showsAutoSlices && factTable && (
+                        <Flex direction="column" mt="3" mb="4">
+                          <MultiSelectField
+                            label="Auto Slices"
+                            value={form.watch("metricAutoSlices") || []}
+                            onChange={(metricAutoSlices) =>
+                              form.setValue(
+                                "metricAutoSlices",
+                                metricAutoSlices,
+                              )
                             }
-                            disabled={!hasRegressionAdjustmentFeature}
-                          />
-                          <Field
-                            label="Pre-exposure lookback period (days)"
-                            type="number"
-                            append="days"
-                            min="0"
-                            disabled={!hasRegressionAdjustmentFeature}
-                            {...form.register("regressionAdjustmentDays", {
-                              valueAsNumber: true,
-                            })}
+                            options={factTable.columns
+                              .filter((c) => c.isAutoSliceColumn && !c.deleted)
+                              .map((c) => ({
+                                label: c.name || c.column,
+                                value: c.column,
+                              }))}
+                            placeholder="Select Auto Slice columns..."
                           />
                         </Flex>
                       )}
                     </>
-                  )}
-                </>
-              ) : (
-                <DataList
-                  columns={1}
-                  data={queryItems({
-                    form,
-                    formType,
-                    windowSettings,
-                    priorSettings,
-                    cappingItem,
-                    metricDefaults,
-                    orgSettings,
-                  })}
-                />
-              )}
-            </Flex>
-          </details>
-          <details open={!canEdit || undefined}>
-            <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-              Display settings
-            </summary>
-            <Flex direction="column" gap="3" mt="3">
-              {canEdit ? (
-                <>
-                  <Field
-                    label={minSampleSizeLabel}
-                    type="number"
-                    {...form.register("minSampleSize", { valueAsNumber: true })}
-                    helpText={`Required in an experiment variation before showing results (default ${metricDefaults.minimumSampleSize})`}
-                  />
-                  <Field
-                    label="Max percent change"
-                    type="number"
-                    step="any"
-                    append="%"
-                    {...form.register("maxPercentChange", {
-                      valueAsNumber: true,
-                    })}
-                    helpText={`An experiment that changes the metric by more than this percent will be flagged as suspicious (default ${
-                      metricDefaults.maxPercentageChange * 100
-                    }%)`}
-                  />
-                  <Field
-                    label="Min percent change"
-                    type="number"
-                    step="any"
-                    append="%"
-                    {...form.register("minPercentChange", {
-                      valueAsNumber: true,
-                    })}
-                    helpText={`An experiment that changes the metric by less than this percent will be considered a draw (default ${
-                      metricDefaults.minPercentageChange * 100
-                    }%)`}
-                  />
-                  {(formType === "ratio" ||
-                    formType === "dailyParticipation") && (
-                    <Checkbox
-                      label="Format variation value as a percentage"
-                      value={form.watch("displayAsPercentage") ?? false}
-                      setValue={(v) => form.setValue("displayAsPercentage", v)}
-                      description="Will render variation values as a percentage rather than a proportion (e.g. 34% instead of 0.34)."
+                  ) : (
+                    <DataList
+                      columns={1}
+                      data={[
+                        {
+                          label: "Metric goal",
+                          value: form.watch("inverse")
+                            ? "Decrease the metric value"
+                            : "Increase the metric value",
+                        },
+                        ...(showsAutoSlices && factTable
+                          ? [
+                              {
+                                label: "Auto Slices",
+                                value:
+                                  (form.watch("metricAutoSlices") || [])
+                                    .map(
+                                      (col) =>
+                                        factTable.columns.find(
+                                          (c) => c.column === col,
+                                        )?.name || col,
+                                    )
+                                    .join(", ") || "None",
+                              },
+                            ]
+                          : []),
+                      ]}
                     />
-                  )}
-                </>
-              ) : (
-                <DataList
-                  columns={1}
-                  data={[
-                    {
-                      label: minSampleSizeLabel,
-                      value: form.watch("minSampleSize"),
-                    },
-                    {
-                      label: "Max percent change",
-                      value: `${form.watch("maxPercentChange")}%`,
-                    },
-                    {
-                      label: "Min percent change",
-                      value: `${form.watch("minPercentChange")}%`,
-                    },
-                    ...(formType === "ratio" ||
-                    formType === "dailyParticipation"
-                      ? [
-                          {
-                            label: "Format variation value as a percentage",
-                            value: form.watch("displayAsPercentage")
-                              ? "Yes"
-                              : "No",
-                          },
-                        ]
-                      : []),
-                  ]}
-                />
-              )}
-            </Flex>
-          </details>
+                  ))}
+              </Flex>
+            </TabsContent>
+            <TabsContent value="display" forceMount>
+              <Flex direction="column" gap="4">
+                {canEdit ? (
+                  <>
+                    <Frame mb="0">
+                      <Field
+                        label={
+                          <>
+                            {" "}
+                            <Text as="div" weight="semibold" mb="2">
+                              {minSampleSizeLabel}
+                            </Text>
+                            <Text
+                              as="div"
+                              weight="regular"
+                              color="text-mid"
+                              mb="2"
+                            >{`Required in an experiment variation before showing results (default ${metricDefaults.minimumSampleSize})`}</Text>
+                          </>
+                        }
+                        type="number"
+                        {...form.register("minSampleSize", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </Frame>
+                    <Frame mb="0">
+                      <Field
+                        label={
+                          <>
+                            {" "}
+                            <Text as="div" weight="semibold" mb="2">
+                              Max percent change
+                            </Text>
+                            <Text
+                              as="div"
+                              weight="regular"
+                              color="text-mid"
+                              mb="2"
+                            >{`An experiment that changes the metric by more than this percent will be flagged as suspicious (default ${
+                              metricDefaults.maxPercentageChange * 100
+                            }%)`}</Text>
+                          </>
+                        }
+                        type="number"
+                        step="any"
+                        append="%"
+                        {...form.register("maxPercentChange", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </Frame>
+                    <Frame mb="0">
+                      <Field
+                        label={
+                          <>
+                            {" "}
+                            <Text as="div" weight="semibold" mb="2">
+                              Min percent change
+                            </Text>
+                            <Text
+                              as="div"
+                              weight="regular"
+                              color="text-mid"
+                              mb="2"
+                            >{`An experiment that changes the metric by less than this percent will be considered a draw (default ${
+                              metricDefaults.minPercentageChange * 100
+                            }%)`}</Text>
+                          </>
+                        }
+                        type="number"
+                        step="any"
+                        append="%"
+                        {...form.register("minPercentChange", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </Frame>
+                    {(formType === "ratio" ||
+                      formType === "dailyParticipation") && (
+                      <Checkbox
+                        label="Format variation value as a percentage"
+                        value={form.watch("displayAsPercentage") ?? false}
+                        setValue={(v) =>
+                          form.setValue("displayAsPercentage", v)
+                        }
+                        description="Will render variation values as a percentage rather than a proportion (e.g. 34% instead of 0.34)."
+                      />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {[
+                      {
+                        label: minSampleSizeLabel,
+                        value: form.watch("minSampleSize"),
+                      },
+                      {
+                        label: "Max percent change",
+                        value: `${form.watch("maxPercentChange")}%`,
+                      },
+                      {
+                        label: "Min percent change",
+                        value: `${form.watch("minPercentChange")}%`,
+                      },
+                      ...(formType === "ratio" ||
+                      formType === "dailyParticipation"
+                        ? [
+                            {
+                              label: "Format variation value as a percentage",
+                              value: form.watch("displayAsPercentage")
+                                ? "Yes"
+                                : "No",
+                            },
+                          ]
+                        : []),
+                    ].map((item) => (
+                      <Frame key={item.label} mb="0">
+                        <DataList columns={1} data={[item]} />
+                      </Frame>
+                    ))}
+                  </>
+                )}
+              </Flex>
+            </TabsContent>
+          </Tabs>
 
           {canEditOfficial && (
             <Checkbox
