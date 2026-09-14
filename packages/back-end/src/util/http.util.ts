@@ -3,8 +3,6 @@ import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
 import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
 
-let useWebhookProxy = true;
-
 export type CancellableFetchCriteria = {
   maxContentSize: number;
   maxTimeMs: number;
@@ -24,17 +22,13 @@ export function fetch(url: string, init?: RequestInit) {
 }
 
 export function getHttpOptions() {
-  if (useWebhookProxy && WEBHOOK_PROXY) {
-    logger.debug("using webhook proxy");
+  if (WEBHOOK_PROXY) {
     return {
       agent: new ProxyAgent({
         getProxyForUrl: () => WEBHOOK_PROXY,
       }),
     };
-  } else if (WEBHOOK_PROXY) {
-    logger.debug("not using webhook proxy");
   }
-
   if (USE_PROXY) {
     return { agent: new ProxyAgent() };
   }
@@ -94,17 +88,9 @@ export const cancellableFetch = async (
       };
     }
 
-    // If we are using the webhook proxy then any ECONNREFUSED error would come from the proxy itself.
-    // If the endpoint would have been down but the proxy was up, we would have gotten a 502 from the proxy instead.
-    // Hence if we see one we can be sure the webhook proxy is having issues and it is best to disable it.
-    if (
-      useWebhookProxy &&
-      WEBHOOK_PROXY &&
-      e.name === "FetchError" &&
-      e.code === "ECONNREFUSED"
-    ) {
-      logger.error("Proxy connection refused. Disabling webhook proxy");
-      useWebhookProxy = false;
+    // An unreachable endpoint comes back as a 502 from the proxy, so ECONNREFUSED means the proxy itself is down.
+    if (WEBHOOK_PROXY && e.name === "FetchError" && e.code === "ECONNREFUSED") {
+      logger.error({ err: e }, "Webhook proxy connection refused");
     }
 
     throw e;
