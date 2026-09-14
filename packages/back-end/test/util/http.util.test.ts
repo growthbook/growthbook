@@ -1,5 +1,9 @@
 import nodeFetch from "node-fetch";
-import { cancellableFetch, getHttpOptions } from "back-end/src/util/http.util";
+import {
+  cancellableFetch,
+  getAuthProxyForUrl,
+  getHttpOptions,
+} from "back-end/src/util/http.util";
 
 // proxy-agent is stubbed in jest.config.js, so assert on the agent's presence, not its class.
 jest.mock("node-fetch");
@@ -46,5 +50,28 @@ describe("cancellableFetch with WEBHOOK_PROXY set", () => {
     for (const [, init] of mockedFetch.mock.calls) {
       expect(init.agent).toBeDefined();
     }
+  });
+});
+
+describe("getAuthProxyForUrl", () => {
+  it.each([
+    "https://acme.okta.com/oauth2/v1/keys",
+    "https://acme.oktapreview.com/.well-known/openid-configuration",
+    "https://acme.us.auth0.com/.well-known/jwks.json",
+    "https://login.microsoftonline.com/tenant/discovery/v2.0/keys",
+    "https://sts.windows.net/tenant/",
+    "https://www.googleapis.com/oauth2/v3/certs",
+    "https://accounts.google.com/o/oauth2/v2/auth",
+  ])("bypasses the proxy for %s", (url) => {
+    expect(getAuthProxyForUrl(url)).toBe("");
+  });
+
+  it.each([
+    "https://sso.example.com/.well-known/jwks.json",
+    "https://notokta.com/keys",
+    "https://okta.com.evil.example/keys",
+    "https://10.0.0.5/keys",
+  ])("keeps the proxy for %s", (url) => {
+    expect(getAuthProxyForUrl(url)).toBe("http://smokescreen.test:4750");
   });
 });

@@ -30,7 +30,7 @@ import {
   getUserLoginPropertiesFromRequest,
   trackLoginForUser,
 } from "back-end/src/services/users";
-import { getHttpOptions } from "back-end/src/util/http.util";
+import { getAuthHttpOptions } from "back-end/src/util/http.util";
 import {
   VERCEL_CLIENT_ID,
   VERCEL_CLIENT_SECRET,
@@ -45,7 +45,7 @@ import {
 } from "./authChecks";
 
 if (USE_PROXY) {
-  custom.setHttpOptionsDefaults(getHttpOptions());
+  custom.setHttpOptionsDefaults(getAuthHttpOptions());
 }
 
 const passthroughQueryParams = ["hypgen", "hypothesis"];
@@ -217,7 +217,7 @@ export class OpenIdAuthConnection implements AuthConnection {
           rateLimit: false,
           jwksRequestsPerMinute: 10,
           jwksUri,
-          requestAgent: getHttpOptions().agent,
+          requestAgent: getAuthHttpOptions().agent,
         });
 
         const getKey: GetVerificationKey = (req, token) => {

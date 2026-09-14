@@ -21,18 +21,41 @@ export function fetch(url: string, init?: RequestInit) {
   });
 }
 
-export function getHttpOptions() {
+export function getHttpOptions(
+  getProxyForUrl: (url: string) => string = () => WEBHOOK_PROXY,
+) {
   if (WEBHOOK_PROXY) {
-    return {
-      agent: new ProxyAgent({
-        getProxyForUrl: () => WEBHOOK_PROXY,
-      }),
-    };
+    return { agent: new ProxyAgent({ getProxyForUrl }) };
   }
   if (USE_PROXY) {
     return { agent: new ProxyAgent() };
   }
   return {};
+}
+
+// Identity providers we configure ourselves, so SSO keeps working while the proxy restarts.
+const AUTH_PROXY_BYPASS_DOMAINS = [
+  "auth0.com",
+  "login.microsoftonline.com",
+  "login.windows.net",
+  "sts.windows.net",
+  "okta.com",
+  "oktapreview.com",
+  "okta-emea.com",
+  "accounts.google.com",
+  "googleapis.com",
+];
+
+export function getAuthProxyForUrl(url: string) {
+  const { hostname } = new URL(url);
+  const bypass = AUTH_PROXY_BYPASS_DOMAINS.some(
+    (domain) => hostname === domain || hostname.endsWith("." + domain),
+  );
+  return bypass ? "" : WEBHOOK_PROXY;
+}
+
+export function getAuthHttpOptions() {
+  return getHttpOptions(getAuthProxyForUrl);
 }
 export const cancellableFetch = async (
   url: string,
