@@ -1670,7 +1670,7 @@ const postFeatureBody = z
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
-        "A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.",
+        'Settings for each environment, keyed by environment ID. Any environment you leave out is enabled or disabled per that environment\'s "Default state for new features" setting.',
       )
       .optional(),
     prerequisites: z
@@ -1725,7 +1725,12 @@ const updateFeatureBody = z
         "List of associated tags. Will override tags completely with submitted list",
       )
       .optional(),
-    environments: z.record(z.string(), postFeatureEnvironment).optional(),
+    environments: z
+      .record(z.string(), postFeatureEnvironment)
+      .describe(
+        "Settings for each environment, keyed by environment ID. Any environment you leave out keeps its current settings.",
+      )
+      .optional(),
     prerequisites: z
       .array(z.string())
       .describe("Feature IDs. Each feature must evaluate to `true`")

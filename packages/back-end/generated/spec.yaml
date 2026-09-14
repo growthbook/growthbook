@@ -913,10 +913,9 @@ paths:
                     type: string
                 environments:
                   description: >-
-                    A dictionary of environments that are enabled for this
-                    feature. Keys supply the names of environments. Environments
-                    belong to organization and are not specified will be
-                    disabled by default.
+                    Settings for each environment, keyed by environment ID. Any
+                    environment you leave out is enabled or disabled per that
+                    environment's "Default state for new features" setting.
                   type: object
                   propertyNames:
                     type: string
@@ -2451,6 +2450,9 @@ paths:
                   items:
                     type: string
                 environments:
+                  description: >-
+                    Settings for each environment, keyed by environment ID. Any
+                    environment you leave out keeps its current settings.
                   type: object
                   propertyNames:
                     type: string
@@ -8151,8 +8153,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8314,8 +8318,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8478,8 +8484,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8635,8 +8643,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8995,8 +9005,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -9158,8 +9170,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -9322,8 +9336,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -9479,8 +9495,10 @@ paths:
                             type: boolean
                           environments:
                             description: >-
-                              Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Environment IDs the rule applies to. Ignored when
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -11740,8 +11758,12 @@ paths:
                     variationValue:
                       type: string
                     allEnvironments:
+                      description: Omit both scope fields to keep the current scope.
                       type: boolean
                     environments:
+                      description: >-
+                        Environment IDs the rule applies to. Ignored when
+                        allEnvironments is true.
                       type: array
                       items:
                         type: string
@@ -60026,12 +60048,15 @@ components:
               - condition
             additionalProperties: false
         allEnvironments:
-          description: When true the rule applies to all environments. Defaults to false.
+          description: >-
+            When true the rule applies to all environments. Omit both scope
+            fields to apply to all environments.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Used when
-            allEnvironments is false.
+            Environment IDs the rule applies to. Ignored when allEnvironments is
+            true; with allEnvironments false, an omitted or empty list scopes
+            the rule to no environment.
           type: array
           items:
             type: string
@@ -60130,12 +60155,15 @@ components:
               - condition
             additionalProperties: false
         allEnvironments:
-          description: When true the rule applies to all environments. Defaults to false.
+          description: >-
+            When true the rule applies to all environments. Omit both scope
+            fields to apply to all environments.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Used when
-            allEnvironments is false.
+            Environment IDs the rule applies to. Ignored when allEnvironments is
+            true; with allEnvironments false, an omitted or empty list scopes
+            the rule to no environment.
           type: array
           items:
             type: string
@@ -60222,12 +60250,15 @@ components:
               - condition
             additionalProperties: false
         allEnvironments:
-          description: When true the rule applies to all environments. Defaults to false.
+          description: >-
+            When true the rule applies to all environments. Omit both scope
+            fields to apply to all environments.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Used when
-            allEnvironments is false.
+            Environment IDs the rule applies to. Ignored when allEnvironments is
+            true; with allEnvironments false, an omitted or empty list scopes
+            the rule to no environment.
           type: array
           items:
             type: string
