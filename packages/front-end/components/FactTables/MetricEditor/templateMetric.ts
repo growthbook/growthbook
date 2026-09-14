@@ -1,5 +1,5 @@
 import { z } from "zod";
-import dJSON from "dirty-json";
+import { parseLooseJSON } from "shared/util";
 import {
   columnRefValidator,
   metricTypeValidator,
@@ -49,10 +49,17 @@ export type IncompleteFactMetricSeed = Omit<FactMetricSeed, "numerator"> & {
 
 // A template's numerator/denominator arrive with placeholder column names
 // and no fact table - build a normalized copy with those fields blanked
-// (TemplateFieldMapping fills them in) rather than mutating dJSON's own
+// (TemplateFieldMapping fills them in) rather than mutating the parsed
 // output, then validate.
 export function parseMetricTemplate(raw: string): TemplateMetric {
-  const json = dJSON.parse(raw);
+  const json = z
+    .object({
+      metricType: z.unknown().optional(),
+      numerator: z.record(z.string(), z.unknown()).nullish(),
+      denominator: z.record(z.string(), z.unknown()).nullish(),
+    })
+    .passthrough()
+    .parse(parseLooseJSON(raw));
   const normalized = {
     ...json,
     numerator: json.numerator
