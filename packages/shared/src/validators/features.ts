@@ -481,19 +481,25 @@ export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 // real-time on the live ramp schedule.
 // API variant: targetType/targetId are inferred from the top-level ruleId
 // at publish time.
-const revisionApiRampStepAction = z.object({
-  targetType: z.literal("feature-rule").optional(),
-  targetId: z.string().optional(),
-  patch: featureRulePatch.partial({ ruleId: true }),
-});
+// Strict: a rule field placed on the step or action instead of inside `patch`
+// would otherwise be dropped and the step stored with nothing to apply.
+const revisionApiRampStepAction = z
+  .object({
+    targetType: z.literal("feature-rule").optional(),
+    targetId: z.string().optional(),
+    patch: featureRulePatch.partial({ ruleId: true }).strict(),
+  })
+  .strict();
 
-const revisionApiRampStep = z.object({
-  interval: z.number().positive().nullable(),
-  actions: z.array(revisionApiRampStepAction).optional(),
-  approvalNotes: z.string().nullish(),
-  monitored: z.boolean().optional(),
-  holdConditions: stepHoldConditions.optional(),
-});
+const revisionApiRampStep = z
+  .object({
+    interval: z.number().positive().nullable(),
+    actions: z.array(revisionApiRampStepAction).optional(),
+    approvalNotes: z.string().nullish(),
+    monitored: z.boolean().optional(),
+    holdConditions: stepHoldConditions.strict().optional(),
+  })
+  .strict();
 
 // Stored type — requires targetType/targetId in actions.
 export const revisionRampCreateAction = z.object({
