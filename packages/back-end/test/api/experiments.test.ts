@@ -1287,6 +1287,26 @@ describe("experiments API", () => {
         running,
         expect.objectContaining({ coverage: undefined }),
       );
+
+      // Replacing the list without growing it is an in-place edit and is checked.
+      jest.mocked(assertLivePayloadChangeAllowed).mockClear();
+      await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              coverage: 0.5,
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(assertLivePayloadChangeAllowed).toHaveBeenCalledWith(
+        expect.anything(),
+        running,
+        expect.objectContaining({ coverage: 0.5 }),
+      );
     });
 
     it("allows update when required custom fields are missing and payload omits customFields", async () => {

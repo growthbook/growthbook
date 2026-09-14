@@ -344,10 +344,10 @@ export const updateExperiment = createApiRequestHandler(
 
   // Same guard the dashboard applies: a running experiment that is live in
   // the SDK payload cannot change its variations, coverage, or weights in
-  // place. Adding a phase is how traffic legitimately changes, so coverage and
-  // weights are compared only when the phase list keeps its length.
+  // place. Appending a phase is how traffic legitimately changes, so coverage
+  // and weights are compared unless the phase list grew.
   const editedLatestPhase =
-    changes.phases && changes.phases.length === experiment.phases.length
+    changes.phases && changes.phases.length <= experiment.phases.length
       ? changes.phases[changes.phases.length - 1]
       : undefined;
   await assertLivePayloadChangeAllowed(req.context, experiment, {
