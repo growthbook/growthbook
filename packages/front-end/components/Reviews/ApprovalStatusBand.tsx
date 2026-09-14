@@ -31,13 +31,16 @@ function describeUnmet(unmet: UnmetTeams) {
 
 // "a reviewer in the Platform Project and a reviewer in the Config Server Project"
 function describeProjects(projects: UnmetProjects) {
-  return projects
-    .map((p) =>
-      p.name
-        ? `a reviewer in the ${p.name} Project`
-        : "a reviewer in a Project you don't have access to",
-    )
-    .join(" and ");
+  const named = projects.filter((p) => p.name);
+  const hidden = projects.length - named.length;
+  return [
+    ...named.map((p) => `a reviewer in the ${p.name} Project`),
+    ...(hidden === 1
+      ? ["a reviewer in a Project you don't have access to"]
+      : hidden > 1
+        ? [`reviewers in ${hidden} Projects you don't have access to`]
+        : []),
+  ].join(" and ");
 }
 
 // What a publish will take: what the draft reaches, and who must sign off.

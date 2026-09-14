@@ -70,7 +70,7 @@ export default function TargetingProjectsField({
       .map((id) => ({
         value: id,
         label: "Hidden Project",
-        tooltip: "A Project you don't have access to",
+        tooltip: `A Project you don't have access to (${id})`,
       })),
   ];
   const canTargetAll =

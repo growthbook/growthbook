@@ -142,11 +142,12 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
                       enabled={!!disabled}
                       side="bottom"
                     >
-                      <span
-                        style={{ display: "inline-flex", width: "fit-content" }}
+                      <Flex
+                        display="inline-flex"
+                        style={{ width: "fit-content" }}
                       >
                         {item}
-                      </span>
+                      </Flex>
                     </Tooltip>
                   );
                 },

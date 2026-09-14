@@ -54,7 +54,7 @@ export default function RuleProjectScopeField({
       .map((id) => ({
         value: id,
         label: "Hidden Project",
-        tooltip: "A Project you don't have access to",
+        tooltip: `A Project you don't have access to (${id})`,
       })),
   ];
 

@@ -509,7 +509,7 @@ export default function FeaturesHeader({
                         }
                       >
                         <Text weight="regular" color="text-mid">
-                          <em>hidden</em>
+                          <em>Hidden Project</em>
                         </Text>
                       </Tooltip>
                     ) : currentProject && currentProject !== feature.project ? (
@@ -559,9 +559,18 @@ export default function FeaturesHeader({
                         <span key={id}>
                           {i > 0 ? ", " : ""}
                           {getProjectById(id)?.name || (
-                            <em title="A Project you don't have access to">
-                              hidden
-                            </em>
+                            <Tooltip
+                              body={
+                                <>
+                                  A Project you don&apos;t have access to, or
+                                  one that no longer exists (<code>{id}</code>)
+                                </>
+                              }
+                            >
+                              <Text weight="regular" color="text-mid">
+                                <em>Hidden Project</em>
+                              </Text>
+                            </Tooltip>
                           )}
                         </span>
                       ))}
