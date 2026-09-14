@@ -9,6 +9,7 @@ import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import {
@@ -575,6 +576,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       hasHoldoutChange;
 
     if (hasRevisionChanges) {
+      if (hasMetadataChanges) {
+        await assertFeatureMoveDependentsGuard(
+          req.context,
+          feature,
+          metadataChanges,
+        );
+      }
       const revisionChanges: Partial<FeatureRevisionInterface> = {
         ...(hasEnvEnabledChanges
           ? { environmentsEnabled: changedEnvEnabled }

@@ -167,6 +167,7 @@ import { assessRevisionApproval } from "back-end/src/services/featurePublishGate
 import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import {
@@ -2414,6 +2415,7 @@ export async function postFeaturePublish(
   if (mergeResult.result.archived === true && !feature.archived) {
     await assertFeatureArchiveDependentsGuard(context, feature);
   }
+  await assertFeatureMoveDependentsGuard(context, feature, revision.metadata);
 
   const updatedFeature = await publishRevision({
     context,
@@ -2876,6 +2878,11 @@ export async function postFeatureRevert(
   if (mergeChanges.archived === true && !feature.archived) {
     await assertFeatureArchiveDependentsGuard(context, feature);
   }
+  await assertFeatureMoveDependentsGuard(
+    context,
+    feature,
+    mergeChanges.metadata,
+  );
   const updatedFeature = await publishRevision({
     context,
     feature,
@@ -5680,6 +5687,7 @@ export async function putFeature(
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
       await assertCanAutoPublish(context, feature, draft);
+      await assertFeatureMoveDependentsGuard(context, feature, metadataUpdates);
       updatedFeature = await publishRevision({
         context,
         feature,
