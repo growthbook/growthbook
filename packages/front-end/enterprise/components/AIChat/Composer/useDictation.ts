@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 
@@ -13,6 +19,19 @@ const pickMimeType = () =>
   typeof MediaRecorder === "undefined"
     ? null
     : (MIME_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? null);
+
+// Recorder support differs between the server and the browser, and the
+// composer is in the SSR tree on every page (AgentLauncher is a plain import
+// in _app). useSyncExternalStore is React's own answer to that: it renders the
+// server snapshot during hydration and the client one after, so the two can't
+// disagree. Support never changes within a session, so the store never emits.
+const NEVER_CHANGES = () => () => {};
+const useCanRecord = () =>
+  useSyncExternalStore(
+    NEVER_CHANGES,
+    () => !!pickMimeType(),
+    () => false,
+  );
 
 export interface Dictation {
   available: boolean;
@@ -29,6 +48,7 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
   const { apiCall } = useAuth();
   // Already null when AI is off or no provider with a key serves transcription.
   const { sttModel } = useUser();
+  const canRecord = useCanRecord();
 
   const [status, setStatus] = useState<"idle" | "recording" | "transcribing">(
     "idle",
@@ -125,7 +145,7 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
   }, [apiCall, onTranscript, release, stop]);
 
   return {
-    available: !!sttModel && !!pickMimeType(),
+    available: !!sttModel && canRecord,
     recording: status === "recording",
     transcribing: status === "transcribing",
     error,
