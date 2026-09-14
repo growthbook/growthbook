@@ -9,6 +9,7 @@ import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import {
@@ -54,8 +55,12 @@ import {
 } from "back-end/src/services/featureRevisionEvents";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validations";
+import {
+  validateChangedRuleReferences,
+  validateCustomFields,
+} from "./validations";
 import {
   canBypassReviewChecks,
   canUseRestApiBypassSetting,
@@ -64,7 +69,9 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidRuleProjectIds,
+  assertValidChangedRuleProjectIds,
+  assertUniqueRuleIdsByEnv,
+  assertValidChangedRuleExperimentIds,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
   extractRevisionMetadata,
@@ -151,7 +158,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
     }
 
-    validateEnvRulesScheduleRules(req.body.environments, req.context);
+    validateEnvRulesScheduleRules(
+      req.body.environments,
+      req.context,
+      feature.rules ?? [],
+    );
+    assertUniqueRuleIdsByEnv(req.body.environments);
 
     // ensure default value matches value type
     let defaultValue;
@@ -370,7 +382,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             featureProject: effectiveProject,
           })
         : [];
-    await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    await assertValidChangedRuleProjectIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await assertValidChangedRuleExperimentIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await validateChangedRuleReferences(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
     // Envs whose rule lists the caller is replacing. Envs present in the
     // payload with only `enabled` (no `rules` key) keep their current rules.
     const rulesTouchedEnvs = new Set(Object.keys(inboundRulesByEnv));
@@ -506,6 +532,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     updates = updatesAfterMetadata;
 
     // 4. prerequisites
+    await assertValidPrerequisiteParents(
+      req.context,
+      {
+        ...feature,
+        rules: revisedRulesFlat,
+        prerequisites: updates.prerequisites ?? feature.prerequisites,
+      },
+      feature,
+    );
     const newPrerequisites = updates.prerequisites ?? null;
     if (newPrerequisites !== null) {
       delete updates.prerequisites;
@@ -551,6 +586,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       hasHoldoutChange;
 
     if (hasRevisionChanges) {
+      if (hasMetadataChanges) {
+        await assertFeatureMoveDependentsGuard(
+          req.context,
+          feature,
+          metadataChanges,
+        );
+      }
       const revisionChanges: Partial<FeatureRevisionInterface> = {
         ...(hasEnvEnabledChanges
           ? { environmentsEnabled: changedEnvEnabled }

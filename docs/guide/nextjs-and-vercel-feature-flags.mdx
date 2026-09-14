@@ -7,6 +7,15 @@ sidebarTitle: Next.js and Vercel
 
 import { ExternalLink } from "/snippets/ExternalLink.jsx";
 
+<Tip>
+
+The setup below requires a Vercel API Token with broad account access. If you'd rather not grant one, two newer paths avoid it:
+
+- The official [`@flags-sdk/growthbook` adapter](/lib/nextjs) needs only a GrowthBook client key (Edge Config is optional).
+- The [Vercel Native Integration](/integrations/vercel) syncs flags to Edge Config using integration-scoped credentials instead of a personal token.
+
+</Tip>
+
 This tutorial shows you how to use GrowthBook with Vercel's Edge Config and Feature Flags SDK to manage feature flags in a Next.js app. You'll need a Next app deployed on Vercel to follow along.
 
 While it's not necessary to use GrowthBook with Vercel's platform (see our other [guides on adding GrowthBook to Next.js](/guide/)), this setup provides several benefits:

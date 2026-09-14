@@ -8,41 +8,38 @@ import {
   ReactNode,
   createElement,
 } from "react";
-import { IsFeatureStaleResult } from "shared/util";
+import { FeatureHealthStateEntry } from "shared/util";
 import { useAuth } from "@/services/auth";
 
-export type StaleStateEntry = IsFeatureStaleResult & {
-  neverStale: boolean;
-  computedAt: string;
-};
-export type StaleStateMap = Record<string, StaleStateEntry>;
+export type { FeatureHealthStateEntry };
+export type FeatureHealthStateMap = Record<string, FeatureHealthStateEntry>;
 
 const ENTRY_TTL_MS = 10 * 60 * 1000; // 10 minutes per entry
 const ERROR_RETRY_MS = 30_000;
 
-export interface UseFeatureStaleStatesReturn {
-  // Skips already-loaded IDs whose TTL hasn't expired; no-op if fetchAll has already run.
+export interface UseFeatureHealthStatesReturn {
+  // After a fetchAll, only IDs missing from that snapshot are fetched.
   fetchSome: (featureIds: string[]) => Promise<void>;
   // Fetches all org features, overwriting the current data.
   fetchAll: () => Promise<void>;
   // Removes specific IDs from the cache so the next fetchSome re-fetches them.
   invalidate: (ids: string[]) => void;
-  getStaleState: (featureId: string) => StaleStateEntry | undefined;
+  getHealthState: (featureId: string) => FeatureHealthStateEntry | undefined;
   loading: boolean;
-  staleStates: StaleStateMap;
+  healthStates: FeatureHealthStateMap;
 }
 
-const StaleStatesContext = createContext<UseFeatureStaleStatesReturn | null>(
+const HealthStatesContext = createContext<UseFeatureHealthStatesReturn | null>(
   null,
 );
 
-export function FeatureStaleStatesProvider({
+export function FeatureHealthStatesProvider({
   children,
 }: {
   children: ReactNode;
 }) {
   const { apiCall } = useAuth();
-  const [staleStates, setStaleStates] = useState<StaleStateMap>({});
+  const [healthStates, setHealthStates] = useState<FeatureHealthStateMap>({});
   const loadedIds = useRef(new Set<string>());
   const entryTimestamps = useRef<Record<string, number>>({});
   const hasFetchedAll = useRef(false);
@@ -57,11 +54,11 @@ export function FeatureStaleStatesProvider({
       inflightKey.current = key;
       const url =
         ids !== undefined
-          ? `/features/stale?ids=${ids.join(",")}`
-          : "/features/stale";
+          ? `/features/health?ids=${ids.join(",")}`
+          : "/features/health";
       setLoading(true);
       try {
-        const res = await apiCall<{ features: StaleStateMap }>(url);
+        const res = await apiCall<{ features: FeatureHealthStateMap }>(url);
         const incoming = res.features ?? {};
         const now = Date.now();
         if (ids === undefined) {
@@ -70,13 +67,13 @@ export function FeatureStaleStatesProvider({
             loadedIds.current.add(id);
             entryTimestamps.current[id] = now;
           });
-          setStaleStates(incoming);
+          setHealthStates(incoming);
         } else {
           ids.forEach((id) => {
             loadedIds.current.add(id);
             entryTimestamps.current[id] = now;
           });
-          setStaleStates((prev) => ({ ...prev, ...incoming }));
+          setHealthStates((prev) => ({ ...prev, ...incoming }));
         }
       } finally {
         setLoading(false);
@@ -88,12 +85,12 @@ export function FeatureStaleStatesProvider({
 
   const fetchSome = useCallback(
     async (featureIds: string[]) => {
-      if (hasFetchedAll.current) return;
       const now = Date.now();
       const toFetch = featureIds.filter(
         (id) =>
           !loadedIds.current.has(id) ||
-          now - (entryTimestamps.current[id] ?? 0) > ENTRY_TTL_MS,
+          (!hasFetchedAll.current &&
+            now - (entryTimestamps.current[id] ?? 0) > ENTRY_TTL_MS),
       );
       await doFetch(toFetch);
     },
@@ -136,32 +133,33 @@ export function FeatureStaleStatesProvider({
     };
   }, [doFetch]);
 
-  const getStaleState = useCallback(
-    (featureId: string): StaleStateEntry | undefined => staleStates[featureId],
-    [staleStates],
+  const getHealthState = useCallback(
+    (featureId: string): FeatureHealthStateEntry | undefined =>
+      healthStates[featureId],
+    [healthStates],
   );
 
   return createElement(
-    StaleStatesContext.Provider,
+    HealthStatesContext.Provider,
     {
       value: {
         fetchSome,
         fetchAll,
         invalidate,
-        getStaleState,
+        getHealthState,
         loading,
-        staleStates,
+        healthStates,
       },
     },
     children,
   );
 }
 
-export function useFeatureStaleStates(): UseFeatureStaleStatesReturn {
-  const ctx = useContext(StaleStatesContext);
+export function useFeatureHealthStates(): UseFeatureHealthStatesReturn {
+  const ctx = useContext(HealthStatesContext);
   if (!ctx) {
     throw new Error(
-      "useFeatureStaleStates must be used within FeatureStaleStatesProvider",
+      "useFeatureHealthStates must be used within FeatureHealthStatesProvider",
     );
   }
   return ctx;

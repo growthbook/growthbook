@@ -11,12 +11,18 @@ jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   createAgentHandler: () => async () => undefined,
 }));
 
+jest.mock("back-end/src/enterprise/services/ai", () => ({
+  aiTool: (definition: unknown) => definition,
+}));
+
 import type { AIChatMessage } from "shared/ai-chat";
 import {
   _buildGeneralAgentSystemPrompt,
   _coerceBody,
   _offScreenDashboardUpdate,
   _requiresMutationConfirmation,
+  _stripConfirmFromSqlBody,
+  _shapeCallApiResult,
 } from "back-end/src/agent/general-agent";
 
 describe("general agent system prompt", () => {
@@ -26,9 +32,10 @@ describe("general agent system prompt", () => {
     expect(prompt).toContain(
       "translate every `gb-call METHOD PATH [body]` example into",
     );
-    expect(prompt).toContain("Never run shell commands");
+    expect(prompt).toContain("every polling `sleep` into a `wait` call");
+    expect(prompt).toContain("run shell commands");
     expect(prompt).toMatch(
-      /Ignore API-key, host,\s+`gb-setup`, and credential instructions/,
+      /Ignore API-key, host,.*`gb-setup`, and credential\s+instructions/s,
     );
   });
 });
@@ -194,6 +201,130 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
         path: "/api/v1/experiments/exp_123/snapshot?force=true",
       }),
     ).toBe(false);
+  });
+
+  it("allows SQL query endpoints without mutation confirmation", () => {
+    const sqlPaths = [
+      "/api/v1/data-sources/ds_123/sql/run-query",
+      "/api/v1/data-sources/ds_123/sql/preview-values",
+      "/api/v1/data-sources/ds_123/sql/search-tables",
+      "/api/v1/data-sources/ds_123/sql/table-schema",
+    ];
+    for (const path of sqlPaths) {
+      expect(_requiresMutationConfirmation({ method: "POST", path })).toBe(
+        false,
+      );
+    }
+  });
+});
+
+describe("stripConfirmFromSqlBody (cost confirmation bypass prevention)", () => {
+  it("strips confirm from SQL run-query bodies", () => {
+    const result = _stripConfirmFromSqlBody(
+      "/api/v1/data-sources/ds_123/sql/run-query",
+      { sql: "SELECT 1", purpose: "test", confirm: true },
+    );
+    expect(result).toEqual({ sql: "SELECT 1", purpose: "test" });
+    expect(result).not.toHaveProperty("confirm");
+  });
+
+  it("strips confirm from other SQL endpoint bodies", () => {
+    const result = _stripConfirmFromSqlBody(
+      "/api/v1/data-sources/ds_123/sql/preview-values",
+      { table: "t", columns: ["c"], confirm: true },
+    );
+    expect(result).not.toHaveProperty("confirm");
+  });
+
+  it("does not strip confirm from non-SQL paths", () => {
+    const body = { name: "test", confirm: true };
+    expect(_stripConfirmFromSqlBody("/api/v1/features", body)).toBe(body);
+  });
+
+  it("passes through non-object bodies unchanged", () => {
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        "string body",
+      ),
+    ).toBe("string body");
+  });
+
+  it("returns null/undefined unchanged", () => {
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        null,
+      ),
+    ).toBeNull();
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        undefined,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("passes through bodies without confirm unchanged", () => {
+    const body = { sql: "SELECT 1", purpose: "test" };
+    expect(
+      _stripConfirmFromSqlBody(
+        "/api/v1/data-sources/ds_123/sql/run-query",
+        body,
+      ),
+    ).toBe(body);
+  });
+});
+
+describe("callApi Product Analytics result shaping", () => {
+  it("retains complete exploration rows", () => {
+    const result = {
+      status: 200,
+      body: {
+        exploration: {
+          id: "ae_1",
+          status: "success",
+          result: {
+            rows: [
+              {
+                dimensions: ["2026-09-01"],
+                values: [
+                  { metricId: "fact__1", numerator: 42, denominator: 7 },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    expect(_shapeCallApiResult(result)).toBe(result);
+  });
+
+  it("replaces an oversized result with a retryable message", () => {
+    const result = {
+      status: 200,
+      body: {
+        exploration: {
+          id: "ae_1",
+          status: "success",
+          config: { type: "metric" },
+          result: {
+            rows: Array.from({ length: 100 }, () => ({
+              payload: "x".repeat(1_000),
+            })),
+          },
+        },
+      },
+    };
+
+    expect(_shapeCallApiResult(result)).toEqual({
+      status: 200,
+      body: {
+        truncated: true,
+        message: expect.stringContaining("reducing the request scope"),
+      },
+    });
   });
 });
 

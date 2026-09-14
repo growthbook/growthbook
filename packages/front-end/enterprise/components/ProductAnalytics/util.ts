@@ -16,6 +16,13 @@ import type {
   FunnelStep,
   FunnelDataset,
   ExplorationDateRange,
+  ProductAnalyticsChartSettings,
+} from "shared/validators";
+import {
+  dateGranularity,
+  explorationConfigValidator,
+  explorationDateRangeValidator,
+  comparisonModeValidator,
   ComparisonMode,
   SqlDataset,
 } from "shared/validators";
@@ -35,12 +42,17 @@ import {
   hasTimestampColumn,
   hasTimeAxis,
 } from "shared/enterprise";
+import {
+  operatorLabelMap,
+  getColumnInfo,
+} from "@/components/FactTables/rowFilterUtils";
 export {
   getMetricMixClass,
   getEffectiveShowAs,
   clearInapplicableShowAs,
   getEffectiveMetricValue,
   getSharedUnit,
+  getDefaultValueAxisName,
   showAsAppliesTo,
   getIsRatioByIndex,
   buildExplorationColumns,
@@ -62,30 +74,35 @@ export type ExplorerDraftConfig = ExplorationConfig & {
  * compare fields, and — for raw tables — the dimensions and values the draft
  * keeps so switching back to a visualization is reversible. Raw tables return
  * unaggregated rows, so the server rejects a config that still carries them.
+ * Axis labels are trimmed but never dropped: blank means the user hid the label.
  */
 export function stripExplorerDraftFields(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const { previousTimeFrame: _, comparisonMode: __, ...rest } = config;
-  if (rest.type === "sql" && rest.chartType === "rawTable") {
-    return {
-      ...rest,
-      dimensions: [],
-      dataset: { ...rest.dataset, values: [] },
-    };
-  }
-  return rest;
+  const {
+    previousTimeFrame: _,
+    comparisonMode: __,
+    chartSettings,
+    ...rest
+  } = config;
+
+  const stripped: ExplorationConfig =
+    rest.type === "sql" && rest.chartType === "rawTable"
+      ? {
+          ...rest,
+          dimensions: [],
+          dataset: { ...rest.dataset, values: [] },
+        }
+      : rest;
+
+  const cleanedChartSettings = cleanChartSettings(chartSettings);
+  return cleanedChartSettings
+    ? ({
+        ...stripped,
+        chartSettings: cleanedChartSettings,
+      } as ExplorationConfig)
+    : stripped;
 }
-import {
-  dateGranularity,
-  explorationConfigValidator,
-  explorationDateRangeValidator,
-  comparisonModeValidator,
-} from "shared/validators";
-import {
-  operatorLabelMap,
-  getColumnInfo,
-} from "@/components/FactTables/rowFilterUtils";
 
 export { mapDatabaseTypeToEnum };
 
@@ -935,6 +952,54 @@ export function removeIncompleteInputs(
   return dataset;
 }
 
+function cleanChartSettings(
+  chartSettings: ProductAnalyticsChartSettings | undefined,
+): ProductAnalyticsChartSettings | undefined {
+  if (!chartSettings) return undefined;
+  const next: ProductAnalyticsChartSettings = {};
+  // Preserve empty strings: they mean "hide this label", not "use the default".
+  if (chartSettings.categoryAxisLabel !== undefined) {
+    next.categoryAxisLabel = chartSettings.categoryAxisLabel.trim();
+  }
+  if (chartSettings.valueAxisLabel !== undefined) {
+    next.valueAxisLabel = chartSettings.valueAxisLabel.trim();
+  }
+  return Object.keys(next).length ? next : undefined;
+}
+
+/** Dataset fields the inferred value-axis label depends on. */
+function getValueAxisLabelSource(config: ExplorerDraftConfig) {
+  const { dataset, showAs } = config;
+  if (dataset.type === "funnel") {
+    return { type: dataset.type, showAs };
+  }
+  return {
+    type: dataset.type,
+    showAs,
+    values: dataset.values.map((v) => omit(v, ["name", "rowFilters"])),
+  };
+}
+
+/** Drop a custom value-axis label when the values it described have changed. */
+export function resetValueAxisLabelOnDatasetChange(
+  previous: ExplorerDraftConfig,
+  next: ExplorerDraftConfig,
+): ExplorerDraftConfig {
+  if (next.chartSettings?.valueAxisLabel === undefined) return next;
+  if (
+    isEqual(getValueAxisLabelSource(previous), getValueAxisLabelSource(next))
+  ) {
+    return next;
+  }
+  const chartSettings = omit(next.chartSettings, "valueAxisLabel");
+  return {
+    ...next,
+    chartSettings: Object.keys(chartSettings).length
+      ? chartSettings
+      : undefined,
+  };
+}
+
 /** Prepares a config for submission by removing incomplete inputs (values, filters) from the dataset. */
 export function cleanConfigForSubmission(
   config: ExplorerDraftConfig,
@@ -1185,7 +1250,7 @@ export function toFetchKey(
       ? stripExplorerDraftFields(config)
       : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { showAs, ...rest } = base;
+  const { showAs, chartSettings, ...rest } = base;
   if (base.dataset.type === "sql" && base.chartType === "rawTable") {
     return {
       ...rest,

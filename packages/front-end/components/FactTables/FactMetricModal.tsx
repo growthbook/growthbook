@@ -1262,7 +1262,6 @@ function FieldMappingModal({
 
   return (
     <Modal
-      useRadixButton={false}
       close={close}
       header="Create Fact Metric From Template"
       trackingEventModalType=""
@@ -1669,7 +1668,6 @@ function StandardFactMetricModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}

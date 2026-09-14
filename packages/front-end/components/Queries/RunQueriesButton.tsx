@@ -6,7 +6,6 @@ import {
   useState,
 } from "react";
 import { QueryStatus, Queries } from "shared/types/query";
-import clsx from "clsx";
 import { PiPlay, PiArrowClockwise, PiXBold } from "react-icons/pi";
 import { getValidDate } from "shared/dates";
 import { IconButton, Progress, Text } from "@radix-ui/themes";
@@ -71,14 +70,12 @@ type Props = {
   model: { queries: Queries; runStarted: string | Date | undefined | null };
   mutate: () => Promise<unknown> | unknown;
   icon?: "run" | "refresh";
-  color?: string;
   position?: "left" | "right";
   resetFilters?: () => void | Promise<void>;
   radixVariant?: "outline" | "solid" | "soft";
   size?: "sm" | "md";
   onSubmit?: () => void | Promise<void>;
   disabled?: boolean;
-  useRadixButton?: boolean;
 };
 
 const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
@@ -90,14 +87,12 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       model,
       mutate,
       icon = "run",
-      color = "primary",
       position = "right",
       resetFilters,
       radixVariant = "outline",
       size = "md",
       onSubmit,
       disabled,
-      useRadixButton = true,
     },
     ref: ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -206,51 +201,29 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
             </div>
           )}
           <div className="position-relative">
-            {useRadixButton ? (
-              <Button
-                ref={ref}
-                variant={radixVariant}
-                size={size}
-                disabled={status === "running" || disabled}
-                type="button"
-                onClick={async () => {
-                  await resetFilters?.();
-                  await onSubmit?.();
-                }}
-                icon={buttonIcon}
-                style={{
-                  minWidth: size === "sm" ? 90 : 110,
-                }}
-              >
-                {status === "running" ? (
-                  <Text className="small">
-                    {loadingText} ({getTimeDisplay(elapsed)})
-                  </Text>
-                ) : (
-                  <Text>{cta}</Text>
-                )}
-              </Button>
-            ) : (
-              <button
-                ref={ref}
-                className={clsx("btn font-weight-bold my-0", `btn-${color}`, {
-                  disabled: status === "running",
-                })}
-                disabled={status === "running" || disabled}
-                type="submit"
-                onClick={async () => {
-                  await resetFilters?.();
-                  await onSubmit?.();
-                }}
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  {buttonIcon}
-                </span>
-                {status === "running"
-                  ? `${loadingText} (${getTimeDisplay(elapsed)})...`
-                  : cta}
-              </button>
-            )}
+            <Button
+              ref={ref}
+              variant={radixVariant}
+              size={size}
+              disabled={status === "running" || disabled}
+              type="button"
+              onClick={async () => {
+                await resetFilters?.();
+                await onSubmit?.();
+              }}
+              icon={buttonIcon}
+              style={{
+                minWidth: size === "sm" ? 90 : 110,
+              }}
+            >
+              {status === "running" ? (
+                <Text className="small">
+                  {loadingText} ({getTimeDisplay(elapsed)})
+                </Text>
+              ) : (
+                <Text>{cta}</Text>
+              )}
+            </Button>
             {status === "running" && numQueries > 1 && (
               <Progress
                 value={Math.floor((100 * numFinished) / numQueries)}
