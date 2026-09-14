@@ -30,7 +30,6 @@ import {
   getFunnelStepPreview,
   getInitialInlineFilters,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { RowFilterActions } from "@/components/FactTables/RowFilterActions";
 import { factTableToColumnSource } from "@/components/FactTables/rowFilterUtils";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
@@ -378,47 +377,41 @@ export default function FunnelStepCard({
                 columnSource={columnSource}
                 value={step.rowFilters}
                 setValue={handleFiltersChange}
-              />
-              <Box mt="2">
-                <RowFilterActions
-                  value={step.rowFilters}
-                  setValue={handleFiltersChange}
-                  showSampleRows={false}
-                >
-                  {showFunnelUnitOnFilterRow && (
-                    <DropdownMenu
-                      open={unitDropdownOpen}
-                      onOpenChange={setUnitDropdownOpen}
-                      trigger={
-                        <Button size="sm" variant="ghost">
-                          <Flex align="center" gap="2">
-                            <PiUserFill size={14} />
-                            {funnelUnit ?? funnelUnitOptions[0]}
-                          </Flex>
-                        </Button>
-                      }
-                    >
-                      {funnelUnitOptions.map((u) => (
-                        <DropdownMenuItem
-                          key={u}
-                          onClick={() => {
-                            setDraftExploreState((prev) => {
-                              if (prev.dataset.type !== "funnel") return prev;
-                              return {
-                                ...prev,
-                                dataset: { ...prev.dataset, unit: u },
-                              } as ExplorationConfig;
-                            });
-                            setUnitDropdownOpen(false);
-                          }}
-                        >
-                          <Text>{u}</Text>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenu>
-                  )}
-                </RowFilterActions>
-              </Box>
+              >
+                {showFunnelUnitOnFilterRow && (
+                  <DropdownMenu
+                    open={unitDropdownOpen}
+                    onOpenChange={setUnitDropdownOpen}
+                    trigger={
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<PiUserFill size={14} />}
+                      >
+                        {funnelUnit ?? funnelUnitOptions[0]}
+                      </Button>
+                    }
+                  >
+                    {funnelUnitOptions.map((u) => (
+                      <DropdownMenuItem
+                        key={u}
+                        onClick={() => {
+                          setDraftExploreState((prev) => {
+                            if (prev.dataset.type !== "funnel") return prev;
+                            return {
+                              ...prev,
+                              dataset: { ...prev.dataset, unit: u },
+                            } as ExplorationConfig;
+                          });
+                          setUnitDropdownOpen(false);
+                        }}
+                      >
+                        <Text>{u}</Text>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenu>
+                )}
+              </ExplorerRowFilterInput>
             </Box>
           )}
 

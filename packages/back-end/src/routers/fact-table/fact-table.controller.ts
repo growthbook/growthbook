@@ -1,9 +1,7 @@
 import type { Response } from "express";
 import {
   canInlineFilterColumn,
-  expandVirtualColumnsInSql,
   getFactTableTimestampColumn,
-  getRowFilterSQL,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
@@ -23,7 +21,6 @@ import {
   FactFilterTestResults,
   ColumnInterface,
   FactTableColumnType,
-  RowFilter,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
@@ -50,7 +47,6 @@ import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getSourceIntegrationObject,
   getIntegrationIdentifierQuote,
-  getIntegrationSqlDialect,
 } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
@@ -83,6 +79,11 @@ import {
 } from "back-end/src/services/aggregatedFactTables";
 import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
 import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import {
+  testFilterQuery,
+  testRowFiltersQuery,
+  testVirtualColumnQuery,
+} from "back-end/src/services/factTableTestQueries";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -114,230 +115,6 @@ export const getFactTableById = async (
     factTable,
   });
 };
-
-async function testFilterQuery(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-  factTable: FactTableInterface,
-  filter: string,
-): Promise<FactFilterTestResults> {
-  if (!context.permissions.canRunTestQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const integration = getSourceIntegrationObject(context, datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  const timestampColumn = getFactTableTimestampColumn(factTable);
-
-  const sql = integration.getTestQuery({
-    // Must have a newline after factTable sql in case it ends with a comment.
-    // Expand any virtual column references so the filter runs against real columns.
-    query: `SELECT * FROM (
-      ${factTable.sql}
-    ) f WHERE ${expandVirtualColumnsInSql(
-      filter,
-      factTable,
-      getIntegrationIdentifierQuote(integration),
-    )}`,
-    templateVariables: {
-      eventName: factTable.eventName,
-    },
-    testDays: context.org.settings?.testQueryDays,
-    timestampColumn,
-  });
-
-  try {
-    const results = await integration.runTestQuery(
-      sql,
-      [timestampColumn],
-      "factTableValidation",
-    );
-    return {
-      sql,
-      ...results,
-    };
-  } catch (e) {
-    return {
-      sql,
-      error: e.message,
-    };
-  }
-}
-
-/** Number of sample rows returned by the row filter preview. */
-const SAMPLE_ROWS_LIMIT = 20;
-
-async function testRowFiltersQuery(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-  factTable: FactTableInterface,
-  rowFilters: RowFilter[],
-): Promise<RowFilterTestResults> {
-  if (!context.permissions.canRunTestQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const integration = getSourceIntegrationObject(context, datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  const dialect = getIntegrationSqlDialect(integration);
-  if (!dialect) {
-    throw new Error("Sample rows are not supported on this Data Source");
-  }
-
-  // getRowFilterSQL already expands virtual columns (both in column references
-  // and in sql_expr/saved_filter bodies), so the clauses go in as-is.
-  const where: string[] = [];
-  rowFilters.forEach((rowFilter) => {
-    const sql = getRowFilterSQL({
-      rowFilter,
-      factTable,
-      jsonExtract: dialect.jsonExtract,
-      escapeStringLiteral: dialect.escapeStringLiteral,
-      stringMatch: dialect.stringMatch,
-      evalBoolean: dialect.evalBoolean,
-      castToTimestamp: dialect.castToTimestamp,
-      identifierQuote: dialect.identifierQuote,
-    });
-
-    // A filter that compiles to nothing (most often a Saved Filter that has
-    // since been deleted) would quietly widen the preview, showing rows the
-    // user's filters exclude. Analysis queries drop these; a preview whose
-    // whole job is to show what the filters match must not.
-    if (sql === null) {
-      if (rowFilter.operator === "saved_filter") {
-        throw new Error(
-          `Saved Filter "${rowFilter.values?.[0]}" no longer exists. Remove it from the row filters to preview rows.`,
-        );
-      }
-      throw new Error(
-        `The row filter on "${rowFilter.column || rowFilter.operator}" is incomplete and cannot be previewed.`,
-      );
-    }
-
-    where.push(sql);
-  });
-
-  const whereClause = where.join("\n  AND ");
-
-  const timestampColumn = getFactTableTimestampColumn(factTable);
-
-  const sql = integration.getTestQuery({
-    // Must have a newline after factTable sql in case it ends with a comment.
-    query: `SELECT * FROM (
-      ${factTable.sql}
-    ) f${whereClause ? `\nWHERE ${whereClause}` : ""}`,
-    templateVariables: {
-      eventName: factTable.eventName,
-    },
-    testDays: context.org.settings?.testQueryDays,
-    timestampColumn,
-    limit: SAMPLE_ROWS_LIMIT,
-  });
-
-  try {
-    const results = await integration.runTestQuery(
-      sql,
-      [timestampColumn],
-      "factTableValidation",
-    );
-    return {
-      sql,
-      where: whereClause,
-      ...results,
-    };
-  } catch (e) {
-    return {
-      sql,
-      where: whereClause,
-      error: e.message,
-    };
-  }
-}
-
-async function testVirtualColumnQuery(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-  factTable: FactTableInterface,
-  sql: string,
-  columnId?: string,
-): Promise<FactFilterTestResults> {
-  if (!context.permissions.canRunTestQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  // The preview runs the expression, so apply the same structural check as the
-  // save paths rather than letting an unsafe expression reach the warehouse.
-  validateVirtualColumnSql(sql);
-
-  const integration = getSourceIntegrationObject(context, datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  const timestampColumn = getFactTableTimestampColumn(factTable);
-
-  // Alias the computed expression with the real column id (sanitized to a safe
-  // SQL identifier) so the preview matches what the saved column will be named.
-  const alias =
-    (columnId || "").replace(/[^a-zA-Z0-9_]/g, "") || "__virtual_column";
-
-  // Expand any nested virtual column references into their real SQL (each
-  // wrapped in parentheses) so the preview runs against real columns and matches
-  // how the column resolves in metric queries. Exclude the column being edited
-  // so a self-reference surfaces as an error instead of silently expanding to
-  // its previously-saved definition.
-  const expandedSql = expandVirtualColumnsInSql(
-    sql,
-    {
-      columns: factTable.columns.filter((c) => c.column !== columnId),
-    },
-    getIntegrationIdentifierQuote(integration),
-  );
-
-  // Select the computed expression alongside the raw rows. The expression
-  // references bare column names, which resolve against the aliased subquery.
-  const testSql = integration.getTestQuery({
-    // Must have a newline after factTable sql in case it ends with a comment
-    query: `SELECT (${expandedSql}) AS ${alias}, * FROM (
-      ${factTable.sql}
-    ) f`,
-    templateVariables: {
-      eventName: factTable.eventName,
-    },
-    testDays: context.org.settings?.testQueryDays,
-    timestampColumn,
-    // Only preview rows where the tested expression is non-null, so an empty
-    // result reliably means "no matching data" rather than an arbitrary sample
-    // of null rows.
-    notNullColumn: alias,
-  });
-
-  try {
-    const results = await integration.runTestQuery(
-      testSql,
-      [timestampColumn],
-      "factTableValidation",
-    );
-    return {
-      sql: testSql,
-      ...results,
-    };
-  } catch (e) {
-    return {
-      sql: testSql,
-      error: e.message,
-    };
-  }
-}
 
 function mergeColumnsWithTypeMap(
   existingColumns: ColumnInterface[],
@@ -1232,6 +1009,7 @@ export const postRowFiltersTest = async (
     throw new Error("Could not find datasource");
   }
 
+  // Test query, not a filter edit — skip canCreateAndUpdateFactFilter.
   const result = await testRowFiltersQuery(
     context,
     datasource,

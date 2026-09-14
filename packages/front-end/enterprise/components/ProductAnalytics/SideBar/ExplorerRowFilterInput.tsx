@@ -1,78 +1,54 @@
 import { Flex } from "@radix-ui/themes";
 import { RowFilter } from "shared/types/fact-table";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { ReactNode, useState, useEffect, useCallback, useRef } from "react";
 import { isEqual } from "lodash";
 import Text from "@/ui/Text";
 import { type FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
+import { RowFilterActions } from "@/components/FactTables/RowFilterActions";
 import { ExplorerFilterRow, type ExplorerRowFilter } from "./ExplorerFilterRow";
 
-/** Strip front-end-only fields for setValue (commit). */
 function toRowFilter(f: ExplorerRowFilter): RowFilter {
   const { disabled: _d, collapsed: _c, _localId: _id, ...rest } = f;
   return rest;
+}
+
+function withLocalChrome(
+  filter: RowFilter,
+  localId: number,
+): ExplorerRowFilter {
+  return {
+    ...filter,
+    _localId: localId,
+    disabled: false,
+    collapsed: false,
+  };
 }
 
 export function ExplorerRowFilterInput({
   value,
   setValue,
   columnSource,
+  children,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   columnSource: FilterColumnSource;
+  children?: ReactNode;
 }) {
   const nextIdRef = useRef(0);
   const assignId = () => nextIdRef.current++;
 
   const [localFilters, setLocalFilters] = useState<ExplorerRowFilter[]>(() =>
-    value.map((f) => ({
-      ...f,
-      _localId: assignId(),
-      disabled: false,
-      collapsed: false,
-    })),
+    value.map((f) => withLocalChrome(f, assignId())),
   );
 
-  // What this component last pushed up. Anything else arriving in `value` came
-  // from outside (a parent appending a row, the sample rows modal saving) and
-  // has to be adopted into local state.
+  // Ignore our own commits; any other value change is a wholesale replace.
   const lastCommittedRef = useRef<RowFilter[]>(value);
 
   useEffect(() => {
     if (isEqual(value, lastCommittedRef.current)) return;
     lastCommittedRef.current = value;
-
-    // Walk the enabled rows in order and re-point each at its counterpart in
-    // `value`, keeping `_localId` and `collapsed` so an external edit doesn't
-    // remount or re-expand the rows around it. Disabled rows aren't in `value`
-    // at all, so they stay put.
-    setLocalFilters((prev) => {
-      const next: ExplorerRowFilter[] = [];
-      let i = 0;
-      for (const f of prev) {
-        if (f.disabled) {
-          next.push(f);
-        } else if (i < value.length) {
-          next.push({
-            ...value[i++],
-            _localId: f._localId,
-            disabled: false,
-            collapsed: f.collapsed,
-          });
-        }
-        // else: dropped externally, so drop it locally too
-      }
-      while (i < value.length) {
-        next.push({
-          ...value[i++],
-          _localId: assignId(),
-          disabled: false,
-          collapsed: false,
-        });
-      }
-      return next;
-    });
-    // assignId is a stable ref bump, not reactive
+    setLocalFilters(value.map((f) => withLocalChrome(f, assignId())));
   }, [value]);
 
   const commit = useCallback(
@@ -83,6 +59,11 @@ export function ExplorerRowFilterInput({
     },
     [setValue],
   );
+
+  const replaceLocal = (filters: ExplorerRowFilter[]) => {
+    setLocalFilters(filters);
+    commit(filters);
+  };
 
   return (
     <Flex direction="column" gap="2" width="100%">
@@ -102,12 +83,17 @@ export function ExplorerRowFilterInput({
             if (shouldCommit) commit(newFilters);
           }}
           onDelete={() => {
-            const newFilters = localFilters.filter((_, idx) => idx !== i);
-            setLocalFilters(newFilters);
-            commit(newFilters);
+            replaceLocal(localFilters.filter((_, idx) => idx !== i));
           }}
         />
       ))}
+      <RowFilterActions
+        onAdd={(filter) =>
+          replaceLocal([...localFilters, withLocalChrome(filter, assignId())])
+        }
+      >
+        {children}
+      </RowFilterActions>
     </Flex>
   );
 }

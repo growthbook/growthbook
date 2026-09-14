@@ -23,19 +23,17 @@ import {
 
 export type { HeaderStructure };
 
-export type Props = {
+export type TestQueryResultsTableProps = {
   results: Record<string, unknown>[];
   duration: number;
   sql: string;
   error: string;
-  close?: () => void;
   expandable?: boolean;
   allowDownload?: boolean;
   showSampleHeader?: boolean;
   rowsLabel?: ReactNode;
   showDuration?: boolean;
   headerStructure?: HeaderStructure;
-  tableOnly?: boolean;
   orderedColumnKeys?: string[];
   /**
    * Display labels aligned with `orderedColumnKeys`. When omitted, the keys
@@ -59,17 +57,21 @@ export type Props = {
     value: unknown,
     row: Record<string, unknown>,
   ) => ReactNode | undefined;
-  paddingTop?: number;
   showNoRowsWarning?: boolean;
   emptyResultsContent?: ReactNode;
+  onViewSql?: () => void;
 };
 
-export default function DisplayTestQueryResults({
+export type Props = Omit<TestQueryResultsTableProps, "onViewSql"> & {
+  close?: () => void;
+  paddingTop?: number;
+};
+
+export function TestQueryResultsTable({
   results,
   duration,
   sql,
   error,
-  close,
   expandable,
   allowDownload,
   showSampleHeader = true,
@@ -81,20 +83,15 @@ export default function DisplayTestQueryResults({
   csvColumnKeys,
   csvColumnLabels,
   renderCell,
-  paddingTop = 0,
   showNoRowsWarning = true,
   emptyResultsContent,
-  tableOnly = false,
-}: Props) {
+  onViewSql,
+}: TestQueryResultsTableProps) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
-  const [showQueryModal, setShowQueryModal] = useState(false);
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
   const labels = columnLabels ?? cols;
   const canDownload =
     !!allowDownload && results.length > 0 && (csvColumnKeys ?? cols).length > 0;
-  // `tableOnly` returns the bare table, without the QueryModal that this opens,
-  // so the menu item would be inert there.
-  const canViewRenderedSql = !!sql && !tableOnly;
   const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
   const durationStatus = error ? "Query failed" : "Query succeeded";
   const showDurationStatus = showDuration && duration > 0;
@@ -217,7 +214,7 @@ export default function DisplayTestQueryResults({
     </div>
   );
 
-  const table = (
+  return (
     <Flex
       direction="column"
       style={{
@@ -316,7 +313,7 @@ export default function DisplayTestQueryResults({
                   </span>
                 </Tooltip>
               ) : null}
-              {canViewRenderedSql || canDownload ? (
+              {onViewSql || canDownload ? (
                 <DropdownMenu
                   menuPlacement="end"
                   trigger={
@@ -331,8 +328,8 @@ export default function DisplayTestQueryResults({
                     </IconButton>
                   }
                 >
-                  {canViewRenderedSql ? (
-                    <DropdownMenuItem onClick={() => setShowQueryModal(true)}>
+                  {onViewSql ? (
+                    <DropdownMenuItem onClick={onViewSql}>
                       View Rendered SQL
                     </DropdownMenuItem>
                   ) : null}
@@ -429,10 +426,14 @@ export default function DisplayTestQueryResults({
       )}
     </Flex>
   );
+}
 
-  if (tableOnly) {
-    return table;
-  }
+export default function DisplayTestQueryResults({
+  close,
+  paddingTop = 0,
+  ...tableProps
+}: Props) {
+  const [showQueryModal, setShowQueryModal] = useState(false);
 
   return (
     <>
@@ -440,7 +441,7 @@ export default function DisplayTestQueryResults({
         <QueryModal
           close={() => setShowQueryModal(false)}
           language="sql"
-          queries={[sql]}
+          queries={[tableProps.sql]}
         />
       ) : null}
       <AreaWithHeader
@@ -479,7 +480,12 @@ export default function DisplayTestQueryResults({
             paddingRight: "12px",
           }}
         >
-          {table}
+          <TestQueryResultsTable
+            {...tableProps}
+            onViewSql={
+              tableProps.sql ? () => setShowQueryModal(true) : undefined
+            }
+          />
         </Flex>
       </AreaWithHeader>
     </>

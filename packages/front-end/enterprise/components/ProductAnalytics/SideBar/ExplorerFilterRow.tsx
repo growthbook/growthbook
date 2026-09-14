@@ -3,19 +3,10 @@ import { RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Text from "@/ui/Text";
-import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import Switch from "@/ui/Switch";
-import {
-  reshapeDateValuesOnOperatorChange,
-  hideTimeColumn,
-  getRowFilterColumnChange,
-  getRowFilterInputState,
-  getRowFilterSelectOptions,
-  getRowFilterSelectValue,
-  type FilterColumnSource,
-} from "@/components/FactTables/rowFilterUtils";
-import { RowFilterValueInput } from "@/components/FactTables/RowFilterValueInput";
+import { type FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
+import { RowFilterFields } from "@/components/FactTables/RowFilterFields";
 
 /** Front-end only: extends RowFilter with UI state for the explorer. */
 export type ExplorerRowFilter = RowFilter & {
@@ -42,104 +33,6 @@ export function ExplorerFilterRow({
   ) => void;
   onDelete: () => void;
 }) {
-  const columnOptions = columnSource.columns.filter(
-    (o) =>
-      !hideTimeColumn({
-        column: o.value,
-        timeColumn: columnSource.timeColumn,
-        selectedColumn: filter.column,
-      }),
-  );
-
-  if (
-    filter.operator !== "saved_filter" &&
-    filter.column &&
-    !columnOptions.find((o) => o.value === filter.column)
-  ) {
-    columnOptions.push({
-      label: `${filter.column} (Invalid)`,
-      value: filter.column,
-    });
-  }
-
-  const firstSelectOptions = getRowFilterSelectOptions({
-    columnOptions,
-    savedFilters: columnSource.savedFilters,
-    selectedSavedFilterId:
-      filter.operator === "saved_filter" ? filter.values?.[0] : undefined,
-  });
-
-  const { datatype, topValues } = columnSource.getColumnInfo(filter.column);
-  const state = getRowFilterInputState({
-    operator: filter.operator,
-    values: filter.values,
-    datatype,
-    topValues,
-  });
-
-  const isSqlExpr = filter.operator === "sql_expr";
-  const firstSelectCompleted = !state.operatorInputRequired || !!filter.column;
-  const autoFocus = index === localFilters.length - 1;
-
-  const columnSelect = (
-    <SelectField
-      size="small"
-      value={getRowFilterSelectValue(filter)}
-      onChange={(v) =>
-        onUpdate(
-          getRowFilterColumnChange(
-            v,
-            filter,
-            columnSource.getColumnInfo(v).datatype,
-          ),
-        )
-      }
-      options={firstSelectOptions}
-      autoFocus={autoFocus}
-      sort={false}
-      placeholder="Filter by..."
-      required
-    />
-  );
-
-  const operatorSelect = state.operatorInputRequired &&
-    firstSelectCompleted && (
-      <SelectField
-        size="small"
-        value={state.displayOperator}
-        onChange={(v: RowFilter["operator"]) => {
-          let newValues = filter.values || [];
-          if (
-            ["in", "not_in"].includes(v) &&
-            !["in", "not_in"].includes(filter.operator)
-          ) {
-            newValues = newValues.filter((val) => val !== "");
-          }
-          newValues = reshapeDateValuesOnOperatorChange(
-            newValues,
-            filter.operator,
-            v,
-            state.isDateColumn,
-          );
-          onUpdate({ operator: v, values: newValues });
-        }}
-        options={state.operatorOptions}
-        sort={false}
-        placeholder="Select operator..."
-        required
-      />
-    );
-
-  const valueInput = state.valueInputRequired && firstSelectCompleted && (
-    <RowFilterValueInput
-      state={state}
-      operator={filter.operator}
-      values={filter.values}
-      onChange={(values, commit) => onUpdate({ values }, commit)}
-      autoFocus={autoFocus}
-    />
-  );
-
   const getFilterSummary = () => {
     if (filter.operator === "sql_expr") {
       const sqlExprCount = localFilters
@@ -162,6 +55,8 @@ export function ExplorerFilterRow({
     const colName = colOption?.label || filter.column;
     return `${colName} ${filter.operator} ${filter.values?.join(", ") || ""}`;
   };
+
+  const autoFocus = index === localFilters.length - 1;
 
   return (
     <Flex
@@ -207,19 +102,30 @@ export function ExplorerFilterRow({
         transitionTime={100}
       >
         <Flex direction="column" gap="2" mt="2">
-          {isSqlExpr ? null : operatorSelect ? (
-            <Flex direction="row" gap="2" align="center">
-              <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 0 }}>
-                {columnSelect}
-              </Box>
-              <Box style={{ minWidth: 0, flex: "0 1 130px" }}>
-                {operatorSelect}
-              </Box>
-            </Flex>
-          ) : (
-            columnSelect
-          )}
-          {valueInput}
+          <RowFilterFields
+            filter={filter}
+            columnSource={columnSource}
+            autoFocus={autoFocus}
+            onUpdate={(updates, commit) => onUpdate(updates, commit !== false)}
+          >
+            {({ columnSelect, operatorSelect, valueInput }) => (
+              <>
+                {columnSelect && operatorSelect ? (
+                  <Flex direction="row" gap="2" align="center">
+                    <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 0 }}>
+                      {columnSelect}
+                    </Box>
+                    <Box style={{ minWidth: 0, flex: "0 1 130px" }}>
+                      {operatorSelect}
+                    </Box>
+                  </Flex>
+                ) : (
+                  columnSelect
+                )}
+                {valueInput}
+              </>
+            )}
+          </RowFilterFields>
         </Flex>
       </Collapsible>
     </Flex>

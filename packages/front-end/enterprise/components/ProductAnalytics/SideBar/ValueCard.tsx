@@ -16,7 +16,6 @@ import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
-import { RowFilterActions } from "@/components/FactTables/RowFilterActions";
 import {
   factTableToColumnSource,
   columnTypesToColumnSource,
@@ -156,8 +155,6 @@ export default function ValueCard({
       break;
   }
 
-  const canAddFilter = !!columnSource;
-
   return (
     <Box
       style={{
@@ -245,47 +242,36 @@ export default function ValueCard({
                 columnSource={columnSource}
                 value={filters}
                 setValue={handleFiltersChange}
-              />
+              >
+                {factTable && supportsUnitSelection && (
+                  <DropdownMenu
+                    open={unitDropdownOpen}
+                    onOpenChange={setUnitDropdownOpen}
+                    trigger={
+                      <Button size="sm" variant="ghost" icon={<PiUserFill />}>
+                        {dataset.values[index].unit ?? "Select unit..."}
+                      </Button>
+                    }
+                  >
+                    {factTable.userIdTypes.map((t) => (
+                      <DropdownMenuItem
+                        key={t}
+                        onClick={() => {
+                          updateValueInDataset(index, {
+                            ...dataset.values[index],
+                            unit: t || null,
+                          });
+                          setUnitDropdownOpen(false);
+                        }}
+                      >
+                        <Text>{t}</Text>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenu>
+                )}
+              </ExplorerRowFilterInput>
             </Box>
           )}
-        </Box>
-        <Box mt="2">
-          <RowFilterActions
-            value={filters}
-            setValue={handleFiltersChange}
-            disabled={!canAddFilter}
-            showSampleRows={false}
-          >
-            {factTable && supportsUnitSelection && (
-              <DropdownMenu
-                open={unitDropdownOpen}
-                onOpenChange={setUnitDropdownOpen}
-                trigger={
-                  <Button size="sm" variant="ghost">
-                    <Flex align="center" gap="2">
-                      <PiUserFill />{" "}
-                      {dataset.values[index].unit ?? "Select unit..."}
-                    </Flex>
-                  </Button>
-                }
-              >
-                {factTable?.userIdTypes.map((t) => (
-                  <DropdownMenuItem
-                    key={t}
-                    onClick={() => {
-                      updateValueInDataset(index, {
-                        ...dataset.values[index],
-                        unit: t || null,
-                      });
-                      setUnitDropdownOpen(false);
-                    }}
-                  >
-                    <Text>{t}</Text>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenu>
-            )}
-          </RowFilterActions>
         </Box>
       </Collapsible>
     </Box>

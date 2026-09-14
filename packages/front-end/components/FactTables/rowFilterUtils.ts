@@ -11,6 +11,14 @@ export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 
 export const numberRegex = new RegExp(NUMBER_PATTERN);
 
+export function emptyColumnRowFilter(): RowFilter {
+  return { column: "", operator: "=", values: [""] };
+}
+
+export function emptySqlRowFilter(): RowFilter {
+  return { operator: "sql_expr", values: [""] };
+}
+
 /**
  * A fact table's `timestamp` column is the event time the whole analysis is
  * built on — the experiment/exploration date range already bounds it. A row
@@ -369,6 +377,27 @@ export function getRowFilterColumnChange(
   return { operator, column: selected, values };
 }
 
+export function getRowFilterOperatorChange(
+  toOperator: RowFilter["operator"],
+  filter: RowFilter,
+  isDateColumn: boolean,
+): Partial<RowFilter> {
+  let values = filter.values || [];
+  if (
+    ["in", "not_in"].includes(toOperator) &&
+    !["in", "not_in"].includes(filter.operator)
+  ) {
+    values = values.filter((val) => val !== "");
+  }
+  values = reshapeDateValuesOnOperatorChange(
+    values,
+    filter.operator,
+    toOperator,
+    isDateColumn,
+  );
+  return { operator: toOperator, values };
+}
+
 /** True when a row filter has everything it needs to generate SQL. */
 export function isRowFilterComplete(filter: RowFilter): boolean {
   const hasValues = (filter.values ?? []).some((v) => v !== "");
@@ -398,6 +427,31 @@ export interface FilterColumnSource {
   };
   /** The source's event-time column, hidden from the column picker. */
   timeColumn?: string;
+}
+
+export function getRowFilterColumnOptions(
+  columnSource: FilterColumnSource,
+  filter: RowFilter,
+): SingleValue[] {
+  const columnOptions = columnSource.columns.filter(
+    (o) =>
+      !hideTimeColumn({
+        column: o.value,
+        timeColumn: columnSource.timeColumn,
+        selectedColumn: filter.column,
+      }),
+  );
+  if (
+    filter.operator !== "saved_filter" &&
+    filter.column &&
+    !columnOptions.find((o) => o.value === filter.column)
+  ) {
+    columnOptions.push({
+      label: `${filter.column} (Invalid)`,
+      value: filter.column,
+    });
+  }
+  return columnOptions;
 }
 
 export function factTableToColumnSource(

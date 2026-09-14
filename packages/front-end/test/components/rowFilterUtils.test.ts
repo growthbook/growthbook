@@ -15,11 +15,14 @@ import {
   parseRowFilterDateValue,
   getAllowedOperators,
   getRowFilterColumnChange,
+  getRowFilterOperatorChange,
+  getRowFilterColumnOptions,
   getRowFilterSelectOptions,
   getRowFilterSelectValue,
   isRowFilterComplete,
   getRowFilterInputState,
   factTableToColumnSource,
+  columnTypesToColumnSource,
   NUMBER_PARTIAL_PATTERN,
 } from "@/components/FactTables/rowFilterUtils";
 
@@ -393,6 +396,69 @@ describe("getRowFilterColumnChange", () => {
         "string",
       ),
     ).toEqual({ operator: "=", column: "country", values: [] });
+  });
+});
+
+describe("getRowFilterOperatorChange", () => {
+  it("strips empty strings when switching to a multi-value operator", () => {
+    expect(
+      getRowFilterOperatorChange(
+        "in",
+        { operator: "=", column: "country", values: ["US", ""] },
+        false,
+      ),
+    ).toEqual({ operator: "in", values: ["US"] });
+  });
+
+  it("reshapes date values when crossing the date-only/datetime boundary", () => {
+    expect(
+      getRowFilterOperatorChange(
+        ">",
+        { operator: "=", column: "signup", values: ["2026-07-15"] },
+        true,
+      ),
+    ).toEqual({ operator: ">", values: ["2026-07-15T00:00"] });
+  });
+
+  it("leaves values alone when staying on the same side of the boundary", () => {
+    expect(
+      getRowFilterOperatorChange(
+        "!=",
+        { operator: "=", column: "country", values: ["US"] },
+        false,
+      ),
+    ).toEqual({ operator: "!=", values: ["US"] });
+  });
+});
+
+describe("getRowFilterColumnOptions", () => {
+  const source = columnTypesToColumnSource(
+    { timestamp: "date", country: "string" },
+    "timestamp",
+  );
+
+  it("hides the event-time column unless it is already selected", () => {
+    expect(
+      getRowFilterColumnOptions(source, { operator: "=", values: [""] }).map(
+        (o) => o.value,
+      ),
+    ).toEqual(["country"]);
+    expect(
+      getRowFilterColumnOptions(source, {
+        operator: "=",
+        column: "timestamp",
+        values: [""],
+      }).map((o) => o.value),
+    ).toEqual(["timestamp", "country"]);
+  });
+
+  it("keeps an unknown column selectable as invalid", () => {
+    const options = getRowFilterColumnOptions(source, {
+      operator: "=",
+      column: "gone",
+      values: [""],
+    });
+    expect(options).toContainEqual({ label: "gone (Invalid)", value: "gone" });
   });
 });
 
