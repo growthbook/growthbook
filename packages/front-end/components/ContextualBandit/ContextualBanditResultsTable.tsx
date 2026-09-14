@@ -9,6 +9,7 @@ import {
   conditionFromLeafClauses,
   getMetricLink,
   isActiveVariation,
+  isDeactivatedVariation,
 } from "shared/experiments";
 import type {
   ContextualBanditResultsLeaf,
@@ -21,6 +22,7 @@ import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
 import VariationNumber from "@/ui/VariationNumber";
+import OutdatedBadge from "@/components/OutdatedBadge";
 import Tooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExperimentMetricFormatter } from "@/services/metrics";
@@ -267,6 +269,15 @@ export default function ContextualBanditResultsTable({
     ],
     [overallVariations, cb.variations, pendingActiveVariations],
   );
+  const isOutdated = useMemo(
+    () =>
+      pendingActiveVariations.length > 0 ||
+      overallVariations.some((v) => {
+        const current = cb.variations.find((c) => c.id === v.variationId);
+        return !current || isDeactivatedVariation(current);
+      }),
+    [overallVariations, cb.variations, pendingActiveVariations],
+  );
   const numVariations = variations.length;
   const overallVariationWeights = useMemo(
     () => [
@@ -392,6 +403,13 @@ export default function ContextualBanditResultsTable({
           showQueries ? () => setQueriesModalOpen(true) : undefined
         }
       />
+      {isOutdated && hasTableData ? (
+        <OutdatedBadge
+          reasons={[
+            "The Contextual Bandit's variations have changed since the last results were computed. Update results to reflect the current variation set.",
+          ]}
+        />
+      ) : null}
       {canRunQueries ? (
         <RunQueriesButton
           cta="Update results"
