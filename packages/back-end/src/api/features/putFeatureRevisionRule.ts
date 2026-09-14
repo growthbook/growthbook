@@ -1,5 +1,9 @@
 import isEqual from "lodash/isEqual";
-import { getAttributeScopeProjectIds, ruleAppliesToEnv } from "shared/util";
+import {
+  getAttributeScopeProjectIds,
+  ruleAppliesToEnv,
+  isScheduledRule,
+} from "shared/util";
 import {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
@@ -33,10 +37,11 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
-  validateRuleConditions,
+  validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
 } from "./validations";
+import { assertCanUseRuleScheduling } from "./v2Shared";
 
 export function applyPatch(
   existing: FeatureRule,
@@ -285,6 +290,15 @@ export const putFeatureRevisionRule = createApiRequestHandler(
           environment,
         );
     }
+    // Only newly introduced scheduling is plan-gated; an already-scheduled
+    // rule can be edited or cleared on any plan.
+    if (!isScheduledRule(oldRule) && liveSchedulesForRule.length === 0) {
+      assertCanUseRuleScheduling(req.context, {
+        schedule,
+        scheduleRules: patch.scheduleRules,
+        rampSchedule: inlineRampSchedule,
+      });
+    }
     const updatedRule = applyPatch(oldRule, patch);
 
     // A coverage patch can convert a force rule to a rollout, which arrives
@@ -299,12 +313,9 @@ export const putFeatureRevisionRule = createApiRequestHandler(
 
     // Only validate fields in the patch, so edits don't break on stale refs
     // elsewhere in the rule (e.g. since-deleted saved groups).
-    validateRuleConditions({
-      condition:
-        patch.condition !== undefined ? updatedRule.condition : undefined,
-      prerequisites:
-        patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
-    });
+    if (patch.prerequisites !== undefined) {
+      validatePrerequisiteConditions(updatedRule.prerequisites ?? []);
+    }
     // Attribute registration check: only validate the fields the caller
     // actually patched. patch is the Zod-typed RulePatchInput, so condition
     // and hashAttribute are already string | undefined. fallbackAttribute

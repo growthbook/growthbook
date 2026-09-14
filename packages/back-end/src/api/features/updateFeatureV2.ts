@@ -52,7 +52,12 @@ import {
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields, validateRuleAttributes } from "./validations";
+import {
+  assertValidRuleEnvironments,
+  validateChangedRuleReferences,
+  validateCustomFields,
+  validateRuleAttributes,
+} from "./validations";
 import {
   canBypassReviewChecks,
   canUseRestApiBypassSetting,
@@ -62,7 +67,10 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidRuleProjectIds,
+  assertValidChangedRuleProjectIds,
+  assertUniqueRuleIds,
+  assertValidChangedRuleExperimentIds,
+  validateRulesScheduleRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -283,7 +291,28 @@ export const updateFeatureV2 = createApiRequestHandler(
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
-    await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    assertUniqueRuleIds(inboundFlatRules);
+    assertValidRuleEnvironments(req.context, inboundFlatRules);
+    await assertValidChangedRuleProjectIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await assertValidChangedRuleExperimentIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await validateChangedRuleReferences(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    validateRulesScheduleRules(
+      inboundFlatRules,
+      req.context,
+      feature.rules ?? [],
+    );
     // Request-supplied config keys must exist, be live, and belong to the
     // default config's family — same gate as the revision rule endpoints.
     await assertValidRuleConfigKeys(

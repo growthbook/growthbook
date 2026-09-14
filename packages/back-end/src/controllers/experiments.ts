@@ -178,6 +178,7 @@ import {
   isHoldoutExperiment,
 } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
+import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -189,6 +190,9 @@ export async function getExperiments(
       project?: string;
       includeArchived?: boolean;
       type?: ExperimentType;
+      // Only the list pages need the served-temp-rollout ids; it costs a
+      // feature query, so callers opt in.
+      includeTempRollouts?: boolean;
     }
   >,
   res: Response,
@@ -200,6 +204,7 @@ export async function getExperiments(
   }
 
   const includeArchived = !!req.query?.includeArchived;
+  const includeTempRollouts = !!req.query?.includeTempRollouts;
   const type: ExperimentType | undefined = req.query?.type || undefined;
 
   const experiments = await getAllExperiments(context, {
@@ -208,7 +213,12 @@ export async function getExperiments(
     type,
   });
 
-  const holdouts = await context.models.holdout.getAll();
+  const [holdouts, tempRolloutExperimentIds] = await Promise.all([
+    context.models.holdout.getAll(),
+    includeTempRollouts
+      ? getServedTempRolloutExperimentIds(context, experiments)
+      : undefined,
+  ]);
 
   const hasArchived = includeArchived
     ? experiments.some((e) => e.archived)
@@ -219,6 +229,7 @@ export async function getExperiments(
     experiments,
     hasArchived,
     holdouts,
+    ...(tempRolloutExperimentIds ? { tempRolloutExperimentIds } : {}),
   });
 }
 

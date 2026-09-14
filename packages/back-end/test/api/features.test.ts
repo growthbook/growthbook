@@ -45,7 +45,7 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
-  getSavedGroupMap: jest.fn(),
+  getSavedGroupMap: jest.fn().mockResolvedValue(new Map()),
   getNextScheduledUpdate: jest.fn(),
   addIdsToRules: jest.fn(),
   addIdsToFlatRules: jest.fn(),
@@ -146,9 +146,11 @@ describe("features API", () => {
       ...overrides,
     });
 
+  const savedGroupMap = new Map();
+
   beforeEach(() => {
     (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
-    (getSavedGroupMap as jest.Mock).mockResolvedValue("savedGroupMap");
+    (getSavedGroupMap as jest.Mock).mockResolvedValue(savedGroupMap);
     (getExperimentMapForFeature as jest.Mock).mockResolvedValue(new Map());
     (getNextScheduledUpdate as jest.Mock).mockReturnValue(null);
 
@@ -240,7 +242,8 @@ describe("features API", () => {
             valueType: "string",
             version: 1,
           }),
-          groupMap: "savedGroupMap",
+          // the (empty) group map, JSON-serialized
+          groupMap: {},
         }),
       }),
     );
