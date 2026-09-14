@@ -44,6 +44,7 @@ const AUTH_PROXY_BYPASS_DOMAINS = [
   "okta-emea.com",
   "accounts.google.com",
   "googleapis.com",
+  "vercel.com",
 ];
 
 export function getAuthProxyForUrl(url: string) {
@@ -51,7 +52,8 @@ export function getAuthProxyForUrl(url: string) {
   const bypass = AUTH_PROXY_BYPASS_DOMAINS.some(
     (domain) => hostname === domain || hostname.endsWith("." + domain),
   );
-  return bypass ? "" : WEBHOOK_PROXY;
+  // Under a mandatory egress proxy (USE_PROXY) a direct connection would not get out anyway.
+  return bypass && !USE_PROXY ? "" : WEBHOOK_PROXY;
 }
 
 export function getAuthHttpOptions() {

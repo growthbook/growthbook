@@ -24,7 +24,12 @@ import {
   PendingSSOConnectionCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
-import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  IS_CLOUD,
+  USE_PROXY,
+  WEBHOOK_PROXY,
+} from "back-end/src/util/secrets";
 import { _dangerousGetSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
 import {
   getUserLoginPropertiesFromRequest,
@@ -44,7 +49,7 @@ import {
   nonceFromState,
 } from "./authChecks";
 
-if (USE_PROXY) {
+if (USE_PROXY || WEBHOOK_PROXY) {
   custom.setHttpOptionsDefaults(getAuthHttpOptions());
 }
 

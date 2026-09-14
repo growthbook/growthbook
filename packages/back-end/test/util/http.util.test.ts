@@ -7,10 +7,13 @@ import {
 
 // proxy-agent is stubbed in jest.config.js, so assert on the agent's presence, not its class.
 jest.mock("node-fetch");
+let mockUseProxy = false;
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
   WEBHOOK_PROXY: "http://smokescreen.test:4750",
-  USE_PROXY: false,
+  get USE_PROXY() {
+    return mockUseProxy;
+  },
 }));
 
 const mockedFetch = nodeFetch as unknown as jest.Mock;
@@ -62,8 +65,20 @@ describe("getAuthProxyForUrl", () => {
     "https://sts.windows.net/tenant/",
     "https://www.googleapis.com/oauth2/v3/certs",
     "https://accounts.google.com/o/oauth2/v2/auth",
+    "https://api.vercel.com/oauth/access_token",
   ])("bypasses the proxy for %s", (url) => {
     expect(getAuthProxyForUrl(url)).toBe("");
+  });
+
+  it("keeps the proxy for identity providers when USE_PROXY is set", () => {
+    mockUseProxy = true;
+    try {
+      expect(getAuthProxyForUrl("https://acme.okta.com/oauth2/v1/keys")).toBe(
+        "http://smokescreen.test:4750",
+      );
+    } finally {
+      mockUseProxy = false;
+    }
   });
 
   it.each([
