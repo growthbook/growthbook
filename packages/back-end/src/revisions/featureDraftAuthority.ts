@@ -341,7 +341,15 @@ export function holdsFeaturePublishAuthority({
   if (!context.permissions.canPublishFeature(feature, environments)) {
     return false;
   }
-  if (!holdsTargetingLanding(context, feature, mergeChanges)) return false;
+  if (
+    !holdsTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, mergeChanges?.metadata),
+    })
+  ) {
+    return false;
+  }
   const destination = mergeChanges?.metadata?.project;
   if (
     destination !== undefined &&
@@ -353,20 +361,6 @@ export function holdsFeaturePublishAuthority({
     );
   }
   return true;
-}
-
-// Landing a draft delivers the flag wherever its staged envelope targets, so
-// the publisher holds the targeting atom in every project it adds.
-function holdsTargetingLanding(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  mergeChanges?: MergeResultChanges,
-): boolean {
-  return holdsTargetingDestination({
-    permissions: context.permissions,
-    existing: feature,
-    proposed: withStagedTargeting(feature, mergeChanges?.metadata),
-  });
 }
 
 export async function assertCanPublishFeatureRevision({

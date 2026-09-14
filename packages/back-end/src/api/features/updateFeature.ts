@@ -135,8 +135,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     await assertValidProjectId(project, req.context);
-    // Before project-id validation: that check is read-filtered, so a caller
-    // with no role in the project must be refused here, not told it is invalid.
+    // Refused here rather than by the read-filtered id validation below, which would call the project invalid.
     assertTargetingDestination({
       permissions: req.context.permissions,
       existing: feature,

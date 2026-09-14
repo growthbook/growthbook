@@ -438,11 +438,10 @@ export function assessApprovalCoverage(args: ApprovalCoverageArgs): {
   return { hasCoveringApproval, uncoveredApprovers };
 }
 
-// Feature drafts have two kinds of governing project. The primary's reviewers
-// sanction the change (`hasCoveringApproval`); each strict-mode targeting
-// project whose own rule fired (`approverProjects`) also needs one of ITS
-// reviewers. An approval counts toward whatever it covers, so a targeting
-// project's reviewer is neither uncovered nor sufficient alone.
+// The primary's reviewers sanction the change (`hasCoveringApproval`); each
+// `approverProjects` entry also needs one of ITS reviewers. An approval counts
+// toward whatever it covers, so a targeting reviewer is neither uncovered nor
+// sufficient alone.
 export function assessGoverningApprovalCoverage({
   org,
   teams,
@@ -509,11 +508,9 @@ export type GoverningApprovalCoverage = {
   requiredProjects: { satisfied: boolean; unmet: string[] };
 };
 
-// A required-team rule is satisfied only by approvals that count for the
-// project that imposed it: the primary's pool for the primary's rule (and for
-// rules a targeting project merely inherits), a targeting project's own pool
-// for its own rule. Pooling them would let a reviewer authorized in one project
-// satisfy another project's team requirement by team membership alone.
+// A team rule is judged against approvals that count for the project that
+// imposed it (inherited rules belong to the primary). One pool would let a
+// reviewer from one project satisfy another's team rule by membership alone.
 export function assessRequiredApproverTeamsByProject({
   governing,
   primaryProject,

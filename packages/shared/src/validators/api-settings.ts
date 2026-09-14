@@ -34,9 +34,6 @@ export const apiRequireReviewRuleInput = namedSchema(
     .strict(),
 );
 
-// Whether a Feature Flag delivered into a Targeting Project must also satisfy
-// that project's approval rule (and, when the project has a rule of its own,
-// be approved by one of its reviewers). Most specific rule wins; default strict.
 export const apiTargetingReviewRule = namedSchema(
   "TargetingReviewRule",
   z

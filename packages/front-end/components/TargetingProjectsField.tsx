@@ -10,10 +10,8 @@ import Text from "@/ui/Text";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
-// Controlled targeting-projects editor. Collapsed to a link until opted in;
-// then a Specific/All-projects radio. Every visible Project is offered; ones
-// the viewer may not target are disabled with the reason, so a missing option
-// never reads as a missing Project. Already-selected ones stay removable.
+// Controlled targeting-projects editor, collapsed to a link until opted in.
+// Projects the viewer may not target are disabled rather than omitted.
 export type TargetingProjectsFieldProps = {
   // Governance project, excluded from the options.
   primaryProject?: string;

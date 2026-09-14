@@ -109,8 +109,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   }
 
   await assertValidProjectId(req.body.project, req.context);
-  // Before project-id validation (read-filtered): refuse, don't call it invalid.
-  // `assertCanCreateFeatureInState` below re-checks over the built feature.
+  // Refused here rather than by the read-filtered id validation below, which would call the project invalid.
   assertTargetingDestination({
     permissions: req.context.permissions,
     existing: {},

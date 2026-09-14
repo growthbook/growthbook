@@ -176,9 +176,8 @@ export function useApprovalCoverage({
     return footprint.environments.filter((e) => !covered.has(e));
   }, [footprint, reviewers, heldEnvsFor]);
 
-  // Covering the PRIMARY project is what sanctions the change. A targeting
-  // project's reviewer contributes to that project's requirement but is not a
-  // covering approval, so "not uncovered" is not the same question.
+  // Only the primary project's coverage sanctions the change; a targeting
+  // reviewer contributes without covering.
   const approvalsCoverFootprint = coverage.hasCoveringApproval;
 
   const primaryProject = projects[0] ?? "";
