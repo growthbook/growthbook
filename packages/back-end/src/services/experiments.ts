@@ -2411,16 +2411,17 @@ export async function assertCanRunExperimentChanges(
   // permission in every environment. Ids of deleted features don't count.
   let hasUnreadableFeature = false;
   if (linkedFeatures.length < linkedFeatureIds.length) {
-    const existingIds = await getFeatureProjectsByIds(
+    const existingFeatures = await getFeatureProjectsByIds(
       context,
       linkedFeatureIds,
     );
-    hasUnreadableFeature = existingIds.size > linkedFeatures.length;
+    hasUnreadableFeature = existingFeatures.size > linkedFeatures.length;
   }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
     orgEnvironments: context.org.settings?.environments || [],
+    // Passing undefined here makes it return __ALL__ envs.
     linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
   });
   if (envs.length > 0) {
