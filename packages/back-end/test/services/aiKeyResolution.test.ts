@@ -7,10 +7,26 @@ import { AIProvider } from "shared/ai";
 type AICredentialsModule = typeof import("back-end/src/services/aiCredentials");
 type AIKeyContext = Parameters<AICredentialsModule["getResolvedAIKeys"]>[0];
 
+// Everything util/secrets reads that can change what getResolvedAIKeys returns.
+// Cleared before each load so a test asserts exactly the environment it
+// declares — otherwise a provider key exported in the developer's own shell
+// leaks in as a deployment-level key and outranks the stored credential when
+// self-hosted, failing locally while CI's clean env passes.
+const AI_ENV_VARS = [
+  "OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "XAI_API_KEY",
+  "MISTRAL_API_KEY",
+  "GOOGLE_AI_API_KEY",
+  "GEMINI_API_KEY",
+  "IS_CLOUD",
+];
+
 const loadModule = (env: Record<string, string>): AICredentialsModule => {
   let mod: AICredentialsModule | undefined;
   jest.isolateModules(() => {
     const previous = { ...process.env };
+    AI_ENV_VARS.forEach((name) => delete process.env[name]);
     Object.assign(process.env, env);
     mod = jest.requireActual<AICredentialsModule>(
       "back-end/src/services/aiCredentials",
