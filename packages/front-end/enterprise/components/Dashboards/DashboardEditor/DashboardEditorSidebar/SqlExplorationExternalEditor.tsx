@@ -92,7 +92,7 @@ function SqlExplorationModalContent({
     useExplorerContext();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
-  const { isQueryRunning, localSql } = useSqlEditorContext();
+  const { isQueryRunning, localSql, runPreview } = useSqlEditorContext();
   const datasource = getDatasourceById(draftExploreState.datasource);
   const canRunQueries = datasource
     ? permissionsUtil.canRunSqlExplorerQueries(datasource)
@@ -118,8 +118,7 @@ function SqlExplorationModalContent({
         <Button
           loading={updating}
           disabled={
-            !hasChanges ||
-            hasUnpreviewedSqlChanges ||
+            (!hasChanges && !hasUnpreviewedSqlChanges) ||
             !isSubmittable ||
             !canRunQueries ||
             loading ||
@@ -127,12 +126,18 @@ function SqlExplorationModalContent({
           }
           onClick={async () => {
             setUpdating(true);
-            onUpdateRequested(
-              true,
-              cleanConfigForSubmission(draftExploreState),
-            );
             try {
-              await handleSubmit({ force: true });
+              // Edited SQL that was never previewed has stale column metadata,
+              // which the exploration query is built from. Refresh it here
+              // rather than making the user run the query twice by hand, and
+              // submit what the preview returned — the draft in this closure is
+              // a render behind it.
+              const config = hasUnpreviewedSqlChanges
+                ? await runPreview(localSql)
+                : draftExploreState;
+              if (!config) return;
+              onUpdateRequested(true, cleanConfigForSubmission(config));
+              await handleSubmit({ force: true, config });
             } catch (error) {
               onUpdateRequested(false);
               throw error;
@@ -145,11 +150,10 @@ function SqlExplorationModalContent({
         </Button>
       }
     >
-      <ExplorerContent
-        height="100%"
-        hideDataSourceSelector
-        hideSidebarHeaderActions
-      />
+      {/* The data source stays selectable here, as it is for every other
+          exploration block type — a new block would otherwise be stuck on
+          whichever source the default resolved to. */}
+      <ExplorerContent height="100%" hideSidebarHeaderActions />
     </SqlExplorationEditorModal>
   );
 }
