@@ -471,7 +471,7 @@ const v2RuleScopeInput = z
       .array(z.string())
       .optional()
       .describe(
-        "Environment IDs the rule applies to. Ignored when allEnvironments is true; an empty list scopes the rule to no environment.",
+        "Environment IDs the rule applies to. Ignored when allEnvironments is true; with allEnvironments false, an omitted or empty list scopes the rule to no environment.",
       ),
     allProjects: z
       .boolean()

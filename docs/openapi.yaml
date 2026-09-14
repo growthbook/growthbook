@@ -8153,8 +8153,9 @@ paths:
                           environments:
                             description: >-
                               Environment IDs the rule applies to. Ignored when
-                              allEnvironments is true; an empty list scopes the
-                              rule to no environment.
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8317,8 +8318,9 @@ paths:
                           environments:
                             description: >-
                               Environment IDs the rule applies to. Ignored when
-                              allEnvironments is true; an empty list scopes the
-                              rule to no environment.
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8482,8 +8484,9 @@ paths:
                           environments:
                             description: >-
                               Environment IDs the rule applies to. Ignored when
-                              allEnvironments is true; an empty list scopes the
-                              rule to no environment.
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -8640,8 +8643,9 @@ paths:
                           environments:
                             description: >-
                               Environment IDs the rule applies to. Ignored when
-                              allEnvironments is true; an empty list scopes the
-                              rule to no environment.
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -9001,8 +9005,9 @@ paths:
                           environments:
                             description: >-
                               Environment IDs the rule applies to. Ignored when
-                              allEnvironments is true; an empty list scopes the
-                              rule to no environment.
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -9165,8 +9170,9 @@ paths:
                           environments:
                             description: >-
                               Environment IDs the rule applies to. Ignored when
-                              allEnvironments is true; an empty list scopes the
-                              rule to no environment.
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -9330,8 +9336,9 @@ paths:
                           environments:
                             description: >-
                               Environment IDs the rule applies to. Ignored when
-                              allEnvironments is true; an empty list scopes the
-                              rule to no environment.
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -9488,8 +9495,9 @@ paths:
                           environments:
                             description: >-
                               Environment IDs the rule applies to. Ignored when
-                              allEnvironments is true; an empty list scopes the
-                              rule to no environment.
+                              allEnvironments is true; with allEnvironments
+                              false, an omitted or empty list scopes the rule to
+                              no environment.
                             type: array
                             items:
                               type: string
@@ -59992,7 +60000,8 @@ components:
         environments:
           description: >-
             Environment IDs the rule applies to. Ignored when allEnvironments is
-            true.
+            true; with allEnvironments false, an omitted or empty list scopes
+            the rule to no environment.
           type: array
           items:
             type: string
@@ -60098,7 +60107,8 @@ components:
         environments:
           description: >-
             Environment IDs the rule applies to. Ignored when allEnvironments is
-            true.
+            true; with allEnvironments false, an omitted or empty list scopes
+            the rule to no environment.
           type: array
           items:
             type: string
@@ -60192,7 +60202,8 @@ components:
         environments:
           description: >-
             Environment IDs the rule applies to. Ignored when allEnvironments is
-            true.
+            true; with allEnvironments false, an omitted or empty list scopes
+            the rule to no environment.
           type: array
           items:
             type: string
