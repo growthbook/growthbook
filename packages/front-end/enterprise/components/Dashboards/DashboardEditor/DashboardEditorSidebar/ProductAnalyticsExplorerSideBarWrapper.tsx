@@ -64,8 +64,6 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     handleSubmit,
     loading,
     error,
-    isSubmittable,
-    managedWarehouseUnavailable,
     comparisonMode,
     linkedFunnelMetricId,
   } = useExplorerContext();
@@ -190,16 +188,29 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     linkedFunnelMetricId,
   ]);
 
-  // When Save & Close is requested and the block is stale, run the analysis first.
-  // Keyed on the trigger value alone: the previous dependency list re-fired this
-  // forced run on every draft edit once the trigger had been bumped.
+  // When Save & Close is requested and the block is stale, run the analysis
+  // first. Keyed on the trigger value alone: the previous dependency list
+  // re-fired this forced run on every draft edit once the trigger had been
+  // bumped.
+  //
+  // handleSubmit reports whether a run actually started, which is the only
+  // thing that decides whether an analysis id is coming. Releasing here rather
+  // than inferring it from the context state keeps one owner for that call.
   useEffect(() => {
     if (!saveAndCloseTrigger) return;
     pendingCloseRef.current = true;
-    void handleSubmitRef.current({
-      force: true,
-      config: getEffectiveDraftConfigRef.current(),
-    });
+    void handleSubmitRef
+      .current({
+        force: true,
+        config: getEffectiveDraftConfigRef.current(),
+      })
+      // A rejection is one more way no analysis id is coming.
+      .catch(() => false)
+      .then((started) => {
+        if (started || !pendingCloseRef.current) return;
+        pendingCloseRef.current = false;
+        onPreSaveRunSettledRef.current?.();
+      });
   }, [saveAndCloseTrigger]);
 
   // Once onRunComplete writes the required analysis ids, complete the save.
@@ -223,16 +234,12 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     needsFetch,
   ]);
 
-  // A run that errors, or that doSubmit declines to start at all, never reaches
-  // onRunComplete — release the pending close so Save & Close stops spinning
-  // instead of waiting on an analysis id that is never coming.
+  // A run that started and then failed never reaches onRunComplete either.
   useEffect(() => {
-    if (!pendingCloseRef.current || loading) return;
-    if (error || managedWarehouseUnavailable || !isSubmittable) {
-      pendingCloseRef.current = false;
-      onPreSaveRunSettledRef.current?.();
-    }
-  }, [error, loading, managedWarehouseUnavailable, isSubmittable]);
+    if (!pendingCloseRef.current || loading || !error) return;
+    pendingCloseRef.current = false;
+    onPreSaveRunSettledRef.current?.();
+  }, [error, loading]);
 
   return (
     <>
