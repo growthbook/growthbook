@@ -35,6 +35,7 @@ describe("productAnalytics", () => {
       `'${d.toISOString().substring(0, 10)} 00:00:00'`,
     formatDialect: "bigquery",
     castToFloat: (col) => `CAST(${col} AS FLOAT)`,
+    castToString: (col) => `CAST(${col} AS STRING)`,
   };
 
   const factTableMap = new Map<string, FactTableInterface>([

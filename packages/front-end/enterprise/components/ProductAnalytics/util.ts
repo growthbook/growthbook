@@ -656,13 +656,18 @@ export function getCommonColumns(
     columns = ft?.columns || [];
   }
 
+  // Warehouse tables are restricted to string columns, where cardinality is at
+  // least predictable. A SQL dataset is the user's own projection — the column
+  // they most often want to group by is a bucket they just computed (e.g.
+  // `toStartOfMonth(...) AS month`), so offer every column it returns.
+  const allowNonStringGroupBy = dataset.type === "sql";
+
   const groupByColumns: Pick<ColumnInterface, "column" | "name">[] = [];
   (columns || [])
     .filter((c) => !c.deleted)
     .filter((c) => !userIdTypes.has(c.column))
     .forEach((c) => {
-      // Top-level string columns
-      if (c.datatype === "string") {
+      if (c.datatype === "string" || allowNonStringGroupBy) {
         groupByColumns.push({ column: c.column, name: c.name });
       }
       // Nested JSON fields (use dot-notation, matching getColumnExpression)
