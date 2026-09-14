@@ -2,6 +2,7 @@ import {
   type ExperimentWarningNotificationPayload,
   srm,
 } from "shared/validators";
+import { pValueFormatter } from "shared/util";
 import { getExperimentUrlAndNameFormatted } from "back-end/src/events/handlers/utils";
 import type { CardTable } from "back-end/src/services/notificationCards/cardImages";
 import type {
@@ -24,12 +25,6 @@ const percentFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-// Mirrors the front-end pValueFormatter.
-const formatPValue = (p: number, digits = 3) =>
-  p < Math.pow(10, -digits)
-    ? `<0.${"0".repeat(digits - 1)}1`
-    : p.toFixed(digits);
-
 // Same layout as the Health tab's balance check: actual vs. configured split.
 export function buildSrmBalanceTable(data: SrmPayload): CardTable | null {
   const { variations, pValue } = data;
@@ -48,7 +43,7 @@ export function buildSrmBalanceTable(data: SrmPayload): CardTable | null {
     ]),
     note: [
       `${numberFormatter.format(totalUsers)} total units`,
-      pValue !== undefined ? `p-value = ${formatPValue(pValue)}` : undefined,
+      pValue !== undefined ? `p-value = ${pValueFormatter(pValue)}` : undefined,
     ]
       .filter(Boolean)
       .join(" · "),

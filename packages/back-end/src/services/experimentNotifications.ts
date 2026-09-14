@@ -15,7 +15,10 @@ import {
   getHealthSettings,
 } from "shared/enterprise";
 import { ExperimentAnalysisSummary } from "shared/validators";
-import { getExperimentSRMValue } from "shared/health";
+import {
+  getExperimentSRMValue,
+  getExperimentVariationUnitsFromHealth,
+} from "shared/health";
 import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentHealthSettings,
@@ -258,18 +261,11 @@ export const notifyMultipleExposures = async ({
   );
 };
 
-// Same unit source as getExperimentAnalysisSummary: the health traffic query,
-// falling back to the overall result for standard snapshots.
 const getSrmVariationBalance = (
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
 ) => {
-  const units =
-    snapshot.health?.traffic?.overall?.variationUnits ??
-    (snapshot.type === "standard" &&
-    snapshot.analyses?.[0]?.results?.length === 1
-      ? snapshot.analyses[0].results[0].variations.map((v) => v.users)
-      : undefined);
+  const units = getExperimentVariationUnitsFromHealth(snapshot);
   if (!units?.length) return undefined;
   const weights =
     experiment.phases[experiment.phases.length - 1]?.variationWeights ?? [];
