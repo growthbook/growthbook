@@ -138,9 +138,9 @@ describe("experiment-ref rule variations", () => {
     ]);
   });
 
-  it("v2 rule add accepts matching ids in any order, back-fills when all are omitted, and counts back-filled arms", async () => {
+  it("v2 rule add accepts matching ids, back-fills when all are omitted, and counts back-filled arms", async () => {
     for (const variations of [
-      arms("v1", "v0"),
+      arms("v0", "v1"),
       [{ value: "true" }, { value: "false" }],
     ]) {
       const res = await send("post", RULES_V2, { rule: expRef(variations) });

@@ -13,6 +13,7 @@ import {
   isScheduledRule,
   findStoredRuleCounterpart,
 } from "shared/util";
+import isEqual from "lodash/isEqual";
 import { getLatestPhaseVariations } from "shared/experiments";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { ApiReqContext } from "back-end/types/api";
@@ -521,17 +522,11 @@ export function experimentRefChanged(
 ): boolean {
   const variationIds = (r: ExperimentRefRuleInput) =>
     (r.variations ?? []).map((v) => v.variationId ?? "").sort();
-  if (
+  return (
     !prior ||
     prior.type !== "experiment-ref" ||
-    prior.experimentId !== rule.experimentId
-  ) {
-    return true;
-  }
-  const before = variationIds(prior);
-  const after = variationIds(rule);
-  return (
-    before.length !== after.length || before.some((id, i) => id !== after[i])
+    prior.experimentId !== rule.experimentId ||
+    !isEqual(variationIds(prior), variationIds(rule))
   );
 }
 

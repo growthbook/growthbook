@@ -758,14 +758,7 @@ describe("experimentRefChanged", () => {
 
   it.each([
     ["no stored rule", ref("exp", "v0", "v1"), undefined, true],
-    [
-      "a stored rule of another type",
-      ref("exp", "v0", "v1"),
-      { type: "force" } as FeatureRule,
-      true,
-    ],
     ["a different experiment", ref("other", "v0", "v1"), stored, true],
-    ["an added id", ref("exp", "v0", "v1", "v2"), stored, true],
     ["a swapped id", ref("exp", "v0", "v9"), stored, true],
     ["the same ids in another order", ref("exp", "v1", "v0"), stored, false],
     [

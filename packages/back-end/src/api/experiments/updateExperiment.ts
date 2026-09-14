@@ -342,9 +342,8 @@ export const updateExperiment = createApiRequestHandler(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
-  // Linked feature rules keep the old variation ids; the dashboard refuses
-  // this too. Traffic changes on the current phase stay allowed, as they are
-  // in the dashboard's targeting flow.
+  // Linked feature rules would keep the old variation ids; the dashboard
+  // refuses this too. Coverage and weights stay editable, as in its targeting flow.
   await assertLivePayloadChangeAllowed(req.context, experiment, {
     variations: changes.variations,
   });
