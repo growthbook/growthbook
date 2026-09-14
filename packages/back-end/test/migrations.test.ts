@@ -652,6 +652,54 @@ describe("Metric Migration", () => {
     expect(upgradeMetricDoc(baseMetric).runStarted).toBe(null);
   });
 
+  it("fills in queries when the doc has none", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    expect(
+      upgradeMetricDoc({
+        ...baseMetric,
+        queries: undefined as unknown as LegacyMetricInterface["queries"],
+      }).queries,
+    ).toEqual([]);
+
+    const queries = [{ query: "abc", status: "succeeded", name: "q" }];
+    expect(
+      upgradeMetricDoc({
+        ...baseMetric,
+        queries: queries as LegacyMetricInterface["queries"],
+      }).queries,
+    ).toBe(queries);
+  });
+
   it("updates old metric objects - cap and capping", () => {
     const baseMetric: LegacyMetricInterface = {
       datasource: "",

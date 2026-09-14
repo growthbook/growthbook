@@ -1,6 +1,7 @@
 import React from "react";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { isProjectListValidForProject } from "shared/util";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -12,6 +13,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 const MetricsPage = (): React.ReactElement => {
   const { metrics, factMetrics, factTables, datasources, project } =
@@ -28,10 +31,24 @@ const MetricsPage = (): React.ReactElement => {
     isProjectListValidForProject(f.projects, project),
   );
 
+  // Cheap proxy for eligibility; the migrate page does the real conversion
+  const hasLegacyMetricsToMigrate = metrics.some(
+    (m) =>
+      m.datasource &&
+      m.managedBy !== "config" &&
+      m.managedBy !== "api" &&
+      datasources.some((d) => d.id === m.datasource),
+  );
+
   const permissionsUtil = usePermissionsUtil();
-  const canCreateMetric = permissionsUtil.canCreateMetric({
-    projects: [project],
-  });
+  // The CTA opens the Fact Metric flow unless there are no Fact Tables
+  const canCreateMetric =
+    permissionsUtil.canCreateFactMetric({ projects: [project] }) ||
+    permissionsUtil.canCreateMetric({ projects: [project] });
+  const canMigrateMetrics =
+    permissionsUtil.canCreateFactTable({ projects: [] }) &&
+    permissionsUtil.canCreateFactMetric({ projects: [] }) &&
+    permissionsUtil.canCreateMetric({ projects: [] });
 
   const [showNewModal, setShowNewModal] = React.useState(false);
 
@@ -44,9 +61,17 @@ const MetricsPage = (): React.ReactElement => {
         />
       )}
       <CreateMetricFromTemplate />
-      <Box mb="4">
+      <Flex mb="4" justify="between" align="center">
         <h1 style={{ margin: 0 }}>Metrics</h1>
-      </Box>
+        {hasLegacyMetricsToMigrate && canMigrateMetrics && (
+          <Link href="/metrics/migrate">
+            <Flex align="center" gap="1">
+              <Text>Migrate legacy metrics</Text>
+              <PiArrowSquareOut />
+            </Flex>
+          </Link>
+        )}
+      </Flex>
       {!hasMetrics ? (
         <Box className="appbox" p="5" style={{ textAlign: "center" }}>
           <h2>Define What Success Looks Like</h2>

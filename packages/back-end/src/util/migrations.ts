@@ -83,6 +83,11 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
     newDoc.runStarted = new Date(newDoc.runStarted);
   }
 
+  // They skip array defaults too, so a doc written outside Mongoose has none
+  if (!newDoc.queries) {
+    newDoc.queries = [];
+  }
+
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
       newDoc.windowSettings = {
