@@ -42,6 +42,7 @@ export default function ContextualBanditVariationsModal({
   const { apiCall } = useAuth();
 
   const originalIds = new Set(cb.variations.map((v) => v.id));
+  const originalById = new Map(cb.variations.map((v) => [v.id, v]));
 
   const initialVariationCount = cb.variations.length;
   const form = useForm<FormValues>({
@@ -119,6 +120,26 @@ export default function ContextualBanditVariationsModal({
           const removeVariationIds = [...originalIds].filter(
             (id) => !currentIds.has(id),
           );
+          const updateVariations = data.variations
+            .filter((v) => originalIds.has(v.id))
+            .flatMap((v) => {
+              const prev = originalById.get(v.id);
+              if (!prev) return [];
+              const patch: {
+                id: string;
+                name?: string;
+                description?: string;
+              } = { id: v.id };
+              if (v.name !== prev.name) patch.name = v.name;
+              const prevDescription = prev.description ?? "";
+              const nextDescription = v.description ?? "";
+              if (nextDescription !== prevDescription) {
+                patch.description = nextDescription;
+              }
+              return patch.name !== undefined || patch.description !== undefined
+                ? [patch]
+                : [];
+            });
 
           if (addedVariations.length > 0 && linkedFeatures.length > 0) {
             const missing: string[] = [];
@@ -156,14 +177,22 @@ export default function ContextualBanditVariationsModal({
               : {}),
           }));
 
-          if (addVariations.length === 0 && removeVariationIds.length === 0) {
+          if (
+            addVariations.length === 0 &&
+            removeVariationIds.length === 0 &&
+            updateVariations.length === 0
+          ) {
             mutate();
             return;
           }
 
           await apiCall(`/api/v1/contextual-bandits/${cb.id}/variations`, {
             method: "POST",
-            body: JSON.stringify({ addVariations, removeVariationIds }),
+            body: JSON.stringify({
+              addVariations,
+              removeVariationIds,
+              updateVariations,
+            }),
           });
           mutate();
         })}

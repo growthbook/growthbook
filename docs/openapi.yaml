@@ -45955,6 +45955,24 @@ paths:
                   type: array
                   items:
                     type: string
+                updateVariations:
+                  description: >-
+                    Metadata edits to existing active arms. Only `name` and
+                    `description` may be changed; key, values, weights,
+                    screenshots, and status are preserved.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                    required:
+                      - id
+                    additionalProperties: false
               additionalProperties: false
       responses:
         '200':

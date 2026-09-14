@@ -351,6 +351,18 @@ export const apiContextualBanditUpdateVariationsValidator = {
       .describe(
         "Ids of active arms to remove. Removed arms are tombstoned in place and their ids can never be re-added.",
       ),
+    updateVariations: z
+      .array(
+        z.strictObject({
+          id: z.string(),
+          name: z.string().optional(),
+          description: z.string().optional(),
+        }),
+      )
+      .optional()
+      .describe(
+        "Metadata edits to existing active arms. Only `name` and `description` may be changed; key, values, weights, screenshots, and status are preserved.",
+      ),
   }),
   querySchema: z.never(),
 };

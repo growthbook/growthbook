@@ -1054,6 +1054,11 @@ export async function executeContextualBanditVariationChange(
       }
     >;
     removeVariationIds?: string[];
+    updateVariations?: Array<{
+      id: string;
+      name?: string;
+      description?: string;
+    }>;
   },
 ): Promise<{
   updated: ContextualBanditInterface;
@@ -1067,10 +1072,15 @@ export async function executeContextualBanditVariationChange(
 
   const addVariationsIn = args.addVariations ?? [];
   const removeVariationIds = args.removeVariationIds ?? [];
+  const updateVariationsIn = args.updateVariations ?? [];
 
-  if (addVariationsIn.length === 0 && removeVariationIds.length === 0) {
+  if (
+    addVariationsIn.length === 0 &&
+    removeVariationIds.length === 0 &&
+    updateVariationsIn.length === 0
+  ) {
     throw new BadRequestError(
-      "Nothing to do: provide at least one of `addVariations` or `removeVariationIds`.",
+      "Nothing to do: provide at least one of `addVariations`, `removeVariationIds`, or `updateVariations`.",
     );
   }
 
@@ -1101,6 +1111,29 @@ export async function executeContextualBanditVariationChange(
         ", ",
       )}`,
     );
+  }
+
+  const updateMap = new Map<string, { name?: string; description?: string }>();
+  for (const u of updateVariationsIn) {
+    if (updateMap.has(u.id)) {
+      throw new BadRequestError(
+        `Duplicate update entry for variation id: ${u.id}`,
+      );
+    }
+    if (!previousById.has(u.id)) {
+      throw new BadRequestError(
+        `Cannot update variations that are not currently active: ${u.id}`,
+      );
+    }
+    if (removeSet.has(u.id)) {
+      throw new BadRequestError(
+        `Variation id in both updateVariations and removeVariationIds: ${u.id}`,
+      );
+    }
+    const patch: { name?: string; description?: string } = {};
+    if (u.name !== undefined) patch.name = u.name;
+    if (u.description !== undefined) patch.description = u.description;
+    updateMap.set(u.id, patch);
   }
 
   let nextKeyCounter: number | null = null;
@@ -1141,10 +1174,20 @@ export async function executeContextualBanditVariationChange(
         `Variation ${v.id} is already active on this contextual bandit; use a different id or omit \`id\` to have one generated.`,
       );
     }
+    if (updateMap.has(v.id)) {
+      throw new BadRequestError(
+        `Variation id in both addVariations and updateVariations: ${v.id}`,
+      );
+    }
   }
 
   const newVariations: ContextualBanditVariation[] = [
-    ...previousVisible.filter((v) => !removeSet.has(v.id)),
+    ...previousVisible
+      .filter((v) => !removeSet.has(v.id))
+      .map((v) => {
+        const patch = updateMap.get(v.id);
+        return patch ? { ...v, ...patch } : v;
+      }),
     ...normalizedAdds,
   ];
 
@@ -1182,7 +1225,9 @@ export async function executeContextualBanditVariationChange(
       .filter((v) => !removedSet.has(v.id))
       .map((v) => {
         const prev = previousById.get(v.id);
-        return prev?.status ? { ...v, status: prev.status } : v;
+        const withStatus = prev?.status ? { ...v, status: prev.status } : v;
+        const patch = updateMap.get(v.id);
+        return patch ? { ...withStatus, ...patch } : withStatus;
       });
 
     const visibleAdds: ContextualBanditVariation[] = normalizedAdds.map((v) => {

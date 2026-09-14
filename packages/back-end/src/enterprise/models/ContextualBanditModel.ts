@@ -189,6 +189,7 @@ const BaseClass = MakeModelClass({
             await executeContextualBanditVariationChange(req.context, cb, {
               addVariations: req.body.addVariations,
               removeVariationIds: req.body.removeVariationIds,
+              updateVariations: req.body.updateVariations,
             });
           return {
             contextualBandit: toApiContextualBandit(updated),
