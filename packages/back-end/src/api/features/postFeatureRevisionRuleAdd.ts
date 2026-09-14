@@ -50,6 +50,7 @@ import {
   buildScheduleRampAction,
   resolveOrCreateRevision,
   validateRuleAttributes,
+  assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
 } from "./validations";
@@ -310,6 +311,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     const newRules: FeatureRule[] = [...baseRules, stampedRule];
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: baseRules,
+      after: newRules,
+    });
 
     if (resolvedRampAction) {
       const existing = revision.rampActions ?? [];

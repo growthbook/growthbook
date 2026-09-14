@@ -36,6 +36,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
+  assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
@@ -277,8 +278,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     }
     if (
       basePatch.condition !== undefined ||
-      basePatch.savedGroups !== undefined ||
-      basePatch.prerequisites !== undefined
+      basePatch.savedGroups !== undefined
     ) {
       await validateRuleReferences(
         {
@@ -288,10 +288,6 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
               : undefined,
           savedGroups:
             basePatch.savedGroups !== undefined ? updatedRule.savedGroups : [],
-          prerequisites:
-            basePatch.prerequisites !== undefined
-              ? updatedRule.prerequisites
-              : [],
         },
         req.context,
       );
@@ -300,6 +296,10 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     // Fold updated rule back into flat array at the same index.
     const newRules = flatRules.map((r, i) => (i === idx ? updatedRule : r));
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: flatRules,
+      after: newRules,
+    });
 
     const usesLegacyScheduling =
       oldRule.type === "experiment-ref" || oldRule.type === "safe-rollout";
