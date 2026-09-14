@@ -1732,6 +1732,16 @@ export default function ReviewAndPublish({
   // authority. Staging a change as a draft must not require an atom that landing
   // it directly doesn't. Provenance is all the client can see — the server
   // re-verifies purity.
+  // Separate so the blocker can name it: the fix differs (drop a Targeting
+  // Project, or find someone who may target it).
+  const holdsStagedTargeting = holdsTargetingDestination({
+    permissions: permissionsUtil,
+    existing: feature,
+    proposed: withStagedTargeting(
+      feature,
+      mergeResult?.success ? mergeResult.result.metadata : undefined,
+    ),
+  });
   const hasPublishPermission =
     (permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
       (draftStagesRevert &&
@@ -1747,14 +1757,7 @@ export default function ReviewAndPublish({
       affectedRevisionEnvs,
     ) &&
     // Landing widens delivery to whatever the draft targets, same as the endpoint.
-    holdsTargetingDestination({
-      permissions: permissionsUtil,
-      existing: feature,
-      proposed: withStagedTargeting(
-        feature,
-        mergeResult?.success ? mergeResult.result.metadata : undefined,
-      ),
-    });
+    holdsStagedTargeting;
 
   // Publishing is currently blocked (merge conflict, required rebase/divergence,
   // ramp lockdown, or nothing to publish). Used to suppress the reviewer's
@@ -3196,8 +3199,9 @@ export default function ReviewAndPublish({
                           reads as a bug. */}
                         {!hasPublishPermission && (
                           <PermissionBlocker>
-                            You don&apos;t have permission to publish this
-                            draft.
+                            {holdsStagedTargeting
+                              ? "You don't have permission to publish this draft."
+                              : "You don't have permission to target one or more of the Projects this draft adds. Remove them, or ask someone who can target them to publish."}
                           </PermissionBlocker>
                         )}
 
