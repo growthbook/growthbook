@@ -260,6 +260,7 @@ export default function ContextualBanditDetailPage({
       })),
     [cb.variations],
   );
+  const hasUniqueIDs = banditVariations.some((v, i) => v.key !== i + "");
 
   const experimentForVariations = useMemo<
     Pick<ExperimentInterfaceStringDates, "id" | "status" | "type">
@@ -560,7 +561,7 @@ export default function ContextualBanditDetailPage({
                         i={i}
                         v={v}
                         experiment={experimentForVariations}
-                        showIds
+                        showIds={hasUniqueIDs}
                         allowImages={false}
                         showSplit={false}
                       />

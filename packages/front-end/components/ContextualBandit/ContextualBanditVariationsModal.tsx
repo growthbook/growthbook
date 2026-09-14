@@ -112,31 +112,21 @@ export default function ContextualBanditVariationsModal({
         cta="Save"
         size="lg"
         submit={form.handleSubmit(async (data) => {
-          const variations = data.variations.map((v) => ({
-            id: v.id,
-            key: v.key || "",
-            name: v.name,
-            description: v.description,
-            screenshots: [],
-          }));
+          const currentIds = new Set(data.variations.map((v) => v.id));
+          const addedVariations = data.variations.filter(
+            (v) => !originalIds.has(v.id),
+          );
+          const removeVariationIds = [...originalIds].filter(
+            (id) => !currentIds.has(id),
+          );
 
-          const addedIds = variations
-            .map((v) => v.id)
-            .filter((id) => !originalIds.has(id));
-          const body: {
-            variations: typeof variations;
-            newVariationValues?: NewVariationValues;
-          } = { variations };
-          if (addedIds.length > 0 && linkedFeatures.length > 0) {
+          if (addedVariations.length > 0 && linkedFeatures.length > 0) {
             const missing: string[] = [];
             linkedFeatures.forEach((lf) => {
-              addedIds.forEach((variationId) => {
-                if (!isMissingValue(lf, variationId)) return;
-                const variation = variations.find((v) => v.id === variationId);
+              addedVariations.forEach((v) => {
+                if (!isMissingValue(lf, v.id)) return;
                 missing.push(
-                  `${lf.feature.id} → ${
-                    variation?.name || variation?.key || "new variation"
-                  }`,
+                  `${lf.feature.id} → ${v.name || v.key || "new variation"}`,
                 );
               });
             });
@@ -146,28 +136,42 @@ export default function ContextualBanditVariationsModal({
                 "Set a Feature Flag value for every new variation before saving",
               );
             }
-            const values: NewVariationValues = {};
-            linkedFeatures.forEach((lf) => {
-              addedIds.forEach((variationId) => {
-                values[lf.feature.id] = values[lf.feature.id] ?? {};
-                values[lf.feature.id][variationId] = valueFor(lf, variationId);
-              });
-            });
-            body.newVariationValues = values;
+          }
+
+          const addVariations = addedVariations.map((v) => ({
+            id: v.id,
+            key: v.key || "",
+            name: v.name,
+            description: v.description,
+            screenshots: [],
+            ...(linkedFeatures.length > 0
+              ? {
+                  values: Object.fromEntries(
+                    linkedFeatures.map((lf) => [
+                      lf.feature.id,
+                      valueFor(lf, v.id),
+                    ]),
+                  ),
+                }
+              : {}),
+          }));
+
+          if (addVariations.length === 0 && removeVariationIds.length === 0) {
+            mutate();
+            return;
           }
 
           await apiCall(`/api/v1/contextual-bandits/${cb.id}/variations`, {
             method: "POST",
-            body: JSON.stringify(body),
+            body: JSON.stringify({ addVariations, removeVariationIds }),
           });
-          // A rule change left in a draft (approval, conflict, permissions)
-          // is not a failed save — the detail page reports what's waiting.
           mutate();
         })}
       >
         <FeatureVariationsInput
           label={null}
           valueAsId
+          hideVariationIds
           hideSplits
           hideCoverage
           showDescriptions

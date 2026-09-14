@@ -45875,15 +45875,14 @@ paths:
       operationId: updateContextualBanditVariations
       summary: Add or remove Contextual Bandit variations
       description: >-
-        Replaces the full set of active variations on a Contextual Bandit. Send
-        every variation you want to keep (by `id`) plus any new ones (omit `id`
-        for the server to assign one); any active variation not in the request
-        is deactivated and cannot be re-added. Weights are reconciled
-        server-side. New arms require a value in `newVariationValues` for every
-        linked feature; running CBs publish it, draft CBs stage it until start.
-        Under an approval flow, unapproved drafts leave the added arm `pending`
-        (zero weight, filtered from the SDK) until every linked feature's draft
-        is live. Concurrent calls are safe — the server diffs under a CAS retry.
+        Adds and/or removes variations on a Contextual Bandit. Send
+        `addVariations` and `removeVariationIds` independently; both are
+        optional. New arms must carry a `values` entry for each linked feature.
+        Running CBs publish the linked-feature updates; draft CBs stage them
+        until start. Under an approval flow, unapproved drafts leave the added
+        arm `pending` (zero weight, filtered from the SDK) until every linked
+        feature's draft is live. Removed arms are tombstoned; their ids can
+        never be re-added. Weights are reconciled server-side.
       tags:
         - ContextualBandits
       parameters:
@@ -45900,13 +45899,10 @@ paths:
             schema:
               type: object
               properties:
-                variations:
+                addVariations:
                   description: >-
-                    Complete list of variations to keep. Pass each variation
-                    with a stable `id`; a new arm's `id` is any unique string
-                    you choose (the same value you use as the key in
-                    `newVariationValues`). Any active variation not in this list
-                    is deactivated.
+                    New arms to add. Omit `id` to have the server generate one
+                    and `key` to have the server assign the next integer.
                   type: array
                   items:
                     type: object
@@ -45937,28 +45933,28 @@ paths:
                           required:
                             - path
                           additionalProperties: false
+                      values:
+                        description: >-
+                          Value this new arm serves on each currently-linked
+                          feature, keyed by feature id. Required for every
+                          linked feature. Encode as a string for every
+                          `valueType` (`"true"`, `"5"`, `"{\"a\":1}"`), matching
+                          how `feature.defaultValue` is set.
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
                     required:
-                      - id
                       - name
-                      - key
                     additionalProperties: false
-                newVariationValues:
+                removeVariationIds:
                   description: >-
-                    Value to set on each linked feature for each new arm, keyed
-                    by the `id` you supplied for that arm in `variations`:
-                    `{featureId: {variationId: value}}`. Required for every
-                    added arm when the Contextual Bandit has linked features.
-                  type: object
-                  propertyNames:
+                    Ids of active arms to remove. Removed arms are tombstoned in
+                    place and their ids can never be re-added.
+                  type: array
+                  items:
                     type: string
-                  additionalProperties:
-                    type: object
-                    propertyNames:
-                      type: string
-                    additionalProperties:
-                      type: string
-              required:
-                - variations
               additionalProperties: false
       responses:
         '200':

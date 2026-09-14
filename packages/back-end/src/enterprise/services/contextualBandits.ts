@@ -82,7 +82,6 @@ import {
 import {
   PendingDraftFailure,
   PendingDraftFailureReason,
-  publishPendingFeatureDraftsForContextualBandit,
 } from "back-end/src/services/experiment-feature";
 import {
   ContextualBanditResultsQueryRunner,
@@ -1047,8 +1046,15 @@ export async function activatePendingContextualBanditVariations(
 export async function executeContextualBanditVariationChange(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
-  requestedVariations: Variation[],
-  newVariationValues?: Record<string, Record<string, string>>,
+  args: {
+    addVariations?: Array<
+      Omit<Variation, "screenshots"> & {
+        screenshots?: Variation["screenshots"];
+        values?: Record<string, string>;
+      }
+    >;
+    removeVariationIds?: string[];
+  },
 ): Promise<{
   updated: ContextualBanditInterface;
   featureDraftPublishFailures: PendingDraftFailure[];
@@ -1059,12 +1065,44 @@ export async function executeContextualBanditVariationChange(
     );
   }
 
-  const previousVisible = getVisibleVariations(cb.variations);
-  const tombstones = cb.variations.filter(isDeactivatedVariation);
-  const tombstoneIds = new Set(tombstones.map((v) => v.id));
-  const previousById = new Map(previousVisible.map((v) => [v.id, v]));
+  const addVariationsIn = args.addVariations ?? [];
+  const removeVariationIds = args.removeVariationIds ?? [];
 
-  const generatedIds = new Set<string>();
+  if (addVariationsIn.length === 0 && removeVariationIds.length === 0) {
+    throw new BadRequestError(
+      "Nothing to do: provide at least one of `addVariations` or `removeVariationIds`.",
+    );
+  }
+
+  const overlap = addVariationsIn.filter(
+    (v) => v.id && removeVariationIds.includes(v.id),
+  );
+  if (overlap.length > 0) {
+    throw new BadRequestError(
+      `Variation ids in both addVariations and removeVariationIds: ${overlap
+        .map((v) => v.id)
+        .join(", ")}`,
+    );
+  }
+
+  const previousVisible = getVisibleVariations(cb.variations);
+  const tombstoneIds = new Set(
+    cb.variations.filter(isDeactivatedVariation).map((v) => v.id),
+  );
+  const previousById = new Map(previousVisible.map((v) => [v.id, v]));
+  const removeSet = new Set(removeVariationIds);
+
+  const missingRemoves = removeVariationIds.filter(
+    (id) => !previousById.has(id),
+  );
+  if (missingRemoves.length > 0) {
+    throw new BadRequestError(
+      `Cannot remove variations that are not currently active: ${missingRemoves.join(
+        ", ",
+      )}`,
+    );
+  }
+
   let nextKeyCounter: number | null = null;
   const nextKey = () => {
     if (nextKeyCounter === null) {
@@ -1075,159 +1113,123 @@ export async function executeContextualBanditVariationChange(
     }
     return String(nextKeyCounter++);
   };
-  const newVariations: ContextualBanditVariation[] = requestedVariations.map(
+
+  const newVariationValues: Record<string, Record<string, string>> = {};
+  const normalizedAdds: ContextualBanditVariation[] = addVariationsIn.map(
     (v) => {
       const id = v.id || generateVariationId();
-      if (!v.id) generatedIds.add(id);
-      const isNewArm = !previousById.has(id) && !tombstoneIds.has(id);
       const keyIsAutoFilled = !v.key || v.key === v.id;
-      const key = isNewArm && keyIsAutoFilled ? nextKey() : v.key;
+      const key = keyIsAutoFilled ? nextKey() : v.key;
+      if (v.values) {
+        for (const [featureId, value] of Object.entries(v.values)) {
+          newVariationValues[featureId] = newVariationValues[featureId] ?? {};
+          newVariationValues[featureId][id] = value;
+        }
+      }
       return { ...v, id, key, screenshots: v.screenshots ?? [] };
     },
   );
 
-  for (const v of newVariations) {
+  for (const v of normalizedAdds) {
     if (tombstoneIds.has(v.id)) {
       throw new BadRequestError(
         `Variation ${v.id} was removed from this contextual bandit and cannot be re-added. Create a new variation instead.`,
       );
     }
+    if (previousById.has(v.id)) {
+      throw new BadRequestError(
+        `Variation ${v.id} is already active on this contextual bandit; use a different id or omit \`id\` to have one generated.`,
+      );
+    }
   }
+
+  const newVariations: ContextualBanditVariation[] = [
+    ...previousVisible.filter((v) => !removeSet.has(v.id)),
+    ...normalizedAdds,
+  ];
 
   assertUniqueVariationIds(newVariations);
   assertAtLeastTwoVariations(newVariations);
 
   const diff = diffVariations(previousVisible, newVariations);
-  const armSetChanged = diff.addedIds.length > 0 || diff.removedIds.length > 0;
+  const linkedInfo = await getContextualBanditLinkedFeatureInfo(context, cb);
 
-  let featureDraftPublishFailures: PendingDraftFailure[] = [];
-  let updated: ContextualBanditInterface;
+  validateAndAuthorizeVariationChange(
+    context,
+    cb,
+    diff,
+    newVariationValues,
+    linkedInfo,
+  );
 
-  if (armSetChanged) {
-    const linkedInfo = await getContextualBanditLinkedFeatureInfo(context, cb);
+  const removedSet = new Set(diff.removedIds);
 
-    validateAndAuthorizeVariationChange(
-      context,
-      cb,
-      diff,
-      newVariationValues,
-      linkedInfo,
-    );
+  let updated = await writeReconciledArmStateGuarded(context, cb, (base) => {
+    const basePreviousVisible = getVisibleVariations(base.variations);
+    const basePreviousById = new Map(basePreviousVisible.map((v) => [v.id, v]));
+    const baseTombstones = base.variations.filter(isDeactivatedVariation);
+    const baseTombstoneIds = new Set(baseTombstones.map((v) => v.id));
 
-    const requestedIds = new Set(newVariations.map((v) => v.id));
-    const removedSet = new Set(diff.removedIds);
-
-    updated = await writeReconciledArmStateGuarded(context, cb, (base) => {
-      const basePreviousVisible = getVisibleVariations(base.variations);
-      const basePreviousById = new Map(
-        basePreviousVisible.map((v) => [v.id, v]),
-      );
-      const baseTombstones = base.variations.filter(isDeactivatedVariation);
-      const baseTombstoneIds = new Set(baseTombstones.map((v) => v.id));
-
-      for (const v of newVariations) {
-        if (baseTombstoneIds.has(v.id)) {
-          throw new BadRequestError(
-            `Variation ${v.id} was removed from this contextual bandit and cannot be re-added. Create a new variation instead.`,
-          );
-        }
+    for (const v of normalizedAdds) {
+      if (baseTombstoneIds.has(v.id)) {
+        throw new BadRequestError(
+          `Variation ${v.id} was removed from this contextual bandit and cannot be re-added. Create a new variation instead.`,
+        );
       }
+    }
 
-      const visibleFromRequest: ContextualBanditVariation[] = newVariations.map(
-        (v) => {
-          const prev = basePreviousById.get(v.id) ?? previousById.get(v.id);
-          if (prev) return prev.status ? { ...v, status: prev.status } : v;
-          return { ...v, status: "pending" as const };
-        },
-      );
-
-      const preservedConcurrentArms = basePreviousVisible.filter(
-        (v) =>
-          !requestedIds.has(v.id) &&
-          !removedSet.has(v.id) &&
-          !previousById.has(v.id),
-      );
-
-      const removedNowInBase = diff.removedIds
-        .filter((id) => basePreviousById.has(id))
-        .map((id) => ({
-          ...basePreviousById.get(id)!,
-          status: "deactivated" as const,
-        }));
-
-      const provisionalVariations: ContextualBanditVariation[] = [
-        ...visibleFromRequest,
-        ...preservedConcurrentArms,
-        ...removedNowInBase,
-        ...baseTombstones,
-      ];
-
-      const mode = contextualBanditWeightMode(base);
-      const activeIds = getActiveVariations(provisionalVariations).map(
-        (v) => v.id,
-      );
-      const variationWeights = reconcileVariationWeights(
-        base.variationWeights ?? [],
-        activeIds,
-        mode,
-      );
-
-      return {
-        variations: provisionalVariations,
-        variationWeights,
-        activeIds,
-        mode,
-      };
-    });
-
-    ({ failures: featureDraftPublishFailures } =
-      await reconcileLinkedFeatureVariations(context, updated, {
-        addedIds: diff.addedIds,
-        removedIds: diff.removedIds,
-        providedValues: newVariationValues,
-        linkedInfo,
-      }));
-  } else {
-    // Same visible arm set: weights stay valid. A reorder still shifts the
-    // positional SDK arrays, so it bumps banditVersion; a metadata-only edit
-    // does not. Tombstones stay at the tail and are ignored for reordering.
-    const finalVariations: ContextualBanditVariation[] = [
-      ...newVariations.map((v) => {
+    const survivors = basePreviousVisible
+      .filter((v) => !removedSet.has(v.id))
+      .map((v) => {
         const prev = previousById.get(v.id);
         return prev?.status ? { ...v, status: prev.status } : v;
-      }),
-      ...tombstones,
-    ];
-    const orderChanged =
-      previousVisible.map((v) => v.id).join(",") !==
-      newVariations.map((v) => v.id).join(",");
-    updated = await context.models.contextualBandits.update(cb, {
-      variations: finalVariations,
+      });
+
+    const visibleAdds: ContextualBanditVariation[] = normalizedAdds.map((v) => {
+      const prev = basePreviousById.get(v.id);
+      if (prev) return prev.status ? { ...v, status: prev.status } : v;
+      return { ...v, status: "pending" as const };
     });
-    if (orderChanged) {
-      updated = await context.models.contextualBandits.applyWeightEpochUpdate(
-        cb.id,
-        { bumpVersion: true },
-      );
-    }
 
-    // A re-save with pending arms or tombstones is a retry: re-attempt
-    // publishing staged drafts, then reconcile any still-diverged rules.
-    if (tombstones.length > 0 || finalVariations.some(isPendingVariation)) {
-      const publishResult =
-        await publishPendingFeatureDraftsForContextualBandit(context, updated);
-      featureDraftPublishFailures = publishResult.failed;
+    const removedNowInBase = removeVariationIds
+      .filter((id) => basePreviousById.has(id))
+      .map((id) => ({
+        ...basePreviousById.get(id)!,
+        status: "deactivated" as const,
+      }));
 
-      ({ failures: featureDraftPublishFailures } = mergePendingDraftFailures(
-        featureDraftPublishFailures,
-        await reconcileLinkedFeatureVariations(context, updated, {
-          addedIds: newVariations.map((v) => v.id),
-          removedIds: tombstones.map((v) => v.id),
-          providedValues: newVariationValues,
-        }),
-      ));
-    }
-  }
+    const provisionalVariations: ContextualBanditVariation[] = [
+      ...survivors,
+      ...visibleAdds,
+      ...removedNowInBase,
+      ...baseTombstones,
+    ];
+
+    const mode = contextualBanditWeightMode(base);
+    const activeIds = getActiveVariations(provisionalVariations).map(
+      (v) => v.id,
+    );
+    const variationWeights = reconcileVariationWeights(
+      base.variationWeights ?? [],
+      activeIds,
+      mode,
+    );
+
+    return {
+      variations: provisionalVariations,
+      variationWeights,
+      activeIds,
+      mode,
+    };
+  });
+
+  const { failures: featureDraftPublishFailures } =
+    await reconcileLinkedFeatureVariations(context, updated, {
+      addedIds: diff.addedIds,
+      removedIds: diff.removedIds,
+      providedValues: newVariationValues,
+      linkedInfo,
+    });
 
   if (featureDraftPublishFailures.length === 0) {
     ({ updated } = await activatePendingContextualBanditVariations(
@@ -1245,19 +1247,6 @@ export async function executeContextualBanditVariationChange(
   return {
     updated,
     featureDraftPublishFailures,
-  };
-}
-
-function mergePendingDraftFailures(
-  first: PendingDraftFailure[],
-  second: { failures: PendingDraftFailure[] },
-): { failures: PendingDraftFailure[] } {
-  const seen = new Set(first.map((f) => f.featureId));
-  return {
-    failures: [
-      ...first,
-      ...second.failures.filter((f) => !seen.has(f.featureId)),
-    ],
   };
 }
 
@@ -1301,7 +1290,6 @@ function validateAndAuthorizeVariationChange(
       ruleWillChange = true;
       const value = providedValues?.[feature.id]?.[addedId];
       if (value === undefined) continue;
-      // Throws on a type mismatch (e.g. non-numeric value on a number feature).
       validateFeatureValue(feature, value, `Variation ${addedId}`);
     }
 

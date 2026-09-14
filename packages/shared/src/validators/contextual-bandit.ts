@@ -327,20 +327,29 @@ export const apiContextualBanditStopValidator = {
 export const apiContextualBanditUpdateVariationsValidator = {
   paramsSchema: z.strictObject({ id: z.string() }),
   bodySchema: z.strictObject({
-    variations: z
+    addVariations: z
       .array(
         variation.extend({
+          id: z.string().optional(),
+          key: z.string().optional(),
           screenshots: z.array(screenshot).optional(),
+          values: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe(
+              'Value this new arm serves on each currently-linked feature, keyed by feature id. Required for every linked feature. Encode as a string for every `valueType` (`"true"`, `"5"`, `"{\\"a\\":1}"`), matching how `feature.defaultValue` is set.',
+            ),
         }),
       )
-      .describe(
-        "Complete list of variations to keep. Pass each variation with a stable `id`; a new arm's `id` is any unique string you choose (the same value you use as the key in `newVariationValues`). Any active variation not in this list is deactivated.",
-      ),
-    newVariationValues: z
-      .record(z.string(), z.record(z.string(), z.string()))
       .optional()
       .describe(
-        "Value to set on each linked feature for each new arm, keyed by the `id` you supplied for that arm in `variations`: `{featureId: {variationId: value}}`. Required for every added arm when the Contextual Bandit has linked features.",
+        "New arms to add. Omit `id` to have the server generate one and `key` to have the server assign the next integer.",
+      ),
+    removeVariationIds: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Ids of active arms to remove. Removed arms are tombstoned in place and their ids can never be re-added.",
       ),
   }),
   querySchema: z.never(),
