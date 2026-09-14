@@ -913,8 +913,9 @@ paths:
                     type: string
                 environments:
                   description: >-
-                    Per-environment settings, keyed by environment ID. Unlisted
-                    environments take the organization's default state.
+                    Settings for each environment, keyed by environment ID. Any
+                    environment you leave out is enabled or disabled per that
+                    environment's "Default state for new features" setting.
                   type: object
                   propertyNames:
                     type: string
@@ -2450,8 +2451,8 @@ paths:
                     type: string
                 environments:
                   description: >-
-                    Per-environment settings, keyed by environment ID. Unlisted
-                    environments are unchanged.
+                    Settings for each environment, keyed by environment ID. Any
+                    environment you leave out keeps its current settings.
                   type: object
                   propertyNames:
                     type: string

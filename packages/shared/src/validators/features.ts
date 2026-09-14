@@ -1664,7 +1664,7 @@ const postFeatureBody = z
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
-        "Per-environment settings, keyed by environment ID. Unlisted environments take the organization's default state.",
+        'Settings for each environment, keyed by environment ID. Any environment you leave out is enabled or disabled per that environment\'s "Default state for new features" setting.',
       )
       .optional(),
     prerequisites: z
@@ -1722,7 +1722,7 @@ const updateFeatureBody = z
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
-        "Per-environment settings, keyed by environment ID. Unlisted environments are unchanged.",
+        "Settings for each environment, keyed by environment ID. Any environment you leave out keeps its current settings.",
       )
       .optional(),
     prerequisites: z
