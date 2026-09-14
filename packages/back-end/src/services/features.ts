@@ -3439,7 +3439,11 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         // Validate each variation value against the schema (previously skipped).
         if (Array.isArray(values)) {
           values.forEach((v: { value: string }, i) =>
-            validateFeatureValue(valFeature, v.value, `Variation ${i + 1}`),
+            validateFeatureValue(
+              valFeature,
+              v.value,
+              `${ruleLabel} variation ${i + 1}`,
+            ),
           );
         }
         const experimentRule: ExperimentRule = {
