@@ -5,7 +5,7 @@ import {
 } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { holdsTargetingDestination } from "shared/permissions";
+import { assertTargetingDestination } from "shared/permissions";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
@@ -98,19 +98,15 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     await assertValidProjectId(req.body.project, req.context);
     // Before project-id validation (read-filtered): refuse, don't call it invalid.
     // `assertCanCreateFeatureInState` below re-checks over the built feature.
-    if (
-      !holdsTargetingDestination({
-        permissions: req.context.permissions,
-        existing: {},
-        proposed: {
-          project: req.body.project,
-          targetingAllProjects: req.body.targetingAllProjects,
-          targetingProjects: req.body.targetingProjects,
-        },
-      })
-    ) {
-      req.context.permissions.throwPermissionError();
-    }
+    assertTargetingDestination({
+      permissions: req.context.permissions,
+      existing: {},
+      proposed: {
+        project: req.body.project,
+        targetingAllProjects: req.body.targetingAllProjects,
+        targetingProjects: req.body.targetingProjects,
+      },
+    });
     await assertValidProjectIds(req.body.targetingProjects, req.context);
 
     await validateCustomFields(

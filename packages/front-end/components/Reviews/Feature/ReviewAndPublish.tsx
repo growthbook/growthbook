@@ -2,6 +2,8 @@ import {
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   holdsFeatureMoveDestination,
+  holdsTargetingDestination,
+  withStagedTargeting,
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
@@ -898,7 +900,12 @@ export default function ReviewAndPublish({
       feature,
       revision?.metadata?.project,
       affectedRevisionEnvs,
-    );
+    ) &&
+    holdsTargetingDestination({
+      permissions: permissionsUtil,
+      existing: feature,
+      proposed: withStagedTargeting(feature, revision?.metadata),
+    });
 
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
   // Arming on a draft rides request-review, so it needs draft authority too.
@@ -1733,7 +1740,16 @@ export default function ReviewAndPublish({
       feature,
       mergeResult?.success ? mergeResult.result.metadata?.project : undefined,
       affectedRevisionEnvs,
-    );
+    ) &&
+    // Landing widens delivery to whatever the draft targets, same as the endpoint.
+    holdsTargetingDestination({
+      permissions: permissionsUtil,
+      existing: feature,
+      proposed: withStagedTargeting(
+        feature,
+        mergeResult?.success ? mergeResult.result.metadata : undefined,
+      ),
+    });
 
   // Publishing is currently blocked (merge conflict, required rebase/divergence,
   // ramp lockdown, or nothing to publish). Used to suppress the reviewer's

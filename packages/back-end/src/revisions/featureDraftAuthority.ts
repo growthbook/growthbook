@@ -8,6 +8,7 @@ import {
 } from "shared/util";
 import {
   NO_ENVIRONMENT_BINDING,
+  assertTargetingDestination,
   holdsTargetingDestination,
   metadataTouchesPayload,
   withStagedTargeting,
@@ -97,15 +98,11 @@ export function assertCanCreateFeatureInState({
     context.permissions.throwPermissionError();
   }
   // A new flag's whole targeting set is an addition.
-  if (
-    !holdsTargetingDestination({
-      permissions: context.permissions,
-      existing: {},
-      proposed: feature,
-    })
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  assertTargetingDestination({
+    permissions: context.permissions,
+    existing: {},
+    proposed: feature,
+  });
 }
 
 /** Whether the draft restores a state that was actually live. */
@@ -399,9 +396,11 @@ export async function assertCanPublishFeatureRevision({
   ) {
     context.permissions.throwPermissionError();
   }
-  if (!holdsTargetingLanding(context, feature, mergeChanges)) {
-    context.permissions.throwPermissionError();
-  }
+  assertTargetingDestination({
+    permissions: context.permissions,
+    existing: feature,
+    proposed: withStagedTargeting(feature, mergeChanges?.metadata),
+  });
 
   await assertCanLandRevision({
     context,

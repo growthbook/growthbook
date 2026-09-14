@@ -45,16 +45,13 @@ describe("granular flag permissions", () => {
       expect(perms.deleteFeatures).toBeUndefined();
     });
 
-    // Publishing into a project already reaches its payloads, so Publish and
-    // Full access carry the targeting atom; nothing narrower does.
-    it("bundles the targeting atom with publish and full access only", () => {
+    // The role editor shows Target as its own checkbox, so only that checkbox
+    // (or Full access, which lists it) may grant the atom. Publish must not.
+    it("grants the targeting atom through its own policy and full access only", () => {
       expect(permissionsFromRole({ policies: ["FlagsTarget"] })).toEqual({
         readData: true,
         targetFeatures: true,
       });
-      expect(
-        permissionsFromRole({ policies: ["FlagsPublish"] }).targetFeatures,
-      ).toBe(true);
       expect(
         permissionsFromRole({ policies: ["FlagsFullAccess"] }).targetFeatures,
       ).toBe(true);
@@ -62,8 +59,10 @@ describe("granular flag permissions", () => {
         "FlagsCreate",
         "FlagsEditDrafts",
         "FlagsReview",
+        "FlagsPublish",
         "FlagsRevert",
         "FlagsDelete",
+        "SDKPayloadPublish",
       ] as Policy[]) {
         expect(
           permissionsFromRole({ policies: [policy] }).targetFeatures,

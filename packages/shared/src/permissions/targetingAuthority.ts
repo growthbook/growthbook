@@ -65,3 +65,29 @@ export function holdsTargetingDestination({
   if (added !== "all" && added.length === 0) return true;
   return permissions.canTargetFeatureProjects(added);
 }
+
+// The assert form of `holdsTargetingDestination`, naming what was refused so a
+// REST caller can tell a targeting refusal from any other 403.
+export function assertTargetingDestination({
+  permissions,
+  existing,
+  proposed,
+}: {
+  permissions: {
+    canTargetFeatureProjects: (projects: string[] | "all") => boolean;
+    throwPermissionError: (message?: string) => void;
+  };
+  existing: TargetingScoped;
+  proposed: TargetingScoped;
+}): void {
+  const added = addedTargetingProjects(existing, proposed);
+  if (added !== "all" && added.length === 0) return;
+  if (permissions.canTargetFeatureProjects(added)) return;
+  permissions.throwPermissionError(
+    added === "all"
+      ? "You do not have permission to target all projects with this Feature Flag"
+      : `You do not have permission to target ${
+          added.length === 1 ? "project" : "projects"
+        } ${added.join(", ")} with this Feature Flag`,
+  );
+}

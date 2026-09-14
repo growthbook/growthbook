@@ -3,7 +3,7 @@ import {
   canStageArchiveDraft,
   metadataTouchesPayload,
   holdsMoveDestination,
-  holdsTargetingDestination,
+  assertTargetingDestination,
   projectScopeChanged,
   withStagedTargeting,
   NO_ENVIRONMENT_BINDING,
@@ -2760,15 +2760,11 @@ export async function postFeatureRevert(
       hasMetadataChanges = true;
     }
     // Restoring a wider targeting set delivers into those projects again.
-    if (
-      !holdsTargetingDestination({
-        permissions: context.permissions,
-        existing: feature,
-        proposed: withStagedTargeting(feature, metadataChanges),
-      })
-    ) {
-      context.permissions.throwPermissionError();
-    }
+    assertTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, metadataChanges),
+    });
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetadataChanges = true;
@@ -3058,15 +3054,15 @@ export async function postFeatureRevertDraft(
       action: "draft",
       existing: feature,
       proposed: { ...feature, ...(changes.metadata ?? {}) },
-    }) ||
-    !holdsTargetingDestination({
-      permissions: context.permissions,
-      existing: feature,
-      proposed: withStagedTargeting(feature, changes.metadata),
     })
   ) {
     context.permissions.throwPermissionError();
   }
+  assertTargetingDestination({
+    permissions: context.permissions,
+    existing: feature,
+    proposed: withStagedTargeting(feature, changes.metadata),
+  });
 
   const newRevision = await createRevision({
     context,
@@ -5637,15 +5633,11 @@ export async function putFeature(
   // against what the target draft already stages, so echoing a colleague's
   // staged targeting is not an addition; landing re-checks against live.
   const stagedTargeting = withStagedTargeting(feature, targetDraft?.metadata);
-  if (
-    !holdsTargetingDestination({
-      permissions: context.permissions,
-      existing: stagedTargeting,
-      proposed: withStagedTargeting(stagedTargeting, metadataUpdates),
-    })
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  assertTargetingDestination({
+    permissions: context.permissions,
+    existing: stagedTargeting,
+    proposed: withStagedTargeting(stagedTargeting, metadataUpdates),
+  });
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
   // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
   // The publish-time linkage write deliberately bypasses read scope, so this is

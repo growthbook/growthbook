@@ -1,7 +1,7 @@
 import {
   metadataTouchesPayload,
   holdsMoveDestination,
-  holdsTargetingDestination,
+  assertTargetingDestination,
   withStagedTargeting,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
@@ -258,15 +258,11 @@ export async function revertFeatureRevision(
       hasMetaChange = true;
     }
     // Restoring a wider targeting set delivers into those projects again.
-    if (
-      !holdsTargetingDestination({
-        permissions: context.permissions,
-        existing: feature,
-        proposed: withStagedTargeting(feature, metadataChanges),
-      })
-    ) {
-      context.permissions.throwPermissionError();
-    }
+    assertTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, metadataChanges),
+    });
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;

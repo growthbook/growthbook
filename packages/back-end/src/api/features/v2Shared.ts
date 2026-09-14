@@ -411,7 +411,9 @@ export async function assertValidProjectIds(
   label = "targeting",
 ): Promise<void> {
   if (!projectIds?.length) return;
-  const valid = new Set((await context.getProjects()).map((p) => p.id));
+  // Existence only, unfiltered by read access: authorization ran before this,
+  // and a targeting project already on the flag may be one the caller cannot read.
+  const valid = new Set(await context.getAllProjectIds());
   const missing = projectIds.filter((id) => id && !valid.has(id));
   if (missing.length) {
     throw new Error(

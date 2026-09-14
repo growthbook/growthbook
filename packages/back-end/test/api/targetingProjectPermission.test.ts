@@ -38,9 +38,16 @@ const org = {
       limitAccessByEnvironment: false,
       environments: [],
     },
+    // Publish everywhere, but no Target: may not widen delivery anywhere.
     {
       id: "u_global",
       role: "flag_editor",
+      limitAccessByEnvironment: false,
+      environments: [],
+    },
+    {
+      id: "u_global_full",
+      role: "engineer",
       limitAccessByEnvironment: false,
       environments: [],
     },
@@ -68,6 +75,7 @@ const projectRole = (project: string, role: string) => ({
 
 let prjA = "";
 let prjB = "";
+let prjC = "";
 let seq = 0;
 
 async function createProject(name: string): Promise<string> {
@@ -103,6 +111,7 @@ async function seedFeature(targetingProjects: string[] = []): Promise<string> {
 beforeAll(async () => {
   prjA = await createProject("Project A");
   prjB = await createProject("Project B");
+  prjC = await createProject("Project C");
   org.members.push(
     // Edits and publishes in B; may not deliver into A.
     {
@@ -130,7 +139,8 @@ describe("adding a targeting project", () => {
   it.each([
     ["u_b_editor", 403],
     ["u_b_editor_targets_a", 200],
-    ["u_global", 200],
+    ["u_global", 403],
+    ["u_global_full", 200],
   ])("%s → %i on a v1 update", async (userId, status) => {
     const id = await seedFeature();
     as(userId);
@@ -173,7 +183,8 @@ describe("all projects", () => {
   // Reaches projects that do not exist yet, so a project-scoped grant is not enough.
   it.each([
     ["u_b_editor_targets_a", 403],
-    ["u_global", 200],
+    ["u_global", 403],
+    ["u_global_full", 200],
   ])("%s → %i", async (userId, status) => {
     const id = await seedFeature();
     as(userId);
@@ -185,6 +196,25 @@ describe("all projects", () => {
 });
 
 describe("existing targeting", () => {
+  // Only the delta is judged: a project already targeted stays, whoever edits.
+  it("does not block adding another project, editing, or publishing", async () => {
+    const id = await seedFeature([prjC]);
+    as("u_b_editor_targets_a");
+    const added = await api.post(`/api/v1/features/${id}`, {
+      targetingProjects: [prjC, prjA],
+    });
+    expect(added.status).toBe(200);
+    expect(
+      (added.body as { feature: { targetingProjects: string[] } }).feature
+        .targetingProjects,
+    ).toEqual([prjC, prjA]);
+    as("u_b_editor");
+    const edited = await api.post(`/api/v1/features/${id}`, {
+      defaultValue: "true",
+    });
+    expect(edited.status).toBe(200);
+  });
+
   it("can be removed, and left alone, without the targeting atom", async () => {
     const id = await seedFeature([prjA]);
     as("u_b_editor");

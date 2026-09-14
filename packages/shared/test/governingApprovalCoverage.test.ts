@@ -30,6 +30,7 @@ const org = {
     { id: "reviewer", description: "", policies: ["FlagsReview"] },
     { id: "target", description: "", policies: ["FlagsTarget"] },
     { id: "publisher", description: "", policies: ["FlagsPublish"] },
+    { id: "full", description: "", policies: ["FlagsFullAccess"] },
   ],
   members: [
     member("u_b", "noaccess", [projectRole("prj_b", "reviewer")]),
@@ -41,6 +42,7 @@ const org = {
       projectRole("prj_a", "target"),
     ]),
     member("u_publisher", "publisher"),
+    member("u_full", "full"),
   ],
   invites: [],
 } as unknown as OrganizationInterface;
@@ -124,8 +126,8 @@ describe("canTargetFeatureProjects", () => {
   it("takes the atom in every added project", () => {
     const perms = permissionsFor("u_target_a");
     expect(perms.canTargetFeatureProjects(["prj_a"])).toBe(true);
-    // Publish in the primary carries the atom there too.
-    expect(perms.canTargetFeatureProjects(["prj_b"])).toBe(true);
+    // Publish in the primary does not carry it.
+    expect(perms.canTargetFeatureProjects(["prj_b"])).toBe(false);
     expect(perms.canTargetFeatureProjects(["prj_a", "prj_c"])).toBe(false);
   });
 
@@ -134,8 +136,9 @@ describe("canTargetFeatureProjects", () => {
       false,
     );
     expect(permissionsFor("u_publisher").canTargetFeatureProjects("all")).toBe(
-      true,
+      false,
     );
+    expect(permissionsFor("u_full").canTargetFeatureProjects("all")).toBe(true);
     expect(permissionsFor("u_both").canTargetFeatureProjects(["prj_a"])).toBe(
       false,
     );

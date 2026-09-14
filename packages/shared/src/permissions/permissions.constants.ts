@@ -142,18 +142,17 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "reviewConfigs",
     "reviewConstants",
   ],
-  // Publishing into a project already reaches its SDK payloads, so it carries
-  // the targeting atom too.
   FlagsPublish: [
     "readData",
     "publishFeatures",
     "publishConfigs",
     "publishConstants",
-    "targetFeatures",
   ],
   // Deliver Feature Flags owned by other projects into this one via Targeting
-  // Projects, without any authority over the project's own flags. Features only:
-  // Configs and Constants have no targeting projects.
+  // Projects, without any authority over the project's own flags. Its own
+  // policy and nothing else's: the role editor shows it as a checkbox, so no
+  // sibling may grant it on the side. Features only: Configs and Constants
+  // have no targeting projects.
   FlagsTarget: ["readData", "targetFeatures"],
   FlagsRevert: [
     "readData",
@@ -241,12 +240,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // FeaturesFullAccess loses revert on upgrade — under-granting fails closed
   // and an admin can add FlagsRevert. Pinned in
   // shared/test/granular-flag-permissions.test.ts.
-  SDKPayloadPublish: [
-    "readData",
-    "publishFeatures",
-    "runExperiments",
-    "targetFeatures",
-  ],
+  SDKPayloadPublish: ["readData", "publishFeatures", "runExperiments"],
   SDKConnectionsFullAccess: [
     "readData",
     "manageSDKConnections",
