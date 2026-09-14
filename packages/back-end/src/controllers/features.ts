@@ -17,7 +17,6 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
-  PermissionError,
   featureReviewCandidateProjects,
   ANY_REVIEW_FOOTPRINT,
   MergeResultChanges,
@@ -55,7 +54,10 @@ import {
   computeFeatureHealth,
   FeatureHealthStateEntry,
 } from "shared/util";
-import { getHealthSettings } from "shared/enterprise";
+import {
+  statusFromStandingVerdicts,
+  getHealthSettings,
+} from "shared/enterprise";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
@@ -1727,23 +1729,30 @@ export async function postFeatureApproveAndPublish(
   // Ask the publish question with this approval added: a targeting-project
   // reviewer's approval alone lands nothing, and must not commit as "approved".
   if (!adminOverride) {
+    // Status aggregates every standing verdict, the way the review write does.
+    const projectedReviews = [
+      ...(revision.reviews ?? []).filter((r) => r.userId !== context.userId),
+      {
+        userId: context.userId,
+        user: res.locals.eventAudit,
+        status: "approved" as const,
+        timestamp: new Date(),
+      },
+    ];
     const projected = await assessRevisionApproval({
       context,
       feature,
       revision: {
         ...revision,
-        status: "approved",
-        reviews: [
-          ...(revision.reviews ?? []).filter(
-            (r) => r.userId !== context.userId,
+        status: statusFromStandingVerdicts(
+          projectedReviews.flatMap((r) =>
+            r.status === "approved" || r.status === "changes-requested"
+              ? [r.status]
+              : [],
           ),
-          {
-            userId: context.userId,
-            user: res.locals.eventAudit,
-            status: "approved",
-            timestamp: new Date(),
-          },
-        ],
+          "pending-review",
+        ),
+        reviews: projectedReviews,
       },
       effectiveRevision: {
         ...filledLive,
@@ -1756,6 +1765,12 @@ export async function postFeatureApproveAndPublish(
     });
     if (projected.requiresReview && !projected.satisfied) {
       const reasons = [
+        ...((revision.reviews ?? []).some(
+          (r) =>
+            r.userId !== context.userId && r.status === "changes-requested",
+        )
+          ? ["another reviewer's changes-requested verdict still stands"]
+          : []),
         ...(projected.hasCoveringApproval
           ? []
           : ["it does not cover the primary project's changes"]),
@@ -5810,9 +5825,16 @@ export async function putFeature(
           skipPrevalidateValidation: true,
         });
       } catch (e) {
-        // Authority is refused before anything lands, so the draft is the only
-        // residue; other failures may have landed and keep it for recovery.
-        if (e instanceof PermissionError) {
+        // The draft exists only for this publish. Anything that landed marked
+        // it published; otherwise it is residue the caller never asked for.
+        const residue = await getRevision({
+          context,
+          organization: org.id,
+          featureId: feature.id,
+          feature,
+          version: draft.version,
+        });
+        if (residue && residue.status !== "published") {
           await deleteRevisionForFailedLanding(
             context,
             org.id,
