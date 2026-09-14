@@ -323,7 +323,7 @@ export function validateFeatureValue(
   const prefix = label ? label + ": " : "";
   if (type === "boolean") {
     if (!["true", "false"].includes(value)) {
-      return value ? "true" : "false";
+      throw new Error(prefix + 'Must be "true" or "false"');
     }
   } else if (type === "number") {
     if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
@@ -3952,6 +3952,20 @@ export function getRevisionReviewRequirement({
       rule: entry.setting,
     })),
   };
+}
+
+// Whether review is required anywhere in the org: the legacy boolean, or any
+// rule with its own switch on. Used to decide when writes that would skip the
+// revision review flow altogether must be reserved for approval-bypass callers.
+export function orgRequiresAnyReview(
+  settings: Pick<OrganizationSettings, "requireReviews"> | undefined,
+  requireApprovalsLicensed = true,
+): boolean {
+  if (!requireApprovalsLicensed) return false;
+  const requireReviews = settings?.requireReviews;
+  return Array.isArray(requireReviews)
+    ? requireReviews.some((rule) => !!rule.requireReviewOn)
+    : !!requireReviews;
 }
 
 // Boolean form, for callers that only ask whether review is needed.

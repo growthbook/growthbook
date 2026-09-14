@@ -8,6 +8,7 @@ import {
   assertUniqueRuleIds,
   assertUniqueRuleIdsByEnv,
   assertValidChangedRuleExperimentIds,
+  assertRuleVariationsMatchExperiment,
   assertValidRuleExperimentIds,
   assertValidRuleProjectIds,
   validateEnvRulesScheduleRules,
@@ -16,6 +17,7 @@ import {
   mapV2ApiRuleToFeatureRule,
   resolveScopeFromInput,
   validateRulesScheduleRules,
+  experimentRefChanged,
 } from "back-end/src/api/features/v2Shared";
 import { BadRequestError } from "back-end/src/util/errors";
 
@@ -709,17 +711,87 @@ describe("assertCanUseRuleScheduling", () => {
   });
 });
 
+describe("assertRuleVariationsMatchExperiment", () => {
+  const experiment = {
+    variations: [{ id: "v0" }, { id: "v1" }],
+    phases: [{}],
+  } as unknown as Parameters<typeof assertRuleVariationsMatchExperiment>[1];
+  const rule = (...ids: string[]) => ({
+    experimentId: "exp",
+    variations: ids.map((variationId) => ({ variationId })),
+  });
+
+  it.each([
+    [
+      "a stray id",
+      rule("v0", "v9"),
+      /"v9" is not a variation of experiment "exp"/,
+    ],
+    ["a duplicate", rule("v0", "v0"), /Duplicate variationId "v0"/],
+    ["too few arms", rule("v0"), /has 2 variation\(s\) but 1 were specified/],
+    [
+      "a legacy rule with no variations",
+      { experimentId: "exp" },
+      /has 2 variation\(s\) but 0/,
+    ],
+  ])("rejects %s", (_label, input, re) => {
+    expect(() =>
+      assertRuleVariationsMatchExperiment(input, experiment),
+    ).toThrow(re);
+  });
+
+  it("accepts the experiment's arms in any order", () => {
+    expect(() =>
+      assertRuleVariationsMatchExperiment(rule("v1", "v0"), experiment),
+    ).not.toThrow();
+  });
+});
+
+describe("experimentRefChanged", () => {
+  const ref = (experimentId: string, ...ids: string[]) =>
+    ({
+      type: "experiment-ref",
+      experimentId,
+      variations: ids.map((variationId) => ({ variationId, value: "1" })),
+    }) as FeatureRule;
+  const stored = ref("exp", "v0", "v1");
+
+  it.each([
+    ["no stored rule", ref("exp", "v0", "v1"), undefined, true],
+    ["a different experiment", ref("other", "v0", "v1"), stored, true],
+    ["a swapped id", ref("exp", "v0", "v9"), stored, true],
+    ["the same ids in another order", ref("exp", "v1", "v0"), stored, false],
+    [
+      "ids omitted on both sides",
+      { experimentId: "exp" },
+      { type: "experiment-ref", experimentId: "exp" } as FeatureRule,
+      false,
+    ],
+  ])("%s → %s", (_label, rule, prior, expected) => {
+    expect(experimentRefChanged(rule, prior)).toBe(expected);
+  });
+});
+
 describe("assertValidRuleExperimentIds", () => {
   const context = {} as ApiReqContext;
   const ref = (id: string, experimentId: string) =>
-    ({ id, type: "experiment-ref", experimentId }) as FeatureRule;
+    ({
+      id,
+      type: "experiment-ref",
+      experimentId,
+      variations: [{ variationId: "v0", value: "true" }],
+    }) as FeatureRule;
 
   beforeEach(() => {
     jest.mocked(getExperimentsByIds).mockReset();
     jest
       .mocked(getExperimentsByIds)
       .mockImplementation(async (_ctx, ids) =>
-        ids.filter((i) => i === "exp_known").map((id) => ({ id }) as never),
+        ids
+          .filter((i) => i === "exp_known")
+          .map(
+            (id) => ({ id, variations: [{ id: "v0" }], phases: [{}] }) as never,
+          ),
       );
   });
 

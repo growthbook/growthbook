@@ -19,6 +19,7 @@ import {
 } from "shared/util";
 import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import type { ApiReqContext } from "back-end/types/api";
@@ -360,6 +361,7 @@ export async function revertFeatureCore(
         ]
       : [];
 
+  await assertFeatureMoveDependentsGuard(context, feature, changes.metadata);
   const { revision: newRevision, updatedFeature } =
     await createAndPublishRevision({
       context,

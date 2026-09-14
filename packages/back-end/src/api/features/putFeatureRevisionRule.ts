@@ -37,11 +37,16 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
+  assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
 } from "./validations";
-import { assertCanUseRuleScheduling } from "./v2Shared";
+import {
+  assertCanUseRuleScheduling,
+  assertValidExperimentRefRule,
+  experimentRefChanged,
+} from "./v2Shared";
 
 export function applyPatch(
   existing: FeatureRule,
@@ -300,6 +305,12 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       });
     }
     const updatedRule = applyPatch(oldRule, patch);
+    if (
+      updatedRule.type === "experiment-ref" &&
+      experimentRefChanged(updatedRule, oldRule)
+    ) {
+      await assertValidExperimentRefRule(req.context, updatedRule);
+    }
 
     // A coverage patch can convert a force rule to a rollout, which arrives
     // seedless. Existing rollouts already carry a seed and are left untouched.
@@ -341,19 +352,13 @@ export const putFeatureRevisionRule = createApiRequestHandler(
         ) ?? undefined,
       );
     }
-    if (
-      patch.condition !== undefined ||
-      patch.savedGroups !== undefined ||
-      patch.prerequisites !== undefined
-    ) {
+    if (patch.condition !== undefined || patch.savedGroups !== undefined) {
       await validateRuleReferences(
         {
           condition:
             patch.condition !== undefined ? updatedRule.condition : undefined,
           savedGroups:
             patch.savedGroups !== undefined ? updatedRule.savedGroups : [],
-          prerequisites:
-            patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
         },
         req.context,
       );
@@ -368,6 +373,10 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     );
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: flatRules,
+      after: newRules,
+    });
 
     // Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
     let resolvedRampAction = inlineRampSchedule
