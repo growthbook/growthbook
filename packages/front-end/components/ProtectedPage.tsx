@@ -1,15 +1,22 @@
-import { FC, ReactNode } from "react";
+import { FC, ReactNode, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
-import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
 
 const LoggedInPageGuard = ({
@@ -20,7 +27,13 @@ const LoggedInPageGuard = ({
   organizationRequired: boolean;
 }) => {
   const { error, ready, organization } = useUser();
-  const { organizations } = useAuth();
+  const { organizations, orgId, setOrgId } = useAuth();
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
+  // A bad organization selection (deleted org, revoked membership) fails every
+  // org-scoped request, so switching orgs is the only way out of the error
+  // screen short of logging out.
+  const otherOrgs = (organizations || []).filter((o) => o.id !== orgId);
 
   if (error) {
     return (
@@ -28,33 +41,72 @@ const LoggedInPageGuard = ({
         <TopNavLite />
         <main className="container">
           <div className="mt-5 pt-5">
-            <div
-              className="appbox p-4"
+            <Box
+              className="appbox"
+              p="4"
               style={{ maxWidth: 500, margin: "auto" }}
             >
-              <h3 className="mb-3">Something Went Wrong</h3>
+              <Heading as="h3" size="lg" mb="3">
+                Something Went Wrong
+              </Heading>
               <Callout status="error">{error}</Callout>
-              <div className="d-flex align-items-center mt-3">
+              {/* Ordered least to most destructive, so Log Out is never the
+                  first thing a stuck user reaches for. */}
+              <Flex align="center" justify="end" gap="3" mt="4">
+                {setOrgId && otherOrgs.length > 0 ? (
+                  <DropdownMenu
+                    trigger={
+                      <Button variant="soft">Switch Organization</Button>
+                    }
+                    menuPlacement="start"
+                  >
+                    <DropdownMenuLabel>Organization</DropdownMenuLabel>
+                    {otherOrgs.map((o) => (
+                      <DropdownMenuItem
+                        key={o.id}
+                        onClick={() => {
+                          setOrgId(o.id);
+                          try {
+                            localStorage.setItem(
+                              "gb-last-picked-org",
+                              `"${o.id}"`,
+                            );
+                          } catch (e) {
+                            console.warn(
+                              "Unable to save last org in localStorage",
+                            );
+                          }
+                        }}
+                      >
+                        {o.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenu>
+                ) : null}
                 <Button
-                  className="ml-auto"
-                  onClick={async () => {
-                    await safeLogout();
-                  }}
-                  color="danger"
-                >
-                  Log Out
-                </Button>
-                <button
-                  className="btn btn-link"
-                  onClick={(e) => {
-                    e.preventDefault();
+                  variant="ghost"
+                  onClick={() => {
                     window.location.reload();
                   }}
                 >
                   Reload
-                </button>
-              </div>
-            </div>
+                </Button>
+                <Button
+                  color="red"
+                  setError={setLogoutError}
+                  onClick={async () => {
+                    await safeLogout();
+                  }}
+                >
+                  Log Out
+                </Button>
+              </Flex>
+              {logoutError ? (
+                <Callout status="error" mt="3">
+                  {logoutError}
+                </Callout>
+              ) : null}
+            </Box>
           </div>
         </main>
       </div>
