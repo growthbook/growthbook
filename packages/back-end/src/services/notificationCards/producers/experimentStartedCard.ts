@@ -1,6 +1,9 @@
 import { experimentStartedNotificationPayload } from "shared/validators";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
-import { getExperimentStartedSummary } from "back-end/src/services/experimentChanges/experimentStartedSummary";
+import {
+  getExperimentStartedGoalMetricsLine,
+  getExperimentStartedSummary,
+} from "back-end/src/services/experimentChanges/experimentStartedSummary";
 import type {
   NotificationCard,
   NotificationCardProducer,
@@ -19,6 +22,7 @@ export const buildExperimentStartedCard: NotificationCardProducer = (
   );
   if (!parsed.success) return null;
   const data = parsed.data;
+  const goalMetrics = getExperimentStartedGoalMetricsLine(data);
   return {
     data: {
       state: "started",
@@ -28,7 +32,7 @@ export const buildExperimentStartedCard: NotificationCardProducer = (
       banner: BANNER,
       summary: [
         getExperimentStartedSummary(data),
-        ...(data.phaseName ? [`Phase: ${data.phaseName}`] : []),
+        ...(goalMetrics ? [goalMetrics] : []),
       ],
     },
     altText: `${data.experimentName} - ${LABEL}`,

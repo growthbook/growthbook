@@ -36,6 +36,10 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { setExperimentNotificationState } from "back-end/src/models/ExperimentModel";
 import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { logger } from "back-end/src/util/logger";
+import {
+  getGoalMetricNames,
+  getStoppedGoalMetricResults,
+} from "back-end/src/services/experimentChanges/experimentStoppedResults";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { hasEventSubscribers } from "back-end/src/events/hasEventSubscribers";
@@ -111,13 +115,14 @@ export const notifyExperimentStarted = async ({
   context: Context;
   experiment: ExperimentInterface;
 }) => {
-  const [visualChangesets, urlRedirects] = await Promise.all([
+  const [visualChangesets, urlRedirects, goalMetricNames] = await Promise.all([
     experiment.hasVisualChangesets
       ? findVisualChangesetsByExperiment(experiment.id, context.org.id)
       : [],
     experiment.hasURLRedirects
       ? context.models.urlRedirects.findByExperiment(experiment.id)
       : [],
+    getGoalMetricNames(context, experiment),
   ]);
   const latestPhase = experiment.phases[experiment.phases.length - 1];
 
@@ -131,6 +136,8 @@ export const notifyExperimentStarted = async ({
         experimentId: experiment.id,
         experimentName: experiment.name,
         phaseName: latestPhase?.name,
+        variationCount: experiment.variations.length,
+        ...(goalMetricNames.length ? { goalMetricNames } : {}),
         linkedFeatureCount: new Set(experiment.linkedFeatures || []).size,
         visualChangesetCount: visualChangesets.length,
         urlRedirectCount: urlRedirects.length,
@@ -156,6 +163,11 @@ export const notifyExperimentStopped = async ({
   releasedVariationName?: string;
   reason?: string;
 }) => {
+  const winner =
+    experiment.results === "won" && experiment.winner !== undefined
+      ? experiment.variations[experiment.winner]
+      : undefined;
+  const evidence = await getStoppedGoalMetricResults(context, experiment);
   await dispatchEvent({
     context,
     experiment,
@@ -169,6 +181,16 @@ export const notifyExperimentStopped = async ({
         releasedVariationName,
         enableTemporaryRollout,
         reason,
+        ...(winner
+          ? {
+              winningVariationName: winner.name,
+              winningVariationIndex: experiment.winner,
+            }
+          : {}),
+        ...(evidence?.totalUsers !== undefined
+          ? { totalUsers: evidence.totalUsers }
+          : {}),
+        ...(evidence ? { goalMetric: evidence.goalMetric } : {}),
       },
     },
   });

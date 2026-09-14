@@ -3131,6 +3131,7 @@ Triggered when an experiment starts or resumes running.
             experimentName: string;
             phaseName?: string | undefined;
             variationCount?: number | undefined;
+            goalMetricNames?: string[] | undefined;
             linkedFeatureCount?: number | undefined;
             visualChangesetCount?: number | undefined;
             urlRedirectCount?: number | undefined;
@@ -3182,6 +3183,39 @@ Triggered when an experiment stops, including its result and any temporary rollo
             releasedVariationName?: string | undefined;
             enableTemporaryRollout: boolean;
             reason?: string | undefined;
+            winningVariationName?: string | undefined;
+            winningVariationIndex?: number | undefined;
+            totalUsers?: number | undefined;
+            goalMetric?: {
+                metricId: string;
+                metricName: string;
+                snapshotId: string;
+                statsEngine: string;
+                differenceType: string;
+                control: {
+                    variationId: string;
+                    variationName: string;
+                    users?: number | undefined;
+                    value: number;
+                    formattedValue: string;
+                };
+                variations: {
+                    variationId: string;
+                    variationName: string;
+                    variationIndex: number;
+                    users?: number | undefined;
+                    value: number;
+                    formattedValue: string;
+                    uplift?: number | undefined;
+                    upliftStddev?: number | undefined;
+                    ci?: [
+                        number,
+                        number
+                    ] | undefined;
+                    chanceToWin?: number | undefined;
+                    pValue?: number | undefined;
+                }[];
+            } | undefined;
         };
     };
     user: {

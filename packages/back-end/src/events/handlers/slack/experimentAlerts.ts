@@ -1,5 +1,8 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
-import { getExperimentStartedSummary } from "back-end/src/services/experimentChanges/experimentStartedSummary";
+import {
+  getExperimentStartedGoalMetricsLine,
+  getExperimentStartedSummary,
+} from "back-end/src/services/experimentChanges/experimentStartedSummary";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import type { SlackMessage } from "./slack-event-handler-utils";
 
@@ -17,9 +20,14 @@ export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
   const object = event.data.object;
   let detail: string;
   switch (event.event) {
-    case "experiment.status.started":
+    case "experiment.status.started": {
+      const goalMetrics = getExperimentStartedGoalMetricsLine(
+        event.data.object,
+      );
       detail = getExperimentStartedSummary(event.data.object);
+      if (goalMetrics) detail += ` ${goalMetrics}.`;
       break;
+    }
     case "experiment.status.stopped": {
       const data = event.data.object;
       detail = data.results ? `Stopped. Result: ${data.results}.` : "Stopped.";
@@ -27,6 +35,19 @@ export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
         detail += ` Temporary rollout: ${data.releasedVariationName}.`;
       }
       if (data.reason) detail += ` ${data.reason}`;
+      const goal = data.goalMetric;
+      const top =
+        goal?.variations.find(
+          (v) => v.variationIndex === data.winningVariationIndex,
+        ) ?? goal?.variations[0];
+      if (goal && top && top.uplift !== undefined) {
+        const change = `${top.uplift > 0 ? "+" : ""}${(top.uplift * 100).toFixed(1)}%`;
+        const confidence =
+          top.chanceToWin !== undefined
+            ? ` (${(top.chanceToWin * 100).toFixed(1)}% chance to beat control)`
+            : "";
+        detail += ` ${goal.metricName}: ${top.variationName} ${change}${confidence}.`;
+      }
       break;
     }
     case "experiment.status.endingSoon":

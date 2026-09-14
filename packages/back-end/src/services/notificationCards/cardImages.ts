@@ -180,7 +180,8 @@ const TAG_COLORS: { bg: string; fg: string }[] = [
 type Hue = "violet" | "blue" | "green" | "red" | "amber" | "slate";
 
 const HUE: Record<CardState, Hue> = {
-  started: "violet",
+  // Started shares the app's Running badge color (indigo).
+  started: "blue",
   running: "blue",
   winner: "green",
   loser: "red",
@@ -1209,7 +1210,7 @@ function conclusionEl(exp: ExperimentCardData): El | null {
 type EventBodySize = "sm" | "lg";
 const TABLE_SIZES = {
   sm: { colW: 92, gap: 10, pad: "8px 12px", head: 9.5, cell: 13, note: 12 },
-  lg: { colW: 160, gap: 16, pad: "14px 20px", head: 12, cell: 18, note: 15 },
+  lg: { colW: 200, gap: 18, pad: "18px 24px", head: 14, cell: 22, note: 17 },
 } as const;
 
 // Plain text table: first column flexes and is left-aligned, the rest are
@@ -1310,7 +1311,7 @@ function eventSummaryBody(card: EventCardData, size: EventBodySize): El {
 // Full-width headline bar in the card's state color, e.g. "Health Alert - SRM
 // Detected", with the event's icon. Amber is too light for white text, so it
 // gets the dark text color; the other hues take white.
-function eventBannerEl(card: EventCardData, hue: Hue): El {
+function eventBannerEl(card: CardIdentity, hue: Hue): El {
   const event = compactEventFor(card);
   const color = hue === "amber" ? P.text : "#ffffff";
   return el(
@@ -1337,7 +1338,7 @@ function eventBannerEl(card: EventCardData, hue: Hue): El {
 
 // Header for banner cards: the banner already carries the state, so this is
 // just a large name on the left and the logo on the right.
-function eventHeaderEl(card: EventCardData): El {
+function eventHeaderEl(card: CardIdentity): El {
   const logoH = 22;
   return el(
     "div",
@@ -1412,18 +1413,23 @@ function buildCard(card: CardData): El {
     ];
   } else {
     body = standardBody(exp);
-    const healthy = !exp.health || exp.health.status !== "unhealthy";
     footerItems = [
       exp.days,
       exp.users ? `${exp.users} users` : undefined,
       exp.dates,
       exp.ds,
-      healthy ? "Health: healthy" : "Health: needs attention",
+      // Only claim a health status when the card actually carries one.
+      exp.health
+        ? exp.health.status === "unhealthy"
+          ? "Health: needs attention"
+          : "Health: healthy"
+        : undefined,
     ];
   }
 
   const column = [
-    headerEl(exp),
+    exp.banner ? eventBannerEl(exp, hue) : null,
+    exp.banner ? eventHeaderEl(exp) : headerEl(exp),
     healthBannerEl(exp),
     hypothesisEl(exp),
     conclusionEl(exp),
@@ -1483,7 +1489,7 @@ const COMPACT_EVENT: Record<
 > = {
   started: {
     label: "Experiment started",
-    hue: "violet",
+    hue: "blue",
     status: "running",
     icon: "play",
   },
@@ -1952,9 +1958,8 @@ function buildCompactCard(card: CardData): El {
   const [hero, footerItems] = isResultsCard(card)
     ? [compactHero(card, event, hue), compactFooterItems(card, event)]
     : [eventSummaryBody(card, "sm"), [card.dates]];
-  const bannerCard = !isResultsCard(card) && !!card.banner;
-  const banner =
-    !isResultsCard(card) && card.banner ? { ...ev, label: card.banner } : ev;
+  const bannerCard = !!card.banner;
+  const banner = card.banner ? { ...ev, label: card.banner } : ev;
 
   // Rail-less panel: the solid banner carries the status color. The hero wrapper
   // flex-grows and centers its content so short cards sit at min-height without

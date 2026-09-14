@@ -68,13 +68,13 @@ export interface CardIdentity {
   tags?: string[];
   dates?: string;
   badgeLabel?: string; // overrides the state badge text, e.g. a stopped card with no outcome
+  // Headline for a full-width banner in the card's state color. When set, the
+  // detailed card drops the state badge and the compact banner reuses the text.
+  banner?: string;
 }
 
 // Built from an immutable event payload alone; carries no metric results.
 export interface EventCardData extends CardIdentity {
-  // Headline for a full-width banner in the card's state color. When set, the
-  // detailed card drops the state badge and the compact banner reuses the text.
-  banner?: string;
   summary?: string[];
   table?: CardTable;
 }

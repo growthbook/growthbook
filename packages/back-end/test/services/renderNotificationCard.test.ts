@@ -113,6 +113,7 @@ describe("renderNotificationCard", () => {
           experimentName: "Checkout",
           linkedFeatureCount: 1,
           phaseName: "Main phase",
+          goalMetricNames: ["Conversion", "Revenue", "Retention", "NPS"],
         }),
         "detailed",
       ),
@@ -126,7 +127,10 @@ describe("renderNotificationCard", () => {
         state: "started",
         event: "started",
         banner: "Experiment Started",
-        summary: expect.arrayContaining(["Phase: Main phase"]),
+        summary: [
+          "Started with 1 linked Feature Flag.",
+          "Goal metrics: Conversion, Revenue, Retention (+1 more)",
+        ],
       }),
       "detailed",
     );
@@ -151,6 +155,80 @@ describe("renderNotificationCard", () => {
       }),
       "compact",
     );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.not.objectContaining({ rows: expect.anything() }),
+      "compact",
+    );
+  });
+
+  it("renders goal metric results as a winner card when the payload carries them", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "won",
+        enableTemporaryRollout: false,
+        winningVariationName: "Treatment",
+        winningVariationIndex: 1,
+        totalUsers: 20000,
+        goalMetric: {
+          metricId: "m1",
+          metricName: "Conversion",
+          snapshotId: "snp-1",
+          statsEngine: "bayesian",
+          differenceType: "relative",
+          control: {
+            variationId: "v0",
+            variationName: "Control",
+            users: 10000,
+            value: 0.05,
+            formattedValue: "5.00%",
+          },
+          variations: [
+            {
+              variationId: "v1",
+              variationName: "Treatment",
+              variationIndex: 1,
+              users: 10000,
+              value: 0.055,
+              formattedValue: "5.50%",
+              uplift: 0.1,
+              upliftStddev: 0.02,
+              ci: [0.06, 0.14],
+              chanceToWin: 0.98,
+            },
+          ],
+        },
+      }),
+      "compact",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: "winner",
+        event: "won",
+        banner: "Experiment Stopped - Winner",
+        goal: "Conversion",
+        variants: ["Control", "Treatment"],
+        users: "20K",
+        winningVariation: "Treatment",
+        winningVariationIndex: 1,
+        rows: [
+          expect.objectContaining({
+            v: "Treatment",
+            i: 1,
+            ctrl: "5.00%",
+            vr: "5.50%",
+            ctw: "98.0%",
+            chg: "+10%",
+            dir: "up",
+            vio: { c: 10, s: 2 },
+            ci: { lo: 6, hi: 14, pt: 10 },
+          }),
+        ],
+      }),
+      "compact",
+    );
   });
 
   it("reports a stop result and temporary rollout from the payload", async () => {
@@ -167,6 +245,7 @@ describe("renderNotificationCard", () => {
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
+        banner: "Experiment Stopped - Inconclusive",
         summary: [
           "Experiment stopped. Result: inconclusive.",
           "Temporary rollout: Control",

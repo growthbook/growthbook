@@ -23,6 +23,10 @@ import { getSlackMessageForNotificationEvent } from "back-end/src/events/handler
 
 jest.mock("back-end/src/services/experiments", () => ({
   getExperimentMetricById: jest.fn(),
+  getExperimentMetricsByIds: jest.fn().mockResolvedValue([]),
+}));
+jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
+  getLatestSuccessfulSnapshot: jest.fn().mockResolvedValue(null),
 }));
 jest.mock("back-end/src/models/VisualChangesetModel", () => ({
   findVisualChangesetsByExperiment: jest.fn(),
