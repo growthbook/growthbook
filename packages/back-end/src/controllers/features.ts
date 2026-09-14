@@ -167,6 +167,7 @@ import { assessRevisionApproval } from "back-end/src/services/featurePublishGate
 import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import {
@@ -2419,6 +2420,11 @@ export async function postFeaturePublish(
   if (mergeResult.result.archived === true && !feature.archived) {
     await assertFeatureArchiveDependentsGuard(context, feature);
   }
+  await assertFeatureMoveDependentsGuard(
+    context,
+    feature,
+    mergeResult.result.metadata,
+  );
 
   const updatedFeature = await publishRevision({
     context,
@@ -2859,6 +2865,11 @@ export async function postFeatureRevert(
     context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
     !!org.settings?.revertsBypassApproval;
 
+  await assertFeatureMoveDependentsGuard(
+    context,
+    feature,
+    mergeChanges.metadata,
+  );
   const newRevision = await createRevision({
     context,
     feature,
@@ -5659,6 +5670,9 @@ export async function putFeature(
         ? `Update ${metadataFieldLabels[changedKeys[0]] ?? changedKeys[0]}`
         : "Update feature"
       : undefined;
+    if (autoPublish) {
+      await assertFeatureMoveDependentsGuard(context, feature, metadataUpdates);
+    }
     const draft = await createOrUpdateDraftWithChanges(
       context,
       feature,

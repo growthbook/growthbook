@@ -10,6 +10,7 @@ import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -490,6 +491,13 @@ export const updateFeatureV2 = createApiRequestHandler(
     hasHoldoutChange;
 
   if (hasRevisionChanges) {
+    if (hasMetadataChanges) {
+      await assertFeatureMoveDependentsGuard(
+        req.context,
+        feature,
+        metadataChanges,
+      );
+    }
     const revisionChanges: Partial<FeatureRevisionInterface> = {
       ...(hasEnvEnabledChanges
         ? { environmentsEnabled: changedEnvEnabled }
