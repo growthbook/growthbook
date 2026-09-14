@@ -290,7 +290,6 @@ import {
   parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
 import {
-  assertExperimentRefRuleVariations,
   assertRuleVariationsMatchExperiment,
   assertValidExperimentRefRule,
   assertValidHoldout,
@@ -919,7 +918,6 @@ export async function postFeatures(
   if (flattenedInbound.length > 0) {
     feature.rules = [...(feature.rules ?? []), ...flattenedInbound];
   }
-  await assertExperimentRefRuleVariations(context, feature.rules ?? []);
 
   // Inbound v2 rules (e.g. from FeatureFromExperimentModal) often arrive with
   // `id: ""`; stamp ids so they're addressable by later update/delete ops.

@@ -485,7 +485,7 @@ export async function assertValidExperimentRefRule(
 }
 
 // Experiment-ref rules must point at an experiment the caller can read, and
-// their variations must match it.
+// their variations must match it. Each referenced experiment is loaded once.
 export async function assertValidRuleExperimentIds(
   rules: FeatureRule[],
   context: ReqContext | ApiReqContext,
@@ -551,31 +551,6 @@ export async function assertValidChangedRuleExperimentIds(
     ),
     context,
   );
-}
-
-// Dashboard create paths: the variation check for every experiment-ref rule
-// whose experiment resolves; a missing experiment is left to downstream
-// validation, as those paths have always done.
-export async function assertExperimentRefRuleVariations(
-  context: ReqContext | ApiReqContext,
-  rules: FeatureRule[],
-): Promise<void> {
-  const refs = rules.filter(
-    (r): r is Extract<FeatureRule, { type: "experiment-ref" }> =>
-      r.type === "experiment-ref",
-  );
-  if (!refs.length) return;
-  const experiments = new Map(
-    (
-      await getExperimentsByIds(context, [
-        ...new Set(refs.map((r) => r.experimentId)),
-      ])
-    ).map((e) => [e.id, e]),
-  );
-  for (const rule of refs) {
-    const experiment = experiments.get(rule.experimentId);
-    if (experiment) assertRuleVariationsMatchExperiment(rule, experiment);
-  }
 }
 
 // Rule ids must be unique within one rules array (the v2 flat list, or one v1

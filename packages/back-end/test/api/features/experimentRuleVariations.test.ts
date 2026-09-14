@@ -195,6 +195,28 @@ describe("experiment-ref rule variations", () => {
         }),
     ],
     [
+      "v1 bulk create",
+      () =>
+        send("post", "/api/v1/features", {
+          id: "flag_new_v1",
+          owner: "t",
+          valueType: "boolean",
+          defaultValue: "false",
+          environments: {
+            production: {
+              enabled: true,
+              rules: [
+                {
+                  type: "experiment-ref",
+                  experimentId: EXP,
+                  variations: arms("v0", "v9"),
+                },
+              ],
+            },
+          },
+        }),
+    ],
+    [
       "v1 bulk update",
       () =>
         send("post", `/api/v1/features/${FLAG}`, {
