@@ -45,8 +45,8 @@ export default function DictationButton({
         <button
           ref={micRef}
           type="button"
-          // Geometry is shared, so "filled" is just the send button's class.
-          className={`${primary ? styles.sendButton : styles.dictateButton}${
+          // Geometry is shared, so "filled" is just the send button's class — but not while recording, whose red fill would sit on the send violet.
+          className={`${primary && !recording ? styles.sendButton : styles.dictateButton}${
             recording ? ` ${styles.dictateButtonActive}` : ""
           }`}
           onClick={toggle}

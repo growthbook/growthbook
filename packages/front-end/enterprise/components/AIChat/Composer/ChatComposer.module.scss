@@ -250,25 +250,36 @@
 // you", not just "on" — a muted mic stays flat. Driven by the mic rather than
 // keyframes, which would compete with the panel's own turn animation.
 .dictateButtonActive {
-  background: var(--red-a4);
+  position: relative;
+  background: transparent;
   color: var(--red-11);
 
-  // Default size at rest; voice presses it in. Shrinking is the whole point —
-  // it can't paint outside the 30px box, so the row and the send button beside
-  // it never shift, which growing did. The transition turns the per-frame
-  // steps into a breath rather than a flicker.
-  transform: scale(calc(1 - var(--mic-level, 0) * 0.18));
-  transition: transform 90ms linear;
+  // The fill is its own box so the voice can shrink it without touching the glyph or the 30px hit target.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--red-a4);
+    transform: scale(calc(1 - var(--mic-level, 0) * 0.18));
+    transition: transform 90ms linear;
+  }
+
+  // Positioned so the glyph paints above the fill.
+  svg {
+    position: relative;
+  }
 
   // The red fill and the stop glyph still carry the state without it.
   @media (prefers-reduced-motion: reduce) {
-    transform: none;
-    transition: none;
+    &::before {
+      transform: none;
+      transition: none;
+    }
   }
 
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled)::before {
     background: var(--red-a5);
-    color: var(--red-11);
   }
 }
 
