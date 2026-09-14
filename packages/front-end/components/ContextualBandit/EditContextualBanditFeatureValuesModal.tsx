@@ -17,7 +17,7 @@ import {
 } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { useEnvironments } from "@/services/features";
+import { getDefaultValue, useEnvironments } from "@/services/features";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -169,7 +169,9 @@ export default function EditContextualBanditFeatureValuesModal({
           existingRule?.variations?.find((x) => x.variationId === v.id) ??
           stagedEntry ??
           linkedFeatureInfo.values.find((x) => x.variationId === v.id);
-        const raw = entry?.value ?? "";
+        // An arm with no value on the linked rule must still seed a valid
+        // value for the feature's type — "" is not one.
+        const raw = entry?.value ?? getDefaultValue(feature.valueType);
         // Seed the config backing so a config-backed feature's bandit arms open
         // in the config-backing editor (matches the experiment-ref editor).
         const value =
@@ -190,6 +192,7 @@ export default function EditContextualBanditFeatureValuesModal({
       linkedFeatureInfo.stagedDrafts,
       isConfigBacked,
       defaultConfigKey,
+      feature.valueType,
     ],
   );
 
@@ -249,9 +252,13 @@ export default function EditContextualBanditFeatureValuesModal({
           throw new Error("Set a value for every variation before saving");
         }
 
-        const updatedVariations = values.variations.map((r) => ({
+        const updatedVariations = values.variations.map((r, i) => ({
           variationId: r.variationId,
-          value: validateFeatureValue(feature, r.value ?? "", ""),
+          value: validateFeatureValue(
+            feature,
+            r.value ?? "",
+            `Variation ${i + 1}`,
+          ),
         }));
 
         const needsRefix = updatedVariations.some(
