@@ -2,16 +2,8 @@ import {
   type ExperimentWarningNotificationPayload,
   srm,
 } from "shared/validators";
-<<<<<<< HEAD
 import { pValueFormatter } from "shared/util";
-import { getExperimentUrlAndNameFormatted } from "back-end/src/events/handlers/utils";
-import type { CardTable } from "back-end/src/services/notificationCards/cardImages";
-||||||| parent of a445479f33 (refactor)
-import { getExperimentUrlAndNameFormatted } from "back-end/src/events/handlers/utils";
-import type { CardTable } from "back-end/src/services/notificationCards/cardImages";
-=======
 import { APP_ORIGIN } from "back-end/src/util/secrets";
->>>>>>> a445479f33 (refactor)
 import type {
   CardTable,
   NotificationCard,
