@@ -161,13 +161,13 @@ export function SampleRowsModal({
           </TabsContent>
           <TabsContent value="where">
             <Box style={{ height: 300, overflowY: "auto" }}>
-              <Code code={result?.where || ""} language="sql" />
+              <Code code={`WHERE ${result?.where || ""}`} language="sql" />
             </Box>
           </TabsContent>
         </Tabs>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="soft" color="gray" onClick={close}>
+        <Button variant="ghost" onClick={close}>
           {hasUnsavedChanges ? "Cancel" : "Close"}
         </Button>
         <Button

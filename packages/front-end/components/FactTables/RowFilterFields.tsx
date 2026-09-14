@@ -1,9 +1,8 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RowFilter } from "shared/types/fact-table";
 import { PiX } from "react-icons/pi";
 import SelectField from "@/components/Forms/SelectField";
-import Button from "@/ui/Button";
 import {
   getRowFilterColumnChange,
   getRowFilterColumnOptions,
@@ -165,20 +164,22 @@ export function RowFilterEditorRows({
                 </>
               )}
             </RowFilterFields>
-            <Button
+            <IconButton
               variant="ghost"
-              color="red"
-              icon={<PiX />}
+              color="gray"
               aria-label="Remove filter"
-              onClick={() => {
+              title="Remove filter"
+              ml="1"
+              onClick={(e) => {
+                e.preventDefault();
                 const newFilters = [...value];
                 newFilters.splice(i, 1);
                 setValue(newFilters);
                 setRowDeleted(!rowDeleted);
               }}
             >
-              {""}
-            </Button>
+              <PiX />
+            </IconButton>
           </Flex>
         );
       })}
