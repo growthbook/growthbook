@@ -577,6 +577,8 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
   }
 }
 
+const GROUPABLE_SQL_COLUMN_TYPES = new Set(["number", "date", "boolean"]);
+
 export function getCommonColumns(
   dataset: ExplorationDataset | null,
   getFactTableById: (id: string) => FactTableDefinition | null,
@@ -659,7 +661,10 @@ export function getCommonColumns(
   // Warehouse tables are restricted to string columns, where cardinality is at
   // least predictable. A SQL dataset is the user's own projection — the column
   // they most often want to group by is a bucket they just computed (e.g.
-  // `toStartOfMonth(...) AS month`), so offer every column it returns.
+  // `toStartOfMonth(...) AS month`) — so offer its other scalar types too.
+  // `other` stays out: it is the catch-all for types we couldn't identify,
+  // which includes arrays and structs, and warehouses reject casting those to
+  // the string every group-by value is compared as.
   const allowNonStringGroupBy = dataset.type === "sql";
 
   const groupByColumns: Pick<ColumnInterface, "column" | "name">[] = [];
@@ -667,7 +672,10 @@ export function getCommonColumns(
     .filter((c) => !c.deleted)
     .filter((c) => !userIdTypes.has(c.column))
     .forEach((c) => {
-      if (c.datatype === "string" || allowNonStringGroupBy) {
+      if (
+        c.datatype === "string" ||
+        (allowNonStringGroupBy && GROUPABLE_SQL_COLUMN_TYPES.has(c.datatype))
+      ) {
         groupByColumns.push({ column: c.column, name: c.name });
       }
       // Nested JSON fields (use dot-notation, matching getColumnExpression)
