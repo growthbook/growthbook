@@ -246,11 +246,25 @@
   }
 }
 
-// Recording. Tinted rather than pulsing: the panel already animates during a
-// turn, and a second moving thing competes with it.
+// Recording. A fill breathes with --mic-level so the control says "hearing
+// you", not just "on" — a muted mic stays flat. Driven by the mic rather than
+// keyframes, which would compete with the panel's own turn animation.
 .dictateButtonActive {
   background: var(--red-a4);
   color: var(--red-11);
+
+  // Default size at rest; voice presses it in. Shrinking is the whole point —
+  // it can't paint outside the 30px box, so the row and the send button beside
+  // it never shift, which growing did. The transition turns the per-frame
+  // steps into a breath rather than a flicker.
+  transform: scale(calc(1 - var(--mic-level, 0) * 0.18));
+  transition: transform 90ms linear;
+
+  // The red fill and the stop glyph still carry the state without it.
+  @media (prefers-reduced-motion: reduce) {
+    transform: none;
+    transition: none;
+  }
 
   &:hover:not(:disabled) {
     background: var(--red-a5);

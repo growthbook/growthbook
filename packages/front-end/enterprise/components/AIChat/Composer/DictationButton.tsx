@@ -11,7 +11,7 @@ import styles from "./ChatComposer.module.scss";
 
 /** Mic toggle. Renders nothing when dictation isn't available to the org. */
 export default function DictationButton({
-  dictation: { available, recording, transcribing, error, toggle },
+  dictation: { available, recording, transcribing, error, toggle, micRef },
   disabled = false,
   primary = false,
 }: {
@@ -43,9 +43,9 @@ export default function DictationButton({
           disabled button, so the wrapper is what gets hovered. */}
       <span className={styles.dictateTrigger}>
         <button
+          ref={micRef}
           type="button"
-          // The two buttons already share their geometry, so the filled
-          // treatment is just the send button's own class.
+          // Geometry is shared, so "filled" is just the send button's class.
           className={`${primary ? styles.sendButton : styles.dictateButton}${
             recording ? ` ${styles.dictateButtonActive}` : ""
           }`}

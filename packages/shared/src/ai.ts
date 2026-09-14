@@ -160,13 +160,21 @@ export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
 export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image";
 export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
-export function getProviderFromModel(model: AIModel): AIProvider {
-  for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
+// Every registry below is provider -> model ids, so they all look up the same
+// way; `label` only shapes the error.
+function providerOf(
+  map: Readonly<Record<string, readonly string[]>>,
+  model: string,
+  label: string,
+): AIProvider {
+  for (const [provider, models] of Object.entries(map)) {
+    if (models.includes(model)) return provider as AIProvider;
   }
-  throw new Error(`Model ${model} is not supported.`);
+  throw new Error(`${label} ${model} is not supported.`);
+}
+
+export function getProviderFromModel(model: AIModel): AIProvider {
+  return providerOf(AI_PROVIDER_MODEL_MAP, model, "Model");
 }
 
 // OpenAI reasoning models (the o-series and the entire GPT-5 family) are
@@ -534,18 +542,10 @@ export const AI_PROVIDER_EMBEDDING_MODEL_MAP = {
 export type EmbeddingModel =
   (typeof AI_PROVIDER_EMBEDDING_MODEL_MAP)[keyof typeof AI_PROVIDER_EMBEDDING_MODEL_MAP][number];
 
-// Helper to determine which provider an embedding model belongs to
 export function getProviderFromEmbeddingModel(
   model: EmbeddingModel,
 ): AIProvider {
-  for (const [provider, models] of Object.entries(
-    AI_PROVIDER_EMBEDDING_MODEL_MAP,
-  )) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
-  }
-  throw new Error(`Embedding model ${model} is not supported.`);
+  return providerOf(AI_PROVIDER_EMBEDDING_MODEL_MAP, model, "Embedding model");
 }
 
 // Speech-to-text models for voice dictation. Batch (file-POST) only: the
@@ -569,23 +569,24 @@ export const AI_PROVIDER_STT_MODEL_MAP = {
 export type STTModel =
   (typeof AI_PROVIDER_STT_MODEL_MAP)[keyof typeof AI_PROVIDER_STT_MODEL_MAP][number];
 
-export function getProviderFromSTTModel(model: STTModel): AIProvider {
-  for (const [provider, models] of Object.entries(AI_PROVIDER_STT_MODEL_MAP)) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
-  }
-  throw new Error(`Transcription model ${model} is not supported.`);
+// Narrower than AIProvider: only these three serve transcription, which makes
+// the endpoint table in stt.ts total and its "unknown provider" branch dead.
+export type STTProvider = keyof typeof AI_PROVIDER_STT_MODEL_MAP;
+
+export function getProviderFromSTTModel(model: STTModel): STTProvider {
+  return providerOf(
+    AI_PROVIDER_STT_MODEL_MAP,
+    model,
+    "Transcription model",
+  ) as STTProvider;
 }
 
-// Walked in order, so a missing key degrades to the next provider rather than
-// disabling dictation. Same order on Cloud and self-hosted: whichever key is
-// present wins, and there is no managed model worth special-casing above it.
-export const DEFAULT_STT_MODELS: ReadonlyArray<[AIProvider, STTModel]> = [
-  ["openai", "gpt-transcribe"],
-  ["xai", "grok-stt-1.0"],
-  ["mistral", "voxtral-mini-latest"],
-];
+// Each provider's first model, walked in registry order, so a missing key
+// degrades to the next provider rather than disabling dictation. Same order on
+// Cloud and self-hosted — no managed model is worth special-casing above it.
+export const DEFAULT_STT_MODELS = Object.entries(AI_PROVIDER_STT_MODEL_MAP).map(
+  ([provider, models]) => [provider, models[0]] as [STTProvider, STTModel],
+);
 
 // What the key-removal dialog names as taking over. Derived from the list so
 // the two can't drift apart.

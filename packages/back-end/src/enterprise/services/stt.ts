@@ -1,5 +1,5 @@
 import FormData from "form-data";
-import { AIProvider, getProviderFromSTTModel } from "shared/ai";
+import { STTProvider, getProviderFromSTTModel } from "shared/ai";
 import type { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";
@@ -8,7 +8,7 @@ import { fetch } from "back-end/src/util/http.util";
 
 // OpenAI and Mistral share OpenAI's /v1/audio/transcriptions contract; xAI
 // serves its own /v1/stt. All three answer with `{ text }`.
-const STT_ENDPOINTS: Partial<Record<AIProvider, string>> = {
+const STT_ENDPOINTS: Record<STTProvider, string> = {
   openai: "https://api.openai.com/v1/audio/transcriptions",
   mistral: "https://api.mistral.ai/v1/audio/transcriptions",
   xai: "https://api.x.ai/v1/stt",
@@ -47,11 +47,6 @@ export async function transcribeAudio(
     throw new Error(missingAIKeyMessage(provider));
   }
 
-  const url = STT_ENDPOINTS[provider];
-  if (!url) {
-    throw new Error(`${sttModel} cannot be used for transcription.`);
-  }
-
   const form = new FormData();
   // Providers key off the extension, so it has to match the actual container.
   form.append("file", audio, {
@@ -61,7 +56,7 @@ export async function transcribeAudio(
   // xAI's /v1/stt serves one model and documents no `model` field.
   if (provider !== "xai") form.append("model", sttModel);
 
-  const res = await fetch(url, {
+  const res = await fetch(STT_ENDPOINTS[provider], {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form,

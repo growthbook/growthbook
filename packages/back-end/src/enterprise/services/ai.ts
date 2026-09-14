@@ -246,20 +246,10 @@ export const secondsUntilAICanBeUsedAgainForSTT = async (
 ): Promise<number> => {
   if (!IS_CLOUD) return 0;
   const { sttModel } = await getAISettingsForOrg(context);
-  const provider = sttModel
-    ? (getProviderForAIModel("stt", sttModel) ?? undefined)
-    : undefined;
+  // "" is fine: getProviderForAIModel answers null for anything unrecognised.
+  const provider = getProviderForAIModel("stt", sttModel ?? "") ?? undefined;
   return secondsUntilAICanBeUsedAgainForProvider(context, provider);
 };
-
-// Audio carries no tokens, so dictation is charged against the same ledger by
-// size. Deliberately coarse — it only has to make repeated dictation trip the
-// cap and track provider cost (billed per minute) monotonically.
-//
-// ponytail: byte proxy rather than a real minutes ledger. Unlike charging the
-// transcript it can't be gamed with silence. Add a minutes counter to
-// AITokenUsageModel if dictation spend needs accurate attribution.
-const STT_TOKENS_PER_KB = 1;
 
 export const recordSTTUsage = async (
   context: ReqContext | ApiReqContext,
@@ -270,8 +260,15 @@ export const recordSTTUsage = async (
   const { keySource } = await getAISettingsForOrg(context);
   // The org pays its own provider directly, so nothing to meter.
   if (keySource[provider] === "organization") return;
+  // Audio carries no tokens, so charge the same ledger a KB apiece. Coarse on
+  // purpose: it only has to make repeated dictation trip the cap and track
+  // provider cost (billed per minute) monotonically.
+  //
+  // ponytail: byte proxy, not a minutes ledger. Unlike charging the transcript
+  // it can't be gamed with silence. Add a minutes counter to AITokenUsageModel
+  // if dictation spend needs accurate attribution.
   await updateTokenUsage({
-    numTokensUsed: Math.ceil((audioBytes / 1024) * STT_TOKENS_PER_KB),
+    numTokensUsed: Math.ceil(audioBytes / 1024),
     organization: context.org,
   });
 };

@@ -451,13 +451,11 @@ function ChatComposer(
       primary={micIsPrimary}
     />
   );
-  // Only stand down for a mic that is actually rendered.
-  const showSendButton = !(micIsPrimary && dictation.available);
-
   const buttons = (
     <>
       {dictateButton}
-      {showSendButton && sendButton}
+      {/* Only stand down for a mic that is actually rendered. */}
+      {!(micIsPrimary && dictation.available) && sendButton}
     </>
   );
 
