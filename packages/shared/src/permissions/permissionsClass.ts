@@ -1385,7 +1385,8 @@ export class Permissions {
     if (
       datasetType === "metric" ||
       datasetType === "fact_table" ||
-      datasetType === "funnel"
+      datasetType === "funnel" ||
+      datasetType === "journey"
     ) {
       return this.canRunMetricAnalysisQueries(datasource);
     }

@@ -6,6 +6,7 @@ import { PiDotsSix } from "react-icons/pi";
 import {
   ComparisonMode,
   DatasetType,
+  datasetTypeHasValues,
   ExplorationConfig,
   ExplorationDateRange,
 } from "shared/validators";
@@ -54,6 +55,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   data_source: "Data Source",
   sql: "SQL",
   funnel: "Funnel",
+  journey: "User Journey",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
@@ -410,23 +412,24 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     () => configError,
   );
 
-  // Funnels seed their first step in createEmptyDataset. SQL starts without a
-  // value so running raw SQL does not also trigger an exploration query.
+  // Funnels/journeys seed their own shape in createEmptyDataset. SQL starts
+  // without a value so running raw SQL does not also trigger an exploration
+  // query. Those types also don't start with a date dimension.
   const defaultDataset = createEmptyDataset(type);
+  const seedsValues = datasetTypeHasValues(type) && type !== "sql";
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
     datasource: defaultDataSourceId,
-    dataset:
-      type === "funnel" || type === "sql"
-        ? defaultDataset
-        : { ...defaultDataset, values: [createEmptyValue(type)] },
-    // Funnels don't render time-series charts, so the default date dimension
-    // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
-    // let the user add one explicitly via "Group By".
-    // SQL starts in the unaggregated result view after the query is tested.
-    ...(type === "funnel" || type === "sql" ? { dimensions: [] } : {}),
-    ...(type === "sql" ? { chartType: "rawTable" as const } : {}),
+    dataset: seedsValues
+      ? { ...defaultDataset, values: [createEmptyValue(type)] }
+      : defaultDataset,
+    ...(seedsValues ? {} : { dimensions: [] }),
+    ...(type === "journey"
+      ? { chartType: "bar" as const }
+      : type === "sql"
+        ? { chartType: "rawTable" as const }
+        : {}),
   } as ExplorerDraftConfig;
 
   let seedError: string | null = null;
