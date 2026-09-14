@@ -66,6 +66,7 @@ describe("getAuthProxyForUrl", () => {
     "https://www.googleapis.com/oauth2/v3/certs",
     "https://accounts.google.com/o/oauth2/v2/auth",
     "https://api.vercel.com/oauth/access_token",
+    "https://marketplace.vercel.com/.well-known/jwks",
   ])("bypasses the proxy for %s", (url) => {
     expect(getAuthProxyForUrl(url)).toBe("");
   });
@@ -85,6 +86,7 @@ describe("getAuthProxyForUrl", () => {
     "https://sso.example.com/.well-known/jwks.json",
     "https://notokta.com/keys",
     "https://okta.com.evil.example/keys",
+    "https://deploy.vercel.com/keys",
     "https://10.0.0.5/keys",
   ])("keeps the proxy for %s", (url) => {
     expect(getAuthProxyForUrl(url)).toBe("http://smokescreen.test:4750");

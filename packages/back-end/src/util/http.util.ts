@@ -44,7 +44,8 @@ const AUTH_PROXY_BYPASS_DOMAINS = [
   "okta-emea.com",
   "accounts.google.com",
   "googleapis.com",
-  "vercel.com",
+  "api.vercel.com",
+  "marketplace.vercel.com",
 ];
 
 export function getAuthProxyForUrl(url: string) {
