@@ -483,7 +483,7 @@ const v2RuleScopeInput = z
       .array(z.string())
       .optional()
       .describe(
-        "Specific project IDs this rule applies to. Used when allProjects is false. An empty array scopes the rule to no project.",
+        "Specific project IDs this rule applies to. Used when allProjects is false. An empty array scopes the rule to no project. When the organization requires registered attributes with project scoping, the rule's attributes are validated against these projects rather than the whole feature's.",
       ),
   })
   .strict();

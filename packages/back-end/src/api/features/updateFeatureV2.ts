@@ -1,6 +1,6 @@
 import {
   validateFeatureValue,
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getConfigBackingPatch,
   getConfigBackingKey,
   normalizeTargetingInUpdates,
@@ -292,14 +292,19 @@ export const updateFeatureV2 = createApiRequestHandler(
         rule as Parameters<typeof validateRuleAttributes>[0],
         req.context,
         // Validate against the post-update targeting state so a single PUT
-        // can't narrow targeting while keeping out-of-scope rules.
-        getAttributeScopeProjectIds({
-          project: req.body.project ?? feature.project,
-          targetingAllProjects:
-            req.body.targetingAllProjects ?? feature.targetingAllProjects,
-          targetingProjects:
-            req.body.targetingProjects ?? feature.targetingProjects,
-        }) ?? undefined,
+        // can't narrow targeting while keeping out-of-scope rules, narrowed
+        // further to the projects the rule itself targets.
+        getRuleAttributeScopeProjectIds(
+          {
+            project: req.body.project ?? feature.project,
+            targetingAllProjects:
+              req.body.targetingAllProjects ?? feature.targetingAllProjects,
+            targetingProjects:
+              req.body.targetingProjects ?? feature.targetingProjects,
+          },
+          undefined,
+          rule,
+        ) ?? undefined,
       );
     }
     inboundFlatRules = req.body.rules.map((rule) =>

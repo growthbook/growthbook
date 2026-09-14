@@ -23,7 +23,12 @@ import {
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
 import { HoldoutInterfaceStringDates } from "../validators/holdout";
-import { featureHasEnvironment } from "./features";
+import {
+  featureHasEnvironment,
+  getAttributeScopeProjectIds,
+  StagedTargetingScope,
+  TargetingScopedEntity,
+} from "./features";
 
 export * from "./strings";
 export * from "./units-query-settings";
@@ -426,6 +431,22 @@ export function ruleProjectScope(rule: FeatureRule): string[] | null {
   // project, never "all". Only the legacy state (no scope fields) falls back to all.
   if (rule.allProjects !== false && rule.projects == null) return null;
   return Array.isArray(rule.projects) ? rule.projects : [];
+}
+
+// Attribute scope for one rule: the feature's scope narrowed to the projects
+// the rule itself targets. A rule scoped outside the delivery set (or to no
+// project) reaches nowhere and so narrows nothing.
+export function getRuleAttributeScopeProjectIds(
+  entity: TargetingScopedEntity,
+  staged: StagedTargetingScope | undefined,
+  rule: Pick<FeatureRule, "allProjects" | "projects">,
+): string[] | null {
+  const featureScope = getAttributeScopeProjectIds(entity, staged);
+  const ruleScope = ruleProjectScope(rule as FeatureRule);
+  if (ruleScope === null || ruleScope.length === 0) return featureScope;
+  if (featureScope === null) return ruleScope;
+  const narrowed = ruleScope.filter((p) => featureScope.includes(p));
+  return narrowed.length ? narrowed : featureScope;
 }
 
 // Whether a rule is served into an SDK payload: true only where its own scope,

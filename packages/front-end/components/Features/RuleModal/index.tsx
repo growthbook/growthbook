@@ -13,7 +13,7 @@ import {
   generateVariationId,
   isProjectListValidForProject,
   getReviewSetting,
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getTargetingProjectIds,
   stemRuleId,
   parsePlainJSONObject,
@@ -359,11 +359,34 @@ export default function RuleModal({
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
+  const flatRules = feature.rules ?? [];
+  const rule: FeatureRule | undefined = ruleId
+    ? flatRules.find((r) => r.id === ruleId)
+    : undefined;
+
+  // Rule-level project scope. Absent `allProjects`/`projects` (legacy/default)
+  // means "all projects"; `allProjects === false` with a `projects` list scopes
+  // the rule. On duplicate/edit, seed from the existing rule.
+  const existingRuleAllProjects =
+    rule === undefined || rule.allProjects !== false;
+  const [scopeAllProjects, setScopeAllProjects] = useState<boolean>(
+    () => existingRuleAllProjects,
+  );
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
+    Array.isArray(rule?.projects) ? (rule?.projects ?? []) : [],
+  );
+
   // `feature` is the merged view where staged targeting REPLACES current, so
-  // union the published `baseFeature` with the draft's staged metadata.
+  // union the published `baseFeature` with the draft's staged metadata, then
+  // narrow to the projects this rule itself targets — the scope the server
+  // validates against.
   const attributeScopeProjects = useMemo(
-    () => getAttributeScopeProjectIds(baseFeature, draftRevision?.metadata),
-    [baseFeature, draftRevision],
+    () =>
+      getRuleAttributeScopeProjectIds(baseFeature, draftRevision?.metadata, {
+        allProjects: scopeAllProjects,
+        projects: selectedProjects,
+      }),
+    [baseFeature, draftRevision, scopeAllProjects, selectedProjects],
   );
   const { effectiveAttributeProjects, attributeScopeToggle } =
     useLocalAttributeScopePicker(baseFeature.project, attributeScopeProjects);
@@ -372,11 +395,6 @@ export default function RuleModal({
   // truly-unknown attributes and attributes that exist but aren't scoped to
   // this project, so the client-side error wording matches the server.
   const allAttributesSchema = useAttributeSchema(false);
-
-  const flatRules = feature.rules ?? [];
-  const rule: FeatureRule | undefined = ruleId
-    ? flatRules.find((r) => r.id === ruleId)
-    : undefined;
   // Published version of the rule being edited. Never set for duplicates —
   // they create a new rule even though `ruleId` points at a published one.
   const liveRule =
@@ -776,18 +794,6 @@ export default function RuleModal({
       // New rules: pre-select the active env tab (or empty if "All" fallback).
       return environment ? [environment] : [];
     },
-  );
-
-  // Rule-level project scope. Absent `allProjects`/`projects` (legacy/default)
-  // means "all projects"; `allProjects === false` with a `projects` list scopes
-  // the rule. On duplicate/edit, seed from the existing rule.
-  const existingRuleAllProjects =
-    rule === undefined || rule.allProjects !== false;
-  const [scopeAllProjects, setScopeAllProjects] = useState<boolean>(
-    () => existingRuleAllProjects,
-  );
-  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
-    Array.isArray(rule?.projects) ? (rule?.projects ?? []) : [],
   );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(

@@ -32,7 +32,7 @@ import {
   filterProjectsByEnvironmentWithNull,
   getAffectedEnvsForExperiment,
   getApplicableEnvIds,
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getDependentExperiments,
   getDependentFeatures,
   getEffectiveRevisionHoldout,
@@ -3416,8 +3416,11 @@ export async function postFeatureRule(
         version: parseInt(version),
       });
       return (
-        getAttributeScopeProjectIds(feature, existingRevision?.metadata) ??
-        undefined
+        getRuleAttributeScopeProjectIds(
+          feature,
+          existingRevision?.metadata,
+          rule,
+        ) ?? undefined
       );
     },
   );
@@ -4762,7 +4765,11 @@ export async function putFeatureRule(
         .fallbackAttribute,
       condition: existingRule.condition,
     },
-    getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+    getRuleAttributeScopeProjectIds(
+      feature,
+      revision.metadata,
+      effectiveRule,
+    ) ?? undefined,
   );
 
   let rampActionsUpdate:

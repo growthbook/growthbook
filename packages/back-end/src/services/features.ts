@@ -22,7 +22,7 @@ import {
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
   getApplicableEnvIds,
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
   getDependentFeatures,
@@ -3393,9 +3393,13 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   const valFeature = context.canSkipSchemaValidationFor("feature")
     ? { ...feature, jsonSchema: undefined }
     : feature;
-  const attributeScope =
-    getAttributeScopeProjectIds(attributeScopeEntity ?? feature) ?? undefined;
   return rules.map((r) => {
+    const attributeScope =
+      getRuleAttributeScopeProjectIds(
+        attributeScopeEntity ?? feature,
+        undefined,
+        r as Pick<FeatureRule, "allProjects" | "projects">,
+      ) ?? undefined;
     // Opt-in attribute registration check (org-level setting). Only validate
     // fields that changed so pre-existing violations don't block unrelated edits.
     const ruleWithAttrs = r as {

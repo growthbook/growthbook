@@ -1,6 +1,6 @@
 import {
   validateFeatureValue,
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   normalizeTargetingProjects,
 } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
@@ -158,7 +158,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       validateRuleAttributes(
         rule as Parameters<typeof validateRuleAttributes>[0],
         req.context,
-        getAttributeScopeProjectIds(feature) ?? undefined,
+        getRuleAttributeScopeProjectIds(feature, undefined, rule) ?? undefined,
       );
     }
 
