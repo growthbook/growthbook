@@ -465,7 +465,6 @@ function violinSvg(
   ht: number,
   domain: [number, number],
   vio: { c: number; s: number },
-  opts: { ci?: { lo: number; hi: number } } = {},
 ): string {
   const [dmin, dmax] = domain;
   const axisH = 8;
@@ -495,15 +494,6 @@ function violinSvg(
     `<path d="${d}" fill="${P.vio.pos}" clip-path="url(#cp)"/>`,
     `<path d="${d}" fill="${P.vio.neg}" clip-path="url(#cn)"/>`,
   ];
-  if (opts.ci) {
-    const th = A * 0.72;
-    const loX = xOf(opts.ci.lo);
-    const hiX = xOf(opts.ci.hi);
-    parts.push(
-      `<line x1="${loX}" y1="${midY - th}" x2="${loX}" y2="${midY + th}" stroke="${P.vio.median}" stroke-width="1" opacity="0.5"/>`,
-      `<line x1="${hiX}" y1="${midY - th}" x2="${hiX}" y2="${midY + th}" stroke="${P.vio.median}" stroke-width="1" opacity="0.5"/>`,
-    );
-  }
   parts.push(
     `<line x1="${cX}" y1="${midY - A}" x2="${cX}" y2="${midY + A}" stroke="${P.vio.median}" stroke-width="1.5"/>`,
   );
@@ -741,9 +731,7 @@ function goalRowEl(r: CardGoalRow, size: RowSize): El {
     [
       r.vio
         ? svgImg(
-            violinSvg(layout.vioW, layout.vioH, VIOLIN_DOMAIN, r.vio, {
-              ci: r.ci,
-            }),
+            violinSvg(layout.vioW, layout.vioH, VIOLIN_DOMAIN, r.vio),
             layout.vioW,
             layout.vioH,
           )
