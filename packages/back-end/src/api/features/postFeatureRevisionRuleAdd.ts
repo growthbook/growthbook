@@ -54,7 +54,10 @@ import {
   validatePrerequisiteConditions,
   validateRuleReferences,
 } from "./validations";
-import { assertCanUseRuleScheduling } from "./v2Shared";
+import {
+  assertRuleVariationsMatchExperiment,
+  assertCanUseRuleScheduling,
+} from "./v2Shared";
 
 const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 
@@ -211,6 +214,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
           value: v.value,
         }));
       }
+      assertRuleVariationsMatchExperiment(ruleInput, experiment);
 
       // Use target revision holdout to check compatibility.
       // Linking writes are deferred until after custom-hook prevalidation below.

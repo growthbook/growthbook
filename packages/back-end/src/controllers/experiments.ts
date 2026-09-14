@@ -166,6 +166,7 @@ import {
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
+import { getLivePayloadChanges } from "back-end/src/services/experimentLivePayload";
 import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
@@ -176,11 +177,7 @@ import {
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
-import {
-  canLinkExperimentToHoldoutFromFeatures,
-  getHoldoutLivePayloadChanges,
-  isHoldoutExperiment,
-} from "back-end/src/services/holdouts";
+import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 
@@ -1737,52 +1734,13 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
-  let changesLivePayload: boolean;
-  let changedPayloadFields: string[];
-  if (isHoldoutExperiment(experiment)) {
-    ({ changesLivePayload, changedFields: changedPayloadFields } =
-      getHoldoutLivePayloadChanges(experiment, data.coverage));
-  } else {
-    const latestPhase = experiment.phases[experiment.phases.length - 1];
-    const existingKeyById = new Map(
-      experiment.variations.map((v) => [v.id, v.key]),
-    );
-    const variationIdsChanged =
-      !!data.variations &&
-      !isEqual(
-        data.variations.map((v) => v.id),
-        latestPhase?.variations.map((v) => v.id),
-      );
-    // Variation keys are emitted in the SDK payload meta, so key edits also count
-    const variationKeysChanged =
-      !!data.variations &&
-      data.variations.some((v) => v.key !== existingKeyById.get(v.id));
-    const coverageChanged =
-      data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
-    const variationWeightsChanged =
-      data.variationWeights !== undefined &&
-      !isEqual(data.variationWeights, latestPhase?.variationWeights);
-
-    changedPayloadFields = [];
-    if (variationIdsChanged) {
-      changedPayloadFields.push("variation IDs");
-    }
-    if (variationKeysChanged) {
-      changedPayloadFields.push("variation keys");
-    }
-    if (coverageChanged) {
-      changedPayloadFields.push("coverage");
-    }
-    if (variationWeightsChanged) {
-      changedPayloadFields.push("variationWeights");
-    }
-
-    changesLivePayload =
-      variationIdsChanged ||
-      (variationKeysChanged && !isVariationKeyReconciliation) ||
-      coverageChanged ||
-      variationWeightsChanged;
-  }
+  const { changesLivePayload, changedFields: changedPayloadFields } =
+    getLivePayloadChanges(experiment, {
+      variations: data.variations,
+      coverage: data.coverage,
+      variationWeights: data.variationWeights,
+      isVariationKeyReconciliation,
+    });
   if (experiment.status === "running" && changesLivePayload) {
     const linkedFeaturesForPayload = await getFeaturesByIds(
       context,

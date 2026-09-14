@@ -48,6 +48,8 @@ import {
   composeConfigBacking,
   resolveScopeFromInput,
   assertCanUseRuleScheduling,
+  assertValidExperimentRefRule,
+  experimentRefChanged,
 } from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(
@@ -231,6 +233,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
             ? composeConfigBacking(v.config, v.value, "Variation value")
             : v.value,
       }));
+    }
+    if (
+      updatedRule.type === "experiment-ref" &&
+      experimentRefChanged(updatedRule, oldRule)
+    ) {
+      await assertValidExperimentRefRule(req.context, updatedRule);
     }
 
     // A coverage patch can convert a force rule to a rollout, which arrives

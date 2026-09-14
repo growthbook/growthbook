@@ -289,7 +289,12 @@ import {
   maybeAutoPublishFeatureRevision,
   parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
-import { assertValidHoldout } from "back-end/src/api/features/v2Shared";
+import {
+  assertRuleVariationsMatchExperiment,
+  assertValidExperimentRefRule,
+  assertValidHoldout,
+  experimentRefChanged,
+} from "back-end/src/api/features/v2Shared";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
@@ -3339,6 +3344,7 @@ export async function postFeatureRule(
       throw new Error(`Could not find experiment "${rule.experimentId}"`);
     }
     if (experiment) {
+      assertRuleVariationsMatchExperiment(rule, experiment);
       await resolveHoldoutExperimentToLink({
         context,
         feature,
@@ -3781,6 +3787,7 @@ export async function postFeatureExperimentRefRule(
   if (!experiment) {
     throw new Error("Invalid experiment selected");
   }
+  assertRuleVariationsMatchExperiment(rule, experiment);
 
   // allEnvironments:true strips any stale environments[]; false passes the
   // explicit list through. Legacy callers that send neither default to every
@@ -4613,6 +4620,13 @@ export async function putFeatureRule(
   // never re-bucketed; a force rule the UI promoted by dropping coverage has no
   // rollout history, so it seeds off its own id. Id first, so nothing mints one.
   const inboundRule = effectiveRule as FeatureRule;
+  // Only a changed reference is checked, so it must resolve.
+  if (
+    inboundRule.type === "experiment-ref" &&
+    experimentRefChanged(inboundRule, existingRule)
+  ) {
+    await assertValidExperimentRefRule(context, inboundRule);
+  }
   if (!inboundRule.id) inboundRule.id = ruleId;
   inheritStoredRolloutSeeds([inboundRule], existingRules);
   addIdsToFlatRules([inboundRule], feature.id);

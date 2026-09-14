@@ -42,7 +42,11 @@ import {
   validateRuleReferences,
   resolveOrCreateRevision,
 } from "./validations";
-import { assertCanUseRuleScheduling } from "./v2Shared";
+import {
+  assertCanUseRuleScheduling,
+  assertValidExperimentRefRule,
+  experimentRefChanged,
+} from "./v2Shared";
 
 export function applyPatch(
   existing: FeatureRule,
@@ -301,6 +305,12 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       });
     }
     const updatedRule = applyPatch(oldRule, patch);
+    if (
+      updatedRule.type === "experiment-ref" &&
+      experimentRefChanged(updatedRule, oldRule)
+    ) {
+      await assertValidExperimentRefRule(req.context, updatedRule);
+    }
 
     // A coverage patch can convert a force rule to a rollout, which arrives
     // seedless. Existing rollouts already carry a seed and are left untouched.

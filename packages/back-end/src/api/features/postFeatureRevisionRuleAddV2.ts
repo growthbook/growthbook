@@ -52,6 +52,7 @@ import {
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
 import {
+  assertRuleVariationsMatchExperiment,
   assertNoRawConfigExtends,
   assertValidRuleConfigKeys,
   composeConfigBacking,
@@ -155,6 +156,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           value: v.value,
         }));
       }
+      assertRuleVariationsMatchExperiment(ruleInput, experiment);
 
       // Legacy revisions store holdout sparsely, so absence carries the
       // feature's holdout forward. Linking writes are deferred until after

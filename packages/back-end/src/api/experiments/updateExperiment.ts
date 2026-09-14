@@ -21,6 +21,7 @@ import {
   lazyAttributeScope,
 } from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
+import { assertLivePayloadChangeAllowed } from "back-end/src/services/experimentLivePayload";
 import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
@@ -345,6 +346,11 @@ export const updateExperiment = createApiRequestHandler(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
+  // Linked feature rules would keep the old variation ids; the dashboard
+  // refuses this too. Coverage and weights stay editable, as in its targeting flow.
+  await assertLivePayloadChangeAllowed(req.context, experiment, {
+    variations: changes.variations,
+  });
   // The served (latest) phase is checked against the latest stored phase;
   // earlier phases are history, so any parent the stored experiment already
   // references is not re-validated when they are echoed or reordered.
