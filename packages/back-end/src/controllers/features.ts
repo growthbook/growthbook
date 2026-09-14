@@ -3,7 +3,9 @@ import {
   canStageArchiveDraft,
   metadataTouchesPayload,
   holdsMoveDestination,
+  holdsTargetingDestination,
   projectScopeChanged,
+  withStagedTargeting,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import { Request, Response } from "express";
@@ -15,6 +17,7 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
+  featureReviewCandidateProjects,
   ANY_REVIEW_FOOTPRINT,
   MergeResultChanges,
   MergeStrategy,
@@ -158,6 +161,7 @@ import {
   getSavedGroupMap,
   getLiveAndBaseRevisionsForFeature,
   getFeatureReviewFootprint,
+  getFeatureReviewApproverProjects,
   getLiveRevisionForFeature,
   getDraftRevision,
   assertCanAutoPublish,
@@ -1385,7 +1389,11 @@ export async function postFeatureReviewOrComment(
   // which revision versions exist; the footprint check below still runs.
   if (
     review !== "Comment" &&
-    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
+    !context.permissions.canReviewFeatureDrafts(
+      feature,
+      ANY_REVIEW_FOOTPRINT,
+      featureReviewCandidateProjects(feature, context.org.settings),
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1409,7 +1417,13 @@ export async function postFeatureReviewOrComment(
       feature,
       revision,
     });
-    if (!context.permissions.canReviewFeatureDrafts(feature, footprint)) {
+    if (
+      !context.permissions.canReviewFeatureDrafts(
+        feature,
+        footprint,
+        await getFeatureReviewApproverProjects({ context, feature, revision }),
+      )
+    ) {
       context.permissions.throwPermissionError();
     }
   }
@@ -1527,7 +1541,11 @@ export async function postFeatureApproveAndPublish(
 
   // Coarse refusal first: no review rights should 403, not 404 on a bad version.
   if (
-    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
+    !context.permissions.canReviewFeatureDrafts(
+      feature,
+      ANY_REVIEW_FOOTPRINT,
+      featureReviewCandidateProjects(feature, context.org.settings),
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1547,7 +1565,13 @@ export async function postFeatureApproveAndPublish(
     feature,
     revision,
   });
-  if (!context.permissions.canReviewFeatureDrafts(feature, approveFootprint)) {
+  if (
+    !context.permissions.canReviewFeatureDrafts(
+      feature,
+      approveFootprint,
+      await getFeatureReviewApproverProjects({ context, feature, revision }),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1887,7 +1911,11 @@ export async function postFeatureUndoReview(
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
   if (
-    !context.permissions.canReviewFeatureDrafts(feature, ANY_REVIEW_FOOTPRINT)
+    !context.permissions.canReviewFeatureDrafts(
+      feature,
+      ANY_REVIEW_FOOTPRINT,
+      featureReviewCandidateProjects(feature, context.org.settings),
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -2158,15 +2186,19 @@ export async function postFeaturePublish(
       }
     : { ...revision, ...fillRevisionFromFeature(revision, feature) };
 
-  const { requiresReview, hasCoveringApproval, requiredApproverTeams } =
-    await assessRevisionApproval({
-      context,
-      feature,
-      revision,
-      effectiveRevision,
-      filledLive,
-      base,
-    });
+  const {
+    requiresReview,
+    hasCoveringApproval,
+    requiredApproverTeams,
+    requiredProjectApprovers,
+  } = await assessRevisionApproval({
+    context,
+    feature,
+    revision,
+    effectiveRevision,
+    filledLive,
+    base,
+  });
 
   // Status AND coverage: `status` aggregates every standing verdict (one
   // reviewer's changes-requested outranks another's approval), so a covering
@@ -2189,6 +2221,13 @@ export async function postFeaturePublish(
         .map(
           (t) => `Requires approval from ${t.map((x) => x.name).join(" or ")}.`,
         )
+        .join(" "),
+    );
+  }
+  if (!adminOverride && requiresReview && !requiredProjectApprovers.satisfied) {
+    throw new Error(
+      requiredProjectApprovers.unmet
+        .map((p) => `Requires approval from a reviewer in project ${p.name}.`)
         .join(" "),
     );
   }
@@ -2720,6 +2759,16 @@ export async function postFeatureRevert(
       metadataChanges.targetingProjects = m.targetingProjects;
       hasMetadataChanges = true;
     }
+    // Restoring a wider targeting set delivers into those projects again.
+    if (
+      !holdsTargetingDestination({
+        permissions: context.permissions,
+        existing: feature,
+        proposed: withStagedTargeting(feature, metadataChanges),
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetadataChanges = true;
@@ -3009,6 +3058,11 @@ export async function postFeatureRevertDraft(
       action: "draft",
       existing: feature,
       proposed: { ...feature, ...(changes.metadata ?? {}) },
+    }) ||
+    !holdsTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, changes.metadata),
     })
   ) {
     context.permissions.throwPermissionError();
@@ -5511,9 +5565,10 @@ export async function putFeature(
 
   // The metadata envelope lives on the draft, so a concurrent edit to the same
   // field is the conflict; disjoint fields already survive the diff below.
+  let targetDraft: FeatureRevisionInterface | null = null;
   if (baseline) {
     const guardedKeys = Object.keys(baseline);
-    const targetDraft =
+    targetDraft =
       autoPublish || forceNewDraft
         ? null
         : targetDraftVersion
@@ -5578,6 +5633,19 @@ export async function putFeature(
     ),
   ) as Partial<FeatureInterface>;
   normalizeTargetingInUpdates(metadataUpdates, feature);
+  // Widening delivery takes the targeting atom in each added project. Judged
+  // against what the target draft already stages, so echoing a colleague's
+  // staged targeting is not an addition; landing re-checks against live.
+  const stagedTargeting = withStagedTargeting(feature, targetDraft?.metadata);
+  if (
+    !holdsTargetingDestination({
+      permissions: context.permissions,
+      existing: stagedTargeting,
+      proposed: withStagedTargeting(stagedTargeting, metadataUpdates),
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
   // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
   // The publish-time linkage write deliberately bypasses read scope, so this is

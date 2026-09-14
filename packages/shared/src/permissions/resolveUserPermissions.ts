@@ -415,18 +415,7 @@ export function assessRequiredApproverTeams({
   };
 }
 
-// Uses CURRENT rules — an approval is not a snapshot of authority. One
-// deliberate exception: restricted-project denial is NOT applied here, so an
-// approval keeps counting when a project later restricts access and the
-// approver has no role on it. Deferred and scheduled actions err permissive.
-export function assessApprovalCoverage({
-  org,
-  teams,
-  model,
-  projects,
-  footprint,
-  approvers,
-}: {
+export type ApprovalCoverageArgs = {
   org: OrganizationInterface;
   teams: RoleSourceTeam[];
   model: RevisionModel;
@@ -434,19 +423,70 @@ export function assessApprovalCoverage({
   projects: string[];
   footprint: ReviewAuthorityFootprint;
   approvers: { id: string; roleInfo: MemberRoleWithProjects | null }[];
-}): { hasCoveringApproval: boolean; uncoveredApprovers: string[] } {
+};
+
+// Uses CURRENT rules — an approval is not a snapshot of authority. One
+// deliberate exception: restricted-project denial is NOT applied here, so an
+// approval keeps counting when a project later restricts access and the
+// approver has no role on it. Deferred and scheduled actions err permissive.
+export function assessApprovalCoverage(args: ApprovalCoverageArgs): {
+  hasCoveringApproval: boolean;
+  uncoveredApprovers: string[];
+} {
+  const { hasCoveringApproval, uncoveredApprovers } =
+    assessGoverningApprovalCoverage({ ...args, approverProjects: [] });
+  return { hasCoveringApproval, uncoveredApprovers };
+}
+
+// Feature drafts have two kinds of governing project. The primary's reviewers
+// sanction the change (`hasCoveringApproval`); each strict-mode targeting
+// project whose own rule fired (`approverProjects`) also needs one of ITS
+// reviewers. An approval counts toward whatever it covers, so a targeting
+// project's reviewer is neither uncovered nor sufficient alone.
+export function assessGoverningApprovalCoverage({
+  org,
+  teams,
+  model,
+  projects,
+  approverProjects,
+  footprint,
+  approvers,
+}: ApprovalCoverageArgs & { approverProjects: string[] }): {
+  hasCoveringApproval: boolean;
+  // Approvals that sanction nothing: neither the primary nor any approver project.
+  uncoveredApprovers: string[];
+  // Approvals that count somewhere; only these can satisfy a team requirement.
+  contributingApproverIds: string[];
+  requiredProjects: { satisfied: boolean; unmet: string[] };
+} {
   const uncoveredApprovers: string[] = [];
+  const contributingApproverIds: string[] = [];
+  const coveredProjects = new Set<string>();
   let hasCoveringApproval = false;
 
   for (const { id, roleInfo } of approvers) {
-    const covers =
-      !!roleInfo &&
-      new Permissions(
-        getRolePermissions(roleInfo, org, teams),
-      ).canReviewRevision(model, projects, footprint);
-    if (covers) hasCoveringApproval = true;
+    const permissions = roleInfo
+      ? new Permissions(getRolePermissions(roleInfo, org, teams))
+      : null;
+    const coversPrimary =
+      !!permissions &&
+      permissions.canReviewRevision(model, projects, footprint);
+    const covered = permissions
+      ? approverProjects.filter((project) =>
+          permissions.canReviewRevision(model, [project], footprint),
+        )
+      : [];
+    if (coversPrimary) hasCoveringApproval = true;
+    covered.forEach((project) => coveredProjects.add(project));
+    if (coversPrimary || covered.length) contributingApproverIds.push(id);
     else uncoveredApprovers.push(id);
   }
 
-  return { hasCoveringApproval, uncoveredApprovers };
+  const unmet = approverProjects.filter((p) => !coveredProjects.has(p));
+  return {
+    hasCoveringApproval,
+    uncoveredApprovers,
+    contributingApproverIds,
+    requiredProjects: { satisfied: unmet.length === 0, unmet },
+  };
 }

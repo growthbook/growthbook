@@ -702,8 +702,8 @@ export default function ReviewAndPublish({
   }, [revision, baseRevision, liveRevision, feature, envIds, settings]);
 
   // Against LIVE, filled, because a different base selects different rules.
-  const reviewRules = useMemo(() => {
-    if (!revision || !liveRevision) return [];
+  const reviewRequirement = useMemo(() => {
+    if (!revision || !liveRevision) return null;
     return getRevisionReviewRequirement({
       feature,
       baseRevision: {
@@ -714,7 +714,7 @@ export default function ReviewAndPublish({
       orgEnvironments: environments,
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
-    }).rules;
+    });
   }, [
     revision,
     liveRevision,
@@ -724,6 +724,15 @@ export default function ReviewAndPublish({
     hasCommercialFeature,
   ]);
 
+  const reviewRules = useMemo(
+    () => reviewRequirement?.rules ?? [],
+    [reviewRequirement],
+  );
+  const approverProjects = useMemo(
+    () => reviewRequirement?.approverProjects ?? [],
+    [reviewRequirement],
+  );
+
   const {
     insufficientApprovers,
     insufficientApproverReasons,
@@ -731,6 +740,7 @@ export default function ReviewAndPublish({
     approvalsCoverFootprint,
     hasUncoveredApproval,
     requiredTeams,
+    requiredProjects,
   } = useApprovalCoverage({
     reviewers,
     footprint: reviewFootprint,
@@ -738,6 +748,7 @@ export default function ReviewAndPublish({
     model: "feature",
     projects: feature.project ? [feature.project] : [],
     reviewRules,
+    approverProjects,
   });
 
   // Fall back to all applicable environments until the merge footprint is known.
@@ -817,7 +828,11 @@ export default function ReviewAndPublish({
   const canReview =
     isInReviewCycle(revision?.status) &&
     createdBy?.id !== user?.id &&
-    permissionsUtil.canReviewFeatureDrafts(feature, reviewFootprint);
+    permissionsUtil.canReviewFeatureDrafts(
+      feature,
+      reviewFootprint,
+      approverProjects,
+    );
   // Advancing a draft takes draft authority, or revert/delete authority over a
   // draft that only does what they cover (or one the caller authored). The
   // client goes on provenance alone; the server re-verifies purity.
@@ -1793,6 +1808,7 @@ export default function ReviewAndPublish({
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
       feature,
       reviewFootprint,
+      approverProjects,
     ),
     // Recall is derived from this in the state machine, and revert/delete
     // authority may recall a review request on a draft they authored — so pass
@@ -2264,7 +2280,9 @@ export default function ReviewAndPublish({
       ? hasPublishPermission &&
         (adminPublish ||
           !requireReviews ||
-          (approvalsCoverFootprint && requiredTeams.satisfied))
+          (approvalsCoverFootprint &&
+            requiredTeams.satisfied &&
+            requiredProjects.satisfied))
       : true;
 
   // Shared by the no-changes empty state and the actions column kebab — the
@@ -2329,6 +2347,9 @@ export default function ReviewAndPublish({
     // Properly approved, but the rule's required team has not signed off.
     if (requireReviews && !adminPublish && !requiredTeams.satisfied)
       return { overridable: true };
+    // Or a targeting project's own reviewers have not.
+    if (requireReviews && !adminPublish && !requiredProjects.satisfied)
+      return { overridable: true };
     if (!adminPublish && !governance?.canPublish) return { overridable: true };
     if (!adminPublish && featureLockedByRamp) return { overridable: true };
     if (!adminPublish && featureLockedBySchedule) return { overridable: true };
@@ -2352,7 +2373,10 @@ export default function ReviewAndPublish({
       : `None of this draft's approvals cover everything it changes.`
     : null;
   const approvalGateUnmet =
-    requireReviews && (!requiredTeams.satisfied || hasUncoveredApproval);
+    requireReviews &&
+    (!requiredTeams.satisfied ||
+      !requiredProjects.satisfied ||
+      hasUncoveredApproval);
   // An approved draft warrants the band only while a gate is unmet — otherwise
   // the publish section already carries the state, and "Publishing is blocked"
   // would contradict an enabled CTA.
@@ -2645,6 +2669,7 @@ export default function ReviewAndPublish({
               }
               footprint={reviewFootprint}
               unmet={requiredTeams.unmet}
+              unmetProjects={requiredProjects.unmet}
               coverageMessage={coverageBlockMessage}
               showSelfApprovalNote={!!isBlockedContributor && canReview}
               canRecallReview={state.canRecallReview}
@@ -3037,7 +3062,9 @@ export default function ReviewAndPublish({
                       {requireReviews &&
                         !adminPublish &&
                         state.submitAction === "publish" &&
-                        (!requiredTeams.satisfied || hasUncoveredApproval) && (
+                        (!requiredTeams.satisfied ||
+                          !requiredProjects.satisfied ||
+                          hasUncoveredApproval) && (
                           <Box mb="4">
                             <ApprovalStatusBand
                               phase="gated"
@@ -3047,6 +3074,7 @@ export default function ReviewAndPublish({
                                   ? []
                                   : requiredTeams.unmet
                               }
+                              unmetProjects={requiredProjects.unmet}
                               coverageMessage={coverageBlockMessage}
                             />
                           </Box>

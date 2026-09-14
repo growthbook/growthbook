@@ -55,7 +55,7 @@ export const putApprovalSettings = createApiRequestHandler(
   }
 
   const org = req.context.org;
-  const { requireReviews, approvalFlows } = req.body;
+  const { requireReviews, approvalFlows, targetingReviewMode } = req.body;
 
   // Matches the interactive route: saved-group approvals are the licensed part.
   if (
@@ -70,6 +70,7 @@ export const putApprovalSettings = createApiRequestHandler(
   await assertReferencesExist(req.context, [
     ...(requireReviews ?? []),
     ...(approvalFlows?.savedGroups ?? []),
+    ...(targetingReviewMode ?? []),
   ]);
 
   // An absent selector means the all-projects rule; storage spells that as [].
@@ -84,9 +85,10 @@ export const putApprovalSettings = createApiRequestHandler(
       : {}),
     ...(approvalFlows ? { approvalFlows } : {}),
   });
+  const targetingUpdate = targetingReviewMode ? { targetingReviewMode } : {};
 
   const updates: Partial<OrganizationInterface> = {
-    settings: { ...org.settings, ...nextSettings },
+    settings: { ...org.settings, ...nextSettings, ...targetingUpdate },
   };
 
   await updateOrganization(org.id, updates);
@@ -99,9 +101,10 @@ export const putApprovalSettings = createApiRequestHandler(
         settings: {
           requireReviews: org.settings?.requireReviews,
           approvalFlows: org.settings?.approvalFlows,
+          targetingReviewMode: org.settings?.targetingReviewMode,
         },
       },
-      { settings: nextSettings },
+      { settings: { ...nextSettings, ...targetingUpdate } },
     ),
   });
 
@@ -115,5 +118,6 @@ export const putApprovalSettings = createApiRequestHandler(
         stored.approvalFlows?.savedGroups ?? [],
       ),
     },
+    targetingReviewMode: stored.targetingReviewMode ?? [],
   };
 });

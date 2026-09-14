@@ -1,7 +1,8 @@
 import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
-import { getReviewSetting } from "shared/util";
+import { featureReviewCandidateProjects, getReviewSetting } from "shared/util";
 import { canCommentOnRevisionEntity } from "shared/permissions";
 import {
+  getFeatureReviewApproverProjects,
   getFeatureReviewFootprint,
   toApiRevision,
 } from "back-end/src/services/features";
@@ -47,9 +48,11 @@ export async function submitRevisionReview(
       ? !canCommentOnRevisionEntity(req.context.permissions, "feature", null, {
           project: feature.project,
         })
-      : !req.context.permissions.canReviewFeatureDrafts(feature, {
-          scope: "any",
-        })
+      : !req.context.permissions.canReviewFeatureDrafts(
+          feature,
+          { scope: "any" },
+          featureReviewCandidateProjects(feature, req.context.org.settings),
+        )
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -71,7 +74,17 @@ export async function submitRevisionReview(
       feature,
       revision,
     });
-    if (!req.context.permissions.canReviewFeatureDrafts(feature, footprint)) {
+    if (
+      !req.context.permissions.canReviewFeatureDrafts(
+        feature,
+        footprint,
+        await getFeatureReviewApproverProjects({
+          context: req.context,
+          feature,
+          revision,
+        }),
+      )
+    ) {
       req.context.permissions.throwPermissionError();
     }
   }

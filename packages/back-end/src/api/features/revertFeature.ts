@@ -1,6 +1,8 @@
 import {
   metadataTouchesPayload,
   holdsMoveDestination,
+  holdsTargetingDestination,
+  withStagedTargeting,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
@@ -203,6 +205,16 @@ export async function revertFeatureCore(
     ) {
       metadataChanges.targetingProjects = m.targetingProjects;
       hasMetaChange = true;
+    }
+    // Restoring a wider targeting set delivers into those projects again.
+    if (
+      !holdsTargetingDestination({
+        permissions: context.permissions,
+        existing: feature,
+        proposed: withStagedTargeting(feature, metadataChanges),
+      })
+    ) {
+      context.permissions.throwPermissionError();
     }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags)) {
       metadataChanges.tags = m.tags;

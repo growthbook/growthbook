@@ -114,6 +114,8 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   getReviewAuthorityFootprint,
   governingReviewProjectsForFeature,
+  getRevisionReviewRequirement,
+  liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
 } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
@@ -3945,6 +3947,30 @@ export async function getFeatureReviewFootprint({
       settings: context.org.settings,
     }),
   });
+}
+
+// Targeting projects whose own reviewers this draft needs, judged against live
+// the way the review panel judges it.
+export async function getFeatureReviewApproverProjects({
+  context,
+  feature,
+  revision,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+}): Promise<string[]> {
+  const live = await getLiveRevisionForFeature(context, feature);
+  return (
+    getRevisionReviewRequirement({
+      feature,
+      baseRevision: { ...live, ...liveRevisionFromFeature(live, feature) },
+      revision,
+      orgEnvironments: getEnvironments(context.org),
+      settings: context.org.settings,
+      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+    }).approverProjects ?? []
+  );
 }
 
 export async function getLiveAndBaseRevisionsForFeature({

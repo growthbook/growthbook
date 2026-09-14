@@ -1,4 +1,7 @@
-import { ANY_REVIEW_FOOTPRINT } from "shared/util";
+import {
+  ANY_REVIEW_FOOTPRINT,
+  featureReviewCandidateProjects,
+} from "shared/util";
 import { postFeatureRevisionUndoReviewV2Validator } from "shared/validators";
 import { toApiRevisionV2 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
@@ -21,6 +24,7 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
     !req.context.permissions.canReviewFeatureDrafts(
       feature,
       ANY_REVIEW_FOOTPRINT,
+      featureReviewCandidateProjects(feature, req.context.org.settings),
     )
   ) {
     req.context.permissions.throwPermissionError();

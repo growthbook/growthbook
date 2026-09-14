@@ -5,11 +5,10 @@ import {
 } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  getApiCreateEnabledEnvironments,
-  getEnabledEnvironments,
-} from "back-end/src/util/features";
+import { holdsTargetingDestination } from "shared/permissions";
+import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
 import {
   resolveOwnerEmail,
   resolveOwnerForCreate,
@@ -97,6 +96,21 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     }
 
     await assertValidProjectId(req.body.project, req.context);
+    // Before project-id validation (read-filtered): refuse, don't call it invalid.
+    // `assertCanCreateFeatureInState` below re-checks over the built feature.
+    if (
+      !holdsTargetingDestination({
+        permissions: req.context.permissions,
+        existing: {},
+        proposed: {
+          project: req.body.project,
+          targetingAllProjects: req.body.targetingAllProjects,
+          targetingProjects: req.body.targetingProjects,
+        },
+      })
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
     await assertValidProjectIds(req.body.targetingProjects, req.context);
 
     await validateCustomFields(
@@ -232,22 +246,15 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       baseConfig: feature.baseConfig,
     });
 
-    const enabledOnCreate = Array.from(
-      getEnabledEnvironments(
-        feature,
-        orgEnvs.map((e) => e.id),
-      ),
-    );
     // The environments a new flag starts enabled in are its whole live footprint,
     // so gating those on publish is the only control needed — and a flag enabling
     // none is in no payload at all, leaving create authority sufficient. Approval
     // doesn't apply: there's no prior state to review a new flag against.
-    if (
-      enabledOnCreate.length &&
-      !req.context.permissions.canPublishFeature(feature, enabledOnCreate)
-    ) {
-      req.context.permissions.throwPermissionError();
-    }
+    assertCanCreateFeatureInState({
+      context: req.context,
+      feature,
+      environmentIds: orgEnvs.map((e) => e.id),
+    });
 
     // AFTER every authorization: tags are a persistent org-level side effect, and
     // writing them first meant a request that then 403'd had already mutated tag

@@ -3,14 +3,17 @@ import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiInfo, PiPlusBold, PiX } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
-// Controlled targeting-projects editor shared by features, configs, and constants.
-// Collapsed to a link until opted in; then a Specific/All-projects radio.
+// Controlled targeting-projects editor. Collapsed to a link until opted in;
+// then a Specific/All-projects radio. Options are limited to Projects the
+// viewer may target (plus any already selected, so they can be removed), the
+// same way the primary Project picker is limited to where they may edit.
 export type TargetingProjectsFieldProps = {
   // Governance project, excluded from the options.
   primaryProject?: string;
@@ -32,11 +35,24 @@ export default function TargetingProjectsField({
   ...marginProps
 }: TargetingProjectsFieldProps) {
   const { projects } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const [enabled, setEnabled] = useState<boolean>(
     () => allProjects || targetingProjects.length > 0,
   );
 
-  const help = `Also include this ${entityLabel} in these Projects' SDK payloads`;
+  const options = projects.filter(
+    (p) =>
+      p.id !== primaryProject &&
+      (targetingProjects.includes(p.id) ||
+        permissionsUtil.canTargetFeatureProjects([p.id])),
+  );
+  const canTargetAll =
+    allProjects || permissionsUtil.canTargetFeatureProjects("all");
+  const nothingToTarget = options.length === 0 && !canTargetAll;
+
+  const help = `Also include this ${entityLabel} in these Projects' SDK payloads. Only Projects you have permission to target are listed.`;
+
+  if (nothingToTarget && !enabled) return null;
 
   return (
     <Box {...marginProps}>
@@ -96,9 +112,10 @@ export default function TargetingProjectsField({
                     <MultiSelectField
                       value={targetingProjects}
                       onChange={setTargetingProjects}
-                      options={projects
-                        .filter((p) => p.id !== primaryProject)
-                        .map((p) => ({ value: p.id, label: p.name }))}
+                      options={options.map((p) => ({
+                        value: p.id,
+                        label: p.name,
+                      }))}
                       placeholder="No Projects selected"
                       sort={false}
                       showCopyButton={false}
@@ -107,7 +124,15 @@ export default function TargetingProjectsField({
                   </Box>
                 ),
               },
-              { value: "all", label: "All Projects", itemClassName: "mt-2" },
+              ...(canTargetAll
+                ? [
+                    {
+                      value: "all",
+                      label: "All Projects",
+                      itemClassName: "mt-2",
+                    },
+                  ]
+                : []),
             ]}
           />
         </>

@@ -347,7 +347,7 @@ export default function ApprovalFlowSettings() {
                 <Checkbox
                   id="toggle-targeting-review-mode"
                   label="Apply approval requirements from Targeting Projects"
-                  description="When a Feature Flag is delivered into Targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. When off, only the primary Project governs approvals."
+                  description="When a Feature Flag is delivered into Targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. A Targeting Project with approval requirements of its own must also approve through one of its own reviewers. When off, only the primary Project's requirements and reviewers apply."
                   value={targetingStrict(form)}
                   setValue={(v) => setTargetingMode(form, v)}
                 />

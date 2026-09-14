@@ -45,6 +45,32 @@ describe("granular flag permissions", () => {
       expect(perms.deleteFeatures).toBeUndefined();
     });
 
+    // Publishing into a project already reaches its payloads, so Publish and
+    // Full access carry the targeting atom; nothing narrower does.
+    it("bundles the targeting atom with publish and full access only", () => {
+      expect(permissionsFromRole({ policies: ["FlagsTarget"] })).toEqual({
+        readData: true,
+        targetFeatures: true,
+      });
+      expect(
+        permissionsFromRole({ policies: ["FlagsPublish"] }).targetFeatures,
+      ).toBe(true);
+      expect(
+        permissionsFromRole({ policies: ["FlagsFullAccess"] }).targetFeatures,
+      ).toBe(true);
+      for (const policy of [
+        "FlagsCreate",
+        "FlagsEditDrafts",
+        "FlagsReview",
+        "FlagsRevert",
+        "FlagsDelete",
+      ] as Policy[]) {
+        expect(
+          permissionsFromRole({ policies: [policy] }).targetFeatures,
+        ).toBeUndefined();
+      }
+    });
+
     it("grants only its own atoms for a review-only policy", () => {
       const perms = permissionsFromRole({ policies: ["FlagsReview"] });
       expect(perms.reviewFeatures).toBe(true);

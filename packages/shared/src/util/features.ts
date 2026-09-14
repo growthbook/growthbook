@@ -3698,6 +3698,10 @@ export type PolicyRule = { requiredApproverTeams?: string[] };
 export type ReviewRequirement = {
   required: boolean;
   rules: PolicyRule[];
+  // Feature Flags only: strict-mode targeting projects whose OWN review rule
+  // fired. Each must be signed off by one of its own reviewers, not only the
+  // primary project's.
+  approverProjects?: string[];
 };
 
 // Primary + strict targeting over current+staged, so adds and removes are both
@@ -3733,6 +3737,30 @@ export function governingReviewProjectsForFeature({
   );
 }
 
+// Every project whose reviewers might be eligible to review this flag's
+// drafts, from live state alone: the primary plus strict-mode targeting
+// projects with a review rule of their own. Coarse gates that run before a
+// revision is loaded use this; the precise, per-draft list is
+// `getRevisionReviewRequirement(...).approverProjects`.
+export function featureReviewCandidateProjects(
+  feature: Pick<
+    FeatureInterface,
+    "project" | "targetingAllProjects" | "targetingProjects"
+  >,
+  settings?: OrganizationSettings,
+): string[] {
+  const primary = feature.project ?? "";
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return [primary];
+  const ownRule = new Set(projectsWithOwnRule(requireReviews));
+  const targeting = governingReviewProjectsForFeature({
+    feature,
+    revision: { metadata: {} },
+    settings,
+  }).filter((project) => project !== primary && ownRule.has(project));
+  return [primary, ...targeting];
+}
+
 export function getRevisionReviewRequirement({
   feature,
   baseRevision,
@@ -3756,11 +3784,17 @@ export function getRevisionReviewRequirement({
     orgEnvironments,
     feature,
   ).map((e) => e.id);
-  const none: ReviewRequirement = { required: false, rules: [] };
+  const none: ReviewRequirement = {
+    required: false,
+    rules: [],
+    approverProjects: [],
+  };
   if (!requireApprovalsLicensed) return none;
   const requireReviews = settings?.requireReviews;
   if (!Array.isArray(requireReviews)) {
-    return requireReviews ? { required: true, rules: [] } : none;
+    return requireReviews
+      ? { required: true, rules: [], approverProjects: [] }
+      : none;
   }
 
   const reviewSettings = governingReviewProjectsForFeature({
@@ -3768,8 +3802,14 @@ export function getRevisionReviewRequirement({
     revision,
     settings,
   })
-    .map((project) => getReviewSetting(requireReviews, { project }))
-    .filter((rs): rs is RequireReview => !!rs?.requireReviewOn);
+    .map((project) => ({
+      project,
+      setting: getReviewSetting(requireReviews, { project }),
+    }))
+    .filter(
+      (entry): entry is { project: string; setting: RequireReview } =>
+        !!entry.setting?.requireReviewOn,
+    );
   if (!reviewSettings.length) return none;
 
   const affected = getDraftAffectedEnvironments(
@@ -3869,16 +3909,26 @@ export function getRevisionReviewRequirement({
     return false;
   };
 
-  const triggering = reviewSettings.filter(needsReviewForSetting);
+  const triggering = reviewSettings.filter((entry) =>
+    needsReviewForSetting(entry.setting),
+  );
   // By content: merged rules are distinct objects, so identity would not dedupe.
   const seen = new Set<string>();
-  const rules = triggering.filter((r) => {
-    const key = JSON.stringify(r);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  return { required: rules.length > 0, rules };
+  const rules = triggering
+    .map((entry) => entry.setting)
+    .filter((r) => {
+      const key = JSON.stringify(r);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  // Inherited org-wide rules give a targeting project no say of its own.
+  const ownRule = new Set(projectsWithOwnRule(requireReviews));
+  const primary = feature.project ?? "";
+  const approverProjects = triggering
+    .map((entry) => entry.project)
+    .filter((project) => project !== primary && ownRule.has(project));
+  return { required: rules.length > 0, rules, approverProjects };
 }
 
 // Boolean form, for callers that only ask whether review is needed.

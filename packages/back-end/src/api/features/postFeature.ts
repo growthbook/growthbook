@@ -2,6 +2,7 @@ import { z } from "zod";
 import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { holdsTargetingDestination } from "shared/permissions";
 import { featurePublishEnvironmentIds } from "back-end/src/services/featurePublishGates";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -108,6 +109,21 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   }
 
   await assertValidProjectId(req.body.project, req.context);
+  // Before project-id validation (read-filtered): refuse, don't call it invalid.
+  // `assertCanCreateFeatureInState` below re-checks over the built feature.
+  if (
+    !holdsTargetingDestination({
+      permissions: req.context.permissions,
+      existing: {},
+      proposed: {
+        project: req.body.project,
+        targetingAllProjects: req.body.targetingAllProjects,
+        targetingProjects: req.body.targetingProjects,
+      },
+    })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
   await assertValidProjectIds(req.body.targetingProjects, req.context);
 
   await validateCustomFields(

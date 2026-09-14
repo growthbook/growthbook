@@ -7,6 +7,10 @@ import {
   rulesEqualIgnoringScopeEncoding,
 } from "shared/util";
 import { isEqual } from "lodash";
+import {
+  holdsTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -136,6 +140,21 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   await assertValidProjectId(project, req.context);
+  // Before project-id validation: that check is read-filtered, so a caller
+  // with no role in the project must be refused here, not told it is invalid.
+  if (
+    !holdsTargetingDestination({
+      permissions: req.context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, {
+        project,
+        targetingAllProjects,
+        targetingProjects,
+      }),
+    })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
   await assertValidProjectIds(targetingProjects, req.context);
 
   const projectChanged = project !== undefined && project !== feature.project;

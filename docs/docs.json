@@ -1212,6 +1212,7 @@
               "api/Segment_model",
               "api/Settings_model",
               "api/Targeting Rule_model",
+              "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
               "api/VisualChangeset_model"

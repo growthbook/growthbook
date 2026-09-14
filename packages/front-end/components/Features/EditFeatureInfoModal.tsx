@@ -3,7 +3,10 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
-import { holdsFeatureMoveDestination } from "shared/permissions";
+import {
+  holdsFeatureMoveDestination,
+  holdsTargetingDestination,
+} from "shared/permissions";
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -98,7 +101,16 @@ const EditFeatureInfoModal: FC<{
       feature,
       moveDestination,
       metadataEnvs,
-    );
+    ) &&
+    holdsTargetingDestination({
+      permissions: permissionsUtil,
+      existing: feature,
+      proposed: {
+        project: moveDestination,
+        targetingAllProjects: form.watch("targetingAllProjects"),
+        targetingProjects: form.watch("targetingProjects"),
+      },
+    });
   const canAutoPublish = (isAdmin || !metadataGated) && canPublishMetadata;
 
   const { mode: initialMode, defaultDraft } = useDefaultDraftMode(

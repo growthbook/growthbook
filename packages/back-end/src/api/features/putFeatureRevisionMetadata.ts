@@ -1,6 +1,10 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionMetadataValidator } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
+import {
+  holdsTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -76,6 +80,16 @@ export async function setRevisionMetadata(
     ) {
       context.permissions.throwPermissionError();
     }
+  }
+
+  if (
+    !holdsTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, metadataFields),
+    })
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   if (metadataFields.customFields !== undefined) {

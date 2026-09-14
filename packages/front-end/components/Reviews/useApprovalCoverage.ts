@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import {
-  assessApprovalCoverage,
+  assessGoverningApprovalCoverage,
   assessRequiredApproverTeams,
   getRolePermissions,
   revisionActionPermission,
@@ -12,10 +12,12 @@ import type { RevisionModel } from "shared/permissions";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 type Reviewer = { id: string; status: "approved" | "changes-requested" };
 
 const NO_RULES: { requiredApproverTeams?: string[] }[] = [];
+const NO_PROJECTS: string[] = [];
 
 export interface ApprovalCoverage {
   uncoveredApprovers: Set<string>;
@@ -34,6 +36,12 @@ export interface ApprovalCoverage {
     unmet: { id: string; name: string }[][];
     enforcedTeamIds: string[][];
   };
+  // Targeting projects whose own review rule fired and still lack an approval
+  // from one of their reviewers.
+  requiredProjects: {
+    satisfied: boolean;
+    unmet: { id: string; name: string }[];
+  };
 }
 
 // Uses the same functions the server uses, so the panel and the refusal agree.
@@ -44,6 +52,7 @@ export function useApprovalCoverage({
   model,
   projects,
   reviewRules = NO_RULES,
+  approverProjects = NO_PROJECTS,
 }: {
   reviewers: Reviewer[];
   footprint: ReviewAuthorityFootprint;
@@ -52,26 +61,51 @@ export function useApprovalCoverage({
   reviewRules?: { requiredApproverTeams?: string[] }[];
   model: RevisionModel;
   projects: string[];
+  // Feature Flags only: targeting projects that each need one of their own
+  // reviewers to approve.
+  approverProjects?: string[];
 }): ApprovalCoverage {
   const { users, teams, organization } = useUser();
+  const { getProjectById } = useDefinitions();
 
-  const uncoveredApprovers = useMemo(() => {
-    const approved = reviewers.filter((r) => r.status === "approved");
-    if (!approved.length) return new Set<string>();
-    return new Set(
-      assessApprovalCoverage({
+  const coverage = useMemo(
+    () =>
+      assessGoverningApprovalCoverage({
         org: organization as OrganizationInterface,
         teams: (teams ?? []) as TeamInterface[],
         model,
         projects,
+        approverProjects,
         footprint,
-        approvers: approved.map((r) => ({
-          id: r.id,
-          roleInfo: users.get(r.id) ?? null,
-        })),
-      }).uncoveredApprovers,
-    );
-  }, [reviewers, organization, teams, model, projects, footprint, users]);
+        approvers: reviewers
+          .filter((r) => r.status === "approved")
+          .map((r) => ({ id: r.id, roleInfo: users.get(r.id) ?? null })),
+      }),
+    [
+      reviewers,
+      organization,
+      teams,
+      model,
+      projects,
+      approverProjects,
+      footprint,
+      users,
+    ],
+  );
+  const uncoveredApprovers = useMemo(
+    () => new Set(coverage.uncoveredApprovers),
+    [coverage],
+  );
+  const requiredProjects = useMemo(
+    () => ({
+      satisfied: coverage.requiredProjects.satisfied,
+      unmet: coverage.requiredProjects.unmet.map((id) => ({
+        id,
+        name: getProjectById(id)?.name ?? id,
+      })),
+    }),
+    [coverage, getProjectById],
+  );
 
   // Resolved like the coverage decision — teams, project roles and additional
   // rules included — so the explanation cannot contradict the decision.
@@ -140,16 +174,12 @@ export function useApprovalCoverage({
     () =>
       assessRequiredApproverTeams({
         rules: reviewRules,
-        // Only covering approvals can satisfy a team requirement.
-        coveringApproverIds: reviewers
-          .filter(
-            (r) => r.status === "approved" && !uncoveredApprovers.has(r.id),
-          )
-          .map((r) => r.id),
+        // Only approvals that count somewhere can satisfy a team requirement.
+        coveringApproverIds: coverage.contributingApproverIds,
         org: organization as OrganizationInterface,
         teams: (teams ?? []) as TeamInterface[],
       }),
-    [reviewRules, reviewers, uncoveredApprovers, organization, teams],
+    [reviewRules, coverage, organization, teams],
   );
 
   // Required-team rules are summative — different rules can be satisfied by
@@ -200,5 +230,6 @@ export function useApprovalCoverage({
     hasUncoveredApproval:
       !approvalsCoverFootprint && uncoveredApprovers.size > 0,
     requiredTeams,
+    requiredProjects,
   };
 }

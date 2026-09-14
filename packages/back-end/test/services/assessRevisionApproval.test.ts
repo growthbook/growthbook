@@ -375,3 +375,100 @@ describe("ramp updates count the live schedule's environments", () => {
     expect(result.satisfied).toBe(true);
   });
 });
+
+// A strict-mode targeting project with a review rule of its own gets a say of
+// its own: one of ITS reviewers must approve, alongside the primary's.
+describe("targeting-project approvers", () => {
+  const projectRole = (project: string) => ({
+    project,
+    role: "r",
+    limitAccessByEnvironment: false,
+    environments: [],
+  });
+  const targetedContext = (): Context =>
+    ({
+      org: {
+        id: "org_1",
+        settings: {
+          environments: ENVS.map((id) => ({ id })),
+          requireReviews: [
+            {
+              requireReviewOn: true,
+              resetReviewOnChange: false,
+              environments: [],
+              projects: [],
+            },
+            {
+              requireReviewOn: true,
+              resetReviewOnChange: false,
+              environments: [],
+              projects: ["prj_a"],
+            },
+          ],
+        },
+        customRoles: [{ id: "r", description: "", policies: ["FlagsReview"] }],
+        members: [
+          {
+            id: "u_b",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+            projectRoles: [projectRole("prj_b")],
+          },
+          {
+            id: "u_a",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+            projectRoles: [projectRole("prj_a")],
+          },
+        ],
+        invites: [],
+      },
+      teams: [],
+      hasPremiumFeature: () => true,
+      getProjects: async () => [{ id: "prj_a", name: "Project A" }],
+    }) as unknown as Context;
+  const targeted = {
+    id: "feat_targeted",
+    project: "prj_b",
+    targetingProjects: ["prj_a"],
+  } as unknown as FeatureInterface;
+  const approvedBy = (...userIds: string[]) =>
+    revision({
+      rules: [rule("production")],
+      status: "approved",
+      reviews: userIds.map((userId) => ({ userId, status: "approved" })),
+    } as Partial<FeatureRevisionInterface>);
+
+  it("is blocked until the targeting project's own reviewer approves", async () => {
+    const result = await assess(targetedContext(), approvedBy("u_b"), targeted);
+
+    expect(result.hasCoveringApproval).toBe(true);
+    expect(result.requiredProjectApprovers).toEqual({
+      satisfied: false,
+      unmet: [{ id: "prj_a", name: "Project A" }],
+    });
+    expect(result.satisfied).toBe(false);
+  });
+
+  it("counts the targeting project's approval toward that project only", async () => {
+    const result = await assess(targetedContext(), approvedBy("u_a"), targeted);
+
+    expect(result.hasCoveringApproval).toBe(false);
+    expect(result.uncoveredApprovers).toEqual([]);
+    expect(result.requiredProjectApprovers.satisfied).toBe(true);
+    expect(result.satisfied).toBe(false);
+  });
+
+  it("is satisfied once both projects have signed", async () => {
+    const result = await assess(
+      targetedContext(),
+      approvedBy("u_b", "u_a"),
+      targeted,
+    );
+
+    expect(result.requiredProjectApprovers.satisfied).toBe(true);
+    expect(result.satisfied).toBe(true);
+  });
+});

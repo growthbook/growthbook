@@ -1,4 +1,8 @@
 import {
+  holdsTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
+import {
   getApplicableEnvIds,
   getRulesForEnvironment,
   normalizeTargetingInUpdates,
@@ -131,6 +135,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     await assertValidProjectId(project, req.context);
+    // Before project-id validation: that check is read-filtered, so a caller
+    // with no role in the project must be refused here, not told it is invalid.
+    if (
+      !holdsTargetingDestination({
+        permissions: req.context.permissions,
+        existing: feature,
+        proposed: withStagedTargeting(feature, {
+          project,
+          targetingAllProjects,
+          targetingProjects,
+        }),
+      })
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
     await assertValidProjectIds(targetingProjects, req.context);
 
     // check if the custom fields are valid

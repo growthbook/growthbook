@@ -8,7 +8,9 @@ import {
 } from "shared/util";
 import {
   NO_ENVIRONMENT_BINDING,
+  holdsTargetingDestination,
   metadataTouchesPayload,
+  withStagedTargeting,
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/validators";
@@ -91,6 +93,16 @@ export function assertCanCreateFeatureInState({
   if (
     enabledOnCreate.length &&
     !context.permissions.canPublishFeature(feature, enabledOnCreate)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  // A new flag's whole targeting set is an addition.
+  if (
+    !holdsTargetingDestination({
+      permissions: context.permissions,
+      existing: {},
+      proposed: feature,
+    })
   ) {
     context.permissions.throwPermissionError();
   }
@@ -332,6 +344,7 @@ export function holdsFeaturePublishAuthority({
   if (!context.permissions.canPublishFeature(feature, environments)) {
     return false;
   }
+  if (!holdsTargetingLanding(context, feature, mergeChanges)) return false;
   const destination = mergeChanges?.metadata?.project;
   if (
     destination !== undefined &&
@@ -343,6 +356,20 @@ export function holdsFeaturePublishAuthority({
     );
   }
   return true;
+}
+
+// Landing a draft delivers the flag wherever its staged envelope targets, so
+// the publisher holds the targeting atom in every project it adds.
+function holdsTargetingLanding(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  mergeChanges?: MergeResultChanges,
+): boolean {
+  return holdsTargetingDestination({
+    permissions: context.permissions,
+    existing: feature,
+    proposed: withStagedTargeting(feature, mergeChanges?.metadata),
+  });
 }
 
 export async function assertCanPublishFeatureRevision({
@@ -370,6 +397,9 @@ export async function assertCanPublishFeatureRevision({
       environments,
     )
   ) {
+    context.permissions.throwPermissionError();
+  }
+  if (!holdsTargetingLanding(context, feature, mergeChanges)) {
     context.permissions.throwPermissionError();
   }
 

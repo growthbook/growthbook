@@ -34,6 +34,27 @@ export const apiRequireReviewRuleInput = namedSchema(
     .strict(),
 );
 
+// Whether a Feature Flag delivered into a Targeting Project must also satisfy
+// that project's approval rule (and, when the project has a rule of its own,
+// be approved by one of its reviewers). Most specific rule wins; default strict.
+export const apiTargetingReviewRule = namedSchema(
+  "TargetingReviewRule",
+  z
+    .object({
+      projects: z
+        .array(z.string())
+        .describe(
+          "Targeting Project IDs this rule applies to. An empty list is the organization-wide default.",
+        ),
+      mode: z
+        .enum(["strict", "loose"])
+        .describe(
+          "`strict`: a Feature Flag delivered into these Targeting Projects must also satisfy their approval requirements, and a Targeting Project with a rule of its own must be approved by one of its reviewers. `loose`: only the flag's primary project governs approvals.",
+        ),
+    })
+    .strict(),
+);
+
 export const apiSavedGroupApprovalRule = namedSchema(
   "SavedGroupApprovalRule",
   z
@@ -116,14 +137,7 @@ export const apiSettingsValidator = namedSchema(
       featureKillSwitchBehavior: z.enum(["off", "warn"]).optional(),
       requireReviews: z.array(apiRequireReviewRule),
       approvalFlows: apiApprovalFlows,
-      targetingReviewMode: z
-        .array(
-          z.object({
-            projects: z.array(z.string()),
-            mode: z.enum(["strict", "loose"]),
-          }),
-        )
-        .optional(),
+      targetingReviewMode: z.array(apiTargetingReviewRule).optional(),
       restApiBypassesReviews: z.boolean().optional(),
       requireRebaseBeforePublish: z.boolean().optional(),
       revertsBypassApproval: z.boolean().optional(),
@@ -166,6 +180,7 @@ export const putApprovalSettingsValidator = {
     .object({
       requireReviews: z.array(apiRequireReviewRuleInput).optional(),
       approvalFlows: apiApprovalFlows.optional(),
+      targetingReviewMode: z.array(apiTargetingReviewRule).optional(),
     })
     .strict(),
   querySchema: z.never(),
@@ -174,10 +189,11 @@ export const putApprovalSettingsValidator = {
     .object({
       requireReviews: z.array(apiRequireReviewRule),
       approvalFlows: apiApprovalFlows,
+      targetingReviewMode: z.array(apiTargetingReviewRule),
     })
     .strict(),
   summary:
-    "Replace the approval requirements for feature flags, configs and constants, and for saved groups. Each family is replaced wholesale when supplied; omit one to leave it unchanged.",
+    "Replace the approval requirements for feature flags, configs and constants, for saved groups, and the Targeting Projects review mode. Each family is replaced wholesale when supplied; omit one to leave it unchanged.",
   operationId: "putApprovalSettings",
   tags: ["settings"],
   method: "put" as const,
