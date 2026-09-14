@@ -48,6 +48,7 @@ import {
   resolveScopeFromInput,
   assertCanUseRuleScheduling,
   assertValidExperimentRefRule,
+  experimentRefChanged,
 } from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(
@@ -234,8 +235,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     }
     if (
       updatedRule.type === "experiment-ref" &&
-      (basePatch.experimentId !== undefined ||
-        basePatch.variations !== undefined)
+      experimentRefChanged(updatedRule, oldRule)
     ) {
       await assertValidExperimentRefRule(req.context, updatedRule);
     }

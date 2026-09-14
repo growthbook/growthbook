@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { includeExperimentInPayload } from "shared/util";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { ReqContext } from "back-end/types/request";
@@ -37,7 +38,7 @@ export function getLivePayloadChanges(
     !!input.variations &&
     !isEqual(
       input.variations.map((v) => v.id),
-      latestPhase?.variations.map((v) => v.id),
+      getLatestPhaseVariations(experiment).map((v) => v.id),
     );
   const variationKeysChanged =
     !!input.variations &&

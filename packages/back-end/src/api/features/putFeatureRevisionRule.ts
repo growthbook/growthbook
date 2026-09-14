@@ -44,6 +44,7 @@ import {
 import {
   assertCanUseRuleScheduling,
   assertValidExperimentRefRule,
+  experimentRefChanged,
 } from "./v2Shared";
 
 export function applyPatch(
@@ -305,7 +306,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     const updatedRule = applyPatch(oldRule, patch);
     if (
       updatedRule.type === "experiment-ref" &&
-      (patch.experimentId !== undefined || patch.variations !== undefined)
+      experimentRefChanged(updatedRule, oldRule)
     ) {
       await assertValidExperimentRefRule(req.context, updatedRule);
     }

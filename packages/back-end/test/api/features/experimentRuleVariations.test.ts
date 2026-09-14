@@ -84,7 +84,14 @@ async function insertExperiment(id: string, variationIds: string[]) {
       description: "",
       screenshots: [],
     })),
-    phases: [{ name: "Main", dateStarted: now() }],
+    phases: [
+      {
+        name: "Main",
+        dateStarted: now(),
+        coverage: 1,
+        variationWeights: variationIds.map(() => 1 / variationIds.length),
+      },
+    ],
     dateCreated: now(),
     dateUpdated: now(),
   });
@@ -254,15 +261,28 @@ describe("experiment-ref rule variations", () => {
           },
         },
       );
-      await insertFeature("flag_stale", [
+      const stale = {
+        ...expRef(arms("v0", "v1")),
+        id: "fr_stale",
+        description: "",
+        enabled: true,
+      };
+      await insertFeature("flag_stale", [stale]);
+      await insertDraftRevision("flag_stale", [stale]);
+    });
+
+    it("accepts a values-only patch", async () => {
+      const res = await send(
+        "put",
+        "/api/v2/features/flag_stale/revisions/2/rules/fr_stale",
         {
-          ...expRef(arms("v0", "v1")),
-          id: "fr_stale",
-          description: "",
-          enabled: true,
+          rule: {
+            variations: arms("v0", "v1").map((a) => ({ ...a, value: "false" })),
+          },
         },
-      ]);
-      await insertDraftRevision("flag_stale");
+      );
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
     });
 
     it("echoes on a bulk update but is re-checked when its ids change", async () => {

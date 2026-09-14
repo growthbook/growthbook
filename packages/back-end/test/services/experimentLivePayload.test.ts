@@ -53,6 +53,16 @@ describe("getLivePayloadChanges", () => {
     expect(res.changesLivePayload).toBe(changedFields.length > 0);
   });
 
+  it("reads variation ids from the experiment when the phase has no envelope", () => {
+    const legacy = {
+      ...experiment,
+      phases: [{ coverage: 1, variationWeights: [0.5, 0.5] }],
+    } as unknown as ExperimentInterface;
+    expect(
+      getLivePayloadChanges(legacy, { variations: same }).changesLivePayload,
+    ).toBe(false);
+  });
+
   it("lets the results page reconcile keys without counting as a live change", () => {
     const res = getLivePayloadChanges(experiment, {
       variations: [same[0], { id: "v1", key: "b" }],
