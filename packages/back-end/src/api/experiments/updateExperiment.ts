@@ -343,12 +343,17 @@ export const updateExperiment = createApiRequestHandler(
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
   // Same guard the dashboard applies: a running experiment that is live in
-  // the SDK payload cannot change its variations, coverage, or weights.
-  const inboundPhase = changes.phases?.[changes.phases.length - 1];
+  // the SDK payload cannot change its variations, coverage, or weights in
+  // place. Adding a phase is how traffic legitimately changes, so coverage and
+  // weights are compared only when the phase list keeps its length.
+  const editedLatestPhase =
+    changes.phases && changes.phases.length === experiment.phases.length
+      ? changes.phases[changes.phases.length - 1]
+      : undefined;
   await assertLivePayloadChangeAllowed(req.context, experiment, {
     variations: changes.variations,
-    coverage: inboundPhase?.coverage,
-    variationWeights: inboundPhase?.variationWeights,
+    coverage: editedLatestPhase?.coverage,
+    variationWeights: editedLatestPhase?.variationWeights,
   });
 
   // Same validation as PUT /schedule, against the stored schedule and the

@@ -1249,6 +1249,46 @@ describe("experiments API", () => {
       expect(updateExperiment).not.toHaveBeenCalled();
     });
 
+    it("does not treat an appended phase as an in-place coverage change", async () => {
+      const running = {
+        ...experiment,
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2026-01-01"),
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            variations: [],
+          },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(running);
+      (updateExperiment as jest.Mock).mockResolvedValue(running);
+      await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              dateEnded: "2026-02-01T00:00:00.000Z",
+              coverage: 1,
+            },
+            {
+              name: "Phase 2",
+              dateStarted: "2026-02-01T00:00:00.000Z",
+              coverage: 0.5,
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(assertLivePayloadChangeAllowed).toHaveBeenCalledWith(
+        expect.anything(),
+        running,
+        expect.objectContaining({ coverage: undefined }),
+      );
+    });
+
     it("allows update when required custom fields are missing and payload omits customFields", async () => {
       const getCustomFieldsBySectionAndProject = jest.fn().mockResolvedValue([
         {
