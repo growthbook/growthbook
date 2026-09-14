@@ -87,8 +87,11 @@ export default function SchemaBrowser({
       .map((database) => {
         const filteredSchemas = database.schemas
           .map((schema) => {
+            // Match the table name, not `path` — the database and schema are
+            // in every path, so a term appearing in either matched every table
+            // in the source.
             const filteredTables = schema.tables.filter((table) =>
-              table.path.toLowerCase().includes(normalizedTableFilter),
+              table.tableName.toLowerCase().includes(normalizedTableFilter),
             );
 
             return {

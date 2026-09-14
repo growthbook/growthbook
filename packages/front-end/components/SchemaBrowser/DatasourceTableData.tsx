@@ -91,13 +91,19 @@ export default function DatasourceSchema({
   const expandedColumns = useMemo(() => {
     const out: { columnName: string; dataType: string; jsonField?: boolean }[] =
       [];
+    // A warehouse that materializes JSON sub-fields as native subcolumns
+    // already reports them here, so the expansion below would list them twice.
+    const seen = new Set((table?.columns || []).map((c) => c.columnName));
     for (const column of table?.columns || []) {
       out.push({ columnName: column.columnName, dataType: column.dataType });
       const jsonFields = jsonFieldsByColumn[column.columnName];
       if (jsonFields) {
         for (const [field, data] of Object.entries(jsonFields)) {
+          const columnName = `${column.columnName}.${field}`;
+          if (seen.has(columnName)) continue;
+          seen.add(columnName);
           out.push({
-            columnName: `${column.columnName}.${field}`,
+            columnName,
             dataType: data.datatype,
             jsonField: true,
           });
