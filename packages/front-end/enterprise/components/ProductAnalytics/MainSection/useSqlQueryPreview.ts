@@ -68,15 +68,22 @@ export default function useSqlQueryPreview({
     setExploreReady(exploreReady);
   }, [exploreReady, setExploreReady]);
 
+  // Read the draft through a ref: a preview resolves well after it was started,
+  // and closing over the draft would both clobber anything edited in between and
+  // hand the caller a config to submit that predates it.
+  const draftRef = useRef(draftExploreState);
+  draftRef.current = draftExploreState;
+
   const applyColumnMetadata = useCallback(
     (
       sql: string,
       columnTypes: SqlDataset["columnTypes"],
       inferredTimestamp: string | null,
     ): ExplorerDraftConfig | null => {
-      if (draftExploreState.dataset.type !== "sql") return null;
+      const draft = draftRef.current;
+      if (draft.dataset.type !== "sql") return null;
       const next = applySqlPreviewMetadata(
-        draftExploreState,
+        draft,
         sql,
         columnTypes,
         inferredTimestamp,
@@ -84,7 +91,7 @@ export default function useSqlQueryPreview({
       setDraftExploreState(next);
       return next;
     },
-    [draftExploreState, setDraftExploreState],
+    [setDraftExploreState],
   );
 
   const runQuery = useCallback(
