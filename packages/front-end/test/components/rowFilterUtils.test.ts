@@ -12,6 +12,7 @@ import {
   getAllowedOperators,
   getRowFilterColumnChange,
   getRowFilterOperatorChange,
+  getRowFilterInputState,
   isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
 
@@ -329,6 +330,48 @@ describe("getRowFilterColumnChange", () => {
         "string",
       ),
     ).toEqual({ operator: "=", column: "country", values: [] });
+  });
+
+  it("keeps a saved `= false` boolean predicate when changing columns", () => {
+    const filter = {
+      operator: "=" as const,
+      column: "is_paid",
+      values: ["false"],
+    };
+    expect(getRowFilterColumnChange("is_active", filter, "boolean")).toEqual({
+      operator: "is_false",
+      column: "is_active",
+      values: ["false"],
+    });
+    // Normalization is derived — the caller's filter must stay untouched.
+    expect(filter).toEqual({
+      operator: "=",
+      column: "is_paid",
+      values: ["false"],
+    });
+  });
+});
+
+describe("getRowFilterInputState", () => {
+  it("hides the value editor for saved boolean equality", () => {
+    const filter = {
+      operator: "=" as const,
+      column: "is_paid",
+      values: ["false"],
+    };
+    const state = getRowFilterInputState({
+      operator: filter.operator,
+      values: filter.values,
+      datatype: "boolean",
+      topValues: [],
+    });
+    expect(state.displayOperator).toBe("is_false");
+    expect(state.valueInputRequired).toBe(false);
+    expect(filter).toEqual({
+      operator: "=",
+      column: "is_paid",
+      values: ["false"],
+    });
   });
 });
 

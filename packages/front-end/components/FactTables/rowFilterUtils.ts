@@ -341,6 +341,19 @@ export function getRowFilterSelectOptions({
 }
 
 /**
+ * Saved boolean filters can still be stored as `=` + "true"/"false". Map those
+ * to is_true/is_false without writing back onto the filter.
+ */
+export function normalizeBooleanEquality(
+  operator: RowFilter["operator"],
+  values: string[] | undefined,
+  datatype: string,
+): RowFilter["operator"] {
+  if (datatype !== "boolean" || operator !== "=") return operator;
+  return values?.[0] === "true" ? "is_true" : "is_false";
+}
+
+/**
  * Row filter changes when a new column (or saved filter) is picked. Operators
  * and values that don't apply to the new datatype are reset rather than left
  * behind to generate invalid SQL.
@@ -357,7 +370,11 @@ export function getRowFilterColumnChange(
     };
   }
 
-  let operator = filter.operator;
+  let operator = normalizeBooleanEquality(
+    filter.operator,
+    filter.values,
+    datatype,
+  );
   let values = filter.values || [];
 
   const allowedOperators = getAllowedOperators(datatype);
@@ -548,7 +565,7 @@ export function getRowFilterInputState({
   const valueOptions: SingleValue[] = [];
   let inputType: "text" | "number" = "text";
   let isDateColumn = false;
-  let displayOperator = operator;
+  const displayOperator = normalizeBooleanEquality(operator, values, datatype);
 
   if (operatorInputRequired) {
     if (datatype === "number") inputType = "number";
@@ -557,13 +574,6 @@ export function getRowFilterInputState({
     topValues?.forEach((v) => {
       if (v) valueOptions.push({ label: v, value: v });
     });
-
-    // Booleans are stored as `= true`/`= false` but read better as
-    // is_true/is_false. Derived for display only — writing it back onto the
-    // filter during render would mutate the caller's state in place.
-    if (datatype === "boolean" && operator === "=") {
-      displayOperator = values?.[0] === "true" ? "is_true" : "is_false";
-    }
 
     // An operator that no longer suits the column (or arrived via the API)
     // still has to be listed, or the select would show an empty value.
@@ -580,7 +590,7 @@ export function getRowFilterInputState({
     );
   }
 
-  const valueInputRequired = !VALUELESS_OPERATORS.includes(operator);
+  const valueInputRequired = !VALUELESS_OPERATORS.includes(displayOperator);
   const multiValueInput = operator === "in" || operator === "not_in";
   const useValueOptions =
     valueOptions.length > 0 && ["in", "not_in", "=", "!="].includes(operator);
