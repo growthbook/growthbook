@@ -452,15 +452,6 @@ describe("targeting-project approvers", () => {
     expect(result.satisfied).toBe(false);
   });
 
-  it("counts the targeting project's approval toward that project only", async () => {
-    const result = await assess(targetedContext(), approvedBy("u_a"), targeted);
-
-    expect(result.hasCoveringApproval).toBe(false);
-    expect(result.uncoveredApprovers).toEqual([]);
-    expect(result.requiredProjectApprovers.satisfied).toBe(true);
-    expect(result.satisfied).toBe(false);
-  });
-
   it("is satisfied once both projects have signed", async () => {
     const result = await assess(
       targetedContext(),

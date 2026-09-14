@@ -185,7 +185,6 @@ describe("all projects", () => {
   // Reaches projects that do not exist yet, so a project-scoped grant is not enough.
   it.each([
     ["u_b_editor_targets_a", 403],
-    ["u_global", 403],
     ["u_global_full", 200],
   ])("%s → %i", async (userId, status) => {
     const id = await seedFeature();

@@ -84,6 +84,9 @@ function footprintEnvironments(
   return footprint.scope === "any" ? null : [];
 }
 
+export const DEFAULT_PERMISSION_ERROR_MESSAGE =
+  "You do not have permission to perform this action";
+
 export class Permissions {
   private userPermissions: UserPermissions;
   constructor(permissions: UserPermissions) {
@@ -1775,9 +1778,7 @@ export class Permissions {
   };
 
   public throwPermissionError(message?: string): void {
-    throw new PermissionError(
-      message ?? "You do not have permission to perform this action",
-    );
+    throw new PermissionError(message ?? DEFAULT_PERMISSION_ERROR_MESSAGE);
   }
 
   public canReadSingleProjectResource = (

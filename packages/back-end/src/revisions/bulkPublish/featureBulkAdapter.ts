@@ -4,6 +4,7 @@ import { FeatureInterface } from "shared/types/feature";
 import {
   bypassApprovalPermission,
   NO_ENVIRONMENT_BINDING,
+  DEFAULT_PERMISSION_ERROR_MESSAGE,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
@@ -239,7 +240,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         makeBlockingGate({
           type: "permission-denied",
           messages: [
-            refusal === "You do not have permission to perform this action"
+            refusal === DEFAULT_PERMISSION_ERROR_MESSAGE
               ? "You do not have permission to publish this Feature Flag in the environments this revision changes."
               : refusal,
           ],

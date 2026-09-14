@@ -1724,10 +1724,8 @@ export async function postFeatureApproveAndPublish(
     }
   }
 
-  // Model the approval about to be written and ask the publish question the
-  // publish path will ask. A reviewer eligible only through a targeting
-  // project can approve, but that approval alone lands nothing; refusing
-  // here keeps the revision out of an "approved but unpublishable" state.
+  // Ask the publish question with this approval added: a targeting-project
+  // reviewer's approval alone lands nothing, and must not commit as "approved".
   if (!adminOverride) {
     const projected = await assessRevisionApproval({
       context,
