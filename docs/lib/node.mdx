@@ -383,7 +383,7 @@ const userContext = {
 
 ### Feature Flag Experiments
 
-There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+Evaluating the feature is what enrolls a user and fires `trackingCallback`. See [Feature Flag Experiments](/features/feature-flag-experiments).
 
 ```js
 // If this has an active experiment and the user is included,

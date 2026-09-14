@@ -199,7 +199,6 @@ export default function CodeSnippetModal({
         />
       )}
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         secondaryCTA={secondaryCTA}

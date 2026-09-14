@@ -23,6 +23,7 @@ import {
   ExperimentResultStatusData,
 } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -31,6 +32,7 @@ import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
+import { hasEventSubscribers } from "back-end/src/events/hasEventSubscribers";
 import {
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
@@ -44,11 +46,13 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
   experiment,
   event,
   data,
+  notify = true,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   event: T;
   data: CreateEventData<"experiment", T>;
+  notify?: boolean;
 }) => {
   const changedEnvs = includeExperimentInPayload(experiment)
     ? getEnvironmentIdsFromOrg(context.org)
@@ -64,6 +68,7 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
     environments: changedEnvs,
     tags: experiment.tags || [],
     containsSecrets: false,
+    notify,
   });
 };
 
@@ -608,12 +613,23 @@ export const notifySignificance = async ({
     await sendSignificanceEmail(context, experiment, experimentChanges);
   }
 
+  const notify = await hasEventSubscribers({
+    organizationId: context.org.id,
+    eventName: "experiment.info.significance",
+    projects: experiment.project ? [experiment.project] : [],
+    tags: experiment.tags || [],
+    environments: includeExperimentInPayload(experiment)
+      ? getEnvironmentIdsFromOrg(context.org)
+      : [],
+  });
+
   await Promise.all(
     experimentChanges.map((change) =>
       dispatchEvent({
         context,
         experiment,
         event: "info.significance",
+        notify,
         data: {
           object: change,
         },
@@ -706,9 +722,11 @@ async function getDecisionCriteria(
 export const notifyScheduledEndDecision = async ({
   context,
   experiment,
+  metricGroups,
 }: {
   context: Context;
   experiment: ExperimentInterface;
+  metricGroups: MetricGroupInterface[];
 }) => {
   const healthSettings = getHealthSettings(
     context.org.settings,
@@ -724,6 +742,7 @@ export const notifyScheduledEndDecision = async ({
     experimentData: experiment,
     healthSettings,
     decisionCriteria,
+    metricGroups,
   });
   if (!currentStatus) return false;
 
@@ -731,6 +750,7 @@ export const notifyScheduledEndDecision = async ({
     experimentData: { ...experiment, statusUpdateSchedule: null },
     healthSettings,
     decisionCriteria,
+    metricGroups,
   });
 
   return notifyDecision({
@@ -771,11 +791,13 @@ export const notifyExperimentChange = async ({
     experiment.decisionFrameworkSettings?.decisionCriteriaId ??
       context.org.settings?.defaultDecisionCriteriaId,
   );
+  const metricGroups = await context.models.metricGroups.getAll();
 
   const currentStatus = getExperimentResultStatus({
     experimentData: experiment,
     healthSettings,
     decisionCriteria,
+    metricGroups,
   });
 
   const triggeredNoData = await notifyNoData({
@@ -827,6 +849,7 @@ export const notifyExperimentChange = async ({
       },
       healthSettings,
       decisionCriteria,
+      metricGroups,
     });
     const triggeredDecision = await notifyDecision({
       context,

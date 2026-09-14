@@ -624,7 +624,8 @@ export default function AnalysisSettingsSummary({
     if (!val1 && !val2) return false;
     if (!val1 || !val2) return true;
     if (val1.length !== val2.length) return true;
-    return val1.some((v) => !val2.includes(v));
+    // Order matters: snapshot results are indexed by variation position.
+    return val1.some((v, i) => v !== val2[i]);
   }
 
   function isStringArrayMissingElements(

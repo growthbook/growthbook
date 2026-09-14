@@ -13,6 +13,7 @@ import {
   factTableColumnTypeValidator,
   factTableTypeValidator,
   testFactFilterPropsValidator,
+  testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
   conversionWindowUnitValidator,
   cappingSettingsValidator,
@@ -203,6 +204,7 @@ export type UpdateFactFilterProps = z.infer<
   typeof updateFactFilterPropsValidator
 >;
 export type TestFactFilterProps = z.infer<typeof testFactFilterPropsValidator>;
+export type TestRowFiltersProps = z.infer<typeof testRowFiltersPropsValidator>;
 export type TestVirtualColumnProps = z.infer<
   typeof testVirtualColumnPropsValidator
 >;
@@ -238,4 +240,11 @@ export type FactFilterTestResults = {
   duration?: number;
   error?: string;
   results?: TestQueryRow[];
+};
+
+export type RowFilterTestResults = FactFilterTestResults & {
+  // The generated WHERE clause body, shown next to the sample rows so the user
+  // can see what their filters compile to. Only the dialect can build it, so it
+  // comes back with the results rather than being derived on the front-end.
+  where: string;
 };

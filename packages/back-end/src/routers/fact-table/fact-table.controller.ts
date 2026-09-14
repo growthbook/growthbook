@@ -1,7 +1,6 @@
 import type { Response } from "express";
 import {
   canInlineFilterColumn,
-  expandVirtualColumnsInSql,
   getFactTableTimestampColumn,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
@@ -15,7 +14,9 @@ import {
   UpdateFactFilterProps,
   UpdateColumnProps,
   UpdateFactTableProps,
+  RowFilterTestResults,
   TestFactFilterProps,
+  TestRowFiltersProps,
   TestVirtualColumnProps,
   FactFilterTestResults,
   ColumnInterface,
@@ -78,6 +79,11 @@ import {
 } from "back-end/src/services/aggregatedFactTables";
 import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
 import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import {
+  testFilterQuery,
+  testRowFiltersQuery,
+  testVirtualColumnQuery,
+} from "back-end/src/services/factTableTestQueries";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -109,136 +115,6 @@ export const getFactTableById = async (
     factTable,
   });
 };
-
-async function testFilterQuery(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-  factTable: FactTableInterface,
-  filter: string,
-): Promise<FactFilterTestResults> {
-  if (!context.permissions.canRunTestQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const integration = getSourceIntegrationObject(context, datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  const timestampColumn = getFactTableTimestampColumn(factTable);
-
-  const sql = integration.getTestQuery({
-    // Must have a newline after factTable sql in case it ends with a comment.
-    // Expand any virtual column references so the filter runs against real columns.
-    query: `SELECT * FROM (
-      ${factTable.sql}
-    ) f WHERE ${expandVirtualColumnsInSql(
-      filter,
-      factTable,
-      getIntegrationIdentifierQuote(integration),
-    )}`,
-    templateVariables: {
-      eventName: factTable.eventName,
-    },
-    testDays: context.org.settings?.testQueryDays,
-    timestampColumn,
-  });
-
-  try {
-    const results = await integration.runTestQuery(
-      sql,
-      [timestampColumn],
-      "factTableValidation",
-    );
-    return {
-      sql,
-      ...results,
-    };
-  } catch (e) {
-    return {
-      sql,
-      error: e.message,
-    };
-  }
-}
-
-async function testVirtualColumnQuery(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-  factTable: FactTableInterface,
-  sql: string,
-  columnId?: string,
-): Promise<FactFilterTestResults> {
-  if (!context.permissions.canRunTestQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  // The preview runs the expression, so apply the same structural check as the
-  // save paths rather than letting an unsafe expression reach the warehouse.
-  validateVirtualColumnSql(sql);
-
-  const integration = getSourceIntegrationObject(context, datasource, true);
-
-  if (!integration.getTestQuery || !integration.runTestQuery) {
-    throw new Error("Testing not supported on this data source");
-  }
-
-  const timestampColumn = getFactTableTimestampColumn(factTable);
-
-  // Alias the computed expression with the real column id (sanitized to a safe
-  // SQL identifier) so the preview matches what the saved column will be named.
-  const alias =
-    (columnId || "").replace(/[^a-zA-Z0-9_]/g, "") || "__virtual_column";
-
-  // Expand any nested virtual column references into their real SQL (each
-  // wrapped in parentheses) so the preview runs against real columns and matches
-  // how the column resolves in metric queries. Exclude the column being edited
-  // so a self-reference surfaces as an error instead of silently expanding to
-  // its previously-saved definition.
-  const expandedSql = expandVirtualColumnsInSql(
-    sql,
-    {
-      columns: factTable.columns.filter((c) => c.column !== columnId),
-    },
-    getIntegrationIdentifierQuote(integration),
-  );
-
-  // Select the computed expression alongside the raw rows. The expression
-  // references bare column names, which resolve against the aliased subquery.
-  const testSql = integration.getTestQuery({
-    // Must have a newline after factTable sql in case it ends with a comment
-    query: `SELECT (${expandedSql}) AS ${alias}, * FROM (
-      ${factTable.sql}
-    ) f`,
-    templateVariables: {
-      eventName: factTable.eventName,
-    },
-    testDays: context.org.settings?.testQueryDays,
-    timestampColumn,
-    // Only preview rows where the tested expression is non-null, so an empty
-    // result reliably means "no matching data" rather than an arbitrary sample
-    // of null rows.
-    notNullColumn: alias,
-  });
-
-  try {
-    const results = await integration.runTestQuery(
-      testSql,
-      [timestampColumn],
-      "factTableValidation",
-    );
-    return {
-      sql: testSql,
-      ...results,
-    };
-  } catch (e) {
-    return {
-      sql: testSql,
-      error: e.message,
-    };
-  }
-}
 
 function mergeColumnsWithTypeMap(
   existingColumns: ColumnInterface[],
@@ -1106,6 +982,39 @@ export const postFactFilterTest = async (
     datasource,
     factTable,
     data.value,
+  );
+
+  res.status(200).json({
+    status: 200,
+    result,
+  });
+};
+
+export const postRowFiltersTest = async (
+  req: AuthRequest<TestRowFiltersProps, { id: string }>,
+  res: Response<{
+    status: 200;
+    result: RowFilterTestResults;
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  // Test query, not a filter edit — skip canCreateAndUpdateFactFilter.
+  const result = await testRowFiltersQuery(
+    context,
+    datasource,
+    factTable,
+    req.body.rowFilters,
   );
 
   res.status(200).json({

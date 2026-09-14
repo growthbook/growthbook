@@ -162,6 +162,18 @@ export async function findSDKConnectionsByOrganization(
   );
 }
 
+// Not filtered by the caller's project read access: used as a referential
+// integrity check before an environment is removed.
+export async function countSDKConnectionsByEnvironment(
+  context: ReqContext | ApiReqContext,
+  environment: string,
+) {
+  return await SDKConnectionModel.countDocuments({
+    organization: context.org.id,
+    environment,
+  });
+}
+
 export async function findAllSDKConnectionsAcrossAllOrgs() {
   const docs = await SDKConnectionModel.find();
   return docs.map(toInterface);
