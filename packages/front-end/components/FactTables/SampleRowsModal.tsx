@@ -76,8 +76,7 @@ export function SampleRowsModal({
   }, []);
 
   const resultsAreStale = !isEqual(draft, queried);
-  const canRunQuery =
-    draft.length > 0 && draft.every(isRowFilterComplete) && !loading;
+  const canRunQuery = draft.every(isRowFilterComplete) && !loading;
   const hasUnsavedChanges = !isEqual(draft, rowFilters);
 
   return (
@@ -113,7 +112,7 @@ export function SampleRowsModal({
         <Tabs defaultValue="results">
           <Flex align="center" justify="between" gap="2">
             <TabsList>
-              <TabsTrigger value="results">Sample Rows</TabsTrigger>
+              <TabsTrigger value="results">Sample rows</TabsTrigger>
               <TabsTrigger value="where">Generated SQL</TabsTrigger>
             </TabsList>
             <Tooltip
@@ -178,7 +177,7 @@ export function SampleRowsModal({
             close();
           }}
         >
-          Save Changes
+          Save changes
         </Button>
       </Modal.Footer>
     </Modal.Root>

@@ -168,6 +168,8 @@ export function RowFilterEditorRows({
             <Button
               variant="ghost"
               color="red"
+              icon={<PiX />}
+              aria-label="Remove filter"
               onClick={() => {
                 const newFilters = [...value];
                 newFilters.splice(i, 1);
@@ -175,7 +177,7 @@ export function RowFilterEditorRows({
                 setRowDeleted(!rowDeleted);
               }}
             >
-              <PiX />
+              {""}
             </Button>
           </Flex>
         );
