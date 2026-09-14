@@ -11,6 +11,8 @@ export default function FactMetricTypeDisplayName({
     case "mean":
     case "ratio":
     case "quantile":
+    case "retention":
+    case "funnel":
       return <>{capitalizeFirstLetter(type)}</>;
     case "dailyParticipation":
       return <>Daily Participation</>;
