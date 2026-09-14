@@ -3,7 +3,9 @@ import {
   normalizeRowFilterDateValue,
 } from "shared/experiments";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
+import { truncateString } from "shared/util";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
+import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
 export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 
@@ -273,3 +275,282 @@ export function getColumnInfo(
 
   return { datatype: "" as const, topValues: [] as string[] };
 }
+
+/**
+ * Saved filters share the row-filter column picker with columns, so their
+ * option values are prefixed to keep the two namespaces apart. Picking one sets
+ * the operator and the filter id in a single step.
+ */
+export const SAVED_FILTER_VALUE_PREFIX = "$$saved_filter:";
+
+/**
+ * A handful of saved filter names run past 100 characters and blow out the
+ * dropdown; ~95% fit in 40.
+ */
+export const SAVED_FILTER_LABEL_MAX_CHARS = 40;
+
+/** The column picker's current value for a row filter. */
+export function getRowFilterSelectValue(filter: RowFilter): string {
+  if (filter.operator === "saved_filter") {
+    return filter.values?.[0]
+      ? SAVED_FILTER_VALUE_PREFIX + filter.values[0]
+      : "";
+  }
+  return filter.column || "";
+}
+
+/** Saved filters first, then columns. */
+export function getRowFilterSelectOptions({
+  columnOptions,
+  savedFilters,
+  selectedSavedFilterId,
+}: {
+  columnOptions: SingleValue[];
+  savedFilters: { id: string; name: string }[];
+  selectedSavedFilterId?: string;
+}): GroupedValue[] {
+  const savedFilterOptions: SingleValue[] = savedFilters.map((f) => ({
+    label: truncateString(f.name, SAVED_FILTER_LABEL_MAX_CHARS),
+    value: SAVED_FILTER_VALUE_PREFIX + f.id,
+  }));
+
+  if (
+    selectedSavedFilterId &&
+    !savedFilters.some((f) => f.id === selectedSavedFilterId)
+  ) {
+    savedFilterOptions.push({
+      label: `${selectedSavedFilterId} (Deleted)`,
+      value: SAVED_FILTER_VALUE_PREFIX + selectedSavedFilterId,
+    });
+  }
+
+  return [
+    ...(savedFilterOptions.length
+      ? [{ label: "Saved Filters", options: savedFilterOptions }]
+      : []),
+    { label: "Columns", options: columnOptions },
+  ];
+}
+
+/**
+ * Row filter changes when a new column (or saved filter) is picked. Operators
+ * and values that don't apply to the new datatype are reset rather than left
+ * behind to generate invalid SQL.
+ */
+export function getRowFilterColumnChange(
+  selected: string,
+  filter: RowFilter,
+  datatype: string,
+): Partial<RowFilter> {
+  if (selected.startsWith(SAVED_FILTER_VALUE_PREFIX)) {
+    return {
+      operator: "saved_filter",
+      values: [selected.slice(SAVED_FILTER_VALUE_PREFIX.length)],
+    };
+  }
+
+  let operator = filter.operator;
+  let values = filter.values || [];
+
+  const allowedOperators = getAllowedOperators(datatype);
+  if (!allowedOperators.includes(operator)) {
+    operator = allowedOperators[0];
+    values = [];
+  }
+
+  if (datatype === "number") {
+    values = values.filter((v) => numberRegex.test(v));
+  }
+
+  if (datatype === "date") {
+    values = cleanupDateColumnValues(values);
+  }
+
+  return { operator, column: selected, values };
+}
+
+/** True when a row filter has everything it needs to generate SQL. */
+export function isRowFilterComplete(filter: RowFilter): boolean {
+  const hasValues = (filter.values ?? []).some((v) => v !== "");
+
+  if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
+    return hasValues;
+  }
+  if (
+    ["is_true", "is_false", "is_null", "not_null"].includes(filter.operator)
+  ) {
+    return !!filter.column;
+  }
+  return !!filter.column && hasValues;
+}
+
+/**
+ * Normalised column source so a row filter form works for both fact tables and
+ * raw data sources (the Product Analytics explorer filters datasets that have
+ * no fact table behind them).
+ */
+export interface FilterColumnSource {
+  columns: SingleValue[];
+  savedFilters: { id: string; name: string }[];
+  getColumnInfo: (column: string | undefined) => {
+    datatype: string;
+    topValues: string[];
+  };
+  /** The source's event-time column, hidden from the column picker. */
+  timeColumn?: string;
+}
+
+export function factTableToColumnSource(
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
+): FilterColumnSource {
+  const columns: SingleValue[] = [];
+  const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
+  factTable.columns.forEach((col) => {
+    if (factTable.userIdTypes?.includes(col.column)) return;
+    if (col.deleted) return;
+
+    columns.push({ label: col.name || col.column, value: col.column });
+
+    // JSON sub-fields are selectable as their own columns
+    if (col.jsonFields) {
+      Object.keys(col.jsonFields).forEach((field) => {
+        if (col.column === "attributes" && hiddenAttributeFields.has(field))
+          return;
+        columns.push({
+          label: `${col.name || col.column}.${field}`,
+          value: `${col.column}.${field}`,
+        });
+      });
+    }
+  });
+
+  return {
+    columns,
+    savedFilters: factTable.filters.map((f) => ({ id: f.id, name: f.name })),
+    getColumnInfo: (column) => getColumnInfo(factTable, column),
+    timeColumn: FACT_TABLE_TIMESTAMP_COLUMN,
+  };
+}
+
+export function columnTypesToColumnSource(
+  columnTypes: Record<
+    string,
+    "string" | "number" | "date" | "boolean" | "other"
+  >,
+  timestampColumn?: string,
+): FilterColumnSource {
+  const columns = Object.keys(columnTypes).map((col) => ({
+    label: col,
+    value: col,
+  }));
+
+  return {
+    columns,
+    savedFilters: [],
+    timeColumn: timestampColumn,
+    getColumnInfo: (column) => {
+      if (!column || !(column in columnTypes))
+        return { datatype: "", topValues: [] };
+      return { datatype: columnTypes[column], topValues: [] };
+    },
+  };
+}
+
+/** Operators that carry no value of their own. */
+const VALUELESS_OPERATORS = [
+  "is_true",
+  "is_false",
+  "is_null",
+  "not_null",
+  "saved_filter",
+];
+
+/**
+ * Partially-typed numbers ("-", ".", "-1.") that a finished-number pattern
+ * rejects but which have to be typeable on the way to one.
+ */
+export const NUMBER_PARTIAL_PATTERN = /^-?\.?$|^-?\d*\.?\d*$/;
+
+/**
+ * Everything a row filter's operator and value inputs are derived from. Shared
+ * so the metric editor and the explorer sidebar can't drift on which operators
+ * are offered or which input a datatype gets.
+ */
+export function getRowFilterInputState({
+  operator,
+  values,
+  datatype,
+  topValues,
+}: {
+  operator: RowFilter["operator"];
+  values: string[] | undefined;
+  datatype: string;
+  topValues: string[] | undefined;
+}) {
+  const operatorInputRequired =
+    operator !== "sql_expr" && operator !== "saved_filter";
+
+  const operatorOptions: SingleValue[] = [];
+  const valueOptions: SingleValue[] = [];
+  let inputType: "text" | "number" = "text";
+  let isDateColumn = false;
+  let displayOperator = operator;
+
+  if (operatorInputRequired) {
+    if (datatype === "number") inputType = "number";
+    if (datatype === "date") isDateColumn = true;
+
+    topValues?.forEach((v) => {
+      if (v) valueOptions.push({ label: v, value: v });
+    });
+
+    // Booleans are stored as `= true`/`= false` but read better as
+    // is_true/is_false. Derived for display only — writing it back onto the
+    // filter during render would mutate the caller's state in place.
+    if (datatype === "boolean" && operator === "=") {
+      displayOperator = values?.[0] === "true" ? "is_true" : "is_false";
+    }
+
+    // An operator that no longer suits the column (or arrived via the API)
+    // still has to be listed, or the select would show an empty value.
+    const allowed = getAllowedOperators(datatype);
+    const operatorsToShow = allowed.includes(displayOperator)
+      ? allowed
+      : [...allowed, displayOperator];
+
+    operatorOptions.push(
+      ...operatorsToShow.map((op) => ({
+        label: operatorLabelMap[op],
+        value: op,
+      })),
+    );
+  }
+
+  const valueInputRequired = !VALUELESS_OPERATORS.includes(operator);
+  const multiValueInput = operator === "in" || operator === "not_in";
+  const useValueOptions =
+    valueOptions.length > 0 && ["in", "not_in", "=", "!="].includes(operator);
+
+  // Keep already-chosen values selectable even when they aren't top values
+  if (useValueOptions) {
+    values?.forEach((v) => {
+      if (v && !valueOptions.find((o) => o.value === v)) {
+        valueOptions.push({ label: v, value: v });
+      }
+    });
+  }
+
+  return {
+    operatorInputRequired,
+    inputType,
+    isDateColumn,
+    displayOperator,
+    operatorOptions,
+    valueOptions,
+    valueInputRequired,
+    multiValueInput,
+    useValueOptions,
+  };
+}
+
+export type RowFilterInputState = ReturnType<typeof getRowFilterInputState>;

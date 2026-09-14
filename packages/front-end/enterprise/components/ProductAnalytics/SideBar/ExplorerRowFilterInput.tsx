@@ -1,12 +1,10 @@
 import { Flex } from "@radix-ui/themes";
 import { RowFilter } from "shared/types/fact-table";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { isEqual } from "lodash";
 import Text from "@/ui/Text";
-import {
-  ExplorerFilterRow,
-  type ExplorerRowFilter,
-  type FilterColumnSource,
-} from "./ExplorerFilterRow";
+import { type FilterColumnSource } from "@/components/FactTables/rowFilterUtils";
+import { ExplorerFilterRow, type ExplorerRowFilter } from "./ExplorerFilterRow";
 
 /** Strip front-end-only fields for setValue (commit). */
 function toRowFilter(f: ExplorerRowFilter): RowFilter {
@@ -35,29 +33,53 @@ export function ExplorerRowFilterInput({
     })),
   );
 
-  const validFilters = useMemo(
-    () => localFilters.filter((f) => !f.disabled),
-    [localFilters],
-  );
+  // What this component last pushed up. Anything else arriving in `value` came
+  // from outside (a parent appending a row, the sample rows modal saving) and
+  // has to be adopted into local state.
+  const lastCommittedRef = useRef<RowFilter[]>(value);
 
   useEffect(() => {
-    if (value.length > validFilters.length) {
-      setLocalFilters((prev) => [
-        ...prev,
-        ...value.slice(validFilters.length).map((f) => ({
-          ...f,
+    if (isEqual(value, lastCommittedRef.current)) return;
+    lastCommittedRef.current = value;
+
+    // Walk the enabled rows in order and re-point each at its counterpart in
+    // `value`, keeping `_localId` and `collapsed` so an external edit doesn't
+    // remount or re-expand the rows around it. Disabled rows aren't in `value`
+    // at all, so they stay put.
+    setLocalFilters((prev) => {
+      const next: ExplorerRowFilter[] = [];
+      let i = 0;
+      for (const f of prev) {
+        if (f.disabled) {
+          next.push(f);
+        } else if (i < value.length) {
+          next.push({
+            ...value[i++],
+            _localId: f._localId,
+            disabled: false,
+            collapsed: f.collapsed,
+          });
+        }
+        // else: dropped externally, so drop it locally too
+      }
+      while (i < value.length) {
+        next.push({
+          ...value[i++],
           _localId: assignId(),
           disabled: false,
           collapsed: false,
-        })),
-      ]);
-    }
-  }, [value, validFilters.length]);
+        });
+      }
+      return next;
+    });
+    // assignId is a stable ref bump, not reactive
+  }, [value]);
 
   const commit = useCallback(
     (filters: ExplorerRowFilter[]) => {
-      const valid = filters.filter((f) => !f.disabled);
-      setValue(valid.map(toRowFilter));
+      const valid = filters.filter((f) => !f.disabled).map(toRowFilter);
+      lastCommittedRef.current = valid;
+      setValue(valid);
     },
     [setValue],
   );

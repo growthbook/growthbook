@@ -1,80 +1,56 @@
 import { Flex } from "@radix-ui/themes";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
-import { PiPlus, PiX } from "react-icons/pi";
-import { useState } from "react";
-import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/ui/MultiSelectField";
-import SelectField, {
-  GroupedValue,
-  SingleValue,
-} from "@/components/Forms/SelectField";
-import StringArrayField from "@/ui/StringArrayField";
+import { PiX } from "react-icons/pi";
+import { useMemo, useState } from "react";
+import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import {
-  NUMBER_PATTERN,
-  numberRegex,
-  getAllowedOperators,
-  operatorLabelMap,
-  getColumnInfo,
-  getAttributeFieldsExposedAsColumns,
-  cleanupDateColumnValues,
   reshapeDateValuesOnOperatorChange,
-  FACT_TABLE_TIMESTAMP_COLUMN,
   hideTimeColumn,
+  factTableToColumnSource,
+  getRowFilterColumnChange,
+  getRowFilterInputState,
+  getRowFilterSelectOptions,
+  getRowFilterSelectValue,
 } from "./rowFilterUtils";
-import { DateColumnFilterInput } from "./DateColumnFilterInput";
+import { RowFilterValueInput } from "./RowFilterValueInput";
+import { RowFilterActions } from "./RowFilterActions";
 
 export function RowFilterInput({
   value,
   setValue,
   factTable,
+  showSampleRows = true,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
-  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  factTable: Pick<
+    FactTableInterface,
+    "id" | "columns" | "filters" | "userIdTypes"
+  >;
+  /** False when rendered inside the sample rows modal, which is this form. */
+  showSampleRows?: boolean;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
-  const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
+  const columnSource = useMemo(
+    () => factTableToColumnSource(factTable),
+    [factTable],
+  );
 
   return (
     <Flex direction="column" gap="2">
       <strong>Row Filter</strong>
       {value.map((filter, i) => {
-        const columnOptions: SingleValue[] = [];
-
-        factTable.columns.forEach((col) => {
-          if (factTable.userIdTypes?.includes(col.column)) return;
-          if (col.deleted) return;
-          if (
-            hideTimeColumn({
-              column: col.column,
-              timeColumn: FACT_TABLE_TIMESTAMP_COLUMN,
+        const columnOptions = columnSource.columns.filter(
+          (o) =>
+            !hideTimeColumn({
+              column: o.value,
+              timeColumn: columnSource.timeColumn,
               selectedColumn: filter.column,
-            })
-          )
-            return;
-
-          columnOptions.push({
-            label: col.name || col.column,
-            value: col.column,
-          });
-
-          // Add JSON fields as separate options
-          if (col.jsonFields) {
-            Object.keys(col.jsonFields).forEach((field) => {
-              if (
-                col.column === "attributes" &&
-                hiddenAttributeFields.has(field)
-              )
-                return;
-              columnOptions.push({
-                label: `${col.name || col.column}.${field}`,
-                value: `${col.column}.${field}`,
-              });
-            });
-          }
-        });
+            }),
+        );
         if (
+          filter.operator !== "saved_filter" &&
           filter.column &&
           !columnOptions.find((o) => o.value === filter.column)
         ) {
@@ -83,138 +59,31 @@ export function RowFilterInput({
             value: filter.column,
           });
         }
-        const firstSelectOptions: GroupedValue[] = [
-          {
-            label: "Columns",
-            options: columnOptions,
-          },
-          {
-            label: "Other",
-            options: [
-              {
-                label: "SQL Expression",
-                value: "$$sql_expr",
-              },
-              ...(factTable.filters.length > 0 ||
-              filter.operator === "saved_filter"
-                ? [
-                    {
-                      label: "Saved Filter",
-                      value: "$$saved_filter",
-                    },
-                  ]
-                : []),
-            ],
-          },
-        ];
 
-        const operatorInputRequired =
-          filter.operator !== "sql_expr" && filter.operator !== "saved_filter";
+        const firstSelectOptions = getRowFilterSelectOptions({
+          columnOptions,
+          savedFilters: columnSource.savedFilters,
+          selectedSavedFilterId:
+            filter.operator === "saved_filter" ? filter.values?.[0] : undefined,
+        });
 
-        const firstSelectCompleted = !operatorInputRequired || !!filter.column;
+        const { datatype, topValues } = columnSource.getColumnInfo(
+          filter.column,
+        );
+        const state = getRowFilterInputState({
+          operator: filter.operator,
+          values: filter.values,
+          datatype,
+          topValues,
+        });
 
-        const operatorOptions: SingleValue[] = [];
-        const valueOptions: SingleValue[] = [];
-        let allowCreatingNewOptions = true;
-
-        if (filter.operator === "saved_filter") {
-          allowCreatingNewOptions = false;
-          valueOptions.push(
-            ...factTable.filters.map((f) => ({
-              label: f.name,
-              value: f.id,
-            })),
-          );
-          if (
-            filter.values &&
-            filter.values[0] &&
-            !factTable.filters.find((f) => f.id === filter.values?.[0])
-          ) {
-            valueOptions.push({
-              label: `${filter.values[0]} (Deleted)`,
-              value: filter.values[0],
-            });
-          }
-        }
-
-        const { datatype, topValues } = getColumnInfo(factTable, filter.column);
-
-        let inputType: "text" | "number" = "text";
-        let isDateColumn = false;
-
-        if (operatorInputRequired) {
-          const allowedOperators = getAllowedOperators(datatype);
-
-          if (datatype === "number") {
-            inputType = "number";
-          }
-
-          if (datatype === "date") {
-            isDateColumn = true;
-          }
-
-          if (topValues) {
-            topValues.forEach((v) => {
-              if (v) {
-                valueOptions.push({
-                  label: v,
-                  value: v,
-                });
-              }
-            });
-          }
-
-          // For boolean columns, remap =true/false to is_true/is_false
-          if (datatype === "boolean") {
-            if (filter.operator === "=") {
-              filter.operator =
-                filter.values?.[0] === "true" ? "is_true" : "is_false";
-            }
-          }
-
-          if (!allowedOperators.includes(filter.operator)) {
-            allowedOperators.push(filter.operator);
-          }
-
-          operatorOptions.push(
-            ...allowedOperators.map((op) => ({
-              label: operatorLabelMap[op],
-              value: op,
-            })),
-          );
-        }
-
-        const valueInputRequired = ![
-          "is_true",
-          "is_false",
-          "is_null",
-          "not_null",
-        ].includes(filter.operator);
-
-        const multiValueInput = ["in", "not_in"].includes(filter.operator);
-
-        const useValueOptions =
-          (valueOptions.length > 0 || !allowCreatingNewOptions) &&
-          ["in", "not_in", "=", "!=", "saved_filter"].includes(filter.operator);
-
-        // Make sure all current values are in the options
-        if (useValueOptions) {
-          filter.values?.forEach((v) => {
-            if (v && !valueOptions.find((o) => o.value === v)) {
-              valueOptions.push({
-                label: v,
-                value: v,
-              });
-            }
-          });
-        }
+        const isSqlExpr = filter.operator === "sql_expr";
+        const firstSelectCompleted =
+          !state.operatorInputRequired || !!filter.column;
 
         const updateRowFilter = (updates: Partial<RowFilter>) => {
           const newFilters = [...value];
-          newFilters[i] = {
-            ...filter,
-            ...updates,
-          };
+          newFilters[i] = { ...filter, ...updates };
           setValue(newFilters);
         };
 
@@ -229,65 +98,30 @@ export function RowFilterInput({
             align="center"
           >
             {i > 0 && <div>AND</div>}
-            <SelectField
-              size="small"
-              value={
-                filter.operator === "sql_expr"
-                  ? "$$sql_expr"
-                  : filter.operator === "saved_filter"
-                    ? "$$saved_filter"
-                    : filter.column || ""
-              }
-              onChange={(v) => {
-                if (v === "$$sql_expr") {
-                  updateRowFilter({
-                    operator: "sql_expr",
-                    values: [],
-                  });
-                } else if (v === "$$saved_filter") {
-                  updateRowFilter({
-                    operator: "saved_filter",
-                    values: [],
-                  });
-                } else {
-                  const { datatype } = getColumnInfo(factTable, v);
-
-                  let newOperator = filter.operator;
-                  let newValues = filter.values || [];
-
-                  // If current operator is not valid for new datatype, reset it
-                  const allowedOperators = getAllowedOperators(datatype);
-                  if (!allowedOperators.includes(newOperator)) {
-                    newOperator = allowedOperators[0];
-                    newValues = [];
-                  }
-
-                  if (datatype === "number") {
-                    // If changing to number, remove any non-number values
-                    newValues = newValues.filter((v) => numberRegex.test(v));
-                  }
-
-                  if (datatype === "date") {
-                    newValues = cleanupDateColumnValues(newValues);
-                  }
-
-                  updateRowFilter({
-                    operator: newOperator,
-                    column: v,
-                    values: newValues,
-                  });
-                }
-              }}
-              options={firstSelectOptions}
-              autoFocus={autoFocus}
-              sort={false}
-              placeholder="Filter by..."
-              required
-            />
-            {operatorInputRequired && firstSelectCompleted && (
+            {isSqlExpr ? null : (
               <SelectField
                 size="small"
-                value={filter.operator}
+                value={getRowFilterSelectValue(filter)}
+                onChange={(v) =>
+                  updateRowFilter(
+                    getRowFilterColumnChange(
+                      v,
+                      filter,
+                      columnSource.getColumnInfo(v).datatype,
+                    ),
+                  )
+                }
+                options={firstSelectOptions}
+                autoFocus={autoFocus}
+                sort={false}
+                placeholder="Filter by..."
+                required
+              />
+            )}
+            {state.operatorInputRequired && firstSelectCompleted && (
+              <SelectField
+                size="small"
+                value={state.displayOperator}
                 onChange={(v: RowFilter["operator"]) => {
                   let newValues = filter.values || [];
 
@@ -303,98 +137,26 @@ export function RowFilterInput({
                     newValues,
                     filter.operator,
                     v,
-                    isDateColumn,
+                    state.isDateColumn,
                   );
 
-                  updateRowFilter({
-                    operator: v,
-                    values: newValues,
-                  });
+                  updateRowFilter({ operator: v, values: newValues });
                 }}
-                options={operatorOptions}
+                options={state.operatorOptions}
                 sort={false}
                 required
               />
             )}
-            {valueInputRequired && firstSelectCompleted && (
-              <>
-                {isDateColumn && !multiValueInput ? (
-                  <DateColumnFilterInput
-                    operator={filter.operator}
-                    values={filter.values}
-                    onChange={(values) => updateRowFilter({ values })}
-                    inputWidth={260}
-                  />
-                ) : multiValueInput && useValueOptions ? (
-                  <MultiSelectField
-                    size="md"
-                    value={filter.values || []}
-                    onChange={(v) => {
-                      updateRowFilter({
-                        values: v,
-                      });
-                    }}
-                    options={valueOptions}
-                    creatable={allowCreatingNewOptions}
-                    sort={false}
-                    autoFocus={autoFocus}
-                    pattern={
-                      inputType === "number" ? NUMBER_PATTERN : undefined
-                    }
-                    required
-                  />
-                ) : multiValueInput ? (
-                  <StringArrayField
-                    size="md"
-                    value={filter.values || []}
-                    onChange={(v) => {
-                      updateRowFilter({
-                        values: v,
-                      });
-                    }}
-                    delimiters={["Enter", "Tab"]}
-                    autoFocus={autoFocus}
-                    pattern={
-                      inputType === "number" ? NUMBER_PATTERN : undefined
-                    }
-                    required
-                  />
-                ) : useValueOptions ? (
-                  <SelectField
-                    size="small"
-                    value={filter.values?.[0] || ""}
-                    onChange={(v) => {
-                      updateRowFilter({
-                        values: [v],
-                      });
-                    }}
-                    options={valueOptions}
-                    createable={allowCreatingNewOptions}
-                    sort={false}
-                    autoFocus={autoFocus}
-                    pattern={
-                      inputType === "number" ? NUMBER_PATTERN : undefined
-                    }
-                    required
-                  />
-                ) : (
-                  <Field
-                    size="md"
-                    value={filter.values?.[0] || ""}
-                    onChange={(e) => {
-                      updateRowFilter({
-                        values: [e.target.value],
-                      });
-                    }}
-                    textarea={filter.operator === "sql_expr"}
-                    minRows={1}
-                    autoFocus={autoFocus}
-                    type={inputType}
-                    step={inputType === "number" ? "any" : undefined}
-                    required
-                  />
-                )}
-              </>
+            {state.valueInputRequired && firstSelectCompleted && (
+              <RowFilterValueInput
+                state={state}
+                operator={filter.operator}
+                values={filter.values}
+                onChange={(values) => updateRowFilter({ values })}
+                autoFocus={autoFocus}
+                dateInputWidth={260}
+                sqlContainerClassName="flex-grow-1"
+              />
             )}
             <Button
               variant="ghost"
@@ -412,23 +174,12 @@ export function RowFilterInput({
           </Flex>
         );
       })}
-      <div>
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            const newFilters = [...value];
-            newFilters.push({
-              column: "",
-              operator: "=",
-              values: [""],
-            });
-            setValue(newFilters);
-          }}
-        >
-          <PiPlus /> Add
-        </a>
-      </div>
+      <RowFilterActions
+        value={value}
+        setValue={setValue}
+        factTableId={factTable.id}
+        showSampleRows={showSampleRows}
+      />
     </Flex>
   );
 }

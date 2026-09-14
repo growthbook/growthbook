@@ -3,6 +3,7 @@ import {
   canInlineFilterColumn,
   expandVirtualColumnsInSql,
   getFactTableTimestampColumn,
+  getRowFilterSQL,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
@@ -15,11 +16,14 @@ import {
   UpdateFactFilterProps,
   UpdateColumnProps,
   UpdateFactTableProps,
+  RowFilterTestResults,
   TestFactFilterProps,
+  TestRowFiltersProps,
   TestVirtualColumnProps,
   FactFilterTestResults,
   ColumnInterface,
   FactTableColumnType,
+  RowFilter,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
@@ -46,6 +50,7 @@ import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getSourceIntegrationObject,
   getIntegrationIdentifierQuote,
+  getIntegrationSqlDialect,
 } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
@@ -158,6 +163,84 @@ async function testFilterQuery(
   } catch (e) {
     return {
       sql,
+      error: e.message,
+    };
+  }
+}
+
+/** Number of sample rows returned by the row filter preview. */
+const SAMPLE_ROWS_LIMIT = 20;
+
+async function testRowFiltersQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: FactTableInterface,
+  rowFilters: RowFilter[],
+): Promise<RowFilterTestResults> {
+  if (!context.permissions.canRunTestQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (!integration.getTestQuery || !integration.runTestQuery) {
+    throw new Error("Testing not supported on this data source");
+  }
+
+  const dialect = getIntegrationSqlDialect(integration);
+  if (!dialect) {
+    throw new Error("Sample rows are not supported on this Data Source");
+  }
+
+  // getRowFilterSQL already expands virtual columns (both in column references
+  // and in sql_expr/saved_filter bodies), so the clauses go in as-is.
+  const where = rowFilters
+    .map((rowFilter) =>
+      getRowFilterSQL({
+        rowFilter,
+        factTable,
+        jsonExtract: dialect.jsonExtract,
+        escapeStringLiteral: dialect.escapeStringLiteral,
+        stringMatch: dialect.stringMatch,
+        evalBoolean: dialect.evalBoolean,
+        castToTimestamp: dialect.castToTimestamp,
+        identifierQuote: dialect.identifierQuote,
+      }),
+    )
+    .filter((sql): sql is string => sql !== null);
+
+  const whereClause = where.join("\n  AND ");
+
+  const timestampColumn = getFactTableTimestampColumn(factTable);
+
+  const sql = integration.getTestQuery({
+    // Must have a newline after factTable sql in case it ends with a comment.
+    query: `SELECT * FROM (
+      ${factTable.sql}
+    ) f${whereClause ? `\nWHERE ${whereClause}` : ""}`,
+    templateVariables: {
+      eventName: factTable.eventName,
+    },
+    testDays: context.org.settings?.testQueryDays,
+    timestampColumn,
+    limit: SAMPLE_ROWS_LIMIT,
+  });
+
+  try {
+    const results = await integration.runTestQuery(
+      sql,
+      [timestampColumn],
+      "factTableValidation",
+    );
+    return {
+      sql,
+      where: whereClause,
+      ...results,
+    };
+  } catch (e) {
+    return {
+      sql,
+      where: whereClause,
       error: e.message,
     };
   }
@@ -1106,6 +1189,38 @@ export const postFactFilterTest = async (
     datasource,
     factTable,
     data.value,
+  );
+
+  res.status(200).json({
+    status: 200,
+    result,
+  });
+};
+
+export const postRowFiltersTest = async (
+  req: AuthRequest<TestRowFiltersProps, { id: string }>,
+  res: Response<{
+    status: 200;
+    result: RowFilterTestResults;
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  const result = await testRowFiltersQuery(
+    context,
+    datasource,
+    factTable,
+    req.body.rowFilters,
   );
 
   res.status(200).json({

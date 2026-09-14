@@ -30,7 +30,8 @@ import {
   getFunnelStepPreview,
   getInitialInlineFilters,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { factTableToColumnSource } from "./ExplorerFilterRow";
+import { RowFilterActions } from "@/components/FactTables/RowFilterActions";
+import { factTableToColumnSource } from "@/components/FactTables/rowFilterUtils";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import styles from "./ValueCard.module.scss";
 
@@ -378,59 +379,46 @@ export default function FunnelStepCard({
                 value={step.rowFilters}
                 setValue={handleFiltersChange}
               />
-              <Flex
-                justify={showFunnelUnitOnFilterRow ? "between" : "start"}
-                align="center"
-                mt="2"
-              >
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    handleFiltersChange([
-                      ...step.rowFilters,
-                      { column: "", operator: "=", values: [] },
-                    ]);
-                  }}
+              <Box mt="2">
+                <RowFilterActions
+                  value={step.rowFilters}
+                  setValue={handleFiltersChange}
+                  showSampleRows={false}
                 >
-                  <Flex align="center" gap="2">
-                    <PiPlus size={14} />
-                    Add Filter
-                  </Flex>
-                </Button>
-                {showFunnelUnitOnFilterRow && (
-                  <DropdownMenu
-                    open={unitDropdownOpen}
-                    onOpenChange={setUnitDropdownOpen}
-                    trigger={
-                      <Button size="sm" variant="ghost">
-                        <Flex align="center" gap="2">
-                          <PiUserFill size={14} />
-                          {funnelUnit ?? funnelUnitOptions[0]}
-                        </Flex>
-                      </Button>
-                    }
-                  >
-                    {funnelUnitOptions.map((u) => (
-                      <DropdownMenuItem
-                        key={u}
-                        onClick={() => {
-                          setDraftExploreState((prev) => {
-                            if (prev.dataset.type !== "funnel") return prev;
-                            return {
-                              ...prev,
-                              dataset: { ...prev.dataset, unit: u },
-                            } as ExplorationConfig;
-                          });
-                          setUnitDropdownOpen(false);
-                        }}
-                      >
-                        <Text>{u}</Text>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenu>
-                )}
-              </Flex>
+                  {showFunnelUnitOnFilterRow && (
+                    <DropdownMenu
+                      open={unitDropdownOpen}
+                      onOpenChange={setUnitDropdownOpen}
+                      trigger={
+                        <Button size="sm" variant="ghost">
+                          <Flex align="center" gap="2">
+                            <PiUserFill size={14} />
+                            {funnelUnit ?? funnelUnitOptions[0]}
+                          </Flex>
+                        </Button>
+                      }
+                    >
+                      {funnelUnitOptions.map((u) => (
+                        <DropdownMenuItem
+                          key={u}
+                          onClick={() => {
+                            setDraftExploreState((prev) => {
+                              if (prev.dataset.type !== "funnel") return prev;
+                              return {
+                                ...prev,
+                                dataset: { ...prev.dataset, unit: u },
+                              } as ExplorationConfig;
+                            });
+                            setUnitDropdownOpen(false);
+                          }}
+                        >
+                          <Text>{u}</Text>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenu>
+                  )}
+                </RowFilterActions>
+              </Box>
             </Box>
           )}
 

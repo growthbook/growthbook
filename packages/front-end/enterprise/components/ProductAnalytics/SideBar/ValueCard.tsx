@@ -3,7 +3,6 @@ import { Flex, Box, TextField } from "@radix-ui/themes";
 import {
   PiX,
   PiPencilSimple,
-  PiPlus,
   PiCaretDown,
   PiCaretUp,
   PiUserFill,
@@ -17,10 +16,11 @@ import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
+import { RowFilterActions } from "@/components/FactTables/RowFilterActions";
 import {
   factTableToColumnSource,
   columnTypesToColumnSource,
-} from "./ExplorerFilterRow";
+} from "@/components/FactTables/rowFilterUtils";
 import styles from "./ValueCard.module.scss";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 
@@ -249,55 +249,44 @@ export default function ValueCard({
             </Box>
           )}
         </Box>
-        <Flex justify="between" align="center" mt="2">
-          <Button
-            size="sm"
-            variant="ghost"
-            style={{ maxWidth: "fit-content" }}
-            onClick={() => {
-              handleFiltersChange([
-                ...filters,
-                { column: "", operator: "=", values: [] },
-              ]);
-            }}
+        <Box mt="2">
+          <RowFilterActions
+            value={filters}
+            setValue={handleFiltersChange}
             disabled={!canAddFilter}
+            showSampleRows={false}
           >
-            <Flex align="center" gap="2">
-              <PiPlus size={14} />
-              Add Filter
-            </Flex>
-          </Button>
-
-          {factTable && supportsUnitSelection && (
-            <DropdownMenu
-              open={unitDropdownOpen}
-              onOpenChange={setUnitDropdownOpen}
-              trigger={
-                <Button size="sm" variant="ghost">
-                  <Flex align="center" gap="2">
-                    <PiUserFill />{" "}
-                    {dataset.values[index].unit ?? "Select Unit..."}
-                  </Flex>
-                </Button>
-              }
-            >
-              {factTable?.userIdTypes.map((t) => (
-                <DropdownMenuItem
-                  key={t}
-                  onClick={() => {
-                    updateValueInDataset(index, {
-                      ...dataset.values[index],
-                      unit: t || null,
-                    });
-                    setUnitDropdownOpen(false);
-                  }}
-                >
-                  <Text>{t}</Text>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenu>
-          )}
-        </Flex>
+            {factTable && supportsUnitSelection && (
+              <DropdownMenu
+                open={unitDropdownOpen}
+                onOpenChange={setUnitDropdownOpen}
+                trigger={
+                  <Button size="sm" variant="ghost">
+                    <Flex align="center" gap="2">
+                      <PiUserFill />{" "}
+                      {dataset.values[index].unit ?? "Select Unit..."}
+                    </Flex>
+                  </Button>
+                }
+              >
+                {factTable?.userIdTypes.map((t) => (
+                  <DropdownMenuItem
+                    key={t}
+                    onClick={() => {
+                      updateValueInDataset(index, {
+                        ...dataset.values[index],
+                        unit: t || null,
+                      });
+                      setUnitDropdownOpen(false);
+                    }}
+                  >
+                    <Text>{t}</Text>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenu>
+            )}
+          </RowFilterActions>
+        </Box>
       </Collapsible>
     </Box>
   );
