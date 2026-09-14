@@ -141,8 +141,12 @@ export default function TargetingProjectsField({
                       value={targetingProjects}
                       onChange={setTargetingProjects}
                       options={options}
+                      // A selected value must stay enabled or react-select hides
+                      // its remove control; it is disabled once removed.
                       isOptionDisabled={(o) =>
-                        "value" in o && !canTarget(o.value)
+                        "value" in o &&
+                        !canTarget(o.value) &&
+                        !targetingProjects.includes(o.value)
                       }
                       placeholder="No Projects selected"
                       sort={false}

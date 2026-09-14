@@ -17,6 +17,7 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
+  PermissionError,
   featureReviewCandidateProjects,
   ANY_REVIEW_FOOTPRINT,
   MergeResultChanges,
@@ -1720,6 +1721,56 @@ export async function postFeatureApproveAndPublish(
     });
     if (governance.rebaseRequired && governance.blockReason) {
       throw new Error(governance.blockReason);
+    }
+  }
+
+  // Model the approval about to be written and ask the publish question the
+  // publish path will ask. A reviewer eligible only through a targeting
+  // project can approve, but that approval alone lands nothing; refusing
+  // here keeps the revision out of an "approved but unpublishable" state.
+  if (!adminOverride) {
+    const projected = await assessRevisionApproval({
+      context,
+      feature,
+      revision: {
+        ...revision,
+        status: "approved",
+        reviews: [
+          ...(revision.reviews ?? []).filter(
+            (r) => r.userId !== context.userId,
+          ),
+          {
+            userId: context.userId,
+            user: res.locals.eventAudit,
+            status: "approved",
+            timestamp: new Date(),
+          },
+        ],
+      },
+      effectiveRevision: {
+        ...filledLive,
+        ...mergeResult.result,
+        rules: mergeResult.result.rules ?? filledLive.rules ?? [],
+        rampActions: revision.rampActions,
+      },
+      filledLive,
+      base,
+    });
+    if (projected.requiresReview && !projected.satisfied) {
+      const reasons = [
+        ...(projected.hasCoveringApproval
+          ? []
+          : ["it does not cover the primary project's changes"]),
+        ...projected.requiredApproverTeams.unmet.map(
+          (t) => `it lacks ${t.map((x) => x.name).join(" or ")}`,
+        ),
+        ...projected.requiredProjectApprovers.unmet.map(
+          (p) => `a reviewer in the ${p.name} project must also approve`,
+        ),
+      ];
+      throw new Error(
+        `Your approval alone would not allow publishing: ${reasons.join("; ")}. Approve without publishing instead.`,
+      );
     }
   }
 
@@ -5749,26 +5800,30 @@ export async function putFeature(
       // not strand it as an orphan the caller never asked for.
       try {
         await assertCanAutoPublish(context, feature, draft);
-      } catch (e) {
-        await deleteRevisionForFailedLanding(
+        updatedFeature = await publishRevision({
           context,
-          org.id,
-          feature.id,
-          draft.version,
-        );
+          feature,
+          revision: draft,
+          result: envelopeChanges,
+          bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+            feature,
+            "feature",
+          ),
+          skipPrevalidateValidation: true,
+        });
+      } catch (e) {
+        // Authority is refused before anything lands, so the draft is the only
+        // residue; other failures may have landed and keep it for recovery.
+        if (e instanceof PermissionError) {
+          await deleteRevisionForFailedLanding(
+            context,
+            org.id,
+            feature.id,
+            draft.version,
+          );
+        }
         throw e;
       }
-      updatedFeature = await publishRevision({
-        context,
-        feature,
-        revision: draft,
-        result: envelopeChanges,
-        bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-          feature,
-          "feature",
-        ),
-        skipPrevalidateValidation: true,
-      });
     }
     // Keep the tag autocomplete table in sync (side-effect; revision already captures the values).
     if (metadataUpdates.tags !== undefined) {

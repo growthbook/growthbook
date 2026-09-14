@@ -249,6 +249,12 @@ export type PublishGateClearance = {
 // names a required permission) the caller holds that permission. A gate without
 // an override is never cleared here. Pure — the flag-clearing primitive shared
 // by the disposition logic and exported for unit tests.
+const REVIEW_GATE_TYPES = new Set([
+  "approval-required",
+  "required-approvers-missing",
+  "required-project-approvers-missing",
+]);
+
 export function unclearedGates(
   gates: PublishGate[],
   flags: PublishOverrideFlags,
@@ -320,7 +326,9 @@ export function classifyPublishGate(
 
   if (gate.type === "config-locked") return { outcome: "blocking" };
 
-  if (gate.type === "approval-required") {
+  // The named-team and targeting-project gates are the review requirement's
+  // own sub-conditions, so whatever bypasses the review bypasses them.
+  if (REVIEW_GATE_TYPES.has(gate.type)) {
     if (clearance.restApiBypassesReviews) {
       return { outcome: "bypassed", via: "restApiBypassesReviews" };
     }

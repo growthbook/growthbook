@@ -284,14 +284,16 @@ export function rebasePullsInNothing(
 // feasibility rather than refuse outright — bulk publish collects gates instead
 // of throwing. Delegates rather than reimplements so a bulk publish and a single
 // publish can never disagree about what is allowed.
-export async function canPublishFeatureRevisionChange(
+// The refusal message, or null when the caller may publish. Bulk publish
+// reports it as a gate instead of throwing mid-batch.
+export async function featurePublishRefusal(
   args: Parameters<typeof assertCanPublishFeatureRevision>[0],
-): Promise<boolean> {
+): Promise<string | null> {
   try {
     await assertCanPublishFeatureRevision(args);
-    return true;
+    return null;
   } catch (e) {
-    if (e instanceof PermissionError) return false;
+    if (e instanceof PermissionError) return e.message;
     throw e;
   }
 }

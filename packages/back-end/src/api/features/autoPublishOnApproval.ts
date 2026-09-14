@@ -1,6 +1,10 @@
 import { ExperimentRefRule } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
+import {
+  holdsTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   filterEnvironmentsByFeature,
@@ -154,10 +158,28 @@ export async function canPublishFeatureRevision(
   // in the DESTINATION, so arming a schedule for it commits a future publish there —
   // judging the live feature's scope alone let someone arm a publish they cannot
   // perform, which then failed on every poller tick until it gave up.
-  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+  revision?:
+    | FeatureRevisionInterface
+    | {
+        metadata?: {
+          project?: string;
+          targetingAllProjects?: boolean;
+          targetingProjects?: string[];
+        };
+      },
 ): Promise<boolean> {
   const environmentIds = await armingEnvironments(context, feature, revision);
   if (!context.permissions.canPublishFeature(feature, environmentIds)) {
+    return false;
+  }
+  // Same rule as a move: a draft that widens targeting lands in those projects.
+  if (
+    !holdsTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, revision?.metadata),
+    })
+  ) {
     return false;
   }
   const destination = revision?.metadata?.project;
