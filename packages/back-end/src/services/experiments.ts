@@ -197,7 +197,10 @@ import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import {
+  getFeatureProjectsByIds,
+  getFeaturesByIds,
+} from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   getActiveDraftMetadataByFeatureIds,
@@ -2381,6 +2384,15 @@ const PAYLOAD_AFFECTING_EXPERIMENT_FIELDS: (keyof ExperimentInterface)[] = [
   "banditScheduleUnit",
   "banditBurnInValue",
   "banditBurnInUnit",
+  // Bucketing fields. The REST route accepts these and they end up in the SDK
+  // payload, so changing bucketVersion re-buckets every user. The dashboard
+  // edits them on POST /experiment/:id/targeting, which always checks this.
+  "hashAttribute",
+  "fallbackAttribute",
+  "hashVersion",
+  "disableStickyBucketing",
+  "bucketVersion",
+  "minBucketVersion",
 ];
 export async function assertCanRunExperimentChanges(
   context: ReqContext | ApiReqContext,
@@ -2394,10 +2406,22 @@ export async function assertCanRunExperimentChanges(
   const linkedFeatureIds = experiment.linkedFeatures || [];
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
 
+  // getFeaturesByIds drops features the caller cannot read. A feature we cannot
+  // see still serves the experiment, so if any real one is missing we ask for
+  // permission in every environment. Ids of deleted features don't count.
+  let hasUnreadableFeature = false;
+  if (linkedFeatures.length < linkedFeatureIds.length) {
+    const existingIds = await getFeatureProjectsByIds(
+      context,
+      linkedFeatureIds,
+    );
+    hasUnreadableFeature = existingIds.size > linkedFeatures.length;
+  }
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
     orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
+    linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
   });
   if (envs.length > 0) {
     const projects = [experiment.project || undefined];

@@ -1,5 +1,4 @@
 import request from "supertest";
-import { PermissionError } from "shared/util";
 import {
   getExperimentById,
   getExperimentByTrackingKey,
@@ -43,6 +42,12 @@ jest.mock("../../src/models/MetricModel", () => ({
 jest.mock("../../src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
 }));
+
+// Not a plain import: "shared/util" loads shared from src, and import/order
+// would put it above ./api.setup. Loading it first leaves shared/experiments
+// half-loaded, which breaks the GET tests in this file.
+const { PermissionError } =
+  jest.requireActual<typeof import("shared/util")>("shared/util");
 
 describe("experiments API", () => {
   const { app, setReqContext, updateReqContext } = setupApp();
@@ -1240,6 +1245,16 @@ describe("experiments API", () => {
           .send({
             phases: [{ name: "Main", dateStarted: "2026-02-01T00:00:00.000Z" }],
           })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(403);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("refuses a bucketing change without run permission", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ bucketVersion: 2, hashAttribute: "device_id" })
           .set("Authorization", "Bearer foo");
 
         expect(res.status).toBe(403);
