@@ -8,7 +8,8 @@ type ApproverTeam = { id: string; name: string };
 // One entry per rule; any of its teams satisfies that rule.
 type UnmetTeams = ApproverTeam[][];
 // Targeting projects still owed an approval from one of their own reviewers.
-type UnmetProjects = { id: string; name: string }[];
+// `name` is null when the viewer cannot read the project.
+type UnmetProjects = { id: string; name: string | null }[];
 type ReviewFootprint = { scope: string; environments?: readonly string[] };
 
 // "Finance or Dream Team"
@@ -31,7 +32,11 @@ function describeUnmet(unmet: UnmetTeams) {
 // "a reviewer in the Platform Project and a reviewer in the Config Server Project"
 function describeProjects(projects: UnmetProjects) {
   return projects
-    .map((p) => `a reviewer in the ${p.name} Project`)
+    .map((p) =>
+      p.name
+        ? `a reviewer in the ${p.name} Project`
+        : "a reviewer in a Project you don't have access to",
+    )
     .join(" and ");
 }
 

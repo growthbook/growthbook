@@ -267,6 +267,17 @@ export class ProjectModel extends BaseClass {
     }
   }
 
+  // Existence only, unfiltered by read access: for references a caller may
+  // legitimately carry without being able to read the project, such as a
+  // flag's existing Targeting Projects. Authorization is the caller's job.
+  public async ensureProjectIdsExist(projectIds: string[]) {
+    const valid = new Set(await this.getAllIdsForOrg());
+    const missing = projectIds.filter((id) => !valid.has(id));
+    if (missing.length) {
+      throw new Error(`Invalid project ids: ${missing.join(", ")}`);
+    }
+  }
+
   public toApiInterface(project: ProjectInterface): ApiProject {
     return {
       id: project.id,

@@ -498,16 +498,19 @@ export default function FeaturesHeader({
                 value={
                   <Flex gap="1">
                     {projectIsDeReferenced ? (
+                      // The viewer's project list is read-filtered, so this is
+                      // either a Project they cannot see or one since deleted.
                       <Tooltip
                         body={
                           <>
-                            Project <code>{projectId}</code> not found
+                            A Project you don&apos;t have access to, or one that
+                            no longer exists (<code>{projectId}</code>)
                           </>
                         }
                       >
-                        <span className="text-danger">
-                          <PiWarning /> Invalid project
-                        </span>
+                        <Text weight="regular" color="text-mid">
+                          <em>hidden</em>
+                        </Text>
                       </Tooltip>
                     ) : currentProject && currentProject !== feature.project ? (
                       <Tooltip
@@ -548,11 +551,22 @@ export default function FeaturesHeader({
               <Metadata
                 label="Targeting Projects"
                 value={
-                  feature.targetingAllProjects
-                    ? "All Projects"
-                    : (feature.targetingProjects ?? [])
-                        .map((id) => getProjectById(id)?.name || id)
-                        .join(", ")
+                  feature.targetingAllProjects ? (
+                    "All Projects"
+                  ) : (
+                    <>
+                      {(feature.targetingProjects ?? []).map((id, i) => (
+                        <span key={id}>
+                          {i > 0 ? ", " : ""}
+                          {getProjectById(id)?.name || (
+                            <em title="A Project you don't have access to">
+                              hidden
+                            </em>
+                          )}
+                        </span>
+                      ))}
+                    </>
+                  )
                 }
               />
             )}

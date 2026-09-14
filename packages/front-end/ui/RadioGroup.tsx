@@ -133,13 +133,20 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
 
                   if (!disabledReason) return item;
 
+                  // Shrink-wrapped, so only the option itself is hoverable, not
+                  // the whole row.
                   return (
                     <Tooltip
                       key={value}
                       content={disabledReason}
                       enabled={!!disabled}
+                      side="bottom"
                     >
-                      <span style={{ display: "block" }}>{item}</span>
+                      <span
+                        style={{ display: "inline-flex", width: "fit-content" }}
+                      >
+                        {item}
+                      </span>
                     </Tooltip>
                   );
                 },

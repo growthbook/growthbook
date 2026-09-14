@@ -41,10 +41,11 @@ export interface ApprovalCoverage {
     enforcedTeamIds: string[][];
   };
   // Targeting projects whose own review rule fired and still lack an approval
-  // from one of their reviewers.
+  // from one of their reviewers. `name` is null for a project the viewer
+  // cannot read.
   requiredProjects: {
     satisfied: boolean;
-    unmet: { id: string; name: string }[];
+    unmet: { id: string; name: string | null }[];
   };
 }
 
@@ -110,7 +111,7 @@ export function useApprovalCoverage({
       satisfied: coverage.requiredProjects.satisfied,
       unmet: coverage.requiredProjects.unmet.map((id) => ({
         id,
-        name: getProjectById(id)?.name ?? id,
+        name: getProjectById(id)?.name ?? null,
       })),
     }),
     [coverage, getProjectById],
@@ -175,9 +176,10 @@ export function useApprovalCoverage({
     return footprint.environments.filter((e) => !covered.has(e));
   }, [footprint, reviewers, heldEnvsFor]);
 
-  const approvalsCoverFootprint = reviewers.some(
-    (r) => r.status === "approved" && !uncoveredApprovers.has(r.id),
-  );
+  // Covering the PRIMARY project is what sanctions the change. A targeting
+  // project's reviewer contributes to that project's requirement but is not a
+  // covering approval, so "not uncovered" is not the same question.
+  const approvalsCoverFootprint = coverage.hasCoveringApproval;
 
   const primaryProject = projects[0] ?? "";
   const requiredTeams = useMemo(
@@ -247,7 +249,8 @@ export function useApprovalCoverage({
     uncoveredFootprintEnvs,
     approvalsCoverFootprint,
     hasUncoveredApproval:
-      !approvalsCoverFootprint && uncoveredApprovers.size > 0,
+      !approvalsCoverFootprint &&
+      reviewers.some((r) => r.status === "approved"),
     requiredTeams,
     requiredProjects,
   };

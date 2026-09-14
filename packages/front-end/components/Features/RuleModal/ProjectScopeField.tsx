@@ -39,13 +39,24 @@ export default function RuleProjectScopeField({
   const hasExistingScope = !allProjects || selectedProjects.length > 0;
   if (!hasMultipleProjects && !hasExistingScope) return null;
 
-  const selectableProjects =
-    allowedProjectIds == null
+  // `projects` is read-filtered, so a Project the viewer cannot see is never
+  // offered; one already selected still needs a chip so it can be removed.
+  const options = [
+    ...(allowedProjectIds == null
       ? projects
       : projects.filter(
           (p) =>
             allowedProjectIds.includes(p.id) || selectedProjects.includes(p.id),
-        );
+        )
+    ).map((p) => ({ value: p.id, label: p.name })),
+    ...selectedProjects
+      .filter((id) => !projects.some((p) => p.id === id))
+      .map((id) => ({
+        value: id,
+        label: "Hidden Project",
+        tooltip: "A Project you don't have access to",
+      })),
+  ];
 
   const help =
     "Limit this rule to specific Projects. Applies to all of the feature's Projects by default.";
@@ -93,10 +104,7 @@ export default function RuleProjectScopeField({
                     <MultiSelectField
                       value={selectedProjects}
                       onChange={setSelectedProjects}
-                      options={selectableProjects.map((p) => ({
-                        value: p.id,
-                        label: p.name,
-                      }))}
+                      options={options}
                       placeholder="No Projects selected"
                       sort={false}
                       showCopyButton={false}

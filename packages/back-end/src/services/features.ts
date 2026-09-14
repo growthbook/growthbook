@@ -4172,6 +4172,8 @@ export async function assertCanAutoPublish(
     requiresReview &&
     !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
   ) {
-    context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError(
+      "This change requires approval before it can be published. Save it as a draft and request a review.",
+    );
   }
 }

@@ -2,7 +2,10 @@ import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { getReviewSetting } from "shared/util";
+import {
+  governingReviewProjectsForFeature,
+  requiresMetadataReview,
+} from "shared/util";
 import {
   holdsFeatureMoveDestination,
   holdsTargetingDestination,
@@ -60,16 +63,6 @@ const EditFeatureInfoModal: FC<{
     "feature",
   );
 
-  // Gated when requireReviewOn is true and featureRequireMetadataReview is not disabled
-  const metadataGated: boolean = (() => {
-    const raw = settings?.requireReviews;
-    if (raw === true) return true;
-    if (!Array.isArray(raw)) return false;
-    const reviewSetting = getReviewSetting(raw, feature);
-    if (!reviewSetting?.requireReviewOn) return false;
-    return reviewSetting.featureRequireMetadataReview !== false;
-  })();
-
   const { getProjectById } = useDefinitions();
 
   const form = useForm({
@@ -82,6 +75,24 @@ const EditFeatureInfoModal: FC<{
       description: feature.description || "",
     },
   });
+
+  // Judged over every governing project, current and proposed, the way the
+  // endpoint judges it: a targeting project with its own rule can demand
+  // review that the primary project alone would not.
+  const metadataGated = requiresMetadataReview(
+    settings,
+    governingReviewProjectsForFeature({
+      feature,
+      revision: {
+        metadata: {
+          project: form.watch("project"),
+          targetingAllProjects: form.watch("targetingAllProjects"),
+          targetingProjects: form.watch("targetingProjects"),
+        },
+      },
+      settings,
+    }),
+  );
 
   // Publishing metadata requires authority over its footprint and destination.
   const moveDestination = form.watch("project");

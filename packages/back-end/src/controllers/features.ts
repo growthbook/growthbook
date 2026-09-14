@@ -204,6 +204,7 @@ import {
   recordRevisionUpdate,
 } from "back-end/src/services/featureRevisionEvents";
 import {
+  deleteRevisionForFailedLanding,
   cleanUpPreviousRevisions,
   createInitialRevision,
   createRevision,
@@ -818,7 +819,9 @@ export async function postFeatures(
   const createTargetingProjects = (otherProps as Partial<FeatureInterface>)
     .targetingProjects;
   if (createTargetingProjects?.length) {
-    await context.models.projects.ensureProjectsExist(createTargetingProjects);
+    await context.models.projects.ensureProjectIdsExist(
+      createTargetingProjects,
+    );
   }
   // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
   // The linkage write itself deliberately bypasses read scope, so this is the
@@ -5489,8 +5492,9 @@ export async function putFeature(
   if (updates.project && feature.project !== updates.project) {
     await context.models.projects.ensureProjectsExist([updates.project]);
   }
+  // Unfiltered: an existing Targeting Project may be one the caller cannot read.
   if (updates.targetingProjects?.length) {
-    await context.models.projects.ensureProjectsExist(
+    await context.models.projects.ensureProjectIdsExist(
       updates.targetingProjects,
     );
   }
@@ -5741,7 +5745,19 @@ export async function putFeature(
     );
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
-      await assertCanAutoPublish(context, feature, draft);
+      // The draft was created for this publish alone; a refused publish must
+      // not strand it as an orphan the caller never asked for.
+      try {
+        await assertCanAutoPublish(context, feature, draft);
+      } catch (e) {
+        await deleteRevisionForFailedLanding(
+          context,
+          org.id,
+          feature.id,
+          draft.version,
+        );
+        throw e;
+      }
       updatedFeature = await publishRevision({
         context,
         feature,

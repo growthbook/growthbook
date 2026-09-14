@@ -39,9 +39,16 @@ export default function TargetingProjectsField({
   const [enabled, setEnabled] = useState<boolean>(
     () => allProjects || targetingProjects.length > 0,
   );
+  // What the editor opened with. Anything already targeted stays selectable
+  // for the whole edit, so removing it can be undone without the permission
+  // it would take to add it fresh.
+  const [baseline] = useState(() => ({
+    allProjects,
+    targetingProjects,
+  }));
 
   const canTarget = (projectId: string) =>
-    targetingProjects.includes(projectId) ||
+    baseline.targetingProjects.includes(projectId) ||
     permissionsUtil.canTargetFeatureProjects([projectId]);
   // `projects` is already read-filtered, so a restricted Project the viewer
   // cannot see is never offered. One already selected still needs a chip so
@@ -56,16 +63,18 @@ export default function TargetingProjectsField({
           ? {}
           : { tooltip: "You don't have permission to target this Project" }),
       })),
-    ...targetingProjects
+    ...Array.from(
+      new Set([...baseline.targetingProjects, ...targetingProjects]),
+    )
       .filter((id) => !projects.some((p) => p.id === id))
       .map((id) => ({
         value: id,
-        label: id,
+        label: "Hidden Project",
         tooltip: "A Project you don't have access to",
       })),
   ];
   const canTargetAll =
-    allProjects || permissionsUtil.canTargetFeatureProjects("all");
+    baseline.allProjects || permissionsUtil.canTargetFeatureProjects("all");
 
   const help = `Also include this ${entityLabel} in these Projects' SDK payloads`;
 
