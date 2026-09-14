@@ -111,6 +111,50 @@ export const notificationCardSamples: {
     } as NotificationEvent,
   },
   {
+    name: "stopped-lost-frequentist",
+    event: {
+      event: "experiment.status.stopped",
+      data: {
+        object: {
+          ...base,
+          type: "stopped",
+          results: "lost",
+          enableTemporaryRollout: false,
+          reason: "Conversion dropped significantly. Rolling back to control.",
+          totalUsers: 98200,
+          goalMetric: {
+            metricId: "met_checkout_conversion",
+            metricName: "Checkout conversion",
+            snapshotId: "snp_final",
+            statsEngine: "frequentist",
+            differenceType: "relative",
+            control: {
+              variationId: "v0",
+              variationName: "Control",
+              users: 49100,
+              value: 0.051,
+              formattedValue: "5.10%",
+            },
+            variations: [
+              {
+                variationId: "v1",
+                variationName: "Two-step checkout",
+                variationIndex: 1,
+                users: 49100,
+                value: 0.0471,
+                formattedValue: "4.71%",
+                uplift: -0.076,
+                upliftStddev: 0.018,
+                ci: [-0.111, -0.041],
+                pValue: 0.0004,
+              },
+            ],
+          },
+        },
+      },
+    } as NotificationEvent,
+  },
+  {
     name: "srm (legacy payload)",
     event: {
       event: "experiment.warning",

@@ -2,6 +2,7 @@ import {
   type ExperimentStoppedNotificationPayload,
   experimentStoppedNotificationPayload,
 } from "shared/validators";
+import { pValueFormatter } from "shared/util";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import type {
   CardData,
@@ -49,14 +50,34 @@ export function getExperimentStoppedSummary(
   ];
 }
 
+// Significance thresholds for coloring the stat cell. The payload does not
+// carry the org's configured thresholds, so these are the GrowthBook defaults.
+const P_VALUE_THRESHOLD = 0.05;
+const CHANCE_TO_WIN_THRESHOLD = 0.95;
+
 // Goal-metric rows for the results renderer, straight from the immutable
 // payload. Relative numbers arrive as fractions and the card wants percents.
+// Frequentist tests show the p-value in the stat column; bayesian tests show
+// chance to win.
 function goalRows(
   goalMetric: NonNullable<ExperimentStoppedNotificationPayload["goalMetric"]>,
 ): CardGoalRow[] {
+  const frequentist = goalMetric.statsEngine === "frequentist";
   return goalMetric.variations.map((v) => {
     const upliftPct = toPct(v.uplift ?? 0);
     const ci = v.ci ? { lo: toPct(v.ci[0]), hi: toPct(v.ci[1]) } : undefined;
+    const stat = frequentist
+      ? v.pValue !== undefined
+        ? { ctw: pValueFormatter(v.pValue), sig: v.pValue < P_VALUE_THRESHOLD }
+        : {}
+      : v.chanceToWin !== undefined
+        ? {
+            ctw: `${(v.chanceToWin * 100).toFixed(1)}%`,
+            sig:
+              v.chanceToWin >= CHANCE_TO_WIN_THRESHOLD ||
+              v.chanceToWin <= 1 - CHANCE_TO_WIN_THRESHOLD,
+          }
+        : {};
     return {
       v: v.variationName,
       i: v.variationIndex,
@@ -64,9 +85,7 @@ function goalRows(
       vr: v.formattedValue,
       cn: compact(goalMetric.control.users),
       vn: compact(v.users),
-      ...(v.chanceToWin !== undefined
-        ? { ctw: `${(v.chanceToWin * 100).toFixed(1)}%` }
-        : {}),
+      ...stat,
       chg: pct(upliftPct),
       dir: upliftPct >= 0 ? "up" : "down",
       ...(v.upliftStddev !== undefined
@@ -105,6 +124,10 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
     state,
     event: state === "winner" ? "won" : state === "loser" ? "lost" : "stopped",
     goal: data.goalMetric.metricName,
+    statsEngine:
+      data.goalMetric.statsEngine === "frequentist"
+        ? "frequentist"
+        : "bayesian",
     variants: [
       data.goalMetric.control.variationName,
       ...data.goalMetric.variations.map((v) => v.variationName),

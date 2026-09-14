@@ -202,14 +202,45 @@ const VC = ["#3E63DD", "#12A594", "#F76808", "#E93D82"];
 const CARD_WIDTH = 1000;
 const COMPACT_WIDTH = 560;
 const COMPACT_MIN_HEIGHT = 240;
-const COLS = [30, 150, 84, 84, 74, "flex" as const, 82];
 const VIOLIN_DOMAIN: [number, number] = [-20, 20];
 const CI_DOMAIN: [number, number] = [-10, 10];
-// The interval chart (violin / CI pill) spans this width; the flex interval
-// column is wider than the chart, so extra room sits to its right. Extra left
-// padding separates it from the Chance column.
-const INTERVAL_W = 320;
-const INTERVAL_PAD_LEFT = 28;
+
+// Results rows share one layout at two widths: [circle, name, stat, interval,
+// change]. "lg" is the 1000px detailed card, "sm" the 560px compact card. A
+// zero-width column is skipped entirely.
+type RowSize = "lg" | "sm";
+const RESULT_LAYOUT = {
+  lg: {
+    cols: [36, 200, 120, "flex", 120] as const,
+    gap: 14,
+    pad: "16px 28px",
+    headPad: "9px 28px",
+    circle: 24,
+    name: 18,
+    stat: 20,
+    chg: 20,
+    head: 12,
+    vioW: 380,
+    vioH: 56,
+    axis: 11,
+    ci: 12.5,
+  },
+  sm: {
+    cols: [0, 130, 64, "flex", 76] as const,
+    gap: 10,
+    pad: "10px 0",
+    headPad: "6px 0",
+    circle: 0,
+    name: 15,
+    stat: 15,
+    chg: 15,
+    head: 9.5,
+    vioW: 200,
+    vioH: 44,
+    axis: 9,
+    ci: 10,
+  },
+} as const;
 
 const isResultsCard = (card: CardData): card is ExperimentCardData =>
   "rows" in card;
@@ -595,6 +626,7 @@ function ctwColor(ctw?: string): string {
 // A results-table row built from fixed-width flex cells (Satori has no grid).
 function gridRow(
   cells: (El | null)[],
+  size: RowSize,
   opts: {
     padding?: string;
     borderBottom?: string;
@@ -602,119 +634,138 @@ function gridRow(
     opacity?: number;
   } = {},
 ): El {
+  const layout = RESULT_LAYOUT[size];
   return el(
     "div",
     {
       display: "flex",
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
-      padding: opts.padding ?? "11px 24px",
+      gap: layout.gap,
+      padding: opts.padding ?? layout.pad,
       ...(opts.borderBottom ? { borderBottom: opts.borderBottom } : {}),
       ...(opts.backgroundColor
         ? { backgroundColor: opts.backgroundColor }
         : {}),
       ...(opts.opacity !== undefined ? { opacity: opts.opacity } : {}),
     },
-    COLS.map((w, i) => {
-      const align =
-        i >= 2 && i <= 4 ? "flex-end" : i === 6 ? "flex-end" : "flex-start";
-      return el(
-        "div",
-        {
-          display: "flex",
-          alignItems: "center",
-          justifyContent: align,
-          ...(w === "flex"
-            ? { flexGrow: 1, paddingLeft: INTERVAL_PAD_LEFT }
-            : { width: w }),
-        },
-        cells[i] ? [cells[i]] : [],
-      );
-    }),
+    layout.cols
+      .map((w, i) => {
+        if (w === 0) return null;
+        // name + interval left-aligned; stat + change right-aligned.
+        const align = i === 2 || i === 4 ? "flex-end" : "flex-start";
+        return el(
+          "div",
+          {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: align,
+            ...(w === "flex" ? { flexGrow: 1 } : { width: w }),
+          },
+          cells[i] ? [cells[i]] : [],
+        );
+      })
+      .filter(Boolean) as El[],
   );
 }
 
 // The metric's display name on its own line, above the column header. (The
 // name is intentionally NOT in the column header — see the design handoff.)
-function metricNameEl(name: string): El {
+function metricNameEl(name: string, size: RowSize): El {
   return txt(name, {
-    fontSize: 14,
+    fontSize: size === "lg" ? 20 : 15,
     fontWeight: 500,
     color: P.text,
-    padding: "0 24px 9px",
+    padding: size === "lg" ? "0 28px 10px" : "0 0 6px",
   });
 }
 
-function colHeader(): El {
-  // First cell (number circle) and the Interval cell are intentionally
-  // label-less; "Interval" was dropped from the header per product feedback.
-  const labels = ["", "", "Control", "Variation", "Chance", "", "Change"];
+function colHeader(size: RowSize, statLabel: string): El {
+  const layout = RESULT_LAYOUT[size];
+  // The number-circle and interval cells are intentionally label-less.
+  const labels = ["", "", statLabel, "", "Change"];
   return el(
     "div",
     {
       display: "flex",
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
-      padding: "7px 24px",
+      gap: layout.gap,
+      padding: layout.headPad,
       backgroundColor: P.zebra,
     },
-    COLS.map((w, i) => {
-      const align = (i >= 2 && i <= 4) || i === 6 ? "flex-end" : "flex-start";
-      return el(
-        "div",
-        {
-          display: "flex",
-          justifyContent: align,
-          ...(w === "flex" ? { flexGrow: 1 } : { width: w }),
-        },
-        labels[i]
-          ? [
-              txt(labels[i]!, {
-                fontSize: 9.5,
-                fontWeight: 600,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                color: P.subtle,
-              }),
-            ]
-          : [],
-      );
-    }),
+    layout.cols
+      .map((w, i) => {
+        if (w === 0) return null;
+        const align = i === 2 || i === 4 ? "flex-end" : "flex-start";
+        return el(
+          "div",
+          {
+            display: "flex",
+            justifyContent: align,
+            ...(w === "flex" ? { flexGrow: 1 } : { width: w }),
+          },
+          labels[i]
+            ? [
+                txt(labels[i]!, {
+                  fontSize: layout.head,
+                  fontWeight: 600,
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                  color: P.subtle,
+                }),
+              ]
+            : [],
+        );
+      })
+      .filter(Boolean) as El[],
   );
 }
 
-// `label` overrides the row's variation name (used for 2-way tests, where the
-// single treatment row is labeled with the goal metric name instead of the
-// variation name — and the number circle is dropped, mirroring secondary /
-// guardrail rows).
-function goalRowEl(r: CardGoalRow, label?: string): El {
+// Color for the stat cell. Rows that know their significance (frequentist
+// p-values, or bayesian rows the producer already judged) color by outcome
+// direction; otherwise fall back to the chance-to-win thresholds.
+function statColor(r: CardGoalRow): string {
+  if (r.sig === undefined) return ctwColor(r.ctw);
+  if (!r.sig) return P.muted;
+  return r.dir === "down" ? P.st.red : P.st.green;
+}
+
+// One variation's result. Means are intentionally omitted: the row is the
+// stat, the interval, and the change.
+function goalRowEl(r: CardGoalRow, size: RowSize): El {
+  const layout = RESULT_LAYOUT[size];
   const intervalCell = el(
     "div",
-    { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2 },
+    { display: "flex", flexDirection: "column", gap: 2 },
     [
       r.vio
         ? svgImg(
-            violinSvg(INTERVAL_W, 40, VIOLIN_DOMAIN, r.vio, { ci: r.ci }),
-            INTERVAL_W,
-            40,
+            violinSvg(layout.vioW, layout.vioH, VIOLIN_DOMAIN, r.vio, {
+              ci: r.ci,
+            }),
+            layout.vioW,
+            layout.vioH,
           )
         : null,
       // Axis labels (moved out of the SVG so resvg needs no fonts).
       el(
         "div",
-        { display: "flex", justifyContent: "space-between", width: INTERVAL_W },
+        {
+          display: "flex",
+          justifyContent: "space-between",
+          width: layout.vioW,
+        },
         [
           txt(
             fmtPct(VIOLIN_DOMAIN[0]),
-            { fontSize: 8.5, color: P.subtle },
+            { fontSize: layout.axis, color: P.subtle },
             true,
           ),
-          txt("0", { fontSize: 8.5, color: P.subtle }, true),
+          txt("0", { fontSize: layout.axis, color: P.subtle }, true),
           txt(
             fmtPct(VIOLIN_DOMAIN[1]),
-            { fontSize: 8.5, color: P.subtle },
+            { fontSize: layout.axis, color: P.subtle },
             true,
           ),
         ],
@@ -723,9 +774,9 @@ function goalRowEl(r: CardGoalRow, label?: string): El {
         ? txt(
             `95% CI [${fmtPct(r.ci.lo)}, ${fmtPct(r.ci.hi)}]`,
             {
-              fontSize: 9.5,
+              fontSize: layout.ci,
               color: P.subtle,
-              width: INTERVAL_W,
+              width: layout.vioW,
               justifyContent: "center",
             },
             true,
@@ -734,68 +785,69 @@ function goalRowEl(r: CardGoalRow, label?: string): El {
     ],
   );
 
-  const vrCell = el(
-    "div",
-    { display: "flex", flexDirection: "column", alignItems: "flex-end" },
-    [
-      txt(r.vr, { fontSize: 13, fontWeight: 500, color: P.text }, true),
-      r.vn ? txt(r.vn, { fontSize: 10, color: P.subtle }, true) : null,
-    ],
-  );
-
   return gridRow(
     [
-      label ? null : vnumCircle(r.i, 18),
-      txt(label ?? r.v, { fontSize: 13, fontWeight: 500, color: P.text }),
-      txt(r.ctrl, { fontSize: 13, fontWeight: 500, color: P.text }, true),
-      vrCell,
+      layout.circle ? vnumCircle(r.i, layout.circle) : null,
+      txt(r.v, {
+        fontSize: layout.name,
+        fontWeight: 500,
+        color: P.text,
+      }),
       txt(
         r.ctw ?? "—",
-        { fontSize: 13, fontWeight: 600, color: ctwColor(r.ctw) },
+        { fontSize: layout.stat, fontWeight: 600, color: statColor(r) },
         true,
       ),
       intervalCell,
       r.chg && r.dir
-        ? pctCell(r.chg, r.dir, 13)
-        : txt("—", { fontSize: 13, color: P.subtle }, true),
+        ? pctCell(r.chg, r.dir, layout.chg)
+        : txt("—", { fontSize: layout.chg, color: P.subtle }, true),
     ],
+    size,
     { borderBottom: `1px solid ${P.borderSub}`, opacity: r.muted ? 0.55 : 1 },
   );
 }
 
 function ciRowEl(m: CardCiMetric, color: string): El {
+  const layout = RESULT_LAYOUT.lg;
   return gridRow(
     [
       null,
-      txt(m.name, { fontSize: 13, fontWeight: 500, color: P.text }),
-      txt(m.ctrl, { fontSize: 13, fontWeight: 500, color: P.text }, true),
-      txt(m.vr, { fontSize: 13, fontWeight: 500, color: P.text }, true),
-      txt(m.sig ? "sig" : "ns", { fontSize: 11, color: P.subtle }, true),
-      el("div", { display: "flex", flexGrow: 1 }, [
+      txt(m.name, { fontSize: layout.name, fontWeight: 500, color: P.text }),
+      txt(
+        m.sig ? "sig" : "ns",
+        { fontSize: layout.stat - 4, color: P.subtle },
+        true,
+      ),
+      el("div", { display: "flex" }, [
         svgImg(
-          ciPillSvg(INTERVAL_W, 32, CI_DOMAIN, m.ci, color),
-          INTERVAL_W,
+          ciPillSvg(layout.vioW, 32, CI_DOMAIN, m.ci, color),
+          layout.vioW,
           32,
         ),
       ]),
       m.chg && m.dir
-        ? pctCell(m.chg, m.dir, 13)
-        : txt("—", { fontSize: 13, color: P.subtle }, true),
+        ? pctCell(m.chg, m.dir, layout.chg)
+        : txt("—", { fontSize: layout.chg, color: P.subtle }, true),
     ],
+    "lg",
     { borderBottom: `1px solid ${P.borderSub}` },
   );
 }
 
-function sectionLabel(t: string): El {
+function sectionLabel(t: string, size: RowSize = "lg"): El {
   return txt(t, {
-    fontSize: 9.5,
+    fontSize: size === "lg" ? 12 : 9.5,
     fontWeight: 600,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     color: P.subtle,
-    padding: "10px 24px 4px",
+    padding: size === "lg" ? "14px 28px 6px" : "0 0 4px",
   });
 }
+
+const statLabelFor = (exp: ExperimentCardData): string =>
+  exp.statsEngine === "frequentist" ? "P-value" : "Chance";
 
 // ---------------------------------------------------------------------------
 // Card sections.
@@ -917,13 +969,17 @@ function footerEl(items: (string | undefined)[]): El | null {
 // the redundant metric-name line and number circle — mirroring how secondary /
 // guardrail metrics read. Multi-way tests keep the metric name up top and one
 // numbered row per variation (so variations stay distinguishable).
-function goalSectionEls(exp: ExperimentCardData): (El | null)[] {
-  const twoWay = exp.rows.length === 1;
+// Metric name above the header, one numbered row per variation — the same
+// structure at both widths so the compact and detailed cards read alike.
+function goalSectionEls(
+  exp: ExperimentCardData,
+  size: RowSize = "lg",
+): (El | null)[] {
   return [
-    sectionLabel("Goal metric"),
-    twoWay ? null : metricNameEl(exp.goal),
-    colHeader(),
-    ...exp.rows.map((r) => goalRowEl(r, twoWay ? exp.goal : undefined)),
+    size === "lg" ? sectionLabel("Goal metric") : null,
+    metricNameEl(exp.goal, size),
+    colHeader(size, statLabelFor(exp)),
+    ...exp.rows.map((r) => goalRowEl(r, size)),
   ];
 }
 
@@ -1808,20 +1864,18 @@ function compactHero(
     );
   }
 
-  // won / lost / stopped — outcome-forward.
+  // won / lost / stopped — the decided variation as one results row, in the
+  // same layout as the detailed card at compact width, then the conclusion.
   const line = exp.conclusion?.text
     ? plainClamp(exp.conclusion.text, 200)
     : exp.compactLine
       ? plainClamp(exp.compactLine, 200)
       : "";
   // A won test shows the variation that shipped, matched by index (names can
-  // collide). If the winner is control or has no goal row, outcomeRow is
-  // undefined and the hero shows just the word. lost/stopped use the first row.
+  // collide). lost/stopped use the first row.
   const outcomeRow =
-    event === "won"
-      ? (exp.winningVariationIndex ?? null) !== null
-        ? exp.rows.find((row) => row.i === exp.winningVariationIndex)
-        : r
+    event === "won" && (exp.winningVariationIndex ?? null) !== null
+      ? exp.rows.find((row) => row.i === exp.winningVariationIndex)
       : r;
   const word =
     event === "won"
@@ -1831,82 +1885,25 @@ function compactHero(
       : event === "lost"
         ? "No lift"
         : "Inconclusive";
-  const dirColor = outcomeRow?.dir === "up" ? P.st.green : P.st.red;
-  // Big-number layout for outcome events: metric eyebrow, then the
-  // change with a direction arrow (sign dropped — the arrow carries it), then
-  // the outcome word.
-  const heroChildren: (El | null)[] = [
-    capLabel(exp.goal, 6, P.text),
-    outcomeRow?.chg && outcomeRow.dir
-      ? el(
-          "div",
-          {
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "flex-start",
-            gap: 6,
-            flexWrap: "wrap",
-          },
-          [
-            arrowImg(outcomeRow.dir, dirColor, 20),
-            txt((outcomeRow.chg ?? "").replace(/^[+-]/, ""), {
-              fontSize: 44,
-              fontWeight: 700,
-              color: dirColor,
-              letterSpacing: "-0.02em",
-              lineHeight: 1,
-            }),
-            txt(word, {
-              fontSize: 15,
-              fontWeight: 600,
-              color: accentText,
-              marginLeft: 8,
-              alignSelf: "flex-end",
-              marginBottom: 6,
-            }),
-          ],
-        )
-      : txt(word, {
+  const children: (El | null)[] = outcomeRow
+    ? goalSectionEls({ ...exp, rows: [outcomeRow] }, "sm")
+    : [
+        txt(word, {
           fontSize: 26,
           fontWeight: 700,
           color: accentText,
           letterSpacing: "-0.02em",
         }),
-  ];
-  // Confidence for the winning/decided variation (chance to beat control).
-  if (outcomeRow?.ctw) {
-    heroChildren.push(
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "baseline",
-          gap: 7,
-        },
-        [
-          txt(
-            outcomeRow.ctw,
-            { fontSize: 16, fontWeight: 600, color: ctwColor(outcomeRow.ctw) },
-            true,
-          ),
-          txt("chance to beat control", {
-            fontSize: 12.5,
-            fontWeight: 500,
-            color: P.subtle,
-          }),
-        ],
-      ),
-    );
-  }
+      ];
   if (line) {
-    heroChildren.push(
+    children.push(
       el(
         "div",
         {
           display: "flex",
           flexDirection: "column",
           paddingTop: 12,
+          marginTop: 4,
           borderTop: `1px solid ${P.borderSub}`,
         },
         [
@@ -1923,8 +1920,8 @@ function compactHero(
   }
   return el(
     "div",
-    { display: "flex", flexDirection: "column", gap: 10, width: "100%" },
-    heroChildren.filter(Boolean) as El[],
+    { display: "flex", flexDirection: "column", gap: 6, width: "100%" },
+    children.filter(Boolean) as El[],
   );
 }
 

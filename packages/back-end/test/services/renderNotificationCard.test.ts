@@ -220,6 +220,7 @@ describe("renderNotificationCard", () => {
             ctrl: "5.00%",
             vr: "5.50%",
             ctw: "98.0%",
+            sig: true,
             chg: "+10%",
             dir: "up",
             vio: { c: 10, s: 2 },
@@ -252,6 +253,61 @@ describe("renderNotificationCard", () => {
         ],
       }),
       "compact",
+    );
+  });
+
+  it("shows the p-value instead of chance to win for frequentist results", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "lost",
+        enableTemporaryRollout: false,
+        goalMetric: {
+          metricId: "m1",
+          metricName: "Conversion",
+          snapshotId: "snp-1",
+          statsEngine: "frequentist",
+          differenceType: "relative",
+          control: {
+            variationId: "v0",
+            variationName: "Control",
+            value: 0.05,
+            formattedValue: "5.00%",
+          },
+          variations: [
+            {
+              variationId: "v1",
+              variationName: "Treatment",
+              variationIndex: 1,
+              value: 0.046,
+              formattedValue: "4.60%",
+              uplift: -0.08,
+              ci: [-0.12, -0.04],
+              pValue: 0.0004,
+            },
+          ],
+        },
+      }),
+      "detailed",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: "loser",
+        event: "lost",
+        banner: "Experiment Stopped - Lost",
+        statsEngine: "frequentist",
+        rows: [
+          expect.objectContaining({
+            ctw: "<0.001",
+            sig: true,
+            chg: "-8%",
+            dir: "down",
+          }),
+        ],
+      }),
+      "detailed",
     );
   });
 

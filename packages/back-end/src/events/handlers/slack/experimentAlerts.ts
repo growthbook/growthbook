@@ -1,4 +1,5 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
+import { pValueFormatter } from "shared/util";
 import {
   getExperimentStartedGoalMetricsLine,
   getExperimentStartedSummary,
@@ -43,9 +44,13 @@ export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
       if (goal && top && top.uplift !== undefined) {
         const change = `${top.uplift > 0 ? "+" : ""}${(top.uplift * 100).toFixed(1)}%`;
         const confidence =
-          top.chanceToWin !== undefined
-            ? ` (${(top.chanceToWin * 100).toFixed(1)}% chance to beat control)`
-            : "";
+          goal.statsEngine === "frequentist"
+            ? top.pValue !== undefined
+              ? ` (p-value ${pValueFormatter(top.pValue)})`
+              : ""
+            : top.chanceToWin !== undefined
+              ? ` (${(top.chanceToWin * 100).toFixed(1)}% chance to beat control)`
+              : "";
         detail += ` ${goal.metricName}: ${top.variationName} ${change}${confidence}.`;
       }
       break;
