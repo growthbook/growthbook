@@ -20,15 +20,21 @@ import {
 } from "back-end/src/services/rampSchedule";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { assertRampPlanChangeAllowed } from "back-end/src/services/rampPlanReview";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
-const postBodyAction = z.object({
-  targetType: z.literal("feature-rule").optional(),
-  targetId: z.string().optional(),
-  patch: featureRulePatch.partial({ ruleId: true }),
-});
+// Strict: a rule field placed on the step or action instead of inside `patch`
+// would otherwise be dropped and the step stored with nothing to apply.
+const postBodyAction = z
+  .object({
+    targetType: z.literal("feature-rule").optional(),
+    targetId: z.string().optional(),
+    patch: featureRulePatch.partial({ ruleId: true }).strict(),
+  })
+  .strict();
 type PostBodyAction = z.infer<typeof postBodyAction>;
 
 function normalizeMonitoringConfig(
@@ -48,19 +54,23 @@ function normalizeMonitoringConfig(
 // New unified step shape: `interval` is the hold duration in seconds (null
 // means no time gate). Pure approval steps use
 // `{ interval: null, holdConditions: { requiresApproval: true } }`.
-const postBodyStep = z.object({
-  interval: z.number().positive().nullable(),
-  actions: z.array(postBodyAction).optional().default([]),
-  approvalNotes: z.string().nullish(),
-  monitored: z.boolean().default(false),
-  holdConditions: stepHoldConditions.optional(),
-});
+export const postBodyStep = z
+  .object({
+    interval: z.number().positive().nullable(),
+    actions: z.array(postBodyAction).optional().default([]),
+    approvalNotes: z.string().nullish(),
+    monitored: z.boolean().default(false),
+    holdConditions: stepHoldConditions.strict().optional(),
+  })
+  .strict();
 
 const postRampScheduleValidator = {
   method: "post" as const,
   path: "/ramp-schedules",
   operationId: "postRampSchedule",
   summary: "Create a ramp schedule",
+  description:
+    "Creates a ramp schedule, optionally attached to a published feature rule by passing `featureId` and `ruleId` together (the target is then injected into every action). Attaching on creation skips the revision review flow, so when the organization requires review anywhere it is limited to credentials that may bypass approval. The reviewed way to attach a plan is `PUT /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule` followed by a publish. Without a target the schedule is a free-standing skeleton in `pending` status. Requires a Pro plan or above.",
   tags: ["ramp-schedules"],
   responseSchema: z.object({ rampSchedule: apiRampScheduleInterface }),
   bodySchema: z
@@ -180,6 +190,13 @@ export const postRampSchedule = createApiRequestHandler(
     feature = await getFeature(req.context, body.featureId);
     if (!feature) {
       throw new NotFoundError(`Feature '${body.featureId}' not found`);
+    }
+    if (body.ruleId) {
+      assertRampPlanChangeAllowed(
+        req.context,
+        feature,
+        canUseRestApiBypassSetting(req),
+      );
     }
   }
 

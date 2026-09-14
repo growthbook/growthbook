@@ -29,6 +29,7 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import {
   assertValidRuleEnvironments,
@@ -164,6 +165,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     // run; the payload builder silently drops a condition it cannot parse and
     // unknown group ids, which widens the rule's audience.
     await validateRulesReferences(feature.rules, req.context);
+    await assertValidPrerequisiteParents(req.context, feature);
     validateRulesScheduleRules(feature.rules, req.context);
 
     // Config backing comes through dedicated fields — reject a raw `@config:`

@@ -13,7 +13,8 @@ import {
 import { getMetricsByIds } from "../../src/models/MetricModel";
 import { getDataSourceById } from "../../src/models/DataSourceModel";
 import { assertLivePayloadChangeAllowed } from "../../src/services/experimentLivePayload";
-import { BadRequestError } from "../../src/util/errors";
+import { assertValidExperimentPrerequisites } from "../../src/services/prerequisiteParents";
+import { BadRequestError, NotFoundError } from "../../src/util/errors";
 import { setupApp } from "./api.setup";
 
 jest.mock("../../src/services/files", () => ({
@@ -47,6 +48,11 @@ jest.mock("../../src/models/DataSourceModel", () => ({
 
 jest.mock("../../src/services/experimentLivePayload", () => ({
   assertLivePayloadChangeAllowed: jest.fn(),
+}));
+jest.mock("../../src/services/prerequisiteParents", () => ({
+  assertValidExperimentPrerequisites: jest.fn(),
+  phasePrerequisites: (phases: { prerequisites?: unknown[] }[] = []) =>
+    phases.flatMap((p) => p.prerequisites ?? []),
 }));
 
 describe("experiments API", () => {
@@ -795,6 +801,53 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
       expect(createExperiment).toHaveBeenCalled();
+    });
+
+    it("rejects a phase prerequisite on a flag that does not exist", async () => {
+      jest
+        .mocked(assertValidExperimentPrerequisites)
+        .mockRejectedValueOnce(
+          new NotFoundError('Prerequisite feature "missing_flag" not found'),
+        );
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+        },
+      });
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_gated",
+          name: "Gated",
+          datasourceId: "ds_123",
+          assignmentQueryId: "user_id",
+          variations: [
+            { key: "0", name: "Control", description: "", screenshots: [] },
+            { key: "1", name: "Treatment", description: "", screenshots: [] },
+          ],
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              prerequisites: [
+                { id: "missing_flag", condition: '{"value": true}' },
+              ],
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.body.message).toMatch(
+        /Prerequisite feature "missing_flag" not found/,
+      );
+      expect(res.status).toBe(404);
+      expect(assertValidExperimentPrerequisites).toHaveBeenCalledWith(
+        expect.anything(),
+        [{ id: "missing_flag", condition: '{"value": true}' }],
+      );
+      expect(createExperiment).not.toHaveBeenCalled();
     });
 
     it("preserves id and variationId values when creating an experiment", async () => {
