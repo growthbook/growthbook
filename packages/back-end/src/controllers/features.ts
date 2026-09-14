@@ -289,7 +289,10 @@ import {
   maybeAutoPublishFeatureRevision,
   parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
-import { assertValidHoldout } from "back-end/src/api/features/v2Shared";
+import {
+  assertRuleVariationsMatchExperiment,
+  assertValidHoldout,
+} from "back-end/src/api/features/v2Shared";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
@@ -3339,6 +3342,7 @@ export async function postFeatureRule(
       throw new Error(`Could not find experiment "${rule.experimentId}"`);
     }
     if (experiment) {
+      assertRuleVariationsMatchExperiment(rule, experiment);
       await resolveHoldoutExperimentToLink({
         context,
         feature,
@@ -4475,6 +4479,15 @@ export async function putFeatureRule(
 
   if (!ruleId) {
     throw new Error("Must provide ruleId to identify the rule");
+  }
+  if (rule.type === "experiment-ref" && rule.experimentId && rule.variations) {
+    const experiment = await getExperimentById(context, rule.experimentId);
+    if (experiment) {
+      assertRuleVariationsMatchExperiment(
+        { experimentId: rule.experimentId, variations: rule.variations },
+        experiment,
+      );
+    }
   }
 
   const feature = await getFeature(context, id);

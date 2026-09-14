@@ -712,14 +712,23 @@ describe("assertCanUseRuleScheduling", () => {
 describe("assertValidRuleExperimentIds", () => {
   const context = {} as ApiReqContext;
   const ref = (id: string, experimentId: string) =>
-    ({ id, type: "experiment-ref", experimentId }) as FeatureRule;
+    ({
+      id,
+      type: "experiment-ref",
+      experimentId,
+      variations: [{ variationId: "v0", value: "true" }],
+    }) as FeatureRule;
 
   beforeEach(() => {
     jest.mocked(getExperimentsByIds).mockReset();
     jest
       .mocked(getExperimentsByIds)
       .mockImplementation(async (_ctx, ids) =>
-        ids.filter((i) => i === "exp_known").map((id) => ({ id }) as never),
+        ids
+          .filter((i) => i === "exp_known")
+          .map(
+            (id) => ({ id, variations: [{ id: "v0" }], phases: [{}] }) as never,
+          ),
       );
   });
 
