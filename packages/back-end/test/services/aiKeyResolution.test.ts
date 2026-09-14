@@ -28,10 +28,15 @@ const loadModule = (env: Record<string, string>): AICredentialsModule => {
     const previous = { ...process.env };
     AI_ENV_VARS.forEach((name) => delete process.env[name]);
     Object.assign(process.env, env);
-    mod = jest.requireActual<AICredentialsModule>(
-      "back-end/src/services/aiCredentials",
-    );
-    process.env = previous;
+    try {
+      mod = jest.requireActual<AICredentialsModule>(
+        "back-end/src/services/aiCredentials",
+      );
+    } finally {
+      // Restore even if the module throws on load, so one failure doesn't
+      // leave the rest of the worker running without the cleared vars.
+      process.env = previous;
+    }
   });
   if (!mod) throw new Error("Could not load aiCredentials module");
   return mod;
