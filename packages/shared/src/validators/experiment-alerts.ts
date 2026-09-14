@@ -67,6 +67,8 @@ export const experimentStoppedNotificationPayload = z
     winningVariationName: z.string().optional(),
     winningVariationIndex: z.number().int().nonnegative().optional(),
     totalUsers: z.number().optional(),
+    // Whole days the final phase ran, from its start to the stop.
+    durationDays: z.number().int().nonnegative().optional(),
     // Absent when no successful snapshot existed at stop time.
     goalMetric: experimentStoppedGoalMetric.optional(),
   })

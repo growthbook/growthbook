@@ -66,6 +66,7 @@ export const notificationCardSamples: {
           winningVariationName: "One-page checkout",
           winningVariationIndex: 1,
           totalUsers: 162400,
+          durationDays: 26,
           goalMetric: {
             metricId: "met_checkout_conversion",
             metricName: "Checkout conversion",
@@ -122,6 +123,7 @@ export const notificationCardSamples: {
           enableTemporaryRollout: false,
           reason: "Conversion dropped significantly. Rolling back to control.",
           totalUsers: 98200,
+          durationDays: 14,
           goalMetric: {
             metricId: "met_checkout_conversion",
             metricName: "Checkout conversion",

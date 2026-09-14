@@ -1231,20 +1231,24 @@ function conclusionEl(exp: ExperimentCardData): El | null {
     {
       display: "flex",
       flexDirection: "column",
-      padding: "18px 24px 16px",
+      padding: "20px 28px 18px",
       backgroundColor: SOFT[hue],
       borderBottom: `1px solid ${P.border}`,
     },
     [
       txt("Conclusion", {
-        fontSize: 9.5,
+        fontSize: 12,
         fontWeight: 600,
         letterSpacing: "0.1em",
         textTransform: "uppercase",
         color: P.st[hue],
-        marginBottom: 7,
+        marginBottom: 8,
       }),
-      renderMarkdown(exp.conclusion.text, PROSE_STYLE),
+      renderMarkdown(exp.conclusion.text, {
+        ...PROSE_STYLE,
+        fontSize: 18,
+        lineHeight: 1.45,
+      }),
     ],
   );
 }
@@ -1887,13 +1891,8 @@ function compactHero(
     children.push(
       el(
         "div",
-        {
-          display: "flex",
-          flexDirection: "column",
-          paddingTop: 12,
-          marginTop: 4,
-          borderTop: `1px solid ${P.borderSub}`,
-        },
+        // The results row above already ends in a rule, so no border here.
+        { display: "flex", flexDirection: "column", paddingTop: 12 },
         [
           capLabel("Conclusion"),
           renderMarkdown(line, {

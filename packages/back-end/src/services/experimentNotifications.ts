@@ -146,6 +146,18 @@ export const notifyExperimentStarted = async ({
   });
 };
 
+// Whole days the latest phase ran, from its start to its end (or now when the
+// stop has not stamped an end date yet).
+const getExperimentDurationDays = (
+  experiment: ExperimentInterface,
+): number | undefined => {
+  const phase = experiment.phases[experiment.phases.length - 1];
+  const start = getSafeDate(phase?.dateStarted);
+  if (!start) return undefined;
+  const end = getSafeDate(phase?.dateEnded) ?? new Date();
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86400000));
+};
+
 export const notifyExperimentStopped = async ({
   context,
   experiment,
@@ -168,6 +180,7 @@ export const notifyExperimentStopped = async ({
       ? experiment.variations[experiment.winner]
       : undefined;
   const evidence = await getStoppedGoalMetricResults(context, experiment);
+  const durationDays = getExperimentDurationDays(experiment);
   await dispatchEvent({
     context,
     experiment,
@@ -190,6 +203,7 @@ export const notifyExperimentStopped = async ({
         ...(evidence?.totalUsers !== undefined
           ? { totalUsers: evidence.totalUsers }
           : {}),
+        ...(durationDays !== undefined ? { durationDays } : {}),
         ...(evidence ? { goalMetric: evidence.goalMetric } : {}),
       },
     },

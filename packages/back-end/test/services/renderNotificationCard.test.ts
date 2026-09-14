@@ -172,6 +172,7 @@ describe("renderNotificationCard", () => {
         winningVariationName: "Treatment",
         winningVariationIndex: 1,
         totalUsers: 20000,
+        durationDays: 21,
         goalMetric: {
           metricId: "m1",
           metricName: "Conversion",
@@ -211,6 +212,7 @@ describe("renderNotificationCard", () => {
         goal: "Conversion",
         variants: ["Control", "Treatment"],
         users: "20K",
+        days: "21 days",
         winningVariation: "Treatment",
         winningVariationIndex: 1,
         rows: [
