@@ -11,9 +11,9 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 // Controlled targeting-projects editor. Collapsed to a link until opted in;
-// then a Specific/All-projects radio. Options are limited to Projects the
-// viewer may target (plus any already selected, so they can be removed), the
-// same way the primary Project picker is limited to where they may edit.
+// then a Specific/All-projects radio. Every visible Project is offered; ones
+// the viewer may not target are disabled with the reason, so a missing option
+// never reads as a missing Project. Already-selected ones stay removable.
 export type TargetingProjectsFieldProps = {
   // Governance project, excluded from the options.
   primaryProject?: string;
@@ -40,19 +40,34 @@ export default function TargetingProjectsField({
     () => allProjects || targetingProjects.length > 0,
   );
 
-  const options = projects.filter(
-    (p) =>
-      p.id !== primaryProject &&
-      (targetingProjects.includes(p.id) ||
-        permissionsUtil.canTargetFeatureProjects([p.id])),
-  );
+  const canTarget = (projectId: string) =>
+    targetingProjects.includes(projectId) ||
+    permissionsUtil.canTargetFeatureProjects([projectId]);
+  // `projects` is already read-filtered, so a restricted Project the viewer
+  // cannot see is never offered. One already selected still needs a chip so
+  // it can be seen and removed.
+  const options = [
+    ...projects
+      .filter((p) => p.id !== primaryProject)
+      .map((p) => ({
+        value: p.id,
+        label: p.name,
+        ...(canTarget(p.id)
+          ? {}
+          : { tooltip: "You don't have permission to target this Project" }),
+      })),
+    ...targetingProjects
+      .filter((id) => !projects.some((p) => p.id === id))
+      .map((id) => ({
+        value: id,
+        label: id,
+        tooltip: "A Project you don't have access to",
+      })),
+  ];
   const canTargetAll =
     allProjects || permissionsUtil.canTargetFeatureProjects("all");
-  const nothingToTarget = options.length === 0 && !canTargetAll;
 
-  const help = `Also include this ${entityLabel} in these Projects' SDK payloads. Only Projects you have permission to target are listed.`;
-
-  if (nothingToTarget && !enabled) return null;
+  const help = `Also include this ${entityLabel} in these Projects' SDK payloads`;
 
   return (
     <Box {...marginProps}>
@@ -112,10 +127,10 @@ export default function TargetingProjectsField({
                     <MultiSelectField
                       value={targetingProjects}
                       onChange={setTargetingProjects}
-                      options={options.map((p) => ({
-                        value: p.id,
-                        label: p.name,
-                      }))}
+                      options={options}
+                      isOptionDisabled={(o) =>
+                        "value" in o && !canTarget(o.value)
+                      }
                       placeholder="No Projects selected"
                       sort={false}
                       showCopyButton={false}
@@ -124,15 +139,14 @@ export default function TargetingProjectsField({
                   </Box>
                 ),
               },
-              ...(canTargetAll
-                ? [
-                    {
-                      value: "all",
-                      label: "All Projects",
-                      itemClassName: "mt-2",
-                    },
-                  ]
-                : []),
+              {
+                value: "all",
+                label: "All Projects",
+                itemClassName: "mt-2",
+                disabled: !canTargetAll,
+                disabledReason:
+                  "Requires permission to target all Projects (a role granted for all projects)",
+              },
             ]}
           />
         </>
