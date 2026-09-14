@@ -278,14 +278,16 @@ export default function DatasourceSchema({
           <tbody>
             {filteredColumns.length > 0 ? (
               <>
-                {filteredColumns?.map((column) => {
+                {filteredColumns?.map((column, i) => {
                   const insertDisabledReason = columnInsertDisabledReason(
                     sql,
                     currentTable.path,
                     column.columnName,
                   );
                   return (
-                    <tr key={`${table.tableName}:${column.columnName}`}>
+                    // Index-suffixed: a duplicate name would otherwise give two
+                    // rows one key, and React strands them on filter updates.
+                    <tr key={`${table.tableName}:${column.columnName}:${i}`}>
                       <td className="pl-3">
                         <div className={actionStyles.row}>
                           <span
