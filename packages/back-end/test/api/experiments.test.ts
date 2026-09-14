@@ -12,6 +12,8 @@ import {
 } from "../../src/models/ExperimentSnapshotModel";
 import { getMetricsByIds } from "../../src/models/MetricModel";
 import { getDataSourceById } from "../../src/models/DataSourceModel";
+import { assertLivePayloadChangeAllowed } from "../../src/services/experimentLivePayload";
+import { BadRequestError } from "../../src/util/errors";
 import { setupApp } from "./api.setup";
 
 jest.mock("../../src/services/files", () => ({
@@ -41,6 +43,10 @@ jest.mock("../../src/models/MetricModel", () => ({
 
 jest.mock("../../src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
+}));
+
+jest.mock("../../src/services/experimentLivePayload", () => ({
+  assertLivePayloadChangeAllowed: jest.fn(),
 }));
 
 describe("experiments API", () => {
@@ -1209,6 +1215,38 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
       expect(res.body.experiment.name).toBe("Updated Experiment Name");
+    });
+
+    it("refuses to change what a running, live experiment serves", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      jest
+        .mocked(assertLivePayloadChangeAllowed)
+        .mockRejectedValueOnce(
+          new BadRequestError(
+            "Cannot change: [variation IDs] while the experiment is running and live in the SDK payload.",
+          ),
+        );
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          variations: [
+            { id: "0", key: "0", name: "Control" },
+            { id: "new", key: "1", name: "Variation" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(/Cannot change: \[variation IDs\]/);
+      expect(res.status).toBe(400);
+      expect(assertLivePayloadChangeAllowed).toHaveBeenCalledWith(
+        expect.anything(),
+        experiment,
+        expect.objectContaining({
+          variations: expect.arrayContaining([
+            expect.objectContaining({ id: "new" }),
+          ]),
+        }),
+      );
+      expect(updateExperiment).not.toHaveBeenCalled();
     });
 
     it("allows update when required custom fields are missing and payload omits customFields", async () => {

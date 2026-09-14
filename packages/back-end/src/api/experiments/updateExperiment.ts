@@ -21,6 +21,7 @@ import {
   lazyAttributeScope,
 } from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
+import { assertLivePayloadChangeAllowed } from "back-end/src/services/experimentLivePayload";
 import {
   startExperiment,
   validateExperimentChange,
@@ -340,6 +341,15 @@ export const updateExperiment = createApiRequestHandler(
   );
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  // Same guard the dashboard applies: a running experiment that is live in
+  // the SDK payload cannot change its variations, coverage, or weights.
+  const inboundPhase = changes.phases?.[changes.phases.length - 1];
+  await assertLivePayloadChangeAllowed(req.context, experiment, {
+    variations: changes.variations,
+    coverage: inboundPhase?.coverage,
+    variationWeights: inboundPhase?.variationWeights,
+  });
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.
