@@ -1,5 +1,15 @@
 import type { ExperimentInterface } from "shared/types/experiment";
-import { getLivePayloadChanges } from "back-end/src/services/experimentLivePayload";
+import type { FeatureInterface } from "shared/types/feature";
+import type { ReqContext } from "back-end/types/request";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import {
+  assertLivePayloadChangeAllowed,
+  getLivePayloadChanges,
+} from "back-end/src/services/experimentLivePayload";
+
+jest.mock("back-end/src/models/FeatureModel", () => ({
+  getFeaturesByIds: jest.fn(),
+}));
 
 // Which experiment edits would change what a running experiment serves.
 describe("getLivePayloadChanges", () => {
@@ -50,5 +60,72 @@ describe("getLivePayloadChanges", () => {
     });
     expect(res.changedFields).toEqual(["variation keys"]);
     expect(res.changesLivePayload).toBe(false);
+  });
+});
+
+describe("assertLivePayloadChangeAllowed", () => {
+  const context = {} as ReqContext;
+  const experiment = (status: string) =>
+    ({
+      id: "exp_1",
+      type: "standard",
+      status,
+      archived: false,
+      linkedFeatures: ["feat_1"],
+      variations: [{ id: "v0", key: "0" }],
+      phases: [
+        { coverage: 1, variationWeights: [1], variations: [{ id: "v0" }] },
+      ],
+    }) as unknown as ExperimentInterface;
+  const feature = (enabled: boolean) =>
+    ({
+      id: "feat_1",
+      archived: false,
+      rules: [
+        {
+          type: "experiment-ref",
+          experimentId: "exp_1",
+          enabled,
+          allEnvironments: true,
+        },
+      ],
+      environmentSettings: { production: { enabled: true, rules: [] } },
+    }) as unknown as FeatureInterface;
+
+  beforeEach(() => {
+    jest.mocked(getFeaturesByIds).mockReset();
+    jest.mocked(getFeaturesByIds).mockResolvedValue([feature(true)]);
+  });
+
+  it("refuses a live change only for a running experiment served by a live rule", async () => {
+    await expect(
+      assertLivePayloadChangeAllowed(context, experiment("running"), {
+        coverage: 0.5,
+      }),
+    ).rejects.toThrow(
+      "Cannot change: [coverage] while the experiment is running",
+    );
+
+    jest.mocked(getFeaturesByIds).mockResolvedValue([feature(false)]);
+    await expect(
+      assertLivePayloadChangeAllowed(context, experiment("running"), {
+        coverage: 0.5,
+      }),
+    ).resolves.toBeUndefined();
+
+    await expect(
+      assertLivePayloadChangeAllowed(context, experiment("draft"), {
+        coverage: 0.5,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("does not load features when nothing live changes", async () => {
+    await expect(
+      assertLivePayloadChangeAllowed(context, experiment("running"), {
+        coverage: 1,
+      }),
+    ).resolves.toBeUndefined();
+    expect(getFeaturesByIds).not.toHaveBeenCalled();
   });
 });

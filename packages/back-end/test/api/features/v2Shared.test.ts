@@ -17,6 +17,7 @@ import {
   mapV2ApiRuleToFeatureRule,
   resolveScopeFromInput,
   validateRulesScheduleRules,
+  experimentRefChanged,
 } from "back-end/src/api/features/v2Shared";
 import { BadRequestError } from "back-end/src/util/errors";
 
@@ -743,6 +744,38 @@ describe("assertRuleVariationsMatchExperiment", () => {
     expect(() =>
       assertRuleVariationsMatchExperiment(rule("v1", "v0"), experiment),
     ).not.toThrow();
+  });
+});
+
+describe("experimentRefChanged", () => {
+  const ref = (experimentId: string, ...ids: string[]) =>
+    ({
+      type: "experiment-ref",
+      experimentId,
+      variations: ids.map((variationId) => ({ variationId, value: "1" })),
+    }) as FeatureRule;
+  const stored = ref("exp", "v0", "v1");
+
+  it.each([
+    ["no stored rule", ref("exp", "v0", "v1"), undefined, true],
+    [
+      "a stored rule of another type",
+      ref("exp", "v0", "v1"),
+      { type: "force" } as FeatureRule,
+      true,
+    ],
+    ["a different experiment", ref("other", "v0", "v1"), stored, true],
+    ["an added id", ref("exp", "v0", "v1", "v2"), stored, true],
+    ["a swapped id", ref("exp", "v0", "v9"), stored, true],
+    ["the same ids in another order", ref("exp", "v1", "v0"), stored, false],
+    [
+      "ids omitted on both sides",
+      { experimentId: "exp" },
+      { type: "experiment-ref", experimentId: "exp" } as FeatureRule,
+      false,
+    ],
+  ])("%s → %s", (_label, rule, prior, expected) => {
+    expect(experimentRefChanged(rule, prior)).toBe(expected);
   });
 });
 
