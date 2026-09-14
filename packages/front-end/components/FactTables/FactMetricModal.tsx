@@ -675,11 +675,10 @@ function ColumnRefSelector({
                   <Button
                     size="sm"
                     variant="ghost"
+                    icon={<PiPlus size={14} />}
                     onClick={() => setAddUserFilter(true)}
                   >
-                    <Flex align="center" gap="1">
-                      <PiPlus size={14} /> Add filter
-                    </Flex>
+                    Add filter
                   </Button>
                 </div>
               )}

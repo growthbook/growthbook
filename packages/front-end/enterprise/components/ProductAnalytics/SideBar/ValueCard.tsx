@@ -264,7 +264,7 @@ export default function ValueCard({
                   <Button size="sm" variant="ghost">
                     <Flex align="center" gap="2">
                       <PiUserFill />{" "}
-                      {dataset.values[index].unit ?? "Select Unit..."}
+                      {dataset.values[index].unit ?? "Select unit..."}
                     </Flex>
                   </Button>
                 }

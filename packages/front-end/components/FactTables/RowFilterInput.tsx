@@ -1,4 +1,4 @@
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiX } from "react-icons/pi";
 import { useMemo, useState } from "react";
@@ -90,6 +90,17 @@ export function RowFilterInput({
         // Only auto-focus if it's the last row
         const autoFocus = i === value.length - 1;
 
+        const valueInput = state.valueInputRequired && firstSelectCompleted && (
+          <RowFilterValueInput
+            state={state}
+            operator={filter.operator}
+            values={filter.values}
+            onChange={(values) => updateRowFilter({ values })}
+            autoFocus={autoFocus}
+            dateInputWidth={260}
+          />
+        );
+
         return (
           <Flex
             direction="row"
@@ -147,17 +158,16 @@ export function RowFilterInput({
                 required
               />
             )}
-            {state.valueInputRequired && firstSelectCompleted && (
-              <RowFilterValueInput
-                state={state}
-                operator={filter.operator}
-                values={filter.values}
-                onChange={(values) => updateRowFilter({ values })}
-                autoFocus={autoFocus}
-                dateInputWidth={260}
-                sqlContainerClassName="flex-grow-1"
-              />
-            )}
+            {/* A SQL expression has no column or operator select beside it, so
+                it takes the rest of the row. */}
+            {valueInput &&
+              (isSqlExpr ? (
+                <Box flexGrow="1" minWidth="0">
+                  {valueInput}
+                </Box>
+              ) : (
+                valueInput
+              ))}
             <Button
               variant="ghost"
               color="red"

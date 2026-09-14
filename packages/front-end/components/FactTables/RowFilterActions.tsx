@@ -115,11 +115,10 @@ function SampleRowsModal({
               variant={resultsAreStale ? "solid" : "soft"}
               disabled={!canRunQuery}
               loading={loading}
+              icon={<PiArrowsClockwise />}
               onClick={() => runQuery(draft)}
             >
-              <Flex align="center" gap="2">
-                <PiArrowsClockwise /> Refresh
-              </Flex>
+              Refresh
             </Button>
           </Tooltip>
         </Flex>
@@ -133,16 +132,20 @@ function SampleRowsModal({
             overflowX: "auto",
           }}
         >
-          {result && !loading ? (
-            <DisplayTestQueryResults
-              duration={result.duration || 0}
-              results={result.results || []}
-              sql={result.sql || ""}
-              error={result.error || ""}
-              expandable={true}
-              allowDownload={true}
-              tableOnly={true}
-            />
+          {result ? (
+            // Dimmed rather than replaced while refreshing, so the rows you were
+            // reading stay put. The Refresh button carries the spinner.
+            <Box style={{ opacity: loading ? 0.5 : 1 }}>
+              <DisplayTestQueryResults
+                duration={result.duration || 0}
+                results={result.results || []}
+                sql={result.sql || ""}
+                error={result.error || ""}
+                expandable={true}
+                allowDownload={true}
+                tableOnly={true}
+              />
+            </Box>
           ) : (
             <Flex align="center" gap="2" py="4">
               <LoadingSpinner /> Running query...
@@ -209,8 +212,10 @@ export function RowFilterActions({
     !!datasource &&
     permissionsUtil.canRunTestQueries(datasource);
 
-  const canViewSampleRows =
-    value.length > 0 && value.every(isRowFilterComplete);
+  // An unfiltered preview is allowed — seeing the raw rows is how you work out
+  // what to filter on. Only a half-finished filter blocks it, since that would
+  // silently query something other than what the form shows.
+  const canViewSampleRows = value.every(isRowFilterComplete);
 
   return (
     <>
@@ -228,46 +233,39 @@ export function RowFilterActions({
             size="sm"
             variant="ghost"
             disabled={disabled}
+            icon={<PiPlus size={14} />}
             onClick={() =>
               setValue([...value, { column: "", operator: "=", values: [""] }])
             }
           >
-            <Flex align="center" gap="1">
-              <PiPlus size={14} /> Add filter
-            </Flex>
+            Add filter
           </Button>
           <Button
             size="sm"
             variant="ghost"
             disabled={disabled}
+            icon={<PiPlus size={14} />}
             onClick={() =>
               setValue([...value, { operator: "sql_expr", values: [""] }])
             }
           >
-            <Flex align="center" gap="1">
-              <PiPlus size={14} /> Add SQL filter
-            </Flex>
+            Add SQL filter
           </Button>
         </Flex>
         <Flex align="center" gap="2" wrap="wrap">
           {showSampleRowsAction && (
             <Tooltip
               shouldDisplay={!canViewSampleRows}
-              body={
-                value.length
-                  ? "Fill out all filters first"
-                  : "Add a filter first"
-              }
+              body="Fill out all filters first"
             >
               <Button
                 size="sm"
                 variant="ghost"
                 disabled={!canViewSampleRows}
+                icon={<PiTable size={14} />}
                 onClick={() => setSampleRowsOpen(true)}
               >
-                <Flex align="center" gap="1">
-                  <PiTable size={14} /> View sample rows
-                </Flex>
+                View sample rows
               </Button>
             </Tooltip>
           )}

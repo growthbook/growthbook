@@ -24,7 +24,6 @@ export function RowFilterValueInput({
   onChange,
   autoFocus,
   dateInputWidth,
-  sqlContainerClassName,
 }: {
   state: RowFilterInputState;
   operator: RowFilter["operator"];
@@ -32,7 +31,6 @@ export function RowFilterValueInput({
   onChange: (values: string[], commit: boolean) => void;
   autoFocus?: boolean;
   dateInputWidth?: number;
-  sqlContainerClassName?: string;
 }) {
   const { inputType, isDateColumn, multiValueInput, useValueOptions } = state;
   const isSqlExpr = operator === "sql_expr";
@@ -126,7 +124,6 @@ export function RowFilterValueInput({
       type="text"
       inputMode={inputType === "number" ? "decimal" : undefined}
       pattern={numberPattern}
-      containerClassName={isSqlExpr ? sqlContainerClassName : undefined}
       required
     />
   );
