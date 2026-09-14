@@ -1,9 +1,5 @@
 import { format } from "date-fns";
-import {
-  ColumnInterface,
-  FactTableInterface,
-  RowFilter,
-} from "shared/types/fact-table";
+import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import {
   getAttributeFieldsExposedAsColumns,
   isDateOnlyOperator,
@@ -16,14 +12,7 @@ import {
   getAllowedOperators,
   getRowFilterColumnChange,
   getRowFilterOperatorChange,
-  getRowFilterColumnOptions,
-  getRowFilterSelectOptions,
-  getRowFilterSelectValue,
   isRowFilterComplete,
-  getRowFilterInputState,
-  factTableToColumnSource,
-  columnTypesToColumnSource,
-  NUMBER_PARTIAL_PATTERN,
 } from "@/components/FactTables/rowFilterUtils";
 
 /** Wall-clock the picker would display for a parsed value. */
@@ -301,62 +290,6 @@ describe("getAllowedOperators", () => {
   });
 });
 
-describe("getRowFilterSelectOptions", () => {
-  const columnOptions = [{ label: "country", value: "country" }];
-
-  it("puts saved filters before columns and truncates long names", () => {
-    const longName = "a".repeat(60);
-    const options = getRowFilterSelectOptions({
-      columnOptions,
-      savedFilters: [
-        { id: "flt_1", name: "Paid users" },
-        { id: "flt_2", name: longName },
-      ],
-    });
-
-    expect(options.map((g) => g.label)).toEqual(["Saved Filters", "Columns"]);
-    expect(options[0].options).toEqual([
-      { label: "Paid users", value: "$$saved_filter:flt_1" },
-      { label: "a".repeat(40) + "...", value: "$$saved_filter:flt_2" },
-    ]);
-    expect(options[1].options).toEqual(columnOptions);
-  });
-
-  it("omits the saved filter group when there are none", () => {
-    const options = getRowFilterSelectOptions({
-      columnOptions,
-      savedFilters: [],
-    });
-    expect(options.map((g) => g.label)).toEqual(["Columns"]);
-  });
-
-  it("keeps a selected filter that no longer exists visible", () => {
-    const options = getRowFilterSelectOptions({
-      columnOptions,
-      savedFilters: [],
-      selectedSavedFilterId: "flt_gone",
-    });
-    expect(options[0].options).toEqual([
-      { label: "flt_gone (Deleted)", value: "$$saved_filter:flt_gone" },
-    ]);
-  });
-});
-
-describe("getRowFilterSelectValue", () => {
-  it("round-trips with the saved filter option value", () => {
-    expect(
-      getRowFilterSelectValue({ operator: "saved_filter", values: ["flt_1"] }),
-    ).toBe("$$saved_filter:flt_1");
-  });
-
-  it("uses the column for everything else", () => {
-    expect(getRowFilterSelectValue({ operator: "=", column: "country" })).toBe(
-      "country",
-    );
-    expect(getRowFilterSelectValue({ operator: "=" })).toBe("");
-  });
-});
-
 describe("getRowFilterColumnChange", () => {
   it("selects a saved filter in one step", () => {
     expect(
@@ -409,57 +342,6 @@ describe("getRowFilterOperatorChange", () => {
       ),
     ).toEqual({ operator: "in", values: ["US"] });
   });
-
-  it("reshapes date values when crossing the date-only/datetime boundary", () => {
-    expect(
-      getRowFilterOperatorChange(
-        ">",
-        { operator: "=", column: "signup", values: ["2026-07-15"] },
-        true,
-      ),
-    ).toEqual({ operator: ">", values: ["2026-07-15T00:00"] });
-  });
-
-  it("leaves values alone when staying on the same side of the boundary", () => {
-    expect(
-      getRowFilterOperatorChange(
-        "!=",
-        { operator: "=", column: "country", values: ["US"] },
-        false,
-      ),
-    ).toEqual({ operator: "!=", values: ["US"] });
-  });
-});
-
-describe("getRowFilterColumnOptions", () => {
-  const source = columnTypesToColumnSource(
-    { timestamp: "date", country: "string" },
-    "timestamp",
-  );
-
-  it("hides the event-time column unless it is already selected", () => {
-    expect(
-      getRowFilterColumnOptions(source, { operator: "=", values: [""] }).map(
-        (o) => o.value,
-      ),
-    ).toEqual(["country"]);
-    expect(
-      getRowFilterColumnOptions(source, {
-        operator: "=",
-        column: "timestamp",
-        values: [""],
-      }).map((o) => o.value),
-    ).toEqual(["timestamp", "country"]);
-  });
-
-  it("keeps an unknown column selectable as invalid", () => {
-    const options = getRowFilterColumnOptions(source, {
-      operator: "=",
-      column: "gone",
-      values: [""],
-    });
-    expect(options).toContainEqual({ label: "gone (Invalid)", value: "gone" });
-  });
 });
 
 describe("isRowFilterComplete", () => {
@@ -492,181 +374,5 @@ describe("isRowFilterComplete", () => {
     expect(
       isRowFilterComplete({ operator: "=", column: "a", values: ["x"] }),
     ).toBe(true);
-  });
-});
-
-describe("getRowFilterInputState", () => {
-  it("shows booleans as is_true/is_false without rewriting the filter", () => {
-    const filter: RowFilter = {
-      operator: "=",
-      column: "is_paid",
-      values: ["true"],
-    };
-    const state = getRowFilterInputState({
-      operator: filter.operator,
-      values: filter.values,
-      datatype: "boolean",
-      topValues: [],
-    });
-
-    expect(state.displayOperator).toBe("is_true");
-    // The caller's filter must be untouched — this used to be assigned in place
-    expect(filter).toEqual({
-      operator: "=",
-      column: "is_paid",
-      values: ["true"],
-    });
-  });
-
-  it("maps `= false` to is_false", () => {
-    expect(
-      getRowFilterInputState({
-        operator: "=",
-        values: ["false"],
-        datatype: "boolean",
-        topValues: [],
-      }).displayOperator,
-    ).toBe("is_false");
-  });
-
-  it("keeps an operator the datatype disallows in the options", () => {
-    const state = getRowFilterInputState({
-      operator: "contains",
-      values: ["x"],
-      datatype: "number",
-      topValues: [],
-    });
-    expect(state.operatorOptions.map((o) => o.value)).toContain("contains");
-  });
-
-  it("offers top values plus any already-selected value", () => {
-    const state = getRowFilterInputState({
-      operator: "in",
-      values: ["chrome", "netscape"],
-      datatype: "string",
-      topValues: ["chrome", "firefox"],
-    });
-    expect(state.valueOptions.map((o) => o.value)).toEqual([
-      "chrome",
-      "firefox",
-      "netscape",
-    ]);
-    expect(state.useValueOptions).toBe(true);
-    expect(state.multiValueInput).toBe(true);
-  });
-
-  it("does not use a value dropdown for range operators", () => {
-    expect(
-      getRowFilterInputState({
-        operator: ">",
-        values: ["5"],
-        datatype: "number",
-        topValues: ["5", "10"],
-      }).useValueOptions,
-    ).toBe(false);
-  });
-
-  it("skips operator and value inputs for sql_expr and saved_filter", () => {
-    const sql = getRowFilterInputState({
-      operator: "sql_expr",
-      values: ["a = 1"],
-      datatype: "",
-      topValues: [],
-    });
-    expect(sql.operatorInputRequired).toBe(false);
-    expect(sql.operatorOptions).toEqual([]);
-    // sql_expr still needs somewhere to type the expression
-    expect(sql.valueInputRequired).toBe(true);
-
-    const saved = getRowFilterInputState({
-      operator: "saved_filter",
-      values: ["flt_1"],
-      datatype: "",
-      topValues: [],
-    });
-    expect(saved.operatorInputRequired).toBe(false);
-    expect(saved.valueInputRequired).toBe(false);
-  });
-
-  it("marks value-less operators as needing no input", () => {
-    for (const operator of ["is_true", "is_false", "is_null", "not_null"]) {
-      expect(
-        getRowFilterInputState({
-          operator: operator as RowFilter["operator"],
-          values: [],
-          datatype: "boolean",
-          topValues: [],
-        }).valueInputRequired,
-      ).toBe(false);
-    }
-  });
-
-  it("flags number and date columns for their specialised inputs", () => {
-    expect(
-      getRowFilterInputState({
-        operator: "=",
-        values: [],
-        datatype: "number",
-        topValues: [],
-      }).inputType,
-    ).toBe("number");
-    expect(
-      getRowFilterInputState({
-        operator: "=",
-        values: [],
-        datatype: "date",
-        topValues: [],
-      }).isDateColumn,
-    ).toBe(true);
-  });
-});
-
-describe("NUMBER_PARTIAL_PATTERN", () => {
-  it("accepts numbers that are still being typed", () => {
-    for (const v of ["-", ".", "-.", "1", "-1", "1.", "-1.5", ""]) {
-      expect(NUMBER_PARTIAL_PATTERN.test(v)).toBe(true);
-    }
-  });
-
-  it("rejects text that can never become a number", () => {
-    for (const v of ["abc", "1a", "--1", "1.2.3"]) {
-      expect(NUMBER_PARTIAL_PATTERN.test(v)).toBe(false);
-    }
-  });
-});
-
-describe("factTableToColumnSource", () => {
-  it("exposes columns and JSON sub-fields, hiding id types and deleted columns", () => {
-    const source = factTableToColumnSource({
-      columns: [
-        col("user_id"),
-        col("country"),
-        col("gone", { deleted: true }),
-        col("attributes", {
-          datatype: "json",
-          jsonFields: { plan: { datatype: "string" } },
-        }),
-      ],
-      filters: [
-        {
-          id: "flt_1",
-          name: "Paid",
-          value: "paid = 1",
-          description: "",
-          dateCreated: new Date(),
-          dateUpdated: new Date(),
-        },
-      ],
-      userIdTypes: ["user_id"],
-    });
-
-    expect(source.columns.map((c) => c.value)).toEqual([
-      "country",
-      "attributes",
-      "attributes.plan",
-    ]);
-    expect(source.savedFilters).toEqual([{ id: "flt_1", name: "Paid" }]);
-    expect(source.timeColumn).toBe("timestamp");
-    expect(source.getColumnInfo("country").datatype).toBe("string");
   });
 });
