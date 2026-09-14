@@ -446,7 +446,9 @@ export default function ExplorerSideBar({
       {activeType === "funnel" && renderingInDashboardSidebar && (
         <SaveFunnelMetricAction />
       )}
-      {showChartControls && activeType !== "funnel" && <ChartSettingsSection />}
+      {showChartControls &&
+        activeType !== "funnel" &&
+        activeType !== "journey" && <ChartSettingsSection />}
     </Flex>
   );
 }
