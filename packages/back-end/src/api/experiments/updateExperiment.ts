@@ -10,6 +10,7 @@ import {
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
+  assertCanRunExperimentChanges,
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   getExperimentAttributeScopeProjects,
@@ -345,6 +346,12 @@ export const updateExperiment = createApiRequestHandler(
   );
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  // canUpdateExperiment (above) is the analysis-level check. Fields that reach
+  // SDK payloads additionally need run-experiments permission in the
+  // environments the experiment affects — the same rule, on the same fields,
+  // as the dashboard's POST /experiment/:id.
+  await assertCanRunExperimentChanges(req.context, experiment, changes);
 
   // Linked feature rules would keep the old variation ids; the dashboard
   // refuses this too. Coverage and weights stay editable, as in its targeting flow.
