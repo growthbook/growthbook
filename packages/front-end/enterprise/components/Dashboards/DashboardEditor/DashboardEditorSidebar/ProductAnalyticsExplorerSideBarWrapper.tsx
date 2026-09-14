@@ -24,6 +24,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   invalidateStaleResults = true,
   saveAndCloseTrigger,
   onSaveAndClose,
+  onPreSaveRunSettled,
   hideDataSourceSelector = false,
   sqlExploreConfigOnly = false,
   dashboardHeaderLeadingContent,
@@ -48,6 +49,9 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   invalidateStaleResults?: boolean;
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
+  /** Fires when the pre-save run reaches any terminal state, so the caller can
+   *  stop showing Save & Close as busy whether or not the save follows. */
+  onPreSaveRunSettled?: () => void;
   hideDataSourceSelector?: boolean;
   sqlExploreConfigOnly?: boolean;
   dashboardHeaderLeadingContent?: ReactNode;
@@ -59,12 +63,21 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     setDraftExploreState,
     handleSubmit,
     loading,
+    error,
+    isSubmittable,
+    managedWarehouseUnavailable,
     comparisonMode,
     linkedFunnelMetricId,
   } = useExplorerContext();
   const pendingCloseRef = useRef(false);
   const onSaveAndCloseRef = useRef(onSaveAndClose);
   onSaveAndCloseRef.current = onSaveAndClose;
+  const onPreSaveRunSettledRef = useRef(onPreSaveRunSettled);
+  onPreSaveRunSettledRef.current = onPreSaveRunSettled;
+  // Read through refs so a new trigger value is the only thing that starts a
+  // run — both change identity on every draft edit.
+  const handleSubmitRef = useRef(handleSubmit);
+  handleSubmitRef.current = handleSubmit;
 
   const explorerAnalysisId =
     "explorerAnalysisId" in block ? block.explorerAnalysisId : undefined;
@@ -101,6 +114,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       usesDashboardDateRange,
     ],
   );
+  const getEffectiveDraftConfigRef = useRef(getEffectiveDraftConfig);
+  getEffectiveDraftConfigRef.current = getEffectiveDraftConfig;
 
   const nextComparison = useMemo<BlockComparison | undefined>(() => {
     const previousTimeFrame = draftExploreState.previousTimeFrame;
@@ -176,11 +191,16 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   ]);
 
   // When Save & Close is requested and the block is stale, run the analysis first.
+  // Keyed on the trigger value alone: the previous dependency list re-fired this
+  // forced run on every draft edit once the trigger had been bumped.
   useEffect(() => {
     if (!saveAndCloseTrigger) return;
     pendingCloseRef.current = true;
-    handleSubmit({ force: true, config: getEffectiveDraftConfig() });
-  }, [saveAndCloseTrigger, handleSubmit, getEffectiveDraftConfig]);
+    void handleSubmitRef.current({
+      force: true,
+      config: getEffectiveDraftConfigRef.current(),
+    });
+  }, [saveAndCloseTrigger]);
 
   // Once onRunComplete writes the required analysis ids, complete the save.
   useEffect(() => {
@@ -192,6 +212,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
         (!loading && !needsFetch))
     ) {
       pendingCloseRef.current = false;
+      onPreSaveRunSettledRef.current?.();
       onSaveAndCloseRef.current?.();
     }
   }, [
@@ -201,6 +222,17 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     loading,
     needsFetch,
   ]);
+
+  // A run that errors, or that doSubmit declines to start at all, never reaches
+  // onRunComplete — release the pending close so Save & Close stops spinning
+  // instead of waiting on an analysis id that is never coming.
+  useEffect(() => {
+    if (!pendingCloseRef.current || loading) return;
+    if (error || managedWarehouseUnavailable || !isSubmittable) {
+      pendingCloseRef.current = false;
+      onPreSaveRunSettledRef.current?.();
+    }
+  }, [error, loading, managedWarehouseUnavailable, isSubmittable]);
 
   return (
     <>

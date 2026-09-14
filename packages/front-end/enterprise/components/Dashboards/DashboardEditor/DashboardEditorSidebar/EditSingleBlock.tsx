@@ -343,6 +343,7 @@ export default function EditSingleBlock({
       (block.metricTagFilter?.length || 0) > 0,
   );
   const [saveAndCloseTrigger, setSaveAndCloseTrigger] = useState(0);
+  const [savingAndClosing, setSavingAndClosing] = useState(false);
 
   const isExplorationBlock =
     block?.type === "metric-exploration" ||
@@ -1904,6 +1905,7 @@ export default function EditSingleBlock({
                 dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
+                onPreSaveRunSettled={() => setSavingAndClosing(false)}
               />
             )}
             {block.type === "fact-table-exploration" && (
@@ -1913,6 +1915,7 @@ export default function EditSingleBlock({
                 dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
+                onPreSaveRunSettled={() => setSavingAndClosing(false)}
               />
             )}
             {block.type === "data-source-exploration" && (
@@ -1922,6 +1925,7 @@ export default function EditSingleBlock({
                 dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
+                onPreSaveRunSettled={() => setSavingAndClosing(false)}
               />
             )}
             {block.type === "funnel-exploration" && (
@@ -1931,6 +1935,7 @@ export default function EditSingleBlock({
                 dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
+                onPreSaveRunSettled={() => setSavingAndClosing(false)}
               />
             )}
             {block.type === "sql-exploration" && (
@@ -1949,6 +1954,7 @@ export default function EditSingleBlock({
                     dashboardGlobalControls={dashboardGlobalControls}
                     saveAndCloseTrigger={saveAndCloseTrigger}
                     onSaveAndClose={submit}
+                    onPreSaveRunSettled={() => setSavingAndClosing(false)}
                     hideDataSourceSelector
                     sqlExploreConfigOnly
                     dashboardHeaderLeadingContent={
@@ -1983,11 +1989,13 @@ export default function EditSingleBlock({
                   isExplorationBlock &&
                   !("explorerAnalysisId" in block && block.explorerAnalysisId)
                 ) {
+                  setSavingAndClosing(true);
                   setSaveAndCloseTrigger((n) => n + 1);
                 } else {
                   submit();
                 }
               }}
+              loading={savingAndClosing}
               disabled={isBlockIncomplete(block)}
             >
               Save & Close
