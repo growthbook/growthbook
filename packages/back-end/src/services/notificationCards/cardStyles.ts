@@ -1,30 +1,30 @@
 import {
-  ExperimentCardData,
+  DEFAULT_NOTIFICATION_SETTINGS,
+  NotificationCardFormat,
+} from "shared/validators";
+import {
   renderDetailedCard,
   renderCompactCard,
   renderCompactDarkCard,
 } from "back-end/src/services/notificationCards/cardImages";
 
+import type { CardData } from "back-end/src/services/notificationCards/types";
+
 // A card style is one platform-neutral visual treatment for rendering
-// ExperimentCardData into a PNG. The data model
-// (`ExperimentCardData`) is intentionally style-agnostic — every style consumes
-// the same model — so adding a style is purely a new renderer + registry entry,
-// with no change to how cards are built from an experiment.
-
-export type ExperimentCardStyle = "detailed" | "compact" | "compact-dark";
-
-export const DEFAULT_CARD_STYLE: ExperimentCardStyle = "detailed";
+// CardData into a PNG. The data model is intentionally style-agnostic — every
+// style consumes the same model — so adding a style is purely a new renderer +
+// registry entry, with no change to how cards are built from an event.
 
 export interface CardStyleDefinition {
-  id: ExperimentCardStyle;
+  id: NotificationCardFormat;
   /** User-facing name (for a future picker UI / API). */
   label: string;
   /** One-line description of the look, for the same picker. */
   description: string;
-  render: (exp: ExperimentCardData) => Promise<Buffer>;
+  render: (card: CardData) => Promise<Buffer>;
 }
 
-const CARD_STYLES: Record<ExperimentCardStyle, CardStyleDefinition> = {
+const CARD_STYLES: Record<NotificationCardFormat, CardStyleDefinition> = {
   "compact-dark": {
     id: "compact-dark",
     label: "Compact dark",
@@ -51,16 +51,17 @@ const CARD_STYLES: Record<ExperimentCardStyle, CardStyleDefinition> = {
 };
 
 /**
- * Render an experiment card to a PNG, using the requested style (falling back
- * to the default when unset or unknown). This is the entry point all callers
- * should use — it keeps the choice of style in one place.
+ * Render a card to a PNG in the requested style (falling back to the default
+ * when unset or unknown). This is the entry point all callers should use — it
+ * keeps the choice of style in one place.
  */
-export function renderExperimentCard(
-  exp: ExperimentCardData,
-  style: ExperimentCardStyle = DEFAULT_CARD_STYLE,
+export function renderCard(
+  card: CardData,
+  style: NotificationCardFormat = DEFAULT_NOTIFICATION_SETTINGS.cardFormat,
 ): Promise<Buffer> {
-  const def = CARD_STYLES[style] ?? CARD_STYLES[DEFAULT_CARD_STYLE];
-  return def.render(exp);
+  const def =
+    CARD_STYLES[style] ?? CARD_STYLES[DEFAULT_NOTIFICATION_SETTINGS.cardFormat];
+  return def.render(card);
 }
 
 /** The available card styles, for a future user/org-facing picker. */

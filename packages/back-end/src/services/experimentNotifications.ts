@@ -16,6 +16,10 @@ import {
 } from "shared/enterprise";
 import { ExperimentAnalysisSummary } from "shared/validators";
 import type { QueryRunnerFailureCause } from "shared/types/query";
+import {
+  getExperimentSRMValue,
+  getExperimentVariationUnitsFromHealth,
+} from "shared/health";
 import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentHealthSettings,
@@ -34,6 +38,7 @@ import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChan
 import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
+import { hasEventSubscribers } from "back-end/src/events/hasEventSubscribers";
 import {
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
@@ -47,11 +52,13 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
   experiment,
   event,
   data,
+  notify = true,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   event: T;
   data: CreateEventData<"experiment", T>;
+  notify?: boolean;
 }) => {
   const changedEnvs = includeExperimentInPayload(experiment)
     ? getEnvironmentIdsFromOrg(context.org)
@@ -67,6 +74,7 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
     environments: changedEnvs,
     tags: experiment.tags || [],
     containsSecrets: false,
+    notify,
   });
 };
 
@@ -329,14 +337,31 @@ export const notifyExperimentUpdateFailed = async ({
   });
 };
 
+const getSrmVariationBalance = (
+  experiment: ExperimentInterface,
+  snapshot: ExperimentSnapshotInterface,
+) => {
+  const units = getExperimentVariationUnitsFromHealth(snapshot);
+  if (!units?.length) return undefined;
+  const weights =
+    experiment.phases[experiment.phases.length - 1]?.variationWeights ?? [];
+  return experiment.variations.map((v, i) => ({
+    name: v.name,
+    users: units[i] ?? 0,
+    weight: weights[i] ?? 0,
+  }));
+};
+
 export const notifySrm = async ({
   context,
   experiment,
+  snapshot,
   currentStatus,
   healthSettings,
 }: {
   context: Context;
   experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotInterface;
   currentStatus: ExperimentResultStatusData;
   healthSettings: ExperimentHealthSettings;
 }) => {
@@ -351,6 +376,8 @@ export const notifySrm = async ({
     dispatch: async () => {
       if (!triggered) return;
 
+      const pValue = getExperimentSRMValue(snapshot);
+      const variations = getSrmVariationBalance(experiment, snapshot);
       await dispatchEvent({
         context,
         experiment,
@@ -361,6 +388,8 @@ export const notifySrm = async ({
             experimentId: experiment.id,
             experimentName: experiment.name,
             threshold: healthSettings.srmThreshold,
+            ...(pValue !== undefined ? { pValue } : {}),
+            ...(variations ? { variations } : {}),
           },
         },
       });
@@ -871,11 +900,15 @@ export const computeExperimentChanges = async ({
 
       if (winning === null) continue;
 
-      const variationKey = currentSnapshot.settings.variations[i]?.id;
+      // Match by the snapshot's variation key so reordered variations resolve
+      // correctly; fall back to position for snapshots without variation keys.
+      const variationKey = currentSnapshot.settings.variations?.[i]?.id;
       const variations = experiment.variations;
       const variation =
-        variations.find((v) => v.key === variationKey) ??
-        variations.find((v) => v.id === variationKey);
+        (variationKey !== undefined
+          ? (variations.find((v) => v.key === variationKey) ??
+            variations.find((v) => v.id === variationKey))
+          : undefined) ?? variations[i];
       if (!variation) continue;
       const { id: variationId, name: variationName } = variation;
 
@@ -924,13 +957,26 @@ export const notifySignificance = async ({
     await sendSignificanceEmail(context, experiment, experimentChanges);
   }
 
+  const notify = await hasEventSubscribers({
+    organizationId: context.org.id,
+    eventName: "experiment.info.significance",
+    projects: experiment.project ? [experiment.project] : [],
+    tags: experiment.tags || [],
+    environments: includeExperimentInPayload(experiment)
+      ? getEnvironmentIdsFromOrg(context.org)
+      : [],
+  });
+
   await Promise.all(
     experimentChanges.map((change) =>
       dispatchEvent({
         context,
         experiment,
         event: "info.significance",
-        data: { object: change },
+        notify,
+        data: {
+          object: change,
+        },
       }),
     ),
   );
@@ -1186,6 +1232,7 @@ export const notifyExperimentChange = async ({
     const triggeredSrm = await notifySrm({
       context,
       experiment,
+      snapshot,
       currentStatus,
       healthSettings,
     });

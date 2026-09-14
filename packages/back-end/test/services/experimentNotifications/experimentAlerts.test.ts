@@ -1,4 +1,5 @@
 import type { ExperimentInterface } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import type { Context } from "back-end/src/models/BaseModel";
 import { createEvent } from "back-end/src/models/EventModel";
@@ -45,6 +46,11 @@ const experiment = {
   tags: [],
   pastNotifications: [],
 } as unknown as ExperimentInterface;
+
+// Enough health evidence for the SRM payload without a full snapshot fixture.
+const snapshot = {
+  health: { traffic: { overall: { srm: 0.0004, variationUnits: [60, 40] } } },
+} as unknown as ExperimentSnapshotInterface;
 
 describe("experiment alert producers", () => {
   beforeEach(() => {
@@ -352,7 +358,13 @@ describe("experiment alert producers", () => {
       srmThreshold: 0.001,
       multipleExposureMinPercent: 0.01,
     };
-    await notifySrm({ context, experiment, currentStatus, healthSettings });
+    await notifySrm({
+      context,
+      experiment,
+      snapshot,
+      currentStatus,
+      healthSettings,
+    });
     await notifyMultipleExposures({ context, experiment, currentStatus });
     expect(
       jest.mocked(createEvent).mock.calls.map(([args]) => args.event),
@@ -364,6 +376,7 @@ describe("experiment alert producers", () => {
     await notifySrm({
       context,
       experiment: notified,
+      snapshot,
       currentStatus,
       healthSettings,
     });
@@ -377,6 +390,7 @@ describe("experiment alert producers", () => {
     await notifySrm({
       context,
       experiment: notified,
+      snapshot,
       currentStatus: recovered,
       healthSettings,
     });

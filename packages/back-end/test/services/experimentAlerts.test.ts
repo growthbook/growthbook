@@ -1,8 +1,8 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { buildExperimentAlertMessage } from "back-end/src/events/handlers/slack/experimentAlerts";
 import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
-import { buildEventSnapshotCard } from "back-end/src/services/notificationCards/eventSnapshotCard";
-import { eventSnapshotCardSamples } from "./eventSnapshotCard.fixtures";
+import { buildNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
+import { notificationCardSamples } from "./notificationCard.fixtures";
 
 describe("experiment alert messages", () => {
   it("preserves user text as plain text without enabling Slack mentions", () => {
@@ -25,12 +25,15 @@ describe("experiment alert messages", () => {
     });
   });
   it("uses the same immutable start details for Slack text and image cards", async () => {
-    const event = eventSnapshotCardSamples[0].event;
+    const sample = notificationCardSamples.find((s) => s.name === "started");
+    if (!sample) throw new Error("Missing started sample");
+    const event = sample.event;
     const message = await getSlackMessageForNotificationEvent(
       event,
       "event_test",
     );
-    const summary = buildEventSnapshotCard(event)?.summary?.[0];
+    const card = buildNotificationCard(event)?.data;
+    const summary = card && "summary" in card ? card.summary?.[0] : undefined;
     expect(summary).toBe(
       "Started with 2 linked Feature Flags, 1 Visual Editor change, 1 URL redirect.",
     );

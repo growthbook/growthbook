@@ -492,10 +492,28 @@ const apiRampStepCommon = {
   holdConditions: stepHoldConditions.optional(),
 };
 
-export const apiTemplateRampStep = z.object({
-  ...apiRampStepCommon,
-  actions: z.array(templateRampStepAction),
-});
+export const apiTemplateRampStep = z
+  .object({
+    ...apiRampStepCommon,
+    holdConditions: stepHoldConditions.strict().optional(),
+    actions: z.array(
+      templateRampStepAction
+        .extend({
+          patch: templateFeatureRulePatch
+            .extend({
+              force: z
+                .unknown()
+                .optional()
+                .describe(
+                  "Ignored: templates never carry force values. Accepted so a schedule's steps can be copied into a template.",
+                ),
+            })
+            .strict(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
 export type ApiTemplateRampStep = z.infer<typeof apiTemplateRampStep>;
 
 export const apiRampScheduleTemplateValidator = namedSchema(

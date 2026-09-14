@@ -323,7 +323,7 @@ export function validateFeatureValue(
   const prefix = label ? label + ": " : "";
   if (type === "boolean") {
     if (!["true", "false"].includes(value)) {
-      return value ? "true" : "false";
+      throw new Error(prefix + 'Must be "true" or "false"');
     }
   } else if (type === "number") {
     if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
@@ -686,14 +686,26 @@ export function assertSchemaMatchesValueType(
 }
 
 // Helper function to validate ISO timestamp format
+// RFC 3339 date-time: what the API schemas accept. Storage is canonicalized to
+// `toISOString()` at write time (addIdsToFlatRules), so the check here only has
+// to reject garbage, not enforce one spelling.
+const RFC3339_DATETIME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/i;
 function isValidISOTimestamp(timestamp: string): boolean {
-  // Validate that it's a proper date and parses correctly
-  try {
-    const date = new Date(timestamp);
-    return !isNaN(date.getTime()) && date.toISOString() === timestamp;
-  } catch {
-    return false;
-  }
+  return (
+    RFC3339_DATETIME.test(timestamp) && !isNaN(new Date(timestamp).getTime())
+  );
+}
+
+// A rule that already carries a schedule of either shape; plan gates treat
+// changes to such a rule as edits, not as newly introduced scheduling.
+export function isScheduledRule(
+  rule: Pick<FeatureRule, "scheduleRules" | "scheduleType"> | undefined,
+): boolean {
+  if (!rule) return false;
+  return (
+    (rule.scheduleType ?? "none") !== "none" || !!rule.scheduleRules?.length
+  );
 }
 
 // Validate scheduleRules business logic
@@ -732,7 +744,7 @@ export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
   for (const rule of scheduleRules) {
     if (rule.timestamp !== null && !isValidISOTimestamp(rule.timestamp)) {
       throw new Error(
-        `Invalid timestamp format: "${rule.timestamp}". Must be in ISO format (e.g., "2025-06-23T16:09:37.769Z")`,
+        `Invalid timestamp format: "${rule.timestamp}". Must be an ISO 8601 date-time (e.g., "2025-06-23T16:09:37Z")`,
       );
     }
   }
@@ -2661,7 +2673,11 @@ export function evaluatePrerequisiteState(
       return { state: "cyclic", value: null };
   }
 
+  // Guard recursion even when payload generation skips the full cycle check.
+  const visiting = new Set<string>();
   const visit = (feature: FeatureInterface): PrerequisiteStateResult => {
+    if (visiting.has(feature.id)) return { state: "cyclic", value: null };
+
     // 1. Current environment toggles take priority
     if (!feature.environmentSettings[env]) {
       return { state: "deterministic", value: null };
@@ -2715,6 +2731,7 @@ export function evaluatePrerequisiteState(
     //  - if any are "conditional", the feature is "conditional"
     isTopLevel = false;
     const prerequisites = feature.prerequisites || [];
+    visiting.add(feature.id);
     for (const prerequisite of prerequisites) {
       const prerequisiteFeature = featuresMap.get(prerequisite.id);
       if (!prerequisiteFeature) {
@@ -2725,6 +2742,9 @@ export function evaluatePrerequisiteState(
       }
       const { state: prerequisiteState, value: prerequisiteValue } =
         visit(prerequisiteFeature);
+      if (prerequisiteState === "cyclic") {
+        return { state: "cyclic", value: null };
+      }
       if (prerequisiteState === "deterministic") {
         const evaled = evalDeterministicPrereqValue(
           prerequisiteValue ?? null,
@@ -2741,6 +2761,7 @@ export function evaluatePrerequisiteState(
         value = undefined;
       }
     }
+    visiting.delete(feature.id);
 
     return { state, value };
   };
@@ -3858,6 +3879,20 @@ export function getRevisionReviewRequirement({
     return true;
   });
   return { required: rules.length > 0, rules };
+}
+
+// Whether review is required anywhere in the org: the legacy boolean, or any
+// rule with its own switch on. Used to decide when writes that would skip the
+// revision review flow altogether must be reserved for approval-bypass callers.
+export function orgRequiresAnyReview(
+  settings: Pick<OrganizationSettings, "requireReviews"> | undefined,
+  requireApprovalsLicensed = true,
+): boolean {
+  if (!requireApprovalsLicensed) return false;
+  const requireReviews = settings?.requireReviews;
+  return Array.isArray(requireReviews)
+    ? requireReviews.some((rule) => !!rule.requireReviewOn)
+    : !!requireReviews;
 }
 
 // Boolean form, for callers that only ask whether review is needed.

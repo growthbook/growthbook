@@ -3,6 +3,17 @@ import path from "path";
 import satori from "satori";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import { logger } from "back-end/src/util/logger";
+import type {
+  CardState,
+  CardGoalRow,
+  CardCiMetric,
+  CardTable,
+  CardIdentity,
+  EventCardData,
+  ExperimentCardData,
+  CardData,
+  CompactEvent,
+} from "back-end/src/services/notificationCards/types";
 
 // Server-side notification-card rendering. The renderer is platform-neutral:
 // delivery adapters can send the resulting PNG to Slack, Teams, Discord, or
@@ -167,13 +178,6 @@ const TAG_COLORS: { bg: string; fg: string }[] = [
 ];
 
 type Hue = "violet" | "blue" | "green" | "red" | "amber" | "slate";
-export type CardState =
-  | "started"
-  | "running"
-  | "winner"
-  | "loser"
-  | "stopped"
-  | "warning";
 
 const HUE: Record<CardState, Hue> = {
   started: "violet",
@@ -197,7 +201,6 @@ const VC = ["#3E63DD", "#12A594", "#F76808", "#E93D82"];
 const CARD_WIDTH = 1000;
 const COMPACT_WIDTH = 560;
 const COMPACT_MIN_HEIGHT = 240;
-const RAIL = 6;
 const COLS = [30, 150, 84, 84, 74, "flex" as const, 82];
 const VIOLIN_DOMAIN: [number, number] = [-20, 20];
 const CI_DOMAIN: [number, number] = [-10, 10];
@@ -207,76 +210,8 @@ const CI_DOMAIN: [number, number] = [-10, 10];
 const INTERVAL_W = 320;
 const INTERVAL_PAD_LEFT = 28;
 
-// ---------------------------------------------------------------------------
-// Data model (mirrors the prototype's EXPS shape).
-// ---------------------------------------------------------------------------
-
-export interface CardGoalRow {
-  v: string; // variation name
-  i: number; // variation index (number circle)
-  ctrl: string;
-  vr: string;
-  cn?: string;
-  vn?: string;
-  ctw?: string; // "99.1%"
-  chg?: string; // "+6.1%"
-  dir?: "up" | "down";
-  vio?: { c: number; s: number }; // violin center (lift %) + spread
-  ci?: { lo: number; hi: number; pt: number };
-  muted?: boolean;
-}
-
-export interface CardCiMetric {
-  name: string;
-  ctrl: string;
-  vr: string;
-  chg?: string;
-  dir?: "up" | "down";
-  ci: { lo: number; hi: number; pt: number };
-  sig?: boolean;
-}
-
-export interface ExperimentCardData {
-  state: CardState;
-  name: string;
-  key: string;
-  goal: string;
-  variants: string[];
-  tags?: string[];
-  users?: string;
-  days?: string;
-  dates?: string;
-  ds?: string;
-  note?: string;
-  rows: CardGoalRow[];
-  summary?: string[];
-  badgeLabel?: string; // overrides the state badge text, e.g. a stopped card with no outcome
-  secondary?: CardCiMetric[];
-  guardrail?: CardCiMetric[];
-  // Shown above the conclusion for non-started states; and in the started body.
-  hypothesis?: string;
-  // Completed experiments (won / lost / stopped) with a written analysis.
-  conclusion?: { text: string };
-  // Orthogonal to state — an experiment can be Running or Won and still be
-  // flagged unhealthy. Renders a red banner under the header when unhealthy.
-  health?: { status: "healthy" | "unhealthy"; issues: [string, string][] };
-  // started-only
-  metrics?: { goal: string; secondary: string[]; guardrail: string[] };
-  // warning-only
-  srm?: string;
-  p?: string;
-  // compact-card-only: the notification *event* the card announces (distinct
-  // from `state`/status). When unset, the compact card derives it from state.
-  event?: CompactEvent;
-  winningVariation?: string;
-  winningVariationIndex?: number;
-  compactLine?: string; // one-line conclusion fallback for outcome events
-}
-
-// A compact notification announces an EVENT (distinct from the experiment's
-// status). started fires while Running; won/lost/stopped once
-// Stopped; warning is a health alert.
-export type CompactEvent = "started" | "won" | "lost" | "stopped" | "warning";
+const isResultsCard = (card: CardData): card is ExperimentCardData =>
+  "rows" in card;
 
 // ---------------------------------------------------------------------------
 // Element helpers (Satori "without JSX" object form).
@@ -881,8 +816,8 @@ function tagBadges(tags: string[]): El[] {
 }
 
 // Condensed single-row header, no background tint (status is carried by the
-// left rail + the badge): name · key · badge on the left, tags + logo right.
-function headerEl(exp: ExperimentCardData): El {
+// badge): name · key · badge on the left, tags + logo right.
+function headerEl(exp: CardIdentity): El {
   const logoH = 15;
   return el(
     "div",
@@ -942,8 +877,9 @@ function headerEl(exp: ExperimentCardData): El {
 }
 
 // Plain-text metadata footer, items joined by a middot separator (not chips).
-function footerEl(items: (string | undefined)[]): El {
+function footerEl(items: (string | undefined)[]): El | null {
   const fitems = items.filter((x): x is string => !!x);
+  if (!fitems.length) return null;
   return el(
     "div",
     {
@@ -1268,25 +1204,202 @@ function conclusionEl(exp: ExperimentCardData): El | null {
   );
 }
 
-function eventSummaryBody(lines: string[]): El {
+// Event cards render at two scales: "sm" inside the 560px compact card and
+// "lg" inside the 1000px detailed card, where the table is the whole story.
+type EventBodySize = "sm" | "lg";
+const TABLE_SIZES = {
+  sm: { colW: 92, gap: 10, pad: "8px 12px", head: 9.5, cell: 13, note: 12 },
+  lg: { colW: 160, gap: 16, pad: "14px 20px", head: 12, cell: 18, note: 15 },
+} as const;
+
+// Plain text table: first column flexes and is left-aligned, the rest are
+// fixed-width and right-aligned.
+function tableEl(table: CardTable, size: EventBodySize = "sm"): El {
+  const sz = TABLE_SIZES[size];
+  const cell = (s: string, i: number, style: Record<string, unknown>) =>
+    el(
+      "div",
+      {
+        display: "flex",
+        justifyContent: i === 0 ? "flex-start" : "flex-end",
+        ...(i === 0 ? { flexGrow: 1, minWidth: 0 } : { width: sz.colW }),
+      },
+      [txt(s, style, i !== 0)],
+    );
+  const row = (cells: El[], style: Record<string, unknown>) =>
+    el(
+      "div",
+      {
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: sz.gap,
+        padding: sz.pad,
+        ...style,
+      },
+      cells,
+    );
   return el(
     "div",
-    { display: "flex", flexDirection: "column", gap: 12, padding: "20px 24px" },
-    lines.map((line) =>
-      txt(plainClamp(line, 240), { fontSize: 17, color: P.text }),
-    ),
+    {
+      display: "flex",
+      flexDirection: "column",
+      border: `1px solid ${P.border}`,
+      borderRadius: size === "lg" ? 10 : 8,
+      overflow: "hidden",
+    },
+    [
+      row(
+        table.columns.map((c, i) =>
+          cell(c, i, {
+            fontSize: sz.head,
+            fontWeight: 600,
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            color: P.subtle,
+          }),
+        ),
+        { backgroundColor: P.zebra },
+      ),
+      ...table.rows.map((r, ri) =>
+        row(
+          r.map((s, i) =>
+            cell(s, i, {
+              fontSize: sz.cell,
+              fontWeight: i === 0 ? 500 : 400,
+              color: P.text,
+            }),
+          ),
+          ri > 0 ? { borderTop: `1px solid ${P.borderSub}` } : {},
+        ),
+      ),
+      ...(table.note
+        ? [
+            row([txt(table.note, { fontSize: sz.note, color: P.muted })], {
+              borderTop: `1px solid ${P.borderSub}`,
+            }),
+          ]
+        : []),
+    ],
   );
 }
 
-function buildCard(exp: ExperimentCardData): El {
-  const hue = HUE[exp.state];
+function eventSummaryBody(card: EventCardData, size: EventBodySize): El {
+  const lg = size === "lg";
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      gap: lg ? 18 : 12,
+      padding: lg ? "18px 28px 26px" : 0,
+    },
+    [
+      ...(card.summary ?? []).map((line) =>
+        txt(plainClamp(line, 240), {
+          fontSize: lg ? 20 : 17,
+          lineHeight: 1.4,
+          color: P.text,
+        }),
+      ),
+      ...(card.table ? [tableEl(card.table, size)] : []),
+    ],
+  );
+}
+
+// Full-width headline bar in the card's state color, e.g. "Health Alert - SRM
+// Detected", with the event's icon. Amber is too light for white text, so it
+// gets the dark text color; the other hues take white.
+function eventBannerEl(card: EventCardData, hue: Hue): El {
+  const event = compactEventFor(card);
+  const color = hue === "amber" ? P.text : "#ffffff";
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: "16px 28px",
+      backgroundColor: SOLID[hue],
+    },
+    [
+      svgImg(eventIconSvg(COMPACT_EVENT[event].icon, color), 24, 24),
+      txt(card.banner ?? "", {
+        fontSize: 22,
+        fontWeight: 600,
+        letterSpacing: "-0.01em",
+        color,
+      }),
+    ],
+  );
+}
+
+// Header for banner cards: the banner already carries the state, so this is
+// just a large name on the left and the logo on the right.
+function eventHeaderEl(card: EventCardData): El {
+  const logoH = 22;
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 24,
+      padding: "22px 28px 0",
+    },
+    [
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "baseline",
+          gap: 14,
+          flexWrap: "wrap",
+          minWidth: 0,
+        },
+        [
+          txt(card.name, {
+            fontSize: 28,
+            fontWeight: 600,
+            color: P.text,
+            letterSpacing: "-0.01em",
+          }),
+          ...(card.tags?.length ? tagBadges(card.tags) : []),
+        ],
+      ),
+      {
+        type: "img",
+        props: {
+          src: getLogoDataUri(),
+          width: Math.round(logoH * LOGO_ASPECT),
+          height: logoH,
+          style: { display: "flex", flexShrink: 0 },
+        },
+      } as El,
+    ],
+  );
+}
+
+function buildCard(card: CardData): El {
+  const hue = HUE[card.state];
+  if (!isResultsCard(card)) {
+    return cardShell(
+      [
+        card.banner ? eventBannerEl(card, hue) : null,
+        card.banner ? eventHeaderEl(card) : headerEl(card),
+        eventSummaryBody(card, "lg"),
+        footerEl([card.dates]),
+      ].filter(Boolean) as El[],
+    );
+  }
+  const exp = card;
   let body: El;
   let footerItems: (string | undefined)[];
 
-  if (exp.summary) {
-    body = eventSummaryBody(exp.summary);
-    footerItems = [exp.dates];
-  } else if (exp.state === "started") {
+  if (exp.state === "started") {
     body = startedBody(exp);
     footerItems = [exp.variants.join(" · "), exp.dates, exp.ds];
   } else if (exp.state === "warning") {
@@ -1318,30 +1431,24 @@ function buildCard(exp: ExperimentCardData): El {
     footerEl(footerItems),
   ].filter(Boolean) as El[];
 
-  return cardShell(hue, column);
+  return cardShell(column);
 }
 
-// The rounded panel + full-height status rail shared by every card style.
-function cardShell(hue: Hue, column: El[]): El {
+// The rounded panel shared by every detailed card. Status color comes from the
+// badge or banner, not a rail.
+function cardShell(column: El[]): El {
   return el(
     "div",
     {
       display: "flex",
-      flexDirection: "row",
+      flexDirection: "column",
       width: CARD_WIDTH,
       backgroundColor: P.panel,
       border: `1px solid ${P.border}`,
       borderRadius: 14,
       overflow: "hidden",
     },
-    [
-      el("div", { display: "flex", width: RAIL, backgroundColor: SOLID[hue] }),
-      el(
-        "div",
-        { display: "flex", flexDirection: "column", flexGrow: 1 },
-        column,
-      ),
-    ],
+    column,
   );
 }
 
@@ -1463,7 +1570,7 @@ function statusPillEl(status: "running" | "stopped"): El {
 }
 
 // Derive the event when the caller didn't set one (samples / assistant path).
-function compactEventFor(exp: ExperimentCardData): CompactEvent {
+function compactEventFor(exp: CardIdentity): CompactEvent {
   if (exp.event) return exp.event;
   switch (exp.state) {
     case "started":
@@ -1498,7 +1605,7 @@ function capLabel(
 
 // Full-width solid event banner: a rounded icon chip + the event label in white
 // on the event color, with a translucent-white status pill on the right.
-// Carries the status color (the compact card has no left rail).
+// Carries the status color for the compact card.
 function compactBannerEl(
   ev: (typeof COMPACT_EVENT)[CompactEvent],
   hue: Hue,
@@ -1551,7 +1658,9 @@ function compactBannerEl(
 }
 
 // Name row on the white body, directly under the banner.
-function compactNameRowEl(exp: ExperimentCardData): El {
+// Banner cards carry the state in the banner, so the key is dropped to keep
+// the row to the name (matching the detailed banner header).
+function compactNameRowEl(exp: CardIdentity, showKey = true): El {
   return el(
     "div",
     {
@@ -1569,9 +1678,9 @@ function compactNameRowEl(exp: ExperimentCardData): El {
         color: P.text,
         letterSpacing: "-0.01em",
       }),
-      txt(exp.key, { fontSize: 11.5, color: P.subtle }, true),
+      showKey ? txt(exp.key, { fontSize: 11.5, color: P.subtle }, true) : null,
       ...(exp.tags?.length ? tagBadges(exp.tags) : []),
-    ],
+    ].filter(Boolean) as El[],
   );
 }
 
@@ -1580,7 +1689,6 @@ function compactHero(
   event: CompactEvent,
   hue: Hue,
 ): El {
-  if (exp.summary) return eventSummaryBody(exp.summary);
   const accentText = P.st[hue];
   const r = exp.rows[0];
 
@@ -1814,30 +1922,39 @@ function compactHero(
   );
 }
 
-function buildCompactCard(exp: ExperimentCardData): El {
-  const event = compactEventFor(exp);
+function compactFooterItems(
+  exp: ExperimentCardData,
+  event: CompactEvent,
+): (string | undefined)[] {
+  // Running-state events (no end date) omit the date range from the footer.
+  if (event === "started") return [exp.variants.join(" · "), exp.dates, exp.ds];
+  if (event === "warning") {
+    return [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds];
+  }
+  return [
+    exp.days,
+    exp.users ? `${exp.users} users` : undefined,
+    exp.dates,
+    exp.ds,
+  ];
+}
+
+function buildCompactCard(card: CardData): El {
+  const event = compactEventFor(card);
   const ev = COMPACT_EVENT[event];
-  const r0 = exp.rows[0];
   // Event hue drives the rail + eyebrow; win/ship tint by
   // direction (a "ship recommended" with a down metric goes red).
   let hue = ev.hue;
-  if (event === "won" && r0?.dir === "down") {
+  if (isResultsCard(card) && event === "won" && card.rows[0]?.dir === "down") {
     hue = "red";
   }
 
-  // Running-state events (no end date) omit the date range from the footer.
-  const runningEvent = event === "warning";
-  const footerItems =
-    event === "started"
-      ? [exp.variants.join(" · "), exp.dates, exp.ds]
-      : runningEvent
-        ? [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds]
-        : [
-            exp.days,
-            exp.users ? `${exp.users} users` : undefined,
-            exp.dates,
-            exp.ds,
-          ];
+  const [hero, footerItems] = isResultsCard(card)
+    ? [compactHero(card, event, hue), compactFooterItems(card, event)]
+    : [eventSummaryBody(card, "sm"), [card.dates]];
+  const bannerCard = !isResultsCard(card) && !!card.banner;
+  const banner =
+    !isResultsCard(card) && card.banner ? { ...ev, label: card.banner } : ev;
 
   // Rail-less panel: the solid banner carries the status color. The hero wrapper
   // flex-grows and centers its content so short cards sit at min-height without
@@ -1855,18 +1972,19 @@ function buildCompactCard(exp: ExperimentCardData): El {
       overflow: "hidden",
     },
     [
-      compactBannerEl(ev, hue),
-      compactNameRowEl(exp),
+      compactBannerEl(banner, hue),
+      compactNameRowEl(card, !bannerCard),
       el(
         "div",
         {
           display: "flex",
           flexDirection: "column",
           flexGrow: 1,
-          justifyContent: "center",
+          // Hero-stat cards center a short hero; event cards read top-down.
+          justifyContent: bannerCard ? "flex-start" : "center",
           padding: "16px 22px 18px",
         },
-        [compactHero(exp, event, hue)],
+        [hero],
       ),
       compactFooterEl(footerItems),
     ],
@@ -1953,23 +2071,19 @@ async function rasterize(root: El, width = CARD_WIDTH): Promise<Buffer> {
  * table with posterior violin plots, CI pills, and health signals. Rendered at
  * 2x width for crisp display in messaging clients; height auto-fits.
  *
- * This is one card *style*; callers should go through `renderExperimentCard`
- * in `./cards`, which dispatches by style, rather than calling this directly.
+ * This is one card *style*; callers should go through `renderCard` in
+ * `./cardStyles`, which dispatches by style, rather than calling this directly.
  */
-export async function renderDetailedCard(
-  exp: ExperimentCardData,
-): Promise<Buffer> {
+export async function renderDetailedCard(exp: CardData): Promise<Buffer> {
   return rasterize(buildCard(exp));
 }
 
 /**
  * Render the "compact" experiment card — a glanceable single-hero-stat card for
  * per-event notifications. Uses a colored event banner and a narrow layout.
- * Callers should use `renderExperimentCard` in `./experimentCards`.
+ * Callers should use `renderCard` in `./cardStyles`.
  */
-export async function renderCompactCard(
-  exp: ExperimentCardData,
-): Promise<Buffer> {
+export async function renderCompactCard(exp: CardData): Promise<Buffer> {
   return rasterize(buildCompactCard(exp), COMPACT_WIDTH);
 }
 
@@ -2043,9 +2157,7 @@ function darkCompactBody(node: El): El {
   };
 }
 
-export async function renderCompactDarkCard(
-  exp: ExperimentCardData,
-): Promise<Buffer> {
+export async function renderCompactDarkCard(exp: CardData): Promise<Buffer> {
   const light = buildCompactCard(exp);
   const dark = darkCompactBody(light);
   if (
