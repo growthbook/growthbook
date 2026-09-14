@@ -77,3 +77,18 @@ export function getSavedGroupPayloadStrategy({
   }
   return createReferencesV1Strategy(groupMap, organization);
 }
+
+/**
+ * Removes saved group capabilities an SDK claims but cannot actually use.
+ *
+ * Remote-eval connections evaluate conditions in @growthbook/proxy-eval, which
+ * does not know the `$savedGroup` operator yet, so they never get v2 whatever
+ * SDK version they report.
+ */
+export function withoutUnsupportedSavedGroupCapabilities(
+  capabilities: SDKCapability[],
+  connection: { remoteEvalEnabled?: boolean },
+): SDKCapability[] {
+  if (!connection.remoteEvalEnabled) return capabilities;
+  return capabilities.filter((c) => c !== "savedGroupReferencesV2");
+}

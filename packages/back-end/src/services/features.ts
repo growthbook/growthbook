@@ -42,6 +42,7 @@ import {
   getConnectionSDKCapabilities,
   getPayloadAllowedKeys,
   getSavedGroupPayloadStrategy,
+  withoutUnsupportedSavedGroupCapabilities,
   findAllReferencedSavedGroupIds,
   SavedGroupPayloadStrategy,
   SDKCapability,
@@ -180,17 +181,6 @@ import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
 } from "./organizations";
-
-// Remote-eval connections evaluate conditions in @growthbook/proxy-eval, which
-// does not know the `$savedGroup` operator yet. Drop the capability whatever
-// SDK version they claim, so their payloads stay inlined.
-export function withoutUnsupportedSavedGroupCapabilities(
-  capabilities: SDKCapability[],
-  connection: { remoteEvalEnabled?: boolean },
-): SDKCapability[] {
-  if (!connection.remoteEvalEnabled) return capabilities;
-  return capabilities.filter((c) => c !== "savedGroupReferencesV2");
-}
 
 export function generateFeaturesPayload({
   features,

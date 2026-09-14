@@ -17,7 +17,7 @@ import {
 } from "shared/types/organization";
 import { FeatureDefinition } from "shared/types/sdk";
 import { ConditionInterface } from "@growthbook/growthbook";
-import { getSDKCapabilities, SDKCapability } from "shared/sdk-versioning";
+import { getSDKCapabilities } from "shared/sdk-versioning";
 import { ApiReqContext } from "back-end/types/api";
 import {
   buildSDKPayloadForConnection,
@@ -26,7 +26,6 @@ import {
   getUsedSavedGroupIds,
   type SDKPayloadRawData,
   type ConnectionPayloadOptions,
-  withoutUnsupportedSavedGroupCapabilities,
 } from "back-end/src/services/features";
 import { getFeatureDefinition } from "back-end/src/util/features";
 
@@ -2241,42 +2240,5 @@ describe("getUsedSavedGroupIds", () => {
       groupMap,
     );
     expect(used.has("unused")).toBe(false);
-  });
-});
-
-describe("withoutUnsupportedSavedGroupCapabilities", () => {
-  const caps: SDKCapability[] = [
-    "savedGroupReferences",
-    "savedGroupReferencesV2",
-    "prerequisites",
-  ];
-
-  it("leaves a normal connection alone", () => {
-    expect(
-      withoutUnsupportedSavedGroupCapabilities(caps, {
-        remoteEvalEnabled: false,
-      }),
-    ).toEqual(caps);
-  });
-
-  it("leaves a connection with no remoteEval setting alone", () => {
-    expect(withoutUnsupportedSavedGroupCapabilities(caps, {})).toEqual(caps);
-  });
-
-  it("drops only savedGroupReferencesV2 for a remote-eval connection", () => {
-    // proxy-eval does not know $savedGroup yet, so those payloads stay inlined
-    expect(
-      withoutUnsupportedSavedGroupCapabilities(caps, {
-        remoteEvalEnabled: true,
-      }),
-    ).toEqual(["savedGroupReferences", "prerequisites"]);
-  });
-
-  it("is a no-op when the capability was not there to begin with", () => {
-    expect(
-      withoutUnsupportedSavedGroupCapabilities(["prerequisites"], {
-        remoteEvalEnabled: true,
-      }),
-    ).toEqual(["prerequisites"]);
   });
 });
