@@ -759,11 +759,16 @@ export async function migrateDraft(
 // namespace deletes / re-hashing, so deliberately NOT filtered by the caller's
 // project read access. Both storage shapes are matched (flat `rules` and the
 // pre-migration `environmentSettings.<env>.rules`) and normalized on read.
+//
+// An org environment id containing a "." would not match the dotted
+// `environmentSettings.<env>.rules` path, so that branch silently skips it.
+// That only affects unmigrated docs, and the flat `rules` branch still covers
+// every migrated one.
 export async function countFeaturesWithExperimentRuleInNamespace(
   context: ReqContext | ApiReqContext,
   namespaceId: string,
 ): Promise<number> {
-  const environments = getEnvironmentIdsFromOrg(context.org);
+  const environments = context.environments;
   const ruleMatch = {
     $elemMatch: {
       type: "experiment",
