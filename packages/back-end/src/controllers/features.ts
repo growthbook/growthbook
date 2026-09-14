@@ -2415,7 +2415,11 @@ export async function postFeaturePublish(
   if (mergeResult.result.archived === true && !feature.archived) {
     await assertFeatureArchiveDependentsGuard(context, feature);
   }
-  await assertFeatureMoveDependentsGuard(context, feature, revision.metadata);
+  await assertFeatureMoveDependentsGuard(
+    context,
+    feature,
+    mergeResult.result.metadata,
+  );
 
   const updatedFeature = await publishRevision({
     context,
