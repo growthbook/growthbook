@@ -262,6 +262,7 @@ export async function revertFeatureRevision(
       permissions: context.permissions,
       existing: feature,
       proposed: withStagedTargeting(feature, metadataChanges),
+      optedOut: await context.getTargetingOptOutProjectIds(),
     });
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;

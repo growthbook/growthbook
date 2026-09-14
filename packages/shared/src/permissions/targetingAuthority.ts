@@ -54,16 +54,31 @@ export function holdsTargetingDestination({
   permissions,
   existing,
   proposed,
+  optedOut = [],
 }: {
   permissions: {
     canTargetFeatureProjects: (projects: string[] | "all") => boolean;
   };
   existing: TargetingScoped;
   proposed: TargetingScoped;
+  // Projects whose `allowTargeting` is off; they refuse to be newly added, and
+  // "all projects" cannot turn on while any exists.
+  optedOut?: readonly string[];
 }): boolean {
   const added = addedTargetingProjects(existing, proposed);
   if (added !== "all" && added.length === 0) return true;
+  if (refusedTargetingProjects(added, optedOut).length) return false;
   return permissions.canTargetFeatureProjects(added);
+}
+
+// Which of the added projects refuse targeting; every opted-out project when
+// the addition is "all".
+export function refusedTargetingProjects(
+  added: string[] | "all",
+  optedOut: readonly string[],
+): string[] {
+  if (added === "all") return [...optedOut];
+  return added.filter((p) => optedOut.includes(p));
 }
 
 // The assert form of `holdsTargetingDestination`, naming what was refused so a
@@ -72,6 +87,7 @@ export function assertTargetingDestination({
   permissions,
   existing,
   proposed,
+  optedOut = [],
 }: {
   permissions: {
     canTargetFeatureProjects: (projects: string[] | "all") => boolean;
@@ -79,9 +95,22 @@ export function assertTargetingDestination({
   };
   existing: TargetingScoped;
   proposed: TargetingScoped;
+  optedOut?: readonly string[];
 }): void {
   const added = addedTargetingProjects(existing, proposed);
   if (added !== "all" && added.length === 0) return;
+  const refused = refusedTargetingProjects(added, optedOut);
+  if (refused.length) {
+    permissions.throwPermissionError(
+      added === "all"
+        ? `Cannot target all projects: ${refused.join(", ")} ${
+            refused.length === 1 ? "does" : "do"
+          } not allow targeting`
+        : `${refused.join(", ")} ${
+            refused.length === 1 ? "does" : "do"
+          } not allow targeting from other projects' Feature Flags`,
+    );
+  }
   if (permissions.canTargetFeatureProjects(added)) return;
   permissions.throwPermissionError(
     added === "all"

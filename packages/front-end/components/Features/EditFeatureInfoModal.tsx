@@ -63,7 +63,10 @@ const EditFeatureInfoModal: FC<{
     "feature",
   );
 
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, projects } = useDefinitions();
+  const targetingOptOut = projects
+    .filter((p) => p.allowTargeting === false)
+    .map((p) => p.id);
 
   const form = useForm({
     defaultValues: {
@@ -121,6 +124,7 @@ const EditFeatureInfoModal: FC<{
         targetingAllProjects: form.watch("targetingAllProjects"),
         targetingProjects: form.watch("targetingProjects"),
       },
+      optedOut: targetingOptOut,
     });
   const canAutoPublish = (isAdmin || !metadataGated) && canPublishMetadata;
 

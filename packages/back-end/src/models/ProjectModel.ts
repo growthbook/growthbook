@@ -74,6 +74,16 @@ export class ProjectModel extends BaseClass {
     return projects.map((p) => p.id);
   }
 
+  // Projects that refuse new Targeting Projects delivery, unfiltered: the gate
+  // must hold for projects the caller cannot read.
+  public async getTargetingOptOutIds(): Promise<string[]> {
+    const projects = await this._find(
+      { allowTargeting: false },
+      { bypassReadPermissionChecks: true },
+    );
+    return projects.map((p) => p.id);
+  }
+
   protected canCreate() {
     return this.context.permissions.canCreateProjects();
   }
@@ -97,7 +107,8 @@ export class ProjectModel extends BaseClass {
       ...(doc.settings || {}),
     };
 
-    return { ...doc, settings };
+    // Projects predating the setting allow targeting; only a stored false opts out.
+    return { ...doc, settings, allowTargeting: doc.allowTargeting ?? true };
   }
 
   private checkCanRestrictAccess() {
@@ -285,6 +296,7 @@ export class ProjectModel extends BaseClass {
       description: project.description || "",
       publicId: project.publicId,
       restrictAccess: project.restrictAccess,
+      allowTargeting: project.allowTargeting,
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {

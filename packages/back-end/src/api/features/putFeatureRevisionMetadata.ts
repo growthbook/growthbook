@@ -126,6 +126,7 @@ export async function setRevisionMetadata(
       permissions: context.permissions,
       existing: stagedTargeting,
       proposed: withStagedTargeting(stagedTargeting, metadataFields),
+      optedOut: await context.getTargetingOptOutProjectIds(),
     });
 
     const changes: RevisionChanges = {};

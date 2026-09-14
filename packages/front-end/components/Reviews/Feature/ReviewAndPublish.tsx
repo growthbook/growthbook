@@ -61,6 +61,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { format } from "date-fns";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -198,6 +199,12 @@ export default function ReviewAndPublish({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envIds = environments.map((e) => e.id);
   const permissionsUtil = usePermissionsUtil();
+  const { projects: allOrgProjects } = useDefinitions();
+  const targetingOptOut = useMemo(
+    () =>
+      allOrgProjects.filter((p) => p.allowTargeting === false).map((p) => p.id),
+    [allOrgProjects],
+  );
   // Same shared predicate as the generic tab and both comment endpoints, so
   // Feature Flags can't drift from the other entities.
   const canCommentOnDraft = canCommentOnRevisionEntity(
@@ -908,6 +915,7 @@ export default function ReviewAndPublish({
     ) &&
     holdsTargetingDestination({
       permissions: permissionsUtil,
+      optedOut: targetingOptOut,
       existing: feature,
       proposed: withStagedTargeting(feature, revision?.metadata),
     });
@@ -1736,6 +1744,7 @@ export default function ReviewAndPublish({
   // Project, or find someone who may target it).
   const holdsStagedTargeting = holdsTargetingDestination({
     permissions: permissionsUtil,
+    optedOut: targetingOptOut,
     existing: feature,
     proposed: withStagedTargeting(
       feature,

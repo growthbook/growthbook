@@ -79,7 +79,7 @@ export function authoredFeatureDraft(
 // publish authority is required for those and nothing else: a flag that starts
 // disabled everywhere reaches no SDK payload, and Create alone is enough. Approval
 // doesn't apply either — there is no prior state to review it against.
-export function assertCanCreateFeatureInState({
+export async function assertCanCreateFeatureInState({
   context,
   feature,
   environmentIds,
@@ -87,7 +87,7 @@ export function assertCanCreateFeatureInState({
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   environmentIds: string[];
-}): void {
+}): Promise<void> {
   const enabledOnCreate = Array.from(
     getEnabledEnvironments(feature, environmentIds),
   );
@@ -102,6 +102,7 @@ export function assertCanCreateFeatureInState({
     permissions: context.permissions,
     existing: {},
     proposed: feature,
+    optedOut: await context.getTargetingOptOutProjectIds(),
   });
 }
 
@@ -334,11 +335,14 @@ export function holdsFeaturePublishAuthority({
   feature,
   environments,
   mergeChanges,
+  optedOut,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   environments: string[];
   mergeChanges?: MergeResultChanges;
+  // Projects refusing new targeting; from `context.getTargetingOptOutProjectIds()`.
+  optedOut: string[];
 }): boolean {
   if (!context.permissions.canPublishFeature(feature, environments)) {
     return false;
@@ -348,6 +352,7 @@ export function holdsFeaturePublishAuthority({
       permissions: context.permissions,
       existing: feature,
       proposed: withStagedTargeting(feature, mergeChanges?.metadata),
+      optedOut,
     })
   ) {
     return false;
@@ -396,6 +401,7 @@ export async function assertCanPublishFeatureRevision({
     permissions: context.permissions,
     existing: feature,
     proposed: withStagedTargeting(feature, mergeChanges?.metadata),
+    optedOut: await context.getTargetingOptOutProjectIds(),
   });
 
   await assertCanLandRevision({

@@ -105,6 +105,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
         targetingAllProjects: req.body.targetingAllProjects,
         targetingProjects: req.body.targetingProjects,
       },
+      optedOut: await req.context.getTargetingOptOutProjectIds(),
     });
     await assertValidProjectIds(req.body.targetingProjects, req.context);
 
@@ -245,7 +246,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     // so gating those on publish is the only control needed — and a flag enabling
     // none is in no payload at all, leaving create authority sufficient. Approval
     // doesn't apply: there's no prior state to review a new flag against.
-    assertCanCreateFeatureInState({
+    await assertCanCreateFeatureInState({
       context: req.context,
       feature,
       environmentIds: orgEnvs.map((e) => e.id),

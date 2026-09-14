@@ -51,9 +51,15 @@ export default function TargetingProjectsField({
   }));
   const baseline = baselineProp ?? mountBaseline;
 
+  const optedOut = projects.filter((p) => p.allowTargeting === false);
   const canTarget = (projectId: string) =>
     baseline.targetingProjects.includes(projectId) ||
-    permissionsUtil.canTargetFeatureProjects([projectId]);
+    (permissionsUtil.canTargetFeatureProjects([projectId]) &&
+      !optedOut.some((p) => p.id === projectId));
+  const disabledReason = (projectId: string) =>
+    optedOut.some((p) => p.id === projectId)
+      ? "This Project doesn't allow targeting from other Projects' Feature Flags"
+      : "You don't have permission to target this Project";
   // `projects` is already read-filtered, so a restricted Project the viewer
   // cannot see is never offered. One already selected still needs a chip so
   // it can be seen and removed.
@@ -63,9 +69,7 @@ export default function TargetingProjectsField({
       .map((p) => ({
         value: p.id,
         label: p.name,
-        ...(canTarget(p.id)
-          ? {}
-          : { tooltip: "You don't have permission to target this Project" }),
+        ...(canTarget(p.id) ? {} : { tooltip: disabledReason(p.id) }),
       })),
     ...Array.from(
       new Set([...baseline.targetingProjects, ...targetingProjects]),
@@ -78,7 +82,14 @@ export default function TargetingProjectsField({
       })),
   ];
   const canTargetAll =
-    baseline.allProjects || permissionsUtil.canTargetFeatureProjects("all");
+    baseline.allProjects ||
+    (permissionsUtil.canTargetFeatureProjects("all") && optedOut.length === 0);
+  const allProjectsReason =
+    optedOut.length > 0 && !baseline.allProjects
+      ? `${optedOut.map((p) => p.name).join(", ")} ${
+          optedOut.length === 1 ? "doesn't" : "don't"
+        } allow targeting`
+      : "Requires permission to target all Projects";
 
   const help = `Also include this ${entityLabel} in these Projects' SDK payloads`;
 
@@ -161,7 +172,7 @@ export default function TargetingProjectsField({
                 label: "All Projects",
                 itemClassName: "mt-2",
                 disabled: !canTargetAll,
-                disabledReason: "Requires permission to target all Projects",
+                disabledReason: allProjectsReason,
               },
             ]}
           />

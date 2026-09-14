@@ -883,7 +883,7 @@ export async function postFeatures(
     ),
   );
 
-  assertCanCreateFeatureInState({ context, feature, environmentIds });
+  await assertCanCreateFeatureInState({ context, feature, environmentIds });
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
@@ -1668,6 +1668,7 @@ export async function postFeatureApproveAndPublish(
   // authority in the destination project is caught here — before the approval
   // commits — rather than by the armed publish's own check, whose failure is
   // swallowed.
+  const optedOut = await context.getTargetingOptOutProjectIds();
   const armedApproval =
     (await isArmedWithAuthorizedPublisher(
       context,
@@ -1678,6 +1679,7 @@ export async function postFeatureApproveAndPublish(
           feature,
           environments: envsToCheck,
           mergeChanges: mergeResult.result,
+          optedOut,
         }),
     )) &&
     !holdsFeaturePublishAuthority({
@@ -1685,6 +1687,7 @@ export async function postFeatureApproveAndPublish(
       feature,
       environments: envsToCheck,
       mergeChanges: mergeResult.result,
+      optedOut,
     });
   if (!armedApproval) {
     await assertCanPublishFeatureRevision({
@@ -2833,6 +2836,7 @@ export async function postFeatureRevert(
       permissions: context.permissions,
       existing: feature,
       proposed: withStagedTargeting(feature, metadataChanges),
+      optedOut: await context.getTargetingOptOutProjectIds(),
     });
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
@@ -3131,6 +3135,7 @@ export async function postFeatureRevertDraft(
     permissions: context.permissions,
     existing: feature,
     proposed: withStagedTargeting(feature, changes.metadata),
+    optedOut: await context.getTargetingOptOutProjectIds(),
   });
 
   const newRevision = await createRevision({
@@ -5714,6 +5719,7 @@ export async function putFeature(
     permissions: context.permissions,
     existing: stagedTargeting,
     proposed: withStagedTargeting(stagedTargeting, metadataUpdates),
+    optedOut: await context.getTargetingOptOutProjectIds(),
   });
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
   // Read-gated, so a caller can't link a flag into a Holdout outside their scope.

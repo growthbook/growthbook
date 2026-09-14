@@ -126,6 +126,43 @@ describe("holdsTargetingDestination", () => {
   });
 });
 
+describe("holdsTargetingDestination with opted-out projects", () => {
+  const all = { canTargetFeatureProjects: () => true };
+
+  it("refuses a newly added project that does not allow targeting", () => {
+    expect(
+      holdsTargetingDestination({
+        permissions: all,
+        existing: { project: "prj_b" },
+        proposed: { project: "prj_b", targetingProjects: ["prj_a"] },
+        optedOut: ["prj_a"],
+      }),
+    ).toBe(false);
+  });
+
+  it("leaves an existing target alone", () => {
+    expect(
+      holdsTargetingDestination({
+        permissions: all,
+        existing: { project: "prj_b", targetingProjects: ["prj_a"] },
+        proposed: { project: "prj_b", targetingProjects: ["prj_a", "prj_c"] },
+        optedOut: ["prj_a"],
+      }),
+    ).toBe(true);
+  });
+
+  it("blocks all-projects while any project opts out", () => {
+    expect(
+      holdsTargetingDestination({
+        permissions: all,
+        existing: { project: "prj_b" },
+        proposed: { project: "prj_b", targetingAllProjects: true },
+        optedOut: ["prj_z"],
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("withStagedTargeting", () => {
   it("overlays only the fields the envelope carries", () => {
     const live = {

@@ -232,6 +232,38 @@ describe("landing a draft that stages a targeting project", () => {
   });
 });
 
+describe("a project that does not allow targeting", () => {
+  it("refuses new targeting and all-projects, but keeps existing targeting editable", async () => {
+    as("u_admin");
+    const created = await api.post("/api/v1/projects", { name: "Project D" });
+    const prjD = (created.body as { project: { id: string } }).project.id;
+    const alreadyTargeted = await seedFeature([prjD]);
+    const optOut = await api.put(`/api/v1/projects/${prjD}`, {
+      allowTargeting: false,
+    });
+    expect(optOut.status).toBe(200);
+
+    const fresh = await seedFeature();
+    as("u_global_full");
+    const refused = await api.post(`/api/v1/features/${fresh}`, {
+      targetingProjects: [prjD],
+    });
+    expect(refused.status).toBe(403);
+    expect((refused.body as { message: string }).message).toMatch(
+      /allow targeting/,
+    );
+    const all = await api.post(`/api/v1/features/${fresh}`, {
+      targetingAllProjects: true,
+    });
+    expect(all.status).toBe(403);
+
+    const kept = await api.post(`/api/v1/features/${alreadyTargeted}`, {
+      targetingProjects: [prjD, prjA],
+    });
+    expect(kept.status).toBe(200);
+  });
+});
+
 describe("existing targeting", () => {
   // Only the delta is judged: a project already targeted stays, whoever edits.
   it("does not block adding another project, editing, or publishing", async () => {

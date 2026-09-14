@@ -177,7 +177,10 @@ export default function FeatureModal({
   secondaryCTA,
   featureToDuplicate,
 }: Props) {
-  const { project, refreshTags, configs } = useDefinitions();
+  const { project, refreshTags, configs, projects } = useDefinitions();
+  const targetingOptOut = projects
+    .filter((p) => p.allowTargeting === false)
+    .map((p) => p.id);
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
@@ -316,11 +319,12 @@ export default function FeatureModal({
         targetingAllProjects: form.watch("targetingAllProjects"),
         targetingProjects: form.watch("targetingProjects"),
       },
+      optedOut: targetingOptOut,
     })
   ) {
     ctaEnabled = false;
     disabledMessage =
-      "You don't have permission to target one or more of the selected Projects.";
+      "One or more of the selected Projects can't be targeted: you lack permission, or the Project doesn't allow targeting.";
   }
 
   return (

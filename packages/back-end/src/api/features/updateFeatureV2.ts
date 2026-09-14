@@ -149,6 +149,7 @@ export const updateFeatureV2 = createApiRequestHandler(
       targetingAllProjects,
       targetingProjects,
     }),
+    optedOut: await req.context.getTargetingOptOutProjectIds(),
   });
   await assertValidProjectIds(targetingProjects, req.context);
 

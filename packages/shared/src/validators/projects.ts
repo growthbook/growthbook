@@ -22,6 +22,8 @@ export const projectValidator = baseSchema
     settings: projectSettingsValidator.optional(),
     managedBy: managedByValidator.optional(),
     restrictAccess: z.boolean().optional(),
+    // Absent reads as true (see ProjectModel.migrate): opt-out, never opt-in.
+    allowTargeting: z.boolean().optional(),
   })
   .strict();
 
@@ -51,6 +53,12 @@ export const apiProjectValidator = namedSchema(
         .boolean()
         .describe(
           "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access.",
+        )
+        .optional(),
+      allowTargeting: z
+        .boolean()
+        .describe(
+          "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
         )
         .optional(),
       settings: z
@@ -101,6 +109,12 @@ const postProjectBody = z
         "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
       )
       .optional(),
+    allowTargeting: z
+      .boolean()
+      .describe(
+        "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -139,6 +153,12 @@ const putProjectBody = z
       .boolean()
       .describe(
         "When true, only members with an explicit role on this Project (directly or via a team) can access it. Members with the manageTeam permission retain access. Requires a Pro or Enterprise plan.",
+      )
+      .optional(),
+    allowTargeting: z
+      .boolean()
+      .describe(
+        "Whether Feature Flags owned by other Projects may add this Project to their Targeting Projects. Defaults to true. Turning it off blocks new targeting (and All Projects); existing targeting is kept.",
       )
       .optional(),
   })

@@ -26,6 +26,7 @@ const ProjectAccessSettings: FC<{
 
   const [modalOpen, setModalOpen] = useState(false);
   const [restrictAccess, setRestrictAccess] = useState(false);
+  const [allowTargeting, setAllowTargeting] = useState(true);
 
   const canEdit = permissionsUtil.canUpdateProject(project.id);
   const canRestrictAccess = hasCommercialFeature("advanced-permissions");
@@ -57,7 +58,7 @@ const ProjectAccessSettings: FC<{
           submit={async () => {
             await restApiCall(putProjectValidator, {
               params: { id: project.id },
-              body: { restrictAccess },
+              body: { restrictAccess, allowTargeting },
             });
             await mutateDefinitions();
           }}
@@ -80,6 +81,13 @@ const ProjectAccessSettings: FC<{
               admins will be able to access it.
             </Callout>
           ) : null}
+          <Checkbox
+            mt="4"
+            label="Allow Targeting Projects"
+            description="Feature Flags owned by other Projects may add this Project to their Targeting Projects and be delivered to its SDK Connections. Turning this off blocks new targeting; existing targeting is kept."
+            value={allowTargeting}
+            setValue={setAllowTargeting}
+          />
         </ModalStandard>
       )}
       <Frame px="4" py="3" mb="4">
@@ -90,6 +98,12 @@ const ProjectAccessSettings: FC<{
           <Flex align="center" gap="2" wrap="wrap">
             <Text color="text-low">Restrict access</Text>
             <Text weight="medium">{project.restrictAccess ? "On" : "Off"}</Text>
+            <Text color="text-low" ml="3">
+              Allow Targeting Projects
+            </Text>
+            <Text weight="medium">
+              {project.allowTargeting !== false ? "On" : "Off"}
+            </Text>
           </Flex>
           <PremiumTooltip commercialFeature="advanced-permissions">
             <Button
@@ -97,6 +111,7 @@ const ProjectAccessSettings: FC<{
               disabled={!canEdit || !canRestrictAccess}
               onClick={() => {
                 setRestrictAccess(!!project.restrictAccess);
+                setAllowTargeting(project.allowTargeting !== false);
                 setModalOpen(true);
               }}
             >

@@ -118,6 +118,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
       targetingAllProjects: req.body.targetingAllProjects,
       targetingProjects: req.body.targetingProjects,
     },
+    optedOut: await req.context.getTargetingOptOutProjectIds(),
   });
   await assertValidProjectIds(req.body.targetingProjects, req.context);
 
@@ -200,7 +201,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   // ensure default value matches value type
   feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-  assertCanCreateFeatureInState({
+  await assertCanCreateFeatureInState({
     context: req.context,
     feature,
     environmentIds: featurePublishEnvironmentIds(req.context.org, feature),

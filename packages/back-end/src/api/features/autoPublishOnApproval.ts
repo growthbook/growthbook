@@ -178,6 +178,7 @@ export async function canPublishFeatureRevision(
       permissions: context.permissions,
       existing: feature,
       proposed: withStagedTargeting(feature, revision?.metadata),
+      optedOut: await context.getTargetingOptOutProjectIds(),
     })
   ) {
     return false;
