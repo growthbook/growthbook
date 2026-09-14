@@ -471,7 +471,7 @@ const v2RuleScopeInput = z
       .array(z.string())
       .optional()
       .describe(
-        "Specific environment IDs this rule applies to. Required when allEnvironments is false.",
+        "Specific environment IDs this rule applies to. Supplying this list scopes the rule to those environments; an empty list, or allEnvironments false with no list, scopes it to no environment.",
       ),
     allProjects: z
       .boolean()

@@ -1664,7 +1664,7 @@ const postFeatureBody = z
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
-        "A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.",
+        "Per-environment settings, keyed by environment ID. On create, environments not listed take the organization's default state for that environment; on update, they keep their current settings.",
       )
       .optional(),
     prerequisites: z

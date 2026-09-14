@@ -913,10 +913,10 @@ paths:
                     type: string
                 environments:
                   description: >-
-                    A dictionary of environments that are enabled for this
-                    feature. Keys supply the names of environments. Environments
-                    belong to organization and are not specified will be
-                    disabled by default.
+                    Per-environment settings, keyed by environment ID. On
+                    create, environments not listed take the organization's
+                    default state for that environment; on update, they keep
+                    their current settings.
                   type: object
                   propertyNames:
                     type: string
@@ -8152,7 +8152,9 @@ paths:
                           environments:
                             description: >-
                               Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Supplying this list scopes the rule to those
+                              environments; an empty list, or allEnvironments
+                              false with no list, scopes it to no environment.
                             type: array
                             items:
                               type: string
@@ -8315,7 +8317,9 @@ paths:
                           environments:
                             description: >-
                               Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Supplying this list scopes the rule to those
+                              environments; an empty list, or allEnvironments
+                              false with no list, scopes it to no environment.
                             type: array
                             items:
                               type: string
@@ -8479,7 +8483,9 @@ paths:
                           environments:
                             description: >-
                               Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Supplying this list scopes the rule to those
+                              environments; an empty list, or allEnvironments
+                              false with no list, scopes it to no environment.
                             type: array
                             items:
                               type: string
@@ -8636,7 +8642,9 @@ paths:
                           environments:
                             description: >-
                               Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Supplying this list scopes the rule to those
+                              environments; an empty list, or allEnvironments
+                              false with no list, scopes it to no environment.
                             type: array
                             items:
                               type: string
@@ -8996,7 +9004,9 @@ paths:
                           environments:
                             description: >-
                               Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Supplying this list scopes the rule to those
+                              environments; an empty list, or allEnvironments
+                              false with no list, scopes it to no environment.
                             type: array
                             items:
                               type: string
@@ -9159,7 +9169,9 @@ paths:
                           environments:
                             description: >-
                               Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Supplying this list scopes the rule to those
+                              environments; an empty list, or allEnvironments
+                              false with no list, scopes it to no environment.
                             type: array
                             items:
                               type: string
@@ -9323,7 +9335,9 @@ paths:
                           environments:
                             description: >-
                               Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Supplying this list scopes the rule to those
+                              environments; an empty list, or allEnvironments
+                              false with no list, scopes it to no environment.
                             type: array
                             items:
                               type: string
@@ -9480,7 +9494,9 @@ paths:
                           environments:
                             description: >-
                               Specific environment IDs this rule applies to.
-                              Required when allEnvironments is false.
+                              Supplying this list scopes the rule to those
+                              environments; an empty list, or allEnvironments
+                              false with no list, scopes it to no environment.
                             type: array
                             items:
                               type: string
