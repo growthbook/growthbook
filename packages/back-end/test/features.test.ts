@@ -4234,3 +4234,131 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
     });
   });
 });
+
+describe("experiment-ref phase prerequisites", () => {
+  const prereqGroupMap: GroupMap = new Map([
+    [
+      "grp_cond",
+      { type: "condition", condition: JSON.stringify({ plan: "pro" }) },
+    ],
+    ["grp_list", { type: "list", attributeKey: "id", values: ["u_1"] }],
+  ]);
+
+  const experimentWithPrereq = (
+    prerequisiteCondition: string,
+  ): Map<string, ExperimentInterface> => {
+    const exp = {
+      id: "exp_prereq",
+      name: "Prereq Experiment",
+      trackingKey: "prereq-key",
+      organization: "123",
+      owner: "",
+      implementation: "code",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      tags: [],
+      variations: [
+        { id: "v0", key: "ctrl", name: "Control", screenshots: [] },
+        { id: "v1", key: "var", name: "Var", screenshots: [] },
+      ],
+      status: "running",
+      releasedVariationId: "",
+      autoSnapshots: false,
+      previewURL: "",
+      targetURLRegex: "",
+      archived: false,
+      phases: [
+        {
+          condition: "{}",
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Phase 1",
+          reason: "",
+          variationWeights: [0.5, 0.5],
+          seed: "prereq-seed",
+          prerequisites: [
+            { id: "parent_feature", condition: prerequisiteCondition },
+          ],
+        },
+      ],
+      linkedFeatures: ["feature"],
+    } as unknown as ExperimentInterface;
+    return new Map([["exp_prereq", exp]]);
+  };
+
+  const featureWithExperimentRef = () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        id: "abc",
+        type: "experiment-ref",
+        enabled: true,
+        experimentId: "exp_prereq",
+        description: "",
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+      },
+    ];
+    return feature;
+  };
+
+  const parentConditionsFor = (
+    prerequisiteCondition: string,
+    capabilities: SDKCapability[],
+    savedGroupReferencesEnabled?: boolean,
+  ) =>
+    getFeatureDefinition({
+      feature: featureWithExperimentRef(),
+      environment: "production",
+      groupMap: prereqGroupMap,
+      experimentMap: experimentWithPrereq(prerequisiteCondition),
+      safeRolloutMap,
+      capabilities,
+      savedGroupReferencesEnabled,
+      organization: baseOrganization,
+    })?.rules?.[0]?.parentConditions;
+
+  it("rewrites $savedGroups in a phase prerequisite under referencesV2", () => {
+    // Without this the stored operator reaches the SDK, which does not know it,
+    // so the whole experiment rule silently stops matching.
+    expect(
+      parentConditionsFor(
+        JSON.stringify({ $savedGroups: ["grp_cond"] }),
+        ["prerequisites", "savedGroupReferences", "savedGroupReferencesV2"],
+        true,
+      ),
+    ).toEqual([
+      { id: "parent_feature", condition: { $savedGroup: "grp_cond" } },
+    ]);
+  });
+
+  it("expands $savedGroups in a phase prerequisite under referencesV1", () => {
+    expect(
+      parentConditionsFor(
+        JSON.stringify({ $savedGroups: ["grp_cond"] }),
+        ["prerequisites", "savedGroupReferences"],
+        true,
+      ),
+    ).toEqual([{ id: "parent_feature", condition: { plan: "pro" } }]);
+  });
+
+  it("leaves a prerequisite with no saved groups alone", () => {
+    expect(
+      parentConditionsFor(JSON.stringify({ value: true }), [
+        "prerequisites",
+        "savedGroupReferences",
+        "savedGroupReferencesV2",
+      ]),
+    ).toEqual([{ id: "parent_feature", condition: { value: true } }]);
+  });
+
+  it("drops a prerequisite whose condition is unparseable", () => {
+    // An empty array, same as before this change. The rule still ships, with
+    // no gates, rather than the bad JSON reaching the SDK.
+    expect(parentConditionsFor("{not json", ["prerequisites"])).toEqual([]);
+  });
+});

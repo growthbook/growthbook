@@ -1,8 +1,5 @@
 import isEqual from "lodash/isEqual";
-import {
-  ConditionInterface,
-  ParentConditionInterface,
-} from "@growthbook/growthbook";
+import { ConditionInterface } from "@growthbook/growthbook";
 import {
   ExperimentDependencyIndex,
   NamespaceValue,
@@ -1238,17 +1235,14 @@ export function getFeatureDefinition({
           if (phase?.prerequisites?.length) {
             rule.parentConditions = phase.prerequisites
               .map((prerequisite) => {
-                try {
-                  return {
-                    id: prerequisite.id,
-                    condition: JSON.parse(prerequisite.condition),
-                  };
-                } catch (e) {
-                  // do nothing
-                }
-                return null;
+                const condition = mergeConditionAndSavedGroups({
+                  savedGroupStrategy,
+                  condition: prerequisite.condition,
+                });
+                if (!condition) return null;
+                return { id: prerequisite.id, condition };
               })
-              .filter(Boolean) as ParentConditionInterface[];
+              .filter(isDefined);
           }
 
           rule.coverage = phase.coverage;

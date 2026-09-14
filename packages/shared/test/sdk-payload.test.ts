@@ -1,5 +1,6 @@
 import { OrganizationInterface } from "shared/types/organization";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import { SDKCapability } from "../src/sdk-versioning/types";
 import {
   conditionHasSavedGroupErrors,
   createV1SavedGroupsOperatorHandler,
@@ -8,6 +9,7 @@ import {
   findAllReferencedSavedGroupIds,
   resolveSavedGroupRendering,
   getSavedGroupPayloadStrategy,
+  withoutUnsupportedSavedGroupCapabilities,
   SAVED_GROUP_ERROR_CYCLE,
   SAVED_GROUP_ERROR_INVALID,
   SAVED_GROUP_ERROR_MAX_DEPTH,
@@ -840,5 +842,42 @@ describe("getSavedGroupPayloadStrategy", () => {
         include: true,
       }),
     ).toBeNull();
+  });
+});
+
+describe("withoutUnsupportedSavedGroupCapabilities", () => {
+  const caps: SDKCapability[] = [
+    "savedGroupReferences",
+    "savedGroupReferencesV2",
+    "prerequisites",
+  ];
+
+  it("leaves a normal connection alone", () => {
+    expect(
+      withoutUnsupportedSavedGroupCapabilities(caps, {
+        remoteEvalEnabled: false,
+      }),
+    ).toEqual(caps);
+  });
+
+  it("leaves a connection with no remoteEval setting alone", () => {
+    expect(withoutUnsupportedSavedGroupCapabilities(caps, {})).toEqual(caps);
+  });
+
+  it("drops only savedGroupReferencesV2 for a remote-eval connection", () => {
+    // proxy-eval does not know $savedGroup yet, so those payloads stay inlined
+    expect(
+      withoutUnsupportedSavedGroupCapabilities(caps, {
+        remoteEvalEnabled: true,
+      }),
+    ).toEqual(["savedGroupReferences", "prerequisites"]);
+  });
+
+  it("is a no-op when the capability was not there to begin with", () => {
+    expect(
+      withoutUnsupportedSavedGroupCapabilities(["prerequisites"], {
+        remoteEvalEnabled: true,
+      }),
+    ).toEqual(["prerequisites"]);
   });
 });
