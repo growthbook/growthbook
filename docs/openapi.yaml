@@ -59972,12 +59972,16 @@ components:
               - condition
             additionalProperties: false
         allEnvironments:
-          description: When true the rule applies to all environments. Defaults to false.
+          description: >-
+            When true the rule applies to all environments. A rule sent with
+            neither allEnvironments nor environments applies to all
+            environments; supplying environments alone scopes it to those.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Used when
-            allEnvironments is false.
+            Specific environment IDs this rule applies to. Supplying this list
+            scopes the rule to those environments; ignored when allEnvironments
+            is true.
           type: array
           items:
             type: string
@@ -60076,12 +60080,16 @@ components:
               - condition
             additionalProperties: false
         allEnvironments:
-          description: When true the rule applies to all environments. Defaults to false.
+          description: >-
+            When true the rule applies to all environments. A rule sent with
+            neither allEnvironments nor environments applies to all
+            environments; supplying environments alone scopes it to those.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Used when
-            allEnvironments is false.
+            Specific environment IDs this rule applies to. Supplying this list
+            scopes the rule to those environments; ignored when allEnvironments
+            is true.
           type: array
           items:
             type: string
@@ -60168,12 +60176,16 @@ components:
               - condition
             additionalProperties: false
         allEnvironments:
-          description: When true the rule applies to all environments. Defaults to false.
+          description: >-
+            When true the rule applies to all environments. A rule sent with
+            neither allEnvironments nor environments applies to all
+            environments; supplying environments alone scopes it to those.
           type: boolean
         environments:
           description: >-
-            Specific environment IDs this rule applies to. Used when
-            allEnvironments is false.
+            Specific environment IDs this rule applies to. Supplying this list
+            scopes the rule to those environments; ignored when allEnvironments
+            is true.
           type: array
           items:
             type: string

@@ -148,13 +148,13 @@ const ruleScopeInput = {
     .boolean()
     .optional()
     .describe(
-      "When true the rule applies to all environments. Defaults to false.",
+      "When true the rule applies to all environments. A rule sent with neither allEnvironments nor environments applies to all environments; supplying environments alone scopes it to those.",
     ),
   environments: z
     .array(z.string())
     .optional()
     .describe(
-      "Specific environment IDs this rule applies to. Used when allEnvironments is false.",
+      "Specific environment IDs this rule applies to. Supplying this list scopes the rule to those environments; ignored when allEnvironments is true.",
     ),
 };
 
