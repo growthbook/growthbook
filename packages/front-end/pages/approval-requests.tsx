@@ -240,6 +240,7 @@ function featureRevisionToRow(
   const projects = featureReviewCandidateProjects(
     revision.featureMeta ?? { project: "" },
     settings,
+    revision,
   );
 
   return {

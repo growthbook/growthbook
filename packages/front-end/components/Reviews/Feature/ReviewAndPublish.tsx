@@ -734,6 +734,10 @@ export default function ReviewAndPublish({
     () => reviewRequirement?.approverProjects ?? [],
     [reviewRequirement],
   );
+  const governingRules = useMemo(
+    () => reviewRequirement?.governing ?? [],
+    [reviewRequirement],
+  );
 
   const {
     insufficientApprovers,
@@ -751,6 +755,7 @@ export default function ReviewAndPublish({
     projects: feature.project ? [feature.project] : [],
     reviewRules,
     approverProjects,
+    governingRules,
   });
 
   // Fall back to all applicable environments until the merge footprint is known.

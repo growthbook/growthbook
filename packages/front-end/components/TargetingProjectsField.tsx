@@ -144,8 +144,7 @@ export default function TargetingProjectsField({
                 label: "All Projects",
                 itemClassName: "mt-2",
                 disabled: !canTargetAll,
-                disabledReason:
-                  "Requires permission to target all Projects (a role granted for all projects)",
+                disabledReason: "Requires permission to target all Projects",
               },
             ]}
           />

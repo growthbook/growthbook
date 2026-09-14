@@ -54,6 +54,12 @@ describe("approverProjects", () => {
     const out = requirement(globalChange);
     expect(out.required).toBe(true);
     expect(out.approverProjects).toEqual(["prj_a"]);
+    // Every governing project reports its rule, so team rules keep their owner.
+    expect(out.governing?.map((g) => g.project)).toEqual([
+      "prj_b",
+      "prj_a",
+      "prj_c",
+    ]);
   });
 
   it("is empty when targeting projects are governed loosely", () => {
@@ -110,6 +116,27 @@ describe("featureReviewCandidateProjects", () => {
       "prj_b",
       "prj_a",
     ]);
+  });
+
+  // Coarse gates run before the draft is loaded, so any strict own-rule project
+  // might be staged; with the draft in hand, only current + staged count.
+  it("is an upper bound without a revision and exact with one", () => {
+    const untargeted = {
+      ...feature,
+      targetingProjects: [],
+    } as FeatureInterface;
+    expect(featureReviewCandidateProjects(untargeted, settings())).toEqual([
+      "prj_b",
+      "prj_a",
+    ]);
+    expect(
+      featureReviewCandidateProjects(untargeted, settings(), { metadata: {} }),
+    ).toEqual(["prj_b"]);
+    expect(
+      featureReviewCandidateProjects(untargeted, settings(), {
+        metadata: { targetingProjects: ["prj_a"] },
+      }),
+    ).toEqual(["prj_b", "prj_a"]);
   });
 
   it("is just the primary under loose mode or the legacy setting", () => {

@@ -28,9 +28,11 @@ function describeUnmet(unmet: UnmetTeams) {
     .join(" and ");
 }
 
-// "a reviewer in Platform and a reviewer in Config Server"
+// "a reviewer in the Platform Project and a reviewer in the Config Server Project"
 function describeProjects(projects: UnmetProjects) {
-  return projects.map((p) => `a reviewer in ${p.name}`).join(" and ");
+  return projects
+    .map((p) => `a reviewer in the ${p.name} Project`)
+    .join(" and ");
 }
 
 // What a publish will take: what the draft reaches, and who must sign off.

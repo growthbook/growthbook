@@ -3702,6 +3702,10 @@ export type ReviewRequirement = {
   // fired. Each must be signed off by one of its own reviewers, not only the
   // primary project's.
   approverProjects?: string[];
+  // Feature Flags only: every governing project whose rule fired, with that
+  // rule, so a rule's required teams are judged against approvals that count
+  // for the project that imposed it.
+  governing?: { project: string; rule: PolicyRule }[];
 };
 
 // Primary + strict targeting over current+staged, so adds and removes are both
@@ -3738,26 +3742,37 @@ export function governingReviewProjectsForFeature({
 }
 
 // Every project whose reviewers might be eligible to review this flag's
-// drafts, from live state alone: the primary plus strict-mode targeting
-// projects with a review rule of their own. Coarse gates that run before a
-// revision is loaded use this; the precise, per-draft list is
-// `getRevisionReviewRequirement(...).approverProjects`.
+// drafts: the primary plus strict-mode targeting projects with a review rule
+// of their own. With a revision, current and staged targeting both count.
+// Without one (coarse gates that run before the revision is loaded) any such
+// project might be staged, so all of them qualify; the precise, per-draft
+// answer is `getRevisionReviewRequirement(...).approverProjects`.
 export function featureReviewCandidateProjects(
   feature: Pick<
     FeatureInterface,
     "project" | "targetingAllProjects" | "targetingProjects"
   >,
   settings?: OrganizationSettings,
+  revision?: Pick<FeatureRevisionInterface, "metadata">,
 ): string[] {
   const primary = feature.project ?? "";
   const requireReviews = settings?.requireReviews;
   if (!Array.isArray(requireReviews)) return [primary];
-  const ownRule = new Set(projectsWithOwnRule(requireReviews));
-  const targeting = governingReviewProjectsForFeature({
-    feature,
-    revision: { metadata: {} },
-    settings,
-  }).filter((project) => project !== primary && ownRule.has(project));
+  const ownRule = projectsWithOwnRule(requireReviews).filter(
+    (project) =>
+      project &&
+      project !== primary &&
+      !!getReviewSetting(requireReviews, { project })?.requireReviewOn,
+  );
+  const targeting = revision
+    ? governingReviewProjectsForFeature({ feature, revision, settings }).filter(
+        (project) => ownRule.includes(project),
+      )
+    : ownRule.filter(
+        (project) =>
+          getTargetingReviewMode(settings?.targetingReviewMode, project) ===
+          "strict",
+      );
   return [primary, ...targeting];
 }
 
@@ -3928,7 +3943,15 @@ export function getRevisionReviewRequirement({
   const approverProjects = triggering
     .map((entry) => entry.project)
     .filter((project) => project !== primary && ownRule.has(project));
-  return { required: rules.length > 0, rules, approverProjects };
+  return {
+    required: rules.length > 0,
+    rules,
+    approverProjects,
+    governing: triggering.map((entry) => ({
+      project: entry.project,
+      rule: entry.setting,
+    })),
+  };
 }
 
 // Boolean form, for callers that only ask whether review is needed.

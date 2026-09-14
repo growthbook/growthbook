@@ -15,7 +15,7 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import {
   assessGoverningApprovalCoverage,
-  assessRequiredApproverTeams,
+  assessRequiredApproverTeamsByProject,
   bypassApprovalPermission,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -187,12 +187,7 @@ export async function assessRevisionApproval({
       id,
       roleInfo: context.org.members.find((m) => m.id === id) ?? null,
     }));
-  const {
-    hasCoveringApproval,
-    uncoveredApprovers,
-    contributingApproverIds,
-    requiredProjects,
-  } = assessGoverningApprovalCoverage({
+  const coverage = assessGoverningApprovalCoverage({
     org: context.org,
     teams: context.teams,
     model: "feature",
@@ -201,14 +196,21 @@ export async function assessRevisionApproval({
     footprint: reviewFootprint,
     approvers,
   });
+  const { hasCoveringApproval, uncoveredApprovers } = coverage;
   const requiredProjectApprovers = await nameProjects(
     context,
-    requiredProjects,
+    coverage.requiredProjects,
   );
 
-  const requiredTeams = assessRequiredApproverTeams({
-    rules: reviewRequirement.rules,
-    coveringApproverIds: contributingApproverIds,
+  const requiredTeams = assessRequiredApproverTeamsByProject({
+    governing:
+      reviewRequirement.governing ??
+      reviewRequirement.rules.map((rule) => ({
+        project: feature.project ?? "",
+        rule,
+      })),
+    primaryProject: feature.project ?? "",
+    coverage,
     org: context.org,
     teams: context.teams,
   });
@@ -451,7 +453,7 @@ export async function collectFeaturePublishGates({
       makeBlockingGate({
         type: "required-project-approvers-missing",
         messages: plan.requiredProjectApprovers.unmet.map(
-          (p) => `Requires approval from a reviewer in project ${p.name}.`,
+          (p) => `Requires approval from a reviewer in the ${p.name} project.`,
         ),
         requiresPermission: bypassApprovalPermission("feature"),
         resolution: {

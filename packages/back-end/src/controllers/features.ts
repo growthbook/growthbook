@@ -2227,7 +2227,9 @@ export async function postFeaturePublish(
   if (!adminOverride && requiresReview && !requiredProjectApprovers.satisfied) {
     throw new Error(
       requiredProjectApprovers.unmet
-        .map((p) => `Requires approval from a reviewer in project ${p.name}.`)
+        .map(
+          (p) => `Requires approval from a reviewer in the ${p.name} project.`,
+        )
         .join(" "),
     );
   }

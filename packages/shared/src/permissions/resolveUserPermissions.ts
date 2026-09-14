@@ -451,17 +451,14 @@ export function assessGoverningApprovalCoverage({
   approverProjects,
   footprint,
   approvers,
-}: ApprovalCoverageArgs & { approverProjects: string[] }): {
-  hasCoveringApproval: boolean;
-  // Approvals that sanction nothing: neither the primary nor any approver project.
-  uncoveredApprovers: string[];
-  // Approvals that count somewhere; only these can satisfy a team requirement.
-  contributingApproverIds: string[];
-  requiredProjects: { satisfied: boolean; unmet: string[] };
-} {
+}: ApprovalCoverageArgs & {
+  approverProjects: string[];
+}): GoverningApprovalCoverage {
   const uncoveredApprovers: string[] = [];
   const contributingApproverIds: string[] = [];
-  const coveredProjects = new Set<string>();
+  const primaryCoveringApproverIds: string[] = [];
+  const coveringApproverIdsByProject: Record<string, string[]> =
+    Object.fromEntries(approverProjects.map((p) => [p, [] as string[]]));
   let hasCoveringApproval = false;
 
   for (const { id, roleInfo } of approvers) {
@@ -476,17 +473,85 @@ export function assessGoverningApprovalCoverage({
           permissions.canReviewRevision(model, [project], footprint),
         )
       : [];
-    if (coversPrimary) hasCoveringApproval = true;
-    covered.forEach((project) => coveredProjects.add(project));
+    if (coversPrimary) {
+      hasCoveringApproval = true;
+      primaryCoveringApproverIds.push(id);
+    }
+    covered.forEach((project) =>
+      coveringApproverIdsByProject[project].push(id),
+    );
     if (coversPrimary || covered.length) contributingApproverIds.push(id);
     else uncoveredApprovers.push(id);
   }
 
-  const unmet = approverProjects.filter((p) => !coveredProjects.has(p));
+  const unmet = approverProjects.filter(
+    (p) => coveringApproverIdsByProject[p].length === 0,
+  );
   return {
     hasCoveringApproval,
     uncoveredApprovers,
     contributingApproverIds,
+    primaryCoveringApproverIds,
+    coveringApproverIdsByProject,
     requiredProjects: { satisfied: unmet.length === 0, unmet },
+  };
+}
+
+export type GoverningApprovalCoverage = {
+  hasCoveringApproval: boolean;
+  // Approvals that sanction nothing: neither the primary nor any approver project.
+  uncoveredApprovers: string[];
+  // Approvals that count somewhere.
+  contributingApproverIds: string[];
+  primaryCoveringApproverIds: string[];
+  // Keyed by approver project: the approvals that count for it.
+  coveringApproverIdsByProject: Record<string, string[]>;
+  requiredProjects: { satisfied: boolean; unmet: string[] };
+};
+
+// A required-team rule is satisfied only by approvals that count for the
+// project that imposed it: the primary's pool for the primary's rule (and for
+// rules a targeting project merely inherits), a targeting project's own pool
+// for its own rule. Pooling them would let a reviewer authorized in one project
+// satisfy another project's team requirement by team membership alone.
+export function assessRequiredApproverTeamsByProject({
+  governing,
+  primaryProject,
+  coverage,
+  org,
+  teams,
+}: {
+  governing: { project: string; rule: { requiredApproverTeams?: string[] } }[];
+  primaryProject: string;
+  coverage: Pick<
+    GoverningApprovalCoverage,
+    "primaryCoveringApproverIds" | "coveringApproverIdsByProject"
+  >;
+  org: Parameters<typeof assessRequiredApproverTeams>[0]["org"];
+  teams: Parameters<typeof assessRequiredApproverTeams>[0]["teams"];
+}): ReturnType<typeof assessRequiredApproverTeams> {
+  const pools = new Map<string, { requiredApproverTeams?: string[] }[]>();
+  for (const { project, rule } of governing) {
+    const key =
+      project !== primaryProject &&
+      project in coverage.coveringApproverIdsByProject
+        ? project
+        : "";
+    pools.set(key, [...(pools.get(key) ?? []), rule]);
+  }
+  const results = [...pools.entries()].map(([key, rules]) =>
+    assessRequiredApproverTeams({
+      rules,
+      coveringApproverIds: key
+        ? coverage.coveringApproverIdsByProject[key]
+        : coverage.primaryCoveringApproverIds,
+      org,
+      teams,
+    }),
+  );
+  return {
+    satisfied: results.every((r) => r.satisfied),
+    unmet: results.flatMap((r) => r.unmet),
+    enforcedTeamIds: results.flatMap((r) => r.enforcedTeamIds),
   };
 }

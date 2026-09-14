@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import {
   assessGoverningApprovalCoverage,
-  assessRequiredApproverTeams,
+  assessRequiredApproverTeamsByProject,
   getRolePermissions,
   revisionActionPermission,
   teamsForMember,
@@ -18,6 +18,10 @@ type Reviewer = { id: string; status: "approved" | "changes-requested" };
 
 const NO_RULES: { requiredApproverTeams?: string[] }[] = [];
 const NO_PROJECTS: string[] = [];
+type GoverningRule = {
+  project: string;
+  rule: { requiredApproverTeams?: string[] };
+};
 
 export interface ApprovalCoverage {
   uncoveredApprovers: Set<string>;
@@ -53,6 +57,7 @@ export function useApprovalCoverage({
   projects,
   reviewRules = NO_RULES,
   approverProjects = NO_PROJECTS,
+  governingRules,
 }: {
   reviewers: Reviewer[];
   footprint: ReviewAuthorityFootprint;
@@ -64,6 +69,10 @@ export function useApprovalCoverage({
   // Feature Flags only: targeting projects that each need one of their own
   // reviewers to approve.
   approverProjects?: string[];
+  // Feature Flags only: which project imposed each rule, so its required teams
+  // are judged against that project's approvals. Falls back to `reviewRules`
+  // as the primary project's.
+  governingRules?: GoverningRule[];
 }): ApprovalCoverage {
   const { users, teams, organization } = useUser();
   const { getProjectById } = useDefinitions();
@@ -170,16 +179,26 @@ export function useApprovalCoverage({
     (r) => r.status === "approved" && !uncoveredApprovers.has(r.id),
   );
 
+  const primaryProject = projects[0] ?? "";
   const requiredTeams = useMemo(
     () =>
-      assessRequiredApproverTeams({
-        rules: reviewRules,
-        // Only approvals that count somewhere can satisfy a team requirement.
-        coveringApproverIds: coverage.contributingApproverIds,
+      assessRequiredApproverTeamsByProject({
+        governing:
+          governingRules ??
+          reviewRules.map((rule) => ({ project: primaryProject, rule })),
+        primaryProject,
+        coverage,
         org: organization as OrganizationInterface,
         teams: (teams ?? []) as TeamInterface[],
       }),
-    [reviewRules, coverage, organization, teams],
+    [
+      governingRules,
+      reviewRules,
+      primaryProject,
+      coverage,
+      organization,
+      teams,
+    ],
   );
 
   // Required-team rules are summative — different rules can be satisfied by
