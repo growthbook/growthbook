@@ -19,6 +19,7 @@ import {
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
   appendRampEvent,
+  assertCanEditRampScheduleConfig,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   computeNextProcessAt,
   dispatchRampEvent,
@@ -579,12 +580,6 @@ export class RampScheduleModel extends BaseClass {
       throw new NotFoundError("Ramp schedule not found");
     }
 
-    if (!this.context.hasPremiumFeature("ramp-schedules")) {
-      this.context.throwPlanDoesNotAllowError(
-        "Ramp schedules require an Enterprise plan.",
-      );
-    }
-
     // Locked so the read-modify-write can't clobber a concurrent advance.
     return runLockedRampScheduleAction(
       this.context,
@@ -733,6 +728,10 @@ export class RampScheduleModel extends BaseClass {
         ? updates.startApprovedAt
         : schedule.startApprovedAt) as Date | null | undefined,
     });
+
+    // Same publish-class gate as the dashboard PUT; canUpdate() alone passes
+    // with draft access, which is right for name/monitoring edits only.
+    await assertCanEditRampScheduleConfig(this.context, schedule, updates);
 
     const editedFields = Object.keys(updates).filter(
       (k) => k !== "nextProcessAt" && k !== "eventHistory",
