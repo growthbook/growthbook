@@ -520,15 +520,18 @@ export function experimentRefChanged(
   prior: FeatureRule | undefined,
 ): boolean {
   const variationIds = (r: ExperimentRefRuleInput) =>
-    (r.variations ?? [])
-      .map((v) => v.variationId ?? "")
-      .sort()
-      .join("\0");
-  return (
+    (r.variations ?? []).map((v) => v.variationId ?? "").sort();
+  if (
     !prior ||
     prior.type !== "experiment-ref" ||
-    prior.experimentId !== rule.experimentId ||
-    variationIds(prior) !== variationIds(rule)
+    prior.experimentId !== rule.experimentId
+  ) {
+    return true;
+  }
+  const before = variationIds(prior);
+  const after = variationIds(rule);
+  return (
+    before.length !== after.length || before.some((id, i) => id !== after[i])
   );
 }
 
@@ -550,9 +553,9 @@ export async function assertValidChangedRuleExperimentIds(
   );
 }
 
-// Dashboard form: the variation check for every experiment-ref rule whose
-// experiment resolves; a missing experiment is left to downstream validation,
-// as the dashboard paths have always done.
+// Dashboard create paths: the variation check for every experiment-ref rule
+// whose experiment resolves; a missing experiment is left to downstream
+// validation, as those paths have always done.
 export async function assertExperimentRefRuleVariations(
   context: ReqContext | ApiReqContext,
   rules: FeatureRule[],

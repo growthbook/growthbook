@@ -292,6 +292,7 @@ import {
 import {
   assertExperimentRefRuleVariations,
   assertRuleVariationsMatchExperiment,
+  assertValidExperimentRefRule,
   assertValidHoldout,
   experimentRefChanged,
 } from "back-end/src/api/features/v2Shared";
@@ -4621,11 +4622,12 @@ export async function putFeatureRule(
   // never re-bucketed; a force rule the UI promoted by dropping coverage has no
   // rollout history, so it seeds off its own id. Id first, so nothing mints one.
   const inboundRule = effectiveRule as FeatureRule;
+  // Only a changed reference is checked, so it must resolve.
   if (
     inboundRule.type === "experiment-ref" &&
     experimentRefChanged(inboundRule, existingRule)
   ) {
-    await assertExperimentRefRuleVariations(context, [inboundRule]);
+    await assertValidExperimentRefRule(context, inboundRule);
   }
   if (!inboundRule.id) inboundRule.id = ruleId;
   inheritStoredRolloutSeeds([inboundRule], existingRules);
