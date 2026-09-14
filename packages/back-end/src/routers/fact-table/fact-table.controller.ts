@@ -194,20 +194,36 @@ async function testRowFiltersQuery(
 
   // getRowFilterSQL already expands virtual columns (both in column references
   // and in sql_expr/saved_filter bodies), so the clauses go in as-is.
-  const where = rowFilters
-    .map((rowFilter) =>
-      getRowFilterSQL({
-        rowFilter,
-        factTable,
-        jsonExtract: dialect.jsonExtract,
-        escapeStringLiteral: dialect.escapeStringLiteral,
-        stringMatch: dialect.stringMatch,
-        evalBoolean: dialect.evalBoolean,
-        castToTimestamp: dialect.castToTimestamp,
-        identifierQuote: dialect.identifierQuote,
-      }),
-    )
-    .filter((sql): sql is string => sql !== null);
+  const where: string[] = [];
+  rowFilters.forEach((rowFilter) => {
+    const sql = getRowFilterSQL({
+      rowFilter,
+      factTable,
+      jsonExtract: dialect.jsonExtract,
+      escapeStringLiteral: dialect.escapeStringLiteral,
+      stringMatch: dialect.stringMatch,
+      evalBoolean: dialect.evalBoolean,
+      castToTimestamp: dialect.castToTimestamp,
+      identifierQuote: dialect.identifierQuote,
+    });
+
+    // A filter that compiles to nothing (most often a Saved Filter that has
+    // since been deleted) would quietly widen the preview, showing rows the
+    // user's filters exclude. Analysis queries drop these; a preview whose
+    // whole job is to show what the filters match must not.
+    if (sql === null) {
+      if (rowFilter.operator === "saved_filter") {
+        throw new Error(
+          `Saved Filter "${rowFilter.values?.[0]}" no longer exists. Remove it from the row filters to preview rows.`,
+        );
+      }
+      throw new Error(
+        `The row filter on "${rowFilter.column || rowFilter.operator}" is incomplete and cannot be previewed.`,
+      );
+    }
+
+    where.push(sql);
+  });
 
   const whereClause = where.join("\n  AND ");
 

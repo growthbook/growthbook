@@ -92,6 +92,9 @@ export default function DisplayTestQueryResults({
   const labels = columnLabels ?? cols;
   const canDownload =
     !!allowDownload && results.length > 0 && (csvColumnKeys ?? cols).length > 0;
+  // `tableOnly` returns the bare table, without the QueryModal that this opens,
+  // so the menu item would be inert there.
+  const canViewRenderedSql = !!sql && !tableOnly;
   const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
   const durationStatus = error ? "Query failed" : "Query succeeded";
   const showDurationStatus = showDuration && duration > 0;
@@ -313,7 +316,7 @@ export default function DisplayTestQueryResults({
                   </span>
                 </Tooltip>
               ) : null}
-              {sql || canDownload ? (
+              {canViewRenderedSql || canDownload ? (
                 <DropdownMenu
                   menuPlacement="end"
                   trigger={
@@ -328,7 +331,7 @@ export default function DisplayTestQueryResults({
                     </IconButton>
                   }
                 >
-                  {sql ? (
+                  {canViewRenderedSql ? (
                     <DropdownMenuItem onClick={() => setShowQueryModal(true)}>
                       View Rendered SQL
                     </DropdownMenuItem>
