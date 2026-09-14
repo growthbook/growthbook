@@ -2,7 +2,6 @@ import { resolveCappingSettingsPatch } from "shared/validators";
 import type { Response } from "express";
 import {
   canInlineFilterColumn,
-  expandVirtualColumnsInSql,
   getColumnRefWhereClause,
   getFactTableTimestampColumn,
 } from "shared/experiments";
