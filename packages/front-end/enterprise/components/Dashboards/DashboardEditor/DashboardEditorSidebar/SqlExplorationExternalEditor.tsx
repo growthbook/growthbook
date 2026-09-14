@@ -115,39 +115,44 @@ function SqlExplorationModalContent({
     <SqlExplorationEditorModal
       close={close}
       actions={
-        <Button
-          loading={updating}
-          disabled={
-            (!hasChanges && !hasUnpreviewedSqlChanges) ||
-            !isSubmittable ||
-            !canRunQueries ||
-            loading ||
-            isQueryRunning
-          }
-          onClick={async () => {
-            setUpdating(true);
-            try {
-              // Edited SQL that was never previewed has stale column metadata,
-              // which the exploration query is built from. Refresh it here
-              // rather than making the user run the query twice by hand, and
-              // submit what the preview returned — the draft in this closure is
-              // a render behind it.
-              const config = hasUnpreviewedSqlChanges
-                ? await runPreview(localSql)
-                : draftExploreState;
-              if (!config) return;
-              onUpdateRequested(true, cleanConfigForSubmission(config));
-              await handleSubmit({ force: true, config });
-            } catch (error) {
-              onUpdateRequested(false);
-              throw error;
-            } finally {
-              setUpdating(false);
-            }
-          }}
+        <Tooltip
+          body="Runs your edited query first, then updates the block."
+          shouldDisplay={hasUnpreviewedSqlChanges}
         >
-          Update Block
-        </Button>
+          <Button
+            loading={updating}
+            disabled={
+              (!hasChanges && !hasUnpreviewedSqlChanges) ||
+              !isSubmittable ||
+              !canRunQueries ||
+              loading ||
+              isQueryRunning
+            }
+            onClick={async () => {
+              setUpdating(true);
+              try {
+                // Edited SQL that was never previewed has stale column
+                // metadata, which the exploration query is built from. Refresh
+                // it here rather than making the user run the query twice by
+                // hand, and submit what the preview returned — the draft in
+                // this closure is a render behind it.
+                const config = hasUnpreviewedSqlChanges
+                  ? await runPreview(localSql)
+                  : draftExploreState;
+                if (!config) return;
+                onUpdateRequested(true, cleanConfigForSubmission(config));
+                await handleSubmit({ force: true, config });
+              } catch (error) {
+                onUpdateRequested(false);
+                throw error;
+              } finally {
+                setUpdating(false);
+              }
+            }}
+          >
+            Update block
+          </Button>
+        </Tooltip>
       }
     >
       {/* The data source stays selectable here, as it is for every other
