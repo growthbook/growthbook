@@ -251,10 +251,7 @@ function readMetricData({
     if (r.dim_pre_date) {
       const users = (r.users as number) ?? 0;
       const week = lastMondayString(r.dim_pre_date as string);
-      if (!histogram[week]) {
-        histogram[week] = users;
-      }
-      histogram[week] += users;
+      histogram[week] = (histogram[week] ?? 0) + users;
     }
   });
 
