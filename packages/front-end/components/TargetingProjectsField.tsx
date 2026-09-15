@@ -33,7 +33,7 @@ export default function TargetingProjectsField({
   setAllProjects,
   targetingProjects,
   setTargetingProjects,
-  entityLabel = "feature",
+  entityLabel = "Feature Flag",
   baseline: baselineProp,
   ...marginProps
 }: TargetingProjectsFieldProps) {

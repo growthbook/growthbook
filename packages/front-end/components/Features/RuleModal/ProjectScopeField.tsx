@@ -59,7 +59,7 @@ export default function RuleProjectScopeField({
   ];
 
   const help =
-    "Limit this rule to specific Projects. Applies to all of the feature's Projects by default.";
+    "Limit this rule to specific Projects. Applies to all of the Feature Flag's Projects by default.";
 
   return (
     <Box {...marginProps}>
