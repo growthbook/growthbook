@@ -115,15 +115,20 @@ export const SelectItem = forwardRef<
     value: string;
     children: string | string[] | ReactNode;
     disabled?: boolean;
+    className?: string;
+    textValue?: string;
   }
->(function SelectItem({ value, children, disabled = false, ...props }, ref) {
+>(function SelectItem(
+  { value, children, disabled = false, className, ...props },
+  ref,
+) {
   return (
     <RadixSelect.Item
       value={value}
       disabled={disabled}
       {...props}
       ref={ref}
-      className="w-full"
+      className={clsx("w-full", className)}
     >
       {children}
     </RadixSelect.Item>
