@@ -485,6 +485,7 @@ export function factTableToColumnSource(
     // JSON sub-fields are selectable as their own columns
     if (col.jsonFields) {
       Object.keys(col.jsonFields).forEach((field) => {
+        if (factTable.userIdTypes?.includes(`${col.column}.${field}`)) return;
         if (col.column === "attributes" && hiddenAttributeFields.has(field))
           return;
         columns.push({
