@@ -939,6 +939,41 @@ describe("experiments API", () => {
       expect(createExperiment).not.toHaveBeenCalled();
     });
 
+    it("rejects a releasedVariationId that is not one of the variations", async () => {
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+        },
+      });
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+      (createExperiment as jest.Mock).mockImplementation(({ data }) => ({
+        ...experiment,
+        ...data,
+      }));
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "checkout_flow",
+          name: "Checkout flow",
+          datasourceId: "ds_123",
+          assignmentQueryId: "user_id",
+          status: "stopped",
+          releasedVariationId: "var_nope",
+          variations: [
+            { id: "var_control", key: "control", name: "Control" },
+            { id: "var_treatment", key: "treatment", name: "Treatment" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/invalid_released_variation_id/);
+      expect(createExperiment).not.toHaveBeenCalled();
+    });
+
     it("rejects create when required custom fields are missing", async () => {
       updateReqContext({
         models: {
@@ -1369,6 +1404,130 @@ describe("experiments API", () => {
         }),
       );
       expect(updateExperiment).not.toHaveBeenCalled();
+    });
+
+    describe("releasedVariationId must match a variation", () => {
+      const stopped = {
+        ...experiment,
+        status: "stopped",
+        variations: [
+          { id: "var_control", key: "0", name: "Control", screenshots: [] },
+          { id: "var_treatment", key: "1", name: "Treatment", screenshots: [] },
+        ],
+        releasedVariationId: "var_treatment",
+      };
+      beforeEach(() => {
+        (updateExperiment as jest.Mock).mockImplementation(
+          ({ experiment: exp, changes }) => ({ ...exp, ...changes }),
+        );
+      });
+
+      it("rejects an id that is not one of the experiment's variations", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue(stopped);
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ releasedVariationId: "var_nope" })
+          .set("Authorization", "Bearer foo");
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/invalid_released_variation_id/);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("accepts the id of one of the experiment's variations", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue(stopped);
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ releasedVariationId: "var_control" })
+          .set("Authorization", "Bearer foo");
+        expect(res.status).toBe(200);
+        expect(updateExperiment).toHaveBeenCalledWith(
+          expect.objectContaining({
+            changes: expect.objectContaining({
+              releasedVariationId: "var_control",
+            }),
+          }),
+        );
+      });
+
+      it("checks against the variations sent in the same request", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...stopped,
+          releasedVariationId: "",
+        });
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            releasedVariationId: "var_b",
+            variations: [
+              { id: "var_a", key: "0", name: "A" },
+              { id: "var_b", key: "1", name: "B" },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+        expect(res.status).toBe(200);
+      });
+
+      it("rejects replacing the variations out from under the stored id", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue(stopped);
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            variations: [
+              { id: "var_a", key: "0", name: "A" },
+              { id: "var_b", key: "1", name: "B" },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/invalid_released_variation_id/);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("accepts a read-then-write round trip that echoes variations with their ids over a stale stored id", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...stopped,
+          releasedVariationId: "var_gone",
+        });
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            name: "Renamed",
+            variations: [
+              { variationId: "var_treatment", key: "1", name: "Treatment" },
+              { variationId: "var_control", key: "0", name: "Control" },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+        expect(res.status).toBe(200);
+      });
+
+      it("rejects id-less variations while a released variation is set (they get fresh ids)", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue(stopped);
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            variations: [
+              { key: "0", name: "Control" },
+              { key: "1", name: "Treatment" },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/invalid_released_variation_id/);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("leaves an already-stored stale id alone on an unrelated edit", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...stopped,
+          releasedVariationId: "var_gone",
+        });
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ name: "Renamed", releasedVariationId: "var_gone" })
+          .set("Authorization", "Bearer foo");
+        expect(res.status).toBe(200);
+      });
     });
 
     it("allows update when required custom fields are missing and payload omits customFields", async () => {

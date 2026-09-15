@@ -11,6 +11,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   assertCanRunExperimentChanges,
+  assertValidReleasedVariationId,
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   getExperimentAttributeScopeProjects,
@@ -358,6 +359,14 @@ export const updateExperiment = createApiRequestHandler(
   await assertLivePayloadChangeAllowed(req.context, experiment, {
     variations: changes.variations,
   });
+  assertValidReleasedVariationId(
+    {
+      releasedVariationId:
+        changes.releasedVariationId ?? experiment.releasedVariationId,
+      variations: changes.variations ?? experiment.variations,
+    },
+    experiment,
+  );
   // The served (latest) phase is checked against the latest stored phase;
   // earlier phases are history, so any parent the stored experiment already
   // references is not re-validated when they are echoed or reordered.

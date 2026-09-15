@@ -11,6 +11,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  assertValidReleasedVariationId,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
@@ -338,6 +339,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       });
     }
 
+    assertValidReleasedVariationId(newExperiment);
     await assertValidExperimentPrerequisites(
       req.context,
       phasePrerequisites(newExperiment.phases),
