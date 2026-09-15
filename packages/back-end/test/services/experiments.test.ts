@@ -74,6 +74,25 @@ describe("experiments utils", () => {
       expect(variations[2].id).toMatch(/^var_/);
     });
 
+    it("keeps the stored ids for an update body that omits them", () => {
+      const existing = [
+        { id: "var_a", key: "0" },
+        { id: "var_b", key: "1" },
+      ];
+      // Reordered, one id given: the omitted one follows its key.
+      const reordered = [{ id: "var_b", key: "1" }, { key: "0" }];
+      validateVariationIds(reordered, existing);
+      expect(reordered.map((v) => v.id)).toEqual(["var_b", "var_a"]);
+      // Keys renamed: fall back to position.
+      const renamed = [{ key: "a" }, { key: "b" }];
+      validateVariationIds(renamed, existing);
+      expect(renamed.map((v) => v.id)).toEqual(["var_a", "var_b"]);
+      // A different count is a real change; nothing is inherited.
+      const grown = [{ key: "0" }, { key: "1" }, { key: "2" }];
+      validateVariationIds(grown, existing);
+      expect(grown.map((v) => v.id)).not.toContain("var_a");
+    });
+
     it("rejects duplicate resolved variation ids", () => {
       expect(() =>
         validateVariationIds([

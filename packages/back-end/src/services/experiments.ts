@@ -2442,9 +2442,30 @@ export async function assertCanRunExperimentChanges(
   }
 }
 
+// Assigns ids and keys to variations that lack them, then checks both are
+// unique. With `existing` (an update), an omitted id keeps the stored one, as
+// an echoed GET does through `variationId`: filled from the stored variation
+// with the same key, else the same position, unless another variation claims
+// it. A freshly minted id would read as a change to every linked feature rule.
 export function validateVariationIds(
   variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
+  existing?: Pick<Variation, "id" | "key">[],
 ) {
+  if (existing && existing.length === variations.length) {
+    const claimed = new Set(variations.map((v) => v.id || v.variationId));
+    const idByKey = new Map(existing.map((v) => [v.key, v.id]));
+    variations.forEach((v, i) => {
+      if (v.id || v.variationId) return;
+      const stored = [
+        v.key === undefined ? undefined : idByKey.get(v.key),
+        existing[i].id,
+      ].find((id) => id && !claimed.has(id));
+      if (stored) {
+        v.variationId = stored;
+        claimed.add(stored);
+      }
+    });
+  }
   variations.forEach((variation, i) => {
     if (!variation.id) {
       variation.id = variation.variationId || uniqid("var_");
