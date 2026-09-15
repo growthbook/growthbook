@@ -59,6 +59,10 @@ describe("assertValidPrerequisiteParents", () => {
     const gated = (id: string, env: string, parent: string) =>
       ({
         ...flag(id),
+        environmentSettings: {
+          production: { enabled: true },
+          dev: { enabled: true },
+        },
         rules: [
           {
             type: "force",

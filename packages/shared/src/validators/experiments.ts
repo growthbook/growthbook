@@ -1330,7 +1330,7 @@ const apiVariationInput = z.object({
   id: z
     .string()
     .describe(
-      "Stable variation id. On update, omitting every id keeps the stored ids by position when the number of variations is unchanged.",
+      "Stable variation id. On update, omitting every id keeps the stored ids when the number of variations is unchanged, matched by key or, if keys changed, by position.",
     )
     .optional(),
   variationId: z

@@ -221,17 +221,26 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
-    // A body without ids keeps the stored ids by position, as an echoed GET
-    // does through `variationId`; freshly minted ids would read as a change
-    // to every linked feature rule.
-    if (req.body.variations.length === experiment.variations.length) {
-      req.body.variations.forEach((v, i) => {
-        if (!v.id && !v.variationId) {
-          v.variationId = experiment.variations[i].id;
-        }
+    // A body without any ids keeps the stored ids, as an echoed GET does
+    // through `variationId`; freshly minted ids would read as a change to
+    // every linked feature rule. Matched by key, or by position when the keys
+    // themselves were renamed.
+    const inbound = req.body.variations;
+    if (
+      inbound.length === experiment.variations.length &&
+      inbound.every((v) => !v.id && !v.variationId)
+    ) {
+      const idByKey = new Map(experiment.variations.map((v) => [v.key, v.id]));
+      const sameKeys =
+        new Set(inbound.map((v) => v.key)).size === inbound.length &&
+        inbound.every((v) => idByKey.has(v.key));
+      inbound.forEach((v, i) => {
+        v.variationId = sameKeys
+          ? idByKey.get(v.key)
+          : experiment.variations[i].id;
       });
     }
-    validateVariationIds(req.body.variations);
+    validateVariationIds(inbound);
   }
 
   const effectivePrecomputedUnitDimensionType =

@@ -1349,12 +1349,13 @@ describe("experiments API", () => {
       };
       (getExperimentById as jest.Mock).mockResolvedValue(stored);
       (updateExperiment as jest.Mock).mockResolvedValue(stored);
+      // Reordered and renamed: ids follow the keys.
       await request(app)
         .post("/api/v1/experiments/exp_123")
         .send({
           variations: [
-            { key: "0", name: "Control renamed" },
             { key: "1", name: "Variation" },
+            { key: "0", name: "Control renamed" },
           ],
         })
         .set("Authorization", "Bearer foo");
@@ -1363,8 +1364,8 @@ describe("experiments API", () => {
         stored,
         expect.objectContaining({
           variations: [
+            expect.objectContaining({ id: "var_b", key: "1" }),
             expect.objectContaining({ id: "var_a", name: "Control renamed" }),
-            expect.objectContaining({ id: "var_b" }),
           ],
         }),
       );

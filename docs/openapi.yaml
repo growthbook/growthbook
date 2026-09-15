@@ -14700,8 +14700,9 @@ paths:
                       id:
                         description: >-
                           Stable variation id. On update, omitting every id
-                          keeps the stored ids by position when the number of
-                          variations is unchanged.
+                          keeps the stored ids when the number of variations is
+                          unchanged, matched by key or, if keys changed, by
+                          position.
                         type: string
                       variationId:
                         description: >-
@@ -15421,8 +15422,9 @@ paths:
                       id:
                         description: >-
                           Stable variation id. On update, omitting every id
-                          keeps the stored ids by position when the number of
-                          variations is unchanged.
+                          keeps the stored ids when the number of variations is
+                          unchanged, matched by key or, if keys changed, by
+                          position.
                         type: string
                       variationId:
                         description: >-
