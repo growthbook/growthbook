@@ -221,7 +221,7 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
-    validateVariationIds(req.body.variations);
+    validateVariationIds(req.body.variations, experiment.variations);
   }
 
   const effectivePrecomputedUnitDimensionType =

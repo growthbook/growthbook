@@ -14698,6 +14698,11 @@ paths:
                     type: object
                     properties:
                       id:
+                        description: >-
+                          Stable variation id. On update, an omitted id is
+                          filled from the stored variation with the same key, or
+                          the same position, when the number of variations is
+                          unchanged.
                         type: string
                       variationId:
                         description: >-
@@ -15415,6 +15420,11 @@ paths:
                     type: object
                     properties:
                       id:
+                        description: >-
+                          Stable variation id. On update, an omitted id is
+                          filled from the stored variation with the same key, or
+                          the same position, when the number of variations is
+                          unchanged.
                         type: string
                       variationId:
                         description: >-
