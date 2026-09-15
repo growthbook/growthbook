@@ -191,7 +191,7 @@ const InviteList: FC<{
                   </TableCell>
                 )}
                 <TableCell />
-                <TableCell>
+                <TableCell justify="end">
                   <DropdownMenu
                     trigger={
                       <IconButton

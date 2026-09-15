@@ -3048,6 +3048,12 @@ Triggered when a warning condition is detected on an experiment
             experimentName: string;
             experimentId: string;
             threshold: number;
+            pValue?: number | undefined;
+            variations?: {
+                name: string;
+                users: number;
+                weight: number;
+            }[] | undefined;
         } | {
             type: "no-data";
             experimentName: string;

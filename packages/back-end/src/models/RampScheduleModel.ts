@@ -18,6 +18,12 @@ import {
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
+  assertRampScheduleReplanAllowed,
+  changesRampPlan,
+  toApiRampStep,
+} from "back-end/src/services/rampPlanReview";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
   appendRampEvent,
   assertCanEditRampScheduleConfig,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
@@ -233,13 +239,7 @@ export function rampScheduleToApiInterface(
     entityId: doc.entityId,
     targets: doc.targets,
     startActions: doc.startActions,
-    steps: doc.steps.map((s) => ({
-      interval: s.interval,
-      actions: s.actions,
-      approvalNotes: s.approvalNotes ?? undefined,
-      monitored: !!s.monitored,
-      holdConditions: s.holdConditions ?? undefined,
-    })),
+    steps: doc.steps.map(toApiRampStep),
     endActions: doc.endActions,
     startDate: dateToIso(doc.startDate),
     cutoffDate: dateToIso(doc.cutoffDate),
@@ -576,10 +576,10 @@ export class RampScheduleModel extends BaseClass {
   ) {
     // Neutral not-found for unknown ids; the lock helper's "no longer exists"
     // message is reserved for the deleted-while-locked race.
-    if (!(await this.getById(req.params.id))) {
+    const schedule = await this.getById(req.params.id);
+    if (!schedule) {
       throw new NotFoundError("Ramp schedule not found");
     }
-
     // Locked so the read-modify-write can't clobber a concurrent advance.
     return runLockedRampScheduleAction(
       this.context,
@@ -595,6 +595,15 @@ export class RampScheduleModel extends BaseClass {
     if (!["pending", "ready", "paused"].includes(schedule.status)) {
       throw new Error(
         `Cannot update ramp schedule in status "${schedule.status}". Only pending, ready, or paused schedules can be modified.`,
+      );
+    }
+    // Judged against the in-lock document, so a plan reviewed meanwhile is
+    // not overwritten by a body that matched the earlier read.
+    if (schedule.targets.length && changesRampPlan(req.body, schedule)) {
+      await assertRampScheduleReplanAllowed(
+        this.context,
+        schedule,
+        canUseRestApiBypassSetting(req),
       );
     }
 

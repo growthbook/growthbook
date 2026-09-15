@@ -29,11 +29,16 @@ import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { ReqContext } from "back-end/types/request";
 import {
+  assertValidReleasedVariationId,
   determineNextDate,
   toExperimentApiInterface,
 } from "back-end/src/services/experiments";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
+import {
+  experimentAllocatesTrafficInNamespace,
+  NamespaceUsageExperiment,
+} from "back-end/src/util/namespaces";
 import { validateMetricOverrides } from "back-end/src/util/priors";
 import {
   queueSDKPayloadRefresh,
@@ -564,6 +569,63 @@ export async function getAllExperiments(
   return await findExperiments(context, query, limit, sortBy);
 }
 
+// What `countActiveExperimentsUsingNamespace` reads: the projected fields
+// `experimentAllocatesTrafficInNamespace` needs, plus the ones it filters on.
+// Typed on `getCollection` so neither the filter nor the result needs a cast.
+type NamespaceUsageExperimentDoc = NamespaceUsageExperiment & {
+  organization: string;
+  type?: ExperimentType;
+};
+
+// Experiments that currently allocate traffic inside a namespace, per
+// `experimentAllocatesTrafficInNamespace` — the same definition of usage the
+// namespaces settings page lists. This is a referential-integrity check for
+// namespace deletes / re-hashing, so it is deliberately NOT filtered by the
+// caller's project read access and only projects the fields the check needs.
+//
+// Holdouts are excluded to match `getAllExperiments` (and so the settings
+// page), which defaults to `type: { $ne: "holdout" }`.
+//
+// `upgradeExperimentDoc` is skipped for the same reason as
+// `getAllExperimentsForStaleGraph`; of the fields read here only
+// `releasedVariationId` is derived by that migration, and
+// `experimentAllocatesTrafficInNamespace` mirrors its backfill, which is why
+// `results`, `winner` and `variations.id` are projected.
+export async function countActiveExperimentsUsingNamespace(
+  context: ReqContext | ApiReqContext,
+  namespaceId: string,
+): Promise<number> {
+  const docs = await getCollection<NamespaceUsageExperimentDoc>(COLLECTION)
+    .find(
+      {
+        organization: context.org.id,
+        archived: { $ne: true },
+        type: { $ne: "holdout" },
+        "phases.namespace.name": namespaceId,
+      },
+      {
+        projection: {
+          _id: 0,
+          status: 1,
+          hasVisualChangesets: 1,
+          hasURLRedirects: 1,
+          linkedFeatures: 1,
+          excludeFromPayload: 1,
+          releasedVariationId: 1,
+          results: 1,
+          winner: 1,
+          "variations.id": 1,
+          "phases.namespace": 1,
+        },
+      },
+    )
+    .toArray();
+
+  return docs.filter((e) =>
+    experimentAllocatesTrafficInNamespace(e, namespaceId),
+  ).length;
+}
+
 /**
  * Lightweight sibling of {@link getAllExperiments} for the feature
  * stale-detection and dependents graph. Projects only the fields that
@@ -755,6 +817,7 @@ export async function createExperiment({
   );
 
   validateMetricOverrides(data.metricOverrides);
+  assertValidReleasedVariationId(data);
 
   const experimentToCreate = {
     id: uniqid("exp_"),
@@ -842,6 +905,7 @@ export async function updateExperiment({
     throw new Error("Cannot set empty name for experiment!");
 
   validateMetricOverrides(allChanges.metricOverrides);
+  assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
 
   const writeResult = await ExperimentModel.updateOne(
     {
