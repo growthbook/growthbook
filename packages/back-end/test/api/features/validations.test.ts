@@ -248,8 +248,6 @@ describe("assertValidRuleEnvironments", () => {
 });
 
 describe("normalizeInlineRampSchedule", () => {
-  // An omitted anchor must be an omitted key: an `undefined` value is persisted
-  // as `null`, which publish reads as "provided, empty" (no rollback anchor).
   it("omits startActions and endActions when the input does not provide them", () => {
     const action = normalizeInlineRampSchedule({ steps: [] }, "r1");
     expect("startActions" in action).toBe(false);

@@ -44,9 +44,8 @@ function normalizeRevisionRampCreateAction(
     targetId: a.targetId ?? "",
     patch: a.patch as FeatureRulePatch,
   });
-  // Emit startActions/endActions only when provided: an `undefined` value here
-  // is persisted as `null` (rampActions is a Mixed array), and publish treats
-  // `null` as "provided, empty" rather than deriving the anchor from the rule.
+  // Omitted startActions/endActions stay omitted: an `undefined` value would be
+  // persisted as `null` (rampActions is a Mixed array).
   const { startActions, endActions, ...rest } = input;
   return {
     ...rest,
