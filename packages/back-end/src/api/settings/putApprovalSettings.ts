@@ -1,6 +1,9 @@
 import { putApprovalSettingsValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
-import { normalizeApprovalRuleSettings } from "shared/util";
+import {
+  assertTargetingRulesDisjoint,
+  normalizeApprovalRuleSettings,
+} from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -43,25 +46,6 @@ async function assertReferencesExist(
       if (!validTeams.has(teamId)) {
         throw new Error(`${teamId} is not a valid team ID.`);
       }
-    });
-  });
-}
-
-// Resolution is most-specific-wins with the first match, so two rules naming
-// the same project (or two organization-wide rules) would let order decide.
-function assertTargetingRulesDisjoint(rules: { projects: string[] }[]) {
-  const seen = new Set<string>();
-  rules.forEach((rule) => {
-    const keys = rule.projects.length ? rule.projects : [""];
-    keys.forEach((key) => {
-      if (seen.has(key)) {
-        throw new Error(
-          key
-            ? `Project ${key} appears in more than one targetingReviewMode rule.`
-            : "Only one organization-wide targetingReviewMode rule is allowed.",
-        );
-      }
-      seen.add(key);
     });
   });
 }

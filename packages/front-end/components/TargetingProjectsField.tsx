@@ -53,6 +53,7 @@ export default function TargetingProjectsField({
 
   const optedOut = projects.filter((p) => p.allowTargeting === false);
   const canTarget = (projectId: string) =>
+    baseline.allProjects ||
     baseline.targetingProjects.includes(projectId) ||
     (permissionsUtil.canTargetFeatureProjects([projectId]) &&
       !optedOut.some((p) => p.id === projectId));

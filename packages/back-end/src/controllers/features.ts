@@ -825,13 +825,6 @@ export async function postFeatures(
   if (otherProps.project) {
     await context.models.projects.ensureProjectsExist([otherProps.project]);
   }
-  const createTargetingProjects = (otherProps as Partial<FeatureInterface>)
-    .targetingProjects;
-  if (createTargetingProjects?.length) {
-    await context.models.projects.ensureProjectIdsExist(
-      createTargetingProjects,
-    );
-  }
   // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
   // The linkage write itself deliberately bypasses read scope, so this is the
   // only place the id is authorized.
@@ -890,6 +883,12 @@ export async function postFeatures(
   );
 
   await assertCanCreateFeatureInState({ context, feature, environmentIds });
+  // After the gate so an unreadable id cannot be probed for existence.
+  if (feature.targetingProjects?.length) {
+    await context.models.projects.ensureProjectIdsExist(
+      feature.targetingProjects,
+    );
+  }
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
@@ -5593,12 +5592,6 @@ export async function putFeature(
   if (updates.project && feature.project !== updates.project) {
     await context.models.projects.ensureProjectsExist([updates.project]);
   }
-  // Unfiltered: an existing Targeting Project may be one the caller cannot read.
-  if (updates.targetingProjects?.length) {
-    await context.models.projects.ensureProjectIdsExist(
-      updates.targetingProjects,
-    );
-  }
 
   // MOVING the project can affect SDK payload targeting, so LANDING one takes
   // publish in both the old and new project. Judged by the shared rule, not key
@@ -5668,21 +5661,20 @@ export async function putFeature(
 
   // The metadata envelope lives on the draft, so a concurrent edit to the same
   // field is the conflict; disjoint fields already survive the diff below.
-  let targetDraft: FeatureRevisionInterface | null = null;
+  const targetDraft: FeatureRevisionInterface | null =
+    autoPublish || forceNewDraft
+      ? null
+      : targetDraftVersion
+        ? await getRevision({
+            context,
+            organization: feature.organization,
+            featureId: feature.id,
+            feature,
+            version: targetDraftVersion,
+          })
+        : await getActiveDraft(context, feature);
   if (baseline) {
     const guardedKeys = Object.keys(baseline);
-    targetDraft =
-      autoPublish || forceNewDraft
-        ? null
-        : targetDraftVersion
-          ? await getRevision({
-              context,
-              organization: feature.organization,
-              featureId: feature.id,
-              feature,
-              version: targetDraftVersion,
-            })
-          : await getActiveDraft(context, feature);
     const effective = (key: string) =>
       (targetDraft?.metadata as Record<string, unknown> | undefined)?.[key] ??
       (feature as unknown as Record<string, unknown>)[key];
@@ -5746,6 +5738,13 @@ export async function putFeature(
     proposed: withStagedTargeting(stagedTargeting, metadataUpdates),
     optedOut: await context.getTargetingOptOutProjectIds(),
   });
+  // After the gate so an unreadable id cannot be probed for existence.
+  // Unfiltered: an existing Targeting Project may be one the caller cannot read.
+  if (updates.targetingProjects?.length) {
+    await context.models.projects.ensureProjectIdsExist(
+      updates.targetingProjects,
+    );
+  }
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
   // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
   // The publish-time linkage write deliberately bypasses read scope, so this is
@@ -5866,16 +5865,25 @@ export async function putFeature(
           skipPrevalidateValidation: true,
         });
       } catch (e) {
-        // The draft exists only for this publish. Anything that landed marked
-        // it published; otherwise it is residue the caller never asked for.
-        const residue = await getRevision({
-          context,
-          organization: org.id,
-          featureId: feature.id,
-          feature,
-          version: draft.version,
-        });
-        if (residue && residue.status !== "published") {
+        // The draft exists only for this publish, so it goes when nothing
+        // landed. A landing that stopped part-way can leave the live pointer
+        // on it; that draft stays as the record of what is live.
+        const [residue, live] = await Promise.all([
+          getRevision({
+            context,
+            organization: org.id,
+            featureId: feature.id,
+            feature,
+            version: draft.version,
+          }),
+          getFeature(context, feature.id),
+        ]);
+        if (
+          residue &&
+          residue.status !== "published" &&
+          live?.version !== draft.version &&
+          !context.landingLeftPartialState
+        ) {
           await deleteRevisionForFailedLanding(
             context,
             org.id,

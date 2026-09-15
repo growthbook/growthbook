@@ -103,9 +103,7 @@ export function assertTargetingDestination({
   if (refused.length) {
     permissions.throwPermissionError(
       added === "all"
-        ? `Cannot target all projects: ${refused.join(", ")} ${
-            refused.length === 1 ? "does" : "do"
-          } not allow targeting`
+        ? "Cannot target all projects: one or more projects do not allow targeting from other projects' Feature Flags"
         : `${refused.join(", ")} ${
             refused.length === 1 ? "does" : "do"
           } not allow targeting from other projects' Feature Flags`,

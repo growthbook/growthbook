@@ -2,6 +2,7 @@ import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
+  assertTargetingRulesDisjoint,
   experimentHasLinkedChanges,
   getNamespaceRanges,
   getRulesForEnvironment,
@@ -1780,6 +1781,9 @@ export async function putOrganization(
       orig.externalId = org.externalId;
     }
     if (settings) {
+      if (settings.targetingReviewMode) {
+        assertTargetingRulesDisjoint(settings.targetingReviewMode);
+      }
       updates.settings = {
         ...org.settings,
         // Drops rule references to deleted teams/environments, so the settings

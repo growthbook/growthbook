@@ -85,11 +85,6 @@ export async function setRevisionMetadata(
     }
   }
 
-  if (metadataFields.targetingProjects?.length) {
-    await context.models.projects.ensureProjectIdsExist(
-      metadataFields.targetingProjects,
-    );
-  }
   normalizeTargetingInUpdates(metadataFields, feature);
 
   if (metadataFields.customFields !== undefined) {
@@ -128,6 +123,12 @@ export async function setRevisionMetadata(
       proposed: withStagedTargeting(stagedTargeting, metadataFields),
       optedOut: await context.getTargetingOptOutProjectIds(),
     });
+    // After the gate so an unreadable id cannot be probed for existence.
+    if (metadataFields.targetingProjects?.length) {
+      await context.models.projects.ensureProjectIdsExist(
+        metadataFields.targetingProjects,
+      );
+    }
 
     const changes: RevisionChanges = {};
     if (comment !== undefined) changes.comment = comment;
