@@ -105,6 +105,15 @@ export class BadRequestError extends Error {
   }
 }
 
+// A revision requires review and the publishing flow may not bypass it.
+export class ApprovalRequiredError extends Error {
+  status = 409;
+  constructor(message: string) {
+    super(message);
+    this.name = "ApprovalRequiredError";
+  }
+}
+
 export class UnauthorizedError extends Error {
   status = 401;
   constructor(message: string) {
