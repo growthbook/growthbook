@@ -4014,9 +4014,11 @@ export async function assertCanUndoFeatureReview({
   revision: FeatureRevisionInterface;
   user: EventUser;
 }): Promise<void> {
-  // Legacy revisions keep their verdicts only in the log.
-  const activeReviews =
-    revision.reviews ?? (await getActiveReviewsFromLog(context, revision));
+  // Legacy revisions keep their verdicts only in the log, and hydrate the
+  // omitted field as an empty list.
+  const activeReviews = revision.reviews?.length
+    ? revision.reviews
+    : await getActiveReviewsFromLog(context, revision);
   if (activeReviews.some((r) => r.userId === reviewerKeyForEventUser(user))) {
     return;
   }
