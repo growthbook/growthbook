@@ -90,7 +90,7 @@ function FunnelStepInput({
               if (factTable) {
                 return (
                   <>
-                    {factTable.name}
+                    {label}
                     <OfficialBadge
                       managedBy={factTable.managedBy}
                       type="fact table"
@@ -213,13 +213,25 @@ export default function FunnelStepsInput({
   project?: string;
   initialFactTable?: string;
 }) {
-  const { factTables, getFactTableById } = useDefinitions();
+  const { factTables, getFactTableById, getDatasourceById } = useDefinitions();
+
+  // The funnel's own steps decide which datasource governs it, once any step
+  // already has a real fact table - not the caller's guessed default, which
+  // may have no fact tables of its own (locking every step's selector to an
+  // empty list) or simply not be the datasource the user actually wants.
+  // Falls back to the caller's datasource only while nothing has committed.
+  const committedFactTable = value.steps
+    .map((s) => getFactTableById(s.factTableId))
+    .find((ft) => !!ft);
+  const hasCommitted = !!committedFactTable;
+  const effectiveDatasource = committedFactTable?.datasource ?? datasource;
 
   // Clear steps whose fact table no longer belongs to the metric's data source.
   useEffect(() => {
+    if (!hasCommitted) return;
     const isStale = (step: FunnelStep) => {
       const factTable = getFactTableById(step.factTableId);
-      return !!factTable && factTable.datasource !== datasource;
+      return !!factTable && factTable.datasource !== effectiveDatasource;
     };
     if (!value.steps.some(isStale)) return;
 
@@ -229,12 +241,15 @@ export default function FunnelStepsInput({
         isStale(step) ? { ...step, factTableId: "", rowFilters: [] } : step,
       ),
     });
-  }, [datasource, getFactTableById, setValue, value]);
+  }, [effectiveDatasource, hasCommitted, getFactTableById, setValue, value]);
 
   const factTableOptions = factTables
-    .filter((t) => t.datasource === datasource)
+    .filter((t) => !hasCommitted || t.datasource === effectiveDatasource)
     .filter((t) => isProjectListValidForProject(t.projects, project))
-    .map((t) => ({ label: t.name, value: t.id }));
+    .map((t) => ({
+      label: `${t.name} (${getDatasourceById(t.datasource)?.name || t.datasource})`,
+      value: t.id,
+    }));
 
   const updateStep = (index: number, updates: Partial<FunnelStep>) => {
     setValue({
