@@ -3958,6 +3958,10 @@ input:disabled {
 // Play/pause + speed buttons → left (default order 1)
 .rr-controller__btns button {
   order: 1 !important;
+  color: var(--gray-12) !important;
+  svg {
+    fill: var(--gray-12) !important;
+  }
 }
 
 // Timeline (time labels + progress bar) → grows to fill middle space

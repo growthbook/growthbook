@@ -340,9 +340,9 @@ export default function SessionReplayPage() {
   const [metadata, setMetadata] = useState<SessionMetadata | null>(null);
   const [firstEvent, setFirstEvent] = useState<null | eventWithTime>(null);
   const [evaluations, setEvaluations] = useState<EvaluationEntry[]>([]);
-  const [evalTab, setEvalTab] = useState<
-    "all" | "flags" | "exp" | "events" | "attributes"
-  >("all");
+  const [evalTab, setEvalTab] = useState<"all" | "flags" | "exp" | "events">(
+    "all",
+  );
 
   const playerHandle = useRef<RrwebPlayerHandle>(null);
 
@@ -983,10 +983,7 @@ export default function SessionReplayPage() {
               <Tabs
                 value={evalTab}
                 onValueChange={(v) =>
-                  setEvalTab(
-                    (v as "all" | "flags" | "exp" | "events" | "attributes") ||
-                      "all",
-                  )
+                  setEvalTab((v as "all" | "flags" | "exp" | "events") || "all")
                 }
               >
                 <TabsList size="sm">
@@ -1026,172 +1023,89 @@ export default function SessionReplayPage() {
                       Events ({eventCount})
                     </Text>
                   </TabsTrigger>
-                  <TabsTrigger value="attributes">
-                    <Text
-                      size="sm"
-                      weight="medium"
-                      color={
-                        evalTab === "attributes" ? "text-high" : "text-low"
-                      }
-                    >
-                      Attributes
-                    </Text>
-                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </Box>
 
             {/* Content rows */}
             <Box style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-              {evalTab === "attributes" ? (
-                <>
-                  {!metadata && selectedSessionId && (
+              <>
+                {selectedSessionId &&
+                  events &&
+                  visibleEvaluations.length === 0 && (
                     <Box style={{ padding: "12px 16px" }}>
                       <Text size="sm" color="text-low" weight="regular">
-                        Loading attributes…
+                        No evaluations recorded for this session.
                       </Text>
                     </Box>
                   )}
-                  {metadata && (
-                    <>
-                      {(
-                        [
-                          ["Browser", metadata.browser],
-                          ["Device", metadata.device],
-                          ["Country", metadata.country],
-                          ["User agent", metadata.userAgent],
-                          [
-                            "Viewport",
-                            metadata.viewportWidth > 0
-                              ? `${metadata.viewportWidth} × ${metadata.viewportHeight}`
-                              : "",
-                          ],
-                          ["Landing URL", metadata.urlFirst],
-                          ...Object.entries(metadata.attributes),
-                        ] as [string, string][]
-                      )
-                        .filter(
-                          ([, v]) => v !== null && v !== undefined && v !== "",
-                        )
-                        .map(([label, value]) => (
-                          <Flex
-                            key={label}
-                            align="center"
-                            justify="between"
-                            gap="2"
-                            title={`${label}: ${value} — click to copy`}
-                            onClick={() =>
-                              void navigator.clipboard.writeText(value)
-                            }
-                            style={{
-                              padding: "0 16px",
-                              height: 49,
-                              borderBottom: "1px solid var(--slate-a3)",
-                              flexShrink: 0,
-                              cursor: "pointer",
-                            }}
-                          >
-                            <span style={{ flexShrink: 0 }}>
-                              <Text size="sm" weight="regular" color="text-low">
-                                {label}
-                              </Text>
-                            </span>
-                            <span
-                              style={{
-                                maxWidth: 160,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              <Text size="sm" weight="medium" color="text-high">
-                                {value}
-                              </Text>
-                            </span>
-                          </Flex>
-                        ))}
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  {selectedSessionId &&
-                    events &&
-                    visibleEvaluations.length === 0 && (
-                      <Box style={{ padding: "12px 16px" }}>
-                        <Text size="sm" color="text-low" weight="regular">
-                          No evaluations recorded for this session.
-                        </Text>
-                      </Box>
-                    )}
-                  {!events && !playerError && selectedSessionId && (
-                    <Box style={{ padding: "12px 16px" }}>
-                      <Text size="sm" color="text-low" weight="regular">
-                        Loading evaluations…
+                {!events && !playerError && selectedSessionId && (
+                  <Box style={{ padding: "12px 16px" }}>
+                    <Text size="sm" color="text-low" weight="regular">
+                      Loading evaluations…
+                    </Text>
+                  </Box>
+                )}
+                {visibleEvaluations.map((evt, index) => (
+                  <Flex
+                    key={index}
+                    align="center"
+                    justify="between"
+                    gap="2"
+                    onClick={() => jumpToEvent(evt.timestamp)}
+                    style={{
+                      padding: "0 16px",
+                      height: 49,
+                      borderBottom: "1px solid var(--slate-a3)",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        as="div"
+                        size="md"
+                        weight="semibold"
+                        color="text-high"
+                        truncate={true}
+                      >
+                        {evt.formattedMessage}
+                      </Text>
+                      <Text
+                        as="div"
+                        size="sm"
+                        weight="regular"
+                        color="text-low"
+                      >
+                        {(() => {
+                          const d = new Date(evt.timestamp);
+                          return isNaN(d.getTime()) ? "" : d.toLocaleString();
+                        })()}
                       </Text>
                     </Box>
-                  )}
-                  {visibleEvaluations.map((evt, index) => (
-                    <Flex
-                      key={index}
-                      align="center"
-                      justify="between"
-                      gap="2"
-                      onClick={() => jumpToEvent(evt.timestamp)}
-                      style={{
-                        padding: "0 16px",
-                        height: 49,
-                        borderBottom: "1px solid var(--slate-a3)",
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Box style={{ flex: 1, minWidth: 0 }}>
-                        <Text
-                          as="div"
-                          size="md"
-                          weight="semibold"
-                          color="text-high"
-                          truncate={true}
-                        >
-                          {evt.formattedMessage}
-                        </Text>
-                        <Text
-                          as="div"
-                          size="sm"
-                          weight="regular"
-                          color="text-low"
-                        >
-                          {(() => {
-                            const d = new Date(evt.timestamp);
-                            return isNaN(d.getTime()) ? "" : d.toLocaleString();
-                          })()}
-                        </Text>
-                      </Box>
-                      <Badge
-                        label={
-                          evt.kind === "flag"
-                            ? "Flag"
-                            : evt.kind === "exp"
-                              ? "Exp"
-                              : "Event"
-                        }
-                        size="xs"
-                        variant="soft"
-                        color={
-                          evt.kind === "flag"
-                            ? "indigo"
-                            : evt.kind === "exp"
-                              ? "violet"
-                              : "amber"
-                        }
-                        radius="full"
-                        style={{ flexShrink: 0 }}
-                      />
-                    </Flex>
-                  ))}
-                </>
-              )}
+                    <Badge
+                      label={
+                        evt.kind === "flag"
+                          ? "Flag"
+                          : evt.kind === "exp"
+                            ? "Exp"
+                            : "Event"
+                      }
+                      size="xs"
+                      variant="soft"
+                      color={
+                        evt.kind === "flag"
+                          ? "indigo"
+                          : evt.kind === "exp"
+                            ? "violet"
+                            : "amber"
+                      }
+                      radius="full"
+                      style={{ flexShrink: 0 }}
+                    />
+                  </Flex>
+                ))}
+              </>
             </Box>
           </div>
         )}
