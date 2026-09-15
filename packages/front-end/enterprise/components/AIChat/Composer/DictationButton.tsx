@@ -11,7 +11,7 @@ import styles from "./ChatComposer.module.scss";
 
 const LABELS = {
   idle: "Dictate a message",
-  starting: "Waiting for microphone access…",
+  starting: "Waiting for microphone access… Click to cancel",
   recording: "Stop dictating",
   transcribing: "Transcribing…",
 } as const;
@@ -54,8 +54,8 @@ export default function DictationButton({
             recording ? ` ${styles.dictateButtonActive}` : ""
           }`}
           onClick={toggle}
-          // Starting stays clickable so a second click cancels the pending prompt.
-          disabled={disabled || status === "transcribing"}
+          // Busy states stay undimmed; toggle already ignores the click while transcribing.
+          disabled={disabled}
           aria-label={label}
           aria-pressed={recording}
           aria-busy={spinning}

@@ -495,7 +495,7 @@ function ChatComposer(
         />
       )}
       {dictation.error && (
-        <div className={styles.dictateError} role="status" aria-live="polite">
+        <div className={styles.dictateError} role="alert">
           <HelperText status="error" size="sm">
             {dictation.error}
           </HelperText>
