@@ -43,7 +43,7 @@ export const postRampScheduleTemplate = async (
 
   if (!context.hasPremiumFeature("ramp-schedules")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedule templates require an Enterprise plan.",
+      "Ramp schedule templates require a Pro plan or above.",
     );
   }
 
@@ -73,7 +73,7 @@ export const reorderRampScheduleTemplates = async (
 
   if (!context.hasPremiumFeature("ramp-schedules")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedule templates require an Enterprise plan.",
+      "Ramp schedule templates require a Pro plan or above.",
     );
   }
 
@@ -97,7 +97,7 @@ export const putRampScheduleTemplate = async (
 
   if (!context.hasPremiumFeature("ramp-schedules")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedule templates require an Enterprise plan.",
+      "Ramp schedule templates require a Pro plan or above.",
     );
   }
 
@@ -135,7 +135,7 @@ export const deleteRampScheduleTemplate = async (
 
   if (!context.hasPremiumFeature("ramp-schedules")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedule templates require an Enterprise plan.",
+      "Ramp schedule templates require a Pro plan or above.",
     );
   }
 

@@ -1,4 +1,6 @@
 export * from "./permissions.utils";
+export * from "./envAccess";
+export * from "./resolveUserPermissions";
 export * from "./permissionsClass";
 export * from "./permissions.constants";
 export * from "./revisionPermissions";

@@ -231,18 +231,50 @@ function isNonEmptySchema(schema: z.ZodType | undefined): schema is z.ZodType {
 // Accumulated component schemas — populated as we call toOpenApiSchema.
 const componentSchemas: Record<string, unknown> = {};
 
+/** Human label for a schema id. Mintlify oneOf/anyOf tabs read `title`, not the $ref name. */
+function schemaTitle(name: string): string {
+  return name
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function addTitleToUnionRef(item: unknown): unknown {
+  if (!item || typeof item !== "object") return item;
+  const record = item as Record<string, unknown>;
+  if (typeof record.$ref !== "string" || record.title != null) return item;
+  const name = record.$ref.split("/").pop() ?? "";
+  if (!name) return item;
+  return { title: schemaTitle(name), ...record };
+}
+
 /**
  * Recursively replace `{ $ref: "#/$defs/X" }` with `{ $ref: "#/components/schemas/X" }`.
+ * Preserves $ref siblings (OpenAPI 3.1). Adds `title` on anyOf/oneOf $refs so
+ * Mintlify can label the tabs instead of "Option 1".
  */
-function rewriteRefs(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(rewriteRefs);
+function rewriteRefs(obj: unknown, parentKey?: string): unknown {
+  if (Array.isArray(obj)) {
+    const rewritten = obj.map((item) => rewriteRefs(item));
+    if (parentKey === "anyOf" || parentKey === "oneOf") {
+      return rewritten.map(addTitleToUnionRef);
+    }
+    return rewritten;
+  }
   if (obj && typeof obj === "object") {
     const record = obj as Record<string, unknown>;
     if ("$ref" in record && typeof record.$ref === "string") {
-      return { $ref: record.$ref.replace("#/$defs/", "#/components/schemas/") };
+      const { $ref, ...siblings } = record;
+      return {
+        ...Object.fromEntries(
+          Object.entries(siblings).map(([k, v]) => [k, rewriteRefs(v, k)]),
+        ),
+        $ref: $ref.replace("#/$defs/", "#/components/schemas/"),
+      };
     }
     return Object.fromEntries(
-      Object.entries(record).map(([k, v]) => [k, rewriteRefs(v)]),
+      Object.entries(record).map(([k, v]) => [k, rewriteRefs(v, k)]),
     );
   }
   return obj;

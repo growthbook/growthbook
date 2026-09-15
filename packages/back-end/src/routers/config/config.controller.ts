@@ -31,8 +31,11 @@ import {
   stripConfigExtends,
   scopedOverridesFootprint,
   ScopedOverrideEntry,
+  setOwnValueProperty,
+  removeOwnValueProperty,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import { ReqContext } from "back-end/types/request";
 import { assertCanCreateConfigInState } from "back-end/src/revisions/createAuthority";
 import {
   canStageArchiveDraft,
@@ -654,11 +657,104 @@ type PutConfigResponse =
   | { status: 200; requiresApproval?: false; revision?: Revision }
   | { status: 202; requiresApproval: boolean; revision: Revision };
 
+type ValuePropertyOp =
+  | { property: string; remove: false; value: unknown }
+  | { property: string; remove: true };
+
+type PutConfigPropertyRequest = AuthRequest<
+  { property: string; value?: unknown },
+  { id: string },
+  PutConfigRequest["query"]
+>;
+
+type DeleteConfigPropertyRequest = AuthRequest<
+  { property: string },
+  { id: string },
+  PutConfigRequest["query"]
+>;
+
+// The draft's own value, or live's when writing outside a draft.
+const resolveConfigOwnValue = async (
+  context: ReqContext,
+  existing: ConfigInterface,
+  revisionId?: string,
+): Promise<string | undefined> => {
+  if (!revisionId) return existing.value;
+  const targetRevision =
+    await context.models.revisions.getByIdReadable(revisionId);
+  if (targetRevision && targetRevision.target.type === "config") {
+    const patched = applyPatchToSnapshot(
+      targetRevision.target.snapshot as ConfigInterface,
+      normalizeProposedChanges(targetRevision.target.proposedChanges),
+    );
+    return ({ ...existing, ...patched } as ConfigInterface).value;
+  }
+  return existing.value;
+};
+
+// Property-scoped writes, mirroring PUT/DELETE /configs-revisions/:key/:version/property.
+// Both delegate to putConfig, so permissions, validation, revisions and events
+// stay identical to a whole-value write.
+export const putConfigProperty = async (
+  req: PutConfigPropertyRequest,
+  res: Response<PutConfigResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const existing = await context.models.configs.getById(req.params.id);
+  if (!existing) {
+    return context.throwNotFoundError("Config not found");
+  }
+  const current = await resolveConfigOwnValue(
+    context,
+    existing,
+    req.query.revisionId,
+  );
+  const value = setOwnValueProperty(current, req.body.property, req.body.value);
+  const delegated = req as unknown as PutConfigRequest;
+  delegated.body = { value };
+  return putConfig(delegated, res, {
+    property: req.body.property,
+    remove: false,
+    value: req.body.value,
+  });
+};
+
+export const deleteConfigProperty = async (
+  req: DeleteConfigPropertyRequest,
+  res: Response<PutConfigResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const existing = await context.models.configs.getById(req.params.id);
+  if (!existing) {
+    return context.throwNotFoundError("Config not found");
+  }
+  const current = await resolveConfigOwnValue(
+    context,
+    existing,
+    req.query.revisionId,
+  );
+  const { value, existed } = removeOwnValueProperty(current, req.body.property);
+  if (!existed) {
+    return context.throwNotFoundError(
+      `No property "${req.body.property}" set on this config`,
+    );
+  }
+  const delegated = req as unknown as PutConfigRequest;
+  delegated.body = { value };
+  return putConfig(delegated, res, {
+    property: req.body.property,
+    remove: true,
+  });
+};
+
 // All edits flow through the revision system (same approval model as constants):
 // merged immediately when approval isn't required, else stored as a draft.
 export const putConfig = async (
   req: PutConfigRequest,
   res: Response<PutConfigResponse | ApiErrorResponse>,
+  // Set by the property endpoints: lets the revision write recompute the value
+  // from the row it is writing, so a CAS retry can't replay a stale value.
+  valuePropertyOp?: ValuePropertyOp,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1126,7 +1222,43 @@ export const putConfig = async (
     context,
     "config",
     existing as unknown as Record<string, unknown> & { id: string },
-    patchOps,
+    valuePropertyOp
+      ? async (row) => {
+          if (!row) return patchOps;
+          const draft = applyPatchToSnapshot(
+            row.target.snapshot as ConfigInterface,
+            normalizeProposedChanges(row.target.proposedChanges),
+          ) as ConfigInterface;
+          const nextValue = valuePropertyOp.remove
+            ? removeOwnValueProperty(draft.value, valuePropertyOp.property)
+                .value
+            : setOwnValueProperty(
+                draft.value,
+                valuePropertyOp.property,
+                valuePropertyOp.value,
+              );
+          const strippedValue = stripConfigExtends(nextValue);
+          // Validated here rather than against the value read before the write:
+          // a CAS retry applies this property to newer content, and the schema
+          // has to hold for the aggregate that actually lands.
+          await assertConfigValueValid(
+            context,
+            {
+              key: existing.key,
+              name: existing.name,
+              value: strippedValue,
+              schema: draft.schema,
+              parent: draft.parent,
+              extends: draft.extends,
+            },
+            { value: strippedValue },
+          );
+          return buildPatchOps({
+            ...(fieldsToUpdate as Record<string, unknown>),
+            value: strippedValue,
+          });
+        }
+      : patchOps,
     {
       forceCreate,
       title,

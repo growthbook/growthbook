@@ -70,6 +70,20 @@ export const putSavedGroupBodyValidator = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.string().array().optional(),
   archived: z.boolean().optional(),
+  // The fields as the editor loaded them; a save is rejected when one of them
+  // has since changed. Condition and value lists can't be merged granularly,
+  // so this only flags them for the user to decide.
+  baseline: z
+    .object({
+      groupName: z.string(),
+      owner: ownerInputField,
+      values: z.string().array(),
+      condition: z.string(),
+      description: z.string(),
+      projects: z.string().array(),
+    })
+    .partial()
+    .optional(),
 });
 
 // --- External API validators (correspond to YAML specs) ---

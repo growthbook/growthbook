@@ -229,7 +229,6 @@ const EditOrganization: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}

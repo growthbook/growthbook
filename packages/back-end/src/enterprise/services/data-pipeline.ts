@@ -3,6 +3,8 @@ import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
+  getFactTableTimestampColumn,
+  isFactFunnelMetric,
   isSliceMetric,
 } from "shared/experiments";
 import {
@@ -71,7 +73,6 @@ export async function assertIncrementalRefreshPrerequisites({
       org,
       "incremental-refresh",
     ),
-    skipPartialData: snapshotSettings.skipPartialData,
     activationMetric: experiment.activationMetric,
     metrics: selectedMetrics,
     experimentType: experiment.type,
@@ -113,6 +114,12 @@ export function getExperimentSettingsHashForIncrementalRefresh(
 
   for (const field of INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS) {
     settingsForHash[field] = snapshotSettings[field];
+  }
+
+  // Incremental units SQL used to ignore segment and queryFilter before #6711.
+  // Salt only those hashes so pre-fix tables refresh; unfiltered tables are still valid.
+  if (snapshotSettings.segment || snapshotSettings.queryFilter) {
+    settingsForHash.unitsFiltersApplied = true;
   }
 
   return hashObject(settingsForHash);
@@ -214,6 +221,9 @@ export function getMetricSettingsHashForIncrementalRefresh({
     denominator: factMetric.denominator,
     cappingSettings: factMetric.cappingSettings,
     quantileSettings: factMetric.quantileSettings,
+    ...(isFactFunnelMetric(factMetric)
+      ? { funnelSettings: factMetric.funnelSettings }
+      : {}),
     numeratorFactTable: {
       sql: numeratorFactTable?.sql,
       eventName: numeratorFactTable?.eventName,
@@ -353,8 +363,21 @@ export function getMetricSettingsHashForAggregatedFactTable({
 export function getFactTableSettingsHashForAggregatedFactTable(
   factTable: FactTableInterface,
 ): string {
+  const timestampColumn = getFactTableTimestampColumn(factTable);
+  // Sorted entries rather than the raw object: Mongo doesn't guarantee key
+  // order, and only mappings that actually rename a column are included so
+  // hashes stored before this field existed stay byte-identical.
+  const idColumnEntries = Object.entries(factTable.userIdColumns ?? {})
+    .filter(([idType, column]) => column && column !== idType)
+    .sort(([a], [b]) => a.localeCompare(b));
   return hashObject({
     sql: factTable.sql,
+    // Omitted when it resolves to the default (JSON.stringify drops undefined),
+    // so hashes stored before this field existed stay byte-identical and a fact
+    // table that spells out "timestamp" doesn't force a restate either.
+    timestampColumn:
+      timestampColumn === "timestamp" ? undefined : timestampColumn,
+    userIdColumns: idColumnEntries.length ? idColumnEntries : undefined,
     eventName: factTable.eventName,
     filters: (factTable.filters ?? [])
       .map((f) => ({ id: f.id, value: f.value }))
@@ -512,6 +535,18 @@ export function exploratoryOverallRequiresFullRefresh({
   if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
     return true;
   }
+
+  // Originally skipPartialData was not supported for Incremental Pipeline,
+  // and also the incremental refresh model did not record materializedBySnapshotId.
+  // For those scenarios, where skipPartialData is true, but incrementalRefreshModel
+  // is outdated, we force a full-refresh.
+  if (
+    snapshotSettings.skipPartialData &&
+    !incrementalRefreshModel.materializedBySnapshotId
+  ) {
+    return true;
+  }
+
   return overallResultsBuiltWithoutIncrementalPipeline({
     unitsTableFullName: incrementalRefreshModel.unitsTableFullName,
     materializedBySnapshotId: incrementalRefreshModel.materializedBySnapshotId,

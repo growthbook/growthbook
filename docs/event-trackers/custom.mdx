@@ -1,0 +1,14 @@
+---
+title: Setting Up a Custom Data Source
+description: Write assignment and metric SQL for a custom event schema so GrowthBook can analyze experiments in your warehouse.
+sidebarTitle: Custom Data Source
+slug: custom
+---
+
+GrowthBook just needs you to write a couple SQL queries in order to query your data. Writing this SQL is a (mostly) one-time setup task. After building out this library of queries, they can easily be reused across many experiments.
+
+Don’t worry about the potentially huge number of rows returned by these raw queries. They are never run directly as-is and are instead combined, filtered, and aggregated as part of larger queries. Most of the final queries run by GrowthBook result in fewer than 10 rows returned.
+
+In the spirit of transparency, any time a query is run, you should see a `View Queries` link in the app to view the raw SQL sent to the data warehouse. This can help with debugging or let you move a query into a tool like Mode Analytics for more advanced analysis.
+
+See [data source configuration settings](/app/datasources#configuration-settings) for what to configure.

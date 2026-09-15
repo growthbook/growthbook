@@ -53,6 +53,7 @@ import RampTimeline, {
 } from "@/components/RampSchedule/RampTimeline";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 import ContextualBanditRefSummary from "@/components/ContextualBandit/ContextualBanditRefSummary";
 import track from "@/services/track";
@@ -203,6 +204,7 @@ function computeRemainingTime(
 import ExperimentSummary from "./ExperimentSummary";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
+  TempRolloutCallout,
 } from "./ExperimentRefSummary";
 
 interface SortableProps {
@@ -218,6 +220,7 @@ interface SortableProps {
     ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
+    rampToNewValue?: boolean;
     detachRampOnSave?: boolean;
   }) => void;
   unreachable?: boolean;
@@ -238,6 +241,8 @@ interface SortableProps {
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedule?: RampScheduleInterface;
+  // Schedule in ANY environment; `rampSchedule` above is env-filtered.
+  hasAnyEnvRampSchedule?: boolean;
   /** Live state used only for runtime-control authority checks. */
   liveRule?: FeatureRule;
   liveRampSchedule?: RampScheduleInterface;
@@ -322,6 +327,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       holdout,
       revisionList,
       rampSchedule,
+      hasAnyEnvRampSchedule,
       liveRule,
       liveRampSchedule,
       draftRevision,
@@ -337,6 +343,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     ref,
   ) => {
     const { apiCall } = useAuth();
+    const { hasCommercialFeature } = useUser();
+    const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
 
     // A scheduled-publish edit lock leaves ramp runtime controls interactive;
     // other lock reasons (old/discarded revisions) still disable them.
@@ -990,6 +998,25 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             Duplicate rule
                           </DropdownMenuItem>
                         )}
+                        {(rule.type === "force" || rule.type === "rollout") &&
+                          !hasAnyEnvRampSchedule &&
+                          canUseRampSchedules && (
+                            <DropdownMenuItem
+                              tooltip="Inserts a ramp-up rule above this one to gradually replace its value."
+                              onClick={() => {
+                                setRuleModal({
+                                  environment,
+                                  i,
+                                  ruleId: rule.id,
+                                  mode: "duplicate",
+                                  rampToNewValue: true,
+                                });
+                                setDropdownOpen(false);
+                              }}
+                            >
+                              Ramp to new value
+                            </DropdownMenuItem>
+                          )}
                         <DropdownMenuItem
                           onClick={
                             !rule.enabled && getRampEnableDate(rampSchedule)
@@ -1546,6 +1573,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </Flex>
               </Callout>
             )}
+          {rule.type === "experiment-ref" && (
+            <TempRolloutCallout
+              rule={rule}
+              experiment={experimentsMap.get(rule.experimentId)}
+            />
+          )}
           <RuleEnvScopeBadges
             activeEnvironmentIds={
               rule.allEnvironments === true || rule.environments === undefined

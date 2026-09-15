@@ -123,19 +123,12 @@ export async function setRevisionMetadata(
 
     // Tags are registered in the org's tag collection on publish (not here)
     // so discarded drafts don't leak orphaned tags.
-    await updateRevision(
-      context,
-      feature,
-      revision,
-      changes,
-      {
-        user: context.auditUser,
-        action: "edit metadata",
-        subject: "",
-        value: JSON.stringify(changes),
-      },
-      false,
-    );
+    await updateRevision(context, feature, revision, changes, {
+      user: context.auditUser,
+      action: "edit metadata",
+      subject: "",
+      value: JSON.stringify(changes),
+    });
 
     const updated = await getRevision({
       context,

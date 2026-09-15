@@ -119,6 +119,23 @@ reach for `[]` to make a type fit.
 - **A revert** asks about the restored state versus current live
   (`getConstantRestoreChange` and its siblings).
 
+## Approval on automatic publishes
+
+Every publish flow asks one function, `assessRevisionApproval` — the app endpoint,
+the REST endpoint, bulk publish, and the two autostart paths (experiment and
+contextual bandit). An autostart can therefore never land a draft the publish
+button would refuse.
+
+Two automatic flows deliberately skip it. Both are decisions, not omissions:
+
+- **Ramp advance** — a schedule publishes on a cadence someone already approved
+  when they armed it. A spurious approval blocker would stall the schedule.
+- **Safe-rollout rollback** — a background guardrail response with no user in the
+  loop to approve anything. Gating it would leave a failing rollout serving, so it
+  also passes `bypassLockdown`.
+
+Anything else that publishes without asking is a bug, not a third exemption.
+
 ## Write sequencing
 
 See [Revision Architecture](./revisions-architecture.md#landing-sequence) for

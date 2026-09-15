@@ -2,6 +2,7 @@ import { z } from "zod";
 import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { featurePublishEnvironmentIds } from "back-end/src/services/featurePublishGates";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -24,11 +25,14 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
-import { validateCustomFields } from "./validations";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import { validateCustomFields, validateRulesReferences } from "./validations";
 import {
   assertValidProjectId,
   assertValidProjectIds,
   assertValidRuleProjectIds,
+  assertUniqueRuleIdsByEnv,
+  assertValidRuleExperimentIds,
   validateEnvRulesScheduleRules,
   assertValidBaseConfig,
   assertConfigSchemaCompat,
@@ -95,6 +99,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   );
 
   validateEnvRulesScheduleRules(req.body.environments, req.context);
+  assertUniqueRuleIdsByEnv(req.body.environments);
 
   if (
     req.context.org.settings?.requireProjectForFeatures &&
@@ -158,6 +163,9 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     req.body.environments ?? {},
   );
   await assertValidRuleProjectIds(feature.rules, req.context);
+  await assertValidRuleExperimentIds(feature.rules, req.context);
+  await validateRulesReferences(feature.rules, req.context);
+  await assertValidPrerequisiteParents(req.context, feature);
 
   const jsonSchema = parseApiJsonSchema(
     req.context.org,
@@ -181,12 +189,16 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   });
 
   // ensure default value matches value type
-  feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+  feature.defaultValue = validateFeatureValue(
+    feature,
+    feature.defaultValue,
+    "Default value",
+  );
 
   assertCanCreateFeatureInState({
     context: req.context,
     feature,
-    environmentIds: orgEnvs.map((e) => e.id),
+    environmentIds: featurePublishEnvironmentIds(req.context.org, feature),
   });
 
   // AFTER every authorization: tags are a persistent org-level side effect, and

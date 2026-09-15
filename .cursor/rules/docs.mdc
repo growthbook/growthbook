@@ -1,0 +1,8 @@
+---
+description: "Mintlify MDX frontmatter and docs conventions"
+globs: docs/**/*.mdx,docs/**/*.md
+alwaysApply: false
+---
+# Docs
+
+Before adding or editing documentation pages, read and follow `.agents/guides/docs.md`.

@@ -1,4 +1,6 @@
 import {
+  setOwnValueProperty,
+  removeOwnValueProperty,
   getConfigParentKey,
   getConfigBaseKeys,
   stripExtends,
@@ -2298,5 +2300,57 @@ describe("publish environment footprints", () => {
 
   it("never widens to every environment implicitly", () => {
     expect(configPublishEnvironments({})).not.toEqual(allEnvs);
+  });
+});
+
+describe("single-property value writes", () => {
+  it("sets a property without disturbing its siblings, and keeps their order", () => {
+    const before = JSON.stringify({ a: 1, b: 2, c: 3 });
+    const after = setOwnValueProperty(before, "b", 99);
+    expect(JSON.parse(after)).toEqual({ a: 1, b: 99, c: 3 });
+    expect(Object.keys(JSON.parse(after))).toEqual(["a", "b", "c"]);
+  });
+
+  it("appends a new property", () => {
+    const after = setOwnValueProperty(JSON.stringify({ a: 1 }), "z", "new");
+    expect(Object.keys(JSON.parse(after))).toEqual(["a", "z"]);
+  });
+
+  it("treats null as a value, not a removal", () => {
+    const after = setOwnValueProperty(JSON.stringify({ a: 1 }), "a", null);
+    expect(JSON.parse(after)).toEqual({ a: null });
+  });
+
+  it("starts from an empty object when the value is absent or unparseable", () => {
+    expect(JSON.parse(setOwnValueProperty(undefined, "a", 1))).toEqual({
+      a: 1,
+    });
+    expect(JSON.parse(setOwnValueProperty("not json", "a", 1))).toEqual({
+      a: 1,
+    });
+  });
+
+  it("refuses prototype-polluting property names", () => {
+    for (const key of ["__proto__", "constructor", "prototype"]) {
+      expect(() => setOwnValueProperty("{}", key, 1)).toThrow(
+        /Invalid property name/,
+      );
+    }
+  });
+
+  it("removes a property and reports whether it was there", () => {
+    const before = JSON.stringify({ a: 1, b: 2 });
+    const removed = removeOwnValueProperty(before, "a");
+    expect(JSON.parse(removed.value)).toEqual({ b: 2 });
+    expect(removed.existed).toBe(true);
+
+    const missing = removeOwnValueProperty(before, "zzz");
+    expect(JSON.parse(missing.value)).toEqual({ a: 1, b: 2 });
+    expect(missing.existed).toBe(false);
+  });
+
+  it("distinguishes a property set to null from an absent one", () => {
+    const withNull = JSON.stringify({ a: null });
+    expect(removeOwnValueProperty(withNull, "a").existed).toBe(true);
   });
 });

@@ -11,6 +11,7 @@ import {
 } from "shared/types/fact-table";
 import { snapToUtcDayStart } from "shared/dates";
 import { AggregatedFactTableKey } from "back-end/src/models/AggregatedFactTableModel";
+import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export const AGGREGATED_FACT_TABLE_PREFIX = "gb_aggregated";
@@ -18,28 +19,28 @@ export const AGGREGATED_FACT_TABLE_PREFIX = "gb_aggregated";
 // Slice the restate window into half-open [start, end) chunks ~chunkDays wide
 // so each chunk's INSERT fits the engine's per-stage write budget. Internal
 // seams snap to UTC midnight so an event_date (= DATE(timestamp), UTC) never
-// spans two chunks. Final chunk is open-ended so late events aren't dropped;
-// chunks tile the window with no overlap or gap.
+// spans two chunks. Chunks tile [windowStart, now) with no overlap or gap; the
+// final chunk closes at `now` (see windowEndDate on the insert params).
 export function getRestateChunkBounds(
   windowStart: Date,
   now: Date,
   chunkDays: number,
-): Array<{ start: Date; end: Date | null }> {
+): Array<{ start: Date; end: Date }> {
   const chunkMs = chunkDays * 24 * 60 * 60 * 1000;
-  const chunks: Array<{ start: Date; end: Date | null }> = [];
+  const chunks: Array<{ start: Date; end: Date }> = [];
   let cursor = windowStart;
   while (cursor.getTime() < now.getTime()) {
     // snapToUtcDayStart(cursor + chunkMs) is always > cursor for chunkDays >= 1.
     const next = snapToUtcDayStart(new Date(cursor.getTime() + chunkMs));
     chunks.push({
       start: cursor,
-      end: next.getTime() >= now.getTime() ? null : next,
+      end: next.getTime() >= now.getTime() ? now : next,
     });
     cursor = next;
   }
-  // Degenerate windows (windowStart >= now) still emit one open-ended chunk.
+  // Degenerate windows (windowStart >= now) still emit one chunk.
   if (chunks.length === 0) {
-    chunks.push({ start: windowStart, end: null });
+    chunks.push({ start: windowStart, end: now });
   }
   return chunks;
 }
@@ -64,6 +65,7 @@ export type AggregatedFactTableQueryParams = {
 
 export type AggregatedFactTableResult = {
   lastMaxTimestamp: Date | null;
+  lastMaxTimestampRaw: string | null;
   firstEventDate: Date | null;
   lastEventDate: Date | null;
 };
@@ -81,8 +83,10 @@ export function parseAggregatedFactTableCoverage(
     return isNaN(d.getTime()) ? null : d;
   };
 
+  const lastMaxTimestamp = toDate(row?.max_timestamp);
   return {
-    lastMaxTimestamp: toDate(row?.max_timestamp),
+    lastMaxTimestamp,
+    lastMaxTimestampRaw: rawWatermark(lastMaxTimestamp, row?.max_timestamp_raw),
     firstEventDate: toDate(row?.first_event_date),
     lastEventDate: toDate(row?.last_event_date),
   };
@@ -113,17 +117,27 @@ export function foldAggregatedFactTableCoverage({
 }): AggregatedFactTableResult {
   if (mode === "restate") return scanned;
 
-  const lastMaxTimestamp = maxDate(
-    prior.lastMaxTimestamp,
-    scanned.lastMaxTimestamp,
-  );
+  // The raw value travels with whichever side's watermark wins.
+  const newest =
+    scanned.lastMaxTimestamp &&
+    (!prior.lastMaxTimestamp ||
+      (scanned.lastMaxTimestampRaw && prior.lastMaxTimestampRaw
+        ? scanned.lastMaxTimestampRaw > prior.lastMaxTimestampRaw
+        : scanned.lastMaxTimestamp > prior.lastMaxTimestamp))
+      ? scanned
+      : prior;
   const lastEventDate = maxDate(prior.lastEventDate, scanned.lastEventDate);
   const firstEventDate =
     lastEventDate === null
       ? null
       : maxDate(prior.firstEventDate, retentionFloor);
 
-  return { lastMaxTimestamp, firstEventDate, lastEventDate };
+  return {
+    lastMaxTimestamp: newest.lastMaxTimestamp,
+    lastMaxTimestampRaw: newest.lastMaxTimestampRaw,
+    firstEventDate,
+    lastEventDate,
+  };
 }
 
 function priorCoverage(
@@ -131,6 +145,7 @@ function priorCoverage(
 ): AggregatedFactTableResult {
   return {
     lastMaxTimestamp: registry.lastMaxTimestamp ?? null,
+    lastMaxTimestampRaw: registry.lastMaxTimestampRaw ?? null,
     firstEventDate: registry.firstEventDate ?? null,
     lastEventDate: registry.lastEventDate ?? null,
   };
@@ -208,6 +223,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         {
           tableFullName: null,
           lastMaxTimestamp: null,
+          lastMaxTimestampRaw: null,
           firstEventDate: null,
           lastEventDate: null,
         },
@@ -348,10 +364,12 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     // wide fact tables. Unset (or incremental) runs a single full-window INSERT.
     const restateChunkDays =
       factTable.aggregatedFactTableSettings?.restateChunkDays;
+    // Every chunk ends at or before `now`: a row stamped ahead of the run's
+    // clock must never become the watermark (see windowEndDate).
     const chunks =
       mode === "restate" && restateChunkDays
         ? getRestateChunkBounds(restateWindowStart, now, restateChunkDays)
-        : [{ start: windowStartDate, end: null }];
+        : [{ start: windowStartDate, end: now }];
     const chunked = chunks.length > 1;
 
     let lastInsertQuery: QueryPointer | null = null;
@@ -366,6 +384,9 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           windowStartDate: chunk.start,
           windowEndDate: chunk.end,
           exclusiveStart,
+          windowStartDateRaw: exclusiveStart
+            ? (aggregatedFactTable.lastMaxTimestampRaw ?? null)
+            : null,
         });
 
       const insertQuery: QueryPointer = await this.startQuery({
@@ -451,6 +472,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
               factTableSettingsHash,
               metricState,
               lastMaxTimestamp: folded.lastMaxTimestamp,
+              lastMaxTimestampRaw: folded.lastMaxTimestampRaw,
               firstEventDate: folded.firstEventDate,
               lastEventDate: folded.lastEventDate,
               lastError: null,
@@ -478,7 +500,12 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       mode: this.params?.mode ?? "restate",
       prior: this.params
         ? priorCoverage(this.params.aggregatedFactTable)
-        : { lastMaxTimestamp: null, firstEventDate: null, lastEventDate: null },
+        : {
+            lastMaxTimestamp: null,
+            lastMaxTimestampRaw: null,
+            firstEventDate: null,
+            lastEventDate: null,
+          },
       retentionFloor: this.coverageRetentionFloor,
     });
   }
@@ -542,6 +569,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
               factTableSettingsHash: this.params.factTableSettingsHash,
               metricState: this.params.metricState,
               lastMaxTimestamp: result.lastMaxTimestamp,
+              lastMaxTimestampRaw: result.lastMaxTimestampRaw,
               firstEventDate: result.firstEventDate,
               lastEventDate: result.lastEventDate,
               inFlightExecutionId: null,

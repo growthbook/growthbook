@@ -3,19 +3,41 @@ import { paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
+export const roleRule = z.strictObject({
+  role: z.string(),
+  limitAccessByEnvironment: z.boolean(),
+  environments: z.array(z.string()),
+});
+
 export const memberRoleInfo = z.strictObject({
   role: z.string(),
   limitAccessByEnvironment: z.boolean(),
   environments: z.array(z.string()),
   teams: z.array(z.string()).optional(),
+  additionalRoles: z.array(roleRule).optional(),
 });
 
 export const projectMemberRole = memberRoleInfo.safeExtend({
   project: z.string(),
 });
 
+// Two entries for one project UNION rather than replace, granting more than was
+// meant. `additionalRoles` is how a scope carries more than one role.
+export const hasNoDuplicateProjects = (
+  roles: { project: string }[] | undefined,
+): boolean =>
+  !roles || new Set(roles.map((r) => r.project)).size === roles.length;
+
+export const DUPLICATE_PROJECT_ROLES_MESSAGE =
+  "Only one rule per project. To grant more than one role in a project, add them to that rule's additionalRoles.";
+
 export const memberRoleWithProjects = memberRoleInfo.safeExtend({
-  projectRoles: z.array(projectMemberRole).optional(),
+  projectRoles: z
+    .array(projectMemberRole)
+    .refine(hasNoDuplicateProjects, {
+      message: DUPLICATE_PROJECT_ROLES_MESSAGE,
+    })
+    .optional(),
 });
 
 export const invite = memberRoleWithProjects.safeExtend({

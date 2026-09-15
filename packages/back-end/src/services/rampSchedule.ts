@@ -19,13 +19,14 @@ import {
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import {
+  MergeResultChanges,
+  filterEnvironmentsByFeature,
+  getApplicableEnvIds,
+  getEnvsFromRampSchedule,
+  isRampScheduleServing,
+  rampRuleEnvKey,
   rampTargetFootprint,
   rampTargetRuleIds,
-  rampRuleEnvKey,
-  getEnvsFromRampSchedule,
-  filterEnvironmentsByFeature,
-  MergeResultChanges,
-  isRampScheduleServing,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -52,7 +53,6 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   resolveRampTargets,
   ruleFootprint,
-  getApplicableEnvIds,
 } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -2632,7 +2632,11 @@ export async function approveAndPublishStep(
   if (!ctx.permissions.canEditFeatureDrafts(feature)) {
     return { code: "permission_denied", detail: "Cannot update this feature" };
   }
-  if (!ctx.permissions.canReviewFeatureDrafts(feature)) {
+  // Granting an approval, so this must not use `any`. The step's footprint
+  // needs the revision this path never loads, so it fails closed for now.
+  if (
+    !ctx.permissions.canReviewFeatureDrafts(feature, { scope: "everywhere" })
+  ) {
     return {
       code: "permission_denied",
       detail: "Cannot review drafts for this feature",
@@ -3174,4 +3178,42 @@ export async function assertCanControlRampSchedule(
       context.permissions.throwPermissionError();
     }
   }
+}
+
+// Config-edit gate for PUT-style updates of a not-yet-running schedule, shared
+// by the dashboard PUT /ramp-schedule/:id and the REST PUT /ramp-schedules/:id.
+// Fields the poller executes — fire times and the actions/steps it will apply —
+// are publish-class to touch on an ARMABLE schedule, for the same reason the
+// arm itself is: editing them re-aims a live transition the /actions endpoints
+// would refuse this caller. Name and monitoring edits stay draft-class.
+//
+// Armable is `computeNextProcessAt` answering non-null — the same function the
+// poller keys off. Checked BOTH before (`existing.nextProcessAt`) and after
+// (`updates.nextProcessAt`, which the caller has already recomputed): a
+// dateless or approval-gated schedule fires nothing, so editing its steps is
+// draft-class; but disarming a schedule that IS armed re-aims a live transition
+// just as arming one does. Both the PRE-edit and POST-edit aim are asserted:
+// checking `existing` alone would let a dateless schedule with dev-only steps
+// be armed in ONE put that also swapped in production steps — the incoming
+// steps are what will fire, so they answer too.
+export const RAMP_EXECUTION_FIELDS = [
+  "startDate",
+  "cutoffDate",
+  "startActions",
+  "steps",
+  "endActions",
+] as const;
+export async function assertCanEditRampScheduleConfig(
+  context: ReqContext | ApiReqContext,
+  existing: RampScheduleInterface,
+  updates: Record<string, unknown>,
+): Promise<void> {
+  const touchesExecution = RAMP_EXECUTION_FIELDS.some((k) => k in updates);
+  if (!touchesExecution) return;
+  if (!existing.nextProcessAt && !updates.nextProcessAt) return;
+  await assertCanControlRampSchedule(context, existing);
+  await assertCanControlRampSchedule(context, {
+    ...existing,
+    ...updates,
+  } as RampScheduleInterface);
 }

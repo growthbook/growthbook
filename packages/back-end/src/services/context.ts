@@ -1,4 +1,8 @@
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  getRolePermissions,
+  userHasPermission,
+} from "shared/permissions";
 import { uniq } from "lodash";
 import md5 from "md5";
 import type pino from "pino";
@@ -37,7 +41,6 @@ import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   getUserPermissions,
-  getRolePermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
@@ -75,6 +78,7 @@ import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
+import { AutoRunModel } from "back-end/src/models/AutoRunModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
@@ -90,6 +94,7 @@ import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderCon
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
+import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
@@ -145,11 +150,13 @@ export type ModelName =
   | "revisions"
   | "watch"
   | "figmaConnections"
+  | "slackWorkspaceConnections"
   | "apiKeys"
   | "oauthAuthCodes"
   | "oauthGrants"
   | "oauthRefreshTokens"
   | "rampSchedules"
+  | "autoRuns"
   | "rampScheduleTemplates"
   | "aiConversations"
   | "learnings"
@@ -201,11 +208,13 @@ export const modelClasses = {
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
+  slackWorkspaceConnections: SlackWorkspaceConnectionModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   oauthGrants: OAuthGrantModel,
   oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
+  autoRuns: AutoRunModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
   learnings: LearningModel,
@@ -360,11 +369,13 @@ export class ReqContextClass {
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
+      slackWorkspaceConnections: new SlackWorkspaceConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       oauthGrants: new OAuthGrantModel(this),
       oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
+      autoRuns: new AutoRunModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
       learnings: new LearningModel(this),
@@ -403,6 +414,7 @@ export class ReqContextClass {
     apiKey,
     apiKeyData,
     req,
+    restrictedProjects = [],
   }: {
     org: OrganizationInterface;
     user?: {
@@ -417,6 +429,7 @@ export class ReqContextClass {
     teams?: TeamInterface[];
     auditUser: EventUser;
     req?: Request;
+    restrictedProjects?: string[];
   }) {
     this.org = org;
     this.auditUser = auditUser;
@@ -441,7 +454,12 @@ export class ReqContextClass {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(user, org, teams || []);
+      this.userPermissions = getUserPermissions(
+        user,
+        org,
+        teams || [],
+        restrictedProjects,
+      );
     }
     // If an API key or background job is making this request
     else {
@@ -459,6 +477,7 @@ export class ReqContextClass {
         { ...roleInfo, role },
         org,
         teams || [],
+        restrictedProjects,
       );
     }
 

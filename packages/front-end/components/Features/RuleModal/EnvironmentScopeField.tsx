@@ -2,7 +2,7 @@ import { Box } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Environment } from "shared/types/organization";
 import RadioGroup from "@/ui/RadioGroup";
-import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
 
 // Rule-level environment scope editor. Sits under the Description field in
@@ -43,12 +43,12 @@ export default function RuleEnvironmentScopeField({
     disabledEnvironmentIds.length < environments.length;
 
   const disabledWarning = allEnvsDisabled ? (
-    <Callout status="warning" size="sm" mt="2">
+    <HelperText status="warning" size="sm" mt="2">
       This feature is not enabled in any environment. This rule will have no
       effect until at least one environment is enabled.
-    </Callout>
+    </HelperText>
   ) : showPartialDisabledWarning ? (
-    <Callout status="warning" size="sm" mt="2">
+    <HelperText status="warning" size="sm" mt="2">
       {affectedEnvIds.length === 1 ? (
         <>
           <strong>{affectedEnvIds[0]}</strong> is not enabled for this feature.
@@ -62,7 +62,7 @@ export default function RuleEnvironmentScopeField({
           enabled in those environments.
         </>
       )}
-    </Callout>
+    </HelperText>
   ) : null;
 
   return (
@@ -99,10 +99,10 @@ export default function RuleEnvironmentScopeField({
             containerClassName="w-full"
           />
           {selectedEnvironments.length === 0 && !disabledWarning && (
-            <Callout status="warning" size="sm" mt="2">
+            <HelperText status="warning" size="sm" mt="2">
               This rule will not apply in any environment until at least one is
               selected.
-            </Callout>
+            </HelperText>
           )}
           {disabledWarning}
         </Box>

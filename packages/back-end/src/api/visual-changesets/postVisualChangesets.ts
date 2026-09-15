@@ -15,6 +15,10 @@ export const postVisualChangesets = createApiRequestHandler(
     return req.context.throwNotFoundError("Could not find experiment");
   }
 
+  if (experiment.type === "holdout") {
+    throw new Error("Holdouts are not supported via this API");
+  }
+
   if (!req.context.permissions.canUpdateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }

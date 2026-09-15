@@ -28,7 +28,8 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import {
   IdTokenCookie,
-  AuthChecksCookie,
+  AuthSecretCookie,
+  PendingSSOConnectionCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
@@ -48,6 +49,7 @@ import {
   hashOrganizationId,
 } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -163,6 +165,7 @@ export async function processJWT(
       req.currentUser,
       req.organization,
       req.teams,
+      req.restrictedProjects,
     );
 
     if (
@@ -266,9 +269,10 @@ export async function processJWT(
           }
         }
 
-        req.teams = await TeamModel.dangerousGetTeamsForOrganization(
-          req.organization.id,
-        );
+        [req.teams, req.restrictedProjects] = await Promise.all([
+          TeamModel.dangerousGetTeamsForOrganization(req.organization.id),
+          ProjectModel.dangerousGetRestrictedProjectIds(req.organization.id),
+        ]);
 
         // Make sure this is a valid login method for the organization
         try {
@@ -355,6 +359,9 @@ export async function processJWT(
         orgDateCreated: org?.dateCreated
           ? new Date(org.dateCreated).toISOString()
           : "",
+        userDateCreated: user.dateCreated
+          ? new Date(user.dateCreated).toISOString()
+          : "",
         ...trackingAttributes,
         role: org?.members.find((m) => m.id === user.id)?.role,
         hasLicenseKey: org?.licenseKey ? true : false,
@@ -401,7 +408,8 @@ export function deleteAuthCookies(req: Request, res: Response) {
   RefreshTokenCookie.setValue("", req, res);
   IdTokenCookie.setValue("", req, res);
   SSOConnectionIdCookie.setValue("", req, res);
-  AuthChecksCookie.setValue("", req, res);
+  AuthSecretCookie.setValue("", req, res);
+  PendingSSOConnectionCookie.setValue("", req, res);
 }
 
 export function validatePasswordFormat(password?: string): string {

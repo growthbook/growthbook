@@ -18,7 +18,13 @@ import {
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
+  assertRampScheduleReplanAllowed,
+  changesRampPlan,
+} from "back-end/src/services/rampPlanReview";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
   appendRampEvent,
+  assertCanEditRampScheduleConfig,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   computeNextProcessAt,
   dispatchRampEvent,
@@ -575,13 +581,15 @@ export class RampScheduleModel extends BaseClass {
   ) {
     // Neutral not-found for unknown ids; the lock helper's "no longer exists"
     // message is reserved for the deleted-while-locked race.
-    if (!(await this.getById(req.params.id))) {
+    const schedule = await this.getById(req.params.id);
+    if (!schedule) {
       throw new NotFoundError("Ramp schedule not found");
     }
-
-    if (!this.context.hasPremiumFeature("ramp-schedules")) {
-      this.context.throwPlanDoesNotAllowError(
-        "Ramp schedules require an Enterprise plan.",
+    if (schedule.targets.length && changesRampPlan(req.body)) {
+      await assertRampScheduleReplanAllowed(
+        this.context,
+        schedule,
+        canUseRestApiBypassSetting(req),
       );
     }
 
@@ -733,6 +741,10 @@ export class RampScheduleModel extends BaseClass {
         ? updates.startApprovedAt
         : schedule.startApprovedAt) as Date | null | undefined,
     });
+
+    // Same publish-class gate as the dashboard PUT; canUpdate() alone passes
+    // with draft access, which is right for name/monitoring edits only.
+    await assertCanEditRampScheduleConfig(this.context, schedule, updates);
 
     const editedFields = Object.keys(updates).filter(
       (k) => k !== "nextProcessAt" && k !== "eventHistory",

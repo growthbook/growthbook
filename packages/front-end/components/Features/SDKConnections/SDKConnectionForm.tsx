@@ -203,6 +203,9 @@ export default function SDKConnectionForm({
       sessionReplayEnabled: initialValue.sessionReplayEnabled ?? false,
       includeExperimentScheduleInMetadata:
         initialValue.includeExperimentScheduleInMetadata ?? false,
+      // Absent = off, so existing connections keep their behavior.
+      includeReferencedPrerequisites:
+        initialValue.includeReferencedPrerequisites ?? !edit,
     },
   });
 
@@ -399,7 +402,6 @@ export default function SDKConnectionForm({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
@@ -676,6 +678,32 @@ export default function SDKConnectionForm({
             project being removed from the selected environment.
           </div>
         )}
+        <Box mt="3">
+          <Checkbox
+            weight="regular"
+            value={!!form.watch("includeReferencedPrerequisites")}
+            setValue={(val) =>
+              form.setValue("includeReferencedPrerequisites", val)
+            }
+            label={
+              <>
+                Always include prerequisite Feature Flags{" "}
+                <Tooltip
+                  body={
+                    <p className="mb-0">
+                      Deliver prerequisite Feature Flags that target other
+                      Projects. Without them, the Feature Flags they gate are
+                      always off. Only applies when this connection filters by
+                      Project.
+                    </p>
+                  }
+                >
+                  <PiInfo />
+                </Tooltip>
+              </>
+            }
+          />
+        </Box>
       </div>
 
       {shouldShowPayloadSecurity(languageType, languages) && (

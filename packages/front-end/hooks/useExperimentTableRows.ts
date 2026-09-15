@@ -25,6 +25,8 @@ import {
   generateSliceString,
   generateSelectAllSliceString,
   isMetricGroupId,
+  resolveMetricsForSnapshot,
+  resolveSnapshotMetricIds,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
@@ -40,6 +42,7 @@ const METRIC_SELECTOR_IDS = [
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  NO_DATA_ERROR_MESSAGE,
 } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useTableSorting } from "@/hooks/useTableSorting";
@@ -150,6 +153,18 @@ export function useExperimentTableRows({
         hasGuardrailSelector ||
         (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
 
+      const allowedMetricIds = new Set<string>();
+      actualMetricFilter.forEach((id) => {
+        if (isMetricGroupId(id)) {
+          const group = allMetricGroups.find((g) => g.id === id);
+          if (group) {
+            group.metrics.forEach((metricId) => allowedMetricIds.add(metricId));
+          }
+        } else {
+          allowedMetricIds.add(id);
+        }
+      });
+
       // Filter by metric groups if filter is active
       let filteredGoalMetrics: string[] = [];
       let filteredSecondaryMetrics: string[] = [];
@@ -161,21 +176,6 @@ export function useExperimentTableRows({
         hasSecondarySelector ||
         hasGuardrailSelector
       ) {
-        // Create a set of allowed metric IDs from expanded groups and individual metrics
-        const allowedMetricIds = new Set<string>();
-        actualMetricFilter.forEach((id) => {
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
-              group.metrics.forEach((metricId) =>
-                allowedMetricIds.add(metricId),
-              );
-            }
-          } else {
-            allowedMetricIds.add(id);
-          }
-        });
-
         // Filter metrics by group or allowed metric IDs
         // Only include categories that are selected via selector IDs
         if (includeGoals) {
@@ -248,21 +248,38 @@ export function useExperimentTableRows({
         allMetricGroups,
       );
 
+      // allowedMetricIds is the set of metrics that are explicitly selected
+      // by the user either directly or via the group. This code will drop
+      // metrics in groups that are not explicitly selected via the group or
+      // themselves.
+      const finalExpandedGoals =
+        actualMetricFilter.length > 0
+          ? expandedGoals.filter((id) => allowedMetricIds.has(id))
+          : expandedGoals;
+      const finalExpandedSecondaries =
+        actualMetricFilter.length > 0
+          ? expandedSecondaries.filter((id) => allowedMetricIds.has(id))
+          : expandedSecondaries;
+      const finalExpandedGuardrails =
+        actualMetricFilter.length > 0
+          ? expandedGuardrails.filter((id) => allowedMetricIds.has(id))
+          : expandedGuardrails;
+
       // Dedup metric rows to prevent rendering the same metric multiple times
       const dedupedGoals: string[] = [];
-      expandedGoals.forEach((metricId) => {
+      finalExpandedGoals.forEach((metricId) => {
         if (!dedupedGoals.includes(metricId)) {
           dedupedGoals.push(metricId);
         }
       });
       const dedupedSecondaries: string[] = [];
-      expandedSecondaries.forEach((metricId) => {
+      finalExpandedSecondaries.forEach((metricId) => {
         if (!dedupedSecondaries.includes(metricId)) {
           dedupedSecondaries.push(metricId);
         }
       });
       const dedupedGuardrails: string[] = [];
-      expandedGuardrails.forEach((metricId) => {
+      finalExpandedGuardrails.forEach((metricId) => {
         if (!dedupedGuardrails.includes(metricId)) {
           dedupedGuardrails.push(metricId);
         }
@@ -283,12 +300,12 @@ export function useExperimentTableRows({
     ]);
 
   const unsortedRows = useMemo<ExperimentTableRow[]>(() => {
-    function getRowsForMetric(
-      metricId: string,
+    function getRowsForMetricGroup(
+      metricIds: string[],
       resultGroup: "goal" | "secondary" | "guardrail",
     ): ExperimentTableRow[] {
-      return generateRowsForMetric({
-        metricId,
+      return generateRowsForMetricGroup({
+        metricIds,
         resultGroup,
         results,
         metricOverrides,
@@ -305,7 +322,15 @@ export function useExperimentTableRows({
     if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
-      setAdjustedPValuesOnResults([results], expandedGoals, pValueCorrection);
+      setAdjustedPValuesOnResults(
+        [results],
+        resolveSnapshotMetricIds({
+          metricIds: expandedGoals,
+          getExperimentMetricById,
+          results: [results],
+        }),
+        pValueCorrection,
+      );
       setAdjustedCIs([results], pValueThreshold);
     }
 
@@ -402,17 +427,11 @@ export function useExperimentTableRows({
             )
           : filteredGuardrails;
 
-    const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
-      getRowsForMetric(metricId, "goal"),
-    );
-    const retSecondary = sortedFilteredSecondary.flatMap((metricId) =>
-      getRowsForMetric(metricId, "secondary"),
-    );
-    const retGuardrails = sortedFilteredGuardrails.flatMap((metricId) =>
-      getRowsForMetric(metricId, "guardrail"),
-    );
-
-    return [...retMetrics, ...retSecondary, ...retGuardrails];
+    return [
+      ...getRowsForMetricGroup(sortedFilteredMetrics, "goal"),
+      ...getRowsForMetricGroup(sortedFilteredSecondary, "secondary"),
+      ...getRowsForMetricGroup(sortedFilteredGuardrails, "guardrail"),
+    ];
   }, [
     results,
     metricGroups,
@@ -456,6 +475,39 @@ export function useExperimentTableRows({
     rows,
     getChildRowCounts,
   };
+}
+
+/**
+ * Rows for one result group, substituting the metrics a newer metric replaces
+ * when the snapshot only has the older ones. Ids in a group are already
+ * deduped, but substitution can reintroduce collisions - two new metrics can
+ * each replace the same older one - so keep the first occurrence.
+ */
+export function generateRowsForMetricGroup({
+  metricIds,
+  ...params
+}: Omit<Parameters<typeof generateRowsForMetric>[0], "metricId"> & {
+  metricIds: string[];
+}): ExperimentTableRow[] {
+  const { results, getExperimentMetricById } = params;
+  const seen = new Set<string>();
+  return metricIds.flatMap((metricId) => {
+    const metric = getExperimentMetricById(metricId);
+    if (!metric) return [];
+    const { metrics, replacedByMetricName } = resolveMetricsForSnapshot({
+      metric,
+      getExperimentMetricById,
+      results: Array.isArray(results) ? results : [results],
+    });
+    return metrics.flatMap((m) => {
+      if (seen.has(m.id)) return [];
+      seen.add(m.id);
+      const rows = generateRowsForMetric({ ...params, metricId: m.id });
+      return replacedByMetricName
+        ? rows.map((row) => ({ ...row, replacedByMetricName }))
+        : rows;
+    });
+  });
 }
 
 export function generateRowsForMetric({
@@ -563,7 +615,7 @@ export function generateRowsForMetric({
           users: 0,
           value: 0,
           cr: 0,
-          errorMessage: "No data",
+          errorMessage: NO_DATA_ERROR_MESSAGE,
         }))
       : resultsArray[0].variations.map((v) => {
           return (
@@ -571,7 +623,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),
@@ -670,7 +722,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             }
           );
         }),
@@ -729,7 +781,7 @@ export function generateRowsForMetric({
               users: 0,
               value: 0,
               cr: 0,
-              errorMessage: "No data",
+              errorMessage: NO_DATA_ERROR_MESSAGE,
             },
         ),
         metricSnapshotSettings,

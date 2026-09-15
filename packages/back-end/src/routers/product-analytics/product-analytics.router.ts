@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   productAnalyticsRunRequestBodyValidator,
   aiChatFeedbackRatingValidator,
+  aiChatMentionValidator,
 } from "shared/validators";
 import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -41,6 +42,7 @@ router.post(
         conversationId: z.string().min(1),
         datasourceId: z.string(),
         model: aiModelValidator,
+        mentions: aiChatMentionValidator.array().optional(),
       })
       .strict(),
   }),

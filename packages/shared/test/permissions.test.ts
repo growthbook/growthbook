@@ -107,7 +107,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      false,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunFactQueries(projectsResource)).toBe(false);
@@ -241,7 +243,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      false,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunFactQueries(projectsResource)).toBe(false);
@@ -376,7 +380,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      false,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunFactQueries(projectsResource)).toBe(false);
@@ -511,7 +517,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      false,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunFactQueries(projectsResource)).toBe(false);
@@ -646,7 +654,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(true);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      true,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(true);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(false);
     expect(p.canRunFactQueries(projectsResource)).toBe(false);
@@ -781,7 +791,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(false);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(false);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      false,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(false);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunFactQueries(projectsResource)).toBe(true);
@@ -916,7 +928,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(false);
     expect(p.canManageTeam()).toBe(false);
     expect(p.canPublishFeature(projectResource, envs)).toBe(true);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      true,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(true);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunFactQueries(projectsResource)).toBe(true);
@@ -1051,7 +1065,9 @@ describe("Role permissions", () => {
     expect(p.canManageOrgSettings()).toBe(true);
     expect(p.canManageTeam()).toBe(true);
     expect(p.canPublishFeature(projectResource, envs)).toBe(true);
-    expect(p.canReviewFeatureDrafts(projectResource)).toBe(true);
+    expect(p.canReviewFeatureDrafts(projectResource, { scope: "any" })).toBe(
+      true,
+    );
     expect(p.canRunExperiment(projectResource, envs)).toBe(true);
     expect(p.canRunExperimentQueries(projectsResource)).toBe(true);
     expect(p.canRunFactQueries(projectsResource)).toBe(true);
@@ -1231,6 +1247,15 @@ describe("canManageExperimentCustomHooks", () => {
 });
 
 describe("getEffectiveRolesForProject", () => {
+  // These cases are about which roles apply and from where; the env fields each
+  // rule carries are covered separately below.
+  const roleSources = (
+    ...args: Parameters<typeof getEffectiveRolesForProject>
+  ) =>
+    getEffectiveRolesForProject(...args).map(
+      ({ role, sourceType, sourceName }) => ({ role, sourceType, sourceName }),
+    );
+
   const team = (
     id: string,
     name: string,
@@ -1244,14 +1269,14 @@ describe("getEffectiveRolesForProject", () => {
   ) => ({ id, name, role, projectRoles });
 
   it("returns just the member's global role when they have no project role and no teams", () => {
-    expect(
-      getEffectiveRolesForProject({ role: "engineer" }, "prj_1", []),
-    ).toEqual([{ role: "engineer", sourceType: "user", sourceName: "user" }]);
+    expect(roleSources({ role: "engineer" }, "prj_1", [])).toEqual([
+      { role: "engineer", sourceType: "user", sourceName: "user" },
+    ]);
   });
 
   it("uses the member's own project role over their global role", () => {
     expect(
-      getEffectiveRolesForProject(
+      roleSources(
         {
           role: "engineer",
           projectRoles: [
@@ -1270,7 +1295,7 @@ describe("getEffectiveRolesForProject", () => {
   });
 
   it("does not let a team's global role leak past the member's explicit project role", () => {
-    const result = getEffectiveRolesForProject(
+    const result = roleSources(
       {
         role: "readonly",
         projectRoles: [
@@ -1293,7 +1318,7 @@ describe("getEffectiveRolesForProject", () => {
   });
 
   it("unions explicit project roles from the member and their teams", () => {
-    const result = getEffectiveRolesForProject(
+    const result = roleSources(
       {
         role: "readonly",
         projectRoles: [
@@ -1325,7 +1350,7 @@ describe("getEffectiveRolesForProject", () => {
   });
 
   it("falls back to global roles (user + teams) when no explicit project role applies", () => {
-    const result = getEffectiveRolesForProject(
+    const result = roleSources(
       { role: "readonly", teams: ["team_1"] },
       "prj_1",
       [team("team_1", "Engineers", "engineer")],
@@ -1337,27 +1362,23 @@ describe("getEffectiveRolesForProject", () => {
   });
 
   it("drops the member's global role when only a team has an explicit project role", () => {
-    const result = getEffectiveRolesForProject(
-      { role: "admin", teams: ["team_1"] },
-      "prj_1",
-      [
-        team("team_1", "Restricted", "readonly", [
-          {
-            project: "prj_1",
-            role: "noaccess",
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        ]),
-      ],
-    );
+    const result = roleSources({ role: "admin", teams: ["team_1"] }, "prj_1", [
+      team("team_1", "Restricted", "readonly", [
+        {
+          project: "prj_1",
+          role: "noaccess",
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      ]),
+    ]);
     expect(result).toEqual([
       { role: "noaccess", sourceType: "team", sourceName: "Restricted" },
     ]);
   });
 
   it("resolves global roles (user + teams) when project is null", () => {
-    const result = getEffectiveRolesForProject(
+    const result = roleSources(
       {
         role: "readonly",
         projectRoles: [
@@ -1376,6 +1397,176 @@ describe("getEffectiveRolesForProject", () => {
     expect(result).toEqual([
       { role: "readonly", sourceType: "user", sourceName: "user" },
       { role: "admin", sourceType: "team", sourceName: "Admins" },
+    ]);
+  });
+
+  it("counts a member's additional rules alongside their base role", () => {
+    expect(
+      roleSources(
+        {
+          role: "qa_reviewer",
+          additionalRoles: [{ role: "qa_publisher" }],
+        },
+        null,
+        [],
+      ),
+    ).toEqual([
+      { role: "qa_reviewer", sourceType: "user", sourceName: "user" },
+      { role: "qa_publisher", sourceType: "user", sourceName: "user" },
+    ]);
+  });
+
+  it("counts a team's additional rules", () => {
+    const result = roleSources({ role: "readonly", teams: ["team_1"] }, null, [
+      {
+        ...team("team_1", "Reviewers", "collaborator"),
+        additionalRoles: [{ role: "qa_reviewer" }],
+      },
+    ]);
+    expect(result).toEqual([
+      { role: "readonly", sourceType: "user", sourceName: "user" },
+      { role: "collaborator", sourceType: "team", sourceName: "Reviewers" },
+      { role: "qa_reviewer", sourceType: "team", sourceName: "Reviewers" },
+    ]);
+  });
+
+  // A project entry replaces the global one wholesale, so global additional
+  // rules must not leak past it — only the override's own do.
+  it("drops global additional rules when a project role applies", () => {
+    expect(
+      roleSources(
+        {
+          role: "engineer",
+          additionalRoles: [{ role: "qa_publisher" }],
+          projectRoles: [
+            {
+              project: "prj_1",
+              role: "analyst",
+              limitAccessByEnvironment: false,
+              environments: [],
+              additionalRoles: [{ role: "qa_reviewer" }],
+            },
+          ],
+        },
+        "prj_1",
+        [],
+      ),
+    ).toEqual([
+      { role: "analyst", sourceType: "user", sourceName: "user" },
+      { role: "qa_reviewer", sourceType: "user", sourceName: "user" },
+    ]);
+  });
+
+  it("carries each rule's own environment restriction, not a shared one", () => {
+    expect(
+      getEffectiveRolesForProject(
+        {
+          role: "qa_reviewer",
+          limitAccessByEnvironment: true,
+          environments: ["dev"],
+          additionalRoles: [
+            {
+              role: "qa_publisher",
+              limitAccessByEnvironment: true,
+              environments: ["production"],
+            },
+          ],
+        },
+        null,
+        [],
+      ),
+    ).toEqual([
+      {
+        role: "qa_reviewer",
+        sourceType: "user",
+        sourceName: "user",
+        limitAccessByEnvironment: true,
+        environments: ["dev"],
+      },
+      {
+        role: "qa_publisher",
+        sourceType: "user",
+        sourceName: "user",
+        limitAccessByEnvironment: true,
+        environments: ["production"],
+      },
+    ]);
+  });
+
+  it("carries the restriction on a team's additional rule", () => {
+    expect(
+      getEffectiveRolesForProject(
+        { role: "noaccess", teams: ["team_1"] },
+        null,
+        [
+          {
+            id: "team_1",
+            name: "Drafters",
+            role: "qa_drafter",
+            limitAccessByEnvironment: false,
+            environments: [],
+            additionalRoles: [
+              {
+                role: "qa_publisher",
+                limitAccessByEnvironment: true,
+                environments: ["production"],
+              },
+            ],
+          },
+        ],
+      ),
+    ).toEqual([
+      {
+        role: "noaccess",
+        sourceType: "user",
+        sourceName: "user",
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      {
+        role: "qa_drafter",
+        sourceType: "team",
+        sourceName: "Drafters",
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      {
+        role: "qa_publisher",
+        sourceType: "team",
+        sourceName: "Drafters",
+        limitAccessByEnvironment: true,
+        environments: ["production"],
+      },
+    ]);
+  });
+
+  it("takes the project role's restriction over the global one", () => {
+    expect(
+      getEffectiveRolesForProject(
+        {
+          role: "engineer",
+          limitAccessByEnvironment: true,
+          environments: ["dev"],
+          projectRoles: [
+            {
+              project: "prj_1",
+              role: "engineer",
+              limitAccessByEnvironment: true,
+              environments: ["staging"],
+            },
+          ],
+        },
+        "prj_1",
+        [],
+      ),
+    ).toEqual([
+      {
+        role: "engineer",
+        sourceType: "user",
+        sourceName: "user",
+        limitAccessByEnvironment: true,
+        environments: ["staging"],
+      },
     ]);
   });
 });

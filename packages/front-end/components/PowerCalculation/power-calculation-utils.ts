@@ -174,10 +174,12 @@ export function setMetricDataFromPopulationData({
       standardDeviation,
     };
   });
+  const lookbackWeeks =
+    daysBetween(populationData.startDate, populationData.endDate) / 7;
   const usersPerWeek = Math.round(
     populationData.units.reduce((r, u) => {
       return r + u.count;
-    }, 0) / (populationData.units.length ?? 1),
+    }, 0) / (lookbackWeeks || 1),
   );
   form.setValue("metrics", metrics);
   form.setValue("usersPerWeek", isNaN(usersPerWeek) ? 0 : usersPerWeek);

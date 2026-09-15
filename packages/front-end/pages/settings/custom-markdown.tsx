@@ -101,7 +101,6 @@ const CustomMarkdown: React.FC = () => {
         </DocLink>
       </p>
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         cta={"Save"}
         header={false}
