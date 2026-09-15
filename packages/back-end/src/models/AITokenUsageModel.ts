@@ -46,28 +46,26 @@ export const updateTokenUsage = async ({
       lastResetAt: new Date().getTime(),
     };
   }
-  let tokenUsage = await AITokenUsageModel.findOne({
-    organization: organization.id,
-  });
-
-  if (!tokenUsage) {
-    tokenUsage = await AITokenUsageModel.create({
-      organization: organization.id,
-      numTokensUsed: 0,
-      lastResetAt: new Date().getTime(),
-    });
-  }
-
-  const lastResetAt = tokenUsage.lastResetAt;
   const now = new Date().getTime();
-  if (now - lastResetAt > RESET_INTERVAL) {
-    tokenUsage.lastResetAt = now;
-    tokenUsage.numTokensUsed = 0;
-  }
 
-  tokenUsage.numTokensUsed += numTokensUsed;
+  // Roll the window first; the filter stops matching once one writer resets it.
+  await AITokenUsageModel.updateOne(
+    {
+      organization: organization.id,
+      lastResetAt: { $lt: now - RESET_INTERVAL },
+    },
+    { $set: { numTokensUsed: 0, lastResetAt: now } },
+  );
 
-  await tokenUsage.save();
+  // $inc, not read-modify-save: concurrent calls used to overwrite each other's charge.
+  const tokenUsage = await AITokenUsageModel.findOneAndUpdate(
+    { organization: organization.id },
+    {
+      $inc: { numTokensUsed },
+      $setOnInsert: { lastResetAt: now, dailyLimit: DAILY_TOKEN_LIMIT },
+    },
+    { new: true, upsert: true },
+  );
 
   return toInterface(tokenUsage);
 };
