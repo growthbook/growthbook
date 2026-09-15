@@ -1,76 +1,98 @@
 import { z } from "zod";
 import {
   expandMetricGroups,
+  getAllMetricIdsFromExperiment,
   parseFunnelStepMetricId,
   parseSliceMetricId,
 } from "shared/experiments";
-import type { NotificationResourceFilters } from "shared/validators";
+import {
+  ApiExperiment,
+  ApiExperimentMetric,
+  experimentAnalysisSettings,
+  FeatureRule,
+  NotificationResourceFilters,
+} from "shared/validators";
 import type { EventInterface } from "shared/types/events/event";
 import type { ReqContext } from "back-end/types/request";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 
-const recordSchema = z.record(z.string(), z.unknown());
-const record = (value: unknown): Record<string, unknown> =>
-  recordSchema.safeParse(value).data ?? {};
-const strings = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.filter((id): id is string => typeof id === "string")
-    : [];
+const experimentMetricIds = (
+  config: Parameters<typeof getAllMetricIdsFromExperiment>[0],
+) => getAllMetricIdsFromExperiment(config, true, []);
 
-const metricIds = (value: unknown): string[] => {
-  if (typeof value === "string") return [value];
-  if (Array.isArray(value)) return value.flatMap(metricIds);
-  const id = record(value).metricId;
-  return typeof id === "string" ? [id] : [];
-};
+// Older API snapshots store metric IDs directly instead of metric objects.
+const apiMetricId = (metric: Pick<ApiExperimentMetric, "metricId"> | string) =>
+  typeof metric === "string" ? metric : metric.metricId;
 
-export const metricIdsFromConfig = (value: unknown): string[] => {
-  const config = record(value);
-  return [
-    config.metricId,
-    config.metricIds,
-    config.metrics,
-    config.goals,
-    config.goalMetrics,
-    config.secondaryMetrics,
-    config.guardrails,
-    config.guardrailMetrics,
-    config.guardrailMetricIds,
-    config.activationMetric,
-  ].flatMap(metricIds);
-};
-
-function payloadRules(value: unknown): Record<string, unknown>[] {
-  const object = record(value);
-  const rules = object.rules;
-  const lists = [
-    ...(Array.isArray(rules) ? [rules] : Object.values(record(rules))),
-    ...Object.values(record(object.environments)).map(
-      (env) => record(env).rules,
+function apiExperimentMetricIds(settings: ApiExperiment["settings"]) {
+  return experimentMetricIds({
+    goalMetrics: settings.goals?.map(apiMetricId),
+    secondaryMetrics: settings.secondaryMetrics?.map(
+      ({ metricId }) => metricId,
     ),
-  ];
-  return lists.flatMap((list) => (Array.isArray(list) ? list.map(record) : []));
+    guardrailMetrics: settings.guardrails?.map(apiMetricId),
+    activationMetric: settings.activationMetric
+      ? apiMetricId(settings.activationMetric)
+      : null,
+  });
 }
 
-export function getNotificationEventResource(event: EventInterface) {
-  const data = event.data.data;
-  const object = record(
-    "object" in data
-      ? data.object
-      : "current" in data
-        ? data.current
-        : "previous" in data
-          ? data.previous
-          : data,
-  );
-  const id =
-    event.objectId ?? object.experimentId ?? object.featureId ?? object.id;
-  return {
-    resource: event.data.object,
-    id: typeof id === "string" ? id : null,
-    object,
-  };
+const ruleMetricIds = (rule: FeatureRule) =>
+  rule.type === "experiment" ? experimentMetricIds(rule) : [];
+
+// Historical feature webhook schemas leave nested rules untyped. Parse only
+// their relationship fields, preserving compatibility with older rule layouts.
+const webhookRuleResources = experimentAnalysisSettings
+  .pick({
+    goalMetrics: true,
+    secondaryMetrics: true,
+    guardrailMetrics: true,
+    activationMetric: true,
+  })
+  .partial()
+  .strip()
+  .extend({ type: z.string(), experimentId: z.string().optional() });
+const webhookRules = z.union([
+  z.array(webhookRuleResources),
+  z
+    .record(z.string(), z.array(webhookRuleResources))
+    .transform((rules) => Object.values(rules).flat()),
+]);
+const webhookEnvironments = z.record(
+  z.string(),
+  z.object({ rules: z.array(webhookRuleResources).optional() }),
+);
+
+function notificationPayload(event: EventInterface) {
+  if (event.version) return event.data;
+  const legacy = event.data;
+  switch (legacy.object) {
+    case "experiment": {
+      const data = legacy.data;
+      return {
+        object: legacy.object,
+        data: {
+          object:
+            "current" in data
+              ? data.current
+              : "previous" in data
+                ? data.previous
+                : data,
+        },
+      };
+    }
+    case "feature": {
+      const data = legacy.data;
+      return {
+        object: legacy.object,
+        data: { object: "current" in data ? data.current : data.previous },
+      };
+    }
+    case "user":
+    case "webhook":
+      return null;
+  }
 }
 
 export const baseMetricId = (id: string) =>
@@ -81,52 +103,73 @@ export async function getNotificationResources(
   event: EventInterface,
   filters: NotificationResourceFilters,
 ): Promise<Required<NotificationResourceFilters>> {
-  const { resource, id, object } = getNotificationEventResource(event);
-  const related = {
-    experiments: resource === "experiment" && id ? [id] : [],
-    features: resource === "feature" && id ? [id] : [],
-    metrics: [
-      ...metricIdsFromConfig(object),
-      ...metricIdsFromConfig(object.settings),
-    ],
+  const payload = notificationPayload(event);
+  const related: Required<NotificationResourceFilters> = {
+    experiments: [],
+    features: [],
+    metrics: [],
   };
-  if (
-    resource === "experiment" &&
-    id &&
-    (filters.features?.length || filters.metrics?.length)
-  ) {
-    const experiments = await getExperimentsByIds(context, [id]);
-    related.features = experiments.length
-      ? experiments.flatMap((experiment) => experiment.linkedFeatures || [])
-      : strings(object.linkedFeatures);
-    if (filters.metrics?.length)
-      related.metrics.push(...experiments.flatMap(metricIdsFromConfig));
-  }
-  if (
-    resource === "feature" &&
-    id &&
-    (filters.experiments?.length || filters.metrics?.length)
-  ) {
-    const feature = await getFeature(context, id);
-    const rules = feature ? feature.rules : payloadRules(object);
-    related.experiments =
-      feature?.linkedExperiments ??
-      event.relatedResources?.experiments ??
-      rules.flatMap((rule) =>
-        rule.type === "experiment-ref" && typeof rule.experimentId === "string"
-          ? [rule.experimentId]
-          : [],
-      );
-    if (filters.metrics?.length) {
-      const rollouts = await context.models.safeRollout.getAllByFeatureId(id);
-      const experiments = related.experiments.length
-        ? await getExperimentsByIds(context, related.experiments)
-        : [];
-      related.metrics.push(
-        ...rules.flatMap(metricIdsFromConfig),
-        ...rollouts.flatMap(metricIdsFromConfig),
-        ...experiments.flatMap(metricIdsFromConfig),
-      );
+  if (!payload) return related;
+  if (payload.object === "experiment") {
+    const object = payload.data.object;
+    const id =
+      event.objectId ?? ("id" in object ? object.id : object.experimentId);
+    if (id) related.experiments = [id];
+    if ("metricId" in object) related.metrics.push(object.metricId);
+    if ("settings" in object)
+      related.metrics.push(...apiExperimentMetricIds(object.settings));
+    if (id && (filters.features?.length || filters.metrics?.length)) {
+      const experiments = await getExperimentsByIds(context, [id]);
+      related.features = experiments.length
+        ? experiments.flatMap((experiment) => experiment.linkedFeatures || [])
+        : "linkedFeatures" in object
+          ? object.linkedFeatures || []
+          : [];
+      if (filters.metrics?.length)
+        related.metrics.push(...experiments.flatMap(experimentMetricIds));
+    }
+  } else if (payload.object === "feature") {
+    const object = payload.data.object;
+    const id =
+      event.objectId ??
+      ("featureId" in object
+        ? object.featureId
+        : "id" in object
+          ? object.id
+          : null);
+    if (id) related.features = [id];
+    if (id && (filters.experiments?.length || filters.metrics?.length)) {
+      const feature = await getFeature(context, id);
+      const rules = feature
+        ? feature.rules
+        : "rules" in object
+          ? webhookRules.parse(object.rules)
+          : "environments" in object
+            ? Object.values(
+                webhookEnvironments.parse(object.environments),
+              ).flatMap((env) => env.rules || [])
+            : [];
+      related.experiments =
+        feature?.linkedExperiments ??
+        event.relatedResources?.experiments ??
+        rules.flatMap((rule) =>
+          rule.type === "experiment-ref" && rule.experimentId
+            ? [rule.experimentId]
+            : [],
+        );
+      if (filters.metrics?.length) {
+        const [rollouts, experiments] = await Promise.all([
+          context.models.safeRollout.getAllByFeatureId(id),
+          getExperimentsByIds(context, related.experiments),
+        ]);
+        related.metrics.push(
+          ...(feature
+            ? feature.rules.flatMap(ruleMetricIds)
+            : rules.flatMap(experimentMetricIds)),
+          ...rollouts.flatMap((rollout) => rollout.guardrailMetricIds),
+          ...experiments.flatMap(experimentMetricIds),
+        );
+      }
     }
   }
   if (filters.metrics?.length) {

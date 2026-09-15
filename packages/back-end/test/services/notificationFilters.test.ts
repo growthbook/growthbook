@@ -6,10 +6,7 @@ import {
   matchesNotificationFilters,
   matchesNotificationResourceFilters,
 } from "back-end/src/events/notificationFilters";
-import {
-  getNotificationResources,
-  metricIdsFromConfig,
-} from "back-end/src/events/notificationResources";
+import { getNotificationResources } from "back-end/src/events/notificationResources";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
@@ -80,13 +77,20 @@ test("resource filters combine across dimensions and intersect within them", () 
     ),
   ).toBe(false);
 });
-test("metric configuration reads named ID fields, not arbitrary strings", () => {
-  expect(
-    metricIdsFromConfig({
+test("snapshot metrics include activation metrics without matching arbitrary strings", async () => {
+  const resources = await getNotificationResources(
+    context,
+    event("experiment", {
+      id: "exp_a",
       name: "fact__unrelated",
-      goals: [{ metricId: "fact__revenue", overrides: {} }],
+      settings: {
+        goals: [{ metricId: "fact__revenue", overrides: {} }],
+        activationMetric: { metricId: "fact__activation", overrides: {} },
+      },
     }),
-  ).toEqual(["fact__revenue"]);
+    metricFilter,
+  );
+  expect(resources.metrics).toEqual(["fact__revenue", "fact__activation"]);
 });
 test.each(["fact__revenue", "mg_goals", "fact__revenue?country=US"])(
   "matches an experiment using %s",
@@ -173,7 +177,7 @@ test("feature metrics include inline rules, linked experiments and safe rollouts
   jest.mocked(getFeature).mockResolvedValue({
     id: "flag-a",
     linkedExperiments: ["exp_a"],
-    rules: [{ type: "experiment", metrics: ["fact__inline"] }],
+    rules: [{ type: "experiment", goalMetrics: ["fact__inline"] }],
   } as Awaited<ReturnType<typeof getFeature>>);
   jest
     .mocked(getExperimentsByIds)
@@ -190,24 +194,27 @@ test("feature metrics include inline rules, linked experiments and safe rollouts
     expect.arrayContaining(["fact__inline", "fact__rollout", "fact__revenue"]),
   );
 });
-test("legacy snapshots have the same resource matching semantics", async () => {
-  const legacy = {
-    organizationId: "org_a",
-    data: {
-      event: "experiment.deleted",
-      object: "experiment",
+test.each(["fact__revenue", { metricId: "fact__revenue" }])(
+  "legacy snapshots have the same resource matching semantics for %j",
+  async (metric) => {
+    const legacy = {
+      organizationId: "org_a",
       data: {
-        previous: {
-          id: "exp_a",
-          settings: { goals: [{ metricId: "fact__revenue" }] },
+        event: "experiment.deleted",
+        object: "experiment",
+        data: {
+          previous: {
+            id: "exp_a",
+            settings: { goals: [metric] },
+          },
         },
       },
-    },
-  } as EventInterface;
-  expect(await matchesNotificationFilters(context, legacy, metricFilter)).toBe(
-    true,
-  );
-});
+    } as EventInterface;
+    expect(
+      await matchesNotificationFilters(context, legacy, metricFilter),
+    ).toBe(true);
+  },
+);
 test("bookkeeping policy is explicit and independent of delivery format", async () => {
   const update = {
     ...event("experiment", { id: "exp_a" }),
@@ -255,3 +262,47 @@ test("persisted resource IDs take precedence over IDs within a revision payload"
   ).toBe(true);
   expect(getFeature).not.toHaveBeenCalled();
 });
+
+test("malformed historical feature rules fail visibly instead of dropping relationships", async () => {
+  await expect(
+    matchesNotificationFilters(
+      context,
+      event(
+        "feature",
+        {
+          id: "flag-a",
+          environments: {
+            production: {
+              rules: [{ type: "experiment-ref", experimentId: 123 }],
+            },
+          },
+        },
+        "deleted",
+      ),
+      { experiments: ["exp_a"] },
+    ),
+  ).rejects.toThrow();
+});
+
+test.each([
+  [{ type: "experiment", goalMetrics: ["fact__inline"] }],
+  { production: [{ type: "experiment", goalMetrics: ["fact__inline"] }] },
+])(
+  "historical revision rule layouts retain metric relationships",
+  async (rules) => {
+    expect(
+      await matchesNotificationFilters(
+        context,
+        {
+          ...event(
+            "feature",
+            { featureId: "flag-a", rules },
+            "revision.published",
+          ),
+          objectId: "flag-a",
+        },
+        { metrics: ["fact__inline"] },
+      ),
+    ).toBe(true);
+  },
+);
