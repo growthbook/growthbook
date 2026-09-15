@@ -311,8 +311,8 @@ const EditFeatureInfoModal: FC<{
               form.setValue("targetingProjects", v, { shouldDirty: true })
             }
             baseline={{
-              allProjects: !!reached.targetingAllProjects,
-              targetingProjects: reached.targetingProjects ?? [],
+              allProjects: reached.targetingAllProjects,
+              targetingProjects: reached.targetingProjects,
             }}
           />
           <Box mb="4">

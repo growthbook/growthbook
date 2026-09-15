@@ -56,7 +56,8 @@ export function withStagedTargeting(
 export function reachedTargeting(
   current: TargetingScoped,
   ...priors: (Partial<TargetingScoped> | null | undefined)[]
-): TargetingScoped {
+): Required<Omit<TargetingScoped, "project">> &
+  Pick<TargetingScoped, "project"> {
   const states = [current, ...priors];
   return {
     project: current.project,

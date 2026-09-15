@@ -7,12 +7,14 @@ import {
   isPureFeatureRevert,
 } from "shared/util";
 import {
-  NO_ENVIRONMENT_BINDING,
   assertTargetingDestination,
   holdsTargetingDestination,
   metadataTouchesPayload,
+  NO_ENVIRONMENT_BINDING,
+  reachedTargeting,
   withStagedTargeting,
 } from "shared/permissions";
+import type { TargetingScoped } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/validators";
 import {
@@ -426,3 +428,24 @@ export async function assertCanPublishFeatureRevision({
 // Lives in `shared` so the Revert control predicts the same footprint the revert
 // endpoints demand; re-exported here because this is where callers look for it.
 export { revertFootprint } from "shared/permissions";
+
+// What a staging write may keep without the targeting atom: live, what the
+// draft stages, and what the revision the draft was created from carried. So
+// echoing a colleague's addition or putting back what the draft removed is
+// free; landing re-checks live.
+export async function stagingTargetingBase(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface | null,
+): Promise<TargetingScoped> {
+  const staged = withStagedTargeting(feature, draft?.metadata);
+  if (!draft) return staged;
+  const base = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: draft.baseVersion,
+  });
+  return reachedTargeting(staged, feature, base?.metadata);
+}

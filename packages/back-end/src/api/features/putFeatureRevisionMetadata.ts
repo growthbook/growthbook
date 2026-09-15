@@ -4,7 +4,6 @@ import { putFeatureRevisionMetadataValidator } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
 import {
   assertTargetingDestination,
-  reachedTargeting,
   withStagedTargeting,
 } from "shared/permissions";
 import type { ApiReqContext } from "back-end/types/api";
@@ -18,6 +17,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
+import { stagingTargetingBase } from "back-end/src/revisions/featureDraftAuthority";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -110,24 +110,12 @@ export async function setRevisionMetadata(
       );
     }
 
-    // Against everything live or staged reaches, so echoing a colleague's
-    // addition or putting back what the draft removed is free; landing
-    // re-checks live.
-    const draftMetadata = created ? undefined : revision.metadata;
-    const stagedTargeting = withStagedTargeting(feature, draftMetadata);
+    const draft = created ? null : revision;
+    const stagedTargeting = withStagedTargeting(feature, draft?.metadata);
     normalizeTargetingInUpdates(metadataFields, stagedTargeting);
-    const draftBase = created
-      ? null
-      : await getRevision({
-          context,
-          organization: organization.id,
-          featureId: feature.id,
-          feature,
-          version: revision.baseVersion,
-        });
     assertTargetingDestination({
       permissions: context.permissions,
-      existing: reachedTargeting(stagedTargeting, feature, draftBase?.metadata),
+      existing: await stagingTargetingBase(context, feature, draft),
       proposed: withStagedTargeting(stagedTargeting, metadataFields),
       optedOut: await context.getTargetingOptOutProjectIds(),
     });

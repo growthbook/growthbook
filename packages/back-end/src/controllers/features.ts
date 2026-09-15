@@ -6,7 +6,6 @@ import {
   metadataTouchesPayload,
   NO_ENVIRONMENT_BINDING,
   projectScopeChanged,
-  reachedTargeting,
   withStagedTargeting,
 } from "shared/permissions";
 import { Request, Response } from "express";
@@ -110,7 +109,6 @@ import { getValidDate } from "shared/dates";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
-  holdsFeaturePublishAuthority,
   assertCanCreateFeatureInState,
   assertCanPublishFeatureRevision,
   canAdvanceFeatureDraft,
@@ -118,7 +116,9 @@ import {
   canRebaseFeatureDraft,
   canRecallFeatureReview,
   canReopenFeatureDraft,
+  holdsFeaturePublishAuthority,
   revertFootprint,
+  stagingTargetingBase,
 } from "back-end/src/revisions/featureDraftAuthority";
 import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -5751,22 +5751,10 @@ export async function putFeature(
     ),
   ) as Partial<FeatureInterface>;
   normalizeTargetingInUpdates(metadataUpdates, feature);
-  // Against everything live or staged reaches, so echoing a colleague's
-  // addition or putting back what the draft removed is free; landing
-  // re-checks live.
   const stagedTargeting = withStagedTargeting(feature, targetDraft?.metadata);
-  const draftBase = targetDraft
-    ? await getRevision({
-        context,
-        organization: feature.organization,
-        featureId: feature.id,
-        feature,
-        version: targetDraft.baseVersion,
-      })
-    : null;
   assertTargetingDestination({
     permissions: context.permissions,
-    existing: reachedTargeting(stagedTargeting, feature, draftBase?.metadata),
+    existing: await stagingTargetingBase(context, feature, targetDraft),
     proposed: withStagedTargeting(stagedTargeting, metadataUpdates),
     optedOut: await context.getTargetingOptOutProjectIds(),
   });
