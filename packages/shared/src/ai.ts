@@ -160,8 +160,6 @@ export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
 export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image";
 export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
-// Every registry below is provider -> model ids, so they all look up the same
-// way; `label` only shapes the error.
 function providerOf(
   map: Readonly<Record<string, readonly string[]>>,
   model: string,
@@ -548,13 +546,7 @@ export function getProviderFromEmbeddingModel(
   return providerOf(AI_PROVIDER_EMBEDDING_MODEL_MAP, model, "Embedding model");
 }
 
-// Speech-to-text models for voice dictation. Batch (file-POST) only: the
-// realtime ids each provider also ships need a socket, not a POST.
-//
-// Anthropic is absent because no Claude model accepts audio input. Google is
-// absent because gemini-3.5-transcribe won't take inline audio — it needs a
-// Files API upload, then /v1beta/interactions with its own request and
-// response shape, which is more adapter than the other three combined.
+// Batch (file-POST) transcription models. Anthropic and Google are absent: no audio input, or upload-only.
 export const AI_PROVIDER_STT_MODEL_MAP = {
   openai: [
     "gpt-transcribe",
@@ -569,8 +561,6 @@ export const AI_PROVIDER_STT_MODEL_MAP = {
 export type STTModel =
   (typeof AI_PROVIDER_STT_MODEL_MAP)[keyof typeof AI_PROVIDER_STT_MODEL_MAP][number];
 
-// Narrower than AIProvider: only these three serve transcription, which makes
-// the endpoint table in stt.ts total and its "unknown provider" branch dead.
 export type STTProvider = keyof typeof AI_PROVIDER_STT_MODEL_MAP;
 
 export function getProviderFromSTTModel(model: STTModel): STTProvider {
@@ -581,22 +571,14 @@ export function getProviderFromSTTModel(model: STTModel): STTProvider {
   ) as STTProvider;
 }
 
-// Each provider's first model, walked in registry order, so a missing key
-// degrades to the next provider rather than disabling dictation. Same order on
-// Cloud and self-hosted — no managed model is worth special-casing above it.
+// Each provider's first model, in registry order: a missing key degrades to the next provider.
 export const DEFAULT_STT_MODELS = Object.entries(AI_PROVIDER_STT_MODEL_MAP).map(
   ([provider, models]) => [provider, models[0]] as [STTProvider, STTModel],
 );
 
-// What the key-removal dialog names as taking over. Derived from the list so
-// the two can't drift apart.
 export const DEFAULT_STT_MODEL: STTModel = DEFAULT_STT_MODELS[0][1];
 
-/**
- * Which model "use default" resolves to, given the providers that have a key.
- * Shared so the settings dropdown can name the default without re-deriving a
- * chain that could disagree with what the transcribe route actually picks.
- */
+/** Which model "use default" resolves to, given the providers that have a key. */
 export function resolveDefaultSTTModel(
   providersWithKeys: readonly AIProvider[],
 ): STTModel | null {

@@ -9,11 +9,9 @@ import {
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 
-// Narrowed to what every transcription endpoint accepts. OpenAI's list is the
-// binding one, and it rejects ogg — offering ogg/opus failed on Firefox.
+// OpenAI's accepted list is the binding one, and it rejects ogg.
 const MIME_TYPES = ["audio/mp4", "audio/webm;codecs=opus"];
 
-// A forgotten open mic is a memory and a billing problem.
 const MAX_RECORDING_MS = 5 * 60 * 1000;
 
 const pickMimeType = () =>
@@ -21,10 +19,7 @@ const pickMimeType = () =>
     ? null
     : (MIME_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? null);
 
-// Recorder support differs between server and browser, and the composer is in
-// every page's SSR tree. useSyncExternalStore renders a false server snapshot
-// and the real client one, so hydration can't disagree. Support can't change
-// within a session, so the store never emits.
+// Server/client support differs, so go through useSyncExternalStore to keep hydration honest.
 const NEVER_CHANGES = () => () => {};
 const useCanRecord = () =>
   useSyncExternalStore(
@@ -33,21 +28,10 @@ const useCanRecord = () =>
     () => false,
   );
 
-/**
- * Write the live input level onto `node` as `--mic-level` (0-1) until the
- * returned teardown runs. Straight to the DOM because it updates every frame,
- * and re-rendering the composer at that rate to animate one button is absurd.
- * A flat level is how a muted mic tells you it's muted. CSS drops the effect
- * under prefers-reduced-motion; the loop is too cheap to also check here.
- */
-
-// Room tone still reads as signal, so subtract it — otherwise the control
-// never settles at rest even in a silent room.
 const NOISE_FLOOR = 0.015;
-// Fast attack, slow release, as any level meter does it: a syllable registers
-// at once, but the gaps between syllables decay instead of strobing to zero.
-const RELEASE = 0.85;
+const RELEASE = 0.85; // Fast attack, slow release, so gaps between syllables decay instead of strobing.
 
+/** Writes the live input level onto `node` as `--mic-level` (0-1) every frame, bypassing React. */
 function startLevelMeter(stream: MediaStream, node: HTMLElement | null) {
   const Ctx =
     window.AudioContext ??
@@ -56,8 +40,7 @@ function startLevelMeter(stream: MediaStream, node: HTMLElement | null) {
 
   let last = "";
   const setLevel = (v: string) => {
-    // Every write is a style recalc, and silence would otherwise write the
-    // same value 60x a second.
+    // Every write is a style recalc.
     if (v === last) return;
     last = v;
     node?.style.setProperty("--mic-level", v);
@@ -65,9 +48,7 @@ function startLevelMeter(stream: MediaStream, node: HTMLElement | null) {
 
   const ctx = new Ctx();
   const analyser = ctx.createAnalyser();
-  // Window length, not a frequency concern — getByteTimeDomainData ignores
-  // smoothingTimeConstant, so this is the only averaging the browser gives us.
-  // 1024 samples is ~21ms, long enough not to jitter on a single glottal pulse.
+  // ~21ms window: long enough not to jitter on a single glottal pulse.
   analyser.fftSize = 1024;
   ctx.createMediaStreamSource(stream).connect(analyser);
   const samples = new Uint8Array(analyser.fftSize);
@@ -80,8 +61,7 @@ function startLevelMeter(stream: MediaStream, node: HTMLElement | null) {
     let sum = 0;
     for (const v of samples) sum += (v - 128) ** 2;
     const rms = Math.sqrt(sum / samples.length) / 128;
-    // Square-rooted because raw RMS spends most of its time near the floor —
-    // speech sits around 0.05-0.25, so a linear map barely moves the control.
+    // Square-rooted: speech sits around 0.05-0.25, so a linear map barely moves the control.
     const next = Math.min(
       1,
       Math.sqrt((Math.max(0, rms - NOISE_FLOOR) / (1 - NOISE_FLOOR)) * 4),
@@ -95,7 +75,6 @@ function startLevelMeter(stream: MediaStream, node: HTMLElement | null) {
   return () => {
     live = false;
     cancelAnimationFrame(frame);
-    // Browsers cap live AudioContexts; one per recording would pile up.
     void ctx.close().catch(() => {});
     setLevel("0");
   };
@@ -116,7 +95,6 @@ export interface Dictation {
 /** Record a clip and hand the transcript to `onTranscript`. */
 export function useDictation(onTranscript: (text: string) => void): Dictation {
   const { apiCall } = useAuth();
-  // Already null when AI is off or no provider with a key serves transcription.
   const { sttModel } = useUser();
   const canRecord = useCanRecord();
 
@@ -125,18 +103,14 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
   );
   const [error, setError] = useState<string | null>(null);
 
-  // Everything a live recording owns and must give back. One ref because the
-  // three are created together and torn down together; they were never
-  // independent.
+  // Everything a live recording owns and must give back.
   const sessionRef = useRef<{
     recorder: MediaRecorder;
     stopMeter: () => void;
     timeout: number;
   } | null>(null);
   const micRef = useRef<HTMLButtonElement>(null);
-  // Non-null while a permission prompt is open. Doubles as the re-entrancy
-  // guard (a double-click would otherwise orphan the first stream) and the
-  // cancel signal, since release() aborts it.
+  // Non-null while a permission prompt is open; doubles as re-entrancy guard and cancel signal.
   const startAbortRef = useRef<AbortController | null>(null);
 
   const release = useCallback(() => {
@@ -176,7 +150,6 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      // Denied, dismissed, or no input device — same outcome to the user.
       setError("Microphone access was blocked.");
       return;
     } finally {
@@ -220,8 +193,6 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
 
     recorder.start();
     setStatus("recording");
-    // Nothing can interleave between the await above and here, so publishing
-    // the session in one go still closes the re-entrancy window.
     sessionRef.current = {
       recorder,
       stopMeter: startLevelMeter(stream, micRef.current),

@@ -6,25 +6,13 @@ import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";
 import { recordSTTUsage } from "back-end/src/enterprise/services/ai";
 import { fetch } from "back-end/src/util/http.util";
 
-// OpenAI and Mistral share OpenAI's /v1/audio/transcriptions contract; xAI
-// serves its own /v1/stt. All three answer with `{ text }`.
 const STT_ENDPOINTS: Record<STTProvider, string> = {
   openai: "https://api.openai.com/v1/audio/transcriptions",
   mistral: "https://api.mistral.ai/v1/audio/transcriptions",
   xai: "https://api.x.ai/v1/stt",
 };
 
-/**
- * Transcribe a recorded clip with the org's resolved dictation model.
- * `mimeType` is the browser's container choice (Safari mp4, Chrome webm).
- *
- * Multipart directly, not the AI SDK's transcribe(): it ignores the caller's
- * media type, and its sniffer misses both webm and mp4, defaulting them to
- * audio/wav — which every provider then rejects.
- *
- * Callers must gate on secondsUntilAICanBeUsedAgainForSTT first; this records
- * the usage that gate reads, on success only.
- */
+// Multipart directly, not the AI SDK's transcribe(): it mis-sniffs webm/mp4 as audio/wav, which providers reject.
 export async function transcribeAudio(
   context: ReqContext,
   audio: Buffer,
@@ -48,7 +36,6 @@ export async function transcribeAudio(
   }
 
   const form = new FormData();
-  // Providers key off the extension, so it has to match the actual container.
   form.append("file", audio, {
     filename: `dictation.${mimeType.split(";")[0].split("/")[1] || "webm"}`,
     contentType: mimeType,
@@ -66,8 +53,7 @@ export async function transcribeAudio(
   }
   const text = ((await res.json()) as { text?: string }).text ?? "";
 
-  // Success only: a rejection costs nothing, so billing for it would let junk
-  // uploads deny the org its own AI use.
+  // Success only, so failed uploads can't burn the org's daily cap.
   await recordSTTUsage(context, audio.length, provider);
   return text;
 }

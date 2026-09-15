@@ -313,9 +313,7 @@ export async function getAISettingsForOrg(
   keySource: Record<AIProvider, AIKeySource>;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
-  // Dictation model, or null when unavailable. Nullable unlike embeddingModel
-  // because it gates a visible button: a mic that renders and then fails after
-  // the user has spoken is worse than no mic.
+  // Dictation model, or null when unavailable (hides the mic button).
   sttModel: STTModel | null;
   // Resolved Visual Editor overrides — both already fall back to a
   // sensible default so callers don't need their own resolution logic.

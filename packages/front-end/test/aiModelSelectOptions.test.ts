@@ -211,7 +211,6 @@ describe("getAvailableSTTModelOptions", () => {
   });
 
   it("does not expose transcription models for an incompatible provider list", () => {
-    // Neither Anthropic nor Google serves one, so only the sentinel is left.
     expect(
       values(getAvailableSTTModelOptions(["anthropic", "google"])).filter(
         Boolean,
@@ -226,12 +225,10 @@ describe("getAvailableSTTModelOptions", () => {
   });
 
   it("always keeps the 'use default' entry", () => {
-    // The only way back to the resolved default once a model has been chosen.
     expect(values(getAvailableSTTModelOptions(["anthropic"]))).toContain("");
   });
 
   it("labels every transcription model", () => {
-    // Feeds the key-removal dialog; an unlabeled id shows as a raw model id.
     for (const { value, label } of STT_MODEL_OPTIONS) {
       expect(getModelDisplayLabel(value)).toBe(label);
     }

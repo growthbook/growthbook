@@ -66,7 +66,6 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "grok-4.6": "Grok 4.6",
   "grok-4.5": "Grok 4.5",
   "grok-4.3": "Grok 4.3",
-  // Mistral. "(latest)" marks a rolling alias — the model behind it changes.
   "mistral-large-latest": "Mistral Large (latest)",
   "mistral-medium-latest": "Mistral Medium (latest)",
   "mistral-small-latest": "Mistral Small (latest)",
@@ -115,12 +114,10 @@ export const EMBEDDING_MODEL_OPTIONS =
 
 /** Transcription models for voice dictation, labeled with their provider. */
 export const STT_MODEL_OPTIONS = ensureValuesExactlyMatchUnion<STTModel>()([
-  // gpt-transcribe supersedes the gpt-4o pair; whisper-1 is the legacy floor.
   { value: "gpt-transcribe", label: "OpenAI: GPT Transcribe" },
   { value: "gpt-4o-transcribe", label: "OpenAI: GPT-4o Transcribe" },
   { value: "gpt-4o-mini-transcribe", label: "OpenAI: GPT-4o Mini Transcribe" },
   { value: "whisper-1", label: "OpenAI: Whisper (legacy)" },
-  // xAI
   { value: "grok-stt-1.0", label: "xAI: Grok STT 1.0" },
   // Mistral. "(latest)" marks a rolling alias — the model behind it changes.
   { value: "voxtral-mini-latest", label: "Mistral: Voxtral Mini (latest)" },
@@ -194,10 +191,7 @@ export const USE_DEFAULT_EMBEDDING_MODEL_OPTION = {
   label: `Use default (${DEFAULT_EMBEDDING_MODEL})`,
 };
 
-/**
- * Names no model: which one the default resolves to depends on which provider
- * keys exist, so naming one here would be wrong for most orgs.
- */
+// Names no model: what the default resolves to depends on which provider keys exist.
 export const USE_DEFAULT_STT_MODEL_OPTION = {
   value: "",
   label: "Use default dictation model",
@@ -291,10 +285,7 @@ export function getAvailableEmbeddingModelOptions(
   );
 }
 
-/**
- * Filtered like the embedding options. A provider list with no transcription
- * model (Anthropic, Google) leaves only the sentinel — nothing to pick.
- */
+/** Filtered like the embedding options; a provider list with no STT model leaves only the sentinel. */
 export function getAvailableSTTModelOptions(
   availableProviders: readonly AIProvider[] | undefined,
   selectedModel?: string,

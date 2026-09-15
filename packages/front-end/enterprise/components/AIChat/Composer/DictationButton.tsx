@@ -28,7 +28,7 @@ export default function DictationButton({
       ? "Transcribing…"
       : "Dictate a message";
 
-  // Recording gets its own glyph, not just red: color-only state fails WCAG 1.4.1.
+  // Its own glyph, not just red: color-only state fails WCAG 1.4.1.
   const Icon = error
     ? PiMicrophoneSlash
     : transcribing
@@ -39,13 +39,12 @@ export default function DictationButton({
 
   return (
     <Tooltip content={label}>
-      {/* Radix tooltips need an enabled trigger — pointer events never reach a
-          disabled button, so the wrapper is what gets hovered. */}
+      {/* Radix tooltips need an enabled trigger, so the wrapper is what gets hovered. */}
       <span className={styles.dictateTrigger}>
         <button
           ref={micRef}
           type="button"
-          // Geometry is shared, so "filled" is just the send button's class — but not while recording, whose red fill would sit on the send violet.
+          // Shared geometry, so "filled" is just the send button's class.
           className={`${primary && !recording ? styles.sendButton : styles.dictateButton}${
             recording ? ` ${styles.dictateButtonActive}` : ""
           }`}

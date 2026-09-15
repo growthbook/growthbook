@@ -329,8 +329,6 @@ export async function postTranscribe(req: AuthRequest, res: Response) {
     });
   }
 
-  // Managed Cloud keys are GrowthBook's spend, so the org's daily cap applies
-  // before we call a provider.
   const secondsUntilReset = await secondsUntilAICanBeUsedAgainForSTT(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({

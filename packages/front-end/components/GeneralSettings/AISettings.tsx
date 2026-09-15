@@ -242,8 +242,7 @@ export default function AISettings({
   const orgDefaultNote = isCloud()
     ? { value: "", note: getModelDisplayLabel(defaultAIModel) }
     : null;
-  // Unlike the fields above, the dictation sentinel is offered in both
-  // deployments, so name the resolved model in both.
+  // The dictation sentinel is offered in both deployments, so name the resolved model in both.
   const sttDefault = resolveDefaultSTTModel(aiKeyProviders);
   const sttDefaultNote = sttDefault
     ? { value: "", note: getModelDisplayLabel(sttDefault) }
@@ -508,8 +507,7 @@ export default function AISettings({
                         modelOptionLabel(option, context, sttDefaultNote)
                       }
                     />
-                    {/* Only a chosen model can be wrong — the default always
-                        resolves to a provider that has a key, or to nothing. */}
+                    {/* Only a chosen model can be wrong; the default always resolves to a key or nothing. */}
                     {form.watch("sttModel") && (
                       <SttKeyWarning
                         sttModel={form.watch("sttModel")}

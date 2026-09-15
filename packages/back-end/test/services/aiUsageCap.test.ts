@@ -205,8 +205,6 @@ describe("dictation usage cap", () => {
   });
 
   it("caps dictation running on GrowthBook's managed key", async () => {
-    // Enterprise Cloud without BYOK: dictation works, on GrowthBook's key, so
-    // the org's daily cap is what limits it.
     setSettings({
       keySource: keySources({ openai: "env" }),
       sttModel: "gpt-transcribe",

@@ -157,7 +157,6 @@
   box-shadow: 0 0 0 1px var(--violet-8);
 }
 
-// The 40px bottom padding on .heroBox is the gutter these sit in.
 .heroSendButton {
   position: absolute;
   right: 12px;
@@ -246,15 +245,13 @@
   }
 }
 
-// Recording. A fill breathes with --mic-level so the control says "hearing
-// you", not just "on" — a muted mic stays flat. Driven by the mic rather than
-// keyframes, which would compete with the panel's own turn animation.
+// Recording. The fill breathes with --mic-level, so a muted mic stays flat.
 .dictateButtonActive {
   position: relative;
   background: transparent;
   color: var(--red-11);
 
-  // The fill is its own box so the voice can shrink it without touching the glyph or the 30px hit target.
+  // Its own box, so the voice can shrink it without touching the glyph or hit target.
   &::before {
     content: "";
     position: absolute;
@@ -265,12 +262,10 @@
     transition: transform 90ms linear;
   }
 
-  // Positioned so the glyph paints above the fill.
   svg {
     position: relative;
   }
 
-  // The red fill and the stop glyph still carry the state without it.
   @media (prefers-reduced-motion: reduce) {
     &::before {
       transform: none;
@@ -283,17 +278,14 @@
   }
 }
 
-// Gives the tooltip an enabled trigger to hover: pointer events never reach a
-// disabled button.
+// An enabled trigger for the tooltip: pointer events never reach a disabled button.
 .dictateTrigger {
   position: relative;
   display: inline-flex;
   flex-shrink: 0;
 }
 
-// A child of .box, positioned like SuggestionList's .popup so it clears the
-// whole composer rather than overlapping typed text. Right-aligned to sit
-// over the mic it came from.
+// Positioned like SuggestionList's .popup so it clears the whole composer.
 .dictateError {
   position: absolute;
   bottom: calc(100% + 6px);

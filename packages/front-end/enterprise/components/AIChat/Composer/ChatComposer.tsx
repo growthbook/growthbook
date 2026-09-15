@@ -377,15 +377,12 @@ function ChatComposer(
     onSend(readSubmission(editor.state.doc));
   }, [editor, onSend]);
 
-  // Dictated text lands at the cursor like typing would, so it can be edited
-  // before sending rather than submitted straight from the mic.
+  // Dictated text lands at the cursor, so it can be edited before sending.
   const dictation = useDictation(
     useCallback(
       (text: string) => {
         if (!editor) return;
-        // Space off the character before the cursor, not the end of the doc —
-        // dictation can land mid-message. insertContent leaves the cursor
-        // after the inserted text, so don't move it.
+        // Space off the character before the cursor: dictation can land mid-message.
         const { from } = editor.state.selection;
         const before = editor.state.doc.textBetween(
           Math.max(0, from - 1),
@@ -432,17 +429,13 @@ function ChatComposer(
     </Button>
   );
 
-  // Typing dismisses a stale dictation error rather than leaving it over the
-  // field while the person retries by hand.
+  // Typing dismisses a stale dictation error.
   const { clearError: clearDictationError } = dictation;
   useEffect(() => {
     clearDictationError();
   }, [value, clearDictationError]);
 
-  // With nothing to send, the mic takes the send button's place as the filled
-  // primary action rather than sitting next to a dead arrow. Compact only:
-  // there the two are the same 30px button, so it's a swap. Wide and hero send
-  // through `@/ui/Button`, where it would also change the control's size.
+  // Compact only: there the mic and send are the same 30px button, so it's a swap.
   const micIsPrimary = isCompact && !canSend && !isLocalStream;
   const dictateButton = (
     <DictationButton
@@ -454,7 +447,6 @@ function ChatComposer(
   const buttons = (
     <>
       {dictateButton}
-      {/* Only stand down for a mic that is actually rendered. */}
       {!(micIsPrimary && dictation.available) && sendButton}
     </>
   );
@@ -493,8 +485,6 @@ function ChatComposer(
           }
         />
       )}
-      {/* Anchored to the box, not to the 30px mic: `bottom: 100%` of a
-          bottom-aligned button lands inside a multi-line composer. */}
       {dictation.error && (
         <div className={styles.dictateError} role="status" aria-live="polite">
           <HelperText status="error" size="sm">

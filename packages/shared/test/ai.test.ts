@@ -47,7 +47,6 @@ describe("getProviderForAIModel", () => {
     expect(getProviderForAIModel("stt", "grok-stt-1.0")).toBe("xai");
     expect(getProviderForAIModel("stt", "gpt-transcribe")).toBe("openai");
     expect(getProviderForAIModel("stt", "voxtral-mini-latest")).toBe("mistral");
-    // Transcription ids are not text models and vice versa.
     expect(getProviderForAIModel("text", "grok-stt-1.0")).toBeNull();
     expect(getProviderForAIModel("stt", "grok-4.6")).toBeNull();
   });
@@ -234,7 +233,6 @@ describe("getAIModelSettingsUsingProvider", () => {
   });
 
   it("finds the dictation setting", () => {
-    // Removing the key behind a stored dictation model has to clear it.
     expect(
       getAIModelSettingsUsingProvider({ sttModel: "grok-stt-1.0" }, "xai").map(
         (s) => s.key,
@@ -272,16 +270,12 @@ describe("resolveDefaultSTTModel", () => {
   });
 
   it("falls through in order when OpenAI has no key", () => {
-    // Degrades to the next provider rather than disabling dictation.
     expect(resolveDefaultSTTModel(["xai", "mistral"])).toBe("grok-stt-1.0");
     expect(resolveDefaultSTTModel(["mistral"])).toBe("voxtral-mini-latest");
   });
 
   it("serves a Cloud org with no keys of its own", () => {
-    // Enterprise Cloud without BYOK: the provider list is GrowthBook's managed
-    // keys, and dictation resolves off those rather than requiring the org to
-    // bring one. Anthropic alone is the one combination that yields nothing,
-    // since no Claude model accepts audio.
+    // Anthropic alone is the one combination that yields nothing.
     expect(resolveDefaultSTTModel(["anthropic", "openai"])).toBe(
       "gpt-transcribe",
     );

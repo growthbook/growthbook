@@ -1024,7 +1024,6 @@ export async function getOrganization(
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
     aiKeyProviders,
-    // Resolved here so the front-end can't disagree with the transcribe route.
     sttModel,
     watching: {
       experiments: watch?.experiments || [],

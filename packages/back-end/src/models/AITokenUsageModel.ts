@@ -48,8 +48,7 @@ export const updateTokenUsage = async ({
   }
   const now = new Date().getTime();
 
-  // Roll the window first. Self-limiting under concurrency: once one writer
-  // sets lastResetAt to now, the filter stops matching for everyone else.
+  // Roll the window first; the filter stops matching once one writer resets it.
   await AITokenUsageModel.updateOne(
     {
       organization: organization.id,
@@ -58,10 +57,7 @@ export const updateTokenUsage = async ({
     { $set: { numTokensUsed: 0, lastResetAt: now } },
   );
 
-  // $inc rather than read-modify-save. Concurrent AI calls used to read the
-  // same total and overwrite each other's charge, undercounting usage against
-  // the daily cap. dailyLimit is set explicitly on insert rather than left to
-  // the schema default, because an undefined limit reads as "never over cap".
+  // $inc, not read-modify-save: concurrent calls used to overwrite each other's charge.
   const tokenUsage = await AITokenUsageModel.findOneAndUpdate(
     { organization: organization.id },
     {
