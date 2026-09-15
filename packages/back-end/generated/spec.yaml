@@ -47203,6 +47203,8 @@ paths:
                   properties:
                     coverage:
                       type: number
+                      minimum: 0
+                      maximum: 1
                     savedGroups:
                       type: array
                       items:
@@ -47367,6 +47369,8 @@ paths:
                   properties:
                     coverage:
                       type: number
+                      minimum: 0
+                      maximum: 1
                     savedGroups:
                       type: array
                       items:
@@ -47580,6 +47584,8 @@ paths:
                             properties:
                               coverage:
                                 type: number
+                                minimum: 0
+                                maximum: 1
                               savedGroups:
                                 type: array
                                 items:
@@ -69517,6 +69523,8 @@ components:
           properties:
             coverage:
               type: number
+              minimum: 0
+              maximum: 1
             savedGroups:
               type: array
               items:
