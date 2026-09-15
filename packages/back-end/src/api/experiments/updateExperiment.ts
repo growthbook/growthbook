@@ -221,6 +221,16 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
+    // A body without ids keeps the stored ids by position, as an echoed GET
+    // does through `variationId`; freshly minted ids would read as a change
+    // to every linked feature rule.
+    if (req.body.variations.length === experiment.variations.length) {
+      req.body.variations.forEach((v, i) => {
+        if (!v.id && !v.variationId) {
+          v.variationId = experiment.variations[i].id;
+        }
+      });
+    }
     validateVariationIds(req.body.variations);
   }
 

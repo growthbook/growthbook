@@ -1327,7 +1327,12 @@ const apiMetricOverrideEntryInput = z
 
 // Variation for input payloads
 const apiVariationInput = z.object({
-  id: z.string().optional(),
+  id: z
+    .string()
+    .describe(
+      "Stable variation id. On update, omitting every id keeps the stored ids by position when the number of variations is unchanged.",
+    )
+    .optional(),
   variationId: z
     .string()
     .describe(

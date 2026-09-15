@@ -1339,6 +1339,37 @@ describe("experiments API", () => {
       });
     });
 
+    it("keeps the stored variation ids when the body omits them", async () => {
+      const stored = {
+        ...experiment,
+        variations: [
+          { id: "var_a", key: "0", name: "Control" },
+          { id: "var_b", key: "1", name: "Variation" },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(stored);
+      (updateExperiment as jest.Mock).mockResolvedValue(stored);
+      await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          variations: [
+            { key: "0", name: "Control renamed" },
+            { key: "1", name: "Variation" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(assertLivePayloadChangeAllowed).toHaveBeenCalledWith(
+        expect.anything(),
+        stored,
+        expect.objectContaining({
+          variations: [
+            expect.objectContaining({ id: "var_a", name: "Control renamed" }),
+            expect.objectContaining({ id: "var_b" }),
+          ],
+        }),
+      );
+    });
+
     it("refuses to change what a running, live experiment serves", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(experiment);
       jest

@@ -14698,6 +14698,10 @@ paths:
                     type: object
                     properties:
                       id:
+                        description: >-
+                          Stable variation id. On update, omitting every id
+                          keeps the stored ids by position when the number of
+                          variations is unchanged.
                         type: string
                       variationId:
                         description: >-
@@ -15415,6 +15419,10 @@ paths:
                     type: object
                     properties:
                       id:
+                        description: >-
+                          Stable variation id. On update, omitting every id
+                          keeps the stored ids by position when the number of
+                          variations is unchanged.
                         type: string
                       variationId:
                         description: >-

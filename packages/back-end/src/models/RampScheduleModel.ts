@@ -585,7 +585,7 @@ export class RampScheduleModel extends BaseClass {
     if (!schedule) {
       throw new NotFoundError("Ramp schedule not found");
     }
-    if (schedule.targets.length && changesRampPlan(req.body)) {
+    if (schedule.targets.length && changesRampPlan(req.body, schedule)) {
       await assertRampScheduleReplanAllowed(
         this.context,
         schedule,

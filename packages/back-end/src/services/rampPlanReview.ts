@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import { orgRequiresAnyReview, PermissionError } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { RampScheduleInterface } from "shared/validators";
@@ -73,12 +74,48 @@ function reviewIsOn(context: ReqContext | ApiReqContext): boolean {
 
 // Fields on a schedule update that change what the scheduler will apply.
 // Clearing a date (`null`) counts: it removes a reviewed start or cutoff.
-export function changesRampPlan(body: Record<string, unknown>): boolean {
-  return [
-    "steps",
-    "startActions",
-    "endActions",
-    "startDate",
-    "cutoffDate",
-  ].some((field) => field in body && body[field] !== undefined);
+const PLAN_FIELDS = [
+  "steps",
+  "startActions",
+  "endActions",
+  "startDate",
+  "cutoffDate",
+] as const;
+type PlanField = (typeof PLAN_FIELDS)[number];
+type StoredPlan = Partial<Pick<RampScheduleInterface, PlanField>>;
+
+// The shape GET emits for each field, so an echoed schedule compares equal to
+// the stored one whatever extra fields the document carries.
+function normalizePlanField(field: PlanField, value: unknown): unknown {
+  if (field === "startDate" || field === "cutoffDate") {
+    return value ? new Date(value as string | Date).toISOString() : null;
+  }
+  if (field === "steps") {
+    return ((value as RampScheduleInterface["steps"]) ?? []).map((s) => ({
+      interval: s.interval ?? null,
+      actions: s.actions ?? [],
+      approvalNotes: s.approvalNotes ?? null,
+      monitored: !!s.monitored,
+      holdConditions: s.holdConditions ?? null,
+    }));
+  }
+  return value ?? null;
+}
+
+// With `stored`, only a field that differs from the stored plan counts, so a
+// GET → PUT echo is not a re-plan.
+export function changesRampPlan(
+  body: Record<string, unknown>,
+  stored?: StoredPlan,
+): boolean {
+  return PLAN_FIELDS.some(
+    (field) =>
+      field in body &&
+      body[field] !== undefined &&
+      (!stored ||
+        !isEqual(
+          normalizePlanField(field, body[field]),
+          normalizePlanField(field, stored[field]),
+        )),
+  );
 }

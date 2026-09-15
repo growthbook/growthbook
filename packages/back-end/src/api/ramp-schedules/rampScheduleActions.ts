@@ -48,6 +48,7 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   assertRampPlanChangeAllowed,
   assertRampScheduleReplanAllowed,
+  changesRampPlan,
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
@@ -1474,7 +1475,10 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
-  if (schedule.targets.length) {
+  if (
+    schedule.targets.length &&
+    changesRampPlan({ steps: req.body.steps }, schedule)
+  ) {
     await assertRampScheduleReplanAllowed(
       req.context,
       schedule,
