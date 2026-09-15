@@ -1,0 +1,52 @@
+---
+title: IP Addresses
+description: The IP addresses GrowthBook Cloud connects out from, the addresses to reach GrowthBook on, and which of them are safe to pin in a firewall allowlist.
+id: ip-addresses
+slug: ip-addresses
+sidebarTitle: IP Addresses
+---
+
+Which addresses you need depends on the direction of the traffic.
+
+## GrowthBook Cloud connecting to you
+
+GrowthBook Cloud makes outbound connections to your systems when it queries your data warehouse, sends [event webhooks](/app/webhooks/event-webhooks) and [SDK webhooks](/app/webhooks/sdk-webhooks), and fetches from any other endpoint you configure.
+
+All of that traffic leaves from a single static address:
+
+| Address          | Purpose                                        |
+| ---------------- | ---------------------------------------------- |
+| `52.70.79.40/32` | All outbound connections from GrowthBook Cloud |
+
+It is a static NAT gateway address, unchanged since 2020, so it is safe to put in a firewall allowlist. If we ever need to change or add to it, we will announce it in advance.
+
+If you see connections from other addresses claiming to be GrowthBook, they are not us — contact [support@growthbook.io](mailto:support@growthbook.io).
+
+## You connecting to GrowthBook Cloud
+
+<Warning>
+Do not pin the addresses behind `app.growthbook.io`, `api.growthbook.io`, or `cdn.growthbook.io` in an allowlist. They are load balancer and CDN addresses that our providers can change without notice, and an allowlist built from them will break.
+</Warning>
+
+Allow the hostnames instead, and let DNS resolve them at connection time:
+
+| Hostname            | Used for                                                    |
+| ------------------- | ----------------------------------------------------------- |
+| `app.growthbook.io` | The GrowthBook app and its API                              |
+| `api.growthbook.io` | The [REST API](/api/introduction) and SDK payload endpoints |
+| `cdn.growthbook.io` | SDK payload delivery                                        |
+
+If your egress firewall cannot allow hostnames, contact [support@growthbook.io](mailto:support@growthbook.io) and we will work out an arrangement with you rather than have you guess at addresses.
+
+## Self-hosted license verification
+
+[Self-hosted](/self-host) installs with a Pro or Enterprise license verify it against `central-license-server.growthbook.io`. That runs behind AWS Global Accelerator, which serves **two** static anycast addresses. Traffic can use either one, so allow both:
+
+| Address            | Purpose              |
+| ------------------ | -------------------- |
+| `75.2.109.47/32`   | License verification |
+| `99.83.189.109/32` | License verification |
+
+Allowing only one of the two causes license checks to fail intermittently.
+
+If outbound access is not an option at all, contact [sales@growthbook.io](mailto:sales@growthbook.io) for an air-gapped license.
