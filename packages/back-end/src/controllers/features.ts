@@ -2007,6 +2007,15 @@ export async function postFeatureUndoReview(
     version: parseInt(version),
   });
   if (!revision) throw new Error("Could not find feature revision");
+  if (
+    !context.permissions.canReviewFeatureDrafts(
+      feature,
+      await getFeatureReviewFootprint({ context, feature, revision }),
+      await getFeatureReviewApproverProjects({ context, feature, revision }),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
   const newStatus = await undoReview(context, revision, res.locals.eventAudit);
 
   const afterUndo =

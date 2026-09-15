@@ -37,6 +37,11 @@ const org = {
       description: "",
       policies: ["ReadData", "FlagsTarget"],
     },
+    {
+      id: "flag_reviewer",
+      description: "",
+      policies: ["ReadData", "FlagsReview"],
+    },
   ],
   members: [
     {
@@ -124,6 +129,17 @@ beforeAll(async () => {
       limitAccessByEnvironment: false,
       environments: [],
       projectRoles: [projectRole(prjB, "flag_editor")],
+    },
+    // Reads B's flags; reviews only in C, which has an approval rule of its own.
+    {
+      id: "u_c_reviewer",
+      role: "noaccess",
+      limitAccessByEnvironment: false,
+      environments: [],
+      projectRoles: [
+        projectRole(prjB, "readonly"),
+        projectRole(prjC, "flag_reviewer"),
+      ],
     },
     // The "Team 5" grant: B's editor who may also target A.
     {
@@ -408,6 +424,12 @@ describe("the other REST writers apply the same gate", () => {
 describe("allowTargeting on the projects REST API", () => {
   it("is written on create and update, read back, and defaults to on", async () => {
     as("u_admin");
+    const plain = await api.post("/api/v1/projects", { name: "Plain" });
+    expect(
+      (plain.body as { project: { allowTargeting: boolean } }).project
+        .allowTargeting,
+    ).toBe(true);
+
     const created = await api.post("/api/v1/projects", {
       name: "Opted out at birth",
       allowTargeting: false,
@@ -427,8 +449,10 @@ describe("allowTargeting on the projects REST API", () => {
         .allowTargeting,
     ).toBe(true);
 
-    // A project written before the setting existed reads as on.
-    await mongoose.connection.collection("projects").insertOne({
+    // A project written before the setting existed reads as on. Native handle:
+    // registering the collection with mongoose would have the harness wipe the
+    // projects seeded in beforeAll after this test.
+    await mongoose.connection.db.collection("projects").insertOne({
       id: "prj_legacy",
       organization: org.id,
       name: "Legacy",
@@ -448,5 +472,40 @@ describe("allowTargeting on the projects REST API", () => {
     ).projects;
     expect(rows.find((p) => p.id === id)?.allowTargeting).toBe(true);
     expect(rows.find((p) => p.id === "prj_legacy")?.allowTargeting).toBe(true);
+  });
+});
+
+describe("undoing a review", () => {
+  it("is refused for a reviewer whose project the flag does not reach, even when the coarse gate admits them", async () => {
+    const id = await seedFeature();
+    as("u_admin");
+    const staged = await api.put(
+      `/api/v2/features/${id}/revisions/new/metadata`,
+      { description: "under review" },
+    );
+    const version = (staged.body as { revision: { version: number } }).revision
+      .version;
+
+    // C has a rule of its own, so C's reviewers pass the coarse candidate
+    // gate for every flag; this flag never reaches C.
+    const settings = org.settings as { requireReviews?: unknown };
+    settings.requireReviews = [
+      {
+        requireReviewOn: true,
+        projects: [prjC],
+        environments: [],
+        requiredApproverTeams: [],
+      },
+    ];
+    try {
+      as("u_c_reviewer");
+      const res = await api.post(
+        `/api/v2/features/${id}/revisions/${version}/undo-review`,
+        {},
+      );
+      expect(res.status).toBe(403);
+    } finally {
+      delete settings.requireReviews;
+    }
   });
 });

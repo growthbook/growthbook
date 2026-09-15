@@ -449,7 +449,7 @@ export async function collectFeaturePublishGates({
       makeBlockingGate({
         type: "required-project-approvers-missing",
         messages: plan.requiredProjectApprovers.unmet.map(
-          (p) => `Requires approval from a reviewer in the ${p.name} project.`,
+          (p) => `Requires approval from a reviewer in the ${p.name} Project.`,
         ),
         requiresPermission: bypassApprovalPermission("feature"),
         resolution: {

@@ -3,7 +3,11 @@ import {
   featureReviewCandidateProjects,
 } from "shared/util";
 import { postFeatureRevisionUndoReviewV2Validator } from "shared/validators";
-import { toApiRevisionV2 } from "back-end/src/services/features";
+import {
+  getFeatureReviewApproverProjects,
+  getFeatureReviewFootprint,
+  toApiRevisionV2,
+} from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -38,6 +42,23 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
+  if (
+    !req.context.permissions.canReviewFeatureDrafts(
+      feature,
+      await getFeatureReviewFootprint({
+        context: req.context,
+        feature,
+        revision,
+      }),
+      await getFeatureReviewApproverProjects({
+        context: req.context,
+        feature,
+        revision,
+      }),
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
   const allowed = ["approved", "changes-requested"];
   if (!allowed.includes(revision.status)) {

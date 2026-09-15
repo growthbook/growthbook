@@ -248,4 +248,22 @@ describe("reachedTargeting", () => {
       ).targetingAllProjects,
     ).toBe(true);
   });
+
+  it("reports only the opt-out when the error hook does not throw", () => {
+    const messages: (string | undefined)[] = [];
+    assertTargetingDestination({
+      permissions: {
+        canTargetFeatureProjects: () => false,
+        throwPermissionError: (message?: string) => {
+          messages.push(message);
+        },
+      },
+      existing: { project: "prj_b" },
+      proposed: { project: "prj_b", targetingProjects: ["prj_a"] },
+      optedOut: ["prj_a"],
+    });
+    expect(messages).toEqual([
+      "prj_a does not allow targeting from other projects' Feature Flags",
+    ]);
+  });
 });

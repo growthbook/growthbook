@@ -147,6 +147,7 @@ export function assertTargetingDestination({
             refusal.projects.length === 1 ? "does" : "do"
           } not allow targeting from other projects' Feature Flags`,
     );
+    return;
   }
   permissions.throwPermissionError(
     added === "all"

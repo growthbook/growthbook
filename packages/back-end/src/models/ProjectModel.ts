@@ -310,7 +310,7 @@ export class ProjectModel extends BaseClass {
       description: project.description || "",
       publicId: project.publicId,
       restrictAccess: project.restrictAccess,
-      allowTargeting: project.allowTargeting,
+      allowTargeting: project.allowTargeting ?? true,
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {
