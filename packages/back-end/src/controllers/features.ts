@@ -5731,9 +5731,8 @@ export async function putFeature(
     ),
   ) as Partial<FeatureInterface>;
   normalizeTargetingInUpdates(metadataUpdates, feature);
-  // Widening delivery takes the targeting atom in each added project. Judged
-  // against what the target draft already stages, so echoing a colleague's
-  // staged targeting is not an addition; landing re-checks against live.
+  // Against the draft's staged targeting, so echoing a colleague's addition is
+  // free; landing re-checks live.
   const stagedTargeting = withStagedTargeting(feature, targetDraft?.metadata);
   assertTargetingDestination({
     permissions: context.permissions,
@@ -5742,7 +5741,6 @@ export async function putFeature(
     optedOut: await context.getTargetingOptOutProjectIds(),
   });
   // After the gate so an unreadable id cannot be probed for existence.
-  // Unfiltered: an existing Targeting Project may be one the caller cannot read.
   if (updates.targetingProjects?.length) {
     await context.models.projects.ensureProjectIdsExist(
       updates.targetingProjects,
@@ -5852,8 +5850,6 @@ export async function putFeature(
     );
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
-      // The draft was created for this publish alone; a refused publish must
-      // not strand it as an orphan the caller never asked for.
       try {
         await assertCanAutoPublish(context, feature, draft);
         updatedFeature = await publishRevision({

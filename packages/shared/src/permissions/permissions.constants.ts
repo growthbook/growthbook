@@ -148,11 +148,8 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "publishConfigs",
     "publishConstants",
   ],
-  // Deliver Feature Flags owned by other projects into this one via Targeting
-  // Projects, without any authority over the project's own flags. Its own
-  // policy and nothing else's: the role editor shows it as a checkbox, so no
-  // sibling may grant it on the side. Features only: Configs and Constants
-  // have no targeting projects.
+  // Deliver other projects' Feature Flags into this one via Targeting Projects.
+  // Features only: Configs and Constants have no targeting projects.
   FlagsTarget: ["readData", "targetFeatures"],
   FlagsRevert: [
     "readData",

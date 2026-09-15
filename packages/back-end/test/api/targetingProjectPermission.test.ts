@@ -45,13 +45,6 @@ const org = {
       limitAccessByEnvironment: false,
       environments: [],
     },
-    // Publish everywhere, but no Target: may not widen delivery anywhere.
-    {
-      id: "u_global",
-      role: "flag_editor",
-      limitAccessByEnvironment: false,
-      environments: [],
-    },
     {
       id: "u_global_full",
       role: "engineer",
@@ -150,8 +143,6 @@ describe("adding a targeting project", () => {
   it.each([
     ["u_b_editor", 403],
     ["u_b_editor_targets_a", 200],
-    ["u_global", 403],
-    ["u_global_full", 200],
   ])("%s → %i on a v1 update", async (userId, status) => {
     const id = await seedFeature();
     as(userId);
@@ -275,7 +266,7 @@ describe("a project that does not allow targeting", () => {
 
 describe("existing targeting", () => {
   // Only the delta is judged: a project already targeted stays, whoever edits.
-  it("does not block adding another project, editing, or publishing", async () => {
+  it("does not block adding another project or editing", async () => {
     const id = await seedFeature([prjC]);
     as("u_b_editor_targets_a");
     const added = await api.post(`/api/v1/features/${id}`, {

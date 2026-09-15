@@ -3424,7 +3424,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       getRuleAttributeScopeProjectIds(
         attributeScopeEntity ?? feature,
         undefined,
-        r as Pick<FeatureRule, "allProjects" | "projects">,
+        r,
       ) ?? undefined;
     // Opt-in attribute registration check (org-level setting). Only validate
     // fields that changed so pre-existing violations don't block unrelated edits.

@@ -48,32 +48,46 @@ export function withStagedTargeting(
   };
 }
 
-// Vacuously true when nothing is added, so it is safe to call unconditionally.
-// Shared with the front end so a control and its endpoint cannot disagree.
-export function holdsTargetingDestination({
-  permissions,
-  existing,
-  proposed,
-  optedOut = [],
-}: {
-  permissions: {
-    canTargetFeatureProjects: (projects: string[] | "all") => boolean;
-  };
+type TargetingPermissions = {
+  canTargetFeatureProjects: (projects: string[] | "all") => boolean;
+};
+type TargetingChange = {
+  permissions: TargetingPermissions;
   existing: TargetingScoped;
   proposed: TargetingScoped;
   // Projects whose `allowTargeting` is off; they refuse to be newly added, and
   // "all projects" cannot turn on while any exists.
   optedOut?: readonly string[];
-}): boolean {
+};
+export type TargetingRefusal =
+  | { cause: "opted-out"; added: string[] | "all"; projects: string[] }
+  | { cause: "permission"; added: string[] | "all" };
+
+// Why the proposed state may not be reached, or null when nothing is added or
+// the caller may add it. Shared with the front end so a control and its
+// endpoint cannot disagree.
+export function targetingRefusal({
+  permissions,
+  existing,
+  proposed,
+  optedOut = [],
+}: TargetingChange): TargetingRefusal | null {
   const added = addedTargetingProjects(existing, proposed);
-  if (added !== "all" && added.length === 0) return true;
-  if (refusedTargetingProjects(added, optedOut).length) return false;
-  return permissions.canTargetFeatureProjects(added);
+  if (added !== "all" && added.length === 0) return null;
+  const refused = refusedTargetingProjects(added, optedOut);
+  if (refused.length) return { cause: "opted-out", added, projects: refused };
+  return permissions.canTargetFeatureProjects(added)
+    ? null
+    : { cause: "permission", added };
+}
+
+export function holdsTargetingDestination(change: TargetingChange): boolean {
+  return targetingRefusal(change) === null;
 }
 
 // Which of the added projects refuse targeting; every opted-out project when
 // the addition is "all".
-export function refusedTargetingProjects(
+function refusedTargetingProjects(
   added: string[] | "all",
   optedOut: readonly string[],
 ): string[] {
@@ -81,35 +95,28 @@ export function refusedTargetingProjects(
   return added.filter((p) => optedOut.includes(p));
 }
 
-// The assert form of `holdsTargetingDestination`, naming what was refused so a
-// REST caller can tell a targeting refusal from any other 403.
+// Names what was refused so a REST caller can tell a targeting refusal from
+// any other 403.
 export function assertTargetingDestination({
   permissions,
-  existing,
-  proposed,
-  optedOut = [],
-}: {
-  permissions: {
-    canTargetFeatureProjects: (projects: string[] | "all") => boolean;
+  ...change
+}: TargetingChange & {
+  permissions: TargetingPermissions & {
     throwPermissionError: (message?: string) => void;
   };
-  existing: TargetingScoped;
-  proposed: TargetingScoped;
-  optedOut?: readonly string[];
 }): void {
-  const added = addedTargetingProjects(existing, proposed);
-  if (added !== "all" && added.length === 0) return;
-  const refused = refusedTargetingProjects(added, optedOut);
-  if (refused.length) {
+  const refusal = targetingRefusal({ permissions, ...change });
+  if (!refusal) return;
+  const { added } = refusal;
+  if (refusal.cause === "opted-out") {
     permissions.throwPermissionError(
       added === "all"
         ? "Cannot target all projects: one or more projects do not allow targeting from other projects' Feature Flags"
-        : `${refused.join(", ")} ${
-            refused.length === 1 ? "does" : "do"
+        : `${refusal.projects.join(", ")} ${
+            refusal.projects.length === 1 ? "does" : "do"
           } not allow targeting from other projects' Feature Flags`,
     );
   }
-  if (permissions.canTargetFeatureProjects(added)) return;
   permissions.throwPermissionError(
     added === "all"
       ? "You do not have permission to target all projects with this Feature Flag"

@@ -281,12 +281,9 @@ export function rebasePullsInNothing(
 // atom over a draft that only does what that atom covers. Approval is a separate
 // gate, enforced by the caller.
 //
-// Boolean form of `assertCanPublishFeatureRevision`, for callers that must decide
-// feasibility rather than refuse outright — bulk publish collects gates instead
-// of throwing. Delegates rather than reimplements so a bulk publish and a single
-// publish can never disagree about what is allowed.
-// The refusal message, or null when the caller may publish. Bulk publish
-// reports it as a gate instead of throwing mid-batch.
+// `assertCanPublishFeatureRevision` as a refusal message (null = allowed), so
+// bulk publish can report a gate instead of throwing mid-batch without
+// reimplementing the rule.
 export async function featurePublishRefusal(
   args: Parameters<typeof assertCanPublishFeatureRevision>[0],
 ): Promise<string | null> {

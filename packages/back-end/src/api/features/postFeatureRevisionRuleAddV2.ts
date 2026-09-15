@@ -234,11 +234,8 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     validateRuleAttributes(
       rule,
       req.context,
-      getRuleAttributeScopeProjectIds(
-        feature,
-        revision.metadata,
-        rule as Pick<FeatureRule, "allProjects" | "projects">,
-      ) ?? undefined,
+      getRuleAttributeScopeProjectIds(feature, revision.metadata, rule) ??
+        undefined,
     );
     await validateRuleReferences(rule, req.context);
 

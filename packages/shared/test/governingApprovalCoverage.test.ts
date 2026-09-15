@@ -76,7 +76,6 @@ describe("assessGoverningApprovalCoverage", () => {
     expect(assess(["u_b"])).toEqual({
       hasCoveringApproval: true,
       uncoveredApprovers: [],
-      contributingApproverIds: ["u_b"],
       primaryCoveringApproverIds: ["u_b"],
       coveringApproverIdsByProject: { prj_a: [] },
       requiredProjects: { satisfied: false, unmet: ["prj_a"] },
@@ -84,7 +83,6 @@ describe("assessGoverningApprovalCoverage", () => {
     expect(assess(["u_b", "u_a"])).toEqual({
       hasCoveringApproval: true,
       uncoveredApprovers: [],
-      contributingApproverIds: ["u_b", "u_a"],
       primaryCoveringApproverIds: ["u_b"],
       coveringApproverIdsByProject: { prj_a: ["u_a"] },
       requiredProjects: { satisfied: true, unmet: [] },
@@ -97,7 +95,6 @@ describe("assessGoverningApprovalCoverage", () => {
     expect(assess(["u_a"])).toMatchObject({
       hasCoveringApproval: false,
       uncoveredApprovers: [],
-      contributingApproverIds: ["u_a"],
       requiredProjects: { satisfied: true, unmet: [] },
     });
   });
@@ -111,7 +108,6 @@ describe("assessGoverningApprovalCoverage", () => {
     expect(assess(["u_none"])).toMatchObject({
       hasCoveringApproval: false,
       uncoveredApprovers: ["u_none"],
-      contributingApproverIds: [],
       requiredProjects: { satisfied: false, unmet: ["prj_a"] },
     });
   });

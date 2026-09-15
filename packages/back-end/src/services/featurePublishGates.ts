@@ -204,12 +204,7 @@ export async function assessRevisionApproval({
   );
 
   const requiredTeams = assessRequiredApproverTeamsByProject({
-    governing:
-      reviewRequirement.governing ??
-      reviewRequirement.rules.map((rule) => ({
-        project: feature.project ?? "",
-        rule,
-      })),
+    governing: reviewRequirement.governing ?? [],
     primaryProject: feature.project ?? "",
     coverage,
     org: context.org,

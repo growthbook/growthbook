@@ -5,7 +5,6 @@ import {
 } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { assertTargetingDestination } from "shared/permissions";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
@@ -97,18 +96,6 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     }
 
     await assertValidProjectId(req.body.project, req.context);
-    // Refused here rather than by the read-filtered id validation below, which would call the project invalid.
-    assertTargetingDestination({
-      permissions: req.context.permissions,
-      existing: {},
-      proposed: {
-        project: req.body.project,
-        targetingAllProjects: req.body.targetingAllProjects,
-        targetingProjects: req.body.targetingProjects,
-      },
-      optedOut: await req.context.getTargetingOptOutProjectIds(),
-    });
-    await assertValidProjectIds(req.body.targetingProjects, req.context);
 
     await validateCustomFields(
       req.body.customFields,
@@ -253,6 +240,8 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       feature,
       environmentIds: orgEnvs.map((e) => e.id),
     });
+    // After the gate so an unreadable id cannot be probed for existence.
+    await assertValidProjectIds(req.body.targetingProjects, req.context);
 
     // AFTER every authorization: tags are a persistent org-level side effect, and
     // writing them first meant a request that then 403'd had already mutated tag

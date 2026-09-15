@@ -424,7 +424,10 @@ export function getRulesForEnvironment(
 
 // A rule's own project scope: explicit list, or null = all projects. Empty array
 // means "no project" (leak-safe — never "all"); allProjects/legacy-absent → null.
-export function ruleProjectScope(rule: FeatureRule): string[] | null {
+export function ruleProjectScope(rule: {
+  allProjects?: boolean;
+  projects?: string[];
+}): string[] | null {
   if (rule == null || typeof rule !== "object") return [];
   if (rule.allProjects === true) return null;
   // allProjects === false is explicit scoping — an absent/empty list means no
@@ -439,10 +442,10 @@ export function ruleProjectScope(rule: FeatureRule): string[] | null {
 export function getRuleAttributeScopeProjectIds(
   entity: TargetingScopedEntity,
   staged: StagedTargetingScope | undefined,
-  rule: Pick<FeatureRule, "allProjects" | "projects">,
+  rule: { allProjects?: boolean; projects?: string[] },
 ): string[] | null {
   const featureScope = getAttributeScopeProjectIds(entity, staged);
-  const ruleScope = ruleProjectScope(rule as FeatureRule);
+  const ruleScope = ruleProjectScope(rule);
   if (ruleScope === null || ruleScope.length === 0) return featureScope;
   if (featureScope === null) return ruleScope;
   const narrowed = ruleScope.filter((p) => featureScope.includes(p));

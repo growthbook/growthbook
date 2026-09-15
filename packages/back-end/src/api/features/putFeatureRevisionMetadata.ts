@@ -111,9 +111,8 @@ export async function setRevisionMetadata(
       );
     }
 
-    // Judged against what the draft already stages, as the dashboard does, so
-    // echoing a colleague's staged targeting is not an addition; landing
-    // re-checks against live.
+    // Against the draft's staged targeting, so echoing a colleague's addition
+    // is free; landing re-checks live.
     const stagedTargeting = withStagedTargeting(
       feature,
       created ? undefined : revision.metadata,

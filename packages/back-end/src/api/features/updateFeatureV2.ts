@@ -142,7 +142,6 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   await assertValidProjectId(project, req.context);
-  // Refused here rather than by the read-filtered id validation below, which would call the project invalid.
   assertTargetingDestination({
     permissions: req.context.permissions,
     existing: feature,

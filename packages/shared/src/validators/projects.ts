@@ -22,7 +22,6 @@ export const projectValidator = baseSchema
     settings: projectSettingsValidator.optional(),
     managedBy: managedByValidator.optional(),
     restrictAccess: z.boolean().optional(),
-    // Absent reads as true (see ProjectModel.migrate): opt-out, never opt-in.
     allowTargeting: z.boolean().optional(),
   })
   .strict();

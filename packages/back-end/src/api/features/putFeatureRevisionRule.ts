@@ -348,7 +348,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
         getRuleAttributeScopeProjectIds(
           feature,
           revision.metadata,
-          updatedRule as Pick<FeatureRule, "allProjects" | "projects">,
+          updatedRule,
         ) ?? undefined,
       );
     }

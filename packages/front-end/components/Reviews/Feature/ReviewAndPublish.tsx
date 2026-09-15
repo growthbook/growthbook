@@ -2,9 +2,8 @@ import {
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   holdsFeatureMoveDestination,
-  addedTargetingProjects,
   holdsTargetingDestination,
-  refusedTargetingProjects,
+  targetingRefusal,
   withStagedTargeting,
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
@@ -1743,17 +1742,14 @@ export default function ReviewAndPublish({
     feature,
     mergeResult?.success ? mergeResult.result.metadata : undefined,
   );
-  const holdsStagedTargeting = holdsTargetingDestination({
+  const stagedTargetingRefusal = targetingRefusal({
     permissions: permissionsUtil,
     optedOut: targetingOptOut,
     existing: feature,
     proposed: stagedTargeting,
   });
-  const stagedTargetingOptedOut =
-    refusedTargetingProjects(
-      addedTargetingProjects(feature, stagedTargeting),
-      targetingOptOut,
-    ).length > 0;
+  const holdsStagedTargeting = stagedTargetingRefusal === null;
+  const stagedTargetingOptedOut = stagedTargetingRefusal?.cause === "opted-out";
   const hasPublishPermission =
     (permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
       (draftStagesRevert &&

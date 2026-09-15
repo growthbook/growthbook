@@ -244,17 +244,17 @@ export type PublishGateClearance = {
   canForceMergeStaleBase: boolean;
 };
 
-// The gates a request does NOT clear via a request-body flag: a gate is cleared
-// only when it has an override flag, that flag was passed, AND (when the gate
-// names a required permission) the caller holds that permission. A gate without
-// an override is never cleared here. Pure — the flag-clearing primitive shared
-// by the disposition logic and exported for unit tests.
 const REVIEW_GATE_TYPES = new Set([
   "approval-required",
   "required-approvers-missing",
   "required-project-approvers-missing",
 ]);
 
+// The gates a request does NOT clear via a request-body flag: a gate is cleared
+// only when it has an override flag, that flag was passed, AND (when the gate
+// names a required permission) the caller holds that permission. A gate without
+// an override is never cleared here. Pure — the flag-clearing primitive shared
+// by the disposition logic and exported for unit tests.
 export function unclearedGates(
   gates: PublishGate[],
   flags: PublishOverrideFlags,

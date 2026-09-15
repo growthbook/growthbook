@@ -345,6 +345,17 @@ export function teamsForMember(
     .map((t) => ({ id: t.id, name: t.name }));
 }
 
+type ApproverTeamsOrg = { members?: { id: string; teams?: string[] }[] };
+type ApproverTeam = { id: string; name: string };
+export type RequiredApproverTeamsAssessment = {
+  satisfied: boolean;
+  // One entry per unsatisfied rule; any ONE of its teams would satisfy it.
+  unmet: { id: string; name: string }[][];
+  // The team sets actually enforced, after dropping implied rules. Callers that
+  // judge whether one approval contributes must use these, not the raw rules.
+  enforcedTeamIds: string[][];
+};
+
 // ANY team within a rule satisfies it; EVERY rule must be satisfied.
 export function assessRequiredApproverTeams({
   rules,
@@ -354,16 +365,9 @@ export function assessRequiredApproverTeams({
 }: {
   rules: { requiredApproverTeams?: string[] }[];
   coveringApproverIds: string[];
-  org: { members?: { id: string; teams?: string[] }[] };
-  teams: { id: string; name: string }[];
-}): {
-  satisfied: boolean;
-  // One entry per unsatisfied rule; any ONE of its teams would satisfy it.
-  unmet: { id: string; name: string }[][];
-  // The team sets actually enforced, after dropping implied rules. Callers that
-  // judge whether one approval contributes must use these, not the raw rules.
-  enforcedTeamIds: string[][];
-} {
+  org: ApproverTeamsOrg;
+  teams: ApproverTeam[];
+}): RequiredApproverTeamsAssessment {
   const approverTeamIds = new Set(
     coveringApproverIds.flatMap((id) =>
       teamsForMember(id, org, teams).map((t) => t.id),
@@ -454,7 +458,6 @@ export function assessGoverningApprovalCoverage({
   approverProjects: string[];
 }): GoverningApprovalCoverage {
   const uncoveredApprovers: string[] = [];
-  const contributingApproverIds: string[] = [];
   const primaryCoveringApproverIds: string[] = [];
   const coveringApproverIdsByProject: Record<string, string[]> =
     Object.fromEntries(approverProjects.map((p) => [p, [] as string[]]));
@@ -479,8 +482,7 @@ export function assessGoverningApprovalCoverage({
     covered.forEach((project) =>
       coveringApproverIdsByProject[project].push(id),
     );
-    if (coversPrimary || covered.length) contributingApproverIds.push(id);
-    else uncoveredApprovers.push(id);
+    if (!coversPrimary && !covered.length) uncoveredApprovers.push(id);
   }
 
   const unmet = approverProjects.filter(
@@ -489,7 +491,6 @@ export function assessGoverningApprovalCoverage({
   return {
     hasCoveringApproval,
     uncoveredApprovers,
-    contributingApproverIds,
     primaryCoveringApproverIds,
     coveringApproverIdsByProject,
     requiredProjects: { satisfied: unmet.length === 0, unmet },
@@ -500,8 +501,6 @@ export type GoverningApprovalCoverage = {
   hasCoveringApproval: boolean;
   // Approvals that sanction nothing: neither the primary nor any approver project.
   uncoveredApprovers: string[];
-  // Approvals that count somewhere.
-  contributingApproverIds: string[];
   primaryCoveringApproverIds: string[];
   // Keyed by approver project: the approvals that count for it.
   coveringApproverIdsByProject: Record<string, string[]>;
@@ -524,9 +523,9 @@ export function assessRequiredApproverTeamsByProject({
     GoverningApprovalCoverage,
     "primaryCoveringApproverIds" | "coveringApproverIdsByProject"
   >;
-  org: Parameters<typeof assessRequiredApproverTeams>[0]["org"];
-  teams: Parameters<typeof assessRequiredApproverTeams>[0]["teams"];
-}): ReturnType<typeof assessRequiredApproverTeams> {
+  org: ApproverTeamsOrg;
+  teams: ApproverTeam[];
+}): RequiredApproverTeamsAssessment {
   const pools = new Map<string, { requiredApproverTeams?: string[] }[]>();
   for (const { project, rule } of governing) {
     const key =

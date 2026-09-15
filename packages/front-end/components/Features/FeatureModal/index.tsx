@@ -1,9 +1,7 @@
 import {
-  addedTargetingProjects,
   canEnableEnvironmentOnCreate,
-  holdsTargetingDestination,
+  targetingRefusal,
   NO_ENVIRONMENT_BINDING,
-  refusedTargetingProjects,
 } from "shared/permissions";
 import { useForm, FormProvider } from "react-hook-form";
 import omit from "lodash/omit";
@@ -320,21 +318,18 @@ export default function FeatureModal({
       targetingAllProjects: form.watch("targetingAllProjects"),
       targetingProjects: form.watch("targetingProjects"),
     };
-    if (
-      !holdsTargetingDestination({
-        permissions: permissionsUtil,
-        existing: {},
-        proposed: proposedTargeting,
-        optedOut: targetingOptOut,
-      })
-    ) {
+    const refusal = targetingRefusal({
+      permissions: permissionsUtil,
+      existing: {},
+      proposed: proposedTargeting,
+      optedOut: targetingOptOut,
+    });
+    if (refusal) {
       ctaEnabled = false;
-      disabledMessage = refusedTargetingProjects(
-        addedTargetingProjects({}, proposedTargeting),
-        targetingOptOut,
-      ).length
-        ? "One or more of the selected Projects don't allow targeting from other Projects' Feature Flags."
-        : "You don't have permission to target one or more of the selected Projects.";
+      disabledMessage =
+        refusal.cause === "opted-out"
+          ? "One or more of the selected Projects don't allow targeting from other Projects' Feature Flags."
+          : "You don't have permission to target one or more of the selected Projects.";
     }
   }
 

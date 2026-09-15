@@ -56,6 +56,21 @@ import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
+function HiddenProject({ id }: { id: string }) {
+  return (
+    <Tooltip
+      body={
+        <>
+          A Project you don&apos;t have access to, or one that no longer exists
+          (<code>{id}</code>)
+        </>
+      }
+    >
+      <em>Hidden Project</em>
+    </Tooltip>
+  );
+}
+
 export default function FeaturesHeader({
   feature,
   baseFeature,
@@ -500,18 +515,9 @@ export default function FeaturesHeader({
                     {projectIsDeReferenced ? (
                       // The viewer's project list is read-filtered, so this is
                       // either a Project they cannot see or one since deleted.
-                      <Tooltip
-                        body={
-                          <>
-                            A Project you don&apos;t have access to, or one that
-                            no longer exists (<code>{projectId}</code>)
-                          </>
-                        }
-                      >
-                        <Text weight="regular" color="text-mid">
-                          <em>Hidden Project</em>
-                        </Text>
-                      </Tooltip>
+                      <Text weight="regular" color="text-mid">
+                        <HiddenProject id={projectId} />
+                      </Text>
                     ) : currentProject && currentProject !== feature.project ? (
                       <Tooltip
                         body={<>This feature is not in your current project.</>}
@@ -561,16 +567,7 @@ export default function FeaturesHeader({
                         <span key={id}>
                           {i > 0 ? ", " : ""}
                           {getProjectById(id)?.name || (
-                            <Tooltip
-                              body={
-                                <>
-                                  A Project you don&apos;t have access to, or
-                                  one that no longer exists (<code>{id}</code>)
-                                </>
-                              }
-                            >
-                              <em>Hidden Project</em>
-                            </Tooltip>
+                            <HiddenProject id={id} />
                           )}
                         </span>
                       ))}

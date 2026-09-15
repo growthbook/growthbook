@@ -4806,8 +4806,6 @@ export type ReviewAuthorityFootprint =
 export const ANY_REVIEW_FOOTPRINT: ReviewAuthorityFootprint = { scope: "any" };
 
 // Per governing project: an unrelated rule must not widen a metadata change.
-// Whether a metadata-only change to a flag needs review under any of the
-// projects governing it (primary + strict-mode targeting projects).
 export function requiresMetadataReview(
   settings?: OrganizationSettings,
   governingProjects?: string[],
