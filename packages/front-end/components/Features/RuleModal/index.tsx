@@ -601,7 +601,8 @@ export default function RuleModal({
     draftRevision;
   const targetDraftBase = revisionsCtx?.revisions.find(
     (r) => r.version === targetDraft?.baseVersion,
-  )?.metadata;
+  );
+  const baseRule = targetDraftBase?.rules.find((r) => r.id === ruleId);
   const targetHoldoutId = useMemo(() => {
     const targetRev = revisionsCtx?.revisions.find(
       (r) => r.version === targetVersion,
@@ -2408,7 +2409,8 @@ export default function RuleModal({
     setSelectedProjects,
     // The delivery set (null = all projects) of the viewed feature, the live
     // feature, the target draft, and the revision that draft began from, plus
-    // what this rule already had, so a removed scope can be put back.
+    // this rule's scope live and in that revision, so a removed scope can be
+    // put back.
     allowedProjectIds: unionProjectIds(
       getTargetingProjectIds(feature),
       getTargetingProjectIds(baseFeature),
@@ -2417,10 +2419,11 @@ export default function RuleModal({
       ),
       targetDraftBase
         ? getTargetingProjectIds(
-            withStagedTargeting(baseFeature, targetDraftBase),
+            withStagedTargeting(baseFeature, targetDraftBase.metadata),
           )
         : [],
       liveRule?.projects ?? [],
+      baseRule?.projects ?? [],
     ),
   };
 
