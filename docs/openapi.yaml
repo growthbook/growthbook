@@ -17309,6 +17309,7 @@ paths:
                             enum:
                               - running
                               - success
+                              - partial-success
                               - error
                           error:
                             type: string
@@ -66902,6 +66903,7 @@ components:
           enum:
             - running
             - success
+            - partial-success
             - error
         snapshotError:
           description: Error message if snapshot failed

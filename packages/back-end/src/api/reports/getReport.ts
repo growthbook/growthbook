@@ -1,4 +1,5 @@
 import { getReportValidator } from "shared/validators";
+import { snapshotHasResults } from "shared/util";
 import { getReportById } from "back-end/src/models/ReportModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
@@ -37,7 +38,7 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
       req.context,
     );
 
-    if (snapshot?.status === "success" && experiment) {
+    if (snapshot && snapshotHasResults(snapshot.status) && experiment) {
       const metricsById = await getMetricMapForExperiment(
         req.context,
         experiment,

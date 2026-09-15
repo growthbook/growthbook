@@ -127,7 +127,7 @@ export const apiReportValidator = namedSchema(
       .describe("Snapshot ID (experiment-snapshot type only)")
       .optional(),
     snapshotStatus: z
-      .enum(["running", "success", "error"])
+      .enum(["running", "success", "partial-success", "error"])
       .describe("Status of the latest snapshot (poll this after refresh)")
       .optional(),
     snapshotError: z

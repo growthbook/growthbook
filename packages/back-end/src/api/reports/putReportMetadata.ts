@@ -1,4 +1,5 @@
 import { putReportMetadataValidator } from "shared/validators";
+import { snapshotHasResults } from "shared/util";
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -63,7 +64,7 @@ export const putReportMetadata = createApiRequestHandler(
     req.context,
   );
 
-  if (snapshot?.status === "success" && experiment) {
+  if (snapshot && snapshotHasResults(snapshot.status) && experiment) {
     const metricsById = await getMetricMapForExperiment(
       req.context,
       experiment,

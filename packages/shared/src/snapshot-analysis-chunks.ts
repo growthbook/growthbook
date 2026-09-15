@@ -2,6 +2,7 @@ import uniqid from "uniqid";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotAnalysisStatus,
   SnapshotMetric,
   SnapshotVariation,
 } from "shared/types/experiment-snapshot";
@@ -188,7 +189,7 @@ export interface AnalysisMetadata {
   analysisKey: string;
   settings: ExperimentSnapshotAnalysisSettings;
   dateCreated: Date;
-  status: "running" | "success" | "error";
+  status: ExperimentSnapshotAnalysisStatus;
   error?: string;
 }
 
