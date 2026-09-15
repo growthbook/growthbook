@@ -125,4 +125,28 @@ describe("rule-level attribute scope", () => {
     expect(res.status).toBe(400);
     expect((res.body as { message: string }).message).toMatch(/only_a/);
   });
+
+  it("leaves an existing rule's unchanged out-of-scope attribute alone", async () => {
+    const stale = {
+      id: "fr_stale",
+      type: "force",
+      value: "true",
+      enabled: true,
+      description: "",
+      allEnvironments: true,
+      allProjects: false,
+      projects: [B],
+      condition: '{"only_a": "x"}',
+    };
+    await mongoose.connection
+      .collection("features")
+      .updateOne(
+        { organization: ORG_ID, id: FLAG },
+        { $set: { rules: [stale] } },
+      );
+    const renamed = await add({ ...stale, description: "renamed" });
+    expect(renamed.status).toBe(200);
+    const retargeted = await add({ ...stale, condition: '{"only_a": "y"}' });
+    expect(retargeted.status).toBe(400);
+  });
 });

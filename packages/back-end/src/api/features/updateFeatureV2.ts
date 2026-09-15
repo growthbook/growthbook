@@ -290,6 +290,9 @@ export const updateFeatureV2 = createApiRequestHandler(
     // DB writes. `mapV2ApiRuleToFeatureRule` doesn't validate, so we cover
     // flat v2 rules explicitly here (env-rules go through `fromApiEnvSettings…`).
     for (const rule of req.body.rules) {
+      const existingRule = rule.id
+        ? feature.rules?.find((r) => r.id === rule.id)
+        : undefined;
       validateRuleAttributes(
         rule as Parameters<typeof validateRuleAttributes>[0],
         req.context,
@@ -307,6 +310,7 @@ export const updateFeatureV2 = createApiRequestHandler(
           undefined,
           rule,
         ) ?? undefined,
+        existingRule as Parameters<typeof validateRuleAttributes>[3],
       );
     }
     inboundFlatRules = req.body.rules.map((rule) =>
