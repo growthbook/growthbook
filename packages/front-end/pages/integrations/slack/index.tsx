@@ -12,23 +12,20 @@ import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
-import { PiPlus, PiPlugs } from "react-icons/pi";
 import LegacySlackIntegrationsPage from "@/components/SlackIntegrations/LegacySlackIntegrationsPage";
-import SlackChannelSettings, {
-  getSlackChannelLabel,
-} from "@/components/SlackIntegrations/SlackChannelSettings";
+import SlackWorkspacePanel from "@/components/SlackIntegrations/SlackWorkspacePanel";
 import { SlackIntegrationsListViewContainer } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView";
 import SelectField from "@/components/Forms/SelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import Badge from "@/ui/Badge";
+import { isCloud } from "@/services/env";
+import SlackAppSetup from "@/components/SlackIntegrations/SlackAppSetup";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import Link from "@/ui/Link";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
@@ -91,15 +88,6 @@ const workspaceNeedsReconnect = (
   );
   return REQUIRED_SCOPES.some((scope) => !scopes.has(scope));
 };
-
-const getSlackWorkspaceLabel = (
-  connection: SlackWorkspaceConnectionFrontEndInterface,
-) =>
-  connection.teamName ||
-  connection.teamId ||
-  connection.enterpriseName ||
-  connection.enterpriseId ||
-  "Unknown workspace";
 
 function AddChannelModal({
   teamId,
@@ -282,28 +270,6 @@ const SlackWorkspacePage: NextPage = () => {
   );
 
   const selectedChannelId = getQueryStringValue(router.query.channel);
-  const selectedWorkspaceId = getQueryStringValue(router.query.workspace);
-  const selectedWorkspaceGroup = useMemo(
-    () =>
-      workspaceGroups.find((group) => group.teamId === selectedWorkspaceId) ||
-      null,
-    [selectedWorkspaceId, workspaceGroups],
-  );
-  const selectedChannel = useMemo(() => {
-    const channels = workspaceGroups.flatMap((group) => group.channels);
-    const workspaceChannels = selectedWorkspaceGroup?.channels || channels;
-    return (
-      channels.find((channel) => channel.id === selectedChannelId) ||
-      workspaceChannels[0]
-    );
-  }, [selectedChannelId, selectedWorkspaceGroup, workspaceGroups]);
-  const selectedChannelWorkspace = useMemo(
-    () =>
-      workspaceGroups.find(
-        (group) => group.teamId === selectedChannel?.slack?.teamId,
-      )?.workspace || null,
-    [selectedChannel, workspaceGroups],
-  );
 
   const selectChannel = useCallback(
     async (channelId: string | null) => {
@@ -595,6 +561,7 @@ const SlackWorkspacePage: NextPage = () => {
               onClick={() => connectToSlack()}
               loading={connecting}
               variant="outline"
+              style={{ whiteSpace: "nowrap" }}
             >
               Connect another workspace
             </Button>
@@ -610,7 +577,7 @@ const SlackWorkspacePage: NextPage = () => {
             Failed to load Slack connections: {loadError.message}
           </Callout>
         )}
-        {data && !data.oauthConfigured && (
+        {data && !data.oauthConfigured && isCloud() && (
           <Callout status="warning">
             Slack OAuth is not configured. Set <code>SLACK_CLIENT_ID</code> and{" "}
             <code>SLACK_CLIENT_SECRET</code> for an app with the{" "}
@@ -627,6 +594,13 @@ const SlackWorkspacePage: NextPage = () => {
         {!data && !loadError ? (
           <Frame>
             <Text color="text-mid">Loading Slack connections…</Text>
+          </Frame>
+        ) : data &&
+          !data.oauthConfigured &&
+          !isCloud() &&
+          workspaceGroups.length === 0 ? (
+          <Frame>
+            <SlackAppSetup scopes={REQUIRED_SCOPES} />
           </Frame>
         ) : workspaceGroups.length === 0 ? (
           <Frame>
@@ -650,164 +624,25 @@ const SlackWorkspacePage: NextPage = () => {
             </Flex>
           </Frame>
         ) : (
-          <Frame>
-            <Flex align="stretch">
-              <Flex
-                direction="column"
-                gap="4"
-                p="3"
-                style={{
-                  width: 280,
-                  flex: "none",
-                  borderRight: "1px solid var(--gray-a4)",
+          <Flex direction="column" gap="5">
+            {workspaceGroups.map((group) => (
+              <SlackWorkspacePanel
+                key={group.teamId}
+                workspace={group.workspace}
+                channels={group.channels}
+                selectedChannelId={selectedChannelId}
+                needsReconnect={workspaceNeedsReconnect(group.workspace)}
+                connecting={connecting}
+                onReconnect={() => connectToSlack(group.teamId)}
+                onDisconnect={() => setDisconnectTeamId(group.teamId)}
+                onAddChannel={() => setAddChannelTeamId(group.teamId)}
+                onSelectChannel={selectChannel}
+                onSaved={async () => {
+                  await mutate();
                 }}
-              >
-                {workspaceGroups.map((group) => (
-                  <Box key={group.teamId}>
-                    <Flex justify="between" align="center" gap="2" mb="2">
-                      <Box style={{ minWidth: 0 }}>
-                        <Text size="sm" weight="semibold" truncate>
-                          {getSlackWorkspaceLabel(group.workspace)}
-                        </Text>
-                        <Box mt="1">
-                          <Badge
-                            label={
-                              workspaceNeedsReconnect(group.workspace)
-                                ? "Reconnect needed"
-                                : "Connected"
-                            }
-                            color={
-                              workspaceNeedsReconnect(group.workspace)
-                                ? "amber"
-                                : "green"
-                            }
-                            variant="soft"
-                          />
-                        </Box>
-                      </Box>
-                      <Flex gap="1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={<PiPlus />}
-                          onClick={() => setAddChannelTeamId(group.teamId)}
-                        >
-                          Add channel
-                        </Button>
-                      </Flex>
-                    </Flex>
-                    <Flex gap="2" mb="3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => connectToSlack(group.teamId)}
-                        loading={connecting}
-                      >
-                        Reconnect
-                      </Button>
-                      <Button
-                        variant="outline"
-                        color="red"
-                        size="sm"
-                        icon={<PiPlugs />}
-                        onClick={() => setDisconnectTeamId(group.teamId)}
-                      >
-                        Disconnect
-                      </Button>
-                    </Flex>
-                    <Flex direction="column" gap="1">
-                      {group.channels.map((channel) => {
-                        const selected = channel.id === selectedChannel?.id;
-                        return (
-                          <Link
-                            key={channel.id}
-                            href={`/integrations/slack?channel=${encodeURIComponent(
-                              channel.id,
-                            )}`}
-                            shallow
-                            underline="none"
-                            color="dark"
-                            aria-current={selected ? "page" : undefined}
-                            style={{
-                              display: "block",
-                              padding: "var(--space-2) var(--space-3)",
-                              borderRadius: 8,
-                              background: selected
-                                ? "var(--violet-a3)"
-                                : undefined,
-                            }}
-                          >
-                            <Flex align="center" gap="2">
-                              <Text
-                                size="md"
-                                weight={selected ? "semibold" : "medium"}
-                                truncate
-                              >
-                                {getSlackChannelLabel(channel)}
-                              </Text>
-                              {!channel.enabled && (
-                                <Box ml="auto">
-                                  <Badge
-                                    label="Disabled"
-                                    color="gray"
-                                    variant="soft"
-                                  />
-                                </Box>
-                              )}
-                            </Flex>
-                          </Link>
-                        );
-                      })}
-                      {group.channels.length === 0 && (
-                        <Text size="sm" color="text-mid">
-                          No channels yet
-                        </Text>
-                      )}
-                    </Flex>
-                  </Box>
-                ))}
-              </Flex>
-
-              <Box p="5" style={{ flex: 1, minWidth: 0 }}>
-                {selectedChannel && selectedChannelWorkspace ? (
-                  <SlackChannelSettings
-                    key={selectedChannel.id}
-                    integration={selectedChannel}
-                    workspace={selectedChannelWorkspace}
-                    onSaved={async () => {
-                      await mutate();
-                    }}
-                    onDeleted={async () => {
-                      await selectChannel(null);
-                      await mutate();
-                    }}
-                  />
-                ) : (
-                  <Flex direction="column" align="start" gap="3">
-                    <Heading as="h2" size="sm" mb="0">
-                      Add a Channel
-                    </Heading>
-                    <Text color="text-mid">
-                      Choose a workspace and add the first channel to start
-                      receiving notifications.
-                    </Text>
-                    <Button
-                      icon={<PiPlus />}
-                      onClick={() =>
-                        setAddChannelTeamId(
-                          selectedWorkspaceGroup?.teamId ||
-                            workspaceGroups[0]?.teamId ||
-                            null,
-                        )
-                      }
-                    >
-                      Add channel
-                    </Button>
-                  </Flex>
-                )}
-              </Box>
-            </Flex>
-          </Frame>
+              />
+            ))}
+          </Flex>
         )}
         <SlackIntegrationsListViewContainer key={orgId} legacyOnly />
       </Flex>

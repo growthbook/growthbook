@@ -112,6 +112,9 @@ const eventWebHookSchema = new mongoose.Schema({
     type: [String],
     required: false,
   },
+  experiments: { type: [String], required: false },
+  metrics: { type: [String], required: false },
+  features: { type: [String], required: false },
   dateCreated: {
     type: Date,
     required: true,
@@ -353,6 +356,9 @@ export const deleteOrganizationventWebHook = async (
 };
 
 export type UpdateEventWebHookAttributes = {
+  experiments?: string[];
+  metrics?: string[];
+  features?: string[];
   name?: string;
   url?: string;
   enabled?: boolean;
