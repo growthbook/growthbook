@@ -21,8 +21,7 @@ import { getFunnelAnchorStepIndex } from "shared/funnels";
 // `sql` - that raw warehouse query can reference real schema/table names and
 // business logic this preview has no business exposing just because a field
 // changed. Pure client-side text generation, no backend call, no execution -
-// contrast with PreviewPanel's "Run Preview" (rows) tab, which is a
-// deliberate, on-demand action that already reveals real data by design.
+// contrast with PreviewPanel's on-demand activity query.
 
 function indentLines(str: string, spaces: number = 2) {
   return str

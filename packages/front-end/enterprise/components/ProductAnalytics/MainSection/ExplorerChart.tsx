@@ -55,6 +55,7 @@ import {
   CHART_COLORS,
   COMPARISON_SERIES_COLORS,
   getChartThemeColors,
+  cssColorToHex,
 } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import FunnelChart from "./FunnelChart";
 import JourneyChart from "./JourneyChart";
@@ -131,6 +132,7 @@ export default function ExplorerChart({
   submittedExploreState,
   loading,
   animate = true,
+  compact = false,
   submittedPreviousTimeFrame = null,
   submittedComparisonMode = null,
   serverBigNumberTrends = null,
@@ -143,6 +145,7 @@ export default function ExplorerChart({
   loading: boolean;
   /** When false, ECharts entry animations are disabled (e.g. for already-seen charts). */
   animate?: boolean;
+  compact?: boolean;
   submittedPreviousTimeFrame?: ExplorationConfig["dateRange"] | null;
   submittedComparisonMode?: ComparisonMode | null;
   serverBigNumberTrends?:
@@ -242,6 +245,17 @@ export default function ExplorerChart({
     getFactMetricById,
     serverBigNumberTrends,
   ]);
+
+  const todayCell = exploration?.result?.rows.find(
+    (row) =>
+      row.dimensions[0]?.slice(0, 10) === new Date().toISOString().slice(0, 10),
+  )?.values?.[0];
+  const todayValue = todayCell
+    ? getEffectiveMetricValue(todayCell, {
+        showAs: renderOpts.showAs,
+        isRatio: renderOpts.isRatioByIndex[0] ?? false,
+      })
+    : null;
 
   const bigNumberCards = useMemo(() => {
     if (
@@ -348,7 +362,7 @@ export default function ExplorerChart({
 
     // Bar charts: sort categories by total value; timeseries: chronological
     let sortedXValues: string[];
-    if (isBarType) {
+    if (isBarType && !compact) {
       const xValueTotals = computeDimensionTotals(rows, 0, renderOpts);
       // Horizontal bars render bottom-to-top, so sort ascending for largest on top
       sortedXValues = Array.from(uniqueXValues).sort((a, b) =>
@@ -730,7 +744,7 @@ export default function ExplorerChart({
         // In compare mode a custom HTML legend (ComparisonChartLegend) renders
         // above the chart instead. The ECharts legend stays in the option (so
         // legendSelect/legendUnSelect actions still toggle series) but hidden.
-        show: comparisonPeriodLabels ? false : legendShow,
+        show: compact || comparisonPeriodLabels ? false : legendShow,
         type: "plain",
         left: "center",
         top: 8,
@@ -758,9 +772,42 @@ export default function ExplorerChart({
             }
           : {}),
       },
-      xAxis,
-      yAxis,
-      series: seriesConfigs,
+      xAxis: compact
+        ? {
+            ...categoryAxis,
+            name: "",
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { show: false },
+            axisLabel: {
+              color: cssColorToHex("var(--gray-10)"),
+              formatter: (day: string) =>
+                new Date(day).toLocaleDateString("en-US", {
+                  weekday: "narrow",
+                  timeZone: "UTC",
+                }),
+            },
+          }
+        : xAxis,
+      yAxis: compact ? { ...valueAxis, show: false } : yAxis,
+      series: compact
+        ? sortedSeriesKeys.map((key) => ({
+            name: seriesMeta[key]?.name ?? key,
+            type: "bar",
+            barCategoryGap: "15%",
+            data: sortedXValues.map((day, index) => ({
+              value: dataMap[key][day] ?? null,
+              itemStyle: {
+                color: cssColorToHex(
+                  index === sortedXValues.length - 1
+                    ? "var(--violet-9)"
+                    : "var(--violet-4)",
+                ),
+                borderRadius: [10, 10, 0, 0],
+              },
+            })),
+          }))
+        : seriesConfigs,
     };
   }, [
     exploration?.result?.rows,
@@ -774,6 +821,7 @@ export default function ExplorerChart({
     gridLineColor,
     tooltipBackgroundColor,
     animate,
+    compact,
     customCategoryAxisName,
     valueAxisName,
     chartBoxSize,
@@ -875,8 +923,8 @@ export default function ExplorerChart({
         direction="column"
         position="relative"
         style={{
-          border: "1px solid var(--gray-a3)",
-          borderRadius: "var(--radius-4)",
+          border: compact ? undefined : "1px solid var(--gray-a3)",
+          borderRadius: compact ? undefined : "var(--radius-4)",
           flex: 1,
           minHeight: 0,
         }}
@@ -894,6 +942,7 @@ export default function ExplorerChart({
             exploration={exploration}
             submittedExploreState={submittedExploreState}
             animate={animate}
+            compact={compact}
           />
         )}
       </Flex>
@@ -935,8 +984,8 @@ export default function ExplorerChart({
       direction="column"
       position="relative"
       style={{
-        border: "1px solid var(--gray-a3)",
-        borderRadius: "var(--radius-4)",
+        border: compact ? undefined : "1px solid var(--gray-a3)",
+        borderRadius: compact ? undefined : "var(--radius-4)",
         flex: 1,
         minHeight: 0,
         minWidth: 0,
@@ -972,6 +1021,34 @@ export default function ExplorerChart({
           <Text color="text-mid" weight="medium">
             The query ran successfully, but no data was returned.
           </Text>
+        </Flex>
+      ) : compact && bigNumberCards?.length ? (
+        <Flex
+          direction="column"
+          gap="2"
+          pb="4"
+          style={{ borderBottom: "1px solid var(--gray-a5)" }}
+        >
+          {bigNumberCards.map((card, index) => {
+            const sample =
+              exploration.result?.rows[0]?.values?.[index]?.denominator;
+            return (
+              <div key={card.label}>
+                <div
+                  style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}
+                >
+                  {formatNumber(card.value)}
+                </div>
+                <Text as="div" size="sm" color="text-mid">
+                  {card.label}
+                  {!renderOpts.isRatioByIndex[index] &&
+                  (sample ?? null) !== null
+                    ? ` · ${sample?.toLocaleString()} units in sample`
+                    : ""}
+                </Text>
+              </div>
+            );
+          })}
         </Flex>
       ) : bigNumberCards && bigNumberCards.length > 0 ? (
         <Flex
@@ -1034,6 +1111,19 @@ export default function ExplorerChart({
           direction="column"
           style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%" }}
         >
+          {compact && (
+            <Box pb="4">
+              <div
+                style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}
+              >
+                {todayValue === null ? "—" : formatNumber(todayValue)}
+              </div>
+              <Text as="div" size="sm" color="text-mid">
+                Today (UTC)
+                {defaultValueAxisName ? ` · ${defaultValueAxisName}` : ""}
+              </Text>
+            </Box>
+          )}
           {compareReturnedNoData ? (
             <Box px="4" pt="3">
               <Callout status="info">
@@ -1070,16 +1160,28 @@ export default function ExplorerChart({
                 ...chartConfig,
                 ...(animate ? {} : { animation: false }),
                 padding: [0, 0, 0, 0],
-                grid: {
-                  left: CHART_GRID.left,
-                  right: CHART_GRID.right,
-                  top: chartConfig.legend?.show
-                    ? CHART_GRID.topWithLegend
-                    : CHART_GRID.top,
-                  bottom: CHART_GRID.bottom,
-                },
+                grid: compact
+                  ? { top: 20, right: 0, bottom: 28, left: 0 }
+                  : {
+                      left: CHART_GRID.left,
+                      right: CHART_GRID.right,
+                      top: chartConfig.legend?.show
+                        ? CHART_GRID.topWithLegend
+                        : CHART_GRID.top,
+                      bottom: CHART_GRID.bottom,
+                    },
               }}
-              style={{ width: "100%", height: "100%" }}
+              style={
+                compact
+                  ? {
+                      width: "100%",
+                      height: "auto",
+                      aspectRatio: "2 / 1",
+                      borderTop: "1px solid var(--gray-a5)",
+                      borderBottom: "1px solid var(--gray-a5)",
+                    }
+                  : { width: "100%", height: "100%" }
+              }
               onChartReady={(chart) => {
                 chartInstanceRef.current = chart ?? null;
                 if (chartsContext && chart) {

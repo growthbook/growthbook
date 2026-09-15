@@ -1,0 +1,21 @@
+.floatingActions {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  padding: 16px;
+  z-index: 100;
+  background: var(--color-panel-solid);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-4);
+}
+
+.title {
+  min-width: 0;
+}
+
+.withFloatingActions {
+  --metric-preview-top: 160px;
+}
