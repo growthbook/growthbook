@@ -122,7 +122,7 @@ const EditFeatureInfoModal: FC<{
     ) &&
     holdsTargetingDestination({
       permissions: permissionsUtil,
-      existing: feature,
+      existing: baseFeature,
       proposed: {
         project: moveDestination,
         targetingAllProjects: form.watch("targetingAllProjects"),

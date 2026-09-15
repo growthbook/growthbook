@@ -5750,8 +5750,8 @@ export async function putFeature(
         !isEqual(v, effective(k)),
     ),
   ) as Partial<FeatureInterface>;
-  normalizeTargetingInUpdates(metadataUpdates, feature);
   const stagedTargeting = withStagedTargeting(feature, targetDraft?.metadata);
+  normalizeTargetingInUpdates(metadataUpdates, stagedTargeting);
   assertTargetingDestination({
     permissions: context.permissions,
     existing: await stagingTargetingBase(context, feature, targetDraft),

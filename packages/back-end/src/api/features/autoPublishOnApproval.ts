@@ -65,7 +65,26 @@ export async function canEnableFeatureAutoPublishOnApproval(
 
   // Delegates to the shared arming check so the source and destination rule is
   // stated once.
-  return canPublishFeatureRevision(context, feature, revision);
+  return (
+    (await canPublishFeatureRevision(context, feature, revision)) &&
+    (await armsTargeting(context, feature, revision))
+  );
+}
+
+// Arming commits a future landing into whatever the draft newly targets, so it
+// takes the targeting atom now. Cancelling and disarming do not: a schedule
+// must stay cancellable after a project opts out or the atom is revoked.
+async function armsTargeting(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<boolean> {
+  return holdsTargetingDestination({
+    permissions: context.permissions,
+    existing: feature,
+    proposed: withStagedTargeting(feature, revision?.metadata),
+    optedOut: await context.getTargetingOptOutProjectIds(),
+  });
 }
 
 /** Disarming requires publish authority, but not scheduling eligibility. */
@@ -172,17 +191,6 @@ export async function canPublishFeatureRevision(
   if (!context.permissions.canPublishFeature(feature, environmentIds)) {
     return false;
   }
-  // Same rule as a move: a draft that widens targeting lands in those projects.
-  if (
-    !holdsTargetingDestination({
-      permissions: context.permissions,
-      existing: feature,
-      proposed: withStagedTargeting(feature, revision?.metadata),
-      optedOut: await context.getTargetingOptOutProjectIds(),
-    })
-  ) {
-    return false;
-  }
   const destination = revision?.metadata?.project;
   if (destination === undefined || destination === (feature.project ?? "")) {
     return true;
@@ -201,7 +209,10 @@ export async function canScheduleFeaturePublish(
   revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
 ): Promise<boolean> {
   if (!context.hasPremiumFeature("scheduled-revisions")) return false;
-  return canPublishFeatureRevision(context, feature, revision);
+  return (
+    (await canPublishFeatureRevision(context, feature, revision)) &&
+    (await armsTargeting(context, feature, revision))
+  );
 }
 
 async function revisionRequiresPreLaunchChecklist(

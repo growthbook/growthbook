@@ -447,5 +447,9 @@ export async function stagingTargetingBase(
     feature,
     version: draft.baseVersion,
   });
-  return reachedTargeting(staged, feature, base?.metadata);
+  return reachedTargeting(
+    staged,
+    feature,
+    base?.status === "published" ? base.metadata : null,
+  );
 }
