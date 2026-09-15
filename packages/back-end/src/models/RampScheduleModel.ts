@@ -407,10 +407,12 @@ export class RampScheduleModel extends BaseClass {
   }
   protected async beforeUpdate(
     existing: RampScheduleInterface,
-    _updates: UpdateProps<RampScheduleInterface>,
-    newDoc: RampScheduleInterface,
+    updates: UpdateProps<RampScheduleInterface>,
   ) {
-    assertTargetsAnchored(newDoc, unanchoredRampTargets(existing));
+    assertTargetsAnchored(
+      { ...existing, ...updates },
+      unanchoredRampTargets(existing),
+    );
   }
 
   private getProject(doc: RampScheduleInterface): string | undefined {
