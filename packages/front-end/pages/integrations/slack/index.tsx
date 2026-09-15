@@ -32,6 +32,7 @@ import Link from "@/ui/Link";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
+import Switch from "@/ui/Switch";
 
 type SlackConnectionsResponse = {
   slackConnections: SlackWorkspaceConnectionFrontEndInterface[];
@@ -247,6 +248,9 @@ const SlackWorkspacePage: NextPage = () => {
   const [installing, setInstalling] = useState(false);
   const [addChannelTeamId, setAddChannelTeamId] = useState<string | null>(null);
   const [disconnectTeamId, setDisconnectTeamId] = useState<string | null>(null);
+  const [updatingAssistantTeamId, setUpdatingAssistantTeamId] = useState<
+    string | null
+  >(null);
 
   const {
     data,
@@ -696,6 +700,58 @@ const SlackWorkspacePage: NextPage = () => {
                         </Button>
                       </Flex>
                     </Flex>
+                    {(
+                      [
+                        {
+                          key: "assistant",
+                          label: "AI assistant",
+                          description: "Answer mentions in connected channels",
+                          enabled: group.workspace.assistantEnabled,
+                        },
+                        {
+                          key: "unfurl",
+                          label: "Link previews",
+                          description:
+                            "Show experiment summaries for shared GrowthBook links",
+                          enabled: group.workspace.unfurlEnabled,
+                        },
+                      ] as const
+                    ).map((setting) => (
+                      <Switch
+                        key={setting.key}
+                        size="sm"
+                        label={setting.label}
+                        description={setting.description}
+                        value={setting.enabled === true}
+                        disabled={updatingAssistantTeamId !== null}
+                        onChange={async (enabled) => {
+                          setUpdatingAssistantTeamId(group.teamId);
+                          setConnectError(null);
+                          try {
+                            await apiCall(
+                              `/integrations/slack/${setting.key}`,
+                              {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  teamId: group.teamId,
+                                  enabled,
+                                }),
+                              },
+                            );
+                            await mutate();
+                          } catch (error) {
+                            setConnectError(
+                              error instanceof Error
+                                ? error.message
+                                : "Could not update Slack settings",
+                            );
+                          } finally {
+                            setUpdatingAssistantTeamId(null);
+                          }
+                        }}
+                        mb="3"
+                      />
+                    ))}
                     <Flex gap="2" mb="3">
                       <Button
                         variant="outline"

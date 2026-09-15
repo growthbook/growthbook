@@ -95,6 +95,8 @@ import { PresentationThemeModel } from "back-end/src/models/PresentationThemeMod
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
+import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
+import { SlackNotificationSnoozeModel } from "back-end/src/models/SlackNotificationSnoozeModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
@@ -151,6 +153,8 @@ export type ModelName =
   | "watch"
   | "figmaConnections"
   | "slackWorkspaceConnections"
+  | "slackUserLinks"
+  | "slackNotificationSnoozes"
   | "apiKeys"
   | "oauthAuthCodes"
   | "oauthGrants"
@@ -209,6 +213,8 @@ export const modelClasses = {
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
   slackWorkspaceConnections: SlackWorkspaceConnectionModel,
+  slackUserLinks: SlackUserLinkModel,
+  slackNotificationSnoozes: SlackNotificationSnoozeModel,
   apiKeys: ApiKeyModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   oauthGrants: OAuthGrantModel,
@@ -370,6 +376,8 @@ export class ReqContextClass {
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
       slackWorkspaceConnections: new SlackWorkspaceConnectionModel(this),
+      slackUserLinks: new SlackUserLinkModel(this),
+      slackNotificationSnoozes: new SlackNotificationSnoozeModel(this),
       apiKeys: new ApiKeyModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       oauthGrants: new OAuthGrantModel(this),

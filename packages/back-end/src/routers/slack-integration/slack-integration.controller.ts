@@ -10,7 +10,13 @@ import {
 import { NotificationEventName } from "shared/types/events/base-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextFromReq,
+  getContextForUserIdInOrg,
+} from "back-end/src/services/organizations";
+import { findOrganizationById } from "back-end/src/models/OrganizationModel";
+import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
+import { getSlackWorkspaceOrganizationIds } from "back-end/src/services/slack/slackIdentity";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
 import {
   addSlackChannelToWorkspace,
@@ -23,6 +29,7 @@ import {
   isSlackOAuthConfigured,
   listSlackOAuthConnections,
   listSlackWorkspaceChannels,
+  setSlackWorkspaceOption,
   type SlackChannelOption,
   updateSlackOAuthIntegration,
 } from "back-end/src/services/slackIntegration";
@@ -340,6 +347,72 @@ export const postSlackDisconnect = async (
   });
 
   return res.json(result);
+};
+
+export const postSlackLink = async (
+  req: AuthRequest<{ state: string }>,
+  res: Response<{ linked: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const parsed = verifySlackLinkState(req.body.state);
+  if (!parsed) {
+    return res.status(400).json({
+      message:
+        "This link is invalid or expired. Mention the bot again to get a fresh link.",
+    });
+  }
+  const orgIds = await getSlackWorkspaceOrganizationIds(parsed.slackTeamId);
+  for (const organizationId of orgIds) {
+    const organization = await findOrganizationById(organizationId);
+    if (!organization) continue;
+    const memberContext = await getContextForUserIdInOrg(
+      organization,
+      context.userId,
+    );
+    if (!memberContext) continue;
+    await memberContext.models.slackUserLinks.linkCurrentUser(req.body.state);
+    return res.json({ linked: true });
+  }
+  return res.status(400).json({
+    message:
+      "Your GrowthBook account isn't a member of an organization connected to this Slack workspace.",
+  });
+};
+
+export const postSlackAssistant = async (
+  req: AuthRequest<{ teamId?: string; enabled: boolean }>,
+  res: Response<{ enabled: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+  return res.json(
+    await setSlackWorkspaceOption({
+      context,
+      teamId: req.body.teamId,
+      field: "assistantEnabled",
+      enabled: req.body.enabled,
+    }),
+  );
+};
+
+export const postSlackUnfurl = async (
+  req: AuthRequest<{ teamId?: string; enabled: boolean }>,
+  res: Response<{ enabled: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+  return res.json(
+    await setSlackWorkspaceOption({
+      context,
+      teamId: req.body.teamId,
+      field: "unfurlEnabled",
+      enabled: req.body.enabled,
+    }),
+  );
 };
 
 // endregion POST /integrations/slack/disconnect

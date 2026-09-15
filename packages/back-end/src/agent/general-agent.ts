@@ -562,7 +562,7 @@ function stripQueryStrings(
 
 type GeneralAgentParams = Record<string, never>;
 
-const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
+export const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   agentType: "general",
   promptType: "general-chat",
 
