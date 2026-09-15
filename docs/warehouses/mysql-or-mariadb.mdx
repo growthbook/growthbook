@@ -1,9 +1,11 @@
 ---
 title: Setting Up MySQL or MariaDB as a Data Source
-description: Connect MySQL or MariaDB to GrowthBook with a read-only user, whitelist the Cloud IP if needed, and enter host, port, database, and SSL settings.
+description: Connect MySQL or MariaDB to GrowthBook with a read-only user, allowlist the Cloud IP if needed, and enter host, port, database, and SSL settings.
 sidebarTitle: MySQL or MariaDB
 slug: mysql-or-mariadb
 ---
+
+import CloudEgressIP from '/snippets/partials/_cloud-egress-ip.mdx';
 
 GrowthBook runs `SELECT` queries against MySQL or MariaDB to compute experiment results. Create a dedicated read-only user, allow network access from GrowthBook, then add the connection in **Metrics and Data** → **Data Sources**.
 
@@ -21,7 +23,7 @@ Tighten the host in `'growthbook'@'%'` if you can restrict the user to the Growt
 
 ## 2. Allow network access
 
-If you use [GrowthBook Cloud](https://app.growthbook.io), whitelist `52.70.79.40` in your MySQL or MariaDB firewall, security group, or cloud allowlist.
+<CloudEgressIP />
 
 Self-hosted GrowthBook runs in Docker. To reach a database on the host machine, use `host.docker.internal` as the host instead of `localhost`.
 

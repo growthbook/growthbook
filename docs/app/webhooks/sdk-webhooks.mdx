@@ -5,6 +5,8 @@ sidebarTitle: SDK Webhooks
 slug: /app/webhooks/sdk-webhooks
 ---
 
+import CloudEgressIP from '/snippets/partials/_cloud-egress-ip.mdx';
+
 GrowthBook has SDK-based webhooks that trigger a script on your server whenever something changes within GrowthBook which will affect that SDK.
 
 ## Adding a Webhook
@@ -19,7 +21,7 @@ Once a SDK webhook is created you will be able to view the status and fire a tes
 
 ### VPCs and Firewalls
 
-If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
+<CloudEgressIP />
 
 ## Verify Signatures
 
