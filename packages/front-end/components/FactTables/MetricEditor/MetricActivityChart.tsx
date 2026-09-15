@@ -63,22 +63,36 @@ function ActivityChart({ revision }: { revision: number }) {
     );
   if (!exploration?.result) return null;
   const chart = getActivityChart(exploration);
+  const todayIndex = chart.days.indexOf(new Date().toISOString().slice(0, 10));
   return (
     <div>
-      <Text as="div" size="xl" weight="semibold">
-        {chart.total.toLocaleString()}
-      </Text>
+      <div style={{ fontSize: "3rem", lineHeight: 1.2, fontWeight: 600 }}>
+        {todayIndex < 0 ? "—" : chart.counts[todayIndex].toLocaleString()}
+      </div>
       <Text as="div" size="sm" color="text-mid">
-        Matching rows · last 7 days
+        Matching rows today (UTC)
       </Text>
       <EChartsReact
         key={theme}
         notMerge
         option={{
           aria: { enabled: true },
-          grid: { top: 12, right: 0, bottom: 0, left: 0 },
+          grid: { top: 20, right: 0, bottom: 28, left: 0 },
           tooltip: { trigger: "axis", renderMode: "richText" },
-          xAxis: { type: "category", data: chart.days, show: false },
+          xAxis: {
+            type: "category",
+            data: chart.days,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+              color: cssColorToHex("var(--gray-10)"),
+              formatter: (day: string) =>
+                new Date(day).toLocaleDateString("en-US", {
+                  weekday: "narrow",
+                  timeZone: "UTC",
+                }),
+            },
+          },
           yAxis: { type: "value", show: false, minInterval: 1 },
           series: [
             {
@@ -92,13 +106,20 @@ function ActivityChart({ revision }: { revision: number }) {
                     index === chart.counts.length - 1
                       ? cssColorToHex("var(--violet-9)")
                       : cssColorToHex("var(--violet-4)"),
-                  borderRadius: [2, 2, 0, 0],
+                  borderRadius: [10, 10, 0, 0],
                 },
               })),
             },
           ],
         }}
-        style={{ width: "100%", height: "auto", aspectRatio: "4 / 1" }}
+        style={{
+          width: "100%",
+          height: "auto",
+          aspectRatio: "2 / 1",
+          borderTop: "1px solid var(--gray-a5)",
+          borderBottom: "1px solid var(--gray-a5)",
+          marginTop: "var(--space-4)",
+        }}
       />
       <Text as="div" size="sm" color="text-mid" mt="2">
         Daily source activity (UTC), filtered by this definition. Today is

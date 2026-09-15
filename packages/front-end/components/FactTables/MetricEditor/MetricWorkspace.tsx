@@ -13,6 +13,7 @@ import {
   FunnelSettings,
   UpdateFactMetricProps,
 } from "shared/types/fact-table";
+import Text from "@/ui/Text";
 import {
   CreateFactMetricFormProps,
   fromFactMetricFormValues,
@@ -29,6 +30,8 @@ import Callout from "@/ui/Callout";
 import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
 import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateFieldMapping";
 import { FactMetricSeed } from "@/components/FactTables/MetricEditor/templateMetric";
+
+import styles from "./MetricWorkspace.module.scss";
 
 type DefaultsContext = Pick<
   Parameters<typeof getDefaultFactMetricProps>[0],
@@ -93,7 +96,6 @@ export default function MetricWorkspace({
   onCancel,
   actionsContainer,
 }: {
-  actionsContainer: HTMLDivElement | null;
   existing: FactMetricInterface | null;
   // Seeds defaults for a brand-new metric (create payload, not update) -
   // distinct from `existing`, which also decides POST vs PUT. Partial since
@@ -112,6 +114,7 @@ export default function MetricWorkspace({
   mutate: () => Promise<unknown>;
   onSaved?: (metric: FactMetricInterface) => void;
   onCancel?: () => void;
+  actionsContainer: HTMLDivElement | null;
 }) {
   const { datasources, project, getFactTableById, getDatasourceById } =
     useDefinitions();
@@ -139,6 +142,30 @@ export default function MetricWorkspace({
     metricType === "funnel"
       ? !!funnelSteps?.length && funnelSteps.every((step) => !!step.factTableId)
       : !!numeratorTable && (metricType !== "ratio" || !!denominatorTable);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const [actionsRight, setActionsRight] = useState(16);
+  const [floating, setFloating] = useState(false);
+  useEffect(() => {
+    if (!actionsContainer || !isEditing) {
+      setFloating(false);
+      return;
+    }
+    const updateFloating = () => {
+      // Keep the actions inline until the full header button area has passed
+      // behind the top navigation, rather than switching at its first edge.
+      setFloating(
+        window.scrollY > 0 &&
+          actionsContainer.getBoundingClientRect().bottom < 56,
+      );
+    };
+    updateFloating();
+    window.addEventListener("scroll", updateFloating, { passive: true });
+    window.addEventListener("resize", updateFloating);
+    return () => {
+      window.removeEventListener("scroll", updateFloating);
+      window.removeEventListener("resize", updateFloating);
+    };
+  }, [actionsContainer, isEditing]);
   const [error, setError] = useState<string | null>(null);
   // Definition-can't-be-represented is a rare edge case (existing metrics
   // with a legacy sketch aggregation, mostly) - true is the correct default
@@ -155,6 +182,19 @@ export default function MetricWorkspace({
   const [needsMapping, setNeedsMapping] = useState(
     () => !!duplicateFrom?.numerator && !duplicateFrom.numerator.factTableId,
   );
+
+  useEffect(() => {
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    const observer = new ResizeObserver(() => {
+      setActionsRight(
+        document.documentElement.clientWidth -
+          workspace.getBoundingClientRect().right,
+      );
+    });
+    observer.observe(workspace);
+    return () => observer.disconnect();
+  }, [needsMapping]);
 
   // Unsaved-changes guard. Snapshots skip unfilled inline-filter prompts,
   // which MetricEditor adds on its own when editing starts.
@@ -308,23 +348,47 @@ export default function MetricWorkspace({
   }
 
   const actions = (
-    <Flex gap="2" flexShrink="0">
-      <Button variant="soft" color="gray" onClick={handleDiscard}>
-        {onCancel ? "Cancel" : "Discard"}
-      </Button>
-      <Button
-        onClick={handleSave}
-        setError={setError}
-        disabled={!representable || !hasFactTables}
-      >
-        Save
-      </Button>
+    <Flex
+      direction="column"
+      gap="3"
+      className={floating ? styles.floatingActions : undefined}
+      style={floating ? { right: actionsRight } : undefined}
+    >
+      {error && <Callout status="error">{error}</Callout>}
+      <Flex gap="3" justify="between" align="center">
+        {floating && (
+          <Flex direction="column" className={styles.title}>
+            <Text weight="semibold" truncate>
+              {form.watch("name") || "New Metric"}
+            </Text>
+            <Text size="sm" color="text-mid">
+              {existing ? "Unsaved changes" : "Unsaved draft"}
+            </Text>
+          </Flex>
+        )}
+        <Flex gap="2" ml="auto" flexShrink="0">
+          <Button variant="soft" color="gray" onClick={handleDiscard}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            setError={setError}
+            disabled={!representable || !hasFactTables}
+          >
+            Save metric
+          </Button>
+        </Flex>
+      </Flex>
     </Flex>
   );
 
   return (
-    <Flex direction="column" gap="3">
-      {isEditing && error && <Callout status="error">{error}</Callout>}
+    <Flex
+      direction="column"
+      gap="3"
+      ref={workspaceRef}
+      className={isEditing && floating ? styles.withFloatingActions : undefined}
+    >
       {isEditing && actionsContainer && createPortal(actions, actionsContainer)}
       <MetricEditor
         existingMetric={existing}
