@@ -33,6 +33,7 @@ export default function TagsModal({
       id: existing?.id || "",
       color: existing?.color || "blue",
       description: existing?.description || "",
+      label: existing?.label ?? existing?.id ?? "",
     },
   });
   const { apiCall } = useAuth();
@@ -50,31 +51,39 @@ export default function TagsModal({
       open={true}
       close={close}
       cta={existing?.id ? "Save Changes" : "Create Tag"}
-      header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
+      header={
+        existing?.id
+          ? `Edit Tag: ${existing.label ?? existing.id}`
+          : "Create Tag"
+      }
       submit={form.handleSubmit(async (value) => {
+        const label = value.label ?? value.id;
         await apiCall(`/tag`, {
           method: "POST",
-          body: JSON.stringify(value),
+          body: JSON.stringify({
+            ...value,
+            id: existing?.id ?? label,
+            label,
+            createOnly: !existing?.id,
+          }),
         });
         await onSuccess();
       })}
     >
       <div>
-        {!existing?.id && (
-          <Container mb="3">
-            <Text as="label" size="3" weight="medium">
-              Name
-            </Text>
-            <Field
-              size="legacy"
-              minLength={2}
-              maxLength={64}
-              className=""
-              required
-              {...form.register("id")}
-            />
-          </Container>
-        )}
+        <Container mb="3">
+          <Text as="label" size="3" weight="medium">
+            Name
+          </Text>
+          <Field
+            size="legacy"
+            minLength={2}
+            maxLength={64}
+            className=""
+            required
+            {...form.register("label")}
+          />
+        </Container>
         <Select
           label="Color"
           value={form.watch("color")}
@@ -105,9 +114,10 @@ export default function TagsModal({
             Preview
           </Text>
           <div>
-            {form.watch("id") && (
+            {(existing?.id || form.watch("label")) && (
               <Tag
-                tag={form.watch("id")}
+                tag={existing?.id ?? form.watch("label") ?? ""}
+                label={form.watch("label")}
                 color={form.watch("color") as RadixColor}
                 description={form.watch("description")}
                 skipMargin
