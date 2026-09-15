@@ -42,6 +42,7 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import { withStagedTargeting } from "shared/permissions";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import {
@@ -408,9 +409,6 @@ export default function RuleModal({
       ? (baseFeature.rules ?? []).find((r) => r.id === ruleId)
       : undefined;
   const isLiveRule = !!liveRule;
-  const draftBaseMetadata = useFeatureRevisionsContext()?.revisions.find(
-    (r) => r.version === draftRevision?.baseVersion,
-  )?.metadata;
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -596,6 +594,14 @@ export default function RuleModal({
   // feature's holdout when the target revision isn't in context (e.g. a new
   // draft branched from the viewed version carries that holdout forward).
   const revisionsCtx = useFeatureRevisionsContext();
+  // The draft the rule is written into (it may differ from the viewed one) and
+  // the revision that draft was created from.
+  const targetDraft =
+    revisionsCtx?.revisions.find((r) => r.version === targetVersion) ??
+    draftRevision;
+  const targetDraftBase = revisionsCtx?.revisions.find(
+    (r) => r.version === targetDraft?.baseVersion,
+  )?.metadata;
   const targetHoldoutId = useMemo(() => {
     const targetRev = revisionsCtx?.revisions.find(
       (r) => r.version === targetVersion,
@@ -2400,18 +2406,19 @@ export default function RuleModal({
     setAllProjects: setScopeAllProjects,
     selectedProjects,
     setSelectedProjects,
-    // The feature's delivery set (null = all projects), plus what it reached
-    // live or when the draft began and what this rule already had, so a
-    // removed scope can be put back.
+    // The delivery set (null = all projects) of the viewed feature, the live
+    // feature, the target draft, and the revision that draft began from, plus
+    // what this rule already had, so a removed scope can be put back.
     allowedProjectIds: unionProjectIds(
       getTargetingProjectIds(feature),
       getTargetingProjectIds(baseFeature),
-      draftBaseMetadata
-        ? getTargetingProjectIds({
-            project: draftBaseMetadata.project ?? baseFeature.project,
-            targetingAllProjects: draftBaseMetadata.targetingAllProjects,
-            targetingProjects: draftBaseMetadata.targetingProjects,
-          })
+      getTargetingProjectIds(
+        withStagedTargeting(baseFeature, targetDraft?.metadata),
+      ),
+      targetDraftBase
+        ? getTargetingProjectIds(
+            withStagedTargeting(baseFeature, targetDraftBase),
+          )
         : [],
       liveRule?.projects ?? [],
     ),
