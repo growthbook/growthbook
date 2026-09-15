@@ -297,3 +297,23 @@ describe("existing targeting", () => {
     expect(removed.status).toBe(200);
   });
 });
+
+describe("an unknown targeting project id", () => {
+  it("is refused as a permission error before it is checked for existence", async () => {
+    const id = await seedFeature();
+    as("u_b_editor");
+    const refused = await api.put(
+      `/api/v2/features/${id}/revisions/new/metadata`,
+      { targetingProjects: ["prj_does_not_exist"] },
+    );
+    expect(refused.status).toBe(403);
+
+    as("u_admin");
+    const invalid = await api.put(
+      `/api/v2/features/${id}/revisions/new/metadata`,
+      { targetingProjects: ["prj_does_not_exist"] },
+    );
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.message).toContain("prj_does_not_exist");
+  });
+});

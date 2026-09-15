@@ -1,5 +1,6 @@
 import {
   addedTargetingProjects,
+  assertTargetingDestination,
   holdsTargetingDestination,
   withStagedTargeting,
 } from "shared/permissions";
@@ -178,5 +179,46 @@ describe("withStagedTargeting", () => {
       ...live,
       targetingAllProjects: true,
     });
+  });
+});
+
+describe("assertTargetingDestination refusal messages", () => {
+  const permissions = {
+    canTargetFeatureProjects: () => true,
+    throwPermissionError: (message?: string) => {
+      throw new Error(message);
+    },
+  };
+
+  it("names a refused project the caller asked for", () => {
+    expect(() =>
+      assertTargetingDestination({
+        permissions,
+        existing: { project: "prj_b" },
+        proposed: { project: "prj_b", targetingProjects: ["prj_a"] },
+        optedOut: ["prj_a"],
+      }),
+    ).toThrow("prj_a does not allow targeting");
+  });
+
+  it("does not name opted-out projects when all projects was asked for", () => {
+    expect(() =>
+      assertTargetingDestination({
+        permissions,
+        existing: { project: "prj_b" },
+        proposed: { project: "prj_b", targetingAllProjects: true },
+        optedOut: ["prj_hidden"],
+      }),
+    ).toThrow(
+      "Cannot target all projects: one or more projects do not allow targeting",
+    );
+    expect(() =>
+      assertTargetingDestination({
+        permissions,
+        existing: { project: "prj_b" },
+        proposed: { project: "prj_b", targetingAllProjects: true },
+        optedOut: ["prj_hidden"],
+      }),
+    ).not.toThrow("prj_hidden");
   });
 });
