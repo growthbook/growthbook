@@ -7,23 +7,39 @@ import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureMo
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
-// A prerequisite may point only at an existing, unarchived boolean flag — the
-// constraints the dashboard's prerequisite picker applies — and, for features,
-// at one that does not itself depend on the feature being written. Only
-// parents a write introduces are checked, so anything already pointing at a
-// since-archived parent still posts back unchanged.
+// A prerequisite may point only at an existing, unarchived flag and, for
+// features, at one that does not itself depend on the feature being written.
+// A feature's top-level prerequisites must also be boolean, as the dashboard's
+// picker requires; inline prerequisites on rules and experiment phases carry
+// their own condition and accept any value type. Only parents a write
+// introduces are checked, so anything already pointing at a since-archived
+// parent still posts back unchanged.
 
 type Context = ReqContext | ApiReqContext;
 
-function prerequisiteIdsOf(
-  feature: Pick<FeatureInterface, "prerequisites" | "rules">,
-): Set<string> {
-  const ids = new Set<string>();
-  (feature.prerequisites ?? []).forEach((p) => ids.add(p.id));
-  (feature.rules ?? []).forEach((rule) =>
-    (rule.prerequisites ?? []).forEach((p) => ids.add(p.id)),
+type PrerequisiteHolder = Pick<FeatureInterface, "prerequisites" | "rules">;
+
+function topLevelPrerequisiteIds(feature: PrerequisiteHolder): Set<string> {
+  return new Set((feature.prerequisites ?? []).map((p) => p.id));
+}
+
+function rulePrerequisiteIds(feature: PrerequisiteHolder): Set<string> {
+  return new Set(
+    (feature.rules ?? []).flatMap((rule) =>
+      (rule.prerequisites ?? []).map((p) => p.id),
+    ),
   );
-  return ids;
+}
+
+function prerequisiteIdsOf(feature: PrerequisiteHolder): Set<string> {
+  return new Set([
+    ...topLevelPrerequisiteIds(feature),
+    ...rulePrerequisiteIds(feature),
+  ]);
+}
+
+function newIds(candidate: Set<string>, prior: Set<string>): Set<string> {
+  return new Set([...candidate].filter((id) => !prior.has(id)));
 }
 
 // One query per hop; a real prerequisite chain is a handful deep, so a walk
@@ -59,10 +75,12 @@ async function loadPrerequisiteAncestors(
   }
 }
 
-// The parents themselves: readable, present, unarchived, boolean.
+// The parents themselves: readable, present, unarchived, and boolean where
+// the reference is a top-level feature prerequisite.
 async function loadValidParents(
   context: Context,
   ids: string[],
+  mustBeBoolean: Set<string> = new Set(),
 ): Promise<FeatureInterface[]> {
   const parents = await getAllFeaturesWithoutEditorFields(context, {
     ids,
@@ -77,7 +95,7 @@ async function loadValidParents(
     if (parent.archived) {
       throw new BadRequestError(`Prerequisite feature "${id}" is archived`);
     }
-    if (parent.valueType !== "boolean") {
+    if (mustBeBoolean.has(id) && parent.valueType !== "boolean") {
       throw new BadRequestError(
         `Prerequisite feature "${id}" must be a boolean feature, not ${parent.valueType}`,
       );
@@ -92,12 +110,17 @@ async function loadValidParents(
 export async function assertValidPrerequisiteParents(
   context: Context,
   candidate: FeatureInterface,
-  stored?: Pick<FeatureInterface, "prerequisites" | "rules">,
+  stored?: PrerequisiteHolder,
 ): Promise<void> {
-  const prior = stored ? prerequisiteIdsOf(stored) : new Set<string>();
-  const added = [...prerequisiteIdsOf(candidate)].filter(
-    (id) => !prior.has(id),
+  const addedTopLevel = newIds(
+    topLevelPrerequisiteIds(candidate),
+    stored ? topLevelPrerequisiteIds(stored) : new Set(),
   );
+  const addedInRules = newIds(
+    rulePrerequisiteIds(candidate),
+    stored ? rulePrerequisiteIds(stored) : new Set(),
+  );
+  const added = [...new Set([...addedTopLevel, ...addedInRules])];
   if (!added.length) return;
   if (added.includes(candidate.id)) {
     throw new BadRequestError(
@@ -105,7 +128,7 @@ export async function assertValidPrerequisiteParents(
     );
   }
 
-  const parents = await loadValidParents(context, added);
+  const parents = await loadValidParents(context, added, addedTopLevel);
   const graph = await loadPrerequisiteAncestors(context, parents);
   graph.set(candidate.id, candidate);
   if (isFeatureCyclic(candidate, graph)[0]) {

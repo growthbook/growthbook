@@ -197,8 +197,13 @@ export function generateVariationId() {
   return uniqid("var_");
 }
 
+// Takes only the three fields it reads, so a caller holding a projected
+// experiment doc can pass it without a cast.
 export function experimentHasLinkedChanges(
-  exp: ExperimentInterface | ExperimentInterfaceStringDates,
+  exp: Pick<
+    ExperimentInterface,
+    "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
+  >,
 ): boolean {
   if (exp.hasVisualChangesets) return true;
   if (exp.hasURLRedirects) return true;
