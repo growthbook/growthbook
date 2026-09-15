@@ -661,9 +661,13 @@ const MetricPage: FC = () => {
                       <div style={{ flex: 1 }} />
                       <div className="col-auto">
                         {canRunMetricQuery && (
-                          <form
-                            onSubmit={async (e) => {
-                              e.preventDefault();
+                          <RunQueriesButton
+                            icon="refresh"
+                            cta={analysis ? "Refresh Data" : "Run Analysis"}
+                            mutate={mutate}
+                            model={metric}
+                            cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                            onSubmit={async () => {
                               try {
                                 await apiCall(`/metric/${metric.id}/analysis`, {
                                   method: "POST",
@@ -673,17 +677,7 @@ const MetricPage: FC = () => {
                                 console.error(e);
                               }
                             }}
-                          >
-                            <RunQueriesButton
-                              useRadixButton={false}
-                              icon="refresh"
-                              cta={analysis ? "Refresh Data" : "Run Analysis"}
-                              mutate={mutate}
-                              model={metric}
-                              cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
-                              color="outline-primary"
-                            />
-                          </form>
+                          />
                         )}
                       </div>
                     </div>

@@ -42,6 +42,7 @@ import GroupBySection from "./GroupBySection";
 import SaveFunnelMetricAction from "./SaveFunnelMetricAction";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
+import ChartSettingsSection from "./ChartSettingsSection";
 import SchemaBrowserSection from "./SchemaBrowserSection";
 
 interface Props {
@@ -105,13 +106,17 @@ export default function ExplorerSideBar({
     activeType === "sql" &&
     dataset?.type === "sql" &&
     Object.keys(dataset.columnTypes).length === 0;
+  const isRawTable =
+    activeType === "sql" && draftExploreState.chartType === "rawTable";
 
   const hasFunnelInputs =
     dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTableId);
   const hasInputs =
     dataset?.type === "funnel"
       ? hasFunnelInputs
-      : (dataset?.values?.length ?? 0) > 0;
+      : isRawTable && dataset?.type === "sql"
+        ? Object.keys(dataset.columnTypes).length > 0
+        : (dataset?.values?.length ?? 0) > 0;
   const dateRangeValue: DateRangeCompareValue = {
     dateRange: draftExploreState.dateRange,
     comparison: compareEnabled
@@ -322,7 +327,7 @@ export default function ExplorerSideBar({
                   range, and applying a change claims it. */}
               <DateRangeCompareDropdown
                 fullWidth
-                showCompare
+                showCompare={!isRawTable}
                 showGranularity={isTimeSeriesChart}
                 value={dateRangeValue}
                 onChange={applyDateRange}
@@ -428,10 +433,11 @@ export default function ExplorerSideBar({
         showAsAppliesTo(draftExploreState, getFactMetricById) && (
           <ShowAsSection />
         )}
-      {showChartControls && hasInputs && <GroupBySection />}
+      {showChartControls && hasInputs && !isRawTable && <GroupBySection />}
       {activeType === "funnel" && renderingInDashboardSidebar && (
         <SaveFunnelMetricAction />
       )}
+      {showChartControls && activeType !== "funnel" && <ChartSettingsSection />}
     </Flex>
   );
 }

@@ -95,7 +95,6 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
 
   return (
     <Modal
-      useRadixButton={false}
       open
       trackingEventModalType="ramp-schedule-template-edit"
       close={onClose}
@@ -513,7 +512,7 @@ export default function RampScheduleTemplates() {
           No templates yet.{" "}
           {hasFeature
             ? "Create one to quickly apply standard ramp schedules to Feature Flag rules."
-            : "Upgrade to Enterprise to create and manage ramp schedule templates."}
+            : "Upgrade to Pro to create and manage ramp schedule templates."}
         </Text>
       ) : (
         <DndContext

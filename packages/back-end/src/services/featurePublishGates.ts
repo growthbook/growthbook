@@ -44,6 +44,7 @@ import {
   collectFeatureArchiveDependents,
   archiveDependentsGateMessage,
 } from "back-end/src/services/archiveDependentsGuard";
+import { collectFeatureMoveDependentsGate } from "back-end/src/services/moveDependentsGuard";
 import { MergeConflictError } from "back-end/src/util/errors";
 import {
   PublishGate,
@@ -529,6 +530,13 @@ export async function collectFeaturePublishGates({
       });
     }
   }
+
+  const moveGate = await collectFeatureMoveDependentsGate(
+    context,
+    feature,
+    plan.mergeResult.metadata,
+  );
+  if (moveGate) gates.push(moveGate);
 
   return gates;
 }

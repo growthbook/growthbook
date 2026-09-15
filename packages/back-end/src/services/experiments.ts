@@ -25,6 +25,7 @@ import {
   findAnalysisComputeFailure,
   fillRevisionFromFeature,
   generateVariationId,
+  getAffectedEnvsForExperiment,
   getExperimentAttributeScopeProjectIds,
   getFeatureAttributeScopeWithDrafts,
   getMatchingRules,
@@ -39,7 +40,11 @@ import {
   naiveFlattenV1Rules,
   validateCondition,
 } from "shared/util";
-import { getBanditSRMValue, getExperimentSRMValue } from "shared/health";
+import {
+  getBanditSRMValue,
+  getExperimentSRMValue,
+  getExperimentVariationUnitsFromHealth,
+} from "shared/health";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -196,7 +201,10 @@ import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import {
+  getFeatureProjectsByIds,
+  getFeaturesByIds,
+} from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   getActiveDraftMetadataByFeatureIds,
@@ -253,7 +261,7 @@ export async function createMetric(
   context: Context,
   data: Partial<MetricInterface>,
 ) {
-  const metric = insertMetric(context, {
+  const metric = await insertMetric(context, {
     id: uniqid("met_"),
     ...data,
     dateCreated: new Date(),
@@ -2353,6 +2361,83 @@ export function fillEmptyVariationKeys(
       v.key = String(nextKey);
       usedKeys.add(v.key);
       nextKey++;
+    }
+  }
+}
+
+// Only some experiment fields reach SDK payloads. A change that touches any of
+// them needs run-experiments permission in the environments the experiment
+// affects (on both the current project and, if it moves, the new one); other
+// edits need only the update permission the caller has already been checked
+// for. Shared by the dashboard POST /experiment/:id and the REST
+// POST /api/v1/experiments/:id so the two agree on which fields count.
+const PAYLOAD_AFFECTING_EXPERIMENT_FIELDS: (keyof ExperimentInterface)[] = [
+  "phases",
+  "variations",
+  "project",
+  "name",
+  "trackingKey",
+  "archived",
+  "status",
+  "releasedVariationId",
+  "excludeFromPayload",
+  "type",
+  "banditStage",
+  "banditStageDateStarted",
+  "banditScheduleValue",
+  "banditScheduleUnit",
+  "banditBurnInValue",
+  "banditBurnInUnit",
+  // Bucketing fields. The REST route accepts these and they end up in the SDK
+  // payload, so changing bucketVersion re-buckets every user. The dashboard
+  // edits them on POST /experiment/:id/targeting, which always checks this.
+  "hashAttribute",
+  "fallbackAttribute",
+  "hashVersion",
+  "disableStickyBucketing",
+  "bucketVersion",
+  "minBucketVersion",
+];
+export async function assertCanRunExperimentChanges(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  changes: Changeset,
+): Promise<void> {
+  const needsRunExperimentsPermission =
+    PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.some((key) => key in changes);
+  if (!needsRunExperimentsPermission) return;
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  // getFeaturesByIds drops features the caller cannot read. A feature we cannot
+  // see still serves the experiment, so if any real one is missing we ask for
+  // permission in every environment. Ids of deleted features don't count.
+  let hasUnreadableFeature = false;
+  if (linkedFeatures.length < linkedFeatureIds.length) {
+    const existingFeatures = await getFeatureProjectsByIds(
+      context,
+      linkedFeatureIds,
+    );
+    hasUnreadableFeature = existingFeatures.size > linkedFeatures.length;
+  }
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    // Passing undefined here makes it return __ALL__ envs.
+    linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
+  });
+  if (envs.length > 0) {
+    const projects = [experiment.project || undefined];
+    if ("project" in changes) {
+      projects.push(changes.project || undefined);
+    }
+    // check user's permission on existing experiment project and the updated project, if changed
+    for (const project of projects) {
+      if (!context.permissions.canRunExperiment({ project }, envs)) {
+        context.permissions.throwPermissionError();
+      }
     }
   }
 }
@@ -5487,25 +5572,15 @@ export async function getExperimentAnalysisSummary({
     ),
   };
 
-  const overallTraffic = experimentSnapshot.health?.traffic?.overall;
   const snapshotHealthPower = experimentSnapshot.health?.power;
   const snapshotCovariateImbalance =
     experimentSnapshot.health?.covariateImbalance;
 
-  const standardSnapshot =
-    experimentSnapshot.type === "standard" &&
-    experimentSnapshot.analyses?.[0]?.results?.length === 1;
   const totalUsers =
-    (overallTraffic?.variationUnits.length
-      ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
-      : standardSnapshot
-        ? // fall back to first result for standard snapshots if overall traffic
-          // is missing
-          experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
-            (acc, a) => acc + a.users,
-            0,
-          )
-        : null) ?? null;
+    getExperimentVariationUnitsFromHealth(experimentSnapshot)?.reduce(
+      (acc, a) => acc + a,
+      0,
+    ) ?? null;
 
   const srm =
     experiment.type === "multi-armed-bandit"

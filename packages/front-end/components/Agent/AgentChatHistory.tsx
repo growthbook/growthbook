@@ -12,6 +12,12 @@ import {
 } from "@/ui/DropdownMenu";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
 
+const MENU_WIDTH = 300;
+// Menu width minus item + viewport padding. The menu's built-in ScrollArea
+// viewport is max-content sized, so a nowrap title needs a hard cap to
+// truncate instead of widening the menu.
+const TITLE_MAX_WIDTH = MENU_WIDTH - 48;
+
 interface AgentChatHistoryProps {
   activeConversationId: string;
   /** Switch the panel to a previously persisted conversation. */
@@ -44,7 +50,8 @@ export default function AgentChatHistory({
     <DropdownMenu
       onOpenChange={handleOpenChange}
       menuPlacement="end"
-      menuWidth={300}
+      menuWidth={MENU_WIDTH}
+      menuMaxHeight={360}
       trigger={
         <IconButton
           variant="ghost"
@@ -65,14 +72,7 @@ export default function AgentChatHistory({
           </Text>
         </Box>
       ) : (
-        <Box
-          style={{
-            maxHeight: 360,
-            overflowY: "auto",
-            overflowX: "hidden",
-            padding: "2px 4px",
-          }}
-        >
+        <>
           {conversations.map((conv, idx) => {
             const isActive = conv.conversationId === activeConversationId;
             const isLast = idx === conversations.length - 1;
@@ -95,40 +95,28 @@ export default function AgentChatHistory({
                   gap="0"
                   style={{ minWidth: 0, width: "100%", overflow: "hidden" }}
                 >
-                  <span
-                    style={{
-                      display: "block",
-                      // Hard cap (menu is 300px wide) so the longest title can't
-                      // grow the Radix content to its max-content width, which
-                      // is what was forcing horizontal scroll. Percent widths
-                      // don't constrain a max-content-sized ancestor.
-                      maxWidth: 248,
-                      fontSize: 13,
-                      lineHeight: 1.4,
-                      fontWeight: isActive ? 600 : 500,
-                      color: "var(--color-text-high)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {conv.title || "Untitled"}
-                  </span>
-                  <span
-                    style={{
-                      marginTop: 2,
-                      fontSize: 11,
-                      lineHeight: 1.2,
-                      color: "var(--gray-a10)",
-                    }}
-                  >
-                    {formatShortAgo(conv.createdAt)}
-                  </span>
+                  <Box style={{ maxWidth: TITLE_MAX_WIDTH }}>
+                    <Text
+                      as="div"
+                      size="sm"
+                      weight={isActive ? "semibold" : "medium"}
+                      truncate
+                      title={conv.title || "Untitled"}
+                    >
+                      {conv.title || "Untitled"}
+                    </Text>
+                  </Box>
+                  {/* Opacity, not a text color, so it flips with the item's highlight. */}
+                  <Box style={{ marginTop: 2, opacity: 0.7 }}>
+                    <Text as="div" size="sm">
+                      {formatShortAgo(conv.createdAt)}
+                    </Text>
+                  </Box>
                 </Flex>
               </DropdownMenuItem>
             );
           })}
-        </Box>
+        </>
       )}
     </DropdownMenu>
   );

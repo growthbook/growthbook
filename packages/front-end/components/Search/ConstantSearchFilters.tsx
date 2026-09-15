@@ -19,7 +19,6 @@ const ConstantSearchFilters: FC<
   BaseSearchFiltersProps & {
     constants: { owner?: string; archived?: boolean }[];
     hasArchived: boolean;
-    hasDraftStates: boolean;
   }
 > = ({
   searchInputProps,
@@ -27,7 +26,6 @@ const ConstantSearchFilters: FC<
   setSearchValue,
   constants,
   hasArchived,
-  hasDraftStates,
 }) => {
   const {
     dropdownFilterOpen,
@@ -111,7 +109,6 @@ const ConstantSearchFilters: FC<
           />
         </DropdownMenuItem>
         <DropdownMenuItem
-          disabled={!hasDraftStates}
           onClick={() => {
             updateQuery({
               field: "has",

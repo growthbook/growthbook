@@ -16,6 +16,13 @@ import type {
   FunnelStep,
   FunnelDataset,
   ExplorationDateRange,
+  ProductAnalyticsChartSettings,
+} from "shared/validators";
+import {
+  dateGranularity,
+  explorationConfigValidator,
+  explorationDateRangeValidator,
+  comparisonModeValidator,
   ComparisonMode,
   SqlDataset,
 } from "shared/validators";
@@ -35,12 +42,18 @@ import {
   hasTimestampColumn,
   hasTimeAxis,
 } from "shared/enterprise";
+import {
+  operatorLabelMap,
+  getColumnInfo,
+  isRowFilterComplete,
+} from "@/components/FactTables/rowFilterUtils";
 export {
   getMetricMixClass,
   getEffectiveShowAs,
   clearInapplicableShowAs,
   getEffectiveMetricValue,
   getSharedUnit,
+  getDefaultValueAxisName,
   showAsAppliesTo,
   getIsRatioByIndex,
   buildExplorationColumns,
@@ -57,22 +70,40 @@ export type ExplorerDraftConfig = ExplorationConfig & {
   comparisonMode?: ComparisonMode;
 };
 
+/**
+ * Converts an explorer draft into a config the API accepts. Drops the UI-only
+ * compare fields, and — for raw tables — the dimensions and values the draft
+ * keeps so switching back to a visualization is reversible. Raw tables return
+ * unaggregated rows, so the server rejects a config that still carries them.
+ * Axis labels are trimmed but never dropped: blank means the user hid the label.
+ */
 export function stripExplorerDraftFields(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const { previousTimeFrame: _, comparisonMode: __, ...rest } = config;
-  return rest;
+  const {
+    previousTimeFrame: _,
+    comparisonMode: __,
+    chartSettings,
+    ...rest
+  } = config;
+
+  const stripped: ExplorationConfig =
+    rest.type === "sql" && rest.chartType === "rawTable"
+      ? {
+          ...rest,
+          dimensions: [],
+          dataset: { ...rest.dataset, values: [] },
+        }
+      : rest;
+
+  const cleanedChartSettings = cleanChartSettings(chartSettings);
+  return cleanedChartSettings
+    ? ({
+        ...stripped,
+        chartSettings: cleanedChartSettings,
+      } as ExplorationConfig)
+    : stripped;
 }
-import {
-  dateGranularity,
-  explorationConfigValidator,
-  explorationDateRangeValidator,
-  comparisonModeValidator,
-} from "shared/validators";
-import {
-  operatorLabelMap,
-  getColumnInfo,
-} from "@/components/FactTables/rowFilterUtils";
 
 export { mapDatabaseTypeToEnum };
 
@@ -82,6 +113,8 @@ export const PA_AI_CHAT_INITIAL_MODEL_KEY = "pa-ai-chat-initial-model";
 export interface PAInitialChatMessage {
   text: string;
   mentions: AIChatMention[];
+  /** Skills picked from the composer's `/` menu before the handoff. */
+  skills: string[];
 }
 
 export function takeInitialChatMessage(): PAInitialChatMessage | null {
@@ -99,18 +132,19 @@ export function parseInitialChatMessage(
   try {
     const parsed: unknown = JSON.parse(stored);
     if (parsed && typeof parsed === "object" && "text" in parsed) {
-      const { text, mentions } = parsed as PAInitialChatMessage;
+      const { text, mentions, skills } = parsed as PAInitialChatMessage;
       if (typeof text !== "string") return null;
       return {
         text: text.trim(),
         mentions: Array.isArray(mentions) ? mentions : [],
+        skills: Array.isArray(skills) ? skills : [],
       };
     }
     return typeof parsed === "string"
-      ? { text: parsed.trim(), mentions: [] }
+      ? { text: parsed.trim(), mentions: [], skills: [] }
       : null;
   } catch {
-    return { text: stored.trim(), mentions: [] };
+    return { text: stored.trim(), mentions: [], skills: [] };
   }
 }
 
@@ -183,16 +217,6 @@ export function getInitialInlineFilters(
 
 /** Returns true if the row filter has enough info to be meaningful in a
  *  preview (would survive cleanRowFilters at submission). */
-function isPreviewableFilter(f: RowFilter): boolean {
-  if (f.operator === "sql_expr" || f.operator === "saved_filter") {
-    return (f.values ?? []).some((v) => v !== "");
-  }
-  if (["is_true", "is_false", "is_null", "not_null"].includes(f.operator)) {
-    return !!f.column;
-  }
-  return !!f.column && (f.values ?? []).some((v) => v !== "");
-}
-
 /** A stable key for a column-based filter — identifies "the same predicate
  *  shape" across steps (same column + same operator; values may differ).
  *  Returns null for sql_expr / saved_filter, which don't carry an obvious
@@ -217,7 +241,7 @@ export function getCommonFunnelFilterKeys(steps: FunnelStep[]): Set<string> {
   for (const step of steps) {
     const stepKeys = new Set<string>();
     for (const f of step.rowFilters) {
-      if (!isPreviewableFilter(f)) continue;
+      if (!isRowFilterComplete(f)) continue;
       const key = filterCommonKey(f);
       if (key) stepKeys.add(key);
     }
@@ -304,7 +328,7 @@ export function getFunnelStepPreview({
   const factTableLabel = showFactTable
     ? (factTable?.name ?? step.factTableId ?? "")
     : "";
-  const complete = step.rowFilters.filter(isPreviewableFilter);
+  const complete = step.rowFilters.filter(isRowFilterComplete);
   const commonKeys = allSteps
     ? getCommonFunnelFilterKeys(allSteps)
     : new Set<string>();
@@ -415,41 +439,32 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
   }
 }
 
-/** Seed Count and line-vs-table when entering Explore Dataset, not when a test query first returns columns. */
-export function withDefaultSqlCountValue(
+/** True when a SQL dataset has been tested but not yet configured to explore. */
+function isUnconfiguredSqlDataset(config: ExplorerDraftConfig): boolean {
+  if (config.dataset.type !== "sql") return false;
+  if (config.dataset.values.length > 0) return false;
+  return (
+    !!config.dataset.sql.trim() &&
+    Object.keys(config.dataset.columnTypes).length > 0
+  );
+}
+
+/** Default a tested SQL dataset to its unaggregated result table on first Explore entry. */
+export function withDefaultSqlRawTable(
   config: ExplorerDraftConfig,
 ): ExplorerDraftConfig {
-  if (config.dataset.type !== "sql") return config;
-  if (config.dataset.values.length > 0) return config;
-  if (
-    !config.dataset.sql.trim() ||
-    Object.keys(config.dataset.columnTypes).length === 0
-  ) {
-    return config;
-  }
+  if (!isUnconfiguredSqlDataset(config)) return config;
 
-  const hasTimestamp = hasTimestampColumn(config.dataset.timestampColumn);
-  const dimensions =
-    hasTimestamp &&
-    !config.dimensions.some((dimension) => dimension.dimensionType === "date")
-      ? [
-          {
-            dimensionType: "date" as const,
-            column: "date",
-            dateGranularity: "auto" as const,
-          },
-          ...config.dimensions,
-        ]
-      : config.dimensions;
+  const {
+    previousTimeFrame: _,
+    comparisonMode: __,
+    ...withoutComparison
+  } = config;
 
   return {
-    ...config,
-    chartType: hasTimestamp ? "line" : "table",
-    dimensions,
-    dataset: {
-      ...config.dataset,
-      values: [createEmptyValue("sql") as SqlValue],
-    },
+    ...withoutComparison,
+    chartType: "rawTable",
+    dimensions: [],
   } as ExplorerDraftConfig;
 }
 
@@ -849,28 +864,11 @@ export function fillMissingUnits(
   } as ExplorationConfig;
 }
 
-function hasNonEmptyValues(values: string[] | undefined): boolean {
-  return (values ?? []).some((v) => v !== "");
-}
-
-/** Checks if a filter is complete (has a column and values). */
-function isCompleteFilter(filter: RowFilter): boolean {
-  if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
-    return hasNonEmptyValues(filter.values);
-  }
-  if (
-    ["is_true", "is_false", "is_null", "not_null"].includes(filter.operator)
-  ) {
-    return !!filter.column;
-  }
-  return !!filter.column && hasNonEmptyValues(filter.values);
-}
-
 /** Removes incomplete (partially configured) row filters from a value. */
 function cleanRowFilters<T extends { rowFilters: RowFilter[] }>(value: T): T {
   return {
     ...value,
-    rowFilters: value.rowFilters.filter(isCompleteFilter),
+    rowFilters: value.rowFilters.filter(isRowFilterComplete),
   };
 }
 
@@ -928,6 +926,54 @@ export function removeIncompleteInputs(
   return dataset;
 }
 
+function cleanChartSettings(
+  chartSettings: ProductAnalyticsChartSettings | undefined,
+): ProductAnalyticsChartSettings | undefined {
+  if (!chartSettings) return undefined;
+  const next: ProductAnalyticsChartSettings = {};
+  // Preserve empty strings: they mean "hide this label", not "use the default".
+  if (chartSettings.categoryAxisLabel !== undefined) {
+    next.categoryAxisLabel = chartSettings.categoryAxisLabel.trim();
+  }
+  if (chartSettings.valueAxisLabel !== undefined) {
+    next.valueAxisLabel = chartSettings.valueAxisLabel.trim();
+  }
+  return Object.keys(next).length ? next : undefined;
+}
+
+/** Dataset fields the inferred value-axis label depends on. */
+function getValueAxisLabelSource(config: ExplorerDraftConfig) {
+  const { dataset, showAs } = config;
+  if (dataset.type === "funnel") {
+    return { type: dataset.type, showAs };
+  }
+  return {
+    type: dataset.type,
+    showAs,
+    values: dataset.values.map((v) => omit(v, ["name", "rowFilters"])),
+  };
+}
+
+/** Drop a custom value-axis label when the values it described have changed. */
+export function resetValueAxisLabelOnDatasetChange(
+  previous: ExplorerDraftConfig,
+  next: ExplorerDraftConfig,
+): ExplorerDraftConfig {
+  if (next.chartSettings?.valueAxisLabel === undefined) return next;
+  if (
+    isEqual(getValueAxisLabelSource(previous), getValueAxisLabelSource(next))
+  ) {
+    return next;
+  }
+  const chartSettings = omit(next.chartSettings, "valueAxisLabel");
+  return {
+    ...next,
+    chartSettings: Object.keys(chartSettings).length
+      ? chartSettings
+      : undefined,
+  };
+}
+
 /** Prepares a config for submission by removing incomplete inputs (values, filters) from the dataset. */
 export function cleanConfigForSubmission(
   config: ExplorerDraftConfig,
@@ -965,6 +1011,18 @@ export function isTimeSeriesChart(
   chartType: ExplorationConfig["chartType"],
 ): boolean {
   return TIMESERIES_CHART_TYPES.has(chartType);
+}
+
+const TABLE_CHART_TYPES: Set<string> = new Set([
+  "table",
+  "timeseries-table",
+  "rawTable",
+]);
+
+export function isTableChartType(
+  chartType: string | null | undefined,
+): boolean {
+  return !!chartType && TABLE_CHART_TYPES.has(chartType);
 }
 
 export function isTimelessSqlExploration(
@@ -1007,7 +1065,10 @@ export function applyTimestampColumn<T extends ExplorerDraftConfig>(
     if (chartType === "bar" || chartType === "table") {
       chartType = "line";
     }
-    if (!dimensions.some((dimension) => dimension.dimensionType === "date")) {
+    if (
+      chartType !== "rawTable" &&
+      !dimensions.some((dimension) => dimension.dimensionType === "date")
+    ) {
       dimensions = [DEFAULT_DATE_DIMENSION, ...dimensions];
     }
   } else if (!hasTime) {
@@ -1117,6 +1178,9 @@ export function applySqlPreviewMetadata(
       dimension.column === null ||
       valueColumns.has(dimension.column),
   );
+  const hiddenColumns = config.dataset.hiddenColumns?.filter((column) =>
+    valueColumns.has(column),
+  );
   return applyTimestampColumn(
     {
       ...config,
@@ -1125,6 +1189,10 @@ export function applySqlPreviewMetadata(
         ...config.dataset,
         sql,
         columnTypes,
+        // A query rewrite can leave every remaining column hidden; reset
+        // rather than render an empty table.
+        hiddenColumns:
+          hiddenColumns?.length === valueColumns.size ? [] : hiddenColumns,
         values: config.dataset.values.map((value) => ({
           ...value,
           valueColumn:
@@ -1143,6 +1211,7 @@ export function applySqlPreviewMetadata(
 function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
   if (CUMULATIVE_CHART_TYPES.has(chartType)) return "cumulative";
   if (TIMESERIES_CHART_TYPES.has(chartType)) return "timeseries";
+  if (chartType === "rawTable") return "results";
   throw new Error(`Invalid chart type: ${chartType}`);
 }
 
@@ -1155,14 +1224,23 @@ export function toFetchKey(
       ? stripExplorerDraftFields(config)
       : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { showAs, ...rest } = base;
+  const { showAs, chartSettings, ...rest } = base;
+  if (base.dataset.type === "sql" && base.chartType === "rawTable") {
+    return {
+      ...rest,
+      dateRange: isTimelessSqlExploration(base) ? null : base.dateRange,
+      chartType: getChartCategory(base.chartType),
+      dataset: omit(base.dataset, ["hiddenColumns", "values"]),
+      dimensions: [],
+    };
+  }
   if (isTimelessSqlExploration(base) && base.dataset.type === "sql") {
     return {
       ...rest,
       dateRange: null,
       chartType: getChartCategory(base.chartType),
       dataset: {
-        ...base.dataset,
+        ...omit(base.dataset, "hiddenColumns"),
         values: base.dataset.values.map((value) => omit(value, "name")),
       },
     };
@@ -1187,7 +1265,9 @@ export function toFetchKey(
     ...rest,
     chartType: getChartCategory(base.chartType),
     dataset: {
-      ...base.dataset,
+      ...(base.dataset.type === "sql"
+        ? omit(base.dataset, "hiddenColumns")
+        : base.dataset),
       values: base.dataset.values.map((value) => omit(value, "name")),
     },
   };
@@ -1221,7 +1301,7 @@ export function hasUnsatisfiedInlineFilters(
     if (inlineColumns.size === 0) return false;
     return rowFilters.some(
       (rf) =>
-        !!rf.column && inlineColumns.has(rf.column) && !isCompleteFilter(rf),
+        !!rf.column && inlineColumns.has(rf.column) && !isRowFilterComplete(rf),
     );
   };
 
@@ -1266,7 +1346,10 @@ export function isSubmittableConfig(
         if (!ft.userIdTypes?.includes(unit)) return false;
       }
     }
-  } else {
+  } else if (
+    cleanedConfig.dataset.type !== "sql" ||
+    cleanedConfig.chartType !== "rawTable"
+  ) {
     if (!Array.isArray(cleanedConfig.dataset.values)) return false;
     if (cleanedConfig.dataset.values.length === 0) return false;
     if (
@@ -1435,6 +1518,12 @@ export function hasSubmittablePayload(
   if (config.dataset.type === "funnel") {
     return (config.dataset.steps?.length ?? 0) >= 2;
   }
+  if (config.dataset.type === "sql" && config.chartType === "rawTable") {
+    return (
+      config.dataset.sql.trim().length > 0 &&
+      Object.keys(config.dataset.columnTypes).length > 0
+    );
+  }
   return (config.dataset.values?.length ?? 0) > 0;
 }
 
@@ -1451,9 +1540,7 @@ export function shouldChartSectionShow(params: {
   // Chart renders empty box for table-only types; table view handles display
   if (
     submittedExploreState &&
-    ["table", "timeseries-table"].includes(
-      submittedExploreState.chartType ?? "",
-    )
+    isTableChartType(submittedExploreState.chartType)
   ) {
     return false;
   }

@@ -326,6 +326,17 @@ export function getSharedUnit(config: ExplorationConfig | null): string | null {
   return units.every((u) => u === first) ? first : null;
 }
 
+/** Value-axis title when no custom `valueAxisLabel` is set. Empty when showAs does not apply. */
+export function getDefaultValueAxisName(
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  if (!showAsAppliesTo(config, getFactMetricById)) return "";
+  if (getEffectiveShowAs(config, getFactMetricById) === "total") return "Total";
+  const sharedUnit = getSharedUnit(config);
+  return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+}
+
 /**
  * Computes the effective numeric value for a single metric result cell, given
  * the effective showAs and whether the underlying metric is a ratio. Ratios

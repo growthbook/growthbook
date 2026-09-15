@@ -1,4 +1,7 @@
-import { getFactTableTimestampColumn } from "shared/experiments";
+import {
+  getFactTableIdColumnExpression,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { FactTableInterface } from "shared/types/fact-table";
 import type { SQLVars, SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
@@ -25,12 +28,17 @@ export function getFactSegmentCTE(
   let userIdCol = "";
   const userIdTypes = factTable.userIdTypes;
   if (userIdTypes.includes(baseIdType)) {
-    userIdCol = baseIdType;
+    userIdCol = getFactTableIdColumnExpression(factTable, baseIdType, dialect);
   } else if (userIdTypes.length > 0) {
     for (let i = 0; i < userIdTypes.length; i++) {
       const userIdType: string = userIdTypes[i];
       if (userIdType in idJoinMap) {
-        const metricUserIdCol = `m.${userIdType}`;
+        const metricUserIdCol = getFactTableIdColumnExpression(
+          factTable,
+          userIdType,
+          dialect,
+          "m",
+        );
         join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
         userIdCol = `i.${baseIdType}`;
         break;

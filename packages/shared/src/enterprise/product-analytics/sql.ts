@@ -2,6 +2,7 @@ import { getValidDate } from "shared/dates";
 import {
   buildMinimalOrCondition,
   format,
+  SQL_ROW_LIMIT,
   stripTrailingSemicolon,
 } from "shared/sql";
 import {
@@ -43,6 +44,7 @@ import { FunnelStep } from "../../validators/fact-table";
 import {
   getRowFilterSQL,
   getColumnExpression,
+  getFactTableIdColumnExpression,
   getAggregateFilters,
   getFactTableTimestampColumn,
   isFactFunnelMetric,
@@ -52,7 +54,7 @@ import { hasTimestampColumn } from "./utils";
 // Internal Type definitions
 type MinimalFactTable = Pick<
   FactTableInterface,
-  "sql" | "columns" | "filters" | "userIdTypes"
+  "sql" | "columns" | "filters" | "userIdTypes" | "userIdColumns"
 > & {
   // SQL explorations may omit a timestamp (non-time-series). Fact tables
   // still default missing columns to "timestamp" in toMinimalFactTable.
@@ -1143,7 +1145,12 @@ function generateFactTableRowsCTE(
 
   // Select all units
   factTableGroup.units.forEach((unit, i) => {
-    selectCols.push(`${unit} AS unit${i}`);
+    const unitColumn = getFactTableIdColumnExpression(
+      factTableGroup.factTable,
+      unit,
+      helpers,
+    );
+    selectCols.push(`${unitColumn} AS unit${i}`);
   });
 
   // Select all metric event values
@@ -1549,8 +1556,9 @@ export function buildFunnelSql(
   ftGroups.forEach((group) => {
     const ft = group.factTable;
     const timestampColumn = requireTimestampColumn(ft);
+    const unitColumn = getFactTableIdColumnExpression(ft, unit, dialect);
     const selectCols: string[] = [
-      `${unit} AS user_id`,
+      `${unitColumn} AS user_id`,
       `${timestampColumn} AS ts`,
       // Funnel dimensions are first-touch from the funnel's start, so only
       // the initial fact table contributes a real dimension value. Cast to a
@@ -1827,6 +1835,12 @@ export function generateProductAnalyticsSQL(
     const { sql } = buildFunnelSql(config, factTableMap, dialect);
     return { sql, orderedMetricIds: [] };
   }
+  if (config.chartType === "rawTable") {
+    return {
+      sql: generateProductAnalyticsRawTableSQL(config, dialect),
+      orderedMetricIds: [],
+    };
+  }
 
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
@@ -2027,6 +2041,32 @@ export function generateProductAnalyticsSQL(
     sql,
     orderedMetricIds,
   };
+}
+
+function generateProductAnalyticsRawTableSQL(
+  config: ExplorationConfig,
+  dialect: SqlDialect,
+): string {
+  if (config.dataset.type !== "sql") {
+    throw new Error("Raw tables require a SQL dataset");
+  }
+
+  const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
+  const timestampColumn = hasTimestampColumn(config.dataset.timestampColumn)
+    ? quoteSqlIdentifier(config.dataset.timestampColumn, dialect)
+    : null;
+  const whereClause = timestampColumn
+    ? `WHERE ${timestampColumn} >= ${dialect.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(dateRange.endDate)}`
+    : "";
+
+  return format(
+    dialect.selectStarLimit(
+      `(\n${stripTrailingSemicolon(config.dataset.sql)}\n) t`,
+      SQL_ROW_LIMIT + 1,
+      whereClause,
+    ),
+    dialect.formatDialect,
+  );
 }
 
 function parseStringValue(value: unknown): string | null {
