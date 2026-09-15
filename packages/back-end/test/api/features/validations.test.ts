@@ -1,5 +1,6 @@
 import {
   assertValidRuleEnvironments,
+  normalizeInlineRampSchedule,
   validateRuleAttributes,
   validateRulesReferences,
 } from "back-end/src/api/features/validations";
@@ -243,5 +244,33 @@ describe("assertValidRuleEnvironments", () => {
         { allEnvironments: false, environments: ["prodution"] },
       ]),
     ).toThrow(BadRequestError);
+  });
+});
+
+describe("normalizeInlineRampSchedule", () => {
+  // An omitted anchor must be an omitted key: an `undefined` value is persisted
+  // as `null`, which publish reads as "provided, empty" (no rollback anchor).
+  it("omits startActions and endActions when the input does not provide them", () => {
+    const action = normalizeInlineRampSchedule({ steps: [] }, "r1");
+    expect("startActions" in action).toBe(false);
+    expect("endActions" in action).toBe(false);
+    expect(action).toMatchObject({ mode: "create", ruleId: "r1", steps: [] });
+  });
+
+  it("normalizes provided startActions and endActions into feature-rule actions", () => {
+    const action = normalizeInlineRampSchedule(
+      {
+        steps: [],
+        startActions: [{ patch: { coverage: 0 } }],
+        endActions: [{ targetId: "t1", patch: { coverage: 1 } }],
+      },
+      "r1",
+    );
+    expect(action.startActions).toEqual([
+      { targetType: "feature-rule", targetId: "", patch: { coverage: 0 } },
+    ]);
+    expect(action.endActions).toEqual([
+      { targetType: "feature-rule", targetId: "t1", patch: { coverage: 1 } },
+    ]);
   });
 });
