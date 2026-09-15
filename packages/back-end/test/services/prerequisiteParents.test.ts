@@ -62,9 +62,7 @@ describe("assertValidPrerequisiteParents", () => {
       assertValidPrerequisiteParents(ctx, flag("c", "n0")),
     ).rejects.toThrow(/too deep/);
   });
-});
 
-describe("assertValidPrerequisiteParents value types", () => {
   const str = { ...flag("str"), valueType: "string" } as FeatureInterface;
 
   it("requires a boolean parent only for top-level prerequisites", async () => {

@@ -38,8 +38,8 @@ function prerequisiteIdsOf(feature: PrerequisiteHolder): Set<string> {
   ]);
 }
 
-function newIds(candidate: Set<string>, prior: Set<string>): string[] {
-  return [...candidate].filter((id) => !prior.has(id));
+function newIds(candidate: Set<string>, prior: Set<string>): Set<string> {
+  return new Set([...candidate].filter((id) => !prior.has(id)));
 }
 
 // One query per hop; a real prerequisite chain is a handful deep, so a walk
@@ -128,11 +128,7 @@ export async function assertValidPrerequisiteParents(
     );
   }
 
-  const parents = await loadValidParents(
-    context,
-    added,
-    new Set(addedTopLevel),
-  );
+  const parents = await loadValidParents(context, added, addedTopLevel);
   const graph = await loadPrerequisiteAncestors(context, parents);
   graph.set(candidate.id, candidate);
   if (isFeatureCyclic(candidate, graph)[0]) {
