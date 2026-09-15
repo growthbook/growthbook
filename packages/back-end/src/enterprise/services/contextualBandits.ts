@@ -64,21 +64,17 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import {
-  assertCanAutoPublishForContextualBandit,
   generateRuleId,
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
+  revisionRequiresReview,
 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
-import {
-  ApprovalRequiredError,
-  BadRequestError,
-  NotFoundError,
-} from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   PendingDraftFailure,
   PendingDraftFailureReason,
@@ -227,10 +223,21 @@ async function publishContextualBanditRevision({
   comment: string;
   audit: (input: AuditInterfaceInput) => Promise<void>;
 }): Promise<{ pendingApproval: boolean }> {
-  try {
-    await assertCanAutoPublishForContextualBandit(context, feature, revision);
-  } catch (err) {
-    if (!(err instanceof ApprovalRequiredError)) throw err;
+  const requireReviews = context.org.settings?.requireReviews;
+  const reviewsConfigured =
+    context.hasPremiumFeature("require-approvals") &&
+    (requireReviews === true ||
+      (Array.isArray(requireReviews) &&
+        requireReviews.some((r) => r?.requireReviewOn)));
+  const requiresReview = await revisionRequiresReview(
+    context,
+    feature,
+    revision,
+    {
+      treatUnresolvedBaseAsReview: reviewsConfigured,
+    },
+  );
+  if (requiresReview && revision.status !== "approved") {
     context.logger.warn(
       { featureId: feature.id, revisionVersion: revision.version },
       "Auto-publish requires approval; revision left staged for review",

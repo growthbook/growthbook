@@ -14,11 +14,10 @@ import { CasConflictError } from "back-end/src/models/BaseModel";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import {
-  assertCanAutoPublishForContextualBandit,
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
+  revisionRequiresReview,
 } from "back-end/src/services/features";
-import { ApprovalRequiredError } from "back-end/src/util/errors";
 import {
   getRevision,
   updateRevision,
@@ -62,7 +61,7 @@ jest.mock("back-end/src/services/features", () => ({
   queueSDKPayloadRefresh: jest.fn(),
   generateRuleId: jest.fn(() => "fr_new"),
   getDraftRevision: jest.fn(),
-  assertCanAutoPublishForContextualBandit: jest.fn(),
+  revisionRequiresReview: jest.fn().mockResolvedValue(false),
   getLiveAndBaseRevisionsForFeature: jest.fn(),
 }));
 
@@ -137,10 +136,8 @@ const publishRevisionMock = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
 const getFeatureMock = getFeature as jest.Mock;
-const assertCanAutoPublishForContextualBanditMock =
-  assertCanAutoPublishForContextualBandit as jest.MockedFunction<
-    typeof assertCanAutoPublishForContextualBandit
-  >;
+const revisionRequiresReviewMock =
+  revisionRequiresReview as jest.MockedFunction<typeof revisionRequiresReview>;
 const publishPendingDraftsMock =
   publishPendingFeatureDraftsForContextualBandit as jest.Mock;
 const getLiveAndBaseRevisionsMock =
@@ -806,12 +803,9 @@ describe("executeContextualBanditVariationChange", () => {
   it("stages the rule change for review when the linked feature requires approval, even for a caller who could bypass", async () => {
     const feature = makeFeature();
     getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(feature)]);
-    // The approval flow wins over `bypassApprovalChecks` on an implicit publish.
-    assertCanAutoPublishForContextualBanditMock.mockRejectedValueOnce(
-      new ApprovalRequiredError(
-        "Draft #4 of feature requires approval before it can be published.",
-      ),
-    );
+    // The approval flow wins over `bypassApprovalChecks` on an implicit publish:
+    // review is required and the staged draft isn't approved -> stays staged.
+    revisionRequiresReviewMock.mockResolvedValueOnce(true);
     const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
     const { context } = makeContext(cb);
 
@@ -824,10 +818,13 @@ describe("executeContextualBanditVariationChange", () => {
         }),
       );
 
-    expect(assertCanAutoPublishForContextualBanditMock).toHaveBeenCalledWith(
+    expect(revisionRequiresReviewMock).toHaveBeenCalledWith(
       context,
       expect.objectContaining({ id: "feature" }),
       expect.anything(),
+      expect.objectContaining({
+        treatUnresolvedBaseAsReview: expect.any(Boolean),
+      }),
     );
     // ...so nothing published, and the one staged draft is kept (no re-stage).
     expect(publishRevisionMock).not.toHaveBeenCalled();

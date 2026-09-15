@@ -12,11 +12,10 @@ import {
   updateContextualBanditFeatureRule,
 } from "back-end/src/enterprise/services/contextualBandits";
 import {
-  assertCanAutoPublishForContextualBandit,
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
+  revisionRequiresReview,
 } from "back-end/src/services/features";
-import { ApprovalRequiredError } from "back-end/src/util/errors";
 import {
   getLinkageSyncRevisionSummaries,
   getRevision,
@@ -28,7 +27,7 @@ import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureCo
 jest.mock("back-end/src/services/features", () => ({
   generateRuleId: jest.fn(() => "fr_new"),
   getDraftRevision: jest.fn(),
-  assertCanAutoPublishForContextualBandit: jest.fn(),
+  revisionRequiresReview: jest.fn().mockResolvedValue(false),
   getLiveAndBaseRevisionsForFeature: jest.fn(),
   queueSDKPayloadRefresh: jest.fn(),
 }));
@@ -93,10 +92,8 @@ const updateRevisionMock = updateRevision as jest.MockedFunction<
 const getRevisionMock = getRevision as jest.MockedFunction<typeof getRevision>;
 const getLinkageSyncRevisionSummariesMock =
   getLinkageSyncRevisionSummaries as jest.Mock;
-const assertCanAutoPublishForContextualBanditMock =
-  assertCanAutoPublishForContextualBandit as jest.MockedFunction<
-    typeof assertCanAutoPublishForContextualBandit
-  >;
+const revisionRequiresReviewMock =
+  revisionRequiresReview as jest.MockedFunction<typeof revisionRequiresReview>;
 const publishRevisionMock = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
@@ -556,9 +553,8 @@ describe("unlinkFeatureFromContextualBandit", () => {
   it("stages the removal instead of losing it when the publish needs approval", async () => {
     const liveRule = cbRefRule("fr_1", "cb_1");
     getDraftRevisionMock.mockResolvedValue(makeRevision({ rules: [liveRule] }));
-    assertCanAutoPublishForContextualBanditMock.mockRejectedValueOnce(
-      new ApprovalRequiredError("Draft #4 of feat_1 requires approval"),
-    );
+    // Review required and the staged draft isn't approved -> stays staged.
+    revisionRequiresReviewMock.mockResolvedValueOnce(true);
 
     const result = await unlinkFeatureFromContextualBandit({
       context: makeContext(),
