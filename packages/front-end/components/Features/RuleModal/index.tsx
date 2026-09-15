@@ -26,12 +26,13 @@ import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import {
+  ACTIVE_DRAFT_STATUSES,
   CreateSafeRolloutInterface,
-  SafeRolloutInterface,
-  SafeRolloutRule,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
+  SafeRolloutInterface,
+  SafeRolloutRule,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
@@ -595,10 +596,14 @@ export default function RuleModal({
   // draft branched from the viewed version carries that holdout forward).
   const revisionsCtx = useFeatureRevisionsContext();
   // The draft the rule is written into (it may differ from the viewed one) and
-  // the revision that draft was created from.
-  const targetDraft =
-    revisionsCtx?.revisions.find((r) => r.version === targetVersion) ??
-    draftRevision;
+  // the revision that draft was created from. Only an active draft counts: a
+  // discarded or published revision's envelope is not what the save lands in.
+  const isActiveDraft = (r: FeatureRevisionInterface | null | undefined) =>
+    !!r && (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
+  const targetDraft = [
+    revisionsCtx?.revisions.find((r) => r.version === targetVersion),
+    draftRevision,
+  ].find(isActiveDraft);
   const targetDraftBase = revisionsCtx?.revisions.find(
     (r) => r.version === targetDraft?.baseVersion,
   );
