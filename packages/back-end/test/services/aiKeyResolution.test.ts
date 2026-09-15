@@ -1,5 +1,5 @@
 import { AICredentialInterface } from "shared/validators";
-import { AIProvider } from "shared/ai";
+import { AI_PROVIDER_META, AI_PROVIDERS, AIProvider } from "shared/ai";
 
 // Env vars are captured at module load in util/secrets, so they have to be set
 // before the module graph is required. Each test builds its own module instance
@@ -13,12 +13,10 @@ type AIKeyContext = Parameters<AICredentialsModule["getResolvedAIKeys"]>[0];
 // leaks in as a deployment-level key and outranks the stored credential when
 // self-hosted, failing locally while CI's clean env passes.
 const AI_ENV_VARS = [
-  "OPENAI_API_KEY",
-  "ANTHROPIC_API_KEY",
-  "XAI_API_KEY",
-  "MISTRAL_API_KEY",
-  "GOOGLE_AI_API_KEY",
-  "GEMINI_API_KEY",
+  ...AI_PROVIDERS.flatMap((provider) => [
+    AI_PROVIDER_META[provider].envVar,
+    ...(AI_PROVIDER_META[provider].legacyEnvVars ?? []),
+  ]),
   "IS_CLOUD",
 ];
 
