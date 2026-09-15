@@ -484,3 +484,10 @@ ul.sidebar-group > li[data-title="GrowthBook Guide"] {
 .chat-assistant-send-button {
   display: none !important;
 }
+
+/* Mintlify markdown tables ship [&_td]:min-w-[150px] on every cell, which
+   wraps identifier columns (tool names, env vars). Only bump the first
+   column; 200px on every td blows out 4+ column tables under the TOC. */
+.\[\&_td\]\:min-w-\[150px\] td:first-child {
+  min-width: 200px !important;
+}
