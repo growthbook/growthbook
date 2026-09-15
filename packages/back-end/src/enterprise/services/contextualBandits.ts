@@ -1047,12 +1047,14 @@ export async function executeContextualBanditVariationChange(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
   args: {
-    addVariations?: Array<
-      Omit<Variation, "screenshots"> & {
-        screenshots?: Variation["screenshots"];
-        values?: Record<string, string>;
-      }
-    >;
+    addVariations?: Array<{
+      id?: string;
+      name: string;
+      description?: string;
+      key?: string;
+      screenshots?: Variation["screenshots"];
+      values?: Record<string, string>;
+    }>;
     removeVariationIds?: string[];
     updateVariations?: Array<{
       id: string;
@@ -1152,7 +1154,7 @@ export async function executeContextualBanditVariationChange(
     (v) => {
       const id = v.id || generateVariationId();
       const keyIsAutoFilled = !v.key || v.key === v.id;
-      const key = keyIsAutoFilled ? nextKey() : v.key;
+      const key = keyIsAutoFilled || !v.key ? nextKey() : v.key;
       if (v.values) {
         for (const [featureId, value] of Object.entries(v.values)) {
           newVariationValues[featureId] = newVariationValues[featureId] ?? {};
