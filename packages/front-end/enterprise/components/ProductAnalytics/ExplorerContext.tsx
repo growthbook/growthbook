@@ -805,6 +805,8 @@ export function ExplorerProvider({
     const deferFunnelFetchUntilManualRefresh =
       draftIsFunnel &&
       !isManagedWarehouse &&
+      // The metric editor already gates mounting the preview on Run query.
+      trackingSource !== "metric-preview" &&
       needsFetch &&
       !onlyComparisonChanged;
 
@@ -835,6 +837,7 @@ export function ExplorerProvider({
     }
   }, [
     needsFetch,
+    trackingSource,
     needsUpdate,
     doSubmit,
     baselineConfig,
