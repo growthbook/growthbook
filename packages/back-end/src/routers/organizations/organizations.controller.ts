@@ -32,7 +32,6 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
-import { assertApprovalRuleReferencesExist } from "back-end/src/services/approvalRuleReferences";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   assertNamespaceHashAttributeChangeAllowed,
@@ -1790,25 +1789,21 @@ export async function putOrganization(
       orig.externalId = org.externalId;
     }
     if (settings) {
-      if (settings.targetingReviewMode) {
-        await assertApprovalRuleReferencesExist(
-          context,
-          settings.targetingReviewMode,
-        );
-        assertTargetingRulesDisjoint(settings.targetingReviewMode);
+      // Drops rule references to deleted teams, environments, and projects, so
+      // the settings UI's "Saving removes it" note is true and a stale
+      // round-tripped rule can never block the save.
+      const pruned = pruneApprovalRuleReferences(
+        normalizeApprovalRuleSettings(settings),
+        {
+          environments: (org.settings?.environments ?? []).map((e) => e.id),
+          teams: (context.teams ?? []).map((t) => t.id),
+          projects: await context.getAllProjectIds(),
+        },
+      );
+      if (pruned.targetingReviewMode) {
+        assertTargetingRulesDisjoint(pruned.targetingReviewMode);
       }
-      updates.settings = {
-        ...org.settings,
-        // Drops rule references to deleted teams/environments, so the settings
-        // UI's "Saving removes it" note is true.
-        ...pruneApprovalRuleReferences(
-          normalizeApprovalRuleSettings(settings),
-          {
-            environments: (org.settings?.environments ?? []).map((e) => e.id),
-            teams: (context.teams ?? []).map((t) => t.id),
-          },
-        ),
-      };
+      updates.settings = { ...org.settings, ...pruned };
       orig.settings = org.settings;
     }
 

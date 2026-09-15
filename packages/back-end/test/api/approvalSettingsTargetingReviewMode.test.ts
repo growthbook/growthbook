@@ -32,6 +32,8 @@ const api = {
     request(app).post(path).send(body).set("Authorization", "Bearer x"),
   put: (path: string, body: Record<string, unknown>) =>
     request(app).put(path).send(body).set("Authorization", "Bearer x"),
+  delete: (path: string) =>
+    request(app).delete(path).set("Authorization", "Bearer x"),
 };
 
 beforeEach(() => setReqContext(makePersonaContext(org, "admin", "u_admin")));
@@ -75,5 +77,25 @@ describe("PUT /settings/approvals targetingReviewMode", () => {
     expect(res.body.targetingReviewMode).toEqual(
       org.settings?.targetingReviewMode ?? [],
     );
+  });
+
+  it("forgets a project's rule when the project is deleted", async () => {
+    const created = await api.post("/api/v1/projects", { name: "Short lived" });
+    const id = (created.body as { project: { id: string } }).project.id;
+    const put = await api.put("/api/v1/settings/approvals", {
+      targetingReviewMode: [{ projects: [id], mode: "loose" }],
+    });
+    expect(put.status).toBe(200);
+
+    const deleted = await api.delete(`/api/v1/projects/${id}`);
+    expect(deleted.status).toBe(200);
+
+    const settings = await api.get("/api/v1/settings");
+    const rules = (
+      settings.body as {
+        settings: { targetingReviewMode: { projects: string[] }[] };
+      }
+    ).settings.targetingReviewMode;
+    expect(rules.some((r) => r.projects.includes(id))).toBe(false);
   });
 });

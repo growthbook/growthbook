@@ -359,11 +359,8 @@ describe("putOrganization targetingReviewMode", () => {
     });
   });
 
-  it("refuses a rule naming a project that does not exist", async () => {
+  it("drops a rule naming a project that no longer exists instead of refusing the save", async () => {
     const captured = await put([{ projects: ["prj_nope"], mode: "loose" }]);
-    expect(captured.status).toBe(400);
-    expect(captured.body).toMatchObject({
-      message: "prj_nope is not a valid project ID.",
-    });
+    expect(captured.status).toBe(200);
   });
 });

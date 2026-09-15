@@ -1,3 +1,5 @@
+import { isEqual } from "lodash";
+import { pruneApprovalRuleReferences } from "shared/util";
 import {
   ManagedBy,
   ProjectInterface,
@@ -12,6 +14,7 @@ import {
   pruneDefinitionsVersionProject,
   touchDefinitionsVersion,
 } from "./DefinitionsVersionModel";
+import { updateOrganization } from "./OrganizationModel";
 import { MakeModelClass } from "./BaseModel";
 
 function slugify(text: string): string {
@@ -100,6 +103,17 @@ export class ProjectModel extends BaseClass {
     // Drop the deleted project's definitions-version counter; the delete
     // itself bumps globally via affectsDefinitionsVersion.
     await pruneDefinitionsVersionProject(this.context.org.id, doc.id);
+    // Approval rules naming the project would otherwise block later settings
+    // saves once the dashboard round-trips them.
+    const settings = this.context.org.settings ?? {};
+    const pruned = pruneApprovalRuleReferences(settings, {
+      projects: (await this.context.getAllProjectIds()).filter(
+        (id) => id !== doc.id,
+      ),
+    });
+    if (!isEqual(pruned, settings)) {
+      await updateOrganization(this.context.org.id, { settings: pruned });
+    }
   }
 
   protected migrate(doc: MigratedProject) {
