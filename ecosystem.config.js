@@ -23,11 +23,9 @@ module.exports = {
     {
       name: "front-end",
       script: "node_modules/next/dist/bin/next",
-      // Next ignores keepAliveTimeout unless it is passed here, leaving Node's
-      // 5s default. Same env var and default as the back-end reads in secrets.ts.
-      args: `start --keepAliveTimeout ${
-        process.env.KEEP_ALIVE_TIMEOUT_MS || 60 * 60 * 1000 + 5000
-      }`,
+      // Deliberately no --keepAliveTimeout: raising it past the ALB's idle
+      // timeout would hang Next's shutdown, which only drops idle sockets in dev.
+      args: "start",
       cwd: "./packages/front-end",
       autorestart: process.env.PM2_AUTORESTART === "true",
       max_memory_restart: process.env.PM2_MAX_MEMORY_RESTART || "6G",
