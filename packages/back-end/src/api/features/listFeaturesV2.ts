@@ -34,6 +34,7 @@ export const listFeaturesV2 = createApiRequestHandler(listFeaturesV2Validator)(
                 x.featureId === feature.id && x.version === feature.version,
             ) || null;
           return getApiFeatureObjV2({
+            savedGroupFormat: req.query.savedGroupFormat,
             feature,
             organization: req.organization,
             groupMap: r.groupMap,
