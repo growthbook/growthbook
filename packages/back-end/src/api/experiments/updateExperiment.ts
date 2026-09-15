@@ -221,23 +221,23 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
-    // A body without any ids keeps the stored ids, as an echoed GET does
-    // through `variationId`; freshly minted ids would read as a change to
-    // every linked feature rule. Matched by key, or by position when the keys
-    // themselves were renamed.
+    // An omitted id keeps the stored one, as an echoed GET does through
+    // `variationId`; a freshly minted id would read as a change to every
+    // linked feature rule. Filled from the stored variation with the same
+    // key, else the same position, unless another variation claims that id.
     const inbound = req.body.variations;
-    if (
-      inbound.length === experiment.variations.length &&
-      inbound.every((v) => !v.id && !v.variationId)
-    ) {
+    if (inbound.length === experiment.variations.length) {
+      const claimed = new Set(inbound.map((v) => v.id || v.variationId));
       const idByKey = new Map(experiment.variations.map((v) => [v.key, v.id]));
-      const sameKeys =
-        new Set(inbound.map((v) => v.key)).size === inbound.length &&
-        inbound.every((v) => idByKey.has(v.key));
       inbound.forEach((v, i) => {
-        v.variationId = sameKeys
-          ? idByKey.get(v.key)
-          : experiment.variations[i].id;
+        if (v.id || v.variationId) return;
+        const stored = [idByKey.get(v.key), experiment.variations[i].id].find(
+          (id) => id && !claimed.has(id),
+        );
+        if (stored) {
+          v.variationId = stored;
+          claimed.add(stored);
+        }
       });
     }
     validateVariationIds(inbound);

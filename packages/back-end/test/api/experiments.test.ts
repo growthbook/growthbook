@@ -1349,12 +1349,12 @@ describe("experiments API", () => {
       };
       (getExperimentById as jest.Mock).mockResolvedValue(stored);
       (updateExperiment as jest.Mock).mockResolvedValue(stored);
-      // Reordered and renamed: ids follow the keys.
+      // Reordered, renamed, and one id given: the omitted id follows its key.
       await request(app)
         .post("/api/v1/experiments/exp_123")
         .send({
           variations: [
-            { key: "1", name: "Variation" },
+            { id: "var_b", key: "1", name: "Variation" },
             { key: "0", name: "Control renamed" },
           ],
         })
