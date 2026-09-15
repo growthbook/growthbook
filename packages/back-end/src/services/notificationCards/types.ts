@@ -38,6 +38,9 @@ export interface CardGoalRow {
   dir?: "up" | "down";
   vio?: { c: number; s: number }; // violin center (lift %) + spread
   ci?: { lo: number; hi: number; pt: number };
+  // Significance of the stat in `ctw` (chance to win, or p-value for
+  // frequentist tests). Drives the stat color together with `dir`.
+  sig?: boolean;
   muted?: boolean;
 }
 
@@ -68,11 +71,14 @@ export interface CardIdentity {
   tags?: string[];
   dates?: string;
   badgeLabel?: string; // overrides the state badge text, e.g. a stopped card with no outcome
+  // Headline for a full-width banner in the card's state color. When set, the
+  // detailed card drops the state badge and the compact banner reuses the text.
+  banner?: string;
 }
 
 // Built from an immutable event payload alone; carries no metric results.
 export interface EventCardData extends CardIdentity {
-  summary: string[];
+  summary?: string[];
   table?: CardTable;
 }
 
@@ -102,6 +108,8 @@ export interface ExperimentCardData extends CardIdentity {
   p?: string;
   winningVariation?: string;
   winningVariationIndex?: number;
+  // Labels the stat column: "Chance" for bayesian, "P-value" for frequentist.
+  statsEngine?: "bayesian" | "frequentist";
   compactLine?: string; // one-line conclusion fallback for outcome events
 }
 

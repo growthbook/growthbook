@@ -43,7 +43,7 @@ describe("renderNotificationCard", () => {
         event: "warning",
         state: "warning",
         key: "exp-1",
-        summary: ["Sample ratio mismatch detected."],
+        banner: "Health Alert - SRM Detected",
       }),
       "compact",
     );
@@ -103,6 +103,215 @@ describe("renderNotificationCard", () => {
       expect(renderCard).not.toHaveBeenCalled();
     },
   );
+
+  it("renders the started card with a banner and the launch summary", async () => {
+    await expect(
+      renderNotificationCard(
+        notification("experiment.status.started", {
+          type: "started",
+          experimentId: "exp-1",
+          experimentName: "Checkout",
+          linkedFeatureCount: 1,
+          phaseName: "Main phase",
+          goalMetricNames: ["Conversion", "Revenue", "Retention", "NPS"],
+        }),
+        "detailed",
+      ),
+    ).resolves.toMatchObject({
+      altText: "Checkout - Experiment started",
+      eventLabel: "Experiment started",
+      objectName: "Checkout",
+    });
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: "started",
+        event: "started",
+        banner: "Experiment Started",
+        summary: [
+          "Started with 1 linked Feature Flag.",
+          "Goal metrics: Conversion, Revenue, Retention (+1 more)",
+        ],
+      }),
+      "detailed",
+    );
+  });
+
+  it("renders the stopped card without claiming an outcome that was not recorded", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        enableTemporaryRollout: false,
+      }),
+      "compact",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: "stopped",
+        event: "stopped",
+        banner: "Experiment Stopped",
+        summary: ["Experiment stopped."],
+      }),
+      "compact",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.not.objectContaining({ rows: expect.anything() }),
+      "compact",
+    );
+  });
+
+  it("renders goal metric results as a winner card when the payload carries them", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "won",
+        enableTemporaryRollout: false,
+        winningVariationName: "Treatment",
+        winningVariationIndex: 1,
+        totalUsers: 20000,
+        durationDays: 21,
+        goalMetric: {
+          metricId: "m1",
+          metricName: "Conversion",
+          snapshotId: "snp-1",
+          statsEngine: "bayesian",
+          differenceType: "relative",
+          control: {
+            variationId: "v0",
+            variationName: "Control",
+            users: 10000,
+            value: 0.05,
+            formattedValue: "5.00%",
+          },
+          variations: [
+            {
+              variationId: "v1",
+              variationName: "Treatment",
+              variationIndex: 1,
+              users: 10000,
+              value: 0.055,
+              formattedValue: "5.50%",
+              uplift: 0.1,
+              upliftStddev: 0.02,
+              ci: [0.06, 0.14],
+              chanceToWin: 0.98,
+            },
+          ],
+        },
+      }),
+      "compact",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: "winner",
+        event: "won",
+        banner: "Experiment Stopped - Winner",
+        goal: "Conversion",
+        variants: ["Control", "Treatment"],
+        users: "20K",
+        days: "21 days",
+        winningVariation: "Treatment",
+        winningVariationIndex: 1,
+        rows: [
+          expect.objectContaining({
+            v: "Treatment",
+            i: 1,
+            ctrl: "5.00%",
+            vr: "5.50%",
+            ctw: "98.0%",
+            sig: true,
+            chg: "+10%",
+            dir: "up",
+            vio: { c: 10, s: 2 },
+            ci: { lo: 6, hi: 14, pt: 10 },
+          }),
+        ],
+      }),
+      "compact",
+    );
+  });
+
+  it("reports a stop result and temporary rollout from the payload", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "inconclusive",
+        enableTemporaryRollout: true,
+        releasedVariationName: "Control",
+      }),
+      "compact",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        banner: "Experiment Stopped - Inconclusive",
+        summary: [
+          "Experiment stopped. Result: inconclusive.",
+          "Temporary rollout: Control",
+        ],
+      }),
+      "compact",
+    );
+  });
+
+  it("shows the p-value instead of chance to win for frequentist results", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "lost",
+        enableTemporaryRollout: false,
+        goalMetric: {
+          metricId: "m1",
+          metricName: "Conversion",
+          snapshotId: "snp-1",
+          statsEngine: "frequentist",
+          differenceType: "relative",
+          control: {
+            variationId: "v0",
+            variationName: "Control",
+            value: 0.05,
+            formattedValue: "5.00%",
+          },
+          variations: [
+            {
+              variationId: "v1",
+              variationName: "Treatment",
+              variationIndex: 1,
+              value: 0.046,
+              formattedValue: "4.60%",
+              uplift: -0.08,
+              ci: [-0.12, -0.04],
+              pValue: 0.0004,
+            },
+          ],
+        },
+      }),
+      "detailed",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: "loser",
+        event: "lost",
+        banner: "Experiment Stopped - Lost",
+        statsEngine: "frequentist",
+        rows: [
+          expect.objectContaining({
+            ctw: "<0.001",
+            sig: true,
+            chg: "-8%",
+            dir: "down",
+          }),
+        ],
+      }),
+      "detailed",
+    );
+  });
 
   it("leaves events with no producer as text", async () => {
     await expect(

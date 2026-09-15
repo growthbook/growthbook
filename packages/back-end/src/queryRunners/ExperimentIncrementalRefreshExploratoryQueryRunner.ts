@@ -1,3 +1,4 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   ExperimentMetricInterface,
   getFactMetricFactTableIds,
@@ -540,12 +541,14 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     runStarted,
     result,
     error,
+    failureCause,
   }: {
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
     result?: SnapshotResult;
     error?: string;
+    failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -563,6 +566,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       context: this.context,
       id: this.model.id,
       updates,
+      failureCause,
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (

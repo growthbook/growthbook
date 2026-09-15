@@ -1,8 +1,8 @@
 import { memoizeNotification } from "back-end/src/services/experimentNotifications";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { setExperimentNotificationState } from "back-end/src/models/ExperimentModel";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
-  updateExperiment: jest.fn(),
+  setExperimentNotificationState: jest.fn(),
 }));
 
 describe("memoizeNotification", () => {
@@ -17,8 +17,9 @@ describe("memoizeNotification", () => {
     });
 
     expect(dispatch).toHaveBeenCalled();
-    expect(updateExperiment).toHaveBeenCalledWith({
-      changes: { pastNotifications: ["foo"] },
+    expect(setExperimentNotificationState).toHaveBeenCalledWith({
+      type: "foo",
+      triggered: true,
       context: "da-context",
       experiment: { id: "da-experiment" },
     });
@@ -35,7 +36,7 @@ describe("memoizeNotification", () => {
     });
 
     expect(dispatch).not.toHaveBeenCalled();
-    expect(updateExperiment).not.toHaveBeenCalledWith();
+    expect(setExperimentNotificationState).not.toHaveBeenCalledWith();
   });
 
   it("calls the handler when notification is not triggered and it was previously dispatched", async () => {
@@ -49,8 +50,9 @@ describe("memoizeNotification", () => {
     });
 
     expect(dispatch).toHaveBeenCalled();
-    expect(updateExperiment).toHaveBeenCalledWith({
-      changes: { pastNotifications: ["bla"] },
+    expect(setExperimentNotificationState).toHaveBeenCalledWith({
+      type: "foo",
+      triggered: false,
       context: "da-context",
       experiment: { id: "da-experiment", pastNotifications: ["foo", "bla"] },
     });
@@ -67,6 +69,6 @@ describe("memoizeNotification", () => {
     });
 
     expect(dispatch).not.toHaveBeenCalled();
-    expect(updateExperiment).not.toHaveBeenCalledWith();
+    expect(setExperimentNotificationState).not.toHaveBeenCalledWith();
   });
 });

@@ -1,3 +1,4 @@
+import type { QueryRunnerFailureCause } from "shared/types/query";
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
@@ -24,6 +25,7 @@ import {
   AnalysisMetaEntry,
   buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
+import { notifySnapshotUpdateFailure } from "back-end/src/services/experimentSnapshotNotifications";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
@@ -428,11 +430,13 @@ export async function updateSnapshot({
   context,
   id,
   updates,
+  failureCause,
   experimentUpdateExecutionLogger,
 }: {
   context: Context;
   id: string;
   updates: Partial<ExperimentSnapshotInterface>;
+  failureCause?: QueryRunnerFailureCause;
   experimentUpdateExecutionLogger?: ExperimentUpdateExecutionLogger | null;
 }) {
   const organization = context.org.id;
@@ -536,6 +540,18 @@ export async function updateSnapshot({
 
     if (experimentSnapshot.hasChunkedAnalyses && !chunkResult) {
       await populateSnapshotAnalyses(context, experimentSnapshot);
+    }
+
+    if (
+      (experimentSnapshot.status === "error" &&
+        existingInterface.status !== "error") ||
+      (hasAnalysisUpdates && experimentSnapshot.status === "success")
+    ) {
+      await notifySnapshotUpdateFailure({
+        context,
+        snapshot: experimentSnapshot,
+        failureCause,
+      });
     }
 
     const shouldUpdateExperimentAnalysisSummary =
@@ -1018,16 +1034,24 @@ export async function errorSnapshotIfStillRunning(
   context: Context,
   id: string,
   updates: Partial<ExperimentSnapshotInterface>,
+  failureCause: QueryRunnerFailureCause = "analysis",
 ): Promise<boolean> {
-  const res = await ExperimentSnapshotModel.updateOne(
+  const updated = await ExperimentSnapshotModel.findOneAndUpdate(
     {
       organization: context.org.id,
       id,
       status: "running",
     },
     { $set: { ...updates, status: "error" } },
+    { new: true },
   );
-  return res.modifiedCount > 0;
+  if (!updated) return false;
+  await notifySnapshotUpdateFailure({
+    context,
+    snapshot: toInterface(updated),
+    failureCause,
+  });
+  return true;
 }
 
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(

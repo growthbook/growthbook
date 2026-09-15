@@ -16,6 +16,7 @@ type SrmPayload = Extract<
 >;
 
 const LABEL = "Health issue";
+const BANNER = "Health Alert - SRM Detected";
 
 const numberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
@@ -66,7 +67,7 @@ export const buildExperimentSrmCard: NotificationCardProducer = (
       event: "warning",
       name: experimentName,
       key: experimentId,
-      summary: ["Sample ratio mismatch detected."],
+      banner: BANNER,
       ...(table ? { table } : {}),
     },
     altText: `${experimentName} - ${LABEL}`,

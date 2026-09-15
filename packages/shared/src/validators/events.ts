@@ -6,6 +6,11 @@ import {
   ResourceEvents,
   WebhookEntry,
 } from "shared/types/events/base-types";
+import {
+  holdoutCreatedNotificationPayload,
+  holdoutStatusChangedNotificationPayload,
+  holdoutNewLinkageNotificationPayload,
+} from "./holdout-notifications";
 import { apiExperimentValidator } from "./experiments";
 import { featureWebhookPayload } from "./feature-webhook-schemas";
 import {
@@ -48,6 +53,14 @@ import {
   experimentInfoScheduledStatusUpdate,
 } from "./experiment-info";
 import { experimentDecisionNotificationPayload } from "./experiment-decision";
+import {
+  experimentStartedNotificationPayload,
+  experimentStoppedNotificationPayload,
+  experimentEndingSoonNotificationPayload,
+  experimentStaleNotificationPayload,
+  experimentGuardrailFailedNotificationPayload,
+  experimentBanditChangedNotificationPayload,
+} from "./experiment-alerts";
 import { userLoginInterface } from "./users";
 import { apiSavedGroupValidator } from "./saved-group";
 import {
@@ -296,7 +309,36 @@ export const notificationEvents = {
     warning: {
       schema: experimentWarningNotificationPayload,
       description:
-        "Triggered when a warning condition is detected on an experiment",
+        "Triggered when a warning condition is detected on an experiment, such as a sample ratio mismatch, multiple exposures, low power, no data, or a failed results update. The `type` field identifies the condition.",
+    },
+    "status.started": {
+      schema: experimentStartedNotificationPayload,
+      description: "Triggered when an experiment starts or resumes running.",
+    },
+    "status.stopped": {
+      schema: experimentStoppedNotificationPayload,
+      description:
+        "Triggered when an experiment stops, including its result and any temporary rollout.",
+    },
+    "status.endingSoon": {
+      schema: experimentEndingSoonNotificationPayload,
+      description:
+        "Triggered when a running experiment is nearing its scheduled end date.",
+    },
+    "status.stale": {
+      schema: experimentStaleNotificationPayload,
+      description:
+        "Triggered when a running experiment has been active for a long time without a decision.",
+    },
+    "metric.guardrailFailure": {
+      schema: experimentGuardrailFailedNotificationPayload,
+      description:
+        "Triggered when a running experiment has a failing guardrail metric.",
+    },
+    "bandit.weightsChanged": {
+      schema: experimentBanditChangedNotificationPayload,
+      description:
+        "Triggered when a multi-armed bandit materially changes variation weights.",
     },
     "info.significance": {
       schema: experimentInfoSignificance,
@@ -317,6 +359,23 @@ export const notificationEvents = {
     "decision.review": {
       schema: experimentDecisionNotificationPayload,
       description: `Triggered when an experiment has reached the desired power point, but the results may be ambiguous.`,
+    },
+  },
+  holdout: {
+    created: {
+      schema: holdoutCreatedNotificationPayload,
+      description:
+        "Triggered after a holdout and its backing experiment are created successfully.",
+    },
+    "status.changed": {
+      schema: holdoutStatusChangedNotificationPayload,
+      description:
+        "Triggered when a holdout changes between draft, running, analysis period, and stopped after the transition is saved.",
+    },
+    "config.newLinkage": {
+      schema: holdoutNewLinkageNotificationPayload,
+      description:
+        "Triggered when new Feature Flags or experiments are linked to a holdout. Contains only the newly added links.",
     },
   },
   savedGroup: {
@@ -614,7 +673,12 @@ export const notificationEventNames = (
   [] as NotificationEventName[],
 );
 
-/** Non-empty tuple for z.enum that avoids recursive union-to-tuple instantiation. */
+// Only use this for zod validations! Asserted to a non-empty tuple of the union
+// element type rather than `UnionToTuple<NotificationEventName>` — that maps a
+// union to an exact ordered tuple by recursing once per member, and the event
+// union has grown large enough to blow tsc's instantiation-depth limit (TS2589).
+// z.enum only needs `[string, ...string[]]`, and infers the same
+// `NotificationEventName` value type either way, so runtime behavior is identical.
 export const zodNotificationEventNamesEnum = notificationEventNames as [
   NotificationEventName,
   ...NotificationEventName[],

@@ -8,12 +8,24 @@ import type {
   NotificationCardProducer,
 } from "back-end/src/services/notificationCards/types";
 import { buildExperimentSrmCard } from "back-end/src/services/notificationCards/producers/experimentSrmCard";
+import { buildExperimentStartedCard } from "back-end/src/services/notificationCards/producers/experimentStartedCard";
+import { buildExperimentStoppedCard } from "back-end/src/services/notificationCards/producers/experimentStoppedCard";
 
 const PRODUCERS: Partial<
   Record<NotificationEventName, NotificationCardProducer>
 > = {
   "experiment.warning": buildExperimentSrmCard,
+  "experiment.status.started": buildExperimentStartedCard,
+  "experiment.status.stopped": buildExperimentStoppedCard,
 };
+
+// The card an event would produce, before rendering. Exposed for tests and
+// tooling that need the data without a PNG.
+export function buildNotificationCard(
+  event: NotificationEvent,
+): NotificationCard | null {
+  return PRODUCERS[event.event]?.(event) ?? null;
+}
 
 export type RenderedNotificationCard = Omit<NotificationCard, "data"> & {
   png: Buffer;
@@ -23,7 +35,7 @@ export async function renderNotificationCard(
   event: NotificationEvent,
   format: NotificationCardFormat,
 ): Promise<RenderedNotificationCard | null> {
-  const card = PRODUCERS[event.event]?.(event);
+  const card = buildNotificationCard(event);
   if (!card) return null;
   const { data, ...metadata } = card;
 

@@ -1,4 +1,4 @@
-import { buildExperimentSrmCard } from "back-end/src/services/notificationCards/producers/experimentSrmCard";
+import { buildNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import type {
   CardState,
   CompactEvent,
@@ -74,12 +74,12 @@ it.each(STATES)(
 
 describe("immutable event summary rendering", () => {
   it.each(notificationCardSamples)(
-    "renders compact and detailed $name cards without metric data",
+    "renders compact and detailed $name cards from the event payload",
     async ({ event }) => {
-      const card = buildExperimentSrmCard(event);
+      const card = buildNotificationCard(event);
       expect(card).not.toBeNull();
       if (!card) throw new Error("Missing event sample card");
-      expect(card.data).not.toHaveProperty("rows");
+      if ("rows" in card.data) expect(card.data.rows.length).toBeGreaterThan(0);
       for (const style of ["compact", "compact-dark", "detailed"] as const) {
         const png = await renderCard(card.data, style);
         expect(isPng(png)).toBe(true);

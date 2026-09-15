@@ -34,6 +34,8 @@ import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { getEvent } from "back-end/src/models/EventModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
+import { buildHoldoutAlertMessage } from "./holdoutAlerts";
+import { buildExperimentAlertMessage } from "./experimentAlerts";
 
 // region Filtering
 
@@ -99,6 +101,19 @@ export const getSlackMessageForNotificationEvent = async (
         event.data.object,
         eventId,
       );
+
+    case "experiment.status.started":
+    case "experiment.status.stopped":
+    case "experiment.status.endingSoon":
+    case "experiment.status.stale":
+    case "experiment.metric.guardrailFailure":
+    case "experiment.bandit.weightsChanged":
+      return buildExperimentAlertMessage(event);
+
+    case "holdout.created":
+    case "holdout.status.changed":
+    case "holdout.config.newLinkage":
+      return buildHoldoutAlertMessage(event);
 
     case "experiment.warning":
       return buildSlackMessageForExperimentWarningEvent(event.data.object);
@@ -1898,6 +1913,31 @@ const buildSlackMessageForExperimentWarningEvent = (
         : `Giving up after ${data.attempts} attempts; the schedule has been cleared and the experiment will not ${action} automatically.`;
       const text = (experimentName: string) =>
         `Scheduled ${action} for experiment ${experimentName} failed: ${data.reason}. ${tail}`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
+    case "update-failed": {
+      const cause = {
+        query: "database queries failed",
+        analysis: "analysis failed",
+        "no-queries": "no queries were generated",
+      }[data.cause];
+      const text = (experimentName: string) =>
+        `Results for experiment ${experimentName} failed to update because ${cause}.`;
 
       return {
         text: text(data.experimentName),
