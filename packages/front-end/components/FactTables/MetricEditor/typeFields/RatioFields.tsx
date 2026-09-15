@@ -6,6 +6,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 import DataList from "@/ui/DataList";
+import Badge from "@/ui/Badge";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
@@ -59,34 +60,32 @@ function RatioPart({
   if (!canEdit) {
     const agg = aggregationForShape(shape);
     return (
-      <Frame p="3" mb="0">
-        <Text weight="semibold" size="sm" mb="2" as="div">
-          {label}
-        </Text>
+      <Frame p="4" mb="0">
+        <Badge
+          label={label.toUpperCase()}
+          color="violet"
+          radius="small"
+          mb="4"
+        />
         <DataList
-          maxColumns={1}
+          columns={2}
+          mb="4"
           data={[
             {
-              label: "Fact Table",
+              label: "Fact table",
               value: <FactTableLink id={value.factTableId} />,
             },
             {
               label: "Value",
-              value: columnValueLabel(value.column, factTable),
+              value: (
+                <Text size="sm" color="text-mid">
+                  {columnValueLabel(value.column, factTable)}
+                  {agg ? ` - ${agg.toUpperCase()} per user` : ""}
+                </Text>
+              ),
             },
-            ...(agg
-              ? [
-                  {
-                    label: "Per-User Aggregation",
-                    value: agg.toUpperCase(),
-                  },
-                ]
-              : []),
           ]}
         />
-        <Text weight="semibold" size="sm" mt="2" as="div">
-          Row Filter
-        </Text>
         <FilterSummary
           rowFilters={value.rowFilters || []}
           factTable={factTable}
@@ -137,7 +136,7 @@ function RatioPart({
 // Ratio parts (spec): a Box per part, Shape (both sides also offer "Unique
 // users") + Column, denominator additionally offers a fact table override
 // when its shape isn't "users", and Row filters per part - unlike every
-// other type, which shares one Row Filters section after the type block.
+// other type, which shares one Row filters section after the type block.
 export default function RatioFields({
   numerator,
   onNumeratorChange,
