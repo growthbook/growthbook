@@ -12,7 +12,7 @@ import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
 } from "shared/enterprise";
-import { datetime, ago } from "shared/dates";
+import { datetime, ago, timezoneShortLabel } from "shared/dates";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiPencil,
@@ -233,7 +233,11 @@ export default function RevisionSummaryCard({
               <>
                 This <strong>draft</strong> is scheduled to publish on{" "}
                 <strong>
-                  {datetime(selectedRevision.scheduledPublishAt as Date)}
+                  {datetime(selectedRevision.scheduledPublishAt as Date)} (
+                  {timezoneShortLabel(
+                    selectedRevision.scheduledPublishAt as Date,
+                  )}
+                  )
                 </strong>
                 {awaitingApproval ? " once approved" : ""}
                 {lockClauses.length ? ` — ${lockClauses.join(" and ")}` : ""}
