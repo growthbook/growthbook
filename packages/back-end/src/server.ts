@@ -59,8 +59,12 @@ server.on("clientError", (err, socket) => {
     },
     "Client error before request was handled",
   );
-  // Registering this listener suppresses Node's default 400-and-destroy.
+  // Registering this listener suppresses Node's default response, so mirror it.
   if (code === "ECONNRESET" || !socket.writable) return;
+  if (code === "HPE_HEADER_OVERFLOW") {
+    socket.end("HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n");
+    return;
+  }
   socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
 });
 
