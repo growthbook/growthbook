@@ -63,13 +63,15 @@ const ProjectAccessSettings: FC<{
             await mutateDefinitions();
           }}
         >
-          <Checkbox
-            label="Restrict access"
-            description="Members need a role on this Project, assigned directly or through a team, to see it. Admins always keep access."
-            value={restrictAccess}
-            setValue={setRestrictAccess}
-            disabled={!canRestrictAccess}
-          />
+          <PremiumTooltip commercialFeature="advanced-permissions">
+            <Checkbox
+              label="Restrict access"
+              description="Members need a role on this Project, assigned directly or through a team, to see it. Admins always keep access."
+              value={restrictAccess}
+              setValue={setRestrictAccess}
+              disabled={!canRestrictAccess}
+            />
+          </PremiumTooltip>
           {restrictAccess && locksOutSelf ? (
             <Callout status="error" mt="3">
               You do not have a role on this Project, so you will lose access to
@@ -83,7 +85,7 @@ const ProjectAccessSettings: FC<{
           ) : null}
           <Checkbox
             mt="4"
-            label="Allow Targeting Projects"
+            label="Allow other Feature Flags to target this Project"
             description="Feature Flags owned by other Projects may add this Project to their Targeting Projects and be delivered to its SDK Connections. Turning this off blocks new targeting; existing targeting is kept."
             value={allowTargeting}
             setValue={setAllowTargeting}
@@ -99,25 +101,23 @@ const ProjectAccessSettings: FC<{
             <Text color="text-low">Restrict access</Text>
             <Text weight="medium">{project.restrictAccess ? "On" : "Off"}</Text>
             <Text color="text-low" ml="3">
-              Allow Targeting Projects
+              Allow other Feature Flags to target this Project
             </Text>
             <Text weight="medium">
               {project.allowTargeting !== false ? "On" : "Off"}
             </Text>
           </Flex>
-          <PremiumTooltip commercialFeature="advanced-permissions">
-            <Button
-              variant="ghost"
-              disabled={!canEdit || !canRestrictAccess}
-              onClick={() => {
-                setRestrictAccess(!!project.restrictAccess);
-                setAllowTargeting(project.allowTargeting !== false);
-                setModalOpen(true);
-              }}
-            >
-              Edit
-            </Button>
-          </PremiumTooltip>
+          <Button
+            variant="ghost"
+            disabled={!canEdit}
+            onClick={() => {
+              setRestrictAccess(!!project.restrictAccess);
+              setAllowTargeting(project.allowTargeting !== false);
+              setModalOpen(true);
+            }}
+          >
+            Edit
+          </Button>
         </Flex>
       </Frame>
     </>

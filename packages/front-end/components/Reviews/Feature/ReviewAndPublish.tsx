@@ -2,7 +2,9 @@ import {
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   holdsFeatureMoveDestination,
+  addedTargetingProjects,
   holdsTargetingDestination,
+  refusedTargetingProjects,
   withStagedTargeting,
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
@@ -1742,15 +1744,21 @@ export default function ReviewAndPublish({
   // re-verifies purity.
   // Separate so the blocker can name it: the fix differs (drop a Targeting
   // Project, or find someone who may target it).
+  const stagedTargeting = withStagedTargeting(
+    feature,
+    mergeResult?.success ? mergeResult.result.metadata : undefined,
+  );
   const holdsStagedTargeting = holdsTargetingDestination({
     permissions: permissionsUtil,
     optedOut: targetingOptOut,
     existing: feature,
-    proposed: withStagedTargeting(
-      feature,
-      mergeResult?.success ? mergeResult.result.metadata : undefined,
-    ),
+    proposed: stagedTargeting,
   });
+  const stagedTargetingOptedOut =
+    refusedTargetingProjects(
+      addedTargetingProjects(feature, stagedTargeting),
+      targetingOptOut,
+    ).length > 0;
   const hasPublishPermission =
     (permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
       (draftStagesRevert &&
@@ -3210,7 +3218,9 @@ export default function ReviewAndPublish({
                           <PermissionBlocker>
                             {holdsStagedTargeting
                               ? "You don't have permission to publish this draft."
-                              : "You don't have permission to target one or more of the Projects this draft adds. Remove them, or ask someone who can target them to publish."}
+                              : stagedTargetingOptedOut
+                                ? "One or more of the Projects this draft adds don't allow targeting from other Projects' Feature Flags. Remove them to publish."
+                                : "You don't have permission to target one or more of the Projects this draft adds. Remove them, or ask someone who can target them to publish."}
                           </PermissionBlocker>
                         )}
 

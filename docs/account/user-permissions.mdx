@@ -152,7 +152,7 @@ The setting is also available on the [REST API](/api#tag/projects) as the `restr
 Feature Flags owned by one project can be delivered into another through [Targeting Projects](/features/environments#delivering-a-feature-to-multiple-projects). Two things govern that, both on the receiving project:
 
 - **Permission.** Adding a project as a Targeting Project requires the `Target` permission (the `FlagsTarget` policy, included in `FlagsFullAccess`) in that project. Grant it on the receiving project, directly or through a team, to let flags from elsewhere reach it without granting anything on its own flags. Choosing All Projects requires `Target` with no project restriction.
-- **Allow Targeting Projects.** Each project's **Roles & Permissions** page also has an **Allow Targeting Projects** setting, on by default. Turning it off refuses new targeting (and All Projects) regardless of permission. Flags that already target the project keep doing so. Available on the [REST API](/api#tag/projects) as the `allowTargeting` field on projects.
+- **Allowing targeting from other projects.** Each project's **Roles & Permissions** page also has an **Allow other Feature Flags to target this Project** setting, on by default. Turning it off refuses new targeting (and All Projects) regardless of permission. Flags that already target the project keep doing so. Available on the [REST API](/api#tag/projects) as the `allowTargeting` field on projects.
 
 ### How does the Project Admin role work?
 
