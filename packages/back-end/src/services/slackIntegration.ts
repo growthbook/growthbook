@@ -8,6 +8,7 @@ import { z } from "zod";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import {
+  DEFAULT_NOTIFICATION_SETTINGS,
   SlackWorkspaceConnectionFrontEndInterface,
   SlackWorkspaceConnectionInterface,
 } from "shared/validators";
@@ -400,7 +401,7 @@ export const slackEventWebhookToIntegration = (
   tags: eventWebHook.tags,
   lastRunAt: eventWebHook.lastRunAt,
   lastState: eventWebHook.lastState,
-  slackOptions: eventWebHook.slackOptions,
+  notificationSettings: eventWebHook.notificationSettings,
   slack: eventWebHook.slack,
 });
 
@@ -524,7 +525,12 @@ export const updateSlackOAuthIntegration = async ({
   id: string;
   updates: Pick<
     EventWebHookInterface,
-    "enabled" | "events" | "projects" | "environments" | "tags" | "slackOptions"
+    | "enabled"
+    | "events"
+    | "projects"
+    | "environments"
+    | "tags"
+    | "notificationSettings"
   >;
 }): Promise<SlackOAuthIntegrationInterface | null> => {
   const eventWebHook = await getEventWebHookById(id, context.org.id);
@@ -636,7 +642,7 @@ const attachSlackOAuthCode = async ({
       method: "POST",
       headers: {},
       slack: getSlackMetadata(slackOAuthResponse),
-      slackOptions: { experimentCardFormat: "compact" },
+      notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
     });
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
@@ -914,7 +920,7 @@ export const addSlackChannelToWorkspace = async ({
         channelId: channel.id,
         channelName: channel.name,
       },
-      slackOptions: { experimentCardFormat: "compact" },
+      notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
     });
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;

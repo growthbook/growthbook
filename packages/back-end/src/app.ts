@@ -166,6 +166,7 @@ import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ram
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
+import { autoRunRouter } from "./routers/auto-run/auto-run.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
@@ -595,6 +596,7 @@ if (OAUTH_AS_ENABLED) {
 app.use(organizationsRouter);
 
 app.use("/environment", environmentRouter);
+app.use("/auto-runs", autoRunRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(
@@ -1046,7 +1048,7 @@ app.post(
 app.get("/features/meta-info", featuresController.getFeatureMetaInfo);
 app.get("/features/status", featuresController.getFeaturesStatus);
 app.get("/features/draft-states", featuresController.getFeatureDraftStates);
-app.get("/features/stale", featuresController.getFeaturesStaleStates);
+app.get("/features/health", featuresController.getFeaturesHealth);
 app.get("/features/dependents", featuresController.getFeaturesDependents);
 app.get("/features/content-search", featuresController.getFeatureContentSearch);
 app.get(
@@ -1054,10 +1056,6 @@ app.get(
   featuresController.getFeatureDependencyIndex,
 );
 app.get("/features/ramp-states", featuresController.getFeatureRampStates);
-app.get(
-  "/features/experiment-states",
-  featuresController.getFeatureExperimentStates,
-);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,

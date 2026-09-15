@@ -1,12 +1,28 @@
-export const experimentCardFormats = ["none", "compact", "detailed"] as const;
+import { z } from "zod";
 
-export const notificationCardKinds = [
-  "started",
-  "significance",
-  "won",
-  "lost",
-  "stopped",
-  "warning",
+export const notificationCardFormats = [
+  "compact",
+  "compact-dark",
+  "detailed",
 ] as const;
 
-export type NotificationCardKind = (typeof notificationCardKinds)[number];
+export const notificationCardFormatSchema = z.enum(notificationCardFormats);
+export type NotificationCardFormat = z.infer<
+  typeof notificationCardFormatSchema
+>;
+
+export const notificationSettingsSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text") }).strict(),
+  z
+    .object({
+      type: z.literal("image"),
+      cardFormat: notificationCardFormatSchema,
+    })
+    .strict(),
+]);
+export type NotificationSettings = z.infer<typeof notificationSettingsSchema>;
+
+export const DEFAULT_NOTIFICATION_SETTINGS = {
+  type: "image",
+  cardFormat: "compact",
+} satisfies NotificationSettings;

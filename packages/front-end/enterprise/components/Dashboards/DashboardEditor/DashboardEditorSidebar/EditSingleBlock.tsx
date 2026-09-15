@@ -814,7 +814,6 @@ export default function EditSingleBlock({
     <>
       {savedQuery && showDeleteSavedQueryConfirmation && (
         <Modal
-          useRadixButton={false}
           trackingEventModalType=""
           header={"Delete Saved Query?"}
           close={() => setShowDeleteSavedQueryConfirmation(false)}

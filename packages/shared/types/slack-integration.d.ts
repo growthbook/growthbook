@@ -18,19 +18,22 @@ export interface SlackIntegrationInterface {
   slackSigningKey: string;
 }
 
-export interface SlackOAuthIntegrationInterface {
-  id: string;
-  eventWebHookId: string;
-  name: string;
-  dateCreated: Date;
-  dateUpdated: Date;
-  enabled: boolean;
-  events: string[];
-  projects: string[];
-  environments: string[];
-  tags: string[];
-  lastRunAt: Date | null;
-  lastState: "none" | "success" | "error";
-  slackOptions?: EventWebHookInterface["slackOptions"];
-  slack?: EventWebHookInterface["slack"];
+export interface SlackOAuthIntegrationInterface
+  extends Pick<
+    EventWebHookInterface,
+    | "id"
+    | "name"
+    | "dateCreated"
+    | "dateUpdated"
+    | "enabled"
+    | "events"
+    | "projects"
+    | "environments"
+    | "tags"
+    | "lastRunAt"
+    | "lastState"
+    | "notificationSettings"
+    | "slack"
+  > {
+  eventWebHookId: EventWebHookInterface["id"];
 }

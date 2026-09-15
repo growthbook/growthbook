@@ -5,6 +5,7 @@ import type { AIModel, AIPromptType } from "shared/ai";
 import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import { getMessageText, stringifyToolResultForStorage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
+import { offScreenDashboardWriteRejection } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
@@ -413,7 +414,24 @@ async function executeAgentTurn<TParams>({
   // to the rejection plus the new instruction in the same turn.
   if (pendingAction) {
     await beforeResolvePendingAction?.();
-    await resolvePendingAction(context, buffer, pendingAction, emit, isConfirm);
+    // Re-check the current page at confirmation, as the user may have navigated
+    // since the action was proposed. Headless callers share this guard.
+    const offScreenNow = isConfirm
+      ? offScreenDashboardWriteRejection({
+          method: pendingAction.method,
+          path: pendingAction.path,
+          currentPage:
+            typeof body.currentPage === "string" ? body.currentPage : null,
+        })
+      : undefined;
+    await resolvePendingAction(
+      context,
+      buffer,
+      pendingAction,
+      emit,
+      isConfirm && !offScreenNow,
+      offScreenNow,
+    );
     buffer.setPendingAction(undefined);
   }
 
@@ -838,13 +856,24 @@ async function resolvePendingAction(
   pendingAction: AIAgentPendingAction,
   emit: AgentEmit,
   confirmed: boolean,
+  rejection?: string,
 ): Promise<void> {
   const toolCallId = randomUUID();
+  // Strip `confirm` from the body the model sees so it doesn't copy it into
+  // follow-up calls and bypass the cost confirmation gate.
+  const sanitizedBody =
+    pendingAction.body && typeof pendingAction.body === "object"
+      ? Object.fromEntries(
+          Object.entries(pendingAction.body as Record<string, unknown>).filter(
+            ([k]) => k !== "confirm",
+          ),
+        )
+      : pendingAction.body;
   const args: Record<string, unknown> = {
     method: pendingAction.method,
     path: pendingAction.path,
     ...(pendingAction.query ? { query: pendingAction.query } : {}),
-    ...(pendingAction.body !== undefined ? { body: pendingAction.body } : {}),
+    ...(sanitizedBody !== undefined ? { body: sanitizedBody } : {}),
   };
 
   emit("tool-call-input", {
@@ -866,13 +895,14 @@ async function resolvePendingAction(
     result = dispatched;
     isError = !(dispatched.status >= 200 && dispatched.status < 300);
   } else {
-    // Not a tool error — a deliberate user decision. Phrased so the model
-    // treats it as a stop signal rather than something to retry.
+    // Not a tool error — a deliberate user decision, or a guard that no longer
+    // holds. Phrased so the model treats it as a stop signal, not a retry.
     result = {
       status: "rejected",
       message:
+        rejection ??
         "The user reviewed this change and chose not to run it. Do not retry " +
-        "it; acknowledge and wait for their next instruction.",
+          "it; acknowledge and wait for their next instruction.",
     };
   }
 

@@ -5,7 +5,11 @@ jest.mock("back-end/src/enterprise/services/product-analytics", () => ({
     mockRunExploration(...args),
 }));
 
-import { runNewApiExplorationBlocks } from "back-end/src/enterprise/services/dashboards";
+import type { DashboardInterface } from "shared/enterprise";
+import {
+  runNewApiExplorationBlocks,
+  updateDashboardExplorations,
+} from "back-end/src/enterprise/services/dashboards";
 import type { ReqContext } from "back-end/types/request";
 
 const ctx = {} as ReqContext;
@@ -131,5 +135,133 @@ describe("runNewApiExplorationBlocks", () => {
     await expect(
       runNewApiExplorationBlocks(ctx, [chartBlock()], {}),
     ).rejects.toThrow("Metric not found on this datasource");
+  });
+
+  it("propagates a reported failure, which resolves rather than rejecting", async () => {
+    mockRunExploration.mockResolvedValueOnce({
+      id: "expl_failed",
+      status: "error",
+      error: "Syntax error near FROM",
+    });
+
+    await expect(
+      runNewApiExplorationBlocks(ctx, [chartBlock()], {}),
+    ).rejects.toThrow("Syntax error near FROM");
+  });
+
+  it("never carries a comparison id in from the caller's block", async () => {
+    // A reconfigured chart arrives with its saved comparison id still on it.
+    mockRunExploration
+      .mockResolvedValueOnce({ id: "expl_primary", status: "success" })
+      .mockResolvedValueOnce({
+        id: "expl_bad",
+        status: "error",
+        error: "boom",
+      });
+
+    const [failed] = await runNewApiExplorationBlocks(
+      ctx,
+      [chartBlock({ comparisonExplorerAnalysisId: "expl_cmp_old" })],
+      { comparison: { enabled: true, mode: "previousPeriod" } },
+    );
+    expect(failed).not.toHaveProperty("comparisonExplorerAnalysisId");
+
+    // Same when comparison is off now: nothing runs, nothing survives.
+    mockRunExploration.mockResolvedValueOnce({
+      id: "expl_primary",
+      status: "success",
+    });
+    const [off] = await runNewApiExplorationBlocks(
+      ctx,
+      [chartBlock({ comparisonExplorerAnalysisId: "expl_cmp_old" })],
+      {},
+    );
+    expect(off).not.toHaveProperty("comparisonExplorerAnalysisId");
+  });
+
+  it("drops a failed comparison id rather than saving a broken series", async () => {
+    mockRunExploration
+      .mockResolvedValueOnce({ id: "expl_primary", status: "success" })
+      .mockResolvedValueOnce({
+        id: "expl_bad",
+        status: "error",
+        error: "boom",
+      });
+
+    const [block] = await runNewApiExplorationBlocks(ctx, [chartBlock()], {
+      comparison: { enabled: true, mode: "previousPeriod" },
+    });
+
+    expect(block).toMatchObject({ explorerAnalysisId: "expl_primary" });
+    expect(block).not.toHaveProperty("comparisonExplorerAnalysisId");
+  });
+});
+
+describe("updateDashboardExplorations (refreshing a saved block)", () => {
+  beforeEach(() => {
+    mockRunExploration.mockReset();
+  });
+
+  const savedBlock = (overrides: Record<string, unknown> = {}) => ({
+    id: "dshblk_a",
+    type: "metric-exploration" as const,
+    title: "Revenue",
+    description: "",
+    config: metricConfig,
+    explorerAnalysisId: "expl_old",
+    comparison: { enabled: true, mode: "previousPeriod" as const },
+    comparisonExplorerAnalysisId: "expl_cmp_old",
+    ...overrides,
+  });
+
+  const refresh = (block: object) =>
+    updateDashboardExplorations(ctx, [
+      block,
+    ] as unknown as DashboardInterface["blocks"]);
+
+  it("clears the stale comparison id when the comparison run reports an error", async () => {
+    mockRunExploration
+      .mockResolvedValueOnce({ id: "expl_new", status: "success" })
+      .mockResolvedValueOnce({
+        id: "expl_cmp_bad",
+        status: "error",
+        error: "boom",
+      });
+
+    const block = savedBlock();
+    expect(await refresh(block)).toBe(true);
+
+    // The primary still rolls forward, but keeping the old comparison would
+    // pair the new window against the baseline of the previous one.
+    expect(block.explorerAnalysisId).toBe("expl_new");
+    expect(block).not.toHaveProperty("comparisonExplorerAnalysisId");
+  });
+
+  it("clears it when the comparison run throws, too", async () => {
+    mockRunExploration
+      .mockResolvedValueOnce({ id: "expl_new", status: "success" })
+      .mockRejectedValueOnce(new Error("warehouse timeout"));
+
+    const block = savedBlock();
+    await refresh(block);
+
+    expect(block.explorerAnalysisId).toBe("expl_new");
+    expect(block).not.toHaveProperty("comparisonExplorerAnalysisId");
+  });
+
+  it("leaves the block on its previous result when the primary reports an error", async () => {
+    mockRunExploration.mockResolvedValueOnce({
+      id: "expl_bad",
+      status: "error",
+      error: "boom",
+    });
+
+    const block = savedBlock({
+      comparison: undefined,
+      comparisonExplorerAnalysisId: undefined,
+    });
+    expect(await refresh(block)).toBe(false);
+
+    expect(block.explorerAnalysisId).toBe("expl_old");
   });
 });

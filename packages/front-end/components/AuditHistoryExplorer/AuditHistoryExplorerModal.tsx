@@ -279,7 +279,6 @@ export default function AuditHistoryExplorerModal<T>({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="audit-history-explorer"
       open={true}
       header={`${entityName} Audit History`}

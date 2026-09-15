@@ -11,7 +11,7 @@ import {
   EventWebHookPayloadType,
   eventWebHookMethods,
   EventWebHookMethod,
-  experimentCardFormats,
+  notificationSettingsSchema,
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
   NotificationEventNameOrWildcard,
@@ -47,11 +47,10 @@ const eventWebHookSchema = new mongoose.Schema({
     channelId: String,
     configurationUrl: String,
   },
-  slackOptions: {
-    experimentCardFormat: {
-      type: String,
-      enum: experimentCardFormats,
-    },
+  notificationSettings: {
+    type: Object,
+    validate: (value: unknown) =>
+      notificationSettingsSchema.safeParse(value).success,
   },
   method: {
     type: String,
@@ -245,7 +244,7 @@ type CreateEventWebHookOptions = {
   method: EventWebHookMethod;
   headers: Record<string, string>;
   slack?: EventWebHookInterface["slack"];
-  slackOptions?: EventWebHookInterface["slackOptions"];
+  notificationSettings?: EventWebHookInterface["notificationSettings"];
 };
 
 /**
@@ -267,7 +266,7 @@ export const createEventWebHook = async ({
   method,
   headers,
   slack,
-  slackOptions,
+  notificationSettings,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
@@ -289,7 +288,7 @@ export const createEventWebHook = async ({
     method,
     headers,
     slack,
-    slackOptions,
+    notificationSettings,
     lastRunAt: null,
     lastState: "none",
     lastResponseBody: null,
@@ -365,7 +364,7 @@ export type UpdateEventWebHookAttributes = {
   method?: EventWebHookMethod;
   headers?: Record<string, string>;
   slack?: EventWebHookInterface["slack"];
-  slackOptions?: EventWebHookInterface["slackOptions"];
+  notificationSettings?: EventWebHookInterface["notificationSettings"];
 };
 
 /**
