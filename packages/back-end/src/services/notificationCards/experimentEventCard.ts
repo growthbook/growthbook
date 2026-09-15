@@ -3,7 +3,7 @@ import { experimentCardFormats } from "shared/validators";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
 import { logger } from "back-end/src/util/logger";
-import type { CompactEvent } from "back-end/src/services/notificationCards/cardImages";
+import type { CompactEvent } from "back-end/src/services/notificationCards/types";
 import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
 
 const compactEventForNotification = (
@@ -19,7 +19,6 @@ const compactEventForNotification = (
 
 const CARD_CAPTION: Record<CompactEvent, string> = {
   started: "Experiment started",
-  significance: "Reached significance",
   won: "Declared a winner",
   lost: "Rolled back",
   stopped: "Experiment stopped",

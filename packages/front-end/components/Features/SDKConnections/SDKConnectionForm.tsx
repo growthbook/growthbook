@@ -390,7 +390,6 @@ export default function SDKConnectionForm({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}

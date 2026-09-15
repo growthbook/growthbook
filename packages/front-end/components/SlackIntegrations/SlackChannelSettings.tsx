@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   experimentCardFormats,
+  DEFAULT_NOTIFICATION_SETTINGS,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -183,8 +184,14 @@ export default function SlackChannelSettings({
   const [expandedCategories, setExpandedCategories] = useState<
     SlackEventCategory[]
   >([]);
-  const [cardFormat, setCardFormat] = useState(
-    integration.slackOptions?.experimentCardFormat ?? "compact",
+  const notificationSettings =
+    integration.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
+  const [cardFormat, setCardFormat] = useState<
+    (typeof experimentCardFormats)[number]
+  >(
+    notificationSettings.type === "text"
+      ? "none"
+      : notificationSettings.cardFormat,
   );
   const [filterProjects, setFilterProjects] = useState(
     integration.projects || [],
@@ -287,7 +294,10 @@ export default function SlackChannelSettings({
           experiments: filterExperiments,
           metrics: filterMetrics,
           features: filterFeatures,
-          slackOptions: { experimentCardFormat: cardFormat },
+          notificationSettings:
+            cardFormat === "none"
+              ? { type: "text" }
+              : { type: "image", cardFormat },
         }),
       });
       await onSaved();

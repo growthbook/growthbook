@@ -166,7 +166,6 @@ export const DimensionIssues = ({
   return (
     <>
       <Modal
-        useRadixButton={false}
         trackingEventModalType="srm-dimension-issues"
         close={() => setModalOpen(false)}
         open={modalOpen}

@@ -1,6 +1,6 @@
 import {
   experimentCardFormats as supportedCardFormats,
-  SlackEventWebHookOptions,
+  NotificationSettings,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import type { Response } from "express";
@@ -134,7 +134,7 @@ type PutSlackOAuthConnectionRequest = AuthRequest<
     experiments?: string[];
     metrics?: string[];
     features?: string[];
-    slackOptions?: SlackEventWebHookOptions;
+    notificationSettings?: NotificationSettings;
   },
   { id: string }
 >;

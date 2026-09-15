@@ -22,9 +22,14 @@ jest.mock("back-end/src/services/slack/slackWebApi", () => ({
   uploadSlackImageFile: jest.fn(),
   postSlackMessageResult: jest.fn(),
 }));
-jest.mock("back-end/src/services/notificationCards/experimentCards", () => ({
-  renderExperimentCard: jest.fn().mockResolvedValue(Buffer.from("png")),
-}));
+jest.mock(
+  "back-end/src/services/notificationCards/renderNotificationCard",
+  () => ({
+    renderNotificationCard: jest
+      .fn()
+      .mockResolvedValue({ png: Buffer.from("png") }),
+  }),
+);
 const context = {
   org: { id: "org_test" },
   permissions: {

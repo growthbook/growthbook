@@ -1,7 +1,7 @@
 import {
   experimentCardFormats as supportedCardFormats,
   isEventWebhookWildcard,
-  slackEventWebHookOptions,
+  notificationSettingsSchema,
   zodNotificationEventNamesEnum,
 } from "shared/validators";
 import express from "express";
@@ -75,7 +75,7 @@ router.put(
         experiments: z.array(z.string()).optional(),
         metrics: z.array(z.string()).optional(),
         features: z.array(z.string()).optional(),
-        slackOptions: slackEventWebHookOptions.optional(),
+        notificationSettings: notificationSettingsSchema.optional(),
       })
       .strict(),
   }),

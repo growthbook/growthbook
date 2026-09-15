@@ -5,13 +5,12 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
-  sampleCard,
   sampleScorecard,
   sampleFeatureDigest,
   renderWeeklyScorecard,
   renderFeatureDigest,
 } from "back-end/src/services/notificationCards/cardImages";
-import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
+import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getSlackOAuthIntegrationById } from "back-end/src/services/slackIntegration";
 import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 import { postSlackMessageResult, uploadSlackImageFile } from "./slackWebApi";
@@ -64,10 +63,8 @@ export async function buildSlackSettingsPreview(
   let png: Buffer | null = null;
   // #6870 only posts image cards for SRM warnings.
   if (eventName === "experiment.warning" && format !== "none") {
-    const card = sampleCard("warning");
-    card.name = "Checkout CTA";
-    card.event = "warning";
-    png = await renderExperimentCard(card, format);
+    const card = await renderNotificationCard(event, format);
+    png = card?.png ?? null;
   }
   return { message, png };
 }

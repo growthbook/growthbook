@@ -22,7 +22,7 @@ import type {
   CardGoalRow,
   CardState,
   ExperimentCardData,
-} from "back-end/src/services/notificationCards/cardImages";
+} from "back-end/src/services/notificationCards/types";
 
 // Maps a GrowthBook experiment + its latest results snapshot into the compact
 // card model consumed by notification renderers. Numbers come straight off the

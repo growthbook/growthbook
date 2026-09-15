@@ -1,5 +1,5 @@
+import type { ExperimentCardData } from "back-end/src/services/notificationCards/types";
 import {
-  ExperimentCardData,
   renderDetailedCard,
   renderCompactCard,
   renderCompactDarkCard,

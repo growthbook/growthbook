@@ -9,6 +9,7 @@ import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import {
   defaultSlackNotificationEvents,
+  DEFAULT_NOTIFICATION_SETTINGS,
   SlackWorkspaceConnectionFrontEndInterface,
   SlackWorkspaceConnectionInterface,
 } from "shared/validators";
@@ -401,7 +402,7 @@ export const slackEventWebhookToIntegration = (
   features: eventWebHook.features || [],
   lastRunAt: eventWebHook.lastRunAt,
   lastState: eventWebHook.lastState,
-  slackOptions: eventWebHook.slackOptions,
+  notificationSettings: eventWebHook.notificationSettings,
   slack: eventWebHook.slack,
 });
 
@@ -500,7 +501,7 @@ export const updateSlackOAuthIntegration = async ({
     | "projects"
     | "environments"
     | "tags"
-    | "slackOptions"
+    | "notificationSettings"
     | "experiments"
     | "metrics"
     | "features"
@@ -615,7 +616,7 @@ const attachSlackOAuthCode = async ({
       method: "POST",
       headers: {},
       slack: getSlackMetadata(slackOAuthResponse),
-      slackOptions: { experimentCardFormat: "compact" },
+      notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
     });
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;
@@ -893,7 +894,7 @@ export const addSlackChannelToWorkspace = async ({
         channelId: channel.id,
         channelName: channel.name,
       },
-      slackOptions: { experimentCardFormat: "compact" },
+      notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
     });
   } catch (error) {
     if (!isDuplicateKeyError(error)) throw error;

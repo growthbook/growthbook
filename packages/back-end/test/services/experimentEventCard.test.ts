@@ -1,9 +1,7 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { renderExperimentNotificationCard } from "back-end/src/services/notificationCards/experimentEventCard";
-import {
-  sampleCard,
-  type CardState,
-} from "back-end/src/services/notificationCards/cardImages";
+import { sampleCard } from "back-end/src/services/notificationCards/cardImages";
+import type { CardState } from "back-end/src/services/notificationCards/types";
 import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
 import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";

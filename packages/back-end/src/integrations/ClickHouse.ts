@@ -1,5 +1,10 @@
 import { subDays } from "date-fns";
-import { createClient, ResponseJSON } from "@clickhouse/client";
+import {
+  ClickHouseError,
+  ClickHouseLogLevel,
+  createClient,
+  ResponseJSON,
+} from "@clickhouse/client";
 import {
   FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
@@ -11,6 +16,7 @@ import {
   isManagedWarehouse,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseMigrating,
+  ManagedWarehouseOutOfMemoryError,
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
@@ -28,6 +34,9 @@ import { clickHouseDialect } from "./dialects/clickhouse";
 // reflects that declared zone rather than needing this override.
 const NAIVE_CLICKHOUSE_DATETIME_TYPE =
   /^Nullable\(DateTime(64\(\d+\))?\)$|^DateTime(64\(\d+\))?$/;
+
+/** ClickHouse MEMORY_LIMIT_EXCEEDED — the per-query and server-total caps both raise it. */
+const CLICKHOUSE_MEMORY_LIMIT_EXCEEDED_CODE = "241";
 
 // Managed warehouse DateTime/DateTime64 columns carry no explicit timezone,
 // so ClickHouse renders them as bare "YYYY-MM-DD HH:mm:ss[.ffffff]" strings
@@ -100,6 +109,8 @@ export default class ClickHouse extends SqlIntegration {
       database: this.params.database,
       application: "GrowthBook",
       request_timeout: 3620_000,
+      // The client warns per instance when request_timeout > 60s without progress headers; we create one per query.
+      log: { level: ClickHouseLogLevel.ERROR },
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,
@@ -114,6 +125,10 @@ export default class ClickHouse extends SqlIntegration {
           ? {
               allow_suspicious_types_in_group_by: 1,
               allow_suspicious_types_in_order_by: 1,
+              // Switch off the in-RAM hash join when memory runs short instead of failing the query.
+              join_algorithm: "auto",
+              // Bucket size after that switch; the 1GB default is itself too large an allocation under pressure.
+              max_bytes_in_join: "268435456",
             }
           : {}),
       },
@@ -140,6 +155,17 @@ export default class ClickHouse extends SqlIntegration {
             }
           : undefined,
       };
+    } catch (e) {
+      if (
+        isManagedWarehouse(this.datasource) &&
+        e instanceof ClickHouseError &&
+        e.code === CLICKHOUSE_MEMORY_LIMIT_EXCEEDED_CODE
+      ) {
+        // The raw text is server internals (RSS, OvercommitTracker); keep it in logs, not the UI.
+        logger.error(e, "Managed warehouse query exceeded ClickHouse memory");
+        throw new ManagedWarehouseOutOfMemoryError();
+      }
+      throw e;
     } finally {
       try {
         await client.close();
