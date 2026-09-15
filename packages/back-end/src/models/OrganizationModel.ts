@@ -162,8 +162,6 @@ const organizationSchema = new mongoose.Schema({
   disabled: Boolean,
   suspended: Boolean,
   setupEventTracker: String,
-  sessionReplayDisabled: Boolean,
-  sessionReplayDisabledConnectionIds: [String],
   trackingDisabled: Boolean,
   limits: {
     maxProjects: Number,

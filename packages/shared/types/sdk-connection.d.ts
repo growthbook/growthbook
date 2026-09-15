@@ -36,7 +36,6 @@ export type EditSDKConnectionParams = {
   includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
   eventTracker?: string;
-  sessionReplayEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
@@ -62,7 +61,6 @@ export type CreateSDKConnectionParams = {
   includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
   managedBy?: ManagedBy;
-  sessionReplayEnabled?: boolean;
 };
 
 import { sdkLanguages } from "shared/constants";
@@ -113,12 +111,6 @@ export interface SDKConnectionInterface {
   remoteEvalEnabled?: boolean;
   savedGroupReferencesEnabled?: boolean;
   managedBy?: ManagedBy;
-
-  // Per-connection session-recording on/off, delivered to the SDK in the
-  // payload's `sessionReplay.enabled`. Sampling controls (rate, min-duration)
-  // are intentionally NOT here — they live in the SDK init config for now to
-  // keep the payload small (revisit: fast-follow plan §12.3 Phase 2).
-  sessionReplayEnabled?: boolean;
 }
 
 export interface ProxyTestResult {

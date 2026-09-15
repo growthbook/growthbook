@@ -101,7 +101,7 @@ export default function SDKConnectionForm({
   const router = useRouter();
   const { requireProjectForSdkConnections } = useOrgSettings();
 
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const hasEncryptionFeature = hasCommercialFeature(
     "encrypt-features-endpoint",
@@ -110,17 +110,6 @@ export default function SDKConnectionForm({
     "hash-secure-attributes",
   );
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
-
-  // Session replay is available on all tiers (limited by usage/retention per
-  // tier, not gated as a premium feature). Operator break-glass: when a
-  // super-admin has force-disabled it for the org (blanket) or for this specific
-  // connection, lock the controls (§12.1b/§12.1c).
-  const sessionReplayAdminDisabled =
-    organization?.sessionReplayDisabled === true ||
-    (!!initialValue.id &&
-      (organization?.sessionReplayDisabledConnectionIds ?? []).includes(
-        initialValue.id,
-      ));
 
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
   const customFields = useCustomFields();
@@ -200,7 +189,6 @@ export default function SDKConnectionForm({
         (initialValue as { includeTagsInPayload?: boolean })
           .includeTagsInPayload ??
         false,
-      sessionReplayEnabled: initialValue.sessionReplayEnabled ?? false,
       includeExperimentScheduleInMetadata:
         initialValue.includeExperimentScheduleInMetadata ?? false,
       // Absent = off, so existing connections keep their behavior.
@@ -1442,33 +1430,6 @@ export default function SDKConnectionForm({
                 />
               )}
             </Flex>
-          </Box>
-        </Flex>
-      </Box>
-
-      <Box mt="5">
-        <Heading as="h4" size="sm" mb="3">
-          Session Replay
-        </Heading>
-        <Flex direction="column" gap="3">
-          {sessionReplayAdminDisabled && (
-            <Callout status="warning">
-              Session Recording has been disabled, please contact support to
-              re-enable.
-            </Callout>
-          )}
-          <Box>
-            <Checkbox
-              weight="regular"
-              value={
-                sessionReplayAdminDisabled
-                  ? false
-                  : form.watch("sessionReplayEnabled")
-              }
-              setValue={(val) => form.setValue("sessionReplayEnabled", val)}
-              disabled={sessionReplayAdminDisabled}
-              label="Record session replays for this connection"
-            />
           </Box>
         </Flex>
       </Box>

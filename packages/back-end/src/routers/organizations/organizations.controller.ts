@@ -1059,9 +1059,6 @@ export async function getOrganization(
       },
       autoApproveMembers: org.autoApproveMembers,
       suspended: org.suspended,
-      sessionReplayDisabled: org.sessionReplayDisabled,
-      sessionReplayDisabledConnectionIds:
-        org.sessionReplayDisabledConnectionIds,
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,

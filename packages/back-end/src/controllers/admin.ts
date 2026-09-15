@@ -28,13 +28,10 @@ import {
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
 import {
-  getContextForAgendaJobByOrgId,
   getContextFromReq,
   getOrganizationById,
   setLicenseKey,
 } from "back-end/src/services/organizations";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import {
   auditDetailsCreate,
   auditDetailsUpdate,
@@ -95,8 +92,6 @@ export async function _dangerousAdminPutOrganization(
     freeSeats?: number;
     disableSelfServeBilling?: boolean;
     suspended?: boolean;
-    sessionReplayDisabled?: boolean;
-    sessionReplayDisabledConnectionIds?: string[];
     messages?: OrganizationMessage[];
   }>,
   res: Response,
@@ -120,8 +115,6 @@ export async function _dangerousAdminPutOrganization(
     freeSeats,
     disableSelfServeBilling,
     suspended,
-    sessionReplayDisabled,
-    sessionReplayDisabledConnectionIds,
     messages,
   } = req.body;
   const updates: Partial<OrganizationInterface> = {};
@@ -179,25 +172,6 @@ export async function _dangerousAdminPutOrganization(
     updates.suspended = suspended;
     orig.suspended = org.suspended;
   }
-  let sessionReplayDisabledChanged = false;
-  if (
-    (sessionReplayDisabled ?? false) !== (org.sessionReplayDisabled ?? false)
-  ) {
-    updates.sessionReplayDisabled = sessionReplayDisabled;
-    orig.sessionReplayDisabled = org.sessionReplayDisabled;
-    sessionReplayDisabledChanged = true;
-  }
-  if (
-    sessionReplayDisabledConnectionIds !== undefined &&
-    JSON.stringify([...sessionReplayDisabledConnectionIds].sort()) !==
-      JSON.stringify([...(org.sessionReplayDisabledConnectionIds ?? [])].sort())
-  ) {
-    updates.sessionReplayDisabledConnectionIds =
-      sessionReplayDisabledConnectionIds;
-    orig.sessionReplayDisabledConnectionIds =
-      org.sessionReplayDisabledConnectionIds;
-    sessionReplayDisabledChanged = true;
-  }
   if (messages !== undefined) {
     const VALID_LEVELS = new Set(["info", "warning", "danger"]);
     if (
@@ -222,27 +196,6 @@ export async function _dangerousAdminPutOrganization(
   }
 
   await updateOrganization(org.id, updates);
-
-  // When the operator flips the session-replay kill flag, proactively refresh
-  if (sessionReplayDisabledChanged) {
-    try {
-      const orgContext = await getContextForAgendaJobByOrgId(org.id);
-      queueSDKPayloadRefresh({
-        context: orgContext,
-        payloadKeys: getEnvironmentIdsFromOrg(orgContext.org).map(
-          (environment) => ({ environment, project: "" }),
-        ),
-        treatEmptyProjectAsGlobal: true,
-        auditContext: {
-          event: "sessionReplayDisabled changed",
-          model: "organization",
-          id: org.id,
-        },
-      });
-    } catch (e) {
-      // Non-fatal: payload will refresh on the next natural cache cycle.
-    }
-  }
 
   await req.audit({
     event: "organization.update",
