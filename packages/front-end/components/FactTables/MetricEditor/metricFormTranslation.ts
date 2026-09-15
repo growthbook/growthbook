@@ -1,0 +1,736 @@
+import {
+  ColumnAggregation,
+  ColumnRef,
+  FactMetricType,
+  FactTableColumnType,
+  FunnelSettings,
+  FunnelStep,
+  MetricCappingSettings,
+  MetricQuantileSettings,
+  MetricWindowSettings,
+} from "shared/types/fact-table";
+import { getFactTableTimestampColumn } from "shared/experiments";
+import { isMergeAggregationMetric } from "@/services/factMetrics";
+
+export const SHAPES = ["count", "sum", "max", "distinct", "days"] as const;
+export type Shape = (typeof SHAPES)[number];
+export type RatioShape = Shape | "users";
+
+// Threshold basis is count or sum only (spec). This governs the aggregate-
+// filter basis picker only - it has nothing to do with a numerator's own
+// shape (proportion/threshold/retention numerators don't have one; see
+// storedTypeAndNumeratorFor below).
+export const THRESHOLD_SHAPES = ["count", "sum"] as const;
+
+type MinimalColumn = {
+  column: string;
+  name?: string;
+  datatype: FactTableColumnType;
+  deleted?: boolean;
+};
+type MinimalFactTable =
+  | {
+      columns: MinimalColumn[];
+      userIdTypes?: string[];
+      timestampColumn?: string;
+    }
+  | null
+  | undefined;
+
+// columnsFor(shape, factTable) from the spec. [] means omit the Column field.
+// "distinct" also needs datasource.properties.hasCountDistinctHLL — where
+// that's false, the spec says to hide the shape entirely; returning no
+// columns here is what makes that rule enforceable ("everything else follows
+// from columnsFor(shape).length > 0", per the spec's Gates section).
+export function columnsForShape(
+  shape: RatioShape,
+  factTable: MinimalFactTable,
+  hasCountDistinctHLL = false,
+): string[] {
+  if (
+    !factTable ||
+    shape === "count" ||
+    shape === "days" ||
+    shape === "users" ||
+    (shape === "distinct" && !hasCountDistinctHLL)
+  ) {
+    return [];
+  }
+  const timestampColumn = getFactTableTimestampColumn(factTable);
+  const userIdTypes = factTable.userIdTypes ?? [];
+  const columns = factTable.columns.filter(
+    (c) =>
+      !c.deleted &&
+      c.column !== timestampColumn &&
+      !userIdTypes.includes(c.column),
+  );
+  if (shape === "distinct") {
+    return columns.filter((c) => c.datatype === "string").map((c) => c.column);
+  }
+  return columns.filter((c) => c.datatype === "number").map((c) => c.column);
+}
+
+export function fitColumn(
+  shape: RatioShape,
+  factTable: MinimalFactTable,
+  currentColumn: string,
+  hasCountDistinctHLL = false,
+): string {
+  if (shape === "count") return "$$count";
+  if (shape === "days") return "$$distinctDates";
+  if (shape === "users") return "$$distinctUsers";
+  const candidates = columnsForShape(shape, factTable, hasCountDistinctHLL);
+  return candidates.includes(currentColumn)
+    ? currentColumn
+    : (candidates[0] ?? "");
+}
+
+// Exported for read-only rendering: a shape determines its aggregation
+// deterministically (shapeFromColumnRef is the reverse mapping), so a
+// read-only display can derive "Per-User Aggregation" from shape alone
+// rather than needing the stored ColumnRef's own aggregation field.
+export function aggregationForShape(
+  shape: RatioShape,
+): ColumnAggregation | undefined {
+  if (shape === "sum") return "sum";
+  if (shape === "max") return "max";
+  if (shape === "distinct") return "count distinct";
+  return undefined; // count / days / users carry no aggregation
+}
+
+// Sentinel columns read as plain English in read-only views; a real column
+// name is already plain English. Single source of truth for this
+// translation - was duplicated ad hoc across read-only display components.
+export function columnValueLabel(
+  column: string,
+  factTable?: MinimalFactTable,
+): string {
+  if (column === "$$count") return "Count of Rows";
+  if (column === "$$distinctUsers") return "Unique Users";
+  if (column === "$$distinctDates") return "Distinct Dates";
+  return factTable?.columns.find((c) => c.column === column)?.name || column;
+}
+
+const SHAPES_NEEDING_COLUMNS: readonly RatioShape[] = [
+  "sum",
+  "max",
+  "distinct",
+];
+
+// Which of the given shapes are actually selectable right now - "everything
+// else follows from columnsFor(shape).length > 0" (spec's Gates section).
+// count/days/users never need a real column, so they're always available;
+// sum/max/distinct need at least one matching column to exist (distinct
+// additionally needs hasCountDistinctHLL, already enforced by columnsForShape).
+export function availableShapes(
+  shapes: readonly RatioShape[],
+  factTable: MinimalFactTable,
+  hasCountDistinctHLL: boolean,
+): RatioShape[] {
+  return shapes.filter((shape) =>
+    SHAPES_NEEDING_COLUMNS.includes(shape)
+      ? columnsForShape(shape, factTable, hasCountDistinctHLL).length > 0
+      : true,
+  );
+}
+
+// Shape is never stored separately - always recoverable from column + aggregation.
+export function shapeFromColumnRef(
+  ref: Pick<ColumnRef, "column" | "aggregation"> | null | undefined,
+): RatioShape | null {
+  if (!ref) return null;
+  if (ref.column === "$$count") return "count";
+  if (ref.column === "$$distinctDates") return "days";
+  if (ref.column === "$$distinctUsers") return "users";
+  if (ref.aggregation === "hll merge" || ref.aggregation === "kll merge") {
+    return null;
+  }
+  if (ref.aggregation === "count distinct") return "distinct";
+  if (ref.aggregation === "max") return "max";
+  return "sum";
+}
+
+export function onShapeChange(
+  current: ColumnRef,
+  newShape: RatioShape,
+  factTable: MinimalFactTable,
+  hasCountDistinctHLL = false,
+): ColumnRef {
+  return {
+    ...current,
+    column: fitColumn(newShape, factTable, current.column, hasCountDistinctHLL),
+    aggregation: aggregationForShape(newShape),
+  };
+}
+
+// Per-part refit for a fact-table change. Which parts to call this on for a
+// given type (one vs. every part) is a MetricEditor (PR 3) orchestration call.
+export function onFactTableChange(
+  current: ColumnRef,
+  newFactTableId: string,
+  factTable: MinimalFactTable,
+  hasCountDistinctHLL = false,
+): ColumnRef {
+  const shape = shapeFromColumnRef(current) ?? "sum";
+  return {
+    ...current,
+    factTableId: newFactTableId,
+    column: fitColumn(shape, factTable, current.column, hasCountDistinctHLL),
+    rowFilters: [],
+    aggregateFilterColumn: undefined,
+    aggregateFilter: undefined,
+  };
+}
+
+export function onQuantileScopeChange(
+  current: ColumnRef,
+  newScope: "unit" | "event",
+  factTable: MinimalFactTable,
+  hasCountDistinctHLL = false,
+): ColumnRef {
+  if (newScope === "event") {
+    return {
+      ...current,
+      column: fitColumn("sum", factTable, current.column),
+      aggregation: undefined,
+    };
+  }
+  const shape = shapeFromColumnRef(current) ?? "sum";
+  return {
+    ...current,
+    column: fitColumn(shape, factTable, current.column, hasCountDistinctHLL),
+    aggregation: aggregationForShape(shape),
+  };
+}
+
+export type RetentionWindowChange =
+  | { type: "delay"; value: number }
+  | { type: "end"; value: number }
+  | { type: "mode"; value: "starting" | "between" };
+
+// No separate "mode" field in storage: windowValue > 0 IS "between" (spec).
+export function retentionModeFromWindow(
+  windowSettings: Pick<MetricWindowSettings, "windowValue">,
+): "starting" | "between" {
+  return windowSettings.windowValue > 0 ? "between" : "starting";
+}
+
+const HOURS_PER_UNIT: Record<MetricWindowSettings["delayUnit"], number> = {
+  minutes: 1 / 60,
+  hours: 1,
+  days: 24,
+  weeks: 24 * 7,
+};
+
+function convertDuration(
+  value: number,
+  fromUnit: MetricWindowSettings["delayUnit"],
+  toUnit: MetricWindowSettings["delayUnit"],
+): number {
+  if (fromUnit === toUnit) return value;
+  return (value * HOURS_PER_UNIT[fromUnit]) / HOURS_PER_UNIT[toUnit];
+}
+
+// Retention's Window row reads as one sentence with one shared unit (spec) -
+// delayUnit/windowUnit can still drift apart (the org-wide default seeds
+// them differently, hours vs. days, and non-retention types manage each via
+// separate, independent controls before a metric ever becomes retention).
+// The displayed "end" (delay + window) has to convert window into delay's
+// unit first, or a real 7-day delay plus a real 24-hour window silently
+// becomes "31 days" - correct-looking, wrong by a factor of 24.
+export function retentionEnd(
+  windowSettings: Pick<
+    MetricWindowSettings,
+    "delayValue" | "delayUnit" | "windowValue" | "windowUnit"
+  >,
+): number {
+  return (
+    windowSettings.delayValue +
+    convertDuration(
+      windowSettings.windowValue,
+      windowSettings.windowUnit,
+      windowSettings.delayUnit,
+    )
+  );
+}
+
+export function onRetentionDelayOrModeChange(
+  windowSettings: MetricWindowSettings,
+  change: RetentionWindowChange,
+): MetricWindowSettings {
+  // Normalize windowUnit into delayUnit's scale before any arithmetic below
+  // combines the two (self-healing: whatever drift existed before this call,
+  // every value this function writes back is consistent from here on).
+  const ws: MetricWindowSettings =
+    windowSettings.windowUnit === windowSettings.delayUnit
+      ? windowSettings
+      : {
+          ...windowSettings,
+          windowUnit: windowSettings.delayUnit,
+          windowValue: convertDuration(
+            windowSettings.windowValue,
+            windowSettings.windowUnit,
+            windowSettings.delayUnit,
+          ),
+        };
+
+  if (change.type === "mode") {
+    // windowValue alone decides "starting" vs "between" in storage, but the
+    // query only enforces an upper bound when type === "conversion" - that
+    // field has to move with the mode or the two disagree: "between" with a
+    // stale non-"conversion" type stays unbounded, and "starting" (windowValue
+    // forced to 0) with a stale "conversion" type produces a zero-width upper
+    // bound (an impossible, always-false interval against its own lower bound).
+    if (change.value === "starting") {
+      return { ...ws, windowValue: 0, type: "" };
+    }
+    if (ws.windowValue > 0) {
+      return { ...ws, type: "conversion" };
+    }
+    return { ...ws, windowValue: 1, type: "conversion" };
+  }
+
+  if (change.type === "end") {
+    const windowValue = Math.max(1, change.value - ws.delayValue);
+    return { ...ws, windowValue };
+  }
+
+  const newDelay = change.value;
+  if (retentionModeFromWindow(ws) !== "between") {
+    return { ...ws, delayValue: newDelay };
+  }
+  const currentEnd = retentionEnd(ws);
+  const end = currentEnd <= newDelay ? newDelay + 1 : currentEnd;
+  return {
+    ...ws,
+    delayValue: newDelay,
+    windowValue: end - newDelay,
+  };
+}
+
+// The 12 form types classify the same stored fields differently; they aren't
+// a separate shape. So the only real translation is classifying stored data
+// (formTypeFromStored) and applying a newly-chosen type on top of the
+// existing fields (applyFormType) - not a generic bidirectional mapper.
+
+export const FORM_METRIC_TYPES = [
+  "proportion",
+  "threshold",
+  "retention",
+  "funnel",
+  "rowCount",
+  "colSum",
+  "colMax",
+  "countDist",
+  "activeDays",
+  "ratio",
+  "quantile",
+  "dailyParticipation",
+] as const;
+export type FormMetricType = (typeof FORM_METRIC_TYPES)[number];
+
+const SHAPE_FORM_TYPES: ReadonlySet<FormMetricType> = new Set([
+  "rowCount",
+  "colSum",
+  "colMax",
+  "countDist",
+  "activeDays",
+]);
+
+// Gates from the spec.
+export function typeHasShape(type: FormMetricType): boolean {
+  return SHAPE_FORM_TYPES.has(type);
+}
+
+// The shape a Value-group type pins its numerator to, for callers (e.g.
+// MetricEditor) that need to show a bare ColumnSelect with no ShapeSelect.
+// Single source of truth with SHAPE_FORM_TYPES/storedTypeAndNumeratorFor
+// below - reuses both rather than re-encoding the five types a third time.
+export function shapeForValueType(type: FormMetricType): Shape | undefined {
+  if (!typeHasShape(type)) return undefined;
+  const spec = storedTypeAndNumeratorFor(type).numerator;
+  return spec.kind === "shape" ? spec.shape : undefined;
+}
+
+export function cappingOk(type: FormMetricType): boolean {
+  return type === "ratio" || typeHasShape(type);
+}
+
+export function windowOk(type: FormMetricType): boolean {
+  return type !== "retention";
+}
+
+export type UnrepresentableReason =
+  | "sketch-aggregation"
+  | "quantile-event-count-column"
+  | "mean-on-distinct-users"
+  | "unsupported-aggregate-filter";
+
+export type FormTypeResult =
+  | { representable: true; type: FormMetricType }
+  | { representable: false; reason: UnrepresentableReason };
+
+type MinimalNumerator = Pick<
+  ColumnRef,
+  "column" | "aggregation" | "aggregateFilterColumn" | "aggregateFilter"
+> | null;
+
+// aggregateFilterColumn is schema-documented as always $$count or a summed
+// numeric column; only a string/boolean column (needs a factTable to detect)
+// makes it an unrepresentable Threshold basis.
+function isValidThresholdBasis(
+  aggregateFilterColumn: string,
+  factTable: MinimalFactTable,
+): boolean {
+  if (aggregateFilterColumn === "$$count") return true;
+  if (!factTable) return true;
+  const col = factTable.columns.find((c) => c.column === aggregateFilterColumn);
+  if (!col) return true;
+  return col.datatype === "number";
+}
+
+export function formTypeFromStored(
+  metric: {
+    metricType: FactMetricType;
+    numerator: MinimalNumerator;
+    denominator?: MinimalNumerator;
+    quantileSettings?: {
+      type: "unit" | "event";
+      quantileEventCountColumn?: string;
+    } | null;
+  },
+  factTable?: MinimalFactTable,
+): FormTypeResult {
+  const { metricType, numerator, denominator, quantileSettings } = metric;
+
+  // "aggregation: 'hll merge' or 'kll merge'" (spec) is stated generally, not
+  // scoped to one metric type. isMergeAggregationMetric is the same helper
+  // the metric detail page already uses to lock down API-only metrics, so
+  // this is checked once here rather than reimplemented per branch.
+  if (isMergeAggregationMetric({ numerator, denominator })) {
+    return { representable: false, reason: "sketch-aggregation" };
+  }
+
+  if (metricType === "funnel") return { representable: true, type: "funnel" };
+  if (metricType === "ratio") return { representable: true, type: "ratio" };
+  if (metricType === "dailyParticipation") {
+    return { representable: true, type: "dailyParticipation" };
+  }
+
+  if (metricType === "retention") {
+    if (
+      numerator?.aggregateFilterColumn &&
+      !isValidThresholdBasis(numerator.aggregateFilterColumn, factTable)
+    ) {
+      return { representable: false, reason: "unsupported-aggregate-filter" };
+    }
+    return { representable: true, type: "retention" };
+  }
+
+  if (metricType === "proportion") {
+    if (numerator?.aggregateFilterColumn) {
+      if (!isValidThresholdBasis(numerator.aggregateFilterColumn, factTable)) {
+        return { representable: false, reason: "unsupported-aggregate-filter" };
+      }
+      return { representable: true, type: "threshold" };
+    }
+    return { representable: true, type: "proportion" };
+  }
+
+  if (metricType === "quantile") {
+    if (quantileSettings?.quantileEventCountColumn) {
+      return { representable: false, reason: "quantile-event-count-column" };
+    }
+    return { representable: true, type: "quantile" };
+  }
+
+  // Every FactMetricType is handled above except "mean". Asserted explicitly
+  // so a future addition to the union fails to compile here instead of
+  // silently falling through and misclassifying as "mean".
+  if (metricType !== "mean") {
+    const exhaustiveCheck: never = metricType;
+    throw new Error(`Unhandled metric type: ${exhaustiveCheck}`);
+  }
+
+  if (numerator?.column === "$$distinctUsers") {
+    return { representable: false, reason: "mean-on-distinct-users" };
+  }
+  if (numerator?.column === "$$count")
+    return { representable: true, type: "rowCount" };
+  if (numerator?.column === "$$distinctDates") {
+    return { representable: true, type: "activeDays" };
+  }
+  if (numerator?.aggregation === "max")
+    return { representable: true, type: "colMax" };
+  if (numerator?.aggregation === "count distinct") {
+    return { representable: true, type: "countDist" };
+  }
+  return { representable: true, type: "colSum" };
+}
+
+// What a form type dictates about the numerator: no numerator at all
+// (funnel), a fixed sentinel column with no shape concept (proportion/
+// threshold/retention need $$distinctUsers so hasAggregateFilter/
+// isBinomialMetric resolve correctly downstream; dailyParticipation needs
+// $$distinctDates so it aggregates as COUNT(DISTINCT date) rather than
+// COUNT(*) - see FactMetricModel.upgradeFactMetricDoc's auto-heal for the
+// same rule), or the shared five-shape system (Value types, ratio, quantile).
+type NumeratorSpec =
+  | { kind: "none" }
+  | { kind: "fixed"; column: string; threshold?: boolean }
+  | { kind: "shape"; shape: Shape };
+
+function storedTypeAndNumeratorFor(formType: FormMetricType): {
+  metricType: FactMetricType;
+  numerator: NumeratorSpec;
+} {
+  switch (formType) {
+    case "proportion":
+      return {
+        metricType: "proportion",
+        numerator: { kind: "fixed", column: "$$distinctUsers" },
+      };
+    case "threshold":
+      return {
+        metricType: "proportion",
+        numerator: {
+          kind: "fixed",
+          column: "$$distinctUsers",
+          threshold: true,
+        },
+      };
+    case "retention":
+      return {
+        metricType: "retention",
+        numerator: { kind: "fixed", column: "$$distinctUsers" },
+      };
+    case "dailyParticipation":
+      return {
+        metricType: "dailyParticipation",
+        numerator: { kind: "fixed", column: "$$distinctDates" },
+      };
+    case "funnel":
+      return { metricType: "funnel", numerator: { kind: "none" } };
+    case "rowCount":
+      return {
+        metricType: "mean",
+        numerator: { kind: "shape", shape: "count" },
+      };
+    case "colSum":
+      return { metricType: "mean", numerator: { kind: "shape", shape: "sum" } };
+    case "colMax":
+      return { metricType: "mean", numerator: { kind: "shape", shape: "max" } };
+    case "countDist":
+      return {
+        metricType: "mean",
+        numerator: { kind: "shape", shape: "distinct" },
+      };
+    case "activeDays":
+      return {
+        metricType: "mean",
+        numerator: { kind: "shape", shape: "days" },
+      };
+    case "ratio":
+      return {
+        metricType: "ratio",
+        numerator: { kind: "shape", shape: "sum" },
+      };
+    case "quantile":
+      return {
+        metricType: "quantile",
+        numerator: { kind: "shape", shape: "sum" },
+      };
+  }
+}
+
+export type MetricTypeSwitchState = {
+  metricType: FactMetricType;
+  numerator: ColumnRef | null;
+  denominator?: ColumnRef | null;
+  quantileSettings?: MetricQuantileSettings | null;
+  funnelSettings?: FunnelSettings | null;
+  cappingSettings?: MetricCappingSettings;
+  windowSettings?: MetricWindowSettings;
+};
+
+const DEFAULT_QUANTILE = 0.5;
+
+function defaultFunnelStep(name: string, factTableId: string): FunnelStep {
+  return {
+    name,
+    factTableId,
+    rowFilters: [],
+    optional: false,
+    conversionWindow: null,
+  };
+}
+
+/**
+ * Reset rule: metric type change -> refit the column for the new type's
+ * shape (or set its fixed sentinel column, for types that don't have a
+ * shape - see storedTypeAndNumeratorFor). Also initializes the extra fields
+ * a type requires to be valid (ratio's denominator, quantile's
+ * quantileSettings, funnel's funnelSettings.steps) when they aren't already
+ * set, since the schema requires all three for their respective metricType
+ * — but never overwrites one that's already there, so switching away and
+ * back doesn't lose it.
+ */
+// Capping only applies to ratio + the five Value types (cappingOk); ratio
+// itself only supports percentile capping (MetricCappingSettingsForm already
+// hides "absolute" for it). Without this, a capping setting left over from a
+// previous type sits in the stored metric invisibly, since cappingOk(type)
+// already hides the field it would need to be edited back to "".
+function resetCappingForTypeSwitch(
+  cappingSettings: MetricCappingSettings | undefined,
+  newFormType: FormMetricType,
+): MetricCappingSettings | undefined {
+  if (!cappingSettings) return cappingSettings;
+  const clear =
+    !cappingOk(newFormType) ||
+    (newFormType === "ratio" && cappingSettings.type === "absolute");
+  return clear ? { ...cappingSettings, type: "" } : cappingSettings;
+}
+
+// Retention states its delay in the Window sentence itself; every other type
+// edits it via the separate Metric Delay field. Reset to a neutral value
+// leaving retention (so it doesn't inherit a "days after exposure" delay
+// meant for the Window sentence) and seed a sensible non-zero default
+// entering it (so the Window sentence doesn't start at "0 days").
+function resetWindowForTypeSwitch(
+  windowSettings: MetricWindowSettings | undefined,
+  currentMetricType: FactMetricType,
+  newFormType: FormMetricType,
+): MetricWindowSettings | undefined {
+  if (!windowSettings) return windowSettings;
+  if (currentMetricType === "retention" && newFormType !== "retention") {
+    return { ...windowSettings, delayValue: 0, delayUnit: "hours" };
+  }
+  if (currentMetricType !== "retention" && newFormType === "retention") {
+    const withDelay =
+      windowSettings.delayValue === 0
+        ? { ...windowSettings, delayValue: 7, delayUnit: "days" as const }
+        : windowSettings;
+    // The query only enforces an upper bound when type === "conversion"
+    // (onRetentionDelayOrModeChange's own comment) - a metric switching
+    // into retention from some other type carries over whatever type that
+    // other type left behind, which has nothing to do with what windowValue
+    // implies here. Without this, a fresh metric can display "Between X and
+    // Y days" (windowValue > 0 from the incoming type's own default) while
+    // still querying unbounded, the same initialization gap already fixed
+    // for the mode toggle itself.
+    return {
+      ...withDelay,
+      type:
+        retentionModeFromWindow(withDelay) === "between" ? "conversion" : "",
+    };
+  }
+  return windowSettings;
+}
+
+export function applyFormType<T extends MetricTypeSwitchState>(
+  current: T,
+  newFormType: FormMetricType,
+  factTable: MinimalFactTable,
+  hasCountDistinctHLL = false,
+): T {
+  const { metricType, numerator: spec } =
+    storedTypeAndNumeratorFor(newFormType);
+  const sourceFactTableId = current.numerator?.factTableId ?? "";
+  const cappingSettings = resetCappingForTypeSwitch(
+    current.cappingSettings,
+    newFormType,
+  );
+  const windowSettings = resetWindowForTypeSwitch(
+    current.windowSettings,
+    current.metricType,
+    newFormType,
+  );
+
+  if (spec.kind === "none") {
+    const funnelSettings =
+      current.funnelSettings && current.funnelSettings.steps.length >= 2
+        ? current.funnelSettings
+        : {
+            steps: [
+              defaultFunnelStep("Step 1", sourceFactTableId),
+              defaultFunnelStep("Step 2", sourceFactTableId),
+            ],
+          };
+    return {
+      ...current,
+      metricType,
+      numerator: null,
+      denominator: null,
+      quantileSettings: null,
+      funnelSettings,
+      ...(cappingSettings !== undefined && { cappingSettings }),
+      ...(windowSettings !== undefined && { windowSettings }),
+    };
+  }
+
+  const base: ColumnRef = current.numerator ?? {
+    factTableId: "",
+    column: "",
+    rowFilters: [],
+  };
+
+  const numerator: ColumnRef =
+    spec.kind === "fixed"
+      ? {
+          ...base,
+          column: spec.column,
+          aggregation: undefined,
+          // Threshold is proportion + an aggregateFilter - keep whatever
+          // basis/comparison was already there (switching threshold ->
+          // something else -> threshold shouldn't lose it), or default to a
+          // fresh one so the metric actually classifies as "threshold"
+          // instead of silently reverting to "proportion" the moment it's
+          // selected. Every other fixed type clears both fields.
+          aggregateFilterColumn: spec.threshold
+            ? base.aggregateFilterColumn || "$$count"
+            : undefined,
+          aggregateFilter: spec.threshold
+            ? base.aggregateFilter || ""
+            : undefined,
+        }
+      : {
+          ...base,
+          column: fitColumn(
+            spec.shape,
+            factTable,
+            base.column,
+            hasCountDistinctHLL,
+          ),
+          aggregation: aggregationForShape(spec.shape),
+          aggregateFilterColumn: undefined,
+          aggregateFilter: undefined,
+        };
+
+  return {
+    ...current,
+    metricType,
+    numerator,
+    // Only ratio/quantile carry a denominator/quantileSettings - clear the
+    // other's field on every switch, not just spread the stale value
+    // forward, so it doesn't reach save on a type that never showed a
+    // control to edit it back.
+    denominator:
+      newFormType === "ratio"
+        ? (current.denominator ?? {
+            factTableId: numerator.factTableId,
+            column: "$$count",
+            rowFilters: [],
+          })
+        : null,
+    ...(cappingSettings !== undefined && { cappingSettings }),
+    ...(windowSettings !== undefined && { windowSettings }),
+    quantileSettings:
+      newFormType === "quantile"
+        ? (current.quantileSettings ?? {
+            type: "unit" as const,
+            ignoreZeros: false,
+            quantile: DEFAULT_QUANTILE,
+          })
+        : null,
+  };
+}
