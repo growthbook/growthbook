@@ -1,33 +1,47 @@
+import { sendEventWebhook } from "back-end/src/events/handlers/webhooks/sendEventWebhook";
+import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { ReqContext } from "back-end/types/request";
 import {
   buildSlackSettingsPreview,
   sendSlackSettingsTest,
   slackPreviewEventNames,
 } from "back-end/src/services/slack/slackSettingsPreview";
-import { getSlackOAuthIntegrationById } from "back-end/src/services/slackIntegration";
+import { getEventWebHookById } from "back-end/src/models/EventWebhookModel";
 import {
   uploadSlackImageFile,
   postSlackMessageResult,
 } from "back-end/src/services/slack/slackWebApi";
+jest.mock("back-end/src/events/handlers/webhooks/sendEventWebhook", () => ({
+  sendEventWebhook: jest.fn(),
+}));
 jest.mock("back-end/src/models/EventModel", () => ({
   getEvent: jest.fn().mockResolvedValue(null),
 }));
-jest.mock("back-end/src/services/slackIntegration", () => ({
-  getSlackOAuthIntegrationById: jest.fn(),
+jest.mock("back-end/src/models/EventWebhookModel", () => ({
+  getEventWebHookById: jest.fn(),
 }));
 jest.mock("back-end/src/util/slackToken", () => ({
   decryptSlackBotToken: jest.fn().mockReturnValue("test-token"),
 }));
 jest.mock("back-end/src/services/slack/slackWebApi", () => ({
+  ...jest.requireActual("back-end/src/services/slack/slackWebApi"),
   uploadSlackImageFile: jest.fn(),
   postSlackMessageResult: jest.fn(),
 }));
 jest.mock(
   "back-end/src/services/notificationCards/renderNotificationCard",
   () => ({
-    renderNotificationCard: jest
-      .fn()
-      .mockResolvedValue({ png: Buffer.from("png") }),
+    renderNotificationCard: jest.fn().mockImplementation(async (event) =>
+      event.event === "experiment.warning"
+        ? {
+            png: Buffer.from("png"),
+            objectUrl: "https://example.com/experiment",
+            objectName: "Test",
+            eventLabel: "Warning",
+            altText: "Warning",
+          }
+        : null,
+    ),
   }),
 );
 const context = {
@@ -39,6 +53,9 @@ const context = {
     },
   },
   models: {
+    webhookSecrets: {
+      getBackEndSecretsReplacer: jest.fn().mockResolvedValue({}),
+    },
     slackWorkspaceConnections: {
       getByTeamId: jest
         .fn()
@@ -52,15 +69,15 @@ it.each(slackPreviewEventNames.filter((name) => !name.startsWith("digest:")))(
   async (event) => {
     const preview = await buildSlackSettingsPreview(context, event, "none");
     expect(preview.message.text).toBeTruthy();
-    expect(preview.png).toBeNull();
+    expect(preview.card?.png).toBeUndefined();
     expect(JSON.stringify(preview.message)).not.toContain("undefined");
   },
 );
-it("only uses an image for supported SRM cards", async () => {
+it("uses the production renderer to decide which events have images", async () => {
   expect(
     (await buildSlackSettingsPreview(context, "experiment.warning", "compact"))
-      .png,
-  ).not.toBeNull();
+      .card?.png,
+  ).not.toBeUndefined();
   expect(
     (
       await buildSlackSettingsPreview(
@@ -68,8 +85,8 @@ it("only uses an image for supported SRM cards", async () => {
         "experiment.info.significance",
         "compact",
       )
-    ).png,
-  ).toBeNull();
+    ).card?.png,
+  ).toBeUndefined();
 });
 it("rejects preview requests without integration management permission", async () => {
   const denied = {
@@ -81,7 +98,7 @@ it("rejects preview requests without integration management permission", async (
   ).rejects.toThrow("Forbidden");
 });
 it("does not deliver to an absent or another organization's channel", async () => {
-  jest.mocked(getSlackOAuthIntegrationById).mockResolvedValue(null);
+  jest.mocked(getEventWebHookById).mockResolvedValue(null);
   await expect(
     sendSlackSettingsTest(
       context,
@@ -90,19 +107,19 @@ it("does not deliver to an absent or another organization's channel", async () =
       "compact",
     ),
   ).rejects.toThrow("Slack channel not found");
-  expect(getSlackOAuthIntegrationById).toHaveBeenCalledWith({
-    context,
-    id: "other-channel",
-  });
+  expect(getEventWebHookById).toHaveBeenCalledWith(
+    "other-channel",
+    context.org.id,
+  );
   expect(postSlackMessageResult).not.toHaveBeenCalled();
   expect(uploadSlackImageFile).not.toHaveBeenCalled();
 });
 it("falls back to the same text sample if the image upload fails", async () => {
-  jest
-    .mocked(getSlackOAuthIntegrationById)
-    .mockResolvedValue({ slack: { teamId: "T1", channelId: "C1" } } as Awaited<
-      ReturnType<typeof getSlackOAuthIntegrationById>
-    >);
+  jest.mocked(getEventWebHookById).mockResolvedValue({
+    payloadType: "slack",
+    url: "https://slack.com",
+    slack: { teamId: "T1", channelId: "C1" },
+  } as Awaited<ReturnType<typeof getEventWebHookById>>);
   jest.mocked(uploadSlackImageFile).mockResolvedValue(null);
   jest
     .mocked(postSlackMessageResult)
@@ -127,9 +144,93 @@ it.each(["digest:scorecard", "digest:feature"])(
   "renders an image for %s independently of individual card format",
   async (name) => {
     const preview = await buildSlackSettingsPreview(context, name, "none");
-    expect(preview.png?.subarray(0, 8).toString("hex")).toBe(
+    expect(preview.card?.png?.subarray(0, 8).toString("hex")).toBe(
       "89504e470d0a1a0a",
     );
     expect(preview.message.text).toContain("sample data");
   },
 );
+
+it("picks up new image producers without a preview-specific event gate", async () => {
+  const card = {
+    png: Buffer.from("png"),
+    objectUrl: "https://example.com/experiment",
+    objectName: "Test",
+    eventLabel: "Significance",
+    altText: "Significance",
+  };
+  jest.mocked(renderNotificationCard).mockResolvedValueOnce(card);
+  expect(
+    (
+      await buildSlackSettingsPreview(
+        context,
+        "experiment.info.significance",
+        "detailed",
+      )
+    ).card,
+  ).toBe(card);
+  expect(renderNotificationCard).toHaveBeenLastCalledWith(
+    expect.objectContaining({ event: "experiment.info.significance" }),
+    "detailed",
+  );
+});
+it("test sends preserve the incoming webhook transport used in production", async () => {
+  const url = "https://hooks.slack.com/services/test";
+  jest.mocked(getEventWebHookById).mockResolvedValue({
+    payloadType: "slack",
+    url,
+    slack: { teamId: "T1", channelId: "C1" },
+  } as Awaited<ReturnType<typeof getEventWebHookById>>);
+  jest.mocked(sendEventWebhook).mockResolvedValue({
+    result: "success",
+    statusCode: 200,
+    responseBody: "ok",
+  });
+  expect(
+    await sendSlackSettingsTest(
+      context,
+      "channel",
+      "experiment.warning",
+      "compact",
+    ),
+  ).toEqual({ delivery: "text" });
+  expect(sendEventWebhook).toHaveBeenCalledWith(
+    expect.objectContaining({
+      eventWebHook: expect.objectContaining({ url }),
+      method: "POST",
+      payload: expect.objectContaining({
+        text: expect.stringContaining("Test notification — sample data"),
+      }),
+    }),
+  );
+  expect(postSlackMessageResult).not.toHaveBeenCalled();
+  expect(uploadSlackImageFile).not.toHaveBeenCalled();
+  expect(
+    context.models.slackWorkspaceConnections.getByTeamId,
+  ).not.toHaveBeenCalled();
+});
+it("test sends share the production image delivery path", async () => {
+  jest.mocked(getEventWebHookById).mockResolvedValue({
+    payloadType: "slack",
+    url: "https://slack.com",
+    slack: { teamId: "T1", channelId: "C1" },
+  } as Awaited<ReturnType<typeof getEventWebHookById>>);
+  jest.mocked(uploadSlackImageFile).mockResolvedValue("file-1");
+  expect(
+    await sendSlackSettingsTest(
+      context,
+      "channel",
+      "experiment.warning",
+      "compact",
+    ),
+  ).toEqual({ delivery: "card" });
+  expect(uploadSlackImageFile).toHaveBeenCalledWith(
+    expect.objectContaining({
+      channelId: "C1",
+      initialComment: expect.stringContaining(
+        "Test notification — sample data",
+      ),
+    }),
+  );
+  expect(postSlackMessageResult).not.toHaveBeenCalled();
+});

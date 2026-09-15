@@ -13,6 +13,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Link from "@/ui/Link";
 import SlackChannelSettings, {
   getSlackChannelLabel,
@@ -61,6 +62,8 @@ export default function SlackWorkspacePanel({
   >({});
   const [draftEnabled, setDraftEnabled] = useState<boolean | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [channelDirty, setChannelDirty] = useState(false);
+  const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
   useEffect(() => {
     if (
       selectedChannelId &&
@@ -87,12 +90,20 @@ export default function SlackWorkspacePanel({
           enabled: optionChanges[option.key],
         }),
       });
+      // Clear each option as it lands so a later failure only reports what is still unsaved.
+      setOptionChanges((current) => {
+        const next = { ...current };
+        delete next[option.key];
+        return next;
+      });
     }
   };
   const saved = async () => {
-    await onSaved();
-    setOptionChanges({});
-    setDraftEnabled(null);
+    try {
+      await onSaved();
+    } finally {
+      setDraftEnabled(null);
+    }
   };
   const name = workspace.teamName || workspace.teamId || "Unknown workspace";
   return (
@@ -210,7 +221,15 @@ export default function SlackWorkspacePanel({
                   underline="none"
                   color="dark"
                   aria-current={active ? "page" : undefined}
-                  onClick={() => setLocalChannelId(channel.id)}
+                  onClick={(event) => {
+                    if (active) return;
+                    if (channelDirty) {
+                      event.preventDefault();
+                      setPendingChannelId(channel.id);
+                      return;
+                    }
+                    setLocalChannelId(channel.id);
+                  }}
                   style={{
                     display: "block",
                     padding: "var(--space-2) var(--space-3)",
@@ -268,6 +287,7 @@ export default function SlackWorkspacePanel({
               additionalDirty={additionalDirty}
               onSaveAdditionalSettings={saveOptions}
               onDraftEnabledChange={setDraftEnabled}
+              onDirtyChange={setChannelDirty}
               onSaved={saved}
               onDeleted={async () => {
                 await onSelectChannel(null);
@@ -313,6 +333,21 @@ export default function SlackWorkspacePanel({
             {saveError && <HelperText status="error">{saveError}</HelperText>}
           </Flex>
         </Box>
+      )}
+      {pendingChannelId && (
+        <ConfirmDialog
+          title="Discard unsaved changes?"
+          content="This channel has unsaved changes. Switching channels discards them."
+          yesText="Discard changes"
+          noText="Keep editing"
+          onCancel={() => setPendingChannelId(null)}
+          onConfirm={async () => {
+            const channelId = pendingChannelId;
+            setPendingChannelId(null);
+            setLocalChannelId(channelId);
+            await onSelectChannel(channelId);
+          }}
+        />
       )}
     </Frame>
   );

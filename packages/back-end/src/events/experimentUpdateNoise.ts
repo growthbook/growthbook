@@ -26,37 +26,46 @@ function meaningfulExperiment(value: Record<string, unknown>) {
   return result;
 }
 
-export function isNoisyExperimentUpdate(envelope: unknown): boolean {
+export function isBookkeepingExperimentUpdate(envelope: unknown): boolean {
   const event = record(envelope);
   if (event?.event !== "experiment.updated") return false;
   const data = record(event.data);
   if (!data) return false;
+  const diff = record(data.changes);
+  const added = record(diff?.added);
+  const removed = record(diff?.removed);
+  const modified = diff?.modified;
+  const hasDiff =
+    !!diff &&
+    added !== null &&
+    removed !== null &&
+    Array.isArray(modified) &&
+    Object.keys(diff).every((key) =>
+      ["added", "removed", "modified"].includes(key),
+    );
   const current = record(data.object);
-  const previous = record(data.previous_object);
+  const previousAttributes = record(data.previous_attributes);
   if (
     current &&
-    previous &&
+    previousAttributes &&
+    hasDiff &&
     typeof current.id === "string" &&
-    current.id.length > 0 &&
-    current.id === previous.id
+    current.id
   ) {
+    // Persisted previous_attributes omits undefined values. The diff preserves
+    // added keys, so remove those when reconstructing the previous snapshot.
+    const previous = { ...current, ...previousAttributes, ...removed };
+    for (const key of Object.keys(added)) delete previous[key];
     return isEqual(
       meaningfulExperiment(current),
       meaningfulExperiment(previous),
     );
   }
-  // Missing or malformed diffs are unknown, not evidence that nothing changed.
-  const diff = record(data.changes);
+  // Missing or malformed diffs cannot establish that an update is empty.
   return (
-    !!diff &&
-    Object.keys(diff).every((key) =>
-      ["added", "removed", "modified"].includes(key),
-    ) &&
-    record(diff.added) !== null &&
-    Object.keys(diff.added as object).length === 0 &&
-    record(diff.removed) !== null &&
-    Object.keys(diff.removed as object).length === 0 &&
-    Array.isArray(diff.modified) &&
-    diff.modified.length === 0
+    hasDiff &&
+    Object.keys(added).length === 0 &&
+    Object.keys(removed).length === 0 &&
+    modified.length === 0
   );
 }

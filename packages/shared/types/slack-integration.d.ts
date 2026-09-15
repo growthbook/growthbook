@@ -30,6 +30,7 @@ export interface SlackOAuthIntegrationInterface
     | "projects"
     | "environments"
     | "tags"
+    | "excludeEmptyUpdates"
     | "experiments"
     | "metrics"
     | "features"

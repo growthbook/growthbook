@@ -7,7 +7,6 @@ import {
   getFilterDataForNotificationEvent,
   filterEventForEnvironments,
 } from "back-end/src/events/handlers/utils";
-import { filterWebhooksByResources } from "./slackResourceFilters";
 import { EventWebHookNotifier } from "./EventWebHookNotifier";
 
 /**
@@ -48,15 +47,13 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     }
   })();
 
-  const matchingWebhooks =
-    event.data.event === "webhook.test"
-      ? eventWebHooks
-      : await filterWebhooksByResources(event, eventWebHooks);
-  matchingWebhooks.forEach((eventWebHook) => {
-    const notifier = new EventWebHookNotifier({
-      eventId: event.id,
-      eventWebHookId: eventWebHook.id,
-    });
-    notifier.enqueue();
-  });
+  await Promise.all(
+    eventWebHooks.map((eventWebHook) => {
+      const notifier = new EventWebHookNotifier({
+        eventId: event.id,
+        eventWebHookId: eventWebHook.id,
+      });
+      return notifier.enqueue();
+    }),
+  );
 };

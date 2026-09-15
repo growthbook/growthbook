@@ -1,9 +1,9 @@
-// Synthetic fixtures recovered from the original Slack settings preview.
+// Synthetic notification events for previews and test sends.
 import { DiffResult } from "shared/types/events/diff";
 import { NotificationEvent } from "shared/types/events/notification-events";
 import type { EventUser } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
-export const slackEventWebhookTestEventNames = [
+export const sampleNotificationEventNames = [
   "feature.created",
   "feature.updated",
   "feature.deleted",
@@ -52,19 +52,19 @@ export const slackEventWebhookTestEventNames = [
   "experiment.holdout.updated",
 ] as const;
 
-export type SlackEventWebhookTestEventName =
-  (typeof slackEventWebhookTestEventNames)[number];
+export type SampleNotificationEventName =
+  (typeof sampleNotificationEventNames)[number];
 
 const API_VERSION = "2024-07-31" as const;
-const TEST_PROJECT = "slack-test-project";
+const TEST_PROJECT = "notification-test-project";
 const TEST_ENVIRONMENT = "production";
-const TEST_TAG = "slack-test";
+const TEST_TAG = "notification-test";
 
 const testUser = (context: ReqContext): EventUser => ({
   type: "dashboard",
-  id: context.userId || "slack-test-user",
-  email: context.email || "slack-test@example.com",
-  name: context.userName || "Slack Test User",
+  id: context.userId || "notification-test-user",
+  email: context.email || "notification-test@example.com",
+  name: context.userName || "Notification Test User",
 });
 
 const nowIso = () => new Date().toISOString();
@@ -100,10 +100,10 @@ const sampleFeature = (overrides: Record<string, unknown> = {}) => ({
   prerequisites: [],
   revision: {
     version: 3,
-    comment: "Testing Slack formatting",
+    comment: "Testing notification formatting",
     date: nowIso(),
-    createdBy: "Slack Test User",
-    publishedBy: "Slack Test User",
+    createdBy: "Notification Test User",
+    publishedBy: "Notification Test User",
   },
   ...overrides,
 });
@@ -117,10 +117,10 @@ const sampleExperiment = (overrides: Record<string, unknown> = {}) => ({
   type: "standard",
   project: TEST_PROJECT,
   hypothesis: "A clearer CTA will increase checkout starts",
-  description: "Synthetic Slack formatting test experiment",
+  description: "Synthetic notification formatting test experiment",
   tags: [TEST_TAG],
   owner: "GrowthBook",
-  ownerEmail: "slack-test@example.com",
+  ownerEmail: "notification-test@example.com",
   archived: false,
   status: "running",
   autoRefresh: true,
@@ -158,7 +158,7 @@ const sampleExperiment = (overrides: Record<string, unknown> = {}) => ({
     },
   ],
   settings: {
-    datasourceId: "ds_slack_test",
+    datasourceId: "ds_notification_test",
     assignmentQueryId: "user_id",
     experimentId: "checkout-cta",
     segmentId: "",
@@ -242,8 +242,8 @@ const sampleRevision = (overrides: Record<string, unknown> = {}) => ({
   comment: "Adjust checkout banner copy",
   date: nowIso(),
   status: "draft",
-  createdBy: "Slack Test User",
-  publishedBy: "Slack Test User",
+  createdBy: "Notification Test User",
+  publishedBy: "Notification Test User",
   defaultValue: "false",
   rules: {
     [TEST_ENVIRONMENT]: [
@@ -264,13 +264,13 @@ const sampleRevision = (overrides: Record<string, unknown> = {}) => ({
 const sampleRamp = (overrides: Record<string, unknown> = {}) => ({
   rampScheduleId: "ramp_checkout_banner",
   rampName: "Checkout banner ramp",
-  orgId: "org_slack_test",
+  orgId: "org_notification_test",
   currentStepIndex: 1,
   status: "running",
   ...overrides,
 });
 
-const getSampleEventData = (eventName: SlackEventWebhookTestEventName) => {
+const getSampleEventData = (eventName: SampleNotificationEventName) => {
   switch (eventName) {
     case "feature.created":
       return { object: sampleFeature() };
@@ -321,7 +321,7 @@ const getSampleEventData = (eventName: SlackEventWebhookTestEventName) => {
         object: {
           rampScheduleId: "ramp_checkout_banner",
           rampName: "Checkout banner ramp",
-          orgId: "org_slack_test",
+          orgId: "org_notification_test",
           entityType: "feature",
           entityId: "checkout-banner",
         },
@@ -331,7 +331,7 @@ const getSampleEventData = (eventName: SlackEventWebhookTestEventName) => {
         object: {
           rampScheduleId: "ramp_checkout_banner",
           rampName: "Checkout banner ramp",
-          orgId: "org_slack_test",
+          orgId: "org_notification_test",
         },
       };
     case "feature.rampSchedule.actions.started":
@@ -370,7 +370,7 @@ const getSampleEventData = (eventName: SlackEventWebhookTestEventName) => {
       return {
         object: sampleRevision({
           reviewer: {
-            id: "reviewer-slack-test",
+            id: "reviewer-notification-test",
             name: "Review Bot",
             email: "review@example.com",
           },
@@ -381,7 +381,7 @@ const getSampleEventData = (eventName: SlackEventWebhookTestEventName) => {
       return {
         object: sampleRevision({
           reviewer: {
-            id: "reviewer-slack-test",
+            id: "reviewer-notification-test",
             name: "Review Bot",
             email: "review@example.com",
           },
@@ -617,7 +617,7 @@ export const getSampleEventPayload = ({
   eventName,
 }: {
   context: ReqContext;
-  eventName: SlackEventWebhookTestEventName;
+  eventName: SampleNotificationEventName;
 }): NotificationEvent => {
   const [object] = eventName.split(".") as ["feature" | "experiment"];
 

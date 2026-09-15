@@ -59,22 +59,41 @@ const eventNameOrWildcard = z
     },
   );
 
+export const notificationResourceFiltersSchema = z
+  .object({
+    experiments: z.array(z.string()).optional(),
+    metrics: z.array(z.string()).optional(),
+    features: z.array(z.string()).optional(),
+  })
+  .strict();
+
+export type NotificationResourceFilters = z.infer<
+  typeof notificationResourceFiltersSchema
+>;
+
+export const notificationSubscriptionSchema =
+  notificationResourceFiltersSchema.extend({
+    events: z.array(eventNameOrWildcard).min(1),
+    projects: z.array(z.string()),
+    tags: z.array(z.string()),
+    environments: z.array(z.string()),
+    excludeEmptyUpdates: z.boolean().optional(),
+  });
+
+export type NotificationSubscription = z.infer<
+  typeof notificationSubscriptionSchema
+>;
+
 export const eventWebHookInterface = z
   .object({
+    ...notificationSubscriptionSchema.shape,
     id: z.string(),
     organizationId: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
     url: z.string().url(),
     name: z.string().trim().min(2),
-    events: z.array(eventNameOrWildcard).min(1),
     enabled: z.boolean(),
-    projects: z.array(z.string()),
-    tags: z.array(z.string()),
-    environments: z.array(z.string()),
-    experiments: z.array(z.string()).optional(),
-    metrics: z.array(z.string()).optional(),
-    features: z.array(z.string()).optional(),
     payloadType: z.enum(eventWebHookPayloadTypes),
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
@@ -88,25 +107,3 @@ export const eventWebHookInterface = z
   .strict();
 
 export type EventWebHookInterface = z.infer<typeof eventWebHookInterface>;
-
-// Explicit defaults avoid subscribing new channels to high-volume significance
-// events or future event families without an administrator selecting them.
-export const defaultSlackNotificationEvents = [
-  "experiment.started",
-  "experiment.stopped",
-  "experiment.decision.ship",
-  "experiment.decision.rollback",
-  "experiment.decision.review",
-  "experiment.metric.regression",
-  "experiment.warning",
-  "experiment.health.guardrailFailed",
-  "feature.revision.published",
-  "feature.revision.reverted",
-  "feature.saferollout.ship",
-  "feature.saferollout.rollback",
-  "feature.saferollout.unhealthy",
-  "feature.revision.reviewRequested",
-  "feature.revision.changesRequested",
-].filter((event) =>
-  zodNotificationEventNamesEnum.some((supported) => supported === event),
-);

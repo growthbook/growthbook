@@ -27,18 +27,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS = {
   cardFormat: "compact",
 } satisfies NotificationSettings;
 
-export const experimentCardFormats = [
+export const notificationFormats = [
   "none",
   ...notificationCardFormats,
 ] as const;
-
-export const notificationCardKinds = [
-  "started",
-  "significance",
-  "won",
-  "lost",
-  "stopped",
-  "warning",
-] as const;
-
-export type NotificationCardKind = (typeof notificationCardKinds)[number];

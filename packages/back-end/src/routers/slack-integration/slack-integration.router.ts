@@ -1,8 +1,8 @@
 import {
-  experimentCardFormats as supportedCardFormats,
-  isEventWebhookWildcard,
-  notificationSettingsSchema,
+  notificationFormats as supportedCardFormats,
+  notificationSubscriptionSchema,
   zodNotificationEventNamesEnum,
+  notificationSettingsSchema,
 } from "shared/validators";
 import express from "express";
 import { z } from "zod";
@@ -15,15 +15,6 @@ const router = express.Router();
 const slackIntegrationController = wrapController(
   rawSlackIntegrationController,
 );
-
-const eventNameOrWildcard = z
-  .string()
-  .refine(
-    (value) =>
-      zodNotificationEventNamesEnum.includes(value as never) ||
-      isEventWebhookWildcard(value),
-    { message: "Must be a valid event name or wildcard pattern" },
-  );
 
 const previewBody = z
   .object({
@@ -67,14 +58,8 @@ router.put(
     params: z.object({ id: z.string() }).strict(),
     body: z
       .object({
+        ...notificationSubscriptionSchema.shape,
         enabled: z.boolean(),
-        events: z.array(eventNameOrWildcard).min(1),
-        projects: z.array(z.string()),
-        environments: z.array(z.string()),
-        tags: z.array(z.string()),
-        experiments: z.array(z.string()).optional(),
-        metrics: z.array(z.string()).optional(),
-        features: z.array(z.string()).optional(),
         notificationSettings: notificationSettingsSchema.optional(),
       })
       .strict(),

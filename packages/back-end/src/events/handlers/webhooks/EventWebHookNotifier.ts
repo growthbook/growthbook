@@ -1,9 +1,5 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import {
-  EventWebHookInterface,
-  EventWebHookMethod,
-} from "shared/types/event-webhook";
-import { LegacyNotificationEvent } from "shared/types/events/notification-events";
+import { EventWebHookMethod } from "shared/types/event-webhook";
 import { NotificationEventName } from "shared/types/events/event";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getEvent } from "back-end/src/models/EventModel";
@@ -14,22 +10,12 @@ import {
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import { createEventWebHookLog } from "back-end/src/models/EventWebHookLogModel";
 import { logger } from "back-end/src/util/logger";
-import { cancellableFetch } from "back-end/src/util/http.util";
-import {
-  getSlackMessageForNotificationEvent,
-  getSlackMessageForLegacyNotificationEvent,
-} from "back-end/src/events/handlers/slack/slack-event-handler-utils";
-import { isSlackWorkspacePlaceholderUrl } from "back-end/src/services/slack/slackWebApi";
-import { deliverSlackNotification } from "back-end/src/services/slack/deliverSlackNotification";
-import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
+import { deliverEventNotification } from "back-end/src/services/notifications/deliverEventNotification";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
-import { SecretsReplacer } from "back-end/src/util/secrets";
-import { filterWebhooksByResources } from "./slackResourceFilters";
+import { matchesNotificationFilters } from "back-end/src/events/notificationFilters";
 import {
   EventWebHookErrorResult,
-  EventWebHookResult,
   EventWebHookSuccessResult,
-  getEventWebHookSignatureForPayload,
 } from "./event-webhooks-utils";
 
 let jobDefined = false;
@@ -116,12 +102,6 @@ export class EventWebHookNotifier implements Notifier {
       return;
     }
 
-    if (
-      event.data.event !== "webhook.test" &&
-      !(await filterWebhooksByResources(event, [eventWebHook])).length
-    )
-      return;
-
     const organization = await findOrganizationById(event.organizationId);
     if (!organization) {
       throw new Error(
@@ -131,78 +111,25 @@ export class EventWebHookNotifier implements Notifier {
 
     const method = eventWebHook.method || "POST";
     const context = getContextForAgendaJobByOrgObject(organization);
-    const delivery = await (async () => {
+    try {
       if (
-        (eventWebHook.payloadType || "raw") === "slack" &&
-        isSlackWorkspacePlaceholderUrl(eventWebHook.url)
-      ) {
-        return deliverSlackNotification({ context, event, eventWebHook });
-      }
-
-      const payload = await (async () => {
-        let invalidPayloadType: never;
-
-        // There might be very old webhook definitions who don't have
-        // a payloadType at all. Assume "raw" in this case.
-        const payloadType = eventWebHook.payloadType || "raw";
-
-        switch (payloadType) {
-          case "json": {
-            if (!event.version) throw new Error("Internal error");
-            return event.data;
-          }
-
-          case "raw": {
-            const legacyPayload: LegacyNotificationEvent | undefined =
-              event.version
-                ? getLegacyMessageForNotificationEvent(event.data)
-                : event.data;
-            return legacyPayload;
-          }
-
-          case "slack": {
-            if (!event.version)
-              return getSlackMessageForLegacyNotificationEvent(
-                event.data,
-                eventId,
-              );
-            return getSlackMessageForNotificationEvent(event.data, eventId);
-          }
-
-          case "discord": {
-            const data = await (!event.version
-              ? getSlackMessageForLegacyNotificationEvent(event.data, eventId)
-              : getSlackMessageForNotificationEvent(event.data, eventId));
-
-            if (!data) return null;
-
-            return { content: data.text };
-          }
-
-          default:
-            invalidPayloadType = payloadType;
-            throw `Invalid payload type: ${invalidPayloadType}`;
-        }
-      })();
-      if (!payload) {
-        // Unsupported events return a null payload
-        return null;
-      }
-
-      const origin = new URL(eventWebHook.url).origin;
-
-      const applySecrets =
-        await context.models.webhookSecrets.getBackEndSecretsReplacer(origin);
-
-      const result = await EventWebHookNotifier.sendDataToWebHook({
-        payload,
-        eventWebHook,
-        method,
-        applySecrets,
-      });
-
-      return { result, payload };
-    })();
+        event.data.event !== "webhook.test" &&
+        !(await matchesNotificationFilters(context, event, eventWebHook))
+      )
+        return;
+    } catch (error) {
+      logger.error(
+        { error, eventId, eventWebHookId },
+        "EventWebHook: resource filtering failed",
+      );
+      await EventWebHookNotifier.retryJob(job);
+      throw error;
+    }
+    const delivery = await deliverEventNotification({
+      context,
+      event,
+      eventWebHook,
+    });
 
     // If the delivery is null, we don't need to do anything
     if (!delivery) {
@@ -233,80 +160,6 @@ export class EventWebHookNotifier implements Notifier {
           method,
           payload: logPayload,
         });
-    }
-  }
-
-  /**
-   * This function makes the post request to the given event web hook with the provided payload,
-   * signing it.
-   * @param payload
-   * @param eventWebHook
-   */
-  private static async sendDataToWebHook<DataType>({
-    payload,
-    eventWebHook,
-    method,
-    applySecrets,
-  }: {
-    payload: DataType;
-    eventWebHook: EventWebHookInterface;
-    method: EventWebHookMethod;
-    applySecrets: SecretsReplacer;
-  }): Promise<EventWebHookResult> {
-    const requestTimeout = 30000;
-    const maxContentSize = 1000;
-
-    try {
-      const { url, signingKey, headers = {} } = eventWebHook;
-
-      const signature = getEventWebHookSignatureForPayload({
-        signingKey,
-        payload,
-      });
-
-      const result = await cancellableFetch(
-        applySecrets(url, { encode: encodeURIComponent }),
-        {
-          headers: {
-            ...applySecrets(headers),
-            "Content-Type": "application/json",
-            "User-Agent": "GrowthBook Webhook",
-            "X-GrowthBook-Signature": signature,
-          },
-          method,
-          body: JSON.stringify(payload),
-        },
-        {
-          maxTimeMs: requestTimeout,
-          maxContentSize: maxContentSize,
-        },
-      );
-
-      const { stringBody, responseWithoutBody } = result;
-
-      if (!responseWithoutBody.ok) {
-        // Server error
-        return {
-          result: "error",
-          statusCode: responseWithoutBody.status,
-          error: responseWithoutBody.statusText,
-        };
-      }
-
-      return {
-        result: "success",
-        statusCode: responseWithoutBody.status,
-        responseBody: stringBody,
-      };
-    } catch (e) {
-      // Unknown error
-      logger.error(e, "Unknown Error");
-
-      return {
-        result: "error",
-        statusCode: null,
-        error: e.message,
-      };
     }
   }
 

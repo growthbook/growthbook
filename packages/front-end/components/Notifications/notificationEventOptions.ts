@@ -1,13 +1,20 @@
 import { notificationEventNames, notificationEvents } from "shared/validators";
 
-export type SlackEventCategory = "experiment" | "feature";
+export const notificationCategories = {
+  experiment: "Experiments",
+  feature: "Feature Flags",
+  savedGroup: "Saved Groups",
+  constant: "Constants",
+  config: "Configs",
+};
+export type NotificationEventCategory = keyof typeof notificationCategories;
 
-export interface SlackEventOption {
+export interface NotificationEventOption {
   id: string;
   label: string;
   description?: string;
   tooltip?: string;
-  category: SlackEventCategory;
+  category: NotificationEventCategory;
   group: string;
   // Concrete events this option controls; all must be subscribed to read as "on".
   events: string[];
@@ -15,7 +22,7 @@ export interface SlackEventOption {
   defaultOn: boolean;
 }
 
-const originalOptions: SlackEventOption[] = [
+const originalOptions: NotificationEventOption[] = [
   {
     id: "exp-started",
     label: "Experiment started",
@@ -298,7 +305,10 @@ const originalOptions: SlackEventOption[] = [
 ];
 
 const eventCopy: Partial<
-  Record<string, Pick<SlackEventOption, "label" | "description" | "tooltip">>
+  Record<
+    string,
+    Pick<NotificationEventOption, "label" | "description" | "tooltip">
+  >
 > = {
   "feature.revision.reviewRetracted": {
     label: "Review retracted",
@@ -353,8 +363,8 @@ const availableEvents = notificationEventNames.filter((name) => {
 });
 const available = new Set<string>(availableEvents);
 
-// Use the original presentation catalog, but only offer events in this stack.
-export const slackEventOptions = originalOptions
+// Only offer events supported by the notification registry.
+export const notificationEventOptions = originalOptions
   .map((option) => ({
     ...option,
     events: option.events.filter((event) => available.has(event)),
@@ -362,9 +372,11 @@ export const slackEventOptions = originalOptions
   .filter((option) => option.events.length > 0);
 
 const catalogEvents = new Set(
-  slackEventOptions.flatMap((option) => option.events),
+  notificationEventOptions.flatMap((option) => option.events),
 );
-for (const category of ["experiment", "feature"] as const) {
+for (const category of Object.keys(
+  notificationCategories,
+) as NotificationEventCategory[]) {
   for (const event of availableEvents.filter(
     (event) => event.startsWith(`${category}.`) && !catalogEvents.has(event),
   )) {
@@ -377,7 +389,7 @@ for (const category of ["experiment", "feature"] as const) {
       .replace(/([a-z])([A-Z])/g, "$1 $2")
       .replace(/[.-]/g, " ")
       .toLowerCase();
-    slackEventOptions.push({
+    notificationEventOptions.push({
       id: event,
       category,
       group: "Other events",
@@ -386,12 +398,12 @@ for (const category of ["experiment", "feature"] as const) {
         tooltip: definitions[category][name].description,
       }),
       events: [event],
-      defaultOn: false,
+      defaultOn: event.endsWith(".revision.published"),
     });
   }
 }
 
-export function matchesSlackEvent(
+export function matchesNotificationEvent(
   subscription: string,
   event: string,
 ): boolean {
@@ -401,12 +413,23 @@ export function matchesSlackEvent(
   );
 }
 
-export function slackEventSelection(
+export function hasNotificationWildcard(
+  events: string[],
+  category: NotificationEventCategory,
+): boolean {
+  return events.some(
+    (event) => event.startsWith(`${category}.`) && event.endsWith(".*"),
+  );
+}
+
+export function notificationEventSelection(
   events: string[],
   controlled: string[],
 ): boolean | "indeterminate" {
   const count = controlled.filter((event) =>
-    events.some((subscription) => matchesSlackEvent(subscription, event)),
+    events.some((subscription) =>
+      matchesNotificationEvent(subscription, event),
+    ),
   ).length;
   return count === 0
     ? false
@@ -418,7 +441,7 @@ export function slackEventSelection(
 // Expand only wildcards affected by this edit. Unrelated subscriptions, including
 // unknown explicit event names, survive unchanged. Merely opening/saving does not
 // normalize wildcards or broaden partially selected groups.
-export function toggleSlackEvents(
+export function toggleNotificationEvents(
   events: string[],
   controlled: string[],
   enabled: boolean,
@@ -430,7 +453,7 @@ export function toggleSlackEvents(
         ...controlled.filter(
           (event) =>
             !events.some((subscription) =>
-              matchesSlackEvent(subscription, event),
+              matchesNotificationEvent(subscription, event),
             ),
         ),
       ]),
@@ -439,30 +462,31 @@ export function toggleSlackEvents(
   return [
     ...new Set(
       events.flatMap((subscription) => {
-        if (!controlled.some((event) => matchesSlackEvent(subscription, event)))
+        if (
+          !controlled.some((event) =>
+            matchesNotificationEvent(subscription, event),
+          )
+        )
           return [subscription];
         if (!subscription.endsWith(".*")) return [];
         return availableEvents.filter(
           (event) =>
-            matchesSlackEvent(subscription, event) && !removed.has(event),
+            matchesNotificationEvent(subscription, event) &&
+            !removed.has(event),
         );
       }),
     ),
   ];
 }
 
-export type SlackNotificationLevel =
-  | "important"
-  | "default"
-  | "full"
-  | "custom";
-export function slackEventsForLevel(
-  category: SlackEventCategory,
-  level: Exclude<SlackNotificationLevel, "custom">,
+export type NotificationLevel = "important" | "default" | "full" | "custom";
+export function notificationEventsForLevel(
+  category: NotificationEventCategory,
+  level: Exclude<NotificationLevel, "custom">,
 ): string[] {
   return [
     ...new Set(
-      slackEventOptions
+      notificationEventOptions
         .filter(
           (option) =>
             option.category === category &&
@@ -474,23 +498,26 @@ export function slackEventsForLevel(
                       option.group,
                     )
                   : option.group === "Safe rollouts" ||
-                    option.events.includes("feature.revision.published"))),
+                    option.events.some((event) =>
+                      event.endsWith(".revision.published"),
+                    ))),
         )
         .flatMap((option) => option.events),
     ),
   ];
 }
-export function slackNotificationLevel(
+export function getNotificationLevel(
   events: string[],
-  category: SlackEventCategory,
-): SlackNotificationLevel {
+  category: NotificationEventCategory,
+): NotificationLevel {
   const subscriptions = events.filter((event) =>
     event.startsWith(`${category}.`),
   );
-  // Keep wildcard subscriptions visibly custom: future events are also included.
+  // The resource wildcard is "full" plus future events; narrower wildcards stay custom.
+  if (subscriptions.includes(`${category}.*`)) return "full";
   if (subscriptions.some((event) => event.endsWith(".*"))) return "custom";
   for (const level of ["default", "important", "full"] as const) {
-    const preset = slackEventsForLevel(category, level);
+    const preset = notificationEventsForLevel(category, level);
     if (
       subscriptions.length > 0 &&
       preset.length === new Set(subscriptions).size &&
@@ -500,13 +527,15 @@ export function slackNotificationLevel(
   }
   return "custom";
 }
-export function applySlackNotificationLevel(
+export function applyNotificationLevel(
   events: string[],
-  category: SlackEventCategory,
-  level: Exclude<SlackNotificationLevel, "custom">,
+  category: NotificationEventCategory,
+  level: Exclude<NotificationLevel, "custom">,
 ): string[] {
+  // The resource wildcard already covers every current and future event.
+  if (level === "full" && events.includes(`${category}.*`)) return events;
   return [
     ...events.filter((event) => !event.startsWith(`${category}.`)),
-    ...slackEventsForLevel(category, level),
+    ...notificationEventsForLevel(category, level),
   ];
 }

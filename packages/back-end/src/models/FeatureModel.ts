@@ -1108,6 +1108,13 @@ export const createFeatureEvent = async <
       return {
         ...eventData,
         object: "feature",
+        ...(eventData.event === "deleted"
+          ? {
+              relatedResources: {
+                experiments: eventData.data.object.linkedExperiments || [],
+              },
+            }
+          : {}),
         data: {
           object: currentApiFeature,
         },
@@ -4674,16 +4681,4 @@ export async function getFeatureEnvStatus(
       f.environmentSettings || {},
     ) as FeatureInterface["environmentSettings"],
   }));
-}
-
-// The experiment ids a feature is linked to, scoped to the context's org.
-export async function getFeatureLinkedExperimentIds(
-  context: ReqContext | ApiReqContext,
-  featureId: string,
-): Promise<string[]> {
-  const feature = await FeatureModel.findOne(
-    { organization: context.org.id, id: featureId },
-    { linkedExperiments: 1, _id: 0 },
-  ).lean<{ linkedExperiments?: string[] }>();
-  return feature?.linkedExperiments || [];
 }

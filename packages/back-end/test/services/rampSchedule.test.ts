@@ -3931,12 +3931,15 @@ describe("startReadyScheduleNow", () => {
     expect(eventArgs.event).toBe("rampSchedule.actions.started");
   });
 
-  it("includes the schedule id in the webhook event payload", async () => {
+  it("attributes the event to the ramped feature and keeps the schedule id in the payload", async () => {
     const { ctx, schedule } = makeStartNowCtx();
     await startReadyScheduleNow(ctx as never, schedule);
 
     const [eventArgs] = mockCreateEvent.mock.calls[0];
-    expect(eventArgs.objectId).toBe(schedule.id);
+    expect(eventArgs.objectId).toBe(schedule.entityId);
+    expect(eventArgs.data).toMatchObject({
+      object: { rampScheduleId: schedule.id },
+    });
   });
 });
 

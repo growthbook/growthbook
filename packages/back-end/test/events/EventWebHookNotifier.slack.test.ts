@@ -1,4 +1,6 @@
 import type { NotificationSettings } from "shared/validators";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
 import { slackEventHandler } from "back-end/src/events/handlers/slack/slackEventHandler";
 import { getSlackIntegrationsForFilters } from "back-end/src/models/SlackIntegrationModel";
@@ -23,6 +25,13 @@ import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organiz
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { getEventWebHookSignatureForPayload } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { secretsReplacer } from "back-end/src/util/secrets";
+
+jest.mock("back-end/src/models/FeatureModel", () => ({
+  getFeature: jest.fn(),
+}));
+jest.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentsByIds: jest.fn(),
+}));
 
 jest.mock("back-end/src/models/EventModel", () => ({
   getEvent: jest.fn(),
@@ -91,18 +100,18 @@ jest.mock("back-end/src/events/handlers/webhooks/event-webhooks-utils", () => ({
 
 const getSlackWorkspaceConnectionByTeamId = jest.fn();
 
-const runAgendaJob = async () => {
-  const job = {
-    attrs: {
-      data: {
-        eventId: "event-1",
-        eventWebHookId: "webhook-1",
-        retryCount: 0,
-      },
+const createJob = () => ({
+  attrs: {
+    data: {
+      eventId: "event-1",
+      eventWebHookId: "webhook-1",
+      retryCount: 0,
     },
-    save: jest.fn(),
-  };
+  },
+  save: jest.fn(),
+});
 
+const runAgendaJob = async (job = createJob()) => {
   await (
     EventWebHookNotifier as unknown as {
       handleAgendaJob: (job: typeof job) => Promise<void>;
@@ -175,6 +184,39 @@ describe("Slack EventWebHook delivery compatibility", () => {
       responseWithoutBody: { ok: true, status: 200 },
       stringBody: "ok",
     });
+  });
+
+  it("retries resource lookup failures without blocking an unfiltered delivery", async () => {
+    const url = "https://relay.example.com/growthbook-slack";
+    setWebhook({ url });
+    const webhook = await getEventWebHookById("webhook-1", "org-1");
+    jest
+      .mocked(getEventWebHookById)
+      .mockResolvedValue({ ...webhook, experiments: ["exp-1"] });
+    jest.mocked(getEvent).mockResolvedValue({
+      id: "event-1",
+      organizationId: "org-1",
+      version: 1,
+      event: "feature.updated",
+      data: {
+        event: "feature.updated",
+        object: "feature",
+        data: { object: { id: "flag-1" } },
+      },
+    });
+    jest.mocked(getFeature).mockRejectedValue(new Error("DB unavailable"));
+    const job = createJob();
+    await expect(runAgendaJob(job)).rejects.toThrow("DB unavailable");
+    expect(job.attrs.data.retryCount).toBe(1);
+    expect(job.save).toHaveBeenCalledTimes(1);
+    expect(cancellableFetch).not.toHaveBeenCalled();
+    expect(createEventWebHookLog).not.toHaveBeenCalled();
+
+    setWebhook({ url });
+    await runAgendaJob();
+    expect(cancellableFetch).toHaveBeenCalledTimes(1);
+    expect(getFeature).toHaveBeenCalledTimes(1);
+    expect(getExperimentsByIds).not.toHaveBeenCalled();
   });
 
   it("preserves legacy incoming-webhook delivery", async () => {

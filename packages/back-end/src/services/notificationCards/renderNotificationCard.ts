@@ -15,6 +15,8 @@ const PRODUCERS: Partial<
   "experiment.warning": buildExperimentSrmCard,
 };
 
+export const notificationCardEventNames = Object.keys(PRODUCERS);
+
 export type RenderedNotificationCard = Omit<NotificationCard, "data"> & {
   png: Buffer;
 };

@@ -1,5 +1,8 @@
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import { slackEventOptions, matchesSlackEvent } from "./slackEventOptions";
+import {
+  notificationEventOptions,
+  matchesNotificationEvent,
+} from "@/components/Notifications/notificationEventOptions";
 
 // Notifications-only manifest pre-filled with this instance's app URL.
 export function buildSlackAppManifest({
@@ -41,12 +44,12 @@ export const getSlackChannelSummary = (
           channel.projects[0]
         : `${channel.projects.length} projects`;
   const categories = ["experiment", "feature"].filter((category) =>
-    slackEventOptions.some(
+    notificationEventOptions.some(
       (option) =>
         option.category === category &&
         option.events.some((event) =>
           channel.events.some((subscription) =>
-            matchesSlackEvent(subscription, event),
+            matchesNotificationEvent(subscription, event),
           ),
         ),
     ),

@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import {
+  NotificationSubscription,
   CreateWebhookSecretProps,
   UpdateWebhookSecretProps,
 } from "shared/validators";
@@ -12,7 +13,6 @@ import {
   EventWebHookLegacyLogInterface,
   EventWebHookLogInterface,
 } from "shared/types/event-webhook-log";
-import { NotificationEventName } from "shared/types/events/base-types";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import * as EventWebHook from "back-end/src/models/EventWebhookModel";
 import {
@@ -92,14 +92,10 @@ export const getEventWebHook = async (
 // region POST /event-webhooks
 
 type PostEventWebHooksRequest = AuthRequest & {
-  body: {
+  body: NotificationSubscription & {
     url: string;
     name: string;
     enabled: boolean;
-    events: NotificationEventName[];
-    tags: string[];
-    environments: string[];
-    projects: string[];
     payloadType: EventWebHookPayloadType;
     method: EventWebHookMethod;
     headers: Record<string, string>;
@@ -124,6 +120,10 @@ export const createEventWebHook = async (
     name,
     events,
     enabled,
+    experiments,
+    metrics,
+    features,
+    excludeEmptyUpdates,
     tags = [],
     projects = [],
     environments = [],
@@ -141,6 +141,10 @@ export const createEventWebHook = async (
     projects,
     environments,
     tags,
+    experiments,
+    metrics,
+    features,
+    excludeEmptyUpdates,
     payloadType,
     method,
     headers,

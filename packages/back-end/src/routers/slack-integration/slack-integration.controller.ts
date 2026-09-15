@@ -1,6 +1,7 @@
 import {
-  experimentCardFormats as supportedCardFormats,
+  notificationFormats as supportedCardFormats,
   NotificationSettings,
+  NotificationSubscription,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import type { Response } from "express";
@@ -9,6 +10,7 @@ import {
   SlackOAuthIntegrationInterface,
 } from "shared/types/slack-integration";
 import { NotificationEventName } from "shared/types/events/base-types";
+import { notificationCardEventNames } from "back-end/src/services/notificationCards/renderNotificationCard";
 import {
   buildSlackSettingsPreview,
   sendSlackSettingsTest,
@@ -125,15 +127,8 @@ export const getSlackOAuthConnection = async (
 };
 
 type PutSlackOAuthConnectionRequest = AuthRequest<
-  {
+  NotificationSubscription & {
     enabled: boolean;
-    events: string[];
-    projects: string[];
-    environments: string[];
-    tags: string[];
-    experiments?: string[];
-    metrics?: string[];
-    features?: string[];
     notificationSettings?: NotificationSettings;
   },
   { id: string }
@@ -586,7 +581,10 @@ export const getSlackPreviewEvents = async (
   const context = getContextFromReq(req);
   if (!context.permissions.canManageIntegrations())
     context.permissions.throwPermissionError();
-  res.json({ events: slackPreviewEventNames });
+  res.json({
+    events: slackPreviewEventNames,
+    cardEvents: notificationCardEventNames,
+  });
 };
 export const postSlackPreview = async (
   req: AuthRequest<{
@@ -595,7 +593,7 @@ export const postSlackPreview = async (
   }>,
   res: Response,
 ) => {
-  const { message, png } = await buildSlackSettingsPreview(
+  const { message, card } = await buildSlackSettingsPreview(
     getContextFromReq(req),
     req.body.eventName,
     req.body.format,
@@ -603,7 +601,7 @@ export const postSlackPreview = async (
   res.setHeader("Cache-Control", "no-store");
   res.json({
     message,
-    image: png ? `data:image/png;base64,${png.toString("base64")}` : null,
+    image: card ? `data:image/png;base64,${card.png.toString("base64")}` : null,
   });
 };
 export const postSlackTest = async (

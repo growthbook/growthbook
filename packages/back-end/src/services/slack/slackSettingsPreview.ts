@@ -1,26 +1,29 @@
-import {
-  experimentCardFormats as supportedCardFormats,
-  notificationEventNames,
-} from "shared/validators";
+import { notificationFormats, notificationEventNames } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
-import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import {
+  getSlackMessageForNotificationEvent,
+  SlackMessage,
+} from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
   sampleScorecard,
   sampleFeatureDigest,
   renderWeeklyScorecard,
   renderFeatureDigest,
 } from "back-end/src/services/notificationCards/cardImages";
-import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
-import { getSlackOAuthIntegrationById } from "back-end/src/services/slackIntegration";
-import { decryptSlackBotToken } from "back-end/src/util/slackToken";
-import { postSlackMessageResult, uploadSlackImageFile } from "./slackWebApi";
+import {
+  renderNotificationCard,
+  RenderedNotificationCard,
+} from "back-end/src/services/notificationCards/renderNotificationCard";
+import { getEventWebHookById } from "back-end/src/models/EventWebhookModel";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
 import {
   getSampleEventPayload,
-  slackEventWebhookTestEventNames,
-} from "./slackTestFixtures";
+  sampleNotificationEventNames,
+} from "back-end/src/services/notifications/sampleEvents";
+import { deliverSlackMessage } from "./deliverSlackNotification";
 
 export const slackPreviewEventNames = [
-  ...slackEventWebhookTestEventNames.filter((name) =>
+  ...sampleNotificationEventNames.filter((name) =>
     notificationEventNames.some((event) => event === name),
   ),
   "digest:scorecard",
@@ -30,8 +33,8 @@ export const slackPreviewEventNames = [
 export async function buildSlackSettingsPreview(
   context: ReqContext,
   eventName: string,
-  format: (typeof supportedCardFormats)[number],
-) {
+  format: (typeof notificationFormats)[number],
+): Promise<{ message: SlackMessage; card: RenderedNotificationCard | null }> {
   if (!context.permissions.canManageIntegrations())
     context.permissions.throwPermissionError();
   if (eventName === "digest:scorecard" || eventName === "digest:feature") {
@@ -48,78 +51,68 @@ export async function buildSlackSettingsPreview(
         text,
         blocks: [{ type: "section", text: { type: "plain_text", text } }],
       },
-      png,
+      card: {
+        png,
+        altText: text,
+        objectName: "GrowthBook",
+        objectUrl: APP_ORIGIN,
+        eventLabel: text,
+      },
     };
   }
-  const name = slackPreviewEventNames.find((name) => name === eventName);
-  if (!name || name === "digest:scorecard" || name === "digest:feature")
-    throw new Error("Unsupported test event");
+  const name = sampleNotificationEventNames.find(
+    (name) =>
+      name === eventName &&
+      notificationEventNames.some((event) => event === name),
+  );
+  if (!name) throw new Error("Unsupported test event");
   const event = getSampleEventPayload({ context, eventName: name });
   const message = await getSlackMessageForNotificationEvent(
     event,
-    "slack-preview-sample",
+    "notification-preview-sample",
   );
   if (!message) throw new Error("This event does not have a Slack preview");
-  let png: Buffer | null = null;
-  // #6870 only posts image cards for SRM warnings.
-  if (eventName === "experiment.warning" && format !== "none") {
-    const card = await renderNotificationCard(event, format);
-    png = card?.png ?? null;
-  }
-  return { message, png };
+  const card =
+    format === "none" ? null : await renderNotificationCard(event, format);
+  return { message, card };
 }
 
 export async function sendSlackSettingsTest(
   context: ReqContext,
   id: string,
   eventName: string,
-  format: (typeof supportedCardFormats)[number],
+  format: (typeof notificationFormats)[number],
 ) {
   if (!context.permissions.canManageIntegrations())
     context.permissions.throwPermissionError();
-  const integration = await getSlackOAuthIntegrationById({ context, id });
-  if (!integration?.slack?.teamId || !integration.slack.channelId)
+  const eventWebHook = await getEventWebHookById(id, context.org.id);
+  if (eventWebHook?.payloadType !== "slack")
     throw new Error("Slack channel not found");
-  const workspace = await context.models.slackWorkspaceConnections.getByTeamId(
-    integration.slack.teamId,
-  );
-  if (!workspace)
-    throw new Error("Reconnect this Slack workspace before sending a test");
-  const token = decryptSlackBotToken(workspace.encryptedBotAccessToken);
-  if (!token)
-    throw new Error("Reconnect this Slack workspace before sending a test");
-  const { message, png } = await buildSlackSettingsPreview(
+  const { message, card } = await buildSlackSettingsPreview(
     context,
     eventName,
     format,
   );
-  const text = `Test notification — sample data\n${message.text}`;
-  if (png) {
-    const file = await uploadSlackImageFile({
-      token,
-      png,
-      channelId: integration.slack.channelId,
-      filename: "growthbook-test.png",
-      title: "GrowthBook test notification",
-      initialComment: text,
-    });
-    if (file) return { delivery: "card" as const };
-  }
-  const result = await postSlackMessageResult({
-    token,
-    channel: integration.slack.channelId,
-    text,
-    blocks: [
-      {
-        type: "section",
-        text: { type: "mrkdwn", text: "*Test notification — sample data*" },
-      },
-      ...message.blocks,
-    ],
+  const messagePrefix = "Test notification — sample data";
+  const delivery = await deliverSlackMessage({
+    context,
+    eventWebHook,
+    getCard: async () => card,
+    messagePrefix,
+    getTextPayload: async () => ({
+      text: `${messagePrefix}\n${message.text}`,
+      blocks: [
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: `*${messagePrefix}*` },
+        },
+        ...message.blocks,
+      ],
+    }),
   });
-  if (!result.ok)
+  if (!delivery || delivery.result.result === "error")
     throw new Error(
       "Slack could not deliver the test notification. Check the channel connection and retry.",
     );
-  return { delivery: "text" as const };
+  return { delivery: delivery.delivery };
 }

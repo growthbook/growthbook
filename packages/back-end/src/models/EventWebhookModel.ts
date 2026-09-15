@@ -14,7 +14,7 @@ import {
   notificationSettingsSchema,
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
-  NotificationEventNameOrWildcard,
+  NotificationSubscription,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -112,6 +112,7 @@ const eventWebHookSchema = new mongoose.Schema({
     type: [String],
     required: false,
   },
+  excludeEmptyUpdates: { type: Boolean, required: false },
   experiments: { type: [String], required: false },
   metrics: { type: [String], required: false },
   features: { type: [String], required: false },
@@ -233,16 +234,12 @@ export const EventWebHookModel = mongoose.model<EventWebHookInterface>(
   eventWebHookSchema,
 );
 
-type CreateEventWebHookOptions = {
+type CreateEventWebHookOptions = NotificationSubscription & {
   id?: string;
   name: string;
   url: string;
   organizationId: string;
   enabled: boolean;
-  events: NotificationEventNameOrWildcard[];
-  projects: string[];
-  tags: string[];
-  environments: string[];
   payloadType: EventWebHookPayloadType;
   method: EventWebHookMethod;
   headers: Record<string, string>;
@@ -270,6 +267,10 @@ export const createEventWebHook = async ({
   headers,
   slack,
   notificationSettings,
+  experiments,
+  metrics,
+  features,
+  excludeEmptyUpdates,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
@@ -292,6 +293,10 @@ export const createEventWebHook = async ({
     headers,
     slack,
     notificationSettings,
+    experiments,
+    metrics,
+    features,
+    excludeEmptyUpdates,
     lastRunAt: null,
     lastState: "none",
     lastResponseBody: null,
@@ -355,17 +360,10 @@ export const deleteOrganizationventWebHook = async (
   return result.deletedCount > 0;
 };
 
-export type UpdateEventWebHookAttributes = {
-  experiments?: string[];
-  metrics?: string[];
-  features?: string[];
+export type UpdateEventWebHookAttributes = Partial<NotificationSubscription> & {
   name?: string;
   url?: string;
   enabled?: boolean;
-  events?: NotificationEventNameOrWildcard[];
-  tags?: string[];
-  environments?: string[];
-  projects?: string[];
   payloadType?: EventWebHookPayloadType;
   method?: EventWebHookMethod;
   headers?: Record<string, string>;

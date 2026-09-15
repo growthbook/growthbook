@@ -1,4 +1,4 @@
-import { experimentCardFormats as supportedCardFormats } from "shared/validators";
+import { notificationFormats as supportedCardFormats } from "shared/validators";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";

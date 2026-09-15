@@ -1,23 +1,13 @@
 import express from "express";
 import { z } from "zod";
 import {
-  zodNotificationEventNamesEnum,
   eventWebHookMethods,
   eventWebHookPayloadTypes,
-  isEventWebhookWildcard,
+  notificationSubscriptionSchema,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
-
-const eventNameOrWildcard = z
-  .string()
-  .refine(
-    (val) =>
-      zodNotificationEventNamesEnum.includes(val as never) ||
-      isEventWebhookWildcard(val),
-    { message: "Must be a valid event name or wildcard pattern" },
-  );
 
 const router = express.Router();
 
@@ -40,11 +30,8 @@ router.post(
       .object({
         url: z.string().url(),
         name: z.string().trim().min(2),
-        events: z.array(eventNameOrWildcard).min(1),
+        ...notificationSubscriptionSchema.shape,
         enabled: z.boolean(),
-        projects: z.array(z.string()),
-        tags: z.array(z.string()),
-        environments: z.array(z.string()),
         payloadType: z.enum(eventWebHookPayloadTypes),
         method: z.enum(eventWebHookMethods),
         headers: z.object({}).catchall(z.string()),
@@ -118,11 +105,8 @@ router.put(
       .object({
         url: z.string().url(),
         name: z.string().trim().min(2),
-        events: z.array(eventNameOrWildcard).min(1),
+        ...notificationSubscriptionSchema.shape,
         enabled: z.boolean(),
-        projects: z.array(z.string()),
-        tags: z.array(z.string()),
-        environments: z.array(z.string()),
         payloadType: z.enum(eventWebHookPayloadTypes),
         method: z.enum(eventWebHookMethods),
         headers: z.object({}).catchall(z.string()),

@@ -1,43 +1,33 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ago } from "shared/dates";
 import { createPortal } from "react-dom";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
-  experimentCardFormats,
+  notificationFormats,
+  NotificationSubscription,
   DEFAULT_NOTIFICATION_SETTINGS,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
-import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiTrash, PiPaperPlaneTilt, PiX, PiImage } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiTrash, PiPaperPlaneTilt, PiX } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import useApi from "@/hooks/useApi";
-import TagsInput from "@/components/Tags/TagsInput";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
-import { useExperiments } from "@/hooks/useExperiments";
-import { useFeaturesList, useEnvironments } from "@/services/features";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
-import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
-import MultiSelectField from "@/ui/MultiSelectField";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import { Select, SelectItem, SelectGroup, SelectLabel } from "@/ui/Select";
-import SlackEventPreview from "./SlackEventPreview";
+import NotificationSubscriptionSettings from "@/components/Notifications/NotificationSubscriptionSettings";
 import {
-  slackEventOptions,
-  slackNotificationLevel,
-  applySlackNotificationLevel,
-  SlackNotificationLevel,
-  SlackEventCategory,
-  slackEventSelection,
-  toggleSlackEvents,
-  matchesSlackEvent,
-} from "./slackEventOptions";
+  notificationEventOptions,
+  notificationCategories,
+} from "@/components/Notifications/notificationEventOptions";
+import SlackEventPreview from "./SlackEventPreview";
 
 const REQUIRED_SCOPES = [
   "chat:write",
@@ -54,7 +44,7 @@ const REQUIRED_SCOPES = [
 ];
 
 const CARD_FORMAT_LABELS: Record<
-  (typeof experimentCardFormats)[number],
+  (typeof notificationFormats)[number],
   { label: string; description: string }
 > = {
   none: {
@@ -63,7 +53,7 @@ const CARD_FORMAT_LABELS: Record<
   },
   compact: {
     label: "Compact card",
-    description: "A short image highlighting the SRM warning.",
+    description: "A short image highlighting the event.",
   },
   "compact-dark": {
     label: "Compact dark",
@@ -72,7 +62,7 @@ const CARD_FORMAT_LABELS: Record<
   },
   detailed: {
     label: "Detailed card",
-    description: "A larger image with the SRM warning and a results table.",
+    description: "A larger image with event details and a results table.",
   },
 };
 
@@ -104,6 +94,7 @@ export default function SlackChannelSettings({
   additionalDirty = false,
   onSaveAdditionalSettings,
   onDraftEnabledChange,
+  onDirtyChange,
 }: {
   integration: SlackOAuthIntegrationInterface;
   workspace: SlackWorkspaceConnectionFrontEndInterface;
@@ -113,16 +104,18 @@ export default function SlackChannelSettings({
   additionalDirty?: boolean;
   onSaveAdditionalSettings?: () => Promise<void>;
   onDraftEnabledChange?: (enabled: boolean) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { apiCall } = useAuth();
   const { data: previewEvents, error: previewEventsError } = useApi<{
     events: string[];
+    cardEvents: string[];
   }>("/integrations/slack/preview-events");
   const [previewEvent, setPreviewEvent] = useState("experiment.warning");
   const [testEvent, setTestEvent] = useState("experiment.warning");
   const [showSendTest, setShowSendTest] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
-  const eventChoices = slackEventOptions.flatMap((option) => {
+  const eventChoices = notificationEventOptions.flatMap((option) => {
     const event = option.events.find((event) =>
       previewEvents?.events.includes(event),
     );
@@ -132,8 +125,10 @@ export default function SlackChannelSettings({
             event,
             label:
               option.label +
-              (event === "experiment.warning" ? " (SRM, card)" : " (text)"),
-            group: `${option.category === "experiment" ? "Experiments" : "Feature Flags"} · ${option.group}`,
+              (previewEvents?.cardEvents.includes(event)
+                ? " (card)"
+                : " (text)"),
+            group: `${notificationCategories[option.category]} · ${option.group}`,
           },
         ]
       : [];
@@ -166,58 +161,34 @@ export default function SlackChannelSettings({
         ))}
     </SelectGroup>
   ));
-  const { projects, tags, metrics, factMetrics } = useDefinitions();
-  const { experiments } = useExperiments();
-  const { features } = useFeaturesList();
-  const environments = useEnvironments();
   const [enabled, setEnabled] = useState(integration.enabled);
-  const [events, setEvents] = useState(integration.events);
-  const [presetLevels, setPresetLevels] = useState<
-    Partial<
-      Record<SlackEventCategory, Exclude<SlackNotificationLevel, "custom">>
-    >
-  >({});
-  const [manualLevels, setManualLevels] = useState<SlackEventCategory[]>([]);
-  const [pausedEvents, setPausedEvents] = useState<
-    Partial<Record<SlackEventCategory, string[]>>
-  >({});
-  const [expandedCategories, setExpandedCategories] = useState<
-    SlackEventCategory[]
-  >([]);
+  const [subscription, setSubscription] = useState<NotificationSubscription>({
+    events: integration.events,
+    projects: integration.projects,
+    tags: integration.tags,
+    environments: integration.environments,
+    experiments: integration.experiments,
+    metrics: integration.metrics,
+    features: integration.features,
+    excludeEmptyUpdates: integration.excludeEmptyUpdates,
+  });
+  const { events } = subscription;
   const notificationSettings =
     integration.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
   const [cardFormat, setCardFormat] = useState<
-    (typeof experimentCardFormats)[number]
+    (typeof notificationFormats)[number]
   >(
     notificationSettings.type === "text"
       ? "none"
       : notificationSettings.cardFormat,
   );
-  const [filterProjects, setFilterProjects] = useState(
-    integration.projects || [],
-  );
-  const [filterEnvironments, setFilterEnvironments] = useState(
-    integration.environments || [],
-  );
-  const [filterTags, setFilterTags] = useState(integration.tags || []);
-  const [filterExperiments, setFilterExperiments] = useState(
-    integration.experiments || [],
-  );
-  const [filterMetrics, setFilterMetrics] = useState(integration.metrics || []);
-  const [filterFeatures, setFilterFeatures] = useState(
-    integration.features || [],
-  );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [showMoreFilters, setShowMoreFilters] = useState(
-    filterTags.length +
-      filterExperiments.length +
-      filterMetrics.length +
-      filterFeatures.length >
-      0,
-  );
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
   const markDirty = () => {
     setSaved(false);
     setDirty(true);
@@ -225,39 +196,6 @@ export default function SlackChannelSettings({
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectError, setReconnectError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-
-  const experimentOptions = useMemo(() => {
-    const opts = experiments.map((e) => ({ label: e.name, value: e.id }));
-    const known = new Set(opts.map((o) => o.value));
-    return opts.concat(
-      filterExperiments
-        .filter((id) => !known.has(id))
-        .map((id) => ({ label: id, value: id })),
-    );
-  }, [experiments, filterExperiments]);
-
-  const metricOptions = useMemo(() => {
-    const opts = [...metrics, ...factMetrics].map((m) => ({
-      label: m.name,
-      value: m.id,
-    }));
-    const known = new Set(opts.map((o) => o.value));
-    return opts.concat(
-      filterMetrics
-        .filter((id) => !known.has(id))
-        .map((id) => ({ label: id, value: id })),
-    );
-  }, [metrics, factMetrics, filterMetrics]);
-
-  const featureOptions = useMemo(() => {
-    const opts = features.map((f) => ({ label: f.id, value: f.id }));
-    const known = new Set(opts.map((o) => o.value));
-    return opts.concat(
-      filterFeatures
-        .filter((id) => !known.has(id))
-        .map((id) => ({ label: id, value: id })),
-    );
-  }, [features, filterFeatures]);
 
   const grantedScopes = useMemo(
     () =>
@@ -282,34 +220,31 @@ export default function SlackChannelSettings({
     setSaveError(null);
     setSaved(false);
     try {
-      await onSaveAdditionalSettings?.();
       await apiCall(`/integrations/slack/oauth/${integration.id}`, {
         method: "PUT",
         body: JSON.stringify({
           enabled,
-          events,
-          projects: filterProjects,
-          environments: filterEnvironments,
-          tags: filterTags,
-          experiments: filterExperiments,
-          metrics: filterMetrics,
-          features: filterFeatures,
+          ...subscription,
           notificationSettings:
             cardFormat === "none"
               ? { type: "text" }
               : { type: "image", cardFormat },
         }),
       });
-      await onSaved();
-      setSaved(true);
       setDirty(false);
+      // Workspace options save after the channel so a failed channel save leaves nothing half-applied.
+      await onSaveAdditionalSettings?.();
+      setSaved(true);
     } catch (error) {
       setSaveError(
         error instanceof Error ? error.message : "Failed to save settings.",
       );
+      return;
     } finally {
       setSaving(false);
     }
+    // Refreshing the cached list is not part of the save; SWR keeps the last data if it fails.
+    await onSaved().catch(() => undefined);
   };
 
   const reconnect = async () => {
@@ -521,417 +456,14 @@ export default function SlackChannelSettings({
           </Flex>
         )}
 
-        <Frame mb="0">
-          <Heading as="h4" size="sm" mb="1">
-            Scope
-          </Heading>
-          <Text as="p" color="text-mid" mb="3">
-            Limit what this channel hears. Leave a filter empty to include
-            everything; non-empty filters combine.
-          </Text>
-          <Grid
-            columns={{ initial: "1", sm: "2" }}
-            gap="4"
-            style={{ maxWidth: 620 }}
-          >
-            <MultiSelectField
-              label="Projects"
-              placeholder="All Projects"
-              value={filterProjects}
-              size="lg"
-              options={projects.map(({ id, name }) => ({
-                label: name,
-                value: id,
-              }))}
-              onChange={(value) => {
-                setFilterProjects(value);
-                markDirty();
-              }}
-            />
-            <MultiSelectField
-              label="Environments"
-              placeholder="All Environments"
-              value={filterEnvironments}
-              size="lg"
-              options={environments.map(({ id }) => ({
-                label: id,
-                value: id,
-              }))}
-              onChange={(value) => {
-                setFilterEnvironments(value);
-                markDirty();
-              }}
-            />
-          </Grid>
-          {showMoreFilters ? (
-            <Box
-              mt="4"
-              style={{
-                maxWidth: 620,
-                paddingTop: "var(--space-4)",
-                borderTop: "1px solid var(--gray-a4)",
-              }}
-            >
-              <Grid columns={{ initial: "1", sm: "2" }} gap="4">
-                <Box>
-                  <Text as="label" size="md" weight="semibold">
-                    Tags
-                  </Text>
-                  <TagsInput
-                    tagOptions={tags}
-                    value={filterTags}
-                    onChange={(value) => {
-                      setFilterTags(value);
-                      markDirty();
-                    }}
-                    autoFocus={false}
-                    prompt="All tags"
-                    creatable={false}
-                  />
-                </Box>
-                <Box>
-                  <MultiSelectField
-                    label="Experiments"
-                    placeholder="All experiments"
-                    value={filterExperiments}
-                    options={experimentOptions}
-                    onChange={(value) => {
-                      setFilterExperiments(value);
-                      markDirty();
-                    }}
-                  />
-                </Box>
-                <Box>
-                  <MultiSelectField
-                    label="Metrics"
-                    placeholder="All metrics"
-                    value={filterMetrics}
-                    options={metricOptions}
-                    onChange={(value) => {
-                      setFilterMetrics(value);
-                      markDirty();
-                    }}
-                  />
-                  <Text as="p" size="sm" color="text-mid" mt="1">
-                    Posts updates associated with any of these metrics.
-                  </Text>
-                </Box>
-                <Box>
-                  <MultiSelectField
-                    label="Feature Flags"
-                    placeholder="All feature flags"
-                    value={filterFeatures}
-                    options={featureOptions}
-                    onChange={(value) => {
-                      setFilterFeatures(value);
-                      markDirty();
-                    }}
-                  />
-                </Box>
-              </Grid>
-              <Button
-                variant="ghost"
-                color="gray"
-                size="sm"
-                mt="3"
-                onClick={() => {
-                  setFilterTags([]);
-                  setFilterExperiments([]);
-                  setFilterMetrics([]);
-                  setFilterFeatures([]);
-                  setShowMoreFilters(false);
-                  markDirty();
-                }}
-              >
-                − Remove all filters
-              </Button>
-            </Box>
-          ) : (
-            <Box>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowMoreFilters(true)}
-              >
-                + Add tag, experiment, metric or feature filter
-              </Button>
-            </Box>
-          )}
-        </Frame>
-
-        {(["experiment", "feature"] as const).map((category) => {
-          const options = slackEventOptions.filter(
-            (option) => option.category === category,
-          );
-          const categoryEvents = options.flatMap((option) => option.events);
-          const selected = categoryEvents.some((event) =>
-            events.some((subscription) =>
-              matchesSlackEvent(subscription, event),
-            ),
-          );
-          const level = manualLevels.includes(category)
-            ? "custom"
-            : (presetLevels[category] ??
-              (selected
-                ? slackNotificationLevel(events, category)
-                : pausedEvents[category]?.length
-                  ? slackNotificationLevel(pausedEvents[category], category)
-                  : "default"));
-          const resetCategory = () => {
-            setPresetLevels({ ...presetLevels, [category]: "default" });
-            setEvents(applySlackNotificationLevel(events, category, "default"));
-            setManualLevels(manualLevels.filter((item) => item !== category));
+        <NotificationSubscriptionSettings
+          value={subscription}
+          cardEvents={previewEvents?.cardEvents}
+          onChange={(value) => {
+            setSubscription(value);
             markDirty();
-          };
-          const expanded = expandedCategories.includes(category);
-          const title =
-            category === "experiment" ? "Experiments" : "Feature Flags";
-          return (
-            <Frame key={category} mb="0">
-              <Heading as="h4" size="sm" mb="2">
-                {title}
-              </Heading>
-              <Text as="p" color="text-mid" mb="4">
-                What this channel hears about{" "}
-                {category === "experiment" ? "experiments" : "Feature Flags"}.
-              </Text>
-              <Checkbox
-                weight="medium"
-                label="Event notifications"
-                description={
-                  category === "experiment"
-                    ? "Launches, results, decisions, and health warnings."
-                    : "Published versions, safe rollouts, drafts, and reviews."
-                }
-                value={selected}
-                setValue={(value) => {
-                  if (value) {
-                    if (pausedEvents[category]?.length) {
-                      setEvents([
-                        ...events.filter(
-                          (event) => !event.startsWith(`${category}.`),
-                        ),
-                        ...pausedEvents[category]!,
-                      ]);
-                      markDirty();
-                    } else resetCategory();
-                  } else {
-                    setPausedEvents({
-                      ...pausedEvents,
-                      [category]: events.filter((event) =>
-                        event.startsWith(`${category}.`),
-                      ),
-                    });
-                    setEvents(
-                      events.filter(
-                        (event) => !event.startsWith(`${category}.`),
-                      ),
-                    );
-                    markDirty();
-                  }
-                }}
-              />
-              <Flex
-                align="center"
-                justify="between"
-                gap="3"
-                mt="3"
-                wrap="wrap"
-                style={{
-                  paddingLeft: "calc(16px + var(--space-2))",
-                  maxWidth: 620,
-                  opacity: selected ? 1 : 0.5,
-                }}
-              >
-                <Flex align="center" gap="3">
-                  <Text size="sm" weight="medium">
-                    Level
-                  </Text>
-                  <Box style={{ width: 180 }}>
-                    <Select
-                      aria-label={`${title} notification level`}
-                      value={level}
-                      disabled={!selected}
-                      setValue={(value) => {
-                        if (value === "custom") {
-                          setManualLevels([...manualLevels, category]);
-                          setExpandedCategories([
-                            ...expandedCategories,
-                            category,
-                          ]);
-                          return;
-                        }
-                        setPresetLevels({
-                          ...presetLevels,
-                          [category]: value as Exclude<
-                            SlackNotificationLevel,
-                            "custom"
-                          >,
-                        });
-                        setEvents(
-                          applySlackNotificationLevel(
-                            events,
-                            category,
-                            value as Exclude<SlackNotificationLevel, "custom">,
-                          ),
-                        );
-                        setManualLevels(
-                          manualLevels.filter((item) => item !== category),
-                        );
-                        markDirty();
-                      }}
-                    >
-                      <SelectItem value="important">Only important</SelectItem>
-                      <SelectItem value="default">Default</SelectItem>
-                      <SelectItem value="full">Full</SelectItem>
-                      <SelectItem value="custom">Custom</SelectItem>
-                    </Select>
-                  </Box>
-                </Flex>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={!selected}
-                  onClick={() =>
-                    setExpandedCategories(
-                      expanded
-                        ? expandedCategories.filter((item) => item !== category)
-                        : [...expandedCategories, category],
-                    )
-                  }
-                >
-                  {expanded ? "Hide events" : "Customize events ›"}
-                </Button>
-              </Flex>
-              {expanded && selected && (
-                <Flex
-                  direction="column"
-                  gap="5"
-                  mt="4"
-                  style={{ paddingLeft: "calc(16px + var(--space-2))" }}
-                >
-                  {[...new Set(options.map((option) => option.group))].map(
-                    (group) => (
-                      <Box key={group}>
-                        <Text
-                          as="div"
-                          size="md"
-                          weight="medium"
-                          color="text-mid"
-                          mb="3"
-                        >
-                          {group}
-                        </Text>
-                        <Grid
-                          columns={{ initial: "1", sm: "2" }}
-                          gapX="5"
-                          gapY="4"
-                        >
-                          {options
-                            .filter((option) => option.group === group)
-                            .map((option) => (
-                              <Checkbox
-                                key={option.id}
-                                label={
-                                  option.events.some((event) =>
-                                    ["experiment.warning"].includes(event),
-                                  ) ? (
-                                    <Tooltip content="Can include an image card when a card style is selected and the event has supported data. Warning cards are limited to SRM warnings.">
-                                      <span
-                                        tabIndex={0}
-                                        style={{
-                                          display: "inline-flex",
-                                          alignItems: "center",
-                                          gap: "var(--space-1)",
-                                        }}
-                                      >
-                                        {option.label}
-                                        <PiImage
-                                          size={16}
-                                          aria-label="Image card available"
-                                          style={{
-                                            color: "var(--violet-11)",
-                                            flexShrink: 0,
-                                          }}
-                                        />
-                                      </span>
-                                    </Tooltip>
-                                  ) : option.tooltip ? (
-                                    <Tooltip content={option.tooltip}>
-                                      <span
-                                        tabIndex={0}
-                                        style={{
-                                          borderBottom:
-                                            "1px dotted var(--gray-8)",
-                                        }}
-                                      >
-                                        {option.label}
-                                      </span>
-                                    </Tooltip>
-                                  ) : (
-                                    option.label
-                                  )
-                                }
-                                description={
-                                  option.description ? (
-                                    <span
-                                      className="text-muted"
-                                      style={{ fontSize: "var(--font-size-1)" }}
-                                    >
-                                      {option.description}
-                                    </span>
-                                  ) : undefined
-                                }
-                                value={slackEventSelection(
-                                  events,
-                                  option.events,
-                                )}
-                                setValue={(value) => {
-                                  setEvents(
-                                    toggleSlackEvents(
-                                      events,
-                                      option.events,
-                                      value,
-                                    ),
-                                  );
-                                  setManualLevels([...manualLevels, category]);
-                                  markDirty();
-                                }}
-                              />
-                            ))}
-                        </Grid>
-                      </Box>
-                    ),
-                  )}
-                  {category === "experiment" && (
-                    <Text as="div" size="md" color="text-mid">
-                      <PiImage
-                        size={16}
-                        aria-hidden
-                        style={{
-                          color: "var(--violet-11)",
-                          verticalAlign: "middle",
-                        }}
-                      />{" "}
-                      Image-marked events can include a results-card image when
-                      a card style is selected and the event supports it.
-                      Warning cards are limited to SRM warnings.
-                    </Text>
-                  )}
-                  {events.some(
-                    (event) =>
-                      event.startsWith(`${category}.`) && event.endsWith(".*"),
-                  ) && (
-                    <HelperText status="info">
-                      Customizing an event covered by “all events” keeps the
-                      other currently available events selected.
-                    </HelperText>
-                  )}
-                </Flex>
-              )}
-            </Frame>
-          );
-        })}
+          }}
+        />
 
         {events.length === 0 && (
           <Callout status="warning">
@@ -945,8 +477,8 @@ export default function SlackChannelSettings({
             Results Card
           </Heading>
           <Text as="p" color="text-mid" mb="3">
-            Choose how SRM warnings appear. Significance notifications and other
-            events remain text-only.
+            Choose a style for events that support image cards. Other
+            notifications use text.
           </Text>
           <Flex gap="6" align="start" wrap="wrap">
             <Box style={{ flex: 1, minWidth: 220 }}>
@@ -955,13 +487,16 @@ export default function SlackChannelSettings({
                   label="Card style"
                   value={cardFormat}
                   setValue={(value) => {
-                    setCardFormat(
-                      value as (typeof experimentCardFormats)[number],
+                    const format = notificationFormats.find(
+                      (format) => format === value,
                     );
-                    markDirty();
+                    if (format) {
+                      setCardFormat(format);
+                      markDirty();
+                    }
                   }}
                 >
-                  {experimentCardFormats.map((format) => (
+                  {notificationFormats.map((format) => (
                     <SelectItem key={format} value={format}>
                       {CARD_FORMAT_LABELS[format].label}
                     </SelectItem>
