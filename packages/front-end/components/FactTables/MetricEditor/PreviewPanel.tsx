@@ -1,135 +1,64 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiEye } from "react-icons/pi";
-import {
-  FactFilterTestResults,
-  FactMetricInterface,
-  FactTableDefinition,
-  RowFilter,
-} from "shared/types/fact-table";
-import { useAuth } from "@/services/auth";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { CreateFactMetricFormProps } from "@/services/metrics";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
 import Avatar from "@/ui/Avatar";
 import Link from "@/ui/Link";
-import { Select, SelectItem } from "@/ui/Select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Code from "@/components/SyntaxHighlighting/Code";
-import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import { MetricPreviewSql } from "@/components/FactTables/MetricEditor/previewSql";
 import MetricPerformance from "@/enterprise/components/ProductAnalytics/MetricPerformance";
-import MetricActivityChart from "./MetricActivityChart";
+import { getDraftMetricPreview } from "./draftMetricPreview";
 import styles from "./PreviewPanel.module.scss";
 
-export type PreviewPart = {
-  key: string;
-  label: string;
-  factTable: FactTableDefinition | null;
-  rowFilters: RowFilter[];
-};
-
 export default function PreviewPanel({
-  parts,
+  draft,
   previewSql,
   metric,
 }: {
   metric?: FactMetricInterface | null;
-  parts: PreviewPart[];
+  draft: CreateFactMetricFormProps | null;
   previewSql: MetricPreviewSql | null;
 }) {
-  const { apiCall } = useAuth();
-  const [partKey, setPartKey] = useState(parts[0]?.key);
   const [view, setView] = useState<"preview" | "sql">("preview");
   const [showExperimentSql, setShowExperimentSql] = useState(false);
-  const [rowsByPart, setRowsByPart] = useState<
-    Record<
-      string,
-      | { requestKey: string; result: FactFilterTestResults; revision: number }
-      | undefined
-    >
-  >({});
-  const [rowsError, setRowsError] = useState<string | null>(null);
-
-  const active = parts.find((p) => p.key === partKey) ?? parts[0];
-
-  const requestKey = JSON.stringify([
-    active?.factTable?.id,
-    active?.rowFilters,
-  ]);
-  const cachedRows = active ? rowsByPart[active.key] : undefined;
-  const rows =
-    cachedRows?.requestKey === requestKey ? cachedRows.result : undefined;
-
-  async function runPreview() {
-    if (!active?.factTable) return;
-    setRowsError(null);
-    const res = await apiCall<{ result: FactFilterTestResults }>(
-      `/fact-tables/${active.factTable.id}/preview-metric-rows`,
-      {
-        method: "POST",
-        body: JSON.stringify({ rowFilters: active.rowFilters }),
-      },
-    );
-    setRowsByPart((prev) => ({
-      ...prev,
-      [active.key]: {
-        requestKey,
-        result: res.result,
-        revision: (prev[active.key]?.revision ?? 0) + 1,
-      },
-    }));
-  }
+  const [submittedKey, setSubmittedKey] = useState<string | null>(null);
+  const draftMetric = draft ? getDraftMetricPreview(draft) : null;
+  const isRetention = (draft ?? metric)?.metricType === "retention";
+  const requestKey = JSON.stringify(draftMetric);
+  const previewMetric =
+    metric ?? (submittedKey === requestKey ? draftMetric : null);
 
   return (
-    <Frame>
-      <Tabs value={view} onValueChange={(v) => setView(v as "preview" | "sql")}>
-        <Flex direction="column" gap="2" mb="3">
+    <Frame className={styles.panel} mb="0">
+      <Tabs
+        className={styles.tabRoot}
+        value={view}
+        onValueChange={(v) => setView(v as "preview" | "sql")}
+      >
+        <Flex direction="column" gap="2" mb="4" className={styles.header}>
           <Flex justify="between" align="center">
             <Heading as="h4" size="sm" mb="0">
               Preview
             </Heading>
-            <TabsList>
+            <TabsList className={styles.tabs}>
               <TabsTrigger value="preview">Preview</TabsTrigger>
               <TabsTrigger value="sql">SQL</TabsTrigger>
             </TabsList>
           </Flex>
-          {view === "preview" && !metric && parts.length > 1 && (
-            <Select
-              label="Part to preview"
-              value={active?.key}
-              setValue={setPartKey}
-            >
-              {parts.map((p) => (
-                <SelectItem key={p.key} value={p.key}>
-                  {p.label}
-                </SelectItem>
-              ))}
-            </Select>
-          )}
         </Flex>
 
-        <Box
-          width="100%"
-          style={{
-            height:
-              view === "preview" && (metric || rows)
-                ? "auto"
-                : "clamp(280px, 40vh, 480px)",
-            aspectRatio: metric && view === "preview" ? "16 / 10" : undefined,
-            minHeight: metric && view === "preview" ? "240px" : undefined,
-            minWidth: 0,
-            overflow: "auto",
-          }}
-        >
+        <Box className={styles.content} width="100%">
           <TabsContent value="sql" className={styles.sqlPreview}>
             {previewSql?.sql ? (
               <Flex direction="column" gap="4">
                 <Text size="sm" color="text-mid" as="div">
-                  Illustrative SQL showing how this metric is calculated. Sample
-                  rows use a separate warehouse query.
+                  Illustrative SQL showing how this metric is calculated.
                 </Text>
                 <div>
                   <Text weight="semibold" as="div" mb="1">
@@ -180,79 +109,55 @@ export default function PreviewPanel({
               </Text>
             )}
           </TabsContent>
-          <TabsContent value="preview" style={{ height: "100%" }}>
-            {metric ? (
+          <TabsContent
+            value="preview"
+            className={styles.previewContent}
+            style={{ height: "100%" }}
+          >
+            {previewMetric && !isRetention ? (
               <MetricPerformance
-                key={`${metric.id}:${metric.dateUpdated}`}
-                metric={metric}
+                key={JSON.stringify(previewMetric)}
+                metric={previewMetric}
+                draft={!!draft}
               />
-            ) : !active ? (
-              <Callout status="info">
-                Add a funnel step to preview its sample data.
-              </Callout>
-            ) : !active.factTable ? (
-              <Text color="text-mid" as="div">
-                Select a fact table to preview this metric&apos;s data.
-              </Text>
             ) : (
-              <Flex direction="column" gap="3" height="100%">
-                {rowsError && <Callout status="error">{rowsError}</Callout>}
-                {rows ? (
-                  <Flex direction="column" gap="4">
-                    {!rows.error && (
-                      <MetricActivityChart
-                        key={requestKey}
-                        revision={cachedRows?.revision ?? 0}
-                        rowFilters={active.rowFilters}
-                        factTable={active.factTable}
-                      />
-                    )}
-                    <details>
-                      <summary style={{ cursor: "pointer" }}>
-                        View sample rows ({rows.results?.length ?? 0})
-                      </summary>
-                      <DisplayTestQueryResults
-                        duration={rows.duration || 0}
-                        results={rows.results || []}
-                        sql={rows.sql || ""}
-                        error={rows.error || ""}
-                        sqlMaxHeight="140px"
-                      />
-                    </details>
-                    {rows.error && (
-                      <Callout status="error">{rows.error}</Callout>
-                    )}
-                  </Flex>
-                ) : (
-                  <Flex
-                    direction="column"
-                    align="center"
-                    justify="center"
-                    gap="3"
-                    height="100%"
-                  >
-                    <Avatar color="violet" variant="soft" size="lg">
-                      <PiEye />
-                    </Avatar>
-                    <Flex direction="column" align="center" gap="1">
-                      <Text weight="semibold" as="div">
-                        Preview will appear here
-                      </Text>
-                      <Text size="sm" color="text-mid" as="div">
-                        Run a sample query against this fact table. Filters are
-                        optional.
-                      </Text>
-                    </Flex>
-                  </Flex>
+              <Flex
+                direction="column"
+                align="center"
+                justify="center"
+                gap="3"
+                height="100%"
+              >
+                <Avatar color="violet" variant="soft" size="lg">
+                  <PiEye />
+                </Avatar>
+                <Text weight="semibold" as="div">
+                  {isRetention
+                    ? "Preview not available for retention metrics"
+                    : "Preview will appear here"}
+                </Text>
+                {!isRetention && (
+                  <Text size="sm" color="text-mid" as="div">
+                    {draftMetric
+                      ? "Run the query to calculate this metric over the last 7 days."
+                      : "Complete the metric definition to preview its calculated value."}
+                  </Text>
                 )}
               </Flex>
             )}
           </TabsContent>
         </Box>
-        {view === "preview" && !metric && active?.factTable && (
-          <Flex mt="3">
-            <Button onClick={runPreview} setError={setRowsError}>
-              {rows ? "Refresh preview" : "Run preview"}
+        {draft && !previewMetric && !isRetention && (
+          <Flex
+            mt="3"
+            flexShrink="0"
+            style={{ visibility: view === "preview" ? "visible" : "hidden" }}
+          >
+            <Button
+              disabled={!draftMetric}
+              onClick={() => setSubmittedKey(requestKey)}
+            >
+              Run query
             </Button>
           </Flex>
         )}

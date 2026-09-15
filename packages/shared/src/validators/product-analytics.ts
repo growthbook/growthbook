@@ -2,7 +2,11 @@ import { z } from "zod";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { apiBaseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
-import { rowFilterValidator, funnelStepValidator } from "./fact-table";
+import {
+  rowFilterValidator,
+  funnelStepValidator,
+  factMetricValidator,
+} from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -12,9 +16,17 @@ const baseValueValidator = z.object({
 });
 
 // Metrics
+export const draftExplorationMetricValidator = factMetricValidator.omit({
+  id: true,
+  organization: true,
+  dateCreated: true,
+  dateUpdated: true,
+});
+
 const metricValueValidator = baseValueValidator.extend({
   type: z.literal("metric"),
   metricId: z.string(),
+  draftMetric: draftExplorationMetricValidator.optional(),
   unit: z.string().nullable(),
   denominatorUnit: z.string().nullable(),
 });

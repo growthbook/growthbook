@@ -1,3 +1,9 @@
+.previewContent,
+.sqlPreview {
+  // Overlay scrollbars don't reserve a gutter, so keep content clear of them.
+  padding-inline-end: var(--space-4);
+}
+
 .sqlPreview {
   pre {
     padding-left: var(--space-5) !important;
@@ -9,4 +15,66 @@
     overflow-wrap: anywhere !important;
     word-break: normal !important;
   }
+}
+
+.header {
+  flex-shrink: 0;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--gray-a5);
+}
+
+.tabs {
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-2);
+  box-shadow: none;
+  overflow: hidden;
+
+  [role="tab"] {
+    border-radius: 0;
+    height: 30px;
+    padding: var(--space-1) var(--space-2);
+    font-size: 12px;
+
+    &::before,
+    &::after {
+      display: none;
+    }
+
+    & + [role="tab"] {
+      border-left: 1px solid var(--gray-a5);
+    }
+
+    &[data-state="active"] {
+      background: var(--violet-3);
+      color: var(--violet-11);
+    }
+  }
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: clamp(380px, 60dvh, 600px);
+  min-height: 0;
+
+  @media (min-width: 1024px) {
+    position: sticky;
+    top: var(--metric-preview-top, 72px);
+    height: calc(100dvh - var(--metric-preview-top, 72px) - 16px);
+  }
+}
+
+.tabRoot {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
