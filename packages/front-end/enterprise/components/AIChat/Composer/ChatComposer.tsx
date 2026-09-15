@@ -400,7 +400,7 @@ function ChatComposer(
   );
 
   // The transcript isn't in the editor yet, so sending now would truncate the message.
-  const dictating = dictation.recording || dictation.transcribing;
+  const dictating = dictation.busy;
   dictatingRef.current = dictating;
 
   const canSend =

@@ -82,8 +82,9 @@ function startLevelMeter(stream: MediaStream, node: HTMLElement | null) {
 
 export interface Dictation {
   available: boolean;
-  recording: boolean;
-  transcribing: boolean;
+  status: "idle" | "starting" | "recording" | "transcribing";
+  /** Anything but idle. Callers gate on this rather than naming states. */
+  busy: boolean;
   error: string | null;
   toggle: () => void;
   /** Called on editor input so a failed attempt doesn't linger over a retry. */
@@ -98,9 +99,9 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
   const { sttModel } = useUser();
   const canRecord = useCanRecord();
 
-  const [status, setStatus] = useState<"idle" | "recording" | "transcribing">(
-    "idle",
-  );
+  const [status, setStatus] = useState<
+    "idle" | "starting" | "recording" | "transcribing"
+  >("idle");
   const [error, setError] = useState<string | null>(null);
 
   // Everything a live recording owns and must give back.
@@ -147,11 +148,13 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
 
     const abort = new AbortController();
     startAbortRef.current = abort;
+    setStatus("starting");
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       setError("Microphone access was blocked.");
+      setStatus("idle");
       return;
     } finally {
       // Identity-checked: release() may already have cleared it for a newer start.
@@ -206,13 +209,23 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
     session.stopMeter = startLevelMeter(stream, micRef.current);
   }, [apiCall, onTranscript, release, stop]);
 
+  const cancel = useCallback(() => {
+    release();
+    setStatus("idle");
+  }, [release]);
+
   return {
     micRef,
     available: !!sttModel && canRecord,
-    recording: status === "recording",
-    transcribing: status === "transcribing",
+    status,
+    // One flag rather than a state list callers recombine: anything but idle is busy.
+    busy: status !== "idle",
     error,
-    toggle: () => (status === "recording" ? stop() : start()),
+    toggle: () => {
+      if (status === "recording") stop();
+      else if (status === "starting") cancel();
+      else if (status === "idle") void start();
+    },
     clearError,
   };
 }

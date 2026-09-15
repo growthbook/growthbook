@@ -9,9 +9,24 @@ import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module
 import type { Dictation } from "./useDictation";
 import styles from "./ChatComposer.module.scss";
 
+const LABELS = {
+  idle: "Dictate a message",
+  starting: "Waiting for microphone access…",
+  recording: "Stop dictating",
+  transcribing: "Transcribing…",
+} as const;
+
+// Its own glyph per state, not just color: color-only state fails WCAG 1.4.1.
+const ICONS = {
+  idle: PiMicrophone,
+  starting: PiSpinnerGap,
+  recording: PiStop,
+  transcribing: PiSpinnerGap,
+} as const;
+
 /** Mic toggle. Renders nothing when dictation isn't available to the org. */
 export default function DictationButton({
-  dictation: { available, recording, transcribing, error, toggle, micRef },
+  dictation: { available, status, error, toggle, micRef },
   disabled = false,
   primary = false,
 }: {
@@ -22,20 +37,10 @@ export default function DictationButton({
 }) {
   if (!available) return null;
 
-  const label = recording
-    ? "Stop dictating"
-    : transcribing
-      ? "Transcribing…"
-      : "Dictate a message";
-
-  // Its own glyph, not just red: color-only state fails WCAG 1.4.1.
-  const Icon = error
-    ? PiMicrophoneSlash
-    : transcribing
-      ? PiSpinnerGap
-      : recording
-        ? PiStop
-        : PiMicrophone;
+  const recording = status === "recording";
+  const spinning = status === "starting" || status === "transcribing";
+  const label = LABELS[status];
+  const Icon = error && status === "idle" ? PiMicrophoneSlash : ICONS[status];
 
   return (
     <Tooltip content={label}>
@@ -49,12 +54,13 @@ export default function DictationButton({
             recording ? ` ${styles.dictateButtonActive}` : ""
           }`}
           onClick={toggle}
-          disabled={disabled || transcribing}
+          // Starting stays clickable so a second click cancels the pending prompt.
+          disabled={disabled || status === "transcribing"}
           aria-label={label}
           aria-pressed={recording}
-          aria-busy={transcribing}
+          aria-busy={spinning}
         >
-          {transcribing ? (
+          {spinning ? (
             <span className={aiChatStyles.spinIcon}>
               <Icon size={16} />
             </span>
