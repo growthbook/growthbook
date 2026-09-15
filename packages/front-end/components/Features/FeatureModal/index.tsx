@@ -1,7 +1,9 @@
 import {
+  addedTargetingProjects,
   canEnableEnvironmentOnCreate,
-  NO_ENVIRONMENT_BINDING,
   holdsTargetingDestination,
+  NO_ENVIRONMENT_BINDING,
+  refusedTargetingProjects,
 } from "shared/permissions";
 import { useForm, FormProvider } from "react-hook-form";
 import omit from "lodash/omit";
@@ -311,22 +313,29 @@ export default function FeatureModal({
       !selectedProject && projectOptions.length > 0
         ? "Select a project to continue."
         : "You don't have permission to create Feature Flags.";
-  } else if (
+  } else {
     // A new flag's whole targeting set is an addition, duplicated or not.
-    !holdsTargetingDestination({
-      permissions: permissionsUtil,
-      existing: {},
-      proposed: {
-        project: form.watch("project") ?? selectedProject,
-        targetingAllProjects: form.watch("targetingAllProjects"),
-        targetingProjects: form.watch("targetingProjects"),
-      },
-      optedOut: targetingOptOut,
-    })
-  ) {
-    ctaEnabled = false;
-    disabledMessage =
-      "One or more of the selected Projects can't be targeted: you lack permission, or the Project doesn't allow targeting.";
+    const proposedTargeting = {
+      project: form.watch("project") ?? selectedProject,
+      targetingAllProjects: form.watch("targetingAllProjects"),
+      targetingProjects: form.watch("targetingProjects"),
+    };
+    if (
+      !holdsTargetingDestination({
+        permissions: permissionsUtil,
+        existing: {},
+        proposed: proposedTargeting,
+        optedOut: targetingOptOut,
+      })
+    ) {
+      ctaEnabled = false;
+      disabledMessage = refusedTargetingProjects(
+        addedTargetingProjects({}, proposedTargeting),
+        targetingOptOut,
+      ).length
+        ? "One or more of the selected Projects don't allow targeting from other Projects' Feature Flags."
+        : "You don't have permission to target one or more of the selected Projects.";
+    }
   }
 
   return (

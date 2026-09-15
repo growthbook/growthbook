@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import request from "supertest";
 import type { OrganizationInterface } from "shared/types/organization";
 import { setupApp } from "./api.setup";
@@ -23,7 +24,13 @@ const org = {
     {
       id: "flag_editor",
       description: "",
-      policies: ["ReadData", "FlagsCreate", "FlagsEditDrafts", "FlagsPublish"],
+      policies: [
+        "ReadData",
+        "FlagsCreate",
+        "FlagsEditDrafts",
+        "FlagsPublish",
+        "FlagsRevert",
+      ],
     },
     {
       id: "flag_target",
@@ -60,6 +67,8 @@ const api = {
     request(app).post(path).send(body).set("Authorization", "Bearer x"),
   put: (path: string, body: Record<string, unknown> = {}) =>
     request(app).put(path).send(body).set("Authorization", "Bearer x"),
+  get: (path: string) =>
+    request(app).get(path).set("Authorization", "Bearer x"),
 };
 
 function as(userId: string) {
@@ -315,5 +324,111 @@ describe("an unknown targeting project id", () => {
     );
     expect(invalid.status).toBe(400);
     expect(invalid.body.message).toContain("prj_does_not_exist");
+  });
+});
+
+describe("the other REST writers apply the same gate", () => {
+  it("v2 create", async () => {
+    const body = (id: string) => ({
+      id,
+      valueType: "boolean",
+      defaultValue: "false",
+      owner: "u_admin",
+      project: prjB,
+      targetingProjects: [prjA],
+    });
+    as("u_b_editor");
+    const refused = await api.post("/api/v2/features", body(`v2c_${seq++}`));
+    expect(refused.status).toBe(403);
+    as("u_b_editor_targets_a");
+    const created = await api.post("/api/v2/features", body(`v2c_${seq++}`));
+    expect(created.status).toBe(200);
+  });
+
+  it("v1 revision metadata", async () => {
+    const id = await seedFeature();
+    as("u_b_editor");
+    const refused = await api.put(
+      `/api/v1/features/${id}/revisions/new/metadata`,
+      { targetingProjects: [prjA] },
+    );
+    expect(refused.status).toBe(403);
+    as("u_b_editor_targets_a");
+    const staged = await api.put(
+      `/api/v1/features/${id}/revisions/new/metadata`,
+      { targetingProjects: [prjA] },
+    );
+    expect(staged.status).toBe(200);
+  });
+
+  it("v1 and v2 revert to a revision that targeted more", async () => {
+    const id = await seedFeature([prjA]);
+    as("u_admin");
+    const narrowed = await api.post(`/api/v1/features/${id}`, {
+      targetingProjects: [],
+    });
+    expect(narrowed.status).toBe(200);
+
+    as("u_b_editor");
+    for (const path of [
+      `/api/v1/features/${id}/revert`,
+      `/api/v2/features/${id}/revert`,
+    ]) {
+      const refused = await api.post(path, { revision: 1 });
+      expect(refused.status).toBe(403);
+      expect((refused.body as { message: string }).message).toMatch(/target/i);
+    }
+
+    as("u_b_editor_targets_a");
+    const reverted = await api.post(`/api/v2/features/${id}/revert`, {
+      revision: 1,
+    });
+    expect(reverted.status).toBe(200);
+  });
+});
+
+describe("allowTargeting on the projects REST API", () => {
+  it("is written on create and update, read back, and defaults to on", async () => {
+    as("u_admin");
+    const created = await api.post("/api/v1/projects", {
+      name: "Opted out at birth",
+      allowTargeting: false,
+    });
+    expect(created.status).toBe(200);
+    const id = (created.body as { project: { id: string } }).project.id;
+    expect(
+      (created.body as { project: { allowTargeting: boolean } }).project
+        .allowTargeting,
+    ).toBe(false);
+
+    const reopened = await api.put(`/api/v1/projects/${id}`, {
+      allowTargeting: true,
+    });
+    expect(
+      (reopened.body as { project: { allowTargeting: boolean } }).project
+        .allowTargeting,
+    ).toBe(true);
+
+    // A project written before the setting existed reads as on.
+    await mongoose.connection.collection("projects").insertOne({
+      id: "prj_legacy",
+      organization: org.id,
+      name: "Legacy",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+    const legacy = await api.get("/api/v1/projects/prj_legacy");
+    expect(legacy.status).toBe(200);
+    expect(
+      (legacy.body as { project: { allowTargeting: boolean } }).project
+        .allowTargeting,
+    ).toBe(true);
+
+    const listed = await api.get("/api/v1/projects?limit=100");
+    const rows = (
+      listed.body as { projects: { id: string; allowTargeting: boolean }[] }
+    ).projects;
+    expect(rows.find((p) => p.id === id)?.allowTargeting).toBe(true);
+    expect(rows.find((p) => p.id === "prj_legacy")?.allowTargeting).toBe(true);
   });
 });
