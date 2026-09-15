@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import isEqual from "lodash/isEqual";
 import { ago } from "shared/dates";
 import { createPortal } from "react-dom";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
@@ -181,14 +182,12 @@ export default function SlackChannelSettings({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const draft = { enabled, subscription, cardFormat };
+  const [savedDraft, setSavedDraft] = useState(draft);
+  const dirty = !isEqual(draft, savedDraft);
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
-  const markDirty = () => {
-    setSaved(false);
-    setDirty(true);
-  };
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectError, setReconnectError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -212,6 +211,7 @@ export default function SlackChannelSettings({
       setSaveError("Select at least one event.");
       return;
     }
+    const submittedDraft = draft;
     setSaving(true);
     setSaveError(null);
     setSaved(false);
@@ -219,15 +219,15 @@ export default function SlackChannelSettings({
       await apiCall(`/integrations/slack/oauth/${integration.id}`, {
         method: "PUT",
         body: JSON.stringify({
-          enabled,
-          ...subscription,
+          enabled: submittedDraft.enabled,
+          ...submittedDraft.subscription,
           notificationSettings:
-            cardFormat === "none"
+            submittedDraft.cardFormat === "none"
               ? { type: "text" }
-              : { type: "image", cardFormat },
+              : { type: "image", cardFormat: submittedDraft.cardFormat },
         }),
       });
-      setDirty(false);
+      setSavedDraft(submittedDraft);
       setSaved(true);
     } catch (error) {
       setSaveError(
@@ -369,7 +369,6 @@ export default function SlackChannelSettings({
               setValue={(value) => {
                 setEnabled(value);
                 onDraftEnabledChange?.(value);
-                markDirty();
               }}
               weight="medium"
             />
@@ -449,10 +448,7 @@ export default function SlackChannelSettings({
         <NotificationSubscriptionSettings
           value={subscription}
           cardEvents={previewEvents?.cardEvents}
-          onChange={(value) => {
-            setSubscription(value);
-            markDirty();
-          }}
+          onChange={setSubscription}
         />
 
         {events.length === 0 && (
@@ -482,7 +478,6 @@ export default function SlackChannelSettings({
                     );
                     if (format) {
                       setCardFormat(format);
-                      markDirty();
                     }
                   }}
                 >

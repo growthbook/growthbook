@@ -58,13 +58,6 @@ export default function SlackWorkspacePanel({
   const selected =
     channels.find((channel) => channel.id === localChannelId) || channels[0];
   useEffect(() => setDraftEnabled(null), [selected?.id]);
-  const saved = async () => {
-    try {
-      await onSaved();
-    } finally {
-      setDraftEnabled(null);
-    }
-  };
   const name = workspace.teamName || workspace.teamId || "Unknown workspace";
   return (
     <Frame px="0" py="0" mb="0" style={{ overflow: "clip" }}>
@@ -214,7 +207,7 @@ export default function SlackWorkspacePanel({
               saveBarHost={saveBarHost}
               onDraftEnabledChange={setDraftEnabled}
               onDirtyChange={setChannelDirty}
-              onSaved={saved}
+              onSaved={onSaved}
               onDeleted={async () => {
                 await onSelectChannel(null);
                 await onSaved();
