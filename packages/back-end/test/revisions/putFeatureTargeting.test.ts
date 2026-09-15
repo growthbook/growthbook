@@ -59,9 +59,9 @@ const org = {
   settings: { environments: [{ id: "production", description: "" }] },
 } as unknown as OrganizationInterface;
 
-describe("putFeature targeting", () => {
-  setupApp();
+setupApp();
 
+describe("putFeature targeting", () => {
   const reqFor = (userId: string, body: Record<string, unknown>) =>
     ({
       params: { id: FEATURE_ID },
@@ -185,6 +185,21 @@ describe("putFeature targeting", () => {
     expect(captured.body).toMatchObject({ draftVersion: 2 });
   });
 
+  it("lets a staged targeting project be put back to the live value", async () => {
+    await seed({ targetingProjects: [PRJ_A] });
+    const { res, captured } = resSpy();
+    await putFeature(
+      reqFor("u_admin", { targetingProjects: [], targetDraftVersion: 2 }),
+      res,
+    );
+    expect(captured.status).toBe(200);
+    const draft = await revisions().findOne({
+      organization: ORG_ID,
+      version: 2,
+    });
+    expect(draft?.metadata?.targetingProjects).toEqual([]);
+  });
+
   describe("a refused autoPublish", () => {
     const failingPublish = (landsPointer: boolean) =>
       mockPublishRevision.mockImplementation(async ({ feature, revision }) => {
@@ -236,16 +251,9 @@ describe("putFeature targeting", () => {
 });
 
 describe("putOrganization targetingReviewMode", () => {
-  it("refuses overlapping rules like the REST settings route", async () => {
+  const put = async (targetingReviewMode: unknown[]) => {
     const req = {
-      body: {
-        settings: {
-          targetingReviewMode: [
-            { projects: [], mode: "loose" },
-            { projects: [], mode: "strict" },
-          ],
-        },
-      },
+      body: { settings: { targetingReviewMode } },
       organization: org,
       userId: "u_admin",
       email: "a@t.co",
@@ -267,10 +275,26 @@ describe("putOrganization targetingReviewMode", () => {
       },
     } as unknown as Response;
     await putOrganization(req, res);
+    return captured;
+  };
+
+  it("refuses overlapping rules like the REST settings route", async () => {
+    const captured = await put([
+      { projects: [], mode: "loose" },
+      { projects: [], mode: "strict" },
+    ]);
     expect(captured.status).toBe(400);
     expect(captured.body).toMatchObject({
       message:
         "Only one organization-wide targetingReviewMode rule is allowed.",
+    });
+  });
+
+  it("refuses a rule naming a project that does not exist", async () => {
+    const captured = await put([{ projects: ["prj_nope"], mode: "loose" }]);
+    expect(captured.status).toBe(400);
+    expect(captured.body).toMatchObject({
+      message: "prj_nope is not a valid project ID.",
     });
   });
 });

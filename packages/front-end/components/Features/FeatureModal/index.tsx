@@ -177,10 +177,12 @@ export default function FeatureModal({
   secondaryCTA,
   featureToDuplicate,
 }: Props) {
-  const { project, refreshTags, configs, projects } = useDefinitions();
-  const targetingOptOut = projects
-    .filter((p) => p.allowTargeting === false)
-    .map((p) => p.id);
+  const {
+    project,
+    refreshTags,
+    configs,
+    targetingOptOutProjectIds: targetingOptOut,
+  } = useDefinitions();
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();

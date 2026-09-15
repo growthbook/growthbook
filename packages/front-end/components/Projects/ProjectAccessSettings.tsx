@@ -12,7 +12,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Checkbox from "@/ui/Checkbox";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
+import Metadata from "@/ui/Metadata";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 
@@ -54,7 +54,7 @@ const ProjectAccessSettings: FC<{
           trackingEventModalType=""
           open={true}
           close={() => setModalOpen(false)}
-          header="Edit User Access"
+          header="Edit Project Access"
           submit={async () => {
             await restApiCall(putProjectValidator, {
               params: { id: project.id },
@@ -65,7 +65,7 @@ const ProjectAccessSettings: FC<{
         >
           <PremiumTooltip commercialFeature="advanced-permissions">
             <Checkbox
-              label="Restrict access"
+              label="Restrict user access"
               description="Members need a role on this Project, assigned directly or through a team, to see it. Admins always keep access."
               value={restrictAccess}
               setValue={setRestrictAccess}
@@ -85,7 +85,7 @@ const ProjectAccessSettings: FC<{
           ) : null}
           <Checkbox
             mt="4"
-            label="Allow other Feature Flags to target this Project"
+            label="Allow targeting from other Projects"
             description="Feature Flags owned by other Projects may add this Project to their Targeting Projects and be delivered to its SDK Connections. Turning this off blocks new targeting; existing targeting is kept."
             value={allowTargeting}
             setValue={setAllowTargeting}
@@ -93,20 +93,10 @@ const ProjectAccessSettings: FC<{
         </ModalStandard>
       )}
       <Frame px="4" py="3" mb="4">
-        <Heading as="h5" size="sm" mb="1">
-          User Access
-        </Heading>
-        <Flex align="center" justify="between" gap="3">
-          <Flex align="center" gap="2" wrap="wrap">
-            <Text color="text-low">Restrict access</Text>
-            <Text weight="medium">{project.restrictAccess ? "On" : "Off"}</Text>
-            <Text color="text-low" ml="3">
-              Allow other Feature Flags to target this Project
-            </Text>
-            <Text weight="medium">
-              {project.allowTargeting !== false ? "On" : "Off"}
-            </Text>
-          </Flex>
+        <Flex align="center" justify="between" gap="3" mb="1">
+          <Heading as="h5" size="sm" mb="0">
+            Project Access
+          </Heading>
           <Button
             variant="ghost"
             disabled={!canEdit}
@@ -118,6 +108,16 @@ const ProjectAccessSettings: FC<{
           >
             Edit
           </Button>
+        </Flex>
+        <Flex direction="column" gap="1">
+          <Metadata
+            label="Restrict user access"
+            value={project.restrictAccess ? "On" : "Off"}
+          />
+          <Metadata
+            label="Allow targeting from other Projects"
+            value={project.allowTargeting !== false ? "On" : "Off"}
+          />
         </Flex>
       </Frame>
     </>

@@ -23,6 +23,7 @@ import {
   validateCustomFields,
   resolveOrCreateRevision,
 } from "./validations";
+import { assertValidProjectIds } from "./v2Shared";
 
 export type RevisionMetadataBody = {
   comment?: string;
@@ -124,11 +125,7 @@ export async function setRevisionMetadata(
       optedOut: await context.getTargetingOptOutProjectIds(),
     });
     // After the gate so an unreadable id cannot be probed for existence.
-    if (metadataFields.targetingProjects?.length) {
-      await context.models.projects.ensureProjectIdsExist(
-        metadataFields.targetingProjects,
-      );
-    }
+    await assertValidProjectIds(metadataFields.targetingProjects, context);
 
     const changes: RevisionChanges = {};
     if (comment !== undefined) changes.comment = comment;

@@ -5673,11 +5673,12 @@ export async function putFeature(
             version: targetDraftVersion,
           })
         : await getActiveDraft(context, feature);
+  // What the editor is changing from: the draft's staged value, else live.
+  const effective = (key: string) =>
+    (targetDraft?.metadata as Record<string, unknown> | undefined)?.[key] ??
+    (feature as unknown as Record<string, unknown>)[key];
   if (baseline) {
     const guardedKeys = Object.keys(baseline);
-    const effective = (key: string) =>
-      (targetDraft?.metadata as Record<string, unknown> | undefined)?.[key] ??
-      (feature as unknown as Record<string, unknown>)[key];
     const pick = (source: (key: string) => unknown) =>
       Object.fromEntries(guardedKeys.map((k) => [k, source(k)]));
 
@@ -5716,15 +5717,17 @@ export async function putFeature(
     "owner",
     "customFields",
   ];
-  // Diffed against live, not taken by key presence: the edit-info modal submits
-  // every form field on every save, and an echoed-but-unchanged `project` /
-  // targeting field would trip `mergeResultTouchesPayload` and widen a
-  // description-only edit's footprint to every serving environment.
+  // Diffed against the effective value, not taken by key presence: the
+  // edit-info modal submits every form field on every save, and an
+  // echoed-but-unchanged `project` / targeting field would trip
+  // `mergeResultTouchesPayload` and widen a description-only edit's footprint
+  // to every serving environment. Against the draft, not live, so a staged
+  // value can be put back to what is live.
   const metadataUpdates = Object.fromEntries(
     Object.entries(updates).filter(
       ([k, v]) =>
         metadataKeys.includes(k as keyof FeatureInterface) &&
-        !isEqual(v, feature[k as keyof FeatureInterface]),
+        !isEqual(v, effective(k)),
     ),
   ) as Partial<FeatureInterface>;
   normalizeTargetingInUpdates(metadataUpdates, feature);

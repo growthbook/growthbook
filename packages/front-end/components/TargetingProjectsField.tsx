@@ -37,7 +37,7 @@ export default function TargetingProjectsField({
   baseline: baselineProp,
   ...marginProps
 }: TargetingProjectsFieldProps) {
-  const { projects } = useDefinitions();
+  const { projects, targetingOptOutProjectIds } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const [enabled, setEnabled] = useState<boolean>(
     () => allProjects || targetingProjects.length > 0,
@@ -51,14 +51,13 @@ export default function TargetingProjectsField({
   }));
   const baseline = baselineProp ?? mountBaseline;
 
-  const optedOut = projects.filter((p) => p.allowTargeting === false);
   const canTarget = (projectId: string) =>
     baseline.allProjects ||
     baseline.targetingProjects.includes(projectId) ||
     (permissionsUtil.canTargetFeatureProjects([projectId]) &&
-      !optedOut.some((p) => p.id === projectId));
+      !targetingOptOutProjectIds.includes(projectId));
   const disabledReason = (projectId: string) =>
-    optedOut.some((p) => p.id === projectId)
+    targetingOptOutProjectIds.includes(projectId)
       ? "This Project doesn't allow targeting from other Projects' Feature Flags"
       : "You don't have permission to target this Project";
   // `projects` is already read-filtered, so a restricted Project the viewer
@@ -84,11 +83,26 @@ export default function TargetingProjectsField({
   ];
   const canTargetAll =
     baseline.allProjects ||
-    (permissionsUtil.canTargetFeatureProjects("all") && optedOut.length === 0);
+    (permissionsUtil.canTargetFeatureProjects("all") &&
+      targetingOptOutProjectIds.length === 0);
+  const optedOutNames = targetingOptOutProjectIds.map(
+    (id) => projects.find((p) => p.id === id)?.name ?? null,
+  );
+  const hiddenOptedOut = optedOutNames.filter((n) => n === null).length;
+  const namedOptedOut = optedOutNames.filter((n): n is string => n !== null);
   const allProjectsReason =
-    optedOut.length > 0 && !baseline.allProjects
-      ? `${optedOut.map((p) => p.name).join(", ")} ${
-          optedOut.length === 1 ? "doesn't" : "don't"
+    targetingOptOutProjectIds.length > 0 && !baseline.allProjects
+      ? `${[
+          ...namedOptedOut,
+          ...(hiddenOptedOut
+            ? [
+                `${hiddenOptedOut} ${
+                  hiddenOptedOut === 1 ? "Project" : "Projects"
+                } you don't have access to`,
+              ]
+            : []),
+        ].join(", ")} ${
+          targetingOptOutProjectIds.length === 1 ? "doesn't" : "don't"
         } allow targeting`
       : "Requires permission to target all Projects";
 

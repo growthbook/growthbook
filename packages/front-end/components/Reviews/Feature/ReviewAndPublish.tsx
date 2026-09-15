@@ -201,12 +201,7 @@ export default function ReviewAndPublish({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envIds = environments.map((e) => e.id);
   const permissionsUtil = usePermissionsUtil();
-  const { projects: allOrgProjects } = useDefinitions();
-  const targetingOptOut = useMemo(
-    () =>
-      allOrgProjects.filter((p) => p.allowTargeting === false).map((p) => p.id),
-    [allOrgProjects],
-  );
+  const { targetingOptOutProjectIds: targetingOptOut } = useDefinitions();
   // Same shared predicate as the generic tab and both comment endpoints, so
   // Feature Flags can't drift from the other entities.
   const canCommentOnDraft = canCommentOnRevisionEntity(
@@ -2403,8 +2398,13 @@ export default function ReviewAndPublish({
     canAdminPublish &&
     mergeResult.success &&
     (blockInfo?.overridable || adminPublish);
+  // Also shown when a would-be bypasser lacks publish authority (a staged
+  // targeting or move destination), so the blocker can say why.
   const showPublishSection =
-    state.submitAction === "publish" || continueToPublish || adminCanBypassNow;
+    state.submitAction === "publish" ||
+    continueToPublish ||
+    adminCanBypassNow ||
+    (canAdminPublish && mergeResult.success && !hasPublishPermission);
 
   // Renders in every phase, so it must claim no status: an uncovered approval
   // can still stand after a later "changes requested" verdict.

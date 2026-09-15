@@ -33,6 +33,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
+import { assertApprovalRuleReferencesExist } from "back-end/src/services/approvalRuleReferences";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   AuthRequest,
@@ -1782,6 +1783,10 @@ export async function putOrganization(
     }
     if (settings) {
       if (settings.targetingReviewMode) {
+        await assertApprovalRuleReferencesExist(
+          context,
+          settings.targetingReviewMode,
+        );
         assertTargetingRulesDisjoint(settings.targetingReviewMode);
       }
       updates.settings = {

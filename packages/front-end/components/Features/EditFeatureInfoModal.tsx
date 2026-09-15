@@ -63,10 +63,8 @@ const EditFeatureInfoModal: FC<{
     "feature",
   );
 
-  const { getProjectById, projects } = useDefinitions();
-  const targetingOptOut = projects
-    .filter((p) => p.allowTargeting === false)
-    .map((p) => p.id);
+  const { getProjectById, targetingOptOutProjectIds: targetingOptOut } =
+    useDefinitions();
 
   const form = useForm({
     defaultValues: {

@@ -139,11 +139,11 @@ To hide a project from everyone except the people working on it, you don't need 
 
 <CommercialFeature feature="advanced-permissions" />
 
-By default, a user's global role applies to every project they don't have an explicit project-level role on. If you want a project to be private — visible only to the people granted a role on it — enable **Restrict access** on the project's **Roles & Permissions** tab.
+By default, a user's global role applies to every project they don't have an explicit project-level role on. If you want a project to be private — visible only to the people granted a role on it — enable **Restrict user access** on the project's **Roles & Permissions** tab.
 
 When a project restricts access, members can only see or act on it if they have an explicit role on that project, assigned directly or through a team. Everyone else is treated as `No Access` for that project: it disappears from their project list, and its feature flags, experiments, and other resources are hidden. Members whose global role includes the `manageTeam` permission (such as Admins) always keep access, and SDKs continue to receive the project's feature flags as normal.
 
-The **Roles & Permissions** tab shows each member's effective role on the project, so you can see exactly who retains access, and lets project admins grant project roles without needing org-wide permissions. If you enable Restrict access before granting yourself a role and you are not an Admin, you will lose access to the project too — GrowthBook warns you before saving.
+The **Roles & Permissions** tab shows each member's effective role on the project, so you can see exactly who retains access, and lets project admins grant project roles without needing org-wide permissions. If you enable Restrict user access before granting yourself a role and you are not an Admin, you will lose access to the project too — GrowthBook warns you before saving.
 
 The setting is also available on the [REST API](/api#tag/projects) as the `restrictAccess` field on projects.
 
@@ -152,7 +152,7 @@ The setting is also available on the [REST API](/api#tag/projects) as the `restr
 Feature Flags owned by one project can be delivered into another through [Targeting Projects](/features/environments#delivering-a-feature-to-multiple-projects). Two things govern that, both on the receiving project:
 
 - **Permission.** Adding a project as a Targeting Project requires the `Target` permission (the `FlagsTarget` policy, included in `FlagsFullAccess`) in that project. Grant it on the receiving project, directly or through a team, to let flags from elsewhere reach it without granting anything on its own flags. Choosing All Projects requires `Target` with no project restriction.
-- **Allowing targeting from other projects.** Each project's **Roles & Permissions** page also has an **Allow other Feature Flags to target this Project** setting, on by default. Turning it off refuses new targeting (and All Projects) regardless of permission. Flags that already target the project keep doing so. Available on the [REST API](/api#tag/projects) as the `allowTargeting` field on projects.
+- **Allowing targeting from other projects.** Each project's **Roles & Permissions** page also has an **Allow targeting from other Projects** setting, on by default. Turning it off refuses new targeting (and All Projects) regardless of permission. Flags that already target the project keep doing so. Available on the [REST API](/api#tag/projects) as the `allowTargeting` field on projects.
 
 ### How does the Project Admin role work?
 
