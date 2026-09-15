@@ -823,6 +823,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
       "TagsFullAccess",
+      "SessionReplayViewAccess",
     ],
   },
   analyst: {
@@ -885,6 +886,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
       "GeneralDashboardsFullAccess",
+      "SessionReplayViewAccess",
     ],
   },
   gbDefault_projectAdmin: {

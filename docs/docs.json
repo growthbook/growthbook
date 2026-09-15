@@ -315,6 +315,7 @@
                   "sso",
                   "integrations/scim",
                   "compliance",
+                  "ip-addresses",
                   "account/audit-logs"
                 ]
               },

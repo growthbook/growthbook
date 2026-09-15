@@ -8,8 +8,11 @@ import {
   PiCaretDoubleLeft,
   PiCaretDoubleRight,
   PiCopy,
+  PiDesktop,
+  PiDeviceMobile,
+  PiGlobeSimple,
   PiListBullets,
-  PiPlus,
+  PiMapPin,
   PiX,
 } from "react-icons/pi";
 import { AppFeatures } from "shared/types/app-features";
@@ -18,14 +21,15 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import Field from "@/components/Forms/Field";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import FilterQueryPopover, {
-  FilterCondition,
-} from "@/components/SessionReplay/FilterQueryPopover";
+import SessionReplaySearchFilters from "@/components/Search/SessionReplaySearchFilters";
+import { useSessionReplayFilters } from "@/hooks/useSessionReplayFilters";
 import type { RrwebPlayerHandle } from "@/components/SessionReplay/player";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Custom404 from "@/pages/404";
 
 // rrweb-player accesses `document` at the module level, so it must be
@@ -42,8 +46,10 @@ type SessionReplayRow = {
   startedAt: string;
   endedAt: string;
   lastEventAt: string;
+  ingestedAt: string;
   durationMs: number;
   eventCount: number;
+  keyEventCount: number;
   errorCount: number;
   urlFirst: string;
   urlsVisited: string[];
@@ -76,8 +82,10 @@ type SessionMetadata = {
   startedAt: string;
   endedAt: string;
   lastEventAt: string;
+  ingestedAt: string;
   durationMs: number;
   eventCount: number;
+  keyEventCount: number;
   errorCount: number;
   urlFirst: string;
   urlsVisited: string[];
@@ -109,6 +117,20 @@ type SessionResponse = {
   events: eventWithTime[];
   metadata: SessionMetadata;
 };
+
+// A session is treated as "still recording" when its most recent chunk was
+// ingested within this window. Aligned to the SDK's ~15-min idle timeout — a
+// live recorder flushes on a timer, so a gap longer than the idle timeout
+// means it has almost certainly stopped. Uses ingestedAt (server clock), never
+// lastEventAt (client clock, subject to skew).
+const LIVE_THRESHOLD_MS = 15 * 60 * 1000;
+
+function isSessionLive(ingestedAt: string | undefined): boolean {
+  if (!ingestedAt) return false;
+  const t = new Date(ingestedAt).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t < LIVE_THRESHOLD_MS;
+}
 
 type EvaluationEntry = {
   timestamp: number;
@@ -222,23 +244,10 @@ function buildEvaluationsFromMetadata(
   return entries;
 }
 
-const FILTER_LABELS: Record<string, string> = {
-  userId: "user",
-  clientKey: "client",
-  url: "url",
-  country: "country",
-  device: "device",
-  durationMinSecs: "duration ≥",
-  durationMaxSecs: "duration ≤",
-  eventCountMin: "events ≥",
-  eventCountMax: "events ≤",
-  featureKey: "flag",
-  experimentKey: "experiment",
-};
-
 export default function SessionReplayPage() {
   const gb = useGrowthBook<AppFeatures>();
   const sessionReplayEnabled = !!gb?.isOn("session-replays");
+  const permissionsUtil = usePermissionsUtil();
 
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -247,7 +256,6 @@ export default function SessionReplayPage() {
   // ---- UI panel state ------------------------------------------------------
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [evalOpen, setEvalOpen] = useState(false);
-  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
 
   const page = useMemo(() => {
     const raw = router.query.page;
@@ -265,33 +273,19 @@ export default function SessionReplayPage() {
     }
   }, [selectedSessionId]);
 
-  const FILTER_KEYS = [
-    "userId",
-    "clientKey",
-    "url",
-    "country",
-    "device",
-    "durationMinSecs",
-    "durationMaxSecs",
-    "eventCountMin",
-    "eventCountMax",
-    "featureKey",
-    "experimentKey",
-  ] as const;
+  // ---- search / filters ----------------------------------------------------
+  const { searchInputProps, syntaxFilters, setSearchValue, queryParams } =
+    useSessionReplayFilters(router, project);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     params.set("page", String(page));
     if (project) params.set("project", project);
-    for (const key of FILTER_KEYS) {
-      const val = router.query[key];
-      if (typeof val === "string" && val) {
-        params.set(key, val);
-      }
+    for (const [k, v] of Object.entries(queryParams)) {
+      if (v) params.set(k, v);
     }
     return params.toString();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, project, ...FILTER_KEYS.map((k) => router.query[k])]);
+  }, [page, project, queryParams]);
 
   const { data: sessionsData, error: sessionsError } = useApi<{
     sessions: SessionReplayRow[];
@@ -299,31 +293,6 @@ export default function SessionReplayPage() {
 
   const sessions = useMemo(() => sessionsData?.sessions ?? [], [sessionsData]);
   const hasNextPage = sessions.length === 100;
-
-  /** Read all current filter values from the URL. */
-  const currentFilters = useMemo(() => {
-    const result: Record<string, string> = {};
-    for (const key of FILTER_KEYS) {
-      const val = router.query[key];
-      if (typeof val === "string" && val) result[key] = val;
-    }
-    return result;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...FILTER_KEYS.map((k) => router.query[k])]);
-
-  const updateRouteQuery = (
-    filters: Record<string, string>,
-    opts: { page: number; sessionId?: string },
-  ) => {
-    const query: Record<string, string> = { page: String(opts.page) };
-    for (const [k, v] of Object.entries(filters)) {
-      if (v) query[k] = v;
-    }
-    if (opts.sessionId) query.sessionId = opts.sessionId;
-    void router.push({ pathname: "/session-replay", query }, undefined, {
-      shallow: true,
-    });
-  };
 
   // Clear selected session when project changes so a session from another
   // project doesn't stay visible after switching.
@@ -342,64 +311,26 @@ export default function SessionReplayPage() {
     }
   }, [project, selectedSessionId, router]);
 
-  /** Map a FilterCondition from the popover to route query params. */
-  const conditionToParams = (c: FilterCondition): Record<string, string> => {
-    if (c.property === "durationMs") {
-      if (c.operator === "gte") return { durationMinSecs: c.value };
-      if (c.operator === "lte") return { durationMaxSecs: c.value };
-      return { durationMinSecs: c.value, durationMaxSecs: c.value };
-    }
-    if (c.property === "eventCount") {
-      if (c.operator === "gte") return { eventCountMin: c.value };
-      if (c.operator === "lte") return { eventCountMax: c.value };
-      return { eventCountMin: c.value, eventCountMax: c.value };
-    }
-    if (c.property.startsWith("featureKey:")) {
-      return { featureKey: c.property.split(":")[1] };
-    }
-    if (c.property.startsWith("experimentKey:")) {
-      return { experimentKey: c.property.split(":")[1] };
-    }
-    return { [c.property]: c.value };
-  };
-
-  const onAddFilter = (condition: FilterCondition) => {
-    const newParams = conditionToParams(condition);
-    updateRouteQuery(
-      { ...currentFilters, ...newParams },
-      { page: 1, sessionId: selectedSessionId },
-    );
-  };
-
-  const clearFilters = () => {
-    updateRouteQuery({}, { page: 1, sessionId: selectedSessionId });
-  };
-
   const goToPage = (nextPage: number) => {
-    updateRouteQuery(currentFilters, {
-      page: nextPage,
-      sessionId: selectedSessionId,
+    const query: Record<string, string> = {
+      page: String(nextPage),
+      ...queryParams,
+    };
+    if (selectedSessionId) query.sessionId = selectedSessionId;
+    void router.push({ pathname: "/session-replay", query }, undefined, {
+      shallow: true,
     });
   };
 
   const selectSession = (sessionId: string) => {
-    updateRouteQuery(currentFilters, { page, sessionId });
-  };
-
-  // ---- active filter chips -------------------------------------------------
-  const activeFilters = useMemo(() => {
-    const chips: { key: string; label: string }[] = [];
-    for (const [key, val] of Object.entries(currentFilters)) {
-      const prefix = FILTER_LABELS[key] ?? key;
-      chips.push({ key, label: `${prefix}: ${val}` });
-    }
-    return chips;
-  }, [currentFilters]);
-
-  const removeFilter = (key: string) => {
-    const next = { ...currentFilters };
-    delete next[key];
-    updateRouteQuery(next, { page: 1, sessionId: selectedSessionId });
+    const query: Record<string, string> = {
+      page: String(page),
+      ...queryParams,
+    };
+    query.sessionId = sessionId;
+    void router.push({ pathname: "/session-replay", query }, undefined, {
+      shallow: true,
+    });
   };
 
   // ---- player / chunk loading ----------------------------------------------
@@ -536,7 +467,12 @@ export default function SessionReplayPage() {
     if (sessionId) void navigator.clipboard.writeText(sessionId);
   };
 
-  if (!sessionReplayEnabled) {
+  if (
+    !sessionReplayEnabled ||
+    !permissionsUtil.canViewSessionReplay({
+      projects: project ? [project] : [],
+    })
+  ) {
     return <Custom404 />;
   }
 
@@ -559,8 +495,9 @@ export default function SessionReplayPage() {
             width: 36,
             flexShrink: 0,
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "center",
+            paddingTop: 16,
           }}
         >
           <Button
@@ -612,54 +549,21 @@ export default function SessionReplayPage() {
             </Button>
           </Flex>
 
-          {/* Filter popover + chips */}
+          {/* Search bar + filter dropdowns */}
           <Box mt="2">
-            <Flex align="center" gap="2" wrap="wrap">
-              <FilterQueryPopover
-                open={filterPopoverOpen}
-                onOpenChange={setFilterPopoverOpen}
-                onAdd={onAddFilter}
+            <Field
+              placeholder="Search filters (e.g. user:alice duration:>30)"
+              type="search"
+              {...searchInputProps}
+            />
+            <Flex mt="2" wrap="wrap">
+              <SessionReplaySearchFilters
+                searchInputProps={searchInputProps}
+                syntaxFilters={syntaxFilters}
+                setSearchValue={setSearchValue}
                 sessions={sessions}
-                trigger={
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<PiPlus />}
-                    onClick={() => setFilterPopoverOpen(true)}
-                  >
-                    Add filter
-                  </Button>
-                }
               />
-              {activeFilters.length > 0 && (
-                <Button size="sm" variant="ghost" onClick={clearFilters}>
-                  Clear
-                </Button>
-              )}
             </Flex>
-            {activeFilters.length > 0 && (
-              <Flex gap="1" wrap="wrap" mt="2">
-                {activeFilters.map((chip) => (
-                  <Badge
-                    key={chip.key}
-                    label={
-                      <Flex
-                        align="center"
-                        gap="1"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => removeFilter(chip.key)}
-                      >
-                        {chip.label}
-                        <PiX style={{ fontSize: 10, opacity: 0.7 }} />
-                      </Flex>
-                    }
-                    size="xs"
-                    variant="soft"
-                    radius="full"
-                  />
-                ))}
-              </Flex>
-            )}
           </Box>
 
           {/* Session list */}
@@ -739,13 +643,92 @@ export default function SessionReplayPage() {
                         </span>
                       </Text>
                     </Box>
-                    <Flex gap="3" mt="1">
+                    {session.urlFirst && (
+                      <Text
+                        size="sm"
+                        color="text-mid"
+                        weight="medium"
+                        truncate={true}
+                        mt="1"
+                      >
+                        URL: {session.urlFirst}
+                      </Text>
+                    )}
+                    <Flex gap="2" mt="1" align="center" wrap="wrap">
                       <Text color="text-low" size="sm">
-                        ⌁ {session.eventCount} events
+                        ⌁ {session.keyEventCount.toLocaleString()} key events
                       </Text>
                       <Text color="text-low" size="sm">
                         ⏱ {formatDuration(session.durationMs)}
                       </Text>
+                      {session.errorCount > 0 && (
+                        <Badge
+                          label={`${session.errorCount} error${
+                            session.errorCount === 1 ? "" : "s"
+                          }`}
+                          size="xs"
+                          variant="soft"
+                          color="red"
+                          radius="full"
+                        />
+                      )}
+                      {isSessionLive(session.ingestedAt) && (
+                        <Badge
+                          label="● Recording"
+                          size="xs"
+                          variant="soft"
+                          color="red"
+                          radius="full"
+                        />
+                      )}
+                    </Flex>
+                    <Flex gap="2" mt="1" align="center" wrap="wrap">
+                      {session.browser && (
+                        <Badge
+                          label={
+                            <Flex gap="1" align="center">
+                              <PiGlobeSimple size={12} />
+                              {session.browser}
+                            </Flex>
+                          }
+                          size="xs"
+                          variant="soft"
+                          color="gray"
+                          radius="full"
+                        />
+                      )}
+                      {session.device && (
+                        <Badge
+                          label={
+                            <Flex gap="1" align="center">
+                              {session.device.toLowerCase() === "mobile" ? (
+                                <PiDeviceMobile size={12} />
+                              ) : (
+                                <PiDesktop size={12} />
+                              )}
+                              {session.device}
+                            </Flex>
+                          }
+                          size="xs"
+                          variant="soft"
+                          color="gray"
+                          radius="full"
+                        />
+                      )}
+                      {session.country && (
+                        <Badge
+                          label={
+                            <Flex gap="1" align="center">
+                              <PiMapPin size={12} />
+                              {session.country}
+                            </Flex>
+                          }
+                          size="xs"
+                          variant="soft"
+                          color="gray"
+                          radius="full"
+                        />
+                      )}
                     </Flex>
                   </Box>
                 );
@@ -853,10 +836,40 @@ export default function SessionReplayPage() {
               </Flex>
               <Flex gap="1" align="center">
                 <Text weight="medium" color="text-high">
-                  Events
+                  Key events
                 </Text>
-                <Text color="text-low">{metadata?.eventCount ?? "—"}</Text>
+                <Text color="text-low">
+                  {metadata?.keyEventCount?.toLocaleString() ?? "—"}
+                </Text>
+                {metadata ? (
+                  <Text color="text-low" size="sm" ml="1">
+                    ({metadata.eventCount.toLocaleString()} total)
+                  </Text>
+                ) : null}
               </Flex>
+              {metadata && metadata.errorCount > 0 && (
+                <Flex gap="1" align="center">
+                  <Text weight="medium" color="text-high">
+                    Errors
+                  </Text>
+                  <Badge
+                    label={metadata.errorCount.toLocaleString()}
+                    size="sm"
+                    variant="soft"
+                    color="red"
+                    radius="full"
+                  />
+                </Flex>
+              )}
+              {isSessionLive(metadata?.ingestedAt) && (
+                <Badge
+                  label="● Recording"
+                  size="sm"
+                  variant="soft"
+                  color="red"
+                  radius="full"
+                />
+              )}
               {/* Evaluations toggle — pushed to far right */}
               <Box style={{ marginLeft: "auto" }}>
                 <Button
@@ -919,7 +932,7 @@ export default function SessionReplayPage() {
             <RrwebPlayer
               key={selectedSessionId}
               events={events}
-              ref={playerHandle}
+              handleRef={playerHandle}
             />
           ) : null}
         </Box>
@@ -1014,78 +1027,85 @@ export default function SessionReplayPage() {
               </Tabs>
             </Box>
 
-            {/* Evaluation rows */}
+            {/* Content rows */}
             <Box style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-              {selectedSessionId &&
-                events &&
-                visibleEvaluations.length === 0 && (
+              <>
+                {selectedSessionId &&
+                  events &&
+                  visibleEvaluations.length === 0 && (
+                    <Box style={{ padding: "12px 16px" }}>
+                      <Text size="sm" color="text-low" weight="regular">
+                        No evaluations recorded for this session.
+                      </Text>
+                    </Box>
+                  )}
+                {!events && !playerError && selectedSessionId && (
                   <Box style={{ padding: "12px 16px" }}>
                     <Text size="sm" color="text-low" weight="regular">
-                      No evaluations recorded for this session.
+                      Loading evaluations…
                     </Text>
                   </Box>
                 )}
-              {!events && !playerError && selectedSessionId && (
-                <Box style={{ padding: "12px 16px" }}>
-                  <Text size="sm" color="text-low" weight="regular">
-                    Loading evaluations…
-                  </Text>
-                </Box>
-              )}
-              {visibleEvaluations.map((evt, index) => (
-                <Flex
-                  key={index}
-                  align="center"
-                  justify="between"
-                  gap="2"
-                  onClick={() => jumpToEvent(evt.timestamp)}
-                  style={{
-                    padding: "0 16px",
-                    height: 49,
-                    borderBottom: "1px solid var(--slate-a3)",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      as="div"
-                      size="md"
-                      weight="semibold"
-                      color="text-high"
-                      truncate={true}
-                    >
-                      {evt.formattedMessage}
-                    </Text>
-                    <Text as="div" size="sm" weight="regular" color="text-low">
-                      {(() => {
-                        const d = new Date(evt.timestamp);
-                        return isNaN(d.getTime()) ? "" : d.toLocaleString();
-                      })()}
-                    </Text>
-                  </Box>
-                  <Badge
-                    label={
-                      evt.kind === "flag"
-                        ? "Flag"
-                        : evt.kind === "exp"
-                          ? "Exp"
-                          : "Event"
-                    }
-                    size="xs"
-                    variant="soft"
-                    color={
-                      evt.kind === "flag"
-                        ? "indigo"
-                        : evt.kind === "exp"
-                          ? "violet"
-                          : "amber"
-                    }
-                    radius="full"
-                    style={{ flexShrink: 0 }}
-                  />
-                </Flex>
-              ))}
+                {visibleEvaluations.map((evt, index) => (
+                  <Flex
+                    key={index}
+                    align="center"
+                    justify="between"
+                    gap="2"
+                    onClick={() => jumpToEvent(evt.timestamp)}
+                    style={{
+                      padding: "0 16px",
+                      height: 49,
+                      borderBottom: "1px solid var(--slate-a3)",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        as="div"
+                        size="md"
+                        weight="semibold"
+                        color="text-high"
+                        truncate={true}
+                      >
+                        {evt.formattedMessage}
+                      </Text>
+                      <Text
+                        as="div"
+                        size="sm"
+                        weight="regular"
+                        color="text-low"
+                      >
+                        {(() => {
+                          const d = new Date(evt.timestamp);
+                          return isNaN(d.getTime()) ? "" : d.toLocaleString();
+                        })()}
+                      </Text>
+                    </Box>
+                    <Badge
+                      label={
+                        evt.kind === "flag"
+                          ? "Flag"
+                          : evt.kind === "exp"
+                            ? "Exp"
+                            : "Event"
+                      }
+                      size="xs"
+                      variant="soft"
+                      color={
+                        evt.kind === "flag"
+                          ? "indigo"
+                          : evt.kind === "exp"
+                            ? "violet"
+                            : "amber"
+                      }
+                      radius="full"
+                      style={{ flexShrink: 0 }}
+                    />
+                  </Flex>
+                ))}
+              </>
             </Box>
           </div>
         )}

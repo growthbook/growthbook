@@ -562,6 +562,7 @@ export type DailyUsage = {
   requests: number;
   bandwidth: number;
   managedClickhouseEvents: number;
+  sessionReplays: number;
 };
 
 type UsageLimit = number | "unlimited";
@@ -577,6 +578,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    sessionReplaySessions?: UsageLimit;
   };
   cdn: {
     lastUpdated: Date;
@@ -585,5 +587,12 @@ export type OrganizationUsage = {
   managedClickhouse?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
+  };
+  sessionReplay?: {
+    lastUpdated?: Date;
+    status?: "under" | "approaching" | "over";
+    sessions?: number;
+    events?: number;
+    errors?: number;
   };
 };

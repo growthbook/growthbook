@@ -11,6 +11,7 @@ import {
   computeHoldoutExperimentLinkageDelta,
   getApplicableEnvIds,
   getExperimentIdsFromRules,
+  getRulesForEnvironment,
   liveRevisionFromFeature,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
@@ -757,6 +758,63 @@ export async function migrateDraft(
     logger.error(e, "Error migrating old feature draft");
   }
   return null;
+}
+
+// Features whose legacy inline `experiment` rules currently allocate traffic
+// inside a namespace: not archived, and in at least one enabled environment an
+// enabled experiment rule with the namespace enabled — the same rules the
+// namespaces settings page counts as usage. Referential-integrity check for
+// namespace deletes / re-hashing, so deliberately NOT filtered by the caller's
+// project read access. Both storage shapes are matched (flat `rules` and the
+// pre-migration `environmentSettings.<env>.rules`) and normalized on read.
+//
+// An org environment id containing a "." would not match the dotted
+// `environmentSettings.<env>.rules` path, so that branch silently skips it.
+// That only affects unmigrated docs, and the flat `rules` branch still covers
+// every migrated one.
+export async function countFeaturesWithExperimentRuleInNamespace(
+  context: ReqContext | ApiReqContext,
+  namespaceId: string,
+): Promise<number> {
+  const environments = context.environments;
+  const ruleMatch = {
+    $elemMatch: {
+      type: "experiment",
+      "namespace.enabled": true,
+      "namespace.name": namespaceId,
+    },
+  };
+  const docs = await FeatureModel.find({
+    organization: context.org.id,
+    archived: { $ne: true },
+    $or: [
+      { rules: ruleMatch },
+      ...environments.map((env) => ({
+        [`environmentSettings.${env}.rules`]: ruleMatch,
+      })),
+    ],
+  }).lean<LegacyFeatureInterface[]>();
+
+  return docs
+    .map((raw) =>
+      migrateRawFeatureToV2(
+        omit(raw, ["__v", "_id"]) as LegacyFeatureInterface,
+        context,
+      ),
+    )
+    .filter((f) =>
+      environments.some(
+        (env) =>
+          f.environmentSettings?.[env]?.enabled &&
+          getRulesForEnvironment(f.rules ?? [], env).some(
+            (r) =>
+              r.enabled &&
+              r.type === "experiment" &&
+              r.namespace?.enabled &&
+              r.namespace.name === namespaceId,
+          ),
+      ),
+    ).length;
 }
 
 // jsonSchema is projected out of the list loaders; fetch the enabled ones
