@@ -1362,7 +1362,7 @@ const apiPhaseInput = z.object({
   dateEnded: z.string().meta({ format: "date-time" }).optional(),
   reasonForStopping: z.string().optional(),
   seed: z.string().optional(),
-  coverage: z.number().optional(),
+  coverage: z.number().min(0).max(1).optional(),
   namespace: z
     .object({
       namespaceId: z.string(),
@@ -1396,12 +1396,14 @@ const apiPhaseInput = z.object({
     .optional(),
   ...phaseSavedGroupInput,
   variationWeights: z
-    .array(z.number())
+    .array(z.number().min(0).max(1))
     .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
     .meta({ deprecated: true })
     .optional(),
   trafficSplit: z
-    .array(z.object({ variationId: z.string(), weight: z.number() }))
+    .array(
+      z.object({ variationId: z.string(), weight: z.number().min(0).max(1) }),
+    )
     .describe("Per-variation weights. Mirrors the GET response.")
     .optional(),
 });
@@ -1655,7 +1657,7 @@ const updateExperimentBody = z
           dateEnded: z.string().meta({ format: "date-time" }).optional(),
           reasonForStopping: z.string().optional(),
           seed: z.string().optional(),
-          coverage: z.number().optional(),
+          coverage: z.number().min(0).max(1).optional(),
           namespace: z
             .object({
               namespaceId: z.string(),
@@ -1693,14 +1695,19 @@ const updateExperimentBody = z
             .optional(),
           ...phaseSavedGroupInput,
           variationWeights: z
-            .array(z.number())
+            .array(z.number().min(0).max(1))
             .describe(
               "Deprecated: use `trafficSplit`. Takes precedence if set.",
             )
             .meta({ deprecated: true })
             .optional(),
           trafficSplit: z
-            .array(z.object({ variationId: z.string(), weight: z.number() }))
+            .array(
+              z.object({
+                variationId: z.string(),
+                weight: z.number().min(0).max(1),
+              }),
+            )
             .describe("Per-variation weights. Mirrors the GET response.")
             .optional(),
         }),

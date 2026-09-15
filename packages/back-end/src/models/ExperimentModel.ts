@@ -29,6 +29,7 @@ import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { ReqContext } from "back-end/types/request";
 import {
+  assertValidExperimentPhases,
   assertValidReleasedVariationId,
   determineNextDate,
   toExperimentApiInterface,
@@ -817,6 +818,7 @@ export async function createExperiment({
   );
 
   validateMetricOverrides(data.metricOverrides);
+  assertValidExperimentPhases(data.phases ?? []);
   assertValidReleasedVariationId(data);
 
   const experimentToCreate = {
@@ -905,6 +907,9 @@ export async function updateExperiment({
     throw new Error("Cannot set empty name for experiment!");
 
   validateMetricOverrides(allChanges.metricOverrides);
+  if (allChanges.phases) {
+    assertValidExperimentPhases(allChanges.phases, experiment.phases);
+  }
   assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
 
   const writeResult = await ExperimentModel.updateOne(

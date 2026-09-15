@@ -14825,6 +14825,8 @@ paths:
                         type: string
                       coverage:
                         type: number
+                        minimum: 0
+                        maximum: 1
                       namespace:
                         type: object
                         properties:
@@ -14930,6 +14932,8 @@ paths:
                         type: array
                         items:
                           type: number
+                          minimum: 0
+                          maximum: 1
                       trafficSplit:
                         description: Per-variation weights. Mirrors the GET response.
                         type: array
@@ -14940,6 +14944,8 @@ paths:
                               type: string
                             weight:
                               type: number
+                              minimum: 0
+                              maximum: 1
                           required:
                             - variationId
                             - weight
@@ -15547,6 +15553,8 @@ paths:
                         type: string
                       coverage:
                         type: number
+                        minimum: 0
+                        maximum: 1
                       namespace:
                         type: object
                         properties:
@@ -15646,6 +15654,8 @@ paths:
                         type: array
                         items:
                           type: number
+                          minimum: 0
+                          maximum: 1
                       trafficSplit:
                         description: Per-variation weights. Mirrors the GET response.
                         type: array
@@ -15656,6 +15666,8 @@ paths:
                               type: string
                             weight:
                               type: number
+                              minimum: 0
+                              maximum: 1
                           required:
                             - variationId
                             - weight
@@ -48808,6 +48820,8 @@ paths:
                   properties:
                     coverage:
                       type: number
+                      minimum: 0
+                      maximum: 1
                     savedGroups:
                       type: array
                       items:
@@ -48972,6 +48986,8 @@ paths:
                   properties:
                     coverage:
                       type: number
+                      minimum: 0
+                      maximum: 1
                     savedGroups:
                       type: array
                       items:
@@ -49185,6 +49201,8 @@ paths:
                             properties:
                               coverage:
                                 type: number
+                                minimum: 0
+                                maximum: 1
                               savedGroups:
                                 type: array
                                 items:
@@ -71619,6 +71637,8 @@ components:
           properties:
             coverage:
               type: number
+              minimum: 0
+              maximum: 1
             savedGroups:
               type: array
               items:
