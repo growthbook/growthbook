@@ -91,8 +91,6 @@ export default function SlackChannelSettings({
   onSaved,
   onDeleted,
   saveBarHost,
-  additionalDirty = false,
-  onSaveAdditionalSettings,
   onDraftEnabledChange,
   onDirtyChange,
 }: {
@@ -101,8 +99,6 @@ export default function SlackChannelSettings({
   onSaved: () => Promise<void>;
   onDeleted: () => Promise<void>;
   saveBarHost?: HTMLDivElement | null;
-  additionalDirty?: boolean;
-  onSaveAdditionalSettings?: () => Promise<void>;
   onDraftEnabledChange?: (enabled: boolean) => void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
@@ -232,8 +228,6 @@ export default function SlackChannelSettings({
         }),
       });
       setDirty(false);
-      // Workspace options save after the channel so a failed channel save leaves nothing half-applied.
-      await onSaveAdditionalSettings?.();
       setSaved(true);
     } catch (error) {
       setSaveError(
@@ -291,16 +285,12 @@ export default function SlackChannelSettings({
       <Button
         onClick={save}
         loading={saving}
-        disabled={!(dirty || additionalDirty) || events.length === 0}
+        disabled={!dirty || events.length === 0}
       >
         Save settings
       </Button>
-      {(dirty || additionalDirty) && (
-        <HelperText status="warning">Unsaved changes</HelperText>
-      )}
-      {saved && !dirty && !additionalDirty && (
-        <HelperText status="success">Saved.</HelperText>
-      )}
+      {dirty && <HelperText status="warning">Unsaved changes</HelperText>}
+      {saved && !dirty && <HelperText status="success">Saved.</HelperText>}
       {saveError && <HelperText status="error">{saveError}</HelperText>}
     </Flex>
   );

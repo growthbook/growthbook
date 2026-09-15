@@ -5,14 +5,11 @@ import { PiPlus } from "react-icons/pi";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
-import Checkbox from "@/ui/Checkbox";
-import HelperText from "@/ui/HelperText";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Link from "@/ui/Link";
 import SlackChannelSettings, {
@@ -20,13 +17,6 @@ import SlackChannelSettings, {
 } from "./SlackChannelSettings";
 import { getSlackChannelSummary } from "./slackSetupUtils";
 import styles from "./SlackWorkspacePanel.module.scss";
-
-type WorkspaceOption = {
-  key: "assistant" | "unfurl";
-  label: string;
-  description: string;
-  enabled: boolean;
-};
 
 export default function SlackWorkspacePanel({
   workspace,
@@ -39,7 +29,6 @@ export default function SlackWorkspacePanel({
   onAddChannel,
   onSelectChannel,
   onSaved,
-  options = [],
 }: {
   workspace: SlackWorkspaceConnectionFrontEndInterface;
   channels: SlackOAuthIntegrationInterface[];
@@ -51,17 +40,11 @@ export default function SlackWorkspacePanel({
   onAddChannel: () => void;
   onSelectChannel: (id: string | null) => Promise<void>;
   onSaved: () => Promise<void>;
-  options?: WorkspaceOption[];
 }) {
-  const { apiCall } = useAuth();
   const { projects } = useDefinitions();
   const [localChannelId, setLocalChannelId] = useState<string | null>(null);
   const [saveBarHost, setSaveBarHost] = useState<HTMLDivElement | null>(null);
-  const [optionChanges, setOptionChanges] = useState<
-    Partial<Record<WorkspaceOption["key"], boolean>>
-  >({});
   const [draftEnabled, setDraftEnabled] = useState<boolean | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [channelDirty, setChannelDirty] = useState(false);
   const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
   useEffect(() => {
@@ -75,29 +58,6 @@ export default function SlackWorkspacePanel({
   const selected =
     channels.find((channel) => channel.id === localChannelId) || channels[0];
   useEffect(() => setDraftEnabled(null), [selected?.id]);
-  const changedOptions = options.filter(
-    (option) =>
-      optionChanges[option.key] !== undefined &&
-      optionChanges[option.key] !== option.enabled,
-  );
-  const additionalDirty = changedOptions.length > 0;
-  const saveOptions = async () => {
-    for (const option of changedOptions) {
-      await apiCall(`/integrations/slack/${option.key}`, {
-        method: "POST",
-        body: JSON.stringify({
-          teamId: workspace.teamId,
-          enabled: optionChanges[option.key],
-        }),
-      });
-      // Clear each option as it lands so a later failure only reports what is still unsaved.
-      setOptionChanges((current) => {
-        const next = { ...current };
-        delete next[option.key];
-        return next;
-      });
-    }
-  };
   const saved = async () => {
     try {
       await onSaved();
@@ -158,38 +118,6 @@ export default function SlackWorkspacePanel({
             </Button>
           </Flex>
         </Flex>
-        {options.length > 0 && (
-          <Flex
-            gap="5"
-            mt="4"
-            wrap="wrap"
-            style={{ paddingLeft: "calc(32px + var(--space-3))" }}
-          >
-            {options.map((option) => (
-              <Checkbox
-                key={option.key}
-                weight="medium"
-                value={optionChanges[option.key] ?? option.enabled}
-                setValue={(enabled) =>
-                  setOptionChanges((current) => ({
-                    ...current,
-                    [option.key]: enabled,
-                  }))
-                }
-                label={
-                  <Flex asChild gap="2" align="center" wrap="wrap">
-                    <span>
-                      {option.label}
-                      <Text color="text-mid" weight="regular" size="sm">
-                        {option.description}
-                      </Text>
-                    </span>
-                  </Flex>
-                }
-              />
-            ))}
-          </Flex>
-        )}
       </Box>
       <div className={styles.content}>
         <Box p="3" className={styles.rail}>
@@ -284,8 +212,6 @@ export default function SlackWorkspacePanel({
               integration={selected}
               workspace={workspace}
               saveBarHost={saveBarHost}
-              additionalDirty={additionalDirty}
-              onSaveAdditionalSettings={saveOptions}
               onDraftEnabledChange={setDraftEnabled}
               onDirtyChange={setChannelDirty}
               onSaved={saved}
@@ -314,26 +240,6 @@ export default function SlackWorkspacePanel({
         ref={setSaveBarHost}
         style={{ position: "sticky", bottom: 0, zIndex: 1 }}
       />
-      {!selected && options.length > 0 && (
-        <Box p="4" style={{ borderTop: "1px solid var(--gray-a6)" }}>
-          <Flex gap="3" align="center">
-            <Button
-              disabled={!additionalDirty}
-              setError={setSaveError}
-              onClick={async () => {
-                await saveOptions();
-                await saved();
-              }}
-            >
-              Save settings
-            </Button>
-            {additionalDirty && (
-              <HelperText status="warning">Unsaved changes</HelperText>
-            )}
-            {saveError && <HelperText status="error">{saveError}</HelperText>}
-          </Flex>
-        </Box>
-      )}
       {pendingChannelId && (
         <ConfirmDialog
           title="Discard unsaved changes?"
