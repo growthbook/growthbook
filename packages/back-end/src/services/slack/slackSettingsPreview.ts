@@ -7,9 +7,9 @@ import {
 import {
   sampleScorecard,
   sampleFeatureDigest,
-  renderWeeklyScorecard,
-  renderFeatureDigest,
-} from "back-end/src/services/notificationCards/cardImages";
+} from "back-end/src/services/notifications/sampleDigests";
+import { renderWeeklyScorecard } from "back-end/src/services/notificationCards/digests/scorecard";
+import { renderFeatureDigest } from "back-end/src/services/notificationCards/digests/featureDigest";
 import {
   renderNotificationCard,
   RenderedNotificationCard,
