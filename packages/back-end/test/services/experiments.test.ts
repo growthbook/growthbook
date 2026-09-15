@@ -9,7 +9,9 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { isFactMetric } from "shared/experiments";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
+import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
+import { addTags } from "back-end/src/models/TagModel";
 import { Context } from "back-end/src/models/BaseModel";
 import {
   ScheduleUpdateInput,
@@ -17,6 +19,7 @@ import {
 } from "back-end/src/services/experimentScheduling";
 import {
   applyVariationWeightsToLatestPhase,
+  createMetric,
   fillEmptyVariationKeys,
   getExperimentMetricById,
   normalizeStatusUpdateScheduleChanges,
@@ -25,9 +28,35 @@ import {
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
+  updateExperimentBanditSettings,
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+
+jest.mock("back-end/src/models/TagModel", () => ({ addTags: jest.fn() }));
+
+describe("createMetric", () => {
+  it("does not register tags when metric creation is denied", async () => {
+    const context = {
+      org: { id: "org_metric_create_order" },
+      permissions: {
+        canCreateMetric: () => false,
+        throwPermissionError: () => {
+          throw new Error("Permission denied");
+        },
+      },
+    } as unknown as Context;
+
+    await expect(
+      createMetric(context, {
+        name: "Denied metric",
+        tags: ["must-not-persist"],
+      }),
+    ).rejects.toThrow("Permission denied");
+
+    expect(addTags).not.toHaveBeenCalled();
+  });
+});
 
 describe("experiments utils", () => {
   describe("validateVariationIds", () => {
@@ -2240,5 +2269,43 @@ describe("getExperimentMetricById funnel steps", () => {
     expect(await getExperimentMetricById(context, "fact__other?step=0")).toBe(
       null,
     );
+  });
+});
+
+describe("updateExperimentBanditSettings", () => {
+  it("refuses to reweight when an analysis failed to compute", () => {
+    const experiment = {
+      phases: [{ variationWeights: [0.5, 0.5] }],
+    } as unknown as ExperimentInterface;
+    const snapshot = {
+      analyses: [
+        {
+          results: [
+            {
+              variations: [
+                {
+                  metrics: {
+                    decision: {
+                      computeFailed: true,
+                      errorMessage: "decision analysis failed",
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as ExperimentSnapshotInterface;
+
+    expect(() =>
+      updateExperimentBanditSettings({
+        experiment,
+        snapshot,
+        reweight: true,
+      }),
+    ).toThrow("Bandit analysis failed: decision analysis failed");
+    expect(experiment.phases[0].variationWeights).toEqual([0.5, 0.5]);
+    expect(experiment.phases[0].banditEvents).toBeUndefined();
   });
 });

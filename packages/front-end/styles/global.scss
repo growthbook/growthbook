@@ -2039,6 +2039,9 @@ main.main {
     transparent 100%
   );
 }
+.fade-mask-bottom-1rem {
+  mask-image: linear-gradient(to top, transparent 0%, black 1rem);
+}
 .w100-1rem {
   width: calc(100% - 2rem);
 }

@@ -78,7 +78,8 @@
                       "features/targeting",
                       "features/safe-rollouts",
                       "features/ramp-schedules",
-                      "features/prerequisites"
+                      "features/prerequisites",
+                      "features/feature-flag-experiments"
                     ]
                   },
                   {
@@ -162,55 +163,54 @@
                 "group": "Experimentation",
                 "root": "experiments",
                 "pages": [
-                  "feature-flag-experiments",
                   {
-                    "group": "Visual Editor",
-                    "root": "app/visual",
+                    "group": "Creating Experiments",
+                    "expanded": true,
                     "pages": [
-                      "app/visual/install-and-connect",
-                      "app/visual/ai-mode",
-                      "app/visual/manual-mode",
-                      "app/visual/images",
-                      "app/visual/design-import",
-                      "app/visual/running-on-your-site",
-                      "app/visual/preview-and-qa",
-                      "app/visual/troubleshooting",
-                      "app/visual/legacy"
+                      "app/experiment-configuration",
+                      "running-experiments/experiment-templates",
+                      "app/pre-launch-checklist",
+                      "statistics/power",
+                      "app/importing-experiments"
                     ]
                   },
-                  "app/url-redirects",
-                  "app/experiment-configuration",
-                  "running-experiments/experiment-templates",
-                  "app/experiment-results",
-                  "app/experiment-time-series",
-                  "app/experiment-decisions",
-                  "app/making-experiment-changes",
                   {
-                    "group": "Bandits",
+                    "group": "Delivery Methods",
+                    "expanded": true,
                     "pages": [
-                      "bandits/overview",
-                      "bandits/config",
-                      "bandits/results",
+                      "features/feature-flag-experiments",
                       {
-                        "group": "Contextual Bandits",
-                        "tag": "BETA",
+                        "group": "Visual Editor",
+                        "root": "app/visual",
                         "pages": [
-                          "bandits/contextual",
-                          "bandits/contextual-config",
-                          "bandits/contextual-via-api"
+                          "app/visual/install-and-connect",
+                          "app/visual/ai-mode",
+                          "app/visual/manual-mode",
+                          "app/visual/images",
+                          "app/visual/design-import",
+                          "app/visual/running-on-your-site",
+                          "app/visual/preview-and-qa",
+                          "app/visual/troubleshooting",
+                          "app/visual/legacy"
                         ]
-                      }
+                      },
+                      "app/url-redirects"
                     ]
                   },
-                  "app/holdouts",
-                  "app/sticky-bucketing",
-                  "experimentation-analysis/cluster-experiments",
-                  "app/dimensions",
-                  "app/pre-launch-checklist",
-                  "app/experiment-dashboards",
-                  "app/importing-experiments",
                   {
-                    "group": "Statistics",
+                    "group": "Analysis & Decisions",
+                    "expanded": true,
+                    "pages": [
+                      "app/making-experiment-changes",
+                      "app/experiment-results",
+                      "app/experiment-time-series",
+                      "app/experiment-decisions",
+                      "app/experiment-dashboards",
+                      "app/dimensions"
+                    ]
+                  },
+                  {
+                    "group": "Advanced & Statistics",
                     "pages": [
                       "statistics/overview",
                       "statistics/details",
@@ -219,10 +219,29 @@
                       "statistics/sequential",
                       "statistics/multiple-corrections",
                       "statistics/aggregation",
-                      "statistics/power",
-                      "statistics/contextual-bandit-technical"
+                      "statistics/contextual-bandit-technical",
+                      "app/sticky-bucketing",
+                      "experimentation-analysis/cluster-experiments"
                     ]
-                  }
+                  },
+                  {
+                    "group": "Bandits",
+                    "pages": [
+                      "bandits/overview",
+                      "bandits/config",
+                      "bandits/results"
+                    ]
+                  },
+                  {
+                    "group": "Contextual Bandits",
+                    "tag": "BETA",
+                    "pages": [
+                      "bandits/contextual",
+                      "bandits/contextual-config",
+                      "bandits/contextual-via-api"
+                    ]
+                  },
+                  "app/holdouts"
                 ]
               },
               "insights",
@@ -272,14 +291,7 @@
                     "root": "integrations/ai-agents",
                     "pages": [
                       "integrations/mcp",
-                      {
-                        "group": "Agent Skills",
-                        "root": "integrations/ai-agents/agent-skills",
-                        "pages": [
-                          "integrations/ai-agents/agent-skills/feature-flags",
-                          "integrations/ai-agents/agent-skills/experiments"
-                        ]
-                      }
+                      "integrations/ai-agents/agent-skills"
                     ]
                   },
                   "integrations/vercel",
@@ -592,6 +604,10 @@
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/searchWarehouseTables",
+                  "api/data-sources/operation/getWarehouseTableSchema",
+                  "api/data-sources/operation/previewWarehouseColumnValues",
+                  "api/data-sources/operation/runSqlQuery",
                   "api/data-sources/operation/getInformationSchemaTable"
                 ]
               },
@@ -660,7 +676,8 @@
                   "api/experiments/operation/postExperimentSnapshot",
                   "api/experiments/operation/postVariationImageUpload",
                   "api/experiments/operation/deleteVariationScreenshot",
-                  "api/experiments/operation/getExperimentNames"
+                  "api/experiments/operation/getExperimentNames",
+                  "api/experiments/operation/postExperimentComment"
                 ]
               },
               {
@@ -1036,7 +1053,12 @@
                   "api/AnalyticsExplorations/operation/postMetricExploration",
                   "api/AnalyticsExplorations/operation/postFactTableExploration",
                   "api/AnalyticsExplorations/operation/postDataSourceExploration",
-                  "api/AnalyticsExplorations/operation/postFunnelExploration"
+                  "api/AnalyticsExplorations/operation/postSqlExploration",
+                  "api/AnalyticsExplorations/operation/postFunnelExploration",
+                  "api/AnalyticsExplorations/operation/searchProductAnalyticsResources",
+                  "api/AnalyticsExplorations/operation/getProductAnalyticsColumns",
+                  "api/AnalyticsExplorations/operation/getProductAnalyticsColumnValues",
+                  "api/AnalyticsExplorations/operation/getProductAnalyticsExploration"
                 ]
               },
               {
@@ -1059,6 +1081,28 @@
                   "api/Learnings/operation/createLearning",
                   "api/Learnings/operation/searchLearnings"
                 ]
+              },
+              {
+                "group": "Holdouts",
+                "pages": [
+                  "api/Holdouts/operation/getHoldout",
+                  "api/Holdouts/operation/updateHoldout",
+                  "api/Holdouts/operation/listHoldouts",
+                  "api/Holdouts/operation/createHoldout",
+                  "api/Holdouts/operation/startHoldout",
+                  "api/Holdouts/operation/startHoldoutAnalysis",
+                  "api/Holdouts/operation/stopHoldout"
+                ]
+              },
+              {
+                "group": "Auto Runs",
+                "pages": [
+                  "api/AutoRuns/operation/listAutoRuns",
+                  "api/AutoRuns/operation/createAutoRun",
+                  "api/AutoRuns/operation/getAutoRun",
+                  "api/AutoRuns/operation/updateAutoRun",
+                  "api/AutoRuns/operation/appendAutoRunArtifact"
+                ]
               }
             ]
           },
@@ -1069,6 +1113,7 @@
               "api/AnalyticsExploration_model",
               "api/Archetype_model",
               "api/Attribute_model",
+              "api/AutoRun_model",
               "api/CodeRef_model",
               "api/Config_model",
               "api/ConfigKeyUsage_model",
@@ -1131,6 +1176,7 @@
               "api/FeatureV2_model",
               "api/FeatureWithRevisionsV1_model",
               "api/FeatureWithRevisionsV2_model",
+              "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
               "api/Learning_model",
@@ -1192,6 +1238,11 @@
       "href": "https://app.growthbook.io/"
     }
   },
+  "integrations": {
+    "gtm": {
+      "tagId": "GTM-MF7GKV4V"
+    }
+  },
   "footer": {
     "socials": {
       "x": "https://twitter.com/growth_book",
@@ -1245,8 +1296,8 @@
       "destination": "/static/open-guide-to-ab-testing.v1.0.pdf"
     },
     {
-      "source": "/features/feature-flag-experiments",
-      "destination": "/feature-flag-experiments"
+      "source": "/feature-flag-experiments",
+      "destination": "/features/feature-flag-experiments"
     },
     {
       "source": "/app/experiments",
@@ -1255,6 +1306,14 @@
     {
       "source": "/api",
       "destination": "/api/introduction"
+    },
+    {
+      "source": "/integrations/ai-agents/agent-skills/feature-flags",
+      "destination": "/integrations/ai-agents/agent-skills"
+    },
+    {
+      "source": "/integrations/ai-agents/agent-skills/experiments",
+      "destination": "/integrations/ai-agents/agent-skills"
     }
   ]
 }

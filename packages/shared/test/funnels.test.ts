@@ -7,6 +7,7 @@ import {
   getFunnelBuilderViolations,
   getFunnelRuleViolations,
   getFunnelSaveBlockers,
+  MAX_FUNNEL_FACT_TABLES,
   MAX_FUNNEL_STEPS,
   type FunnelRuleFactTable,
   type FunnelRuleInput,
@@ -381,9 +382,25 @@ describe("getFunnelRuleViolations", () => {
     ).toContain("step 2, 3");
   });
 
-  it("rejects steps spanning more than one fact table", () => {
+  it("allows steps spanning multiple fact tables up to the cap", () => {
     expect(
       codes({ steps: [step(), step({ factTableId: "ft_other" })] }),
+    ).toEqual([]);
+  });
+
+  it("rejects more distinct fact tables than the cap", () => {
+    const extra: Record<string, FunnelRuleFactTable> = {};
+    const many = Array.from({ length: MAX_FUNNEL_FACT_TABLES + 1 }, (_, i) => {
+      const id = `ft_cap_${i}`;
+      extra[id] = { id, datasource: "ds_1", userIdTypes: ["user_id"] };
+      return step({ name: `Step ${i + 1}`, factTableId: id });
+    });
+    expect(
+      getFunnelRuleViolations({
+        steps: many,
+        datasourceId: "ds_1",
+        getFactTable: (id) => extra[id] ?? factTables[id],
+      }).map((v) => v.code),
     ).toContain("multi_fact_table");
   });
 
@@ -605,7 +622,7 @@ describe("deriveFunnelUnit", () => {
   });
 });
 
-describe("multi-fact-table funnels: buildable, not savable", () => {
+describe("multi-fact-table funnels: buildable, savable under the cap", () => {
   // A funnel builder exploration may draw each step from a different fact
   // table. Only funnel *fact metrics* are limited to one, so that rule must
   // never leak into builder-side validation.
@@ -644,14 +661,37 @@ describe("multi-fact-table funnels: buildable, not savable", () => {
     ).toEqual([]);
   });
 
-  it("is blocked from being saved as a fact metric", () => {
+  it("can be saved as a fact metric when under the fact-table cap", () => {
     expect(
       getFunnelSaveBlockers({
         dataset: { steps: multiTableSteps },
         datasourceId: "ds_1",
         getFactTable,
       }),
-    ).toEqual(["All funnel steps must come from the same fact table for now"]);
+    ).toEqual([]);
+  });
+
+  it("is blocked from being saved as a fact metric past the fact-table cap", () => {
+    const extra: Record<string, FunnelRuleFactTable> = {};
+    const many = Array.from({ length: MAX_FUNNEL_FACT_TABLES + 1 }, (_, i) => {
+      const id = `ft_cap_${i}`;
+      extra[id] = { id, datasource: "ds_1", userIdTypes: ["user_id"] };
+      return {
+        name: `Step ${i + 1}`,
+        factTableId: id,
+        rowFilters: [],
+        optional: false,
+      };
+    });
+    expect(
+      getFunnelSaveBlockers({
+        dataset: { steps: many },
+        datasourceId: "ds_1",
+        getFactTable: (id) => extra[id] ?? getFactTable(id),
+      }),
+    ).toEqual([
+      `Funnel metrics must have ${MAX_FUNNEL_FACT_TABLES} or fewer distinct fact tables`,
+    ]);
   });
 
   it("never surfaces a fact-metric-only rule to the builder", () => {
@@ -666,7 +706,6 @@ describe("multi-fact-table funnels: buildable, not savable", () => {
     }).filter((v) => v.scope === "fact_metric");
 
     expect(metricOnly.map((v) => v.code).sort()).toEqual([
-      "multi_fact_table",
       "session_based",
       "unsupported_ordering",
     ]);

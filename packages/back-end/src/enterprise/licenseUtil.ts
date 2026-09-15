@@ -17,7 +17,10 @@ import {
   LicenseMetaData,
   LicenseUserCodes,
   makeOrgLimits,
+  DEFAULT_ORG_LIMITS,
+  OrgLimits,
   OrgLimitsAccessor,
+  planTierFor,
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
@@ -79,6 +82,7 @@ export function getSubscriptionFromLicense(
     cancelationDate: new Date((sub.canceled_at || 0) * 1000).toDateString(),
     pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
     isVercelIntegration: !!license.vercelInstallationId,
+    stripeCustomerId: license.stripeCustomerId,
   };
 }
 
@@ -1064,12 +1068,17 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
 // Enforcement paths must use getEffectiveOrgLimits (services/plan-limits.ts).
 export function getOrgLimits(
   org: MinimalOrganization & Pick<OrganizationInterface, "limits">,
+  planLimitsOverride?: OrgLimits,
 ): OrgLimitsAccessor {
+  const effectivePlan = getEffectiveAccountPlan(org);
+  const tier = planTierFor(effectivePlan);
   return makeOrgLimits({
-    effectivePlan: getEffectiveAccountPlan(org),
+    effectivePlan,
     orgLimits: org.limits,
     licenseLimits: getLicense(org.licenseKey || process.env.LICENSE_KEY)
       ?.limits,
+    planLimits:
+      planLimitsOverride ?? (tier ? DEFAULT_ORG_LIMITS[tier] : undefined),
   });
 }
 

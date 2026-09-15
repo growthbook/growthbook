@@ -601,4 +601,22 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
       }),
     ).toBe(false);
   });
+
+  it("returns true when skipPartialData is on and the IR doc has no materializer (legacy)", () => {
+    const settings = makeSnapshotSettings({
+      metricSettings: [],
+      skipPartialData: true,
+    });
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        snapshotSettings: settings,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(settings),
+          materializedBySnapshotId: undefined,
+        }),
+        latestOverallSnapshotId: "snp_new",
+      }),
+    ).toBe(true);
+  });
 });

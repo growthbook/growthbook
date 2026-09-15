@@ -8,7 +8,7 @@ import {
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
-  assertExposureQueriesTargetingAttributeColumnsValid,
+  assertContextualAttributesValid,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
   ContextualBanditInterface,
   contextualBanditValidator,
@@ -281,23 +281,20 @@ export class ContextualBanditModel extends BaseClass {
       }
     }
 
-    const targetingAttributeColumns =
-      doc.targetingAttributeColumns ?? doc.contextualAttributes;
-    if ((targetingAttributeColumns?.length ?? 0) === 0) {
-      throw new Error(
-        "A contextual bandit must declare at least one contextual attribute.",
+    if (
+      !previousDoc ||
+      !isEqual(doc.contextualAttributes, previousDoc.contextualAttributes)
+    ) {
+      if ((doc.contextualAttributes?.length ?? 0) === 0) {
+        throw new Error(
+          "A contextual bandit must declare at least one contextual attribute.",
+        );
+      }
+      assertContextualAttributesValid(
+        this.context.org.settings?.attributeSchema,
+        doc,
       );
     }
-    assertExposureQueriesTargetingAttributeColumnsValid(
-      this.context.org.settings?.attributeSchema,
-      [
-        {
-          id: doc.id,
-          name: doc.name,
-          targetingAttributeColumns,
-        },
-      ],
-    );
   }
 
   public override async handleApiList(
@@ -342,7 +339,6 @@ export class ContextualBanditModel extends BaseClass {
         id: generateVariationId(),
         screenshots: [],
       })),
-      targetingAttributeColumns: body.contextualAttributes,
       contextualAttributes: body.contextualAttributes,
       status: "draft" as const,
       currentLeafWeights: [],
@@ -358,9 +354,6 @@ export class ContextualBanditModel extends BaseClass {
       if (body[field] !== undefined) {
         (out as Record<string, unknown>)[field] = body[field];
       }
-    }
-    if (body.contextualAttributes !== undefined) {
-      out.targetingAttributeColumns = body.contextualAttributes;
     }
     return out as Parameters<typeof this.updateById>[1];
   }

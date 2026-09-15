@@ -50,6 +50,8 @@ export type AuthRequest<
   superAdmin?: boolean;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
+  // Ids of restrictAccess projects, loaded with the org for permission resolution
+  restrictedProjects?: string[];
   audit: (
     data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">,
   ) => Promise<void>;

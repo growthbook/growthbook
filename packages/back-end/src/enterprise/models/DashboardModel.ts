@@ -7,9 +7,13 @@ import {
   ApiCreateDashboardBlockInterface,
   ApiDashboardBlockInterface,
   blockHasFieldOfType,
+  blockUsesDashboardDateControl,
   resolveGlobalControlsBlockEnrollment,
   dashboardBlockHasIds,
+  isDashboardBlockRef,
+  DashboardBlockRef,
   apiCreateDashboardBody,
+  DashboardBlockWithAnalysisId,
   ApiDashboardInterface,
   ApiGetDashboardsForExperimentReturn,
   apiUpdateDashboardBody,
@@ -29,6 +33,7 @@ import {
   defaultPrimaryKeyShape,
 } from "shared/validators";
 import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
 import {
   MakeModelClass,
@@ -46,7 +51,13 @@ import {
   getDashboardsForExperimentEndpoint,
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
-import { shouldRecalculateNextUpdate } from "back-end/src/enterprise/services/dashboards";
+import {
+  explorationAnalysisId,
+  runNewApiExplorationBlocks,
+  shouldRecalculateNextUpdate,
+  updateDashboardExplorations,
+} from "back-end/src/enterprise/services/dashboards";
+import { BadRequestError } from "back-end/src/util/errors";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
@@ -450,10 +461,16 @@ export class DashboardModel extends BaseClass {
       title,
       projects,
       globalControls,
+      comparison,
       blocks,
     } = apiCreateDashboardBody.parse(rawBody);
+    // A chart block can arrive as a config the caller never ran.
+    const ranBlocks = await runNewApiExplorationBlocks(this.context, blocks, {
+      globalControls,
+      comparison,
+    });
     const createdBlocks = await Promise.all(
-      blocks.map((blockData) =>
+      ranBlocks.map((blockData) =>
         generateDashboardBlockIds(
           this.context.org.id,
           fromBlockApiInterface(blockData),
@@ -478,6 +495,7 @@ export class DashboardModel extends BaseClass {
       title,
       projects,
       globalControls,
+      comparison,
       blocks: normalizeLayouts(blocksWithGlobalControls),
     };
   }
@@ -501,17 +519,80 @@ export class DashboardModel extends BaseClass {
     const { blocks: blockUpdates, ...otherUpdates } =
       apiUpdateDashboardBody.parse(rawBody);
     const updates: UpdateProps<DashboardInterface> = otherUpdates;
+    // Absent controls mean the saved ones still apply, so a partial update
+    // queries the window the tiles render under.
+    const nextControls = {
+      globalControls:
+        updates.globalControls ?? existingDashboard?.globalControls,
+      comparison: updates.comparison ?? existingDashboard?.comparison,
+    };
+    // Dashboard-wide controls decide the window a tile queries, so changing one
+    // makes every result the caller did not re-run itself stale. Only these
+    // reach a chart: `projects` and `experimentSearchString` filter experiment
+    // blocks, which hold no stored result to go stale.
+    const chartControls = (controls: DashboardInterface["globalControls"]) => ({
+      dateRange: controls?.dateRange,
+      dateGranularity: controls?.dateGranularity,
+    });
+    const dateControlsChanged =
+      updates.globalControls !== undefined &&
+      !isEqual(
+        chartControls(updates.globalControls),
+        chartControls(existingDashboard?.globalControls),
+      );
+    const comparisonChanged =
+      updates.comparison !== undefined &&
+      !isEqual(updates.comparison, existingDashboard?.comparison);
+    // Indices of blocks this request runs itself; the rest carry a saved result.
+    const freshlyRun = new Set<number>();
     if (blockUpdates) {
-      const migratedBlocks = blockUpdates
+      // A ref names a saved block to carry through as-is: nothing to run, nothing
+      // to convert. Kept positionally so the list still defines order.
+      const savedById = new Map(
+        (existingDashboard?.blocks ?? []).map((block) => [block.id, block]),
+      );
+      const carried = new Map<number, DashboardBlockInterface>();
+      const toProcess: {
+        index: number;
+        block: Exclude<(typeof blockUpdates)[number], DashboardBlockRef>;
+      }[] = [];
+      blockUpdates.forEach((block, index) => {
+        if (!isDashboardBlockRef(block)) {
+          toProcess.push({ index, block });
+          // No analysis id is what makes runNewApiExplorationBlocks run it.
+          if (!explorationAnalysisId(block)) freshlyRun.add(index);
+          return;
+        }
+        const saved = savedById.get(block.id);
+        if (!saved) {
+          throw new BadRequestError(
+            `No block "${block.id}" on this dashboard. Reference one it already has, or send the block in full to add it.`,
+          );
+        }
+        carried.set(index, saved);
+      });
+
+      const ranBlocks = await runNewApiExplorationBlocks(
+        this.context,
+        toProcess.map((entry) => entry.block),
+        nextControls,
+      );
+      const migratedBlocks = ranBlocks
         .map(fromBlockApiInterface)
         .map(migrateBlock);
-      const createdBlocks = await Promise.all(
+      const processed = await Promise.all(
         migratedBlocks.map((blockData) =>
           dashboardBlockHasIds(blockData)
             ? blockData
             : generateDashboardBlockIds(this.context.org.id, blockData),
         ),
       );
+      toProcess.forEach((entry, i) => carried.set(entry.index, processed[i]));
+      const createdBlocks = blockUpdates.map((_, index) => {
+        const block = carried.get(index);
+        if (!block) throw new Error("Unreachable: every block index resolved");
+        return block;
+      });
       updates.blocks = normalizeLayouts(
         resolveGlobalControlsBlockEnrollment({
           existingGlobalControls: existingDashboard?.globalControls,
@@ -526,6 +607,27 @@ export class DashboardModel extends BaseClass {
         existingBlocks: existingDashboard.blocks,
       });
       if (enrolledBlocks) updates.blocks = enrolledBlocks;
+    }
+
+    // Re-run the results the caller did not, so a control change lands the same
+    // way it does in the app instead of leaving tiles on the previous window.
+    if (dateControlsChanged || comparisonChanged) {
+      const blocks = (updates.blocks ?? existingDashboard?.blocks ?? []).map(
+        (block) => ({ ...block }),
+      );
+      // A dashboard-wide comparison overrides each block's own, so it reaches
+      // every chart; the date range reaches only the ones enrolled in it.
+      const carried = blocks.filter(
+        (block, index) =>
+          !freshlyRun.has(index) &&
+          (comparisonChanged || blockUsesDashboardDateControl(block)),
+      );
+      if (carried.length) {
+        // Mutates in place, and logs rather than throws: one tile whose query
+        // fails must not lose the caller the rest of the update.
+        await updateDashboardExplorations(this.context, carried, nextControls);
+        updates.blocks = blocks;
+      }
     }
     return updates;
   }
@@ -922,6 +1024,7 @@ export function migrateBlock(
     case "metric-exploration":
     case "fact-table-exploration":
     case "data-source-exploration":
+    case "sql-exploration":
     default:
       return doc;
   }
@@ -956,6 +1059,7 @@ function toBlockApiInterface(
     case "metric-exploration":
     case "fact-table-exploration":
     case "data-source-exploration":
+    case "sql-exploration":
     case "funnel-exploration":
     default:
       return block;
@@ -963,7 +1067,10 @@ function toBlockApiInterface(
 }
 
 export function fromBlockApiInterface(
-  apiBlock: ApiDashboardBlockInterface | ApiCreateDashboardBlockInterface,
+  apiBlock:
+    | ApiDashboardBlockInterface
+    // Only reached once its chart has been run; see `runNewApiExplorationBlocks`.
+    | DashboardBlockWithAnalysisId<ApiCreateDashboardBlockInterface>,
 ): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (apiBlock.type) {
     case "metric-explorer":
@@ -993,6 +1100,7 @@ export function fromBlockApiInterface(
     case "metric-exploration":
     case "fact-table-exploration":
     case "data-source-exploration":
+    case "sql-exploration":
     case "funnel-exploration":
     default:
       return apiBlock;

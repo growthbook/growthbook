@@ -15,6 +15,7 @@ import {
   formatMalformedTargetingAttributeColumnMessages,
   isSafeSqlIdentifier,
 } from "shared/validators";
+import { concatSql } from "back-end/src/integrations/sql/primitives/concat";
 
 type ContextualBanditTargetingSettings = Pick<
   ExperimentUnitsQuerySettings,
@@ -101,11 +102,12 @@ export function getAttributeValuePerUnit(
 ): string {
   return `SUBSTRING(
         MIN(
-          CONCAT(SUBSTRING(${dialect.formatDateTimeString(timestampColumn)}, 1, 19),
-            coalesce(${dialect.castToString(
+          ${concatSql(
+            `SUBSTRING(${dialect.formatDateTimeString(timestampColumn)}, 1, 19)`,
+            `coalesce(${dialect.castToString(
               `e.${alias}`,
-            )}, ${dialect.castToString(`'${NULL_ATTRIBUTE_VALUE}'`)})
-          )
+            )}, ${dialect.castToString(`'${NULL_ATTRIBUTE_VALUE}'`)})`,
+          )}
         ),
         20,
         99999

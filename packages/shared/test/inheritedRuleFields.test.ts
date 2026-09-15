@@ -58,6 +58,58 @@ describe("an absent field inherits", () => {
   });
 });
 
+// Letting a disabled rule donate its (UI-hidden) fields would enforce
+// requirements no settings screen shows.
+describe("a switched-off rule takes no part in inheritance", () => {
+  it("does not donate teams left behind on a disabled base rule", () => {
+    const resolved = getReviewSetting(
+      [
+        rule({ requireReviewOn: false }),
+        {
+          requireReviewOn: true,
+          projects: ["prj_a"],
+          environments: ["production"],
+        },
+      ],
+      { project: "prj_a" },
+    );
+
+    expect(resolved?.requireReviewOn).toBe(true);
+    expect(resolved?.requiredApproverTeams).toBeUndefined();
+  });
+
+  it("does not donate any other dormant field either", () => {
+    const override = rule({ projects: ["prj_a"] });
+    delete override.blockSelfApproval;
+
+    const resolved = getReviewSetting(
+      [rule({ requireReviewOn: false }), override],
+      { project: "prj_a" },
+    );
+
+    expect(resolved?.blockSelfApproval).toBeUndefined();
+  });
+
+  it("still lets an enabled base rule donate", () => {
+    const override = rule({ projects: ["prj_a"] });
+    delete override.requiredApproverTeams;
+
+    const resolved = getReviewSetting([rule(), override], { project: "prj_a" });
+
+    expect(resolved?.requiredApproverTeams).toEqual(["t_sec"]);
+  });
+
+  it("returns a switched-off override as-is, borrowing nothing beneath it", () => {
+    const override = rule({ projects: ["prj_a"], requireReviewOn: false });
+    delete override.requiredApproverTeams;
+
+    const resolved = getReviewSetting([rule(), override], { project: "prj_a" });
+
+    expect(resolved?.requireReviewOn).toBe(false);
+    expect(resolved?.requiredApproverTeams).toBeUndefined();
+  });
+});
+
 // Absence is the only unset form, so a null from an older client is dropped on
 // the way in rather than stored as a second way to say the same thing.
 describe("normalizeApprovalRuleSettings", () => {
@@ -91,6 +143,37 @@ describe("normalizeApprovalRuleSettings", () => {
   it("leaves the legacy boolean form alone", () => {
     const normalized = normalizeApprovalRuleSettings({ requireReviews: true });
     expect(normalized.requireReviews).toBe(true);
+  });
+
+  it("scrapes team associations off switched-off rules in both families", () => {
+    const normalized = normalizeApprovalRuleSettings({
+      requireReviews: [
+        {
+          requireReviewOn: false,
+          projects: [],
+          requiredApproverTeams: ["t_stale"],
+        },
+        {
+          requireReviewOn: true,
+          projects: ["prj_a"],
+          requiredApproverTeams: ["t_live"],
+        },
+      ],
+      approvalFlows: {
+        savedGroups: [
+          { required: false, projects: [], requiredApproverTeams: ["t_stale"] },
+        ],
+      },
+    });
+
+    const [off, on] = normalized.requireReviews as Record<string, unknown>[];
+    expect("requiredApproverTeams" in off).toBe(false);
+    expect(on.requiredApproverTeams).toEqual(["t_live"]);
+    const sgRule = normalized.approvalFlows?.savedGroups?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect("requiredApproverTeams" in sgRule).toBe(false);
   });
 });
 

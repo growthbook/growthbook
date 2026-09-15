@@ -11,11 +11,15 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
@@ -24,6 +28,10 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -279,7 +287,12 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     // Opt-in attribute registration check (org-level setting). Applies to the
     // experiment's hashAttribute/fallbackAttribute and every phase's condition.
-    assertRegisteredAttributes(
+    const attributeScope = lazyAttributeScope(() =>
+      getExperimentAttributeScopeProjects(req.context, {
+        project: payload.project,
+      }),
+    );
+    await assertRegisteredAttributesScoped(
       req.context,
       {
         hashAttribute: payload.hashAttribute,
@@ -287,15 +300,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       },
       "experiment",
       undefined,
-      payload.project,
+      attributeScope,
     );
     for (const phase of payload.phases ?? []) {
-      assertRegisteredAttributes(
+      await assertRegisteredAttributesScoped(
         req.context,
         { condition: phase.condition },
         "experiment phase",
         undefined,
-        payload.project,
+        attributeScope,
       );
     }
 
@@ -324,6 +337,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         incoming: payload.statusUpdateSchedule,
       });
     }
+
+    await assertValidExperimentPrerequisites(
+      req.context,
+      phasePrerequisites(newExperiment.phases),
+    );
 
     const experiment = await createExperiment({
       data: newExperiment,

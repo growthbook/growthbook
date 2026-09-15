@@ -80,7 +80,7 @@ All of the attributes in the SDK are sent along with events as context.
 
 #### HTML Script Tag
 
-Simply add `data-tracking="growthbook"` to your script tag to enable.
+Add `data-tracking="growthbook"` to forward experiment view events that already fired. It does not enroll users in an experiment.
 
 ```html
 <script async
@@ -142,6 +142,15 @@ gb.logEvent("Page View");
 // With custom properties
 gb.logEvent("Button Click", {
   button: "Sign Up",
+});
+```
+
+Feature usage events are enabled by default. Disable them without affecting
+experiment view or custom events:
+
+```js
+growthbookTrackingPlugin({
+  enableFeatureUsageEvents: false,
 });
 ```
 

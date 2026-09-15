@@ -378,8 +378,17 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         skills,
       );
       if (config.resolveSkill) {
+        const seeded = new Set<string>();
         for (const name of skills) {
-          seedSkillLoad(buffer, emit, name, config.resolveSkill);
+          // A leaf picked from the `/` menu arrives without the domain router the
+          // model would have read on its way there, so its shared conventions
+          // would be missing. Seed the router first, as the two-step flow does.
+          const domain = name.split("/")[0];
+          for (const target of domain === name ? [name] : [domain, name]) {
+            if (seeded.has(target)) continue;
+            seeded.add(target);
+            seedSkillLoad(buffer, emit, target, config.resolveSkill);
+          }
         }
       }
     }
@@ -613,11 +622,21 @@ async function resolvePendingAction(
   confirmed: boolean,
 ): Promise<void> {
   const toolCallId = randomUUID();
+  // Strip `confirm` from the body the model sees so it doesn't copy it into
+  // follow-up calls and bypass the cost confirmation gate.
+  const sanitizedBody =
+    pendingAction.body && typeof pendingAction.body === "object"
+      ? Object.fromEntries(
+          Object.entries(pendingAction.body as Record<string, unknown>).filter(
+            ([k]) => k !== "confirm",
+          ),
+        )
+      : pendingAction.body;
   const args: Record<string, unknown> = {
     method: pendingAction.method,
     path: pendingAction.path,
     ...(pendingAction.query ? { query: pendingAction.query } : {}),
-    ...(pendingAction.body !== undefined ? { body: pendingAction.body } : {}),
+    ...(sanitizedBody !== undefined ? { body: sanitizedBody } : {}),
   };
 
   emit("tool-call-input", {

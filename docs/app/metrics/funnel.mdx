@@ -26,26 +26,24 @@ The [Funnel explorer](/app/product-analytics/explorer#funnels) in Product Analyt
 
 1. Go to **Metrics** and click **Add Metric**.
 2. Pick your **Data Source**, then choose **Funnel** as the metric type.
-3. Select the **Fact Table** your step events come from. All steps read from this one table.
+3. Select the **Fact Table** the first step's events come from.
 4. Name the first step and add a row filter that defines it, such as `event_name = view_product`.
-5. Click **Add a step** for each additional step, in the order units should complete them.
+5. Click **Add a step** for each additional step, in the order units should complete them. New steps start on the previous step's Fact Table and can be repointed to any other Fact Table in the same Data Source, although funnel metrics with steps on different Fact Tables will take longer to compute.
 6. Set conversion windows and mark optional steps as needed, then save.
 
 A funnel needs at least 2 steps and supports up to 20.
 
-<Info>
-**One fact table per funnel**
+:::info Steps can span Fact Tables
+Each step selects its own Fact Table, so a funnel can move between tables — say a `view_product` event in an events table followed by a purchase in an orders table. Every step's table must belong to the metric's Data Source, and changing a step's Fact Table clears that step's row filters.
 
-Every step in a funnel must come from the same Fact Table. Changing the Fact Table on the first step rewrites it for all steps and clears each step's row filters, so pick the table before you write your filters.
-
-The ability to choose a different Fact Table per step is coming soon!
-
-</Info>
+In experiments, every step's Fact Table must share an identifier type with the experiment's assignment table (or reach it through a Join Table); otherwise the metric is excluded from analysis.
+:::
 
 ### Step settings
 
 Each step has the following settings:
 
+- **Fact Table**: The table this step's events come from. New steps default to the previous step's table.
 - **Step name**: The label shown in the results table, the funnel chart, and CSV exports. Defaults to `Step N`.
 - **Row filters**: What counts as completing this step, such as `event_name = add_to_cart`. These work the same as [Row Filters](/app/metrics#row-filters) on any other metric, including saved filters and custom SQL expressions.
 - **Optional step**: Units who skip this step can still complete later steps. See [Optional steps](#optional-steps).
@@ -130,6 +128,7 @@ The following are not supported yet:
 | Standalone metric analysis                                    | The metric page cannot chart a funnel on its own. It is analyzed in the context of an experiment.                                                                                                                                  |
 | [Product Analytics Explorer](/app/product-analytics/explorer) | Funnel metrics cannot be charted in the Explorer or in a metric explorer dashboard block, and this is coming soon! In the meantime, use the [Funnel explorer](/app/product-analytics/explorer#funnels) for ad-hoc funnel analysis. |
 | Incremental Refresh                                           | Funnel metrics are not supported for Incremental Pipeline experiments yet, but support is coming soon! For now, remove them from the experiment, or run the experiment without incremental refresh.                                |
+| [Bandit experiments](/bandits/overview)                       | Funnel metrics cannot be used as the decision metric or as secondary or guardrail metrics on Bandits.                                                                                                                              |
 | Capping and quantile settings                                 | Not supported.                                                                                                                                                                                                                     |
 
 ### Supported data sources
@@ -148,7 +147,7 @@ See [Funnel Metric Results](/app/experiment-results#funnel-metric-results) for t
 
 ## Managing funnel metrics with the API
 
-Create a funnel metric by setting `metricType` to `funnel` and passing `funnelSettings`. Omit `numerator` and `denominator`; they are not allowed on funnel metrics. The metric inherits its data source from the first step's Fact Table.
+Create a funnel metric by setting `metricType` to `funnel` and passing `funnelSettings`. Omit `numerator` and `denominator`; they are not allowed on funnel metrics. The metric inherits its data source from the first step's Fact Table, and steps may reference different Fact Tables as long as they all belong to that data source.
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/fact-metrics' \
@@ -196,7 +195,7 @@ curl -X POST 'https://api.growthbook.io/api/v1/fact-metrics' \
 
 Field reference for `funnelSettings`:
 
-- **steps**: Required. An ordered array of 2 to 20 steps. Each step needs `name`, `factTableId`, `rowFilters`, and `optional`; `conversionWindow` is optional and may be `null`.
+- **steps**: Required. An ordered array of 2 to 20 steps. Each step needs `name`, `factTableId`, `rowFilters`, and `optional`; `conversionWindow` is optional and may be `null`. Steps may use different `factTableId`s within the metric's data source.
 - **ordering**: Optional, defaults to `sequential`. Only `sequential` is accepted today.
 - **concurrencyWindowSeconds**: Optional, defaults to `0`. Tolerance in seconds for events that arrive slightly out of order, applied to the lower bound of each step's window.
 

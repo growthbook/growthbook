@@ -260,11 +260,33 @@ function getSingleRolePermission(
   };
 }
 
+// Access-restricted projects deny by default: a principal with no explicit
+// role there gets an empty project entry, which project-scoped checks resolve
+// to instead of the global fall-through. manageTeam holders are exempt — they
+// could grant themselves a project role anyway.
+function applyProjectAccessRestrictions(
+  permissions: UserPermissions,
+  restrictedProjects: string[] | undefined,
+): void {
+  if (!restrictedProjects?.length) return;
+  if (permissions.global.permissions.manageTeam) return;
+  for (const project of restrictedProjects) {
+    if (!permissions.projects[project]) {
+      permissions.projects[project] = {
+        limitAccessByEnvironment: false,
+        environments: [],
+        permissions: {},
+      };
+    }
+  }
+}
+
 // Used for both org API keys and member records.
 export function getRolePermissions(
   roleInfo: MemberRoleWithProjects,
   org: OrganizationInterface,
   allTeams: RoleSourceTeam[],
+  restrictedProjects?: string[],
 ): UserPermissions {
   const permissions: UserPermissions = {
     global: getUserPermission(roleInfo, org),
@@ -303,6 +325,8 @@ export function getRolePermissions(
     }
   }
 
+  applyProjectAccessRestrictions(permissions, restrictedProjects);
+
   return permissions;
 }
 
@@ -336,6 +360,9 @@ export function assessRequiredApproverTeams({
   satisfied: boolean;
   // One entry per unsatisfied rule; any ONE of its teams would satisfy it.
   unmet: { id: string; name: string }[][];
+  // The team sets actually enforced, after dropping implied rules. Callers that
+  // judge whether one approval contributes must use these, not the raw rules.
+  enforcedTeamIds: string[][];
 } {
   const approverTeamIds = new Set(
     coveringApproverIds.flatMap((id) =>
@@ -344,10 +371,32 @@ export function assessRequiredApproverTeams({
   );
 
   const byId = new Map(teams.map((t) => [t.id, t]));
+
+  // Drop rules implied by a stricter one: satisfying a subset rule satisfies
+  // the superset, so listing both reads as two sign-offs. Deleted teams are
+  // excluded first so an emptied rule can't subsume one that still binds.
+  const withSets = rules
+    .map(
+      (rule) =>
+        new Set(
+          (rule.requiredApproverTeams ?? []).filter((id) => byId.has(id)),
+        ),
+    )
+    .filter((set) => set.size > 0);
+  const effective = withSets.filter(
+    (set, i) =>
+      !withSets.some(
+        (other, j) =>
+          j !== i &&
+          other.size <= set.size &&
+          [...other].every((id) => set.has(id)) &&
+          (other.size < set.size || j < i),
+      ),
+  );
+
   const unmet: { id: string; name: string }[][] = [];
-  for (const rule of rules) {
-    const required = rule.requiredApproverTeams ?? [];
-    if (!required.length) continue;
+  for (const set of effective) {
+    const required = [...set];
     if (required.some((teamId) => approverTeamIds.has(teamId))) continue;
     unmet.push(
       required
@@ -359,10 +408,17 @@ export function assessRequiredApproverTeams({
 
   // A rule naming only deleted teams can be neither satisfied nor explained.
   const actionable = unmet.filter((teamList) => teamList.length > 0);
-  return { satisfied: actionable.length === 0, unmet: actionable };
+  return {
+    satisfied: actionable.length === 0,
+    unmet: actionable,
+    enforcedTeamIds: effective.map((set) => [...set]),
+  };
 }
 
-// Uses CURRENT rules — an approval is not a snapshot of authority.
+// Uses CURRENT rules — an approval is not a snapshot of authority. One
+// deliberate exception: restricted-project denial is NOT applied here, so an
+// approval keeps counting when a project later restricts access and the
+// approver has no role on it. Deferred and scheduled actions err permissive.
 export function assessApprovalCoverage({
   org,
   teams,

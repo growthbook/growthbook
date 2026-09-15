@@ -15,6 +15,7 @@ import {
   rampRuleEnvKey,
   resolveTargetingProjectIds,
   stemRuleId,
+  isScheduledRule,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -515,12 +516,28 @@ export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
   {
     projects,
+    projectsAreReadAllowlist = false,
+    ids,
     includeArchived = false,
-  }: { projects?: string[]; includeArchived?: boolean } = {},
+  }: {
+    projects?: string[];
+    projectsAreReadAllowlist?: boolean;
+    ids?: string[];
+    includeArchived?: boolean;
+  } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (projects && projects.length) {
-    Object.assign(q, targetingScopedProjectClause(projects));
+  // An explicit id list is its own scope, ignoring `projects`.
+  if (ids) {
+    if (!ids.length) return [];
+    q.id = { $in: ids };
+  } else if (projects && projects.length) {
+    Object.assign(
+      q,
+      projectsAreReadAllowlist
+        ? readAllowlistClause(projects)
+        : targetingScopedProjectClause(projects),
+    );
   }
 
   if (!includeArchived) {
@@ -551,9 +568,16 @@ export async function getAllFeatures(
 // need a complete feature.
 export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
-  { includeArchived = false }: { includeArchived?: boolean } = {},
+  {
+    includeArchived = false,
+    ids,
+  }: { includeArchived?: boolean; ids?: string[] } = {},
 ): Promise<FeatureInterface[]> {
-  const q = featureListQuery(context.org.id, { includeArchived });
+  if (ids && !ids.length) return [];
+  const q: FilterQuery<FeatureDocument> = {
+    ...featureListQuery(context.org.id, { includeArchived }),
+    ...(ids ? { id: { $in: ids } } : {}),
+  };
 
   const docs = await FeatureModel.find(q, {
     description: 0,
@@ -585,14 +609,29 @@ export async function getAllFeaturesWithoutEditorFields(
 
 // Mongo pre-filter mirroring canReadTargetingScopedResource (project,
 // targetingProjects, or all-projects flag), so targeting-only features survive.
+function targetingScopedProjectArms(projects: string[]) {
+  return [
+    { project: { $in: projects } },
+    { targetingProjects: { $in: projects } },
+    { targetingAllProjects: true },
+  ];
+}
+
 function targetingScopedProjectClause(
   projects: string[],
 ): FilterQuery<FeatureDocument> {
+  return { $or: targetingScopedProjectArms(projects) };
+}
+
+// For queries scoped by a READ ALLOWLIST (getProjectsWithPermission) rather
+// than a project filter: no-project features are org-wide and stay readable
+// whenever any project is, so they must survive the pre-filter. The post-query
+// permission filter stays authoritative.
+function readAllowlistClause(projects: string[]): FilterQuery<FeatureDocument> {
   return {
     $or: [
-      { project: { $in: projects } },
-      { targetingProjects: { $in: projects } },
-      { targetingAllProjects: true },
+      ...targetingScopedProjectArms(projects),
+      { project: { $in: ["", null] } },
     ],
   };
 }
@@ -606,7 +645,8 @@ function featureListQuery(
     project != null
       ? targetingScopedProjectClause([project])
       : projectIds != null
-        ? targetingScopedProjectClause(projectIds)
+        ? // projectIds is always a read allowlist, never a user filter
+          readAllowlistClause(projectIds)
         : {};
   return {
     organization: orgId,
@@ -717,6 +757,25 @@ export async function migrateDraft(
     logger.error(e, "Error migrating old feature draft");
   }
   return null;
+}
+
+// jsonSchema is projected out of the list loaders; fetch the enabled ones
+// separately for value validation. Results are merged onto features that
+// already passed the read-permission filter, so none is applied here.
+export async function getFeatureJsonSchemasByIds(
+  context: ReqContext | ApiReqContext,
+  ids?: string[],
+): Promise<Map<string, FeatureInterface["jsonSchema"]>> {
+  if (ids && !ids.length) return new Map();
+  const docs = await FeatureModel.find(
+    {
+      ...featureListQuery(context.org.id, { includeArchived: false }),
+      "jsonSchema.enabled": true,
+      ...(ids ? { id: { $in: ids } } : {}),
+    },
+    { id: 1, jsonSchema: 1 },
+  ).lean<Pick<FeatureInterface, "id" | "jsonSchema">[]>();
+  return new Map(docs.map((d) => [d.id, d.jsonSchema]));
 }
 
 export async function getFeaturesByIds(
@@ -1519,7 +1578,6 @@ export async function addFeatureRule(
   envs: string[] | undefined,
   rule: FeatureRule,
   user: EventUser,
-  resetReview: boolean,
 ) {
   addIdsToFlatRules([rule], feature.id);
 
@@ -1548,7 +1606,6 @@ export async function addFeatureRule(
       subject: isAllEnvs ? "to all environments" : `to ${envs!.join(", ")}`,
       value: JSON.stringify(scopedRule),
     },
-    resetReview,
   );
 }
 
@@ -1561,7 +1618,6 @@ export async function editFeatureRule(
   ruleId: string,
   updates: Partial<FeatureRule>,
   user: EventUser,
-  resetReview: boolean,
   auditEnvironment?: string,
 ) {
   return await editFeatureRules(
@@ -1571,7 +1627,6 @@ export async function editFeatureRule(
     [{ ruleId, environmentId: auditEnvironment }],
     updates,
     user,
-    resetReview,
   );
 }
 
@@ -1587,7 +1642,6 @@ export async function editFeatureRules(
   matches: { ruleId: string; environmentId?: string }[],
   updates: Partial<FeatureRule>,
   user: EventUser,
-  resetReview: boolean,
 ) {
   const projected = applyPartialFeatureRuleUpdatesToRevision(
     revision,
@@ -1620,7 +1674,6 @@ export async function editFeatureRules(
       subject,
       value: JSON.stringify(updates),
     },
-    resetReview,
   );
   return updatedRevision;
 }
@@ -1742,7 +1795,6 @@ export async function setDefaultValue(
   revision: FeatureRevisionInterface,
   defaultValue: string,
   user: EventUser,
-  requireReview: boolean,
   { guardDateUpdated = false }: { guardDateUpdated?: boolean } = {},
 ) {
   // Fail early on the internal draft-edit path (the REST default-value endpoint
@@ -1760,7 +1812,6 @@ export async function setDefaultValue(
       subject: ``,
       value: JSON.stringify({ defaultValue }),
     },
-    requireReview,
     { guardDateUpdated },
   );
 }
@@ -2811,8 +2862,18 @@ async function createRampSchedulesForRevision(
   for (const action of actions) {
     if (action.mode !== "create" && action.mode !== "update") continue;
 
-    // Pro gate — see postRampSchedule.ts for rationale.
-    if (!context.hasPremiumFeature("schedule-feature-flag")) {
+    // Pro gate on new schedules only; editing an existing one stays allowed on
+    // any plan — see .agents/guides/backend/api-patterns.md. A create that
+    // replaces a rule's legacy scheduleRules with a ramp is such an edit.
+    if (
+      action.mode === "create" &&
+      !context.hasPremiumFeature("schedule-feature-flag") &&
+      !isScheduledRule(
+        feature.rules?.find(
+          (r) => stemRuleId(r.id) === stemRuleId(action.ruleId),
+        ),
+      )
+    ) {
       context.throwPlanDoesNotAllowError(
         "Ramp schedules require a Pro plan or above.",
       );
@@ -4446,6 +4507,8 @@ export async function getFeatureMetaInfoById(
       return {
         id: f.id,
         project: f.project,
+        targetingProjects: f.targetingProjects,
+        targetingAllProjects: f.targetingAllProjects,
         archived: f.archived,
         description: f.description,
         dateCreated: f.dateCreated,
@@ -4498,6 +4561,8 @@ export async function getFeatureMetaInfoByIds(
     .map((f) => ({
       id: f.id,
       project: f.project,
+      targetingProjects: f.targetingProjects,
+      targetingAllProjects: f.targetingAllProjects,
       archived: f.archived,
       description: f.description,
       dateCreated: f.dateCreated,
@@ -4525,8 +4590,10 @@ export async function getFeatureEnvStatus(
 
   // Push project-level read restrictions into the query to avoid fetching
   // documents that will be filtered out anyway.
-  const allowedProjects =
-    context.permissions.getProjectsWithPermission("readData");
+  const allowedProjects = context.permissions.getProjectsWithPermission(
+    "readData",
+    await context.models.projects.getAllIdsForOrg(),
+  );
   if (allowedProjects !== null) {
     if (allowedProjects.length === 0) return [];
     // Also include features with no project — they're globally accessible

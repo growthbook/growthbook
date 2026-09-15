@@ -9,6 +9,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
   MetricExperimentsBlockInterface,
   ExperimentsScaledImpactBlockInterface,
   ExperimentsWinRateBlockInterface,
@@ -19,6 +20,7 @@ import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
+  SqlExplorationConfig,
   FunnelExplorationConfig,
   ExplorationDateRange,
   dateGranularity,
@@ -100,6 +102,7 @@ type DashboardGlobalControlSupportedBlock = DashboardBlockInterfaceOrData<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
+  | SqlExplorationBlockInterface
   | FunnelExplorationBlockInterface
 >;
 
@@ -107,6 +110,7 @@ const dashboardGlobalControlSupportedBlockTypes = new Set<DashboardBlockType>([
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "sql-exploration",
   "funnel-exploration",
 ]);
 
@@ -117,7 +121,13 @@ export function getTemporaryDashboardBlockId(index: number): string {
 export function isDashboardGlobalControlSupportedBlock(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 ): block is DashboardGlobalControlSupportedBlock {
-  return dashboardGlobalControlSupportedBlockTypes.has(block.type);
+  return (
+    dashboardGlobalControlSupportedBlockTypes.has(block.type) &&
+    !(
+      block.type === "sql-exploration" &&
+      block.config.dataset.timestampColumn === null
+    )
+  );
 }
 
 // The set of dashboard-wide global filters. `dateRange` drives exploration
@@ -475,6 +485,7 @@ type DashboardGlobalControlSupportedConfig =
   | MetricExplorationConfig
   | FactTableExplorationConfig
   | DataSourceExplorationConfig
+  | SqlExplorationConfig
   | FunnelExplorationConfig;
 
 function applyDateGranularity<T extends DashboardGlobalControlSupportedBlock>(
@@ -1027,6 +1038,19 @@ export const CREATE_BLOCK_TYPE: {
       ) as FunnelExplorationConfig),
     ...(initialValues || {}),
   }),
+  "sql-exploration": ({ initialValues }) => ({
+    type: "sql-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      (getInitialConfigByBlockType(
+        "sql-exploration",
+        initialValues?.config?.datasource ?? "",
+      ) as SqlExplorationConfig),
+    ...(initialValues || {}),
+  }),
 };
 
 export function createDashboardBlocksFromTemplate(
@@ -1164,4 +1188,27 @@ export function chartTypeHasDisplaySettings(
   // Check if the chart type supports any display settings
   // As more display settings are added, add their checks here
   return chartTypeSupportsAnchorYAxisToZero(chartType);
+}
+
+/** Where a dashboard lives in the app. */
+export function dashboardPagePath(id: string): string {
+  return `/product-analytics/dashboards/${id}`;
+}
+
+const DASHBOARD_PAGE_RE = /^\/product-analytics\/dashboards\/([^/?#]+)/;
+// The agent dispatcher accepts `/dashboards`, `/v1/dashboards`, `/api/v1/dashboards`.
+const DASHBOARD_API_RE =
+  /^(?:\/api)?(?:\/v[12])?\/dashboards(?:\/([^/?#]+))?\/?$/;
+
+/** The dashboard a page path is showing, or null. */
+export function dashboardIdFromPagePath(path: string): string | null {
+  return path.match(DASHBOARD_PAGE_RE)?.[1] ?? null;
+}
+
+/** `null` when the path isn't a dashboards route; `id: null` for the collection itself. */
+export function parseDashboardApiPath(
+  path: string,
+): { id: string | null } | null {
+  const match = path.split("?")[0].match(DASHBOARD_API_RE);
+  return match ? { id: match[1] ?? null } : null;
 }
