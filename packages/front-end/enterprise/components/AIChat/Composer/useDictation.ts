@@ -132,7 +132,8 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
 
   const stop = useCallback(() => {
     sessionRef.current?.recorder.stop();
-    setStatus("idle");
+    // Straight to transcribing: onstop is async, and an idle frame would flip the composer back to Send.
+    setStatus("transcribing");
   }, []);
 
   const start = useCallback(async () => {
@@ -172,9 +173,11 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
     recorder.onstop = async () => {
       release();
       const audio = new Blob(chunks, { type: mimeType });
-      if (!audio.size) return;
+      if (!audio.size) {
+        setStatus("idle");
+        return;
+      }
 
-      setStatus("transcribing");
       try {
         const res = await apiCall<{ text: string }>("/ai/transcribe", {
           method: "POST",
