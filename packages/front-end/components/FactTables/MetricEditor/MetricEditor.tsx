@@ -20,16 +20,14 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
 import MetricTypeSelect, {
-  TYPE_DESCRIPTIONS,
   TYPE_LABELS,
 } from "@/components/FactTables/MetricEditor/MetricTypeSelect";
 import AdvancedSettings from "@/components/FactTables/MetricEditor/AdvancedSettings";
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
 import FunnelStepsDisplay from "@/components/FactTables/MetricEditor/FunnelStepsDisplay";
-import PreviewPanel, {
-  PreviewPart,
-} from "@/components/FactTables/MetricEditor/PreviewPanel";
+import PreviewPanel from "@/components/FactTables/MetricEditor/PreviewPanel";
+import MetricDescription from "@/components/FactTables/MetricEditor/MetricDescription";
 import {
   getFunnelPreviewSQL,
   getPreviewSQL,
@@ -162,11 +160,13 @@ export default function MetricEditor({
   // rewrite the definition on save - this applies regardless of canEdit.
   if (!formTypeResult.representable) {
     return (
-      <Callout status="warning">
-        This metric&apos;s definition can&apos;t be shown in this editor:{" "}
-        {UNREPRESENTABLE_REASON_COPY[formTypeResult.reason]}. Edit it via the
-        API, or contact support if this is unexpected.
-      </Callout>
+      <Flex direction="column" gap="3">
+        <Callout status="warning">
+          This metric&apos;s definition can&apos;t be shown in this editor:{" "}
+          {UNREPRESENTABLE_REASON_COPY[formTypeResult.reason]}. Edit it via the
+          API, or contact support if this is unexpected.
+        </Callout>
+      </Flex>
     );
   }
   const formType = formTypeResult.type;
@@ -220,10 +220,38 @@ export default function MetricEditor({
     );
     // Datasource is derived from the fact table, not selected directly (spec).
     if (newFactTable) form.setValue("datasource", newFactTable.datasource);
+    if (
+      metricType === "ratio" &&
+      (!denominator?.factTableId ||
+        denominator.factTableId === numerator.factTableId)
+    ) {
+      form.setValue(
+        "denominator",
+        onFactTableChange(
+          denominator ?? { factTableId: "", column: "$$count", rowFilters: [] },
+          newFactTableId,
+          newFactTable,
+          hasCountDistinctHLL,
+        ),
+      );
+    }
   }
 
   const isFunnel = formType === "funnel";
   const isRatioOrFunnel = formType === "ratio" || isFunnel;
+  const primaryFactTableSelect = (
+    <Select
+      label="Fact table"
+      value={primaryFactTableId}
+      setValue={changeFactTable}
+    >
+      {availableFactTables.map((ft) => (
+        <SelectItem key={ft.id} value={ft.id}>
+          {ft.name} ({getDatasourceById(ft.datasource)?.name || ft.datasource})
+        </SelectItem>
+      ))}
+    </Select>
+  );
   const thresholdValue: ThresholdBasisValue = {
     aggregateFilterColumn: numerator.aggregateFilterColumn,
     aggregateFilter: numerator.aggregateFilter,
@@ -232,34 +260,8 @@ export default function MetricEditor({
     form.setValue("numerator", { ...numerator, ...v });
   const valueShape = shapeForValueType(formType);
 
-  const previewParts: PreviewPart[] = isFunnel
-    ? (funnelSettings?.steps ?? []).map((step, index) => ({
-        key: `step-${index}`,
-        label: step.name || `Step ${index + 1}`,
-        factTable: getFactTableById(step.factTableId) ?? null,
-        rowFilters: step.rowFilters,
-      }))
-    : [
-        {
-          key: "numerator",
-          label: formType === "ratio" ? "Numerator" : "Metric",
-          factTable: getFactTableById(numerator.factTableId) ?? null,
-          rowFilters: numerator.rowFilters || [],
-        },
-        ...(formType === "ratio" && denominator
-          ? [
-              {
-                key: "denominator",
-                label: "Denominator",
-                factTable: getFactTableById(denominator.factTableId) ?? null,
-                rowFilters: denominator.rowFilters || [],
-              },
-            ]
-          : []),
-      ];
-
   return (
-    <Grid columns={{ initial: "1", md: "minmax(0, 1fr) 320px" }} gap="4">
+    <Grid columns={{ initial: "1", md: "minmax(0, 1fr) 380px" }} gap="4">
       <Flex direction="column" gap="4" minWidth="0">
         <Frame>
           <Flex align="center" gap="1" mb="3">
@@ -328,14 +330,9 @@ export default function MetricEditor({
             <Flex direction="column" gap="6">
               <DataList
                 columns={1}
-                data={[
-                  { label: "Name", value: form.watch("name") },
-                  {
-                    label: "Description",
-                    value: form.watch("description") || "—",
-                  },
-                ]}
+                data={[{ label: "Name", value: form.watch("name") }]}
               />
+              {existingMetric && <MetricDescription metric={existingMetric} />}
             </Flex>
           )}
         </Frame>
@@ -358,9 +355,6 @@ export default function MetricEditor({
               <Text weight="semibold" as="div">
                 {TYPE_LABELS[formType]}
               </Text>
-              <Text size="sm" color="text-mid" as="div">
-                {TYPE_DESCRIPTIONS[formType]}
-              </Text>
             </Flex>
           )}
         </Frame>
@@ -370,25 +364,7 @@ export default function MetricEditor({
             Definition
           </Heading>
           <Flex direction="column" gap="3">
-            {/* Ratio's numerator has no override of its own, so this select
-                is its only way to set a fact table - only funnel (which owns
-                per-step fact tables via FunnelStepsInput) hides it. Read-only
-                mode shows it here for every type except ratio, which shows
-                its own Fact Table line per-part below instead. */}
-            {canEdit && !isFunnel && (
-              <Select
-                label="Fact table"
-                value={primaryFactTableId}
-                setValue={changeFactTable}
-              >
-                {availableFactTables.map((ft) => (
-                  <SelectItem key={ft.id} value={ft.id}>
-                    {ft.name} (
-                    {getDatasourceById(ft.datasource)?.name || ft.datasource})
-                  </SelectItem>
-                ))}
-              </Select>
-            )}
+            {canEdit && !isRatioOrFunnel && primaryFactTableSelect}
             {!canEdit && !isRatioOrFunnel && (
               <DataList
                 columns={1}
@@ -460,6 +436,7 @@ export default function MetricEditor({
 
             {formType === "ratio" && denominator && (
               <RatioFields
+                numeratorFactTableSelect={primaryFactTableSelect}
                 numerator={numerator}
                 onNumeratorChange={(v: ColumnRef) =>
                   form.setValue("numerator", v)
@@ -533,7 +510,7 @@ export default function MetricEditor({
 
       <Flex direction="column" gap="4" minWidth="0">
         <PreviewPanel
-          parts={previewParts}
+          draft={canEdit ? form.watch() : null}
           previewSql={previewSql}
           metric={canEdit ? null : existingMetric}
         />

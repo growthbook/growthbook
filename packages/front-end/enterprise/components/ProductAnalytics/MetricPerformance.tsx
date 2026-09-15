@@ -1,13 +1,21 @@
+import { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { ExplorationConfig } from "shared/validators";
+import {
+  ExplorationConfig,
+  draftExplorationMetricValidator,
+} from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { isFactFunnelMetric } from "shared/experiments";
+import { datetime } from "shared/dates";
 import {
   deriveFunnelUnit,
   funnelSettingsToFunnelDataset,
 } from "shared/funnels";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  DefinitionsContext,
+  useDefinitions,
+} from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -21,7 +29,6 @@ function PerformanceChart() {
     draftExploreState,
     loading,
     error,
-    isStale,
     isSubmittable,
     managedWarehouseUnavailable,
     handleSubmit,
@@ -40,43 +47,87 @@ function PerformanceChart() {
       </Text>
     );
   }
+  const timeSeries =
+    draftExploreState.chartType === "bar" &&
+    draftExploreState.dimensions.some(
+      (dimension) => dimension.dimensionType === "date",
+    );
   return (
-    <Flex direction="column" gap="2" height="100%" minHeight="0">
+    <Flex direction="column" gap="2" minHeight="0">
       <Text size="sm" color="text-mid">
         Last 7 days
       </Text>
       <ExplorerChart
+        compact
         exploration={exploration}
         submittedExploreState={submittedExploreState ?? draftExploreState}
         loading={loading}
         error={error}
       />
-      {!loading && (isStale || error) && (
-        <Button
-          size="sm"
-          variant="soft"
-          disabled={!isSubmittable}
-          onClick={() => handleSubmit({ force: true })}
-        >
-          Load performance
-        </Button>
+      {timeSeries && (
+        <Text size="sm" color="text-mid">
+          Daily metric values (UTC). Today is partial.
+        </Text>
       )}
+      {exploration?.status === "success" && (
+        <Flex direction="column" gap="1">
+          <Text size="sm" color="text-mid">
+            Last queried:{" "}
+            {datetime(exploration.runStarted ?? exploration.dateCreated)}
+          </Text>
+          <Text size="sm" color="text-mid">
+            Newer data may be available. Refresh to update.
+          </Text>
+        </Flex>
+      )}
+      <Button
+        size="sm"
+        variant="soft"
+        disabled={loading || !isSubmittable}
+        onClick={() => handleSubmit({ force: true })}
+      >
+        Refresh
+      </Button>
     </Flex>
   );
 }
 
 export default function MetricPerformance({
   metric,
+  draft = false,
 }: {
   metric: FactMetricInterface;
+  draft?: boolean;
 }) {
-  const { getFactTableById, getDatasourceById } = useDefinitions();
+  const definitions = useDefinitions();
+  const { getFactTableById, getDatasourceById } = definitions;
+  const previewDefinitions = useMemo(
+    () => ({
+      ...definitions,
+      getFactMetricById: (id: string) =>
+        draft && id === metric.id ? metric : definitions.getFactMetricById(id),
+    }),
+    [definitions, draft, metric],
+  );
   const permissions = usePermissionsUtil();
   const datasource = getDatasourceById(metric.datasource);
   if (!datasource || !permissions.canRunMetricQueries(datasource)) {
     return (
       <Text color="text-mid">
         You don’t have permission to load this metric’s performance.
+      </Text>
+    );
+  }
+  if (
+    draft &&
+    (metric.metricType === "proportion" ||
+      metric.metricType === "retention" ||
+      metric.metricType === "dailyParticipation")
+  ) {
+    return (
+      <Text color="text-mid">
+        Calculating this rate requires an eligible user population. A source
+        activity count would not represent this metric.
       </Text>
     );
   }
@@ -116,7 +167,7 @@ export default function MetricPerformance({
         type: "metric",
         datasource: metric.datasource,
         dimensions: timeSeries ? DEFAULT_EXPLORE_STATE.dimensions : [],
-        chartType: timeSeries ? "line" : "bigNumber",
+        chartType: timeSeries ? "bar" : "bigNumber",
         showAs: "per_unit",
         dataset: {
           type: "metric",
@@ -124,6 +175,13 @@ export default function MetricPerformance({
             {
               type: "metric",
               metricId: metric.id,
+              ...(draft
+                ? {
+                    draftMetric: draftExplorationMetricValidator
+                      .strip()
+                      .parse(metric),
+                  }
+                : {}),
               name: metric.name,
               rowFilters: [],
               unit: null,
@@ -133,8 +191,10 @@ export default function MetricPerformance({
         },
       };
   return (
-    <ExplorerProvider initialConfig={config} trackingSource="metric-preview">
-      <PerformanceChart />
-    </ExplorerProvider>
+    <DefinitionsContext.Provider value={previewDefinitions}>
+      <ExplorerProvider initialConfig={config} trackingSource="metric-preview">
+        <PerformanceChart />
+      </ExplorerProvider>
+    </DefinitionsContext.Provider>
   );
 }

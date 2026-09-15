@@ -161,7 +161,7 @@ export default function NewFactMetricPage() {
           <Badge label="Draft" color="pink" variant="solid" radius="full" />
           <Text color="text-mid">Not yet saved</Text>
         </Flex>
-        <div ref={setActionsContainer} />
+        <div ref={setActionsContainer} style={{ minHeight: 40 }} />
       </Flex>
       {!canCreate ? (
         <Callout status="error">
