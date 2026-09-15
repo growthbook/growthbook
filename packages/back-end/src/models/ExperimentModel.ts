@@ -29,6 +29,7 @@ import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { ReqContext } from "back-end/types/request";
 import {
+  assertValidReleasedVariationId,
   determineNextDate,
   toExperimentApiInterface,
 } from "back-end/src/services/experiments";
@@ -39,7 +40,6 @@ import {
   NamespaceUsageExperiment,
 } from "back-end/src/util/namespaces";
 import { validateMetricOverrides } from "back-end/src/util/priors";
-import { assertValidReleasedVariationId } from "back-end/src/util/releasedVariationId.util";
 import {
   queueSDKPayloadRefresh,
   URLRedirectExperiment,
