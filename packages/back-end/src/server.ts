@@ -52,8 +52,9 @@ process.on("SIGINT", async () => {
 });
 function onClose() {
   // server.close() leaves idle keep-alive sockets open, so without this it
-  // blocks until each hits keepAliveTimeout, overrunning the ECS stop timeout.
+  // blocks until each hits keepAliveTimeout
   server.closeIdleConnections();
+
   // stop Express server
   server.close(async () => {
     logger.info("HTTP server closed");

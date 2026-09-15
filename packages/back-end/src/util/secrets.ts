@@ -239,7 +239,7 @@ export const KEEP_ALIVE_TIMEOUT_MS = parseEnvInt(
   process.env.KEEP_ALIVE_TIMEOUT_MS,
   60 * 60 * 1000 + 5000,
   { min: 1, name: "KEEP_ALIVE_TIMEOUT_MS" },
-); // Defaults to just over the 1 hour our ALB allows
+);
 
 export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
 export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
