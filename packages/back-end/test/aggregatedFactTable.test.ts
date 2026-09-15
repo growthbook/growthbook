@@ -351,11 +351,15 @@ describe("getColumnsForMetric", () => {
 describe("parseAggregatedFactTableCoverage", () => {
   it("parses a populated coverage row", () => {
     const result = parseAggregatedFactTableCoverage({
-      max_timestamp: "2024-01-10T12:00:00Z",
+      max_timestamp: "2024-01-10T12:00:00.123Z",
+      max_timestamp_raw: "2024-01-10 12:00:00.123456",
       first_event_date: "2024-01-01",
       last_event_date: "2024-01-10",
     });
-    expect(result.lastMaxTimestamp).toEqual(new Date("2024-01-10T12:00:00Z"));
+    expect(result.lastMaxTimestamp).toEqual(
+      new Date("2024-01-10T12:00:00.123Z"),
+    );
+    expect(result.lastMaxTimestampRaw).toBe("2024-01-10 12:00:00.123456");
     expect(result.firstEventDate).toEqual(new Date("2024-01-01"));
     expect(result.lastEventDate).toEqual(new Date("2024-01-10"));
   });
@@ -363,6 +367,7 @@ describe("parseAggregatedFactTableCoverage", () => {
   it("returns all-null coverage for an empty/missing row", () => {
     expect(parseAggregatedFactTableCoverage(undefined)).toEqual({
       lastMaxTimestamp: null,
+      lastMaxTimestampRaw: null,
       firstEventDate: null,
       lastEventDate: null,
     });
@@ -374,6 +379,7 @@ describe("parseAggregatedFactTableCoverage", () => {
       }),
     ).toEqual({
       lastMaxTimestamp: null,
+      lastMaxTimestampRaw: null,
       firstEventDate: null,
       lastEventDate: null,
     });
@@ -385,6 +391,7 @@ describe("parseAggregatedFactTableCoverage", () => {
       first_event_date: "2024-01-01",
     });
     expect(result.lastMaxTimestamp).toBeNull();
+    expect(result.lastMaxTimestampRaw).toBeNull();
     expect(result.firstEventDate).toEqual(new Date("2024-01-01"));
     expect(result.lastEventDate).toBeNull();
   });
@@ -396,6 +403,7 @@ describe("foldAggregatedFactTableCoverage", () => {
   it("uses the scanned values verbatim on a restate (whole window re-scanned)", () => {
     const scanned = {
       lastMaxTimestamp: date("2024-02-01T00:00:00Z"),
+      lastMaxTimestampRaw: "2024-02-01 00:00:00.000",
       firstEventDate: date("2024-01-02"),
       lastEventDate: date("2024-02-01"),
     };
@@ -405,6 +413,7 @@ describe("foldAggregatedFactTableCoverage", () => {
       // Prior values must be ignored on a restate.
       prior: {
         lastMaxTimestamp: date("2099-01-01T00:00:00Z"),
+        lastMaxTimestampRaw: "2099-01-01 00:00:00.000",
         firstEventDate: date("2000-01-01"),
         lastEventDate: date("2099-01-01"),
       },
@@ -417,18 +426,22 @@ describe("foldAggregatedFactTableCoverage", () => {
     const folded = foldAggregatedFactTableCoverage({
       scanned: {
         lastMaxTimestamp: date("2024-02-10T06:00:00Z"),
+        lastMaxTimestampRaw: "2024-02-10 06:00:00.000123",
         firstEventDate: date("2024-02-05"), // within-window min, not the global first
         lastEventDate: date("2024-02-10"),
       },
       mode: "incremental",
       prior: {
         lastMaxTimestamp: date("2024-02-05T00:00:00Z"),
+        lastMaxTimestampRaw: "2024-02-05 00:00:00.000",
         firstEventDate: date("2024-01-01"),
         lastEventDate: date("2024-02-05"),
       },
       retentionFloor: date("2023-12-13"),
     });
     expect(folded.lastMaxTimestamp).toEqual(date("2024-02-10T06:00:00Z"));
+    // The exact value travels with the winning watermark.
+    expect(folded.lastMaxTimestampRaw).toBe("2024-02-10 06:00:00.000123");
     expect(folded.lastEventDate).toEqual(date("2024-02-10"));
   });
 
@@ -436,19 +449,64 @@ describe("foldAggregatedFactTableCoverage", () => {
     const folded = foldAggregatedFactTableCoverage({
       scanned: {
         lastMaxTimestamp: null,
+        lastMaxTimestampRaw: null,
         firstEventDate: null,
         lastEventDate: null,
       },
       mode: "incremental",
       prior: {
         lastMaxTimestamp: date("2024-02-05T00:00:00Z"),
+        lastMaxTimestampRaw: "2024-02-05 00:00:00.000",
         firstEventDate: date("2024-01-01"),
         lastEventDate: date("2024-02-05"),
       },
       retentionFloor: date("2023-12-13"),
     });
     expect(folded.lastMaxTimestamp).toEqual(date("2024-02-05T00:00:00Z"));
+    expect(folded.lastMaxTimestampRaw).toBe("2024-02-05 00:00:00.000");
     expect(folded.lastEventDate).toEqual(date("2024-02-05"));
+  });
+
+  it("keeps the prior watermark and its exact value on a tie", () => {
+    // Same millisecond on both sides: the prior was measured against the
+    // full table, so its exact value is the one already proven loaded.
+    const folded = foldAggregatedFactTableCoverage({
+      scanned: {
+        lastMaxTimestamp: date("2024-02-05T00:00:00Z"),
+        lastMaxTimestampRaw: null,
+        firstEventDate: null,
+        lastEventDate: date("2024-02-05"),
+      },
+      mode: "incremental",
+      prior: {
+        lastMaxTimestamp: date("2024-02-05T00:00:00Z"),
+        lastMaxTimestampRaw: "2024-02-05 00:00:00.000999",
+        firstEventDate: date("2024-01-01"),
+        lastEventDate: date("2024-02-05"),
+      },
+      retentionFloor: date("2023-12-13"),
+    });
+    expect(folded.lastMaxTimestampRaw).toBe("2024-02-05 00:00:00.000999");
+  });
+
+  it("compares exact watermarks within the same millisecond", () => {
+    const folded = foldAggregatedFactTableCoverage({
+      scanned: {
+        lastMaxTimestamp: date("2024-02-05T00:00:00Z"),
+        lastMaxTimestampRaw: "2024-02-05 00:00:00.000999",
+        firstEventDate: null,
+        lastEventDate: date("2024-02-05"),
+      },
+      mode: "incremental",
+      prior: {
+        lastMaxTimestamp: date("2024-02-05T00:00:00Z"),
+        lastMaxTimestampRaw: "2024-02-05 00:00:00.000100",
+        firstEventDate: date("2024-01-01"),
+        lastEventDate: date("2024-02-05"),
+      },
+      retentionFloor: date("2023-12-13"),
+    });
+    expect(folded.lastMaxTimestampRaw).toBe("2024-02-05 00:00:00.000999");
   });
 
   it("pins firstEventDate to the retention floor once the table is older than the window", () => {
@@ -458,12 +516,14 @@ describe("foldAggregatedFactTableCoverage", () => {
     const folded = foldAggregatedFactTableCoverage({
       scanned: {
         lastMaxTimestamp: date("2024-03-01T00:00:00Z"),
+        lastMaxTimestampRaw: null,
         firstEventDate: date("2024-02-28"),
         lastEventDate: date("2024-03-01"),
       },
       mode: "incremental",
       prior: {
         lastMaxTimestamp: date("2024-02-28T00:00:00Z"),
+        lastMaxTimestampRaw: null,
         firstEventDate: date("2024-01-01"),
         lastEventDate: date("2024-02-28"),
       },
@@ -478,12 +538,14 @@ describe("foldAggregatedFactTableCoverage", () => {
     const folded = foldAggregatedFactTableCoverage({
       scanned: {
         lastMaxTimestamp: date("2024-02-04T00:00:00Z"),
+        lastMaxTimestampRaw: null,
         firstEventDate: date("2024-02-03"),
         lastEventDate: date("2024-02-04"),
       },
       mode: "incremental",
       prior: {
         lastMaxTimestamp: date("2024-02-03T00:00:00Z"),
+        lastMaxTimestampRaw: null,
         firstEventDate: date("2024-02-01"),
         lastEventDate: date("2024-02-03"),
       },
@@ -496,12 +558,14 @@ describe("foldAggregatedFactTableCoverage", () => {
     const folded = foldAggregatedFactTableCoverage({
       scanned: {
         lastMaxTimestamp: null,
+        lastMaxTimestampRaw: null,
         firstEventDate: null,
         lastEventDate: null,
       },
       mode: "incremental",
       prior: {
         lastMaxTimestamp: null,
+        lastMaxTimestampRaw: null,
         firstEventDate: null,
         lastEventDate: null,
       },
@@ -509,6 +573,7 @@ describe("foldAggregatedFactTableCoverage", () => {
     });
     expect(folded).toEqual({
       lastMaxTimestamp: null,
+      lastMaxTimestampRaw: null,
       firstEventDate: null,
       lastEventDate: null,
     });

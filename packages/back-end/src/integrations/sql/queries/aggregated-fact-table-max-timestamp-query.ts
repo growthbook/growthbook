@@ -12,6 +12,7 @@ export function getAggregatedFactTableMaxTimestampQuery(
     `
     SELECT
       MAX(max_timestamp) AS max_timestamp
+      , ${dialect.formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
       -- Only returns a meaningful event_date on full-restate runs.
       , MIN(event_date) AS first_event_date
       , MAX(event_date) AS last_event_date

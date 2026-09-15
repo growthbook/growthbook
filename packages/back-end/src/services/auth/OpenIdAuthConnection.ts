@@ -24,13 +24,18 @@ import {
   PendingSSOConnectionCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
-import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  IS_CLOUD,
+  USE_PROXY,
+  WEBHOOK_PROXY,
+} from "back-end/src/util/secrets";
 import { _dangerousGetSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
 import {
   getUserLoginPropertiesFromRequest,
   trackLoginForUser,
 } from "back-end/src/services/users";
-import { getHttpOptions } from "back-end/src/util/http.util";
+import { getAuthHttpOptions } from "back-end/src/util/http.util";
 import {
   VERCEL_CLIENT_ID,
   VERCEL_CLIENT_SECRET,
@@ -38,13 +43,14 @@ import {
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import {
   createNonce,
+  RetriableAuthError,
   deriveAuthChecks,
   isNonceExpired,
   nonceFromState,
 } from "./authChecks";
 
-if (USE_PROXY) {
-  custom.setHttpOptionsDefaults(getHttpOptions());
+if (USE_PROXY || WEBHOOK_PROXY) {
+  custom.setHttpOptionsDefaults(getAuthHttpOptions());
 }
 
 const passthroughQueryParams = ["hypgen", "hypothesis"];
@@ -134,12 +140,12 @@ export class OpenIdAuthConnection implements AuthConnection {
 
     const secret = AuthSecretCookie.getValue(req);
     if (!secret) {
-      throw new Error("Missing auth secret cookie");
+      throw new RetriableAuthError("Missing auth secret cookie");
     }
 
     const nonce = nonceFromState(params.state);
     if (isNonceExpired(nonce)) {
-      throw new Error("Login attempt expired");
+      throw new RetriableAuthError("Login attempt expired");
     }
 
     // A wrong connection or forged state fails the HMAC comparison inside callback()
@@ -216,7 +222,7 @@ export class OpenIdAuthConnection implements AuthConnection {
           rateLimit: false,
           jwksRequestsPerMinute: 10,
           jwksUri,
-          requestAgent: getHttpOptions().agent,
+          requestAgent: getAuthHttpOptions().agent,
         });
 
         const getKey: GetVerificationKey = (req, token) => {

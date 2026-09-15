@@ -53,6 +53,7 @@ import {
 import {
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
+  assertCanRunExperimentChanges,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
   determineNextBanditSchedule,
@@ -166,18 +167,20 @@ import {
   getDraftRevision,
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
+import { getLivePayloadChanges } from "back-end/src/services/experimentLivePayload";
+import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
 import {
   ExperimentLinkedFeatureValueUpdate,
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
-import {
-  canLinkExperimentToHoldoutFromFeatures,
-  getHoldoutLivePayloadChanges,
-  isHoldoutExperiment,
-} from "back-end/src/services/holdouts";
+import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
+import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -189,6 +192,9 @@ export async function getExperiments(
       project?: string;
       includeArchived?: boolean;
       type?: ExperimentType;
+      // Only the list pages need the served-temp-rollout ids; it costs a
+      // feature query, so callers opt in.
+      includeTempRollouts?: boolean;
     }
   >,
   res: Response,
@@ -200,6 +206,7 @@ export async function getExperiments(
   }
 
   const includeArchived = !!req.query?.includeArchived;
+  const includeTempRollouts = !!req.query?.includeTempRollouts;
   const type: ExperimentType | undefined = req.query?.type || undefined;
 
   const experiments = await getAllExperiments(context, {
@@ -208,7 +215,12 @@ export async function getExperiments(
     type,
   });
 
-  const holdouts = await context.models.holdout.getAll();
+  const [holdouts, tempRolloutExperimentIds] = await Promise.all([
+    context.models.holdout.getAll(),
+    includeTempRollouts
+      ? getServedTempRolloutExperimentIds(context, experiments)
+      : undefined,
+  ]);
 
   const hasArchived = includeArchived
     ? experiments.some((e) => e.archived)
@@ -219,6 +231,7 @@ export async function getExperiments(
     experiments,
     hasArchived,
     holdouts,
+    ...(tempRolloutExperimentIds ? { tempRolloutExperimentIds } : {}),
   });
 }
 
@@ -1406,6 +1419,11 @@ export async function postExperiments(
       );
     }
 
+    await assertValidExperimentPrerequisites(
+      context,
+      phasePrerequisites(obj.phases),
+    );
+
     const experiment = await createExperiment({
       data: obj,
       context,
@@ -1717,52 +1735,13 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
-  let changesLivePayload: boolean;
-  let changedPayloadFields: string[];
-  if (isHoldoutExperiment(experiment)) {
-    ({ changesLivePayload, changedFields: changedPayloadFields } =
-      getHoldoutLivePayloadChanges(experiment, data.coverage));
-  } else {
-    const latestPhase = experiment.phases[experiment.phases.length - 1];
-    const existingKeyById = new Map(
-      experiment.variations.map((v) => [v.id, v.key]),
-    );
-    const variationIdsChanged =
-      !!data.variations &&
-      !isEqual(
-        data.variations.map((v) => v.id),
-        latestPhase?.variations.map((v) => v.id),
-      );
-    // Variation keys are emitted in the SDK payload meta, so key edits also count
-    const variationKeysChanged =
-      !!data.variations &&
-      data.variations.some((v) => v.key !== existingKeyById.get(v.id));
-    const coverageChanged =
-      data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
-    const variationWeightsChanged =
-      data.variationWeights !== undefined &&
-      !isEqual(data.variationWeights, latestPhase?.variationWeights);
-
-    changedPayloadFields = [];
-    if (variationIdsChanged) {
-      changedPayloadFields.push("variation IDs");
-    }
-    if (variationKeysChanged) {
-      changedPayloadFields.push("variation keys");
-    }
-    if (coverageChanged) {
-      changedPayloadFields.push("coverage");
-    }
-    if (variationWeightsChanged) {
-      changedPayloadFields.push("variationWeights");
-    }
-
-    changesLivePayload =
-      variationIdsChanged ||
-      (variationKeysChanged && !isVariationKeyReconciliation) ||
-      coverageChanged ||
-      variationWeightsChanged;
-  }
+  const { changesLivePayload, changedFields: changedPayloadFields } =
+    getLivePayloadChanges(experiment, {
+      variations: data.variations,
+      coverage: data.coverage,
+      variationWeights: data.variationWeights,
+      isVariationKeyReconciliation,
+    });
   if (experiment.status === "running" && changesLivePayload) {
     const linkedFeaturesForPayload = await getFeaturesByIds(
       context,
@@ -2134,50 +2113,7 @@ export async function postExperiment(
     }
   }
 
-  // Only some fields affect production SDK payloads
-  const needsRunExperimentsPermission = (
-    [
-      "phases",
-      "variations",
-      "project",
-      "name",
-      "trackingKey",
-      "archived",
-      "status",
-      "releasedVariationId",
-      "excludeFromPayload",
-      "type",
-      "banditStage",
-      "banditStageDateStarted",
-      "banditScheduleValue",
-      "banditScheduleUnit",
-      "banditBurnInValue",
-      "banditBurnInUnit",
-    ] as (keyof ExperimentInterfaceStringDates)[]
-  ).some((key) => key in changes);
-  if (needsRunExperimentsPermission) {
-    const linkedFeatureIds = experiment.linkedFeatures || [];
-
-    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-    const envs = getAffectedEnvsForExperiment({
-      experiment,
-      orgEnvironments: context.org.settings?.environments || [],
-      linkedFeatures,
-    });
-    if (envs.length > 0) {
-      const projects = [experiment.project || undefined];
-      if ("project" in changes) {
-        projects.push(changes.project || undefined);
-      }
-      // check user's permission on existing experiment project and the updated project, if changed
-      projects.forEach((project) => {
-        if (!context.permissions.canRunExperiment({ project }, envs)) {
-          context.permissions.throwPermissionError();
-        }
-      });
-    }
-  }
+  await assertCanRunExperimentChanges(context, experiment, changes);
 
   await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperimentAndSync({
@@ -2907,6 +2843,11 @@ export async function putExperimentPhase(
     ...phases[i],
     ...phase,
   };
+  await assertValidExperimentPrerequisites(
+    context,
+    phases[i].prerequisites,
+    experiment.phases[i].prerequisites,
+  );
   changes.phases = phases;
 
   if (experiment.type === "multi-armed-bandit") {
@@ -3034,6 +2975,11 @@ export async function postExperimentTargeting(
   );
 
   const phases = [...experiment.phases];
+  await assertValidExperimentPrerequisites(
+    context,
+    prerequisites,
+    phases[phases.length - 1]?.prerequisites,
+  );
 
   if (experiment.type === "holdout" && phases.length) {
     // Later phases feed analysis settings, so keep them aligned with payload targeting.
@@ -3224,6 +3170,11 @@ export async function postExperimentPhase(
     dateEnded: undefined,
     reason: "",
   });
+  await assertValidExperimentPrerequisites(
+    context,
+    data.prerequisites,
+    experiment.phases[experiment.phases.length - 1]?.prerequisites,
+  );
 
   try {
     changes.phases = phases;
@@ -4314,7 +4265,6 @@ export async function postExperimentFeatureValues(
   const context = getContextFromReq(req);
   const { id } = req.params;
   const { variations, variationWeights, features } = req.body;
-  const { org } = context;
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
@@ -4468,7 +4418,6 @@ export async function postExperimentFeatureValues(
       updatedVariationValues,
       sparse: features[feature.id].sparse,
       user: res.locals.eventAudit,
-      orgSettings: org.settings,
     });
 
     if (autoPublish) {

@@ -1,0 +1,166 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  ReactNode,
+  createElement,
+} from "react";
+import { FeatureHealthStateEntry } from "shared/util";
+import { useAuth } from "@/services/auth";
+
+export type { FeatureHealthStateEntry };
+export type FeatureHealthStateMap = Record<string, FeatureHealthStateEntry>;
+
+const ENTRY_TTL_MS = 10 * 60 * 1000; // 10 minutes per entry
+const ERROR_RETRY_MS = 30_000;
+
+export interface UseFeatureHealthStatesReturn {
+  // After a fetchAll, only IDs missing from that snapshot are fetched.
+  fetchSome: (featureIds: string[]) => Promise<void>;
+  // Fetches all org features, overwriting the current data.
+  fetchAll: () => Promise<void>;
+  // Removes specific IDs from the cache so the next fetchSome re-fetches them.
+  invalidate: (ids: string[]) => void;
+  getHealthState: (featureId: string) => FeatureHealthStateEntry | undefined;
+  loading: boolean;
+  healthStates: FeatureHealthStateMap;
+}
+
+const HealthStatesContext = createContext<UseFeatureHealthStatesReturn | null>(
+  null,
+);
+
+export function FeatureHealthStatesProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const { apiCall } = useAuth();
+  const [healthStates, setHealthStates] = useState<FeatureHealthStateMap>({});
+  const loadedIds = useRef(new Set<string>());
+  const entryTimestamps = useRef<Record<string, number>>({});
+  const hasFetchedAll = useRef(false);
+  const [loading, setLoading] = useState(false);
+  const inflightKey = useRef<string | null>(null);
+
+  const doFetch = useCallback(
+    async (ids?: string[]) => {
+      if (ids !== undefined && !ids.length) return;
+      const key = ids === undefined ? "__all__" : [...ids].sort().join(",");
+      if (inflightKey.current === key) return;
+      inflightKey.current = key;
+      const url =
+        ids !== undefined
+          ? `/features/health?ids=${ids.join(",")}`
+          : "/features/health";
+      setLoading(true);
+      try {
+        const res = await apiCall<{ features: FeatureHealthStateMap }>(url);
+        const incoming = res.features ?? {};
+        const now = Date.now();
+        if (ids === undefined) {
+          hasFetchedAll.current = true;
+          Object.keys(incoming).forEach((id) => {
+            loadedIds.current.add(id);
+            entryTimestamps.current[id] = now;
+          });
+          setHealthStates(incoming);
+        } else {
+          ids.forEach((id) => {
+            loadedIds.current.add(id);
+            entryTimestamps.current[id] = now;
+          });
+          setHealthStates((prev) => ({ ...prev, ...incoming }));
+        }
+      } finally {
+        setLoading(false);
+        inflightKey.current = null;
+      }
+    },
+    [apiCall],
+  );
+
+  const fetchSome = useCallback(
+    async (featureIds: string[]) => {
+      const now = Date.now();
+      const toFetch = featureIds.filter(
+        (id) =>
+          !loadedIds.current.has(id) ||
+          (!hasFetchedAll.current &&
+            now - (entryTimestamps.current[id] ?? 0) > ENTRY_TTL_MS),
+      );
+      await doFetch(toFetch);
+    },
+    [doFetch],
+  );
+
+  const fetchAll = useCallback(() => doFetch(), [doFetch]);
+
+  const invalidate = useCallback((ids: string[]) => {
+    ids.forEach((id) => {
+      loadedIds.current.delete(id);
+      delete entryTimestamps.current[id];
+    });
+    hasFetchedAll.current = false;
+  }, []);
+
+  useEffect(() => {
+    let id: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+    const schedule = (delay = ENTRY_TTL_MS) => {
+      id = setTimeout(async () => {
+        if (cancelled) return;
+        let failed = false;
+        if (loadedIds.current.size) {
+          try {
+            await (hasFetchedAll.current
+              ? doFetch()
+              : doFetch([...loadedIds.current]));
+          } catch {
+            failed = true;
+          }
+        }
+        if (!cancelled) schedule(failed ? ERROR_RETRY_MS : ENTRY_TTL_MS);
+      }, delay);
+    };
+    schedule();
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [doFetch]);
+
+  const getHealthState = useCallback(
+    (featureId: string): FeatureHealthStateEntry | undefined =>
+      healthStates[featureId],
+    [healthStates],
+  );
+
+  return createElement(
+    HealthStatesContext.Provider,
+    {
+      value: {
+        fetchSome,
+        fetchAll,
+        invalidate,
+        getHealthState,
+        loading,
+        healthStates,
+      },
+    },
+    children,
+  );
+}
+
+export function useFeatureHealthStates(): UseFeatureHealthStatesReturn {
+  const ctx = useContext(HealthStatesContext);
+  if (!ctx) {
+    throw new Error(
+      "useFeatureHealthStates must be used within FeatureHealthStatesProvider",
+    );
+  }
+  return ctx;
+}

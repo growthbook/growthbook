@@ -3,7 +3,6 @@ import { Flex, Box, TextField } from "@radix-ui/themes";
 import {
   PiX,
   PiPencilSimple,
-  PiPlus,
   PiCaretDown,
   PiCaretUp,
   PiUserFill,
@@ -20,7 +19,7 @@ import Text from "@/ui/Text";
 import {
   factTableToColumnSource,
   columnTypesToColumnSource,
-} from "./ExplorerFilterRow";
+} from "@/components/FactTables/rowFilterUtils";
 import styles from "./ValueCard.module.scss";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 
@@ -73,17 +72,18 @@ export default function ValueCard({
       return factTableToColumnSource(factTable);
     }
     if (
-      dataset?.type === "data_source" &&
-      dataset.columnTypes &&
-      Object.keys(dataset.columnTypes).length > 0
+      (draftExploreState.dataset.type === "data_source" ||
+        draftExploreState.dataset.type === "sql") &&
+      draftExploreState.dataset.columnTypes &&
+      Object.keys(draftExploreState.dataset.columnTypes).length > 0
     ) {
       return columnTypesToColumnSource(
-        dataset.columnTypes,
-        dataset.timestampColumn,
+        draftExploreState.dataset.columnTypes,
+        draftExploreState.dataset.timestampColumn ?? undefined,
       );
     }
     return null;
-  }, [factTable, dataset]);
+  }, [factTable, draftExploreState.dataset]);
 
   // Funnels manage their own step UI; ValueCard isn't mounted from
   // FunnelTabContent. Returning null here keeps the hook order stable in
@@ -124,26 +124,36 @@ export default function ValueCard({
 
   let supportsUnitSelection = false;
 
-  if (dataset.type === "fact_table" || dataset.type === "data_source") {
-    supportsUnitSelection = dataset.values[index].valueType === "unit_count";
-  } else if (dataset.type === "metric") {
-    const factMetric = getFactMetricById(dataset.values[index].metricId ?? "");
-    if (
-      factMetric?.metricType === "mean" ||
-      factMetric?.metricType === "proportion" ||
-      factMetric?.metricType === "retention" ||
-      factMetric?.metricType === "dailyParticipation"
-    ) {
-      supportsUnitSelection = true;
-    } else if (factMetric?.metricType === "ratio") {
-      if (factMetric.numerator.column === "$$distinctUsers") {
+  switch (draftExploreState.dataset.type) {
+    case "fact_table":
+    case "data_source":
+    case "sql":
+      supportsUnitSelection =
+        draftExploreState.dataset.values[index].valueType === "unit_count";
+      break;
+    case "metric": {
+      const factMetric = getFactMetricById(
+        draftExploreState.dataset.values[index].metricId ?? "",
+      );
+      if (
+        factMetric?.metricType === "mean" ||
+        factMetric?.metricType === "proportion" ||
+        factMetric?.metricType === "retention" ||
+        factMetric?.metricType === "dailyParticipation"
+      ) {
         supportsUnitSelection = true;
+      } else if (
+        factMetric?.metricType === "ratio" &&
+        factMetric.numerator.column === "$$distinctUsers"
+      ) {
+        supportsUnitSelection = true;
+        // TODO: handle separate denominator unit selector
       }
-      // TODO: handle separate denominator unit selector
+      break;
     }
+    case "funnel":
+      break;
   }
-
-  const canAddFilter = !!columnSource;
 
   return (
     <Box
@@ -232,59 +242,37 @@ export default function ValueCard({
                 columnSource={columnSource}
                 value={filters}
                 setValue={handleFiltersChange}
-              />
+              >
+                {factTable && supportsUnitSelection && (
+                  <DropdownMenu
+                    open={unitDropdownOpen}
+                    onOpenChange={setUnitDropdownOpen}
+                    trigger={
+                      <Button size="sm" variant="ghost" icon={<PiUserFill />}>
+                        {dataset.values[index].unit ?? "Select unit..."}
+                      </Button>
+                    }
+                  >
+                    {factTable.userIdTypes.map((t) => (
+                      <DropdownMenuItem
+                        key={t}
+                        onClick={() => {
+                          updateValueInDataset(index, {
+                            ...dataset.values[index],
+                            unit: t || null,
+                          });
+                          setUnitDropdownOpen(false);
+                        }}
+                      >
+                        <Text>{t}</Text>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenu>
+                )}
+              </ExplorerRowFilterInput>
             </Box>
           )}
         </Box>
-        <Flex justify="between" align="center" mt="2">
-          <Button
-            size="sm"
-            variant="ghost"
-            style={{ maxWidth: "fit-content" }}
-            onClick={() => {
-              handleFiltersChange([
-                ...filters,
-                { column: "", operator: "=", values: [] },
-              ]);
-            }}
-            disabled={!canAddFilter}
-          >
-            <Flex align="center" gap="2">
-              <PiPlus size={14} />
-              Add Filter
-            </Flex>
-          </Button>
-
-          {factTable && supportsUnitSelection && (
-            <DropdownMenu
-              open={unitDropdownOpen}
-              onOpenChange={setUnitDropdownOpen}
-              trigger={
-                <Button size="sm" variant="ghost">
-                  <Flex align="center" gap="2">
-                    <PiUserFill />{" "}
-                    {dataset.values[index].unit ?? "Select Unit..."}
-                  </Flex>
-                </Button>
-              }
-            >
-              {factTable?.userIdTypes.map((t) => (
-                <DropdownMenuItem
-                  key={t}
-                  onClick={() => {
-                    updateValueInDataset(index, {
-                      ...dataset.values[index],
-                      unit: t || null,
-                    });
-                    setUnitDropdownOpen(false);
-                  }}
-                >
-                  <Text>{t}</Text>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenu>
-          )}
-        </Flex>
       </Collapsible>
     </Box>
   );

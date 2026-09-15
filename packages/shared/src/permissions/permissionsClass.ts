@@ -34,6 +34,7 @@ import { CustomHookInterface } from "../validators/custom-hooks";
 import { ContextualBanditInterface } from "../validators/contextual-bandit";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
+import type { ExplorationDataset } from "../validators/product-analytics";
 import { PermissionError, isEventForwarderEventsFactTable } from "../util/";
 // Specific module, not the util barrel: the barrel imports back from
 // shared/permissions, and the require cycle leaves re-exports uninitialized.
@@ -1377,6 +1378,20 @@ export class Permissions {
     );
   };
 
+  public canRunProductAnalyticsExplorationQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+    datasetType: ExplorationDataset["type"],
+  ): boolean => {
+    if (
+      datasetType === "metric" ||
+      datasetType === "fact_table" ||
+      datasetType === "funnel"
+    ) {
+      return this.canRunMetricAnalysisQueries(datasource);
+    }
+    return this.canRunSqlExplorerQueries(datasource);
+  };
+
   public canCreateGeneralDashboards = (
     dashboard: Pick<DashboardInterface, "projects">,
   ): boolean => {
@@ -1774,13 +1789,20 @@ export class Permissions {
   //   string[] = specific projects
   //   [] = no projects
   //   null = global (all projects)
+  // null = unrestricted. Needs the org's full project list because a global
+  // grant can coexist with per-project denials (access-restricted projects),
+  // and the allowlist must then include projects with no explicit entry.
   public getProjectsWithPermission = (
     permission: Permission,
+    allProjects: string[],
   ): string[] | null => {
-    if (this.hasPermission(permission, "")) return null;
-    return Object.keys(this.userPermissions.projects).filter((p) =>
-      this.hasPermission(permission, p),
-    );
+    if (this.hasPermission(permission, "")) {
+      const hasDenial = Object.keys(this.userPermissions.projects).some(
+        (p) => !this.hasPermission(permission, p),
+      );
+      if (!hasDenial) return null;
+    }
+    return allProjects.filter((p) => this.hasPermission(permission, p));
   };
 
   public canReadMultiProjectResource = (

@@ -117,7 +117,7 @@ function toRows(suggestion: ActiveSuggestion): SuggestionRow[] {
   }
   return suggestion.items.map((item) => ({
     key: item.id,
-    primary: item.label,
+    primary: item.title,
     secondary: item.description,
   }));
 }

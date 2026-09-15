@@ -495,7 +495,17 @@ export const streamingChatCompletion = async ({
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
-    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+    ...(tools
+      ? {
+          tools,
+          stopWhen: stepCountIs(maxSteps),
+          // Same force-a-final-answer guard parsePrompt uses: a model that
+          // keeps calling tools until it exhausts maxSteps otherwise ends ON
+          // a tool call, and the stream closes having emitted no text at all.
+          prepareStep: ({ stepNumber }: { stepNumber: number }) =>
+            stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
+        }
+      : {}),
     ...(abortSignal ? { abortSignal } : {}),
     onFinish: ({ totalUsage }) => {
       // onFinish's `usage` is only the last step; totalUsage covers the run.
@@ -655,7 +665,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? temperature
     : undefined;
 
+  // Per-attempt step telemetry. Without it a no-output failure is
+  // indistinguishable from a model that answered in prose on step one —
+  // only the first is helped by a bigger maxSteps.
+  let stepsUsed = 0;
+  let toolsCalled: string[] = [];
+
   const generateOnce = async () => {
+    stepsUsed = 0;
+    toolsCalled = [];
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
@@ -683,7 +701,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
               stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
           }
         : {}),
-      ...(onStepFinish ? { onStepFinish } : {}),
+      onStepFinish: (step) => {
+        stepsUsed++;
+        for (const call of step.toolCalls ?? [])
+          toolsCalled.push(call.toolName);
+        onStepFinish?.(step);
+      },
     });
     // Read the lazy `output` getter HERE, inside this awaited function, so the
     // try/catch below catches BOTH generation failures. generateText only
@@ -730,6 +753,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       ...(logContext ?? {}),
       orgId: context.org.id,
       userId: context.userId,
+      stepsUsed,
+      maxSteps,
+      toolsCalled,
       errorType: objErr ? "no-object" : "no-output",
       finishReason: objErr?.finishReason,
       cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),

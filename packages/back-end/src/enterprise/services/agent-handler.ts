@@ -5,6 +5,7 @@ import type { AIModel, AIPromptType } from "shared/ai";
 import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import { stringifyToolResultForStorage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
+import { offScreenDashboardWriteRejection } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
@@ -345,12 +346,24 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     // gate. A cancel/supersede with a follow-up message lets the model react
     // to the rejection plus the new instruction in the same turn.
     if (pendingAction) {
+      // Re-checked here, not only when the model proposed it: the user can
+      // navigate off the dashboard between the card appearing and clicking
+      // Confirm, and the stored call would then write to an off-screen one.
+      const offScreenNow = isConfirm
+        ? offScreenDashboardWriteRejection({
+            method: pendingAction.method,
+            path: pendingAction.path,
+            currentPage:
+              typeof body.currentPage === "string" ? body.currentPage : null,
+          })
+        : undefined;
       await resolvePendingAction(
         context,
         buffer,
         pendingAction,
         emit,
-        isConfirm,
+        isConfirm && !offScreenNow,
+        offScreenNow,
       );
       buffer.setPendingAction(undefined);
     }
@@ -378,8 +391,17 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         skills,
       );
       if (config.resolveSkill) {
+        const seeded = new Set<string>();
         for (const name of skills) {
-          seedSkillLoad(buffer, emit, name, config.resolveSkill);
+          // A leaf picked from the `/` menu arrives without the domain router the
+          // model would have read on its way there, so its shared conventions
+          // would be missing. Seed the router first, as the two-step flow does.
+          const domain = name.split("/")[0];
+          for (const target of domain === name ? [name] : [domain, name]) {
+            if (seeded.has(target)) continue;
+            seeded.add(target);
+            seedSkillLoad(buffer, emit, target, config.resolveSkill);
+          }
         }
       }
     }
@@ -611,13 +633,24 @@ async function resolvePendingAction(
   pendingAction: AIAgentPendingAction,
   emit: AgentEmit,
   confirmed: boolean,
+  rejection?: string,
 ): Promise<void> {
   const toolCallId = randomUUID();
+  // Strip `confirm` from the body the model sees so it doesn't copy it into
+  // follow-up calls and bypass the cost confirmation gate.
+  const sanitizedBody =
+    pendingAction.body && typeof pendingAction.body === "object"
+      ? Object.fromEntries(
+          Object.entries(pendingAction.body as Record<string, unknown>).filter(
+            ([k]) => k !== "confirm",
+          ),
+        )
+      : pendingAction.body;
   const args: Record<string, unknown> = {
     method: pendingAction.method,
     path: pendingAction.path,
     ...(pendingAction.query ? { query: pendingAction.query } : {}),
-    ...(pendingAction.body !== undefined ? { body: pendingAction.body } : {}),
+    ...(sanitizedBody !== undefined ? { body: sanitizedBody } : {}),
   };
 
   emit("tool-call-input", {
@@ -639,13 +672,14 @@ async function resolvePendingAction(
     result = dispatched;
     isError = !(dispatched.status >= 200 && dispatched.status < 300);
   } else {
-    // Not a tool error — a deliberate user decision. Phrased so the model
-    // treats it as a stop signal rather than something to retry.
+    // Not a tool error — a deliberate user decision, or a guard that no longer
+    // holds. Phrased so the model treats it as a stop signal, not a retry.
     result = {
       status: "rejected",
       message:
+        rejection ??
         "The user reviewed this change and chose not to run it. Do not retry " +
-        "it; acknowledge and wait for their next instruction.",
+          "it; acknowledge and wait for their next instruction.",
     };
   }
 

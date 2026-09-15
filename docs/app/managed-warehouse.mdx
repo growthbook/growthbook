@@ -138,7 +138,7 @@ With events flowing and metrics defined, you're ready to experiment:
 2. Add an **Experiment** rule to it.
 3. Start the experiment and watch results flow in on the **Results** tab.
 
-For a detailed walkthrough, see our [guide to running Feature Flag Experiments](/feature-flag-experiments).
+For a detailed walkthrough, see our [guide to running Feature Flag Experiments](/features/feature-flag-experiments).
 
 ---
 
@@ -187,7 +187,7 @@ All of the attributes in the SDK are sent along with events as context. Make sur
 
 #### HTML Script Tag
 
-Add `data-tracking="growthbook"` to your script tag to enable.
+Add `data-tracking="growthbook"` to forward experiment view events that already fired. It does not enroll users in an experiment.
 
 ```html
 <script async

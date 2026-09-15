@@ -9,13 +9,11 @@ import {
   MatchingRule,
   mergeResultHasChanges,
   reconcileMergeBaselines,
-  resetReviewOnChange,
 } from "shared/util";
 import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import { Variation } from "shared/types/experiment";
-import { OrganizationSettings } from "shared/types/organization";
 import {
   ContextualBanditInterface,
   ExperimentInterface,
@@ -154,7 +152,6 @@ export async function updateExperimentRefVariations({
   updatedVariationValues,
   sparse,
   user,
-  orgSettings,
 }: {
   context: ReqContext;
   feature: FeatureInterface;
@@ -163,7 +160,6 @@ export async function updateExperimentRefVariations({
   updatedVariationValues: ExperimentRefVariation[];
   sparse?: boolean;
   user: EventUser;
-  orgSettings?: OrganizationSettings;
 }): Promise<FeatureRevisionInterface> {
   // Experiment-served values must satisfy the backing Config's schema +
   // invariants, the same as a direct feature publish — enforced here at
@@ -186,14 +182,6 @@ export async function updateExperimentRefVariations({
     rules: rulesToValidate,
   });
 
-  const changedEnvironments = matchingRules.map((m) => m.environmentId);
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments,
-    defaultValueChanged: false,
-    settings: orgSettings,
-  });
-
   // `matchingRules` can duplicate a rule across envs; `editFeatureRules`
   // dedupes by ruleId so the overlay runs once per rule.
   const updatedRevision = await editFeatureRules(
@@ -209,7 +197,6 @@ export async function updateExperimentRefVariations({
       ...(sparse !== undefined && { sparse }),
     },
     user,
-    resetReview,
   );
 
   if (!updatedRevision) {

@@ -210,6 +210,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireRegisteredAttributes,
       ),
       aiEnabled: settings.aiEnabled ?? false,
+      aiAskDataEnabled: settings.aiAskDataEnabled ?? false,
       // Seeding a model on Cloud would persist it on the next save of any
       // setting, silently taking the org off the managed default.
       defaultAIModel:
@@ -283,6 +284,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
+    aiAskDataEnabled: form.watch("aiAskDataEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
     visualEditorAIModel: form.watch("visualEditorAIModel"),

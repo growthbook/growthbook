@@ -77,6 +77,94 @@ describe("BigQuery reservation job config", () => {
   });
 });
 
+describe("BigQuery getExternalQueryStatus (status-only)", () => {
+  let integration: BigQuery;
+  let mockJob: { getMetadata: jest.Mock };
+  let mockClientJob: jest.Mock;
+
+  beforeEach(() => {
+    // @ts-expect-error -- context/datasource not needed for this unit test
+    integration = new BigQuery("", {});
+
+    mockJob = { getMetadata: jest.fn() };
+    mockClientJob = jest.fn().mockReturnValue(mockJob);
+
+    jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .spyOn(integration as any, "getClient")
+      .mockReturnValue({ job: mockClientJob });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("maps DONE + errorResult to failed with the warehouse message", async () => {
+    mockJob.getMetadata.mockResolvedValue([
+      {
+        status: {
+          state: "DONE",
+          errorResult: { message: "Query exceeded resource limits" },
+        },
+      },
+    ]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "failed",
+      error: "Query exceeded resource limits",
+    });
+  });
+
+  it("maps a clean DONE to succeeded", async () => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state: "DONE" } }]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "succeeded",
+    });
+  });
+
+  it.each(["RUNNING", "PENDING"])("maps %s to running", async (state) => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state } }]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "running",
+    });
+  });
+
+  it.each([
+    ["missing status", {}],
+    ["missing state", { status: {} }],
+    ["unfamiliar state", { status: { state: "SOMETHING_NEW" } }],
+  ])("maps %s to unknown/unrecognized", async (_, metadata) => {
+    mockJob.getMetadata.mockResolvedValue([metadata]);
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "unrecognized",
+    });
+  });
+
+  it("maps a 404 to unknown/expired", async () => {
+    mockJob.getMetadata.mockRejectedValue(
+      Object.assign(new Error("Job x: not found"), { code: 404 }),
+    );
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "expired",
+    });
+  });
+
+  it("maps a thrown request error to unknown/unreachable", async () => {
+    mockJob.getMetadata.mockRejectedValue(new Error("network exploded"));
+    expect(await integration.getExternalQueryStatus("job_1")).toEqual({
+      state: "unknown",
+      reason: "unreachable",
+    });
+  });
+
+  it("passes location through to client.job when metadata has one", async () => {
+    mockJob.getMetadata.mockResolvedValue([{ status: { state: "DONE" } }]);
+    await integration.getExternalQueryStatus("job_1", { location: "EU" });
+    expect(mockClientJob).toHaveBeenCalledWith("job_1", { location: "EU" });
+  });
+});
+
 describe("BigQuery percentileCapSelectClause (UNPIVOT reshape)", () => {
   let integration: BigQuery;
 
@@ -519,6 +607,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [eventQuantileMetric],
       lastMaxTimestamp: null,
+      incrementalRefreshStartTime: settings.endDate,
     });
     // Partial aggregation builds the sketch
     expect(sql).toContain("KLL_QUANTILES.INIT_FLOAT64");
@@ -547,6 +636,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [prebuiltSketchMetric],
       lastMaxTimestamp: null,
+      incrementalRefreshStartTime: settings.endDate,
     });
     // Partial aggregation merges the pre-built sketch; must not INIT.
     expect(sql).toContain("KLL_QUANTILES.MERGE_PARTIAL");
@@ -574,6 +664,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [prebuiltSketchMetric],
       lastMaxTimestamp: null,
+      incrementalRefreshStartTime: settings.endDate,
     });
     // The paired count column must be projected from the source fact table
     // and SUM-aggregated for n_events. COUNT(<col>_value) would be wrong:
@@ -614,6 +705,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       unitsSourceTableFullName: "proj.ds.units",
       metrics: [overrideMetric],
       lastMaxTimestamp: null,
+      incrementalRefreshStartTime: settings.endDate,
     });
     // Override column is projected as the n_events source.
     expect(sql).toContain("rollup_event_count");
@@ -831,6 +923,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [crossFtMetric],
         lastMaxTimestamp: null,
+        incrementalRefreshStartTime: settings.endDate,
       });
       // Only the numerator `_value` column appears in the SELECT projection.
       expect(sql).toMatch(/fact_xft_ratio_value\b/);
@@ -848,6 +941,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [crossFtMetric],
         lastMaxTimestamp: null,
+        incrementalRefreshStartTime: settings.endDate,
       });
       // Only the denominator column appears in the SELECT projection.
       expect(sql).toMatch(/fact_xft_ratio_denominator_value\b/);
@@ -1319,6 +1413,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [ratioAB, ratioAC],
         lastMaxTimestamp: null,
+        incrementalRefreshStartTime: settings.endDate,
       });
       expect(hubInsertSql).toMatch(/fact_ratio_a_b_value\b/);
       expect(hubInsertSql).toMatch(/fact_ratio_a_c_value\b/);
@@ -1362,6 +1457,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
         unitsSourceTableFullName: "proj.ds.units",
         metrics: [ratioAB, ratioAC],
         lastMaxTimestamp: null,
+        incrementalRefreshStartTime: settings.endDate,
       });
       // FT_subscriptions hosts the denominator of ratioAB only.
       expect(subsInsertSql).toMatch(/fact_ratio_a_b_denominator_value\b/);
