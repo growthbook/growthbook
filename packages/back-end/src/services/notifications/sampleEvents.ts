@@ -1,66 +1,23 @@
 // Synthetic notification events for previews and test sends.
 import { DiffResult } from "shared/types/events/diff";
 import { NotificationEvent } from "shared/types/events/notification-events";
-import type { EventUser } from "shared/validators";
+import {
+  ApiExperiment,
+  EventUser,
+  FeatureRevisionWebhookPayload,
+  FeatureWebhookPayload,
+  notificationEventNames,
+  RampScheduleStartedPayload,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
-export const sampleNotificationEventNames = [
-  "feature.created",
-  "feature.updated",
-  "feature.deleted",
-  "feature.saferollout.ship",
-  "feature.saferollout.rollback",
-  "feature.saferollout.unhealthy",
-  "feature.stale.candidate",
-  "feature.rampSchedule.created",
-  "feature.rampSchedule.deleted",
-  "feature.rampSchedule.actions.started",
-  "feature.rampSchedule.actions.completed",
-  "feature.rampSchedule.actions.rolledBack",
-  "feature.rampSchedule.actions.jumped",
-  "feature.rampSchedule.actions.step.advanced",
-  "feature.rampSchedule.actions.step.approvalRequired",
-  "feature.revision.created",
-  "feature.revision.updated",
-  "feature.revision.reviewRequested",
-  "feature.revision.approved",
-  "feature.revision.changesRequested",
-  "feature.revision.commented",
-  "feature.revision.discarded",
-  "feature.revision.rebased",
-  "feature.revision.published",
-  "feature.revision.reverted",
-  "experiment.created",
-  "experiment.updated",
-  "experiment.deleted",
-  "experiment.warning",
-  "experiment.info.significance",
-  "experiment.decision.ship",
-  "experiment.decision.rollback",
-  "experiment.decision.review",
-  "experiment.started",
-  "experiment.stopped",
-  "experiment.stopped.rolledback",
-  "experiment.health.guardrailFailed",
-  "experiment.health.noData",
-  "experiment.health.queryFailed",
-  "experiment.status.changed",
-  "experiment.endingSoon",
-  "experiment.stale",
-  "experiment.metric.regression",
-  "experiment.bandit.weightsChanged",
-  "experiment.holdout.created",
-  "experiment.holdout.updated",
-] as const;
-
-export type SampleNotificationEventName =
-  (typeof sampleNotificationEventNames)[number];
+type SampleContext = Pick<ReqContext, "userId" | "email" | "userName">;
 
 const API_VERSION = "2024-07-31" as const;
 const TEST_PROJECT = "notification-test-project";
 const TEST_ENVIRONMENT = "production";
 const TEST_TAG = "notification-test";
 
-const testUser = (context: ReqContext): EventUser => ({
+const testUser = (context: SampleContext): EventUser => ({
   type: "dashboard",
   id: context.userId || "notification-test-user",
   email: context.email || "notification-test@example.com",
@@ -71,7 +28,9 @@ const nowIso = () => new Date().toISOString();
 const daysAgoIso = (days: number) =>
   new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-const sampleFeature = (overrides: Record<string, unknown> = {}) => ({
+const sampleFeature = (
+  overrides: Partial<FeatureWebhookPayload> = {},
+): FeatureWebhookPayload => ({
   id: "checkout-banner",
   dateCreated: nowIso(),
   dateUpdated: nowIso(),
@@ -108,7 +67,9 @@ const sampleFeature = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const sampleExperiment = (overrides: Record<string, unknown> = {}) => ({
+const sampleExperiment = (
+  overrides: Partial<ApiExperiment> = {},
+): ApiExperiment => ({
   id: "exp_checkout_cta",
   trackingKey: "checkout-cta",
   dateCreated: nowIso(),
@@ -163,14 +124,14 @@ const sampleExperiment = (overrides: Record<string, unknown> = {}) => ({
     experimentId: "checkout-cta",
     segmentId: "",
     queryFilter: "",
-    inProgressConversions: "loose",
+    inProgressConversions: "include",
     attributionModel: "firstExposure",
     statsEngine: "bayesian",
     regressionAdjustmentEnabled: false,
     sequentialTestingEnabled: false,
-    goals: ["met_checkout_start"],
-    secondaryMetrics: ["met_revenue"],
-    guardrails: ["met_refund"],
+    goals: [{ metricId: "met_checkout_start", overrides: {} }],
+    secondaryMetrics: [{ metricId: "met_revenue", overrides: {} }],
+    guardrails: [{ metricId: "met_refund", overrides: {} }],
   },
   resultSummary: {
     status: "running",
@@ -178,13 +139,6 @@ const sampleExperiment = (overrides: Record<string, unknown> = {}) => ({
     conclusions: "",
     releasedVariationId: "",
     excludeFromPayload: false,
-  },
-  analysisSummary: {
-    health: {
-      srm: 0.72,
-      multipleExposures: 0,
-      totalUsers: 48700,
-    },
   },
   ...overrides,
 });
@@ -235,7 +189,7 @@ const sampleExperimentDiff: DiffResult = {
   ],
 };
 
-const sampleRevision = (overrides: Record<string, unknown> = {}) => ({
+const sampleRevision = (): FeatureRevisionWebhookPayload => ({
   featureId: "checkout-banner",
   baseVersion: 2,
   version: 3,
@@ -258,379 +212,356 @@ const sampleRevision = (overrides: Record<string, unknown> = {}) => ({
   definitions: { [TEST_ENVIRONMENT]: "false" },
   environmentsEnabled: { [TEST_ENVIRONMENT]: true },
   prerequisites: [],
-  ...overrides,
 });
 
-const sampleRamp = (overrides: Record<string, unknown> = {}) => ({
+const sampleRamp = (): RampScheduleStartedPayload => ({
   rampScheduleId: "ramp_checkout_banner",
   rampName: "Checkout banner ramp",
   orgId: "org_notification_test",
   currentStepIndex: 1,
   status: "running",
-  ...overrides,
 });
 
-const getSampleEventData = (eventName: SampleNotificationEventName) => {
-  switch (eventName) {
-    case "feature.created":
-      return { object: sampleFeature() };
-    case "feature.updated":
-      return {
-        object: sampleFeature({
-          defaultValue: "true",
-          description: "Controls the checkout banner and copy treatment",
-        }),
-        previous_attributes: {
-          defaultValue: "false",
-          description: "Controls the checkout banner treatment",
+const sampleEvents = {
+  "feature.created": () => ({
+    event: "feature.created",
+    object: "feature",
+    data: { object: sampleFeature() },
+  }),
+  "feature.updated": () => ({
+    event: "feature.updated",
+    object: "feature",
+    data: {
+      object: sampleFeature({
+        defaultValue: "true",
+        description: "Controls the checkout banner and copy treatment",
+      }),
+      previous_attributes: {
+        defaultValue: "false",
+        description: "Controls the checkout banner treatment",
+      },
+      changes: sampleFeatureDiff,
+    },
+  }),
+  "feature.deleted": () => ({
+    event: "feature.deleted",
+    object: "feature",
+    data: { object: sampleFeature({ archived: true }) },
+  }),
+  "feature.saferollout.ship": () => ({
+    event: "feature.saferollout.ship",
+    object: "feature",
+    data: {
+      object: {
+        featureId: "checkout-banner",
+        safeRolloutId: "sr_checkout_banner",
+        environment: TEST_ENVIRONMENT,
+      },
+    },
+  }),
+  "feature.saferollout.rollback": () => ({
+    event: "feature.saferollout.rollback",
+    object: "feature",
+    data: {
+      object: {
+        featureId: "checkout-banner",
+        safeRolloutId: "sr_checkout_banner",
+        environment: TEST_ENVIRONMENT,
+      },
+    },
+  }),
+  "feature.saferollout.unhealthy": () => ({
+    event: "feature.saferollout.unhealthy",
+    object: "feature",
+    data: {
+      object: {
+        featureId: "checkout-banner",
+        safeRolloutId: "sr_checkout_banner",
+        environment: TEST_ENVIRONMENT,
+        unhealthyReason: ["srm", "multipleExposures"],
+      },
+    },
+  }),
+  "feature.rampSchedule.created": () => ({
+    event: "feature.rampSchedule.created",
+    object: "feature",
+    data: {
+      object: {
+        rampScheduleId: "ramp_checkout_banner",
+        rampName: "Checkout banner ramp",
+        orgId: "org_notification_test",
+        entityType: "feature",
+        entityId: "checkout-banner",
+      },
+    },
+  }),
+  "feature.rampSchedule.deleted": () => ({
+    event: "feature.rampSchedule.deleted",
+    object: "feature",
+    data: {
+      object: {
+        rampScheduleId: "ramp_checkout_banner",
+        rampName: "Checkout banner ramp",
+        orgId: "org_notification_test",
+      },
+    },
+  }),
+  "feature.rampSchedule.actions.started": () => ({
+    event: "feature.rampSchedule.actions.started",
+    object: "feature",
+    data: { object: sampleRamp() },
+  }),
+  "feature.rampSchedule.actions.completed": () => ({
+    event: "feature.rampSchedule.actions.completed",
+    object: "feature",
+    data: { object: sampleRamp() },
+  }),
+  "feature.rampSchedule.actions.step.advanced": () => ({
+    event: "feature.rampSchedule.actions.step.advanced",
+    object: "feature",
+    data: { object: sampleRamp() },
+  }),
+  "feature.rampSchedule.actions.rolledBack": () => ({
+    event: "feature.rampSchedule.actions.rolledBack",
+    object: "feature",
+    data: { object: { ...sampleRamp(), targetStepIndex: 0 } },
+  }),
+  "feature.rampSchedule.actions.jumped": () => ({
+    event: "feature.rampSchedule.actions.jumped",
+    object: "feature",
+    data: { object: { ...sampleRamp(), targetStepIndex: 0 } },
+  }),
+  "feature.rampSchedule.actions.step.approvalRequired": () => ({
+    event: "feature.rampSchedule.actions.step.approvalRequired",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRamp(),
+        approvalNotes: "Please confirm guardrail metrics before advancing.",
+      },
+    },
+  }),
+  "feature.revision.created": () => ({
+    event: "feature.revision.created",
+    object: "feature",
+    data: { object: sampleRevision() },
+  }),
+  "feature.revision.discarded": () => ({
+    event: "feature.revision.discarded",
+    object: "feature",
+    data: { object: sampleRevision() },
+  }),
+  "feature.revision.rebased": () => ({
+    event: "feature.revision.rebased",
+    object: "feature",
+    data: { object: sampleRevision() },
+  }),
+  "feature.revision.published": () => ({
+    event: "feature.revision.published",
+    object: "feature",
+    data: { object: sampleRevision() },
+  }),
+  "feature.revision.updated": () => ({
+    event: "feature.revision.updated",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRevision(),
+        change: "rule.update",
+        environments: [TEST_ENVIRONMENT],
+      },
+    },
+  }),
+  "feature.revision.reviewRequested": () => ({
+    event: "feature.revision.reviewRequested",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRevision(),
+        reviewComment: "Ready for design review.",
+      },
+    },
+  }),
+  "feature.revision.approved": () => ({
+    event: "feature.revision.approved",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRevision(),
+        reviewer: {
+          id: "reviewer-notification-test",
+          name: "Review Bot",
+          email: "review@example.com",
         },
-        changes: sampleFeatureDiff,
-      };
-    case "feature.deleted":
-      return { object: sampleFeature({ archived: true }) };
-    case "feature.saferollout.ship":
-    case "feature.saferollout.rollback":
-      return {
-        object: {
-          featureId: "checkout-banner",
-          safeRolloutId: "sr_checkout_banner",
-          environment: TEST_ENVIRONMENT,
+        reviewComment: "Looks good for the test.",
+      },
+    },
+  }),
+  "feature.revision.changesRequested": () => ({
+    event: "feature.revision.changesRequested",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRevision(),
+        reviewer: {
+          id: "reviewer-notification-test",
+          name: "Review Bot",
+          email: "review@example.com",
         },
-      };
-    case "feature.saferollout.unhealthy":
-      return {
-        object: {
-          featureId: "checkout-banner",
-          safeRolloutId: "sr_checkout_banner",
-          environment: TEST_ENVIRONMENT,
-          unhealthyReason: ["srm", "multipleExposures"],
+        reviewComment: "Looks good for the test.",
+      },
+    },
+  }),
+  "feature.revision.commented": () => ({
+    event: "feature.revision.commented",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRevision(),
+        reviewer: {
+          id: "reviewer-notification-test",
+          name: "Review Bot",
+          email: "review@example.com",
         },
-      };
-    case "feature.stale.candidate":
-      return {
-        object: {
-          featureId: "checkout-banner",
-          featureName: "Checkout banner",
-          daysSinceLastUpdate: 212,
-          reason:
-            "This flag has not been updated recently and may be ready to remove from code.",
+        reviewComment: "Can we tighten the rollout condition?",
+      },
+    },
+  }),
+  "feature.revision.reverted": () => ({
+    event: "feature.revision.reverted",
+    object: "feature",
+    data: {
+      object: { ...sampleRevision(), revertedToVersion: 2 },
+    },
+  }),
+  "experiment.created": () => ({
+    event: "experiment.created",
+    object: "experiment",
+    data: { object: sampleExperiment() },
+  }),
+  "experiment.updated": () => ({
+    event: "experiment.updated",
+    object: "experiment",
+    data: {
+      object: sampleExperiment({
+        resultSummary: {
+          status: "ship-now",
+          winner: "var_treatment",
+          conclusions: "Treatment increased checkout starts.",
+          releasedVariationId: "var_treatment",
+          excludeFromPayload: false,
         },
-      };
-    case "feature.rampSchedule.created":
-      return {
-        object: {
-          rampScheduleId: "ramp_checkout_banner",
-          rampName: "Checkout banner ramp",
-          orgId: "org_notification_test",
-          entityType: "feature",
-          entityId: "checkout-banner",
+      }),
+      previous_attributes: {
+        status: "draft",
+        resultSummary: {
+          status: "running",
+          winner: "",
+          conclusions: "",
+          releasedVariationId: "",
+          excludeFromPayload: false,
         },
-      };
-    case "feature.rampSchedule.deleted":
-      return {
-        object: {
-          rampScheduleId: "ramp_checkout_banner",
-          rampName: "Checkout banner ramp",
-          orgId: "org_notification_test",
-        },
-      };
-    case "feature.rampSchedule.actions.started":
-    case "feature.rampSchedule.actions.completed":
-    case "feature.rampSchedule.actions.step.advanced":
-      return { object: sampleRamp() };
-    case "feature.rampSchedule.actions.rolledBack":
-    case "feature.rampSchedule.actions.jumped":
-      return { object: sampleRamp({ targetStepIndex: 0 }) };
-    case "feature.rampSchedule.actions.step.approvalRequired":
-      return {
-        object: sampleRamp({
-          approvalNotes: "Please confirm guardrail metrics before advancing.",
-        }),
-      };
-    case "feature.revision.created":
-    case "feature.revision.discarded":
-    case "feature.revision.rebased":
-    case "feature.revision.published":
-      return { object: sampleRevision() };
-    case "feature.revision.updated":
-      return {
-        object: sampleRevision({
-          change: "rule.update",
-          environments: [TEST_ENVIRONMENT],
-        }),
-      };
-    case "feature.revision.reviewRequested":
-      return {
-        object: sampleRevision({
-          reviewComment: "Ready for design review.",
-        }),
-      };
-    case "feature.revision.approved":
-    case "feature.revision.changesRequested":
-      return {
-        object: sampleRevision({
-          reviewer: {
-            id: "reviewer-notification-test",
-            name: "Review Bot",
-            email: "review@example.com",
-          },
-          reviewComment: "Looks good for the test.",
-        }),
-      };
-    case "feature.revision.commented":
-      return {
-        object: sampleRevision({
-          reviewer: {
-            id: "reviewer-notification-test",
-            name: "Review Bot",
-            email: "review@example.com",
-          },
-          reviewComment: "Can we tighten the rollout condition?",
-        }),
-      };
-    case "feature.revision.reverted":
-      return {
-        object: sampleRevision({
-          revertedToVersion: 2,
-        }),
-      };
-    case "experiment.created":
-      return { object: sampleExperiment() };
-    case "experiment.updated":
-      return {
-        object: sampleExperiment({
-          resultSummary: {
-            status: "ship-now",
-            winner: "var_treatment",
-            conclusions: "Treatment increased checkout starts.",
-            releasedVariationId: "var_treatment",
-            excludeFromPayload: false,
-          },
-        }),
-        previous_attributes: {
-          status: "draft",
-          resultSummary: {
-            status: "running",
-            winner: "",
-            conclusions: "",
-            releasedVariationId: "",
-            excludeFromPayload: false,
-          },
-        },
-        changes: sampleExperimentDiff,
-      };
-    case "experiment.deleted":
-      return { object: sampleExperiment({ archived: true }) };
-    case "experiment.warning":
-      return {
-        object: {
-          type: "srm",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          threshold: 0.001,
-        },
-      };
-    case "experiment.info.significance":
-      return {
-        object: {
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          variationId: "var_treatment",
-          variationName: "Treatment",
-          metricName: "Checkout starts",
-          metricId: "met_checkout_start",
-          statsEngine: "bayesian",
-          criticalValue: 0.97,
-          winning: true,
-          metricRole: "goal",
-          uplift: 0.042,
-          ci: [0.011, 0.075],
-        },
-      };
-    case "experiment.decision.ship":
-      return {
-        object: {
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          decisionDescription: "The treatment is above the decision threshold.",
-        },
-      };
-    case "experiment.decision.rollback":
-      return {
-        object: {
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          decisionDescription: "The treatment is underperforming the baseline.",
-        },
-      };
-    case "experiment.decision.review":
-      return {
-        object: {
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          decisionDescription:
-            "The result reached power but needs stakeholder review.",
-        },
-      };
-    case "experiment.started":
-      return {
-        object: {
-          type: "started",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          phaseName: "Main phase",
-          variationCount: 2,
-        },
-      };
-    case "experiment.stopped":
-      return {
-        object: {
-          type: "shipped",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          results: "won",
-          releasedVariationName: "Treatment",
-          enableTemporaryRollout: true,
-          reason: "Treatment increased checkout starts.",
-        },
-      };
-    case "experiment.stopped.rolledback":
-      return {
-        object: {
-          type: "rolledback",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          results: "lost",
-          releasedVariationName: "Control",
-          enableTemporaryRollout: false,
-          reason: "Guardrails failed during review.",
-        },
-      };
-    case "experiment.health.guardrailFailed":
-      return {
-        object: {
-          type: "guardrail-failed",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          failedMetrics: [
-            {
-              id: "met_refund",
-              name: "Refund rate",
-              variationName: "Treatment",
-            },
-          ],
-        },
-      };
-    case "experiment.health.noData":
-      return {
-        object: {
-          type: "no-data",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-        },
-      };
-    case "experiment.health.queryFailed":
-      return {
-        object: {
-          type: "query-failed",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          errorMessage: "Column user_id was not found in exposure query.",
-        },
-      };
-    case "experiment.status.changed":
-      return {
-        object: {
-          type: "status-changed",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          previousStatus: "draft",
-          currentStatus: "running",
-        },
-      };
-    case "experiment.endingSoon":
-      return {
-        object: {
-          type: "ending-soon",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          endsAt: nowIso(),
-          daysRemaining: 2,
-        },
-      };
-    case "experiment.stale":
-      return {
-        object: {
-          type: "stale",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          daysRunning: 127,
-          reason:
-            "This experiment has been running for a long time. Review whether it should ship, roll back, or be extended.",
-        },
-      };
-    case "experiment.metric.regression":
-      return {
-        object: {
-          type: "metric-regression",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          variationName: "Treatment",
-          metricName: "Refund rate",
-          metricId: "met_refund",
-          metricRole: "guardrail",
-          uplift: 0.083,
-          ci: [0.031, 0.129],
-        },
-      };
-    case "experiment.bandit.weightsChanged":
-      return {
-        object: {
-          type: "bandit-weights-changed",
-          experimentName: "Checkout CTA",
-          experimentId: "exp_checkout_cta",
-          currentWeights: [0.5, 0.5],
-          updatedWeights: [0.2, 0.8],
-        },
-      };
-    case "experiment.holdout.created":
-      return {
-        object: {
-          type: "holdout-created",
-          experimentName: "Checkout CTA Holdout",
-          experimentId: "exp_checkout_cta_holdout",
-        },
-      };
-    case "experiment.holdout.updated":
-      return {
-        object: {
-          type: "holdout-updated",
-          experimentName: "Checkout CTA Holdout",
-          experimentId: "exp_checkout_cta_holdout",
-        },
-      };
-  }
-};
+      },
+      changes: sampleExperimentDiff,
+    },
+  }),
+  "experiment.deleted": () => ({
+    event: "experiment.deleted",
+    object: "experiment",
+    data: { object: sampleExperiment({ archived: true }) },
+  }),
+  "experiment.warning": () => ({
+    event: "experiment.warning",
+    object: "experiment",
+    data: {
+      object: {
+        type: "srm",
+        experimentName: "Checkout CTA",
+        experimentId: "exp_checkout_cta",
+        threshold: 0.001,
+      },
+    },
+  }),
+  "experiment.info.significance": () => ({
+    event: "experiment.info.significance",
+    object: "experiment",
+    data: {
+      object: {
+        experimentName: "Checkout CTA",
+        experimentId: "exp_checkout_cta",
+        variationId: "var_treatment",
+        variationName: "Treatment",
+        metricName: "Checkout starts",
+        metricId: "met_checkout_start",
+        statsEngine: "bayesian",
+        criticalValue: 0.97,
+        winning: true,
+      },
+    },
+  }),
+  "experiment.decision.ship": () => ({
+    event: "experiment.decision.ship",
+    object: "experiment",
+    data: {
+      object: {
+        source: "analysis",
+        experimentName: "Checkout CTA",
+        experimentId: "exp_checkout_cta",
+        decisionDescription: "The treatment is above the decision threshold.",
+      },
+    },
+  }),
+  "experiment.decision.rollback": () => ({
+    event: "experiment.decision.rollback",
+    object: "experiment",
+    data: {
+      object: {
+        source: "analysis",
+        experimentName: "Checkout CTA",
+        experimentId: "exp_checkout_cta",
+        decisionDescription: "The treatment is underperforming the baseline.",
+      },
+    },
+  }),
+  "experiment.decision.review": () => ({
+    event: "experiment.decision.review",
+    object: "experiment",
+    data: {
+      object: {
+        source: "analysis",
+        experimentName: "Checkout CTA",
+        experimentId: "exp_checkout_cta",
+        decisionDescription:
+          "The result reached power but needs stakeholder review.",
+      },
+    },
+  }),
+} satisfies Partial<{
+  [Name in NotificationEvent["event"]]: () => Pick<
+    Extract<NotificationEvent, { event: Name }>,
+    "event" | "object" | "data"
+  >;
+}>;
+
+export type SampleNotificationEventName = keyof typeof sampleEvents;
+
+export const sampleNotificationEventNames = notificationEventNames.filter(
+  (name): name is SampleNotificationEventName => name in sampleEvents,
+);
 
 export const getSampleEventPayload = ({
   context,
   eventName,
 }: {
-  context: ReqContext;
+  context: SampleContext;
   eventName: SampleNotificationEventName;
-}): NotificationEvent => {
-  const [object] = eventName.split(".") as ["feature" | "experiment"];
-
-  return {
-    event: eventName,
-    object,
-    api_version: API_VERSION,
-    created: Date.now(),
-    data: getSampleEventData(eventName),
-    projects: [TEST_PROJECT],
-    tags: [TEST_TAG],
-    environments: [TEST_ENVIRONMENT],
-    containsSecrets: false,
-    user: testUser(context),
-  } as NotificationEvent;
-};
+}): NotificationEvent => ({
+  ...sampleEvents[eventName](),
+  api_version: API_VERSION,
+  created: Date.now(),
+  projects: [TEST_PROJECT],
+  tags: [TEST_TAG],
+  environments: [TEST_ENVIRONMENT],
+  containsSecrets: false,
+  user: testUser(context),
+});
