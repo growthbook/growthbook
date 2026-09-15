@@ -193,11 +193,14 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
 
     recorder.start();
     setStatus("recording");
-    sessionRef.current = {
+    // Registered before the meter, so a meter that throws still leaves a releasable session.
+    const session = {
       recorder,
-      stopMeter: startLevelMeter(stream, micRef.current),
+      stopMeter: () => {},
       timeout: window.setTimeout(stop, MAX_RECORDING_MS),
     };
+    sessionRef.current = session;
+    session.stopMeter = startLevelMeter(stream, micRef.current);
   }, [apiCall, onTranscript, release, stop]);
 
   return {

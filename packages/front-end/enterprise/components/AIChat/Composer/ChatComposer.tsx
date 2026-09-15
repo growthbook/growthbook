@@ -155,6 +155,8 @@ function ChatComposer(
   const suggestionOpen = rows.length > 0;
 
   const hideCardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Read by the editor's Enter handler, which is configured before dictation exists.
+  const dictatingRef = useRef(false);
 
   const cancelHideCard = useCallback(() => {
     if (hideCardTimer.current) {
@@ -331,7 +333,9 @@ function ChatComposer(
         }
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
-          if (!loading && !disabled) onSend(readSubmission(view.state.doc));
+          if (!loading && !disabled && !dictatingRef.current) {
+            onSend(readSubmission(view.state.doc));
+          }
           return true;
         }
         return false;
@@ -395,7 +399,12 @@ function ChatComposer(
     ),
   );
 
-  const canSend = value.trim().length > 0 && !loading && !disabled;
+  // The transcript isn't in the editor yet, so sending now would truncate the message.
+  const dictating = dictation.recording || dictation.transcribing;
+  dictatingRef.current = dictating;
+
+  const canSend =
+    value.trim().length > 0 && !loading && !disabled && !dictating;
   const isCompact = variant === "compact";
   const isHero = variant === "hero";
 
