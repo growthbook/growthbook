@@ -5,10 +5,11 @@ import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "../api.setup";
 
-// A prerequisite may only point at an existing, unarchived flag that
-// does not depend on the feature being written — what the dashboard picker
-// enforces. Every REST write path applies it, and only to parents the write
-// introduces, so stored references to a since-archived parent still echo.
+// A prerequisite may only point at an existing, unarchived flag that does not
+// depend on the feature being written; a feature's top-level prerequisites must
+// also be boolean, as the dashboard's pickers enforce. Every REST write path
+// applies it, and only to parents the write introduces, so stored references
+// to a since-archived parent still echo.
 
 const ORG_ID = "org_prereq_parents";
 const org = {
@@ -139,16 +140,13 @@ describe("prerequisite parents on REST feature writes", () => {
 
   // Inline prerequisites carry their own condition, so a rule may gate on a
   // flag of any type; only a feature's top-level prerequisites must be boolean.
-  it.each(["parent_ok", "parent_string"])(
-    "v2 rule add accepts a prerequisite on %s",
-    async (id) => {
-      const res = await send("post", RULES_V2, {
-        rule: forceRule({ prerequisites: [prereq(id)] }),
-      });
-      expect(res.body.message).toBeUndefined();
-      expect(res.status).toBe(200);
-    },
-  );
+  it("v2 rule add accepts a prerequisite on a non-boolean flag", async () => {
+    const res = await send("post", RULES_V2, {
+      rule: forceRule({ prerequisites: [prereq("parent_string")] }),
+    });
+    expect(res.body.message).toBeUndefined();
+    expect(res.status).toBe(200);
+  });
 
   // One case per remaining write path proves the wiring; the rules themselves
   // are covered above.
