@@ -38368,6 +38368,412 @@ paths:
                                               const: metric
                                             metricId:
                                               type: string
+                                            draftMetric:
+                                              type: object
+                                              properties:
+                                                managedBy:
+                                                  type: string
+                                                  enum:
+                                                    - ''
+                                                    - api
+                                                    - admin
+                                                owner:
+                                                  description: >-
+                                                    The userId of the owner (or raw owner
+                                                    name/email for legacy records)
+                                                  type: string
+                                                datasource:
+                                                  type: string
+                                                name:
+                                                  type: string
+                                                description:
+                                                  type: string
+                                                  maxLength: 10000
+                                                tags:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                                projects:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                                inverse:
+                                                  type: boolean
+                                                archived:
+                                                  type: boolean
+                                                replaces:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                                metricType:
+                                                  type: string
+                                                  enum:
+                                                    - ratio
+                                                    - mean
+                                                    - proportion
+                                                    - retention
+                                                    - quantile
+                                                    - dailyParticipation
+                                                    - funnel
+                                                numerator:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        factTableId:
+                                                          type: string
+                                                        column:
+                                                          type: string
+                                                        aggregation:
+                                                          type: string
+                                                          enum:
+                                                            - sum
+                                                            - max
+                                                            - count distinct
+                                                            - hll merge
+                                                            - kll merge
+                                                        rowFilters:
+                                                          type: array
+                                                          items:
+                                                            type: object
+                                                            properties:
+                                                              operator:
+                                                                type: string
+                                                                enum:
+                                                                  - '='
+                                                                  - '!='
+                                                                  - <
+                                                                  - <=
+                                                                  - '>'
+                                                                  - '>='
+                                                                  - between
+                                                                  - not_between
+                                                                  - in
+                                                                  - not_in
+                                                                  - contains
+                                                                  - not_contains
+                                                                  - starts_with
+                                                                  - ends_with
+                                                                  - is_null
+                                                                  - not_null
+                                                                  - is_true
+                                                                  - is_false
+                                                                  - sql_expr
+                                                                  - saved_filter
+                                                              column:
+                                                                type: string
+                                                              values:
+                                                                type: array
+                                                                items:
+                                                                  type: string
+                                                            required:
+                                                              - operator
+                                                            additionalProperties: false
+                                                        aggregateFilter:
+                                                          type: string
+                                                        aggregateFilterColumn:
+                                                          type: string
+                                                      required:
+                                                        - factTableId
+                                                        - column
+                                                      additionalProperties: false
+                                                    - type: 'null'
+                                                denominator:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        factTableId:
+                                                          type: string
+                                                        column:
+                                                          type: string
+                                                        aggregation:
+                                                          type: string
+                                                          enum:
+                                                            - sum
+                                                            - max
+                                                            - count distinct
+                                                            - hll merge
+                                                            - kll merge
+                                                        rowFilters:
+                                                          type: array
+                                                          items:
+                                                            type: object
+                                                            properties:
+                                                              operator:
+                                                                type: string
+                                                                enum:
+                                                                  - '='
+                                                                  - '!='
+                                                                  - <
+                                                                  - <=
+                                                                  - '>'
+                                                                  - '>='
+                                                                  - between
+                                                                  - not_between
+                                                                  - in
+                                                                  - not_in
+                                                                  - contains
+                                                                  - not_contains
+                                                                  - starts_with
+                                                                  - ends_with
+                                                                  - is_null
+                                                                  - not_null
+                                                                  - is_true
+                                                                  - is_false
+                                                                  - sql_expr
+                                                                  - saved_filter
+                                                              column:
+                                                                type: string
+                                                              values:
+                                                                type: array
+                                                                items:
+                                                                  type: string
+                                                            required:
+                                                              - operator
+                                                            additionalProperties: false
+                                                        aggregateFilter:
+                                                          type: string
+                                                        aggregateFilterColumn:
+                                                          type: string
+                                                      required:
+                                                        - factTableId
+                                                        - column
+                                                      additionalProperties: false
+                                                    - type: 'null'
+                                                cappingSettings:
+                                                  type: object
+                                                  properties:
+                                                    type:
+                                                      type: string
+                                                      enum:
+                                                        - absolute
+                                                        - percentile
+                                                        - ''
+                                                    value:
+                                                      type: number
+                                                    ignoreZeros:
+                                                      anyOf:
+                                                        - type: boolean
+                                                        - type: 'null'
+                                                  required:
+                                                    - type
+                                                    - value
+                                                  additionalProperties: false
+                                                windowSettings:
+                                                  type: object
+                                                  properties:
+                                                    type:
+                                                      type: string
+                                                      enum:
+                                                        - conversion
+                                                        - lookback
+                                                        - ''
+                                                    delayValue:
+                                                      type: number
+                                                    delayUnit:
+                                                      type: string
+                                                      enum:
+                                                        - weeks
+                                                        - days
+                                                        - hours
+                                                        - minutes
+                                                    windowValue:
+                                                      type: number
+                                                    windowUnit:
+                                                      type: string
+                                                      enum:
+                                                        - weeks
+                                                        - days
+                                                        - hours
+                                                        - minutes
+                                                  required:
+                                                    - type
+                                                    - delayValue
+                                                    - delayUnit
+                                                    - windowValue
+                                                    - windowUnit
+                                                  additionalProperties: false
+                                                priorSettings:
+                                                  type: object
+                                                  properties:
+                                                    override:
+                                                      type: boolean
+                                                    proper:
+                                                      type: boolean
+                                                    mean:
+                                                      type: number
+                                                    stddev:
+                                                      type: number
+                                                      exclusiveMinimum: 0
+                                                  required:
+                                                    - override
+                                                    - proper
+                                                    - mean
+                                                    - stddev
+                                                  additionalProperties: false
+                                                maxPercentChange:
+                                                  type: number
+                                                minPercentChange:
+                                                  type: number
+                                                minSampleSize:
+                                                  type: number
+                                                targetMDE:
+                                                  type: number
+                                                displayAsPercentage:
+                                                  type: boolean
+                                                winRisk:
+                                                  type: number
+                                                loseRisk:
+                                                  type: number
+                                                regressionAdjustmentOverride:
+                                                  type: boolean
+                                                regressionAdjustmentEnabled:
+                                                  type: boolean
+                                                regressionAdjustmentDays:
+                                                  type: number
+                                                metricAutoSlices:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                                quantileSettings:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        quantile:
+                                                          type: number
+                                                        type:
+                                                          type: string
+                                                          enum:
+                                                            - unit
+                                                            - event
+                                                        ignoreZeros:
+                                                          type: boolean
+                                                        quantileEventCountColumn:
+                                                          type: string
+                                                      required:
+                                                        - quantile
+                                                        - type
+                                                        - ignoreZeros
+                                                      additionalProperties: false
+                                                    - type: 'null'
+                                                funnelSettings:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        steps:
+                                                          minItems: 2
+                                                          maxItems: 20
+                                                          type: array
+                                                          items:
+                                                            type: object
+                                                            properties:
+                                                              name:
+                                                                type: string
+                                                              factTableId:
+                                                                type: string
+                                                              rowFilters:
+                                                                type: array
+                                                                items:
+                                                                  type: object
+                                                                  properties:
+                                                                    operator:
+                                                                      type: string
+                                                                      enum:
+                                                                        - '='
+                                                                        - '!='
+                                                                        - <
+                                                                        - <=
+                                                                        - '>'
+                                                                        - '>='
+                                                                        - between
+                                                                        - not_between
+                                                                        - in
+                                                                        - not_in
+                                                                        - contains
+                                                                        - not_contains
+                                                                        - starts_with
+                                                                        - ends_with
+                                                                        - is_null
+                                                                        - not_null
+                                                                        - is_true
+                                                                        - is_false
+                                                                        - sql_expr
+                                                                        - saved_filter
+                                                                    column:
+                                                                      type: string
+                                                                    values:
+                                                                      type: array
+                                                                      items:
+                                                                        type: string
+                                                                  required:
+                                                                    - operator
+                                                                  additionalProperties: false
+                                                              optional:
+                                                                type: boolean
+                                                              conversionWindow:
+                                                                anyOf:
+                                                                  - type: object
+                                                                    properties:
+                                                                      unit:
+                                                                        type: string
+                                                                        enum:
+                                                                          - weeks
+                                                                          - days
+                                                                          - hours
+                                                                          - minutes
+                                                                      value:
+                                                                        type: number
+                                                                        exclusiveMinimum: 0
+                                                                    required:
+                                                                      - unit
+                                                                      - value
+                                                                    additionalProperties: false
+                                                                  - type: 'null'
+                                                            required:
+                                                              - name
+                                                              - factTableId
+                                                              - rowFilters
+                                                              - optional
+                                                            additionalProperties: false
+                                                        ordering:
+                                                          type: string
+                                                          enum:
+                                                            - sequential
+                                                            - strict
+                                                            - unordered
+                                                        concurrencyWindowSeconds:
+                                                          type: integer
+                                                          minimum: 0
+                                                        sessionBased:
+                                                          type: boolean
+                                                      required:
+                                                        - steps
+                                                      additionalProperties: false
+                                                    - type: 'null'
+                                              required:
+                                                - owner
+                                                - datasource
+                                                - name
+                                                - description
+                                                - tags
+                                                - projects
+                                                - inverse
+                                                - metricType
+                                                - numerator
+                                                - denominator
+                                                - cappingSettings
+                                                - windowSettings
+                                                - priorSettings
+                                                - maxPercentChange
+                                                - minPercentChange
+                                                - minSampleSize
+                                                - winRisk
+                                                - loseRisk
+                                                - regressionAdjustmentOverride
+                                                - regressionAdjustmentEnabled
+                                                - regressionAdjustmentDays
+                                                - quantileSettings
+                                                - funnelSettings
+                                              additionalProperties: false
                                             unit:
                                               anyOf:
                                                 - type: string
@@ -41720,6 +42126,412 @@ paths:
                                               const: metric
                                             metricId:
                                               type: string
+                                            draftMetric:
+                                              type: object
+                                              properties:
+                                                managedBy:
+                                                  type: string
+                                                  enum:
+                                                    - ''
+                                                    - api
+                                                    - admin
+                                                owner:
+                                                  description: >-
+                                                    The userId of the owner (or raw owner
+                                                    name/email for legacy records)
+                                                  type: string
+                                                datasource:
+                                                  type: string
+                                                name:
+                                                  type: string
+                                                description:
+                                                  type: string
+                                                  maxLength: 10000
+                                                tags:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                                projects:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                                inverse:
+                                                  type: boolean
+                                                archived:
+                                                  type: boolean
+                                                replaces:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                                metricType:
+                                                  type: string
+                                                  enum:
+                                                    - ratio
+                                                    - mean
+                                                    - proportion
+                                                    - retention
+                                                    - quantile
+                                                    - dailyParticipation
+                                                    - funnel
+                                                numerator:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        factTableId:
+                                                          type: string
+                                                        column:
+                                                          type: string
+                                                        aggregation:
+                                                          type: string
+                                                          enum:
+                                                            - sum
+                                                            - max
+                                                            - count distinct
+                                                            - hll merge
+                                                            - kll merge
+                                                        rowFilters:
+                                                          type: array
+                                                          items:
+                                                            type: object
+                                                            properties:
+                                                              operator:
+                                                                type: string
+                                                                enum:
+                                                                  - '='
+                                                                  - '!='
+                                                                  - <
+                                                                  - <=
+                                                                  - '>'
+                                                                  - '>='
+                                                                  - between
+                                                                  - not_between
+                                                                  - in
+                                                                  - not_in
+                                                                  - contains
+                                                                  - not_contains
+                                                                  - starts_with
+                                                                  - ends_with
+                                                                  - is_null
+                                                                  - not_null
+                                                                  - is_true
+                                                                  - is_false
+                                                                  - sql_expr
+                                                                  - saved_filter
+                                                              column:
+                                                                type: string
+                                                              values:
+                                                                type: array
+                                                                items:
+                                                                  type: string
+                                                            required:
+                                                              - operator
+                                                            additionalProperties: false
+                                                        aggregateFilter:
+                                                          type: string
+                                                        aggregateFilterColumn:
+                                                          type: string
+                                                      required:
+                                                        - factTableId
+                                                        - column
+                                                      additionalProperties: false
+                                                    - type: 'null'
+                                                denominator:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        factTableId:
+                                                          type: string
+                                                        column:
+                                                          type: string
+                                                        aggregation:
+                                                          type: string
+                                                          enum:
+                                                            - sum
+                                                            - max
+                                                            - count distinct
+                                                            - hll merge
+                                                            - kll merge
+                                                        rowFilters:
+                                                          type: array
+                                                          items:
+                                                            type: object
+                                                            properties:
+                                                              operator:
+                                                                type: string
+                                                                enum:
+                                                                  - '='
+                                                                  - '!='
+                                                                  - <
+                                                                  - <=
+                                                                  - '>'
+                                                                  - '>='
+                                                                  - between
+                                                                  - not_between
+                                                                  - in
+                                                                  - not_in
+                                                                  - contains
+                                                                  - not_contains
+                                                                  - starts_with
+                                                                  - ends_with
+                                                                  - is_null
+                                                                  - not_null
+                                                                  - is_true
+                                                                  - is_false
+                                                                  - sql_expr
+                                                                  - saved_filter
+                                                              column:
+                                                                type: string
+                                                              values:
+                                                                type: array
+                                                                items:
+                                                                  type: string
+                                                            required:
+                                                              - operator
+                                                            additionalProperties: false
+                                                        aggregateFilter:
+                                                          type: string
+                                                        aggregateFilterColumn:
+                                                          type: string
+                                                      required:
+                                                        - factTableId
+                                                        - column
+                                                      additionalProperties: false
+                                                    - type: 'null'
+                                                cappingSettings:
+                                                  type: object
+                                                  properties:
+                                                    type:
+                                                      type: string
+                                                      enum:
+                                                        - absolute
+                                                        - percentile
+                                                        - ''
+                                                    value:
+                                                      type: number
+                                                    ignoreZeros:
+                                                      anyOf:
+                                                        - type: boolean
+                                                        - type: 'null'
+                                                  required:
+                                                    - type
+                                                    - value
+                                                  additionalProperties: false
+                                                windowSettings:
+                                                  type: object
+                                                  properties:
+                                                    type:
+                                                      type: string
+                                                      enum:
+                                                        - conversion
+                                                        - lookback
+                                                        - ''
+                                                    delayValue:
+                                                      type: number
+                                                    delayUnit:
+                                                      type: string
+                                                      enum:
+                                                        - weeks
+                                                        - days
+                                                        - hours
+                                                        - minutes
+                                                    windowValue:
+                                                      type: number
+                                                    windowUnit:
+                                                      type: string
+                                                      enum:
+                                                        - weeks
+                                                        - days
+                                                        - hours
+                                                        - minutes
+                                                  required:
+                                                    - type
+                                                    - delayValue
+                                                    - delayUnit
+                                                    - windowValue
+                                                    - windowUnit
+                                                  additionalProperties: false
+                                                priorSettings:
+                                                  type: object
+                                                  properties:
+                                                    override:
+                                                      type: boolean
+                                                    proper:
+                                                      type: boolean
+                                                    mean:
+                                                      type: number
+                                                    stddev:
+                                                      type: number
+                                                      exclusiveMinimum: 0
+                                                  required:
+                                                    - override
+                                                    - proper
+                                                    - mean
+                                                    - stddev
+                                                  additionalProperties: false
+                                                maxPercentChange:
+                                                  type: number
+                                                minPercentChange:
+                                                  type: number
+                                                minSampleSize:
+                                                  type: number
+                                                targetMDE:
+                                                  type: number
+                                                displayAsPercentage:
+                                                  type: boolean
+                                                winRisk:
+                                                  type: number
+                                                loseRisk:
+                                                  type: number
+                                                regressionAdjustmentOverride:
+                                                  type: boolean
+                                                regressionAdjustmentEnabled:
+                                                  type: boolean
+                                                regressionAdjustmentDays:
+                                                  type: number
+                                                metricAutoSlices:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                                quantileSettings:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        quantile:
+                                                          type: number
+                                                        type:
+                                                          type: string
+                                                          enum:
+                                                            - unit
+                                                            - event
+                                                        ignoreZeros:
+                                                          type: boolean
+                                                        quantileEventCountColumn:
+                                                          type: string
+                                                      required:
+                                                        - quantile
+                                                        - type
+                                                        - ignoreZeros
+                                                      additionalProperties: false
+                                                    - type: 'null'
+                                                funnelSettings:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        steps:
+                                                          minItems: 2
+                                                          maxItems: 20
+                                                          type: array
+                                                          items:
+                                                            type: object
+                                                            properties:
+                                                              name:
+                                                                type: string
+                                                              factTableId:
+                                                                type: string
+                                                              rowFilters:
+                                                                type: array
+                                                                items:
+                                                                  type: object
+                                                                  properties:
+                                                                    operator:
+                                                                      type: string
+                                                                      enum:
+                                                                        - '='
+                                                                        - '!='
+                                                                        - <
+                                                                        - <=
+                                                                        - '>'
+                                                                        - '>='
+                                                                        - between
+                                                                        - not_between
+                                                                        - in
+                                                                        - not_in
+                                                                        - contains
+                                                                        - not_contains
+                                                                        - starts_with
+                                                                        - ends_with
+                                                                        - is_null
+                                                                        - not_null
+                                                                        - is_true
+                                                                        - is_false
+                                                                        - sql_expr
+                                                                        - saved_filter
+                                                                    column:
+                                                                      type: string
+                                                                    values:
+                                                                      type: array
+                                                                      items:
+                                                                        type: string
+                                                                  required:
+                                                                    - operator
+                                                                  additionalProperties: false
+                                                              optional:
+                                                                type: boolean
+                                                              conversionWindow:
+                                                                anyOf:
+                                                                  - type: object
+                                                                    properties:
+                                                                      unit:
+                                                                        type: string
+                                                                        enum:
+                                                                          - weeks
+                                                                          - days
+                                                                          - hours
+                                                                          - minutes
+                                                                      value:
+                                                                        type: number
+                                                                        exclusiveMinimum: 0
+                                                                    required:
+                                                                      - unit
+                                                                      - value
+                                                                    additionalProperties: false
+                                                                  - type: 'null'
+                                                            required:
+                                                              - name
+                                                              - factTableId
+                                                              - rowFilters
+                                                              - optional
+                                                            additionalProperties: false
+                                                        ordering:
+                                                          type: string
+                                                          enum:
+                                                            - sequential
+                                                            - strict
+                                                            - unordered
+                                                        concurrencyWindowSeconds:
+                                                          type: integer
+                                                          minimum: 0
+                                                        sessionBased:
+                                                          type: boolean
+                                                      required:
+                                                        - steps
+                                                      additionalProperties: false
+                                                    - type: 'null'
+                                              required:
+                                                - owner
+                                                - datasource
+                                                - name
+                                                - description
+                                                - tags
+                                                - projects
+                                                - inverse
+                                                - metricType
+                                                - numerator
+                                                - denominator
+                                                - cappingSettings
+                                                - windowSettings
+                                                - priorSettings
+                                                - maxPercentChange
+                                                - minPercentChange
+                                                - minSampleSize
+                                                - winRisk
+                                                - loseRisk
+                                                - regressionAdjustmentOverride
+                                                - regressionAdjustmentEnabled
+                                                - regressionAdjustmentDays
+                                                - quantileSettings
+                                                - funnelSettings
+                                              additionalProperties: false
                                             unit:
                                               anyOf:
                                                 - type: string
@@ -45247,6 +46059,412 @@ paths:
                                           const: metric
                                         metricId:
                                           type: string
+                                        draftMetric:
+                                          type: object
+                                          properties:
+                                            managedBy:
+                                              type: string
+                                              enum:
+                                                - ''
+                                                - api
+                                                - admin
+                                            owner:
+                                              description: >-
+                                                The userId of the owner (or raw owner
+                                                name/email for legacy records)
+                                              type: string
+                                            datasource:
+                                              type: string
+                                            name:
+                                              type: string
+                                            description:
+                                              type: string
+                                              maxLength: 10000
+                                            tags:
+                                              type: array
+                                              items:
+                                                type: string
+                                            projects:
+                                              type: array
+                                              items:
+                                                type: string
+                                            inverse:
+                                              type: boolean
+                                            archived:
+                                              type: boolean
+                                            replaces:
+                                              type: array
+                                              items:
+                                                type: string
+                                            metricType:
+                                              type: string
+                                              enum:
+                                                - ratio
+                                                - mean
+                                                - proportion
+                                                - retention
+                                                - quantile
+                                                - dailyParticipation
+                                                - funnel
+                                            numerator:
+                                              anyOf:
+                                                - type: object
+                                                  properties:
+                                                    factTableId:
+                                                      type: string
+                                                    column:
+                                                      type: string
+                                                    aggregation:
+                                                      type: string
+                                                      enum:
+                                                        - sum
+                                                        - max
+                                                        - count distinct
+                                                        - hll merge
+                                                        - kll merge
+                                                    rowFilters:
+                                                      type: array
+                                                      items:
+                                                        type: object
+                                                        properties:
+                                                          operator:
+                                                            type: string
+                                                            enum:
+                                                              - '='
+                                                              - '!='
+                                                              - <
+                                                              - <=
+                                                              - '>'
+                                                              - '>='
+                                                              - between
+                                                              - not_between
+                                                              - in
+                                                              - not_in
+                                                              - contains
+                                                              - not_contains
+                                                              - starts_with
+                                                              - ends_with
+                                                              - is_null
+                                                              - not_null
+                                                              - is_true
+                                                              - is_false
+                                                              - sql_expr
+                                                              - saved_filter
+                                                          column:
+                                                            type: string
+                                                          values:
+                                                            type: array
+                                                            items:
+                                                              type: string
+                                                        required:
+                                                          - operator
+                                                        additionalProperties: false
+                                                    aggregateFilter:
+                                                      type: string
+                                                    aggregateFilterColumn:
+                                                      type: string
+                                                  required:
+                                                    - factTableId
+                                                    - column
+                                                  additionalProperties: false
+                                                - type: 'null'
+                                            denominator:
+                                              anyOf:
+                                                - type: object
+                                                  properties:
+                                                    factTableId:
+                                                      type: string
+                                                    column:
+                                                      type: string
+                                                    aggregation:
+                                                      type: string
+                                                      enum:
+                                                        - sum
+                                                        - max
+                                                        - count distinct
+                                                        - hll merge
+                                                        - kll merge
+                                                    rowFilters:
+                                                      type: array
+                                                      items:
+                                                        type: object
+                                                        properties:
+                                                          operator:
+                                                            type: string
+                                                            enum:
+                                                              - '='
+                                                              - '!='
+                                                              - <
+                                                              - <=
+                                                              - '>'
+                                                              - '>='
+                                                              - between
+                                                              - not_between
+                                                              - in
+                                                              - not_in
+                                                              - contains
+                                                              - not_contains
+                                                              - starts_with
+                                                              - ends_with
+                                                              - is_null
+                                                              - not_null
+                                                              - is_true
+                                                              - is_false
+                                                              - sql_expr
+                                                              - saved_filter
+                                                          column:
+                                                            type: string
+                                                          values:
+                                                            type: array
+                                                            items:
+                                                              type: string
+                                                        required:
+                                                          - operator
+                                                        additionalProperties: false
+                                                    aggregateFilter:
+                                                      type: string
+                                                    aggregateFilterColumn:
+                                                      type: string
+                                                  required:
+                                                    - factTableId
+                                                    - column
+                                                  additionalProperties: false
+                                                - type: 'null'
+                                            cappingSettings:
+                                              type: object
+                                              properties:
+                                                type:
+                                                  type: string
+                                                  enum:
+                                                    - absolute
+                                                    - percentile
+                                                    - ''
+                                                value:
+                                                  type: number
+                                                ignoreZeros:
+                                                  anyOf:
+                                                    - type: boolean
+                                                    - type: 'null'
+                                              required:
+                                                - type
+                                                - value
+                                              additionalProperties: false
+                                            windowSettings:
+                                              type: object
+                                              properties:
+                                                type:
+                                                  type: string
+                                                  enum:
+                                                    - conversion
+                                                    - lookback
+                                                    - ''
+                                                delayValue:
+                                                  type: number
+                                                delayUnit:
+                                                  type: string
+                                                  enum:
+                                                    - weeks
+                                                    - days
+                                                    - hours
+                                                    - minutes
+                                                windowValue:
+                                                  type: number
+                                                windowUnit:
+                                                  type: string
+                                                  enum:
+                                                    - weeks
+                                                    - days
+                                                    - hours
+                                                    - minutes
+                                              required:
+                                                - type
+                                                - delayValue
+                                                - delayUnit
+                                                - windowValue
+                                                - windowUnit
+                                              additionalProperties: false
+                                            priorSettings:
+                                              type: object
+                                              properties:
+                                                override:
+                                                  type: boolean
+                                                proper:
+                                                  type: boolean
+                                                mean:
+                                                  type: number
+                                                stddev:
+                                                  type: number
+                                                  exclusiveMinimum: 0
+                                              required:
+                                                - override
+                                                - proper
+                                                - mean
+                                                - stddev
+                                              additionalProperties: false
+                                            maxPercentChange:
+                                              type: number
+                                            minPercentChange:
+                                              type: number
+                                            minSampleSize:
+                                              type: number
+                                            targetMDE:
+                                              type: number
+                                            displayAsPercentage:
+                                              type: boolean
+                                            winRisk:
+                                              type: number
+                                            loseRisk:
+                                              type: number
+                                            regressionAdjustmentOverride:
+                                              type: boolean
+                                            regressionAdjustmentEnabled:
+                                              type: boolean
+                                            regressionAdjustmentDays:
+                                              type: number
+                                            metricAutoSlices:
+                                              type: array
+                                              items:
+                                                type: string
+                                            quantileSettings:
+                                              anyOf:
+                                                - type: object
+                                                  properties:
+                                                    quantile:
+                                                      type: number
+                                                    type:
+                                                      type: string
+                                                      enum:
+                                                        - unit
+                                                        - event
+                                                    ignoreZeros:
+                                                      type: boolean
+                                                    quantileEventCountColumn:
+                                                      type: string
+                                                  required:
+                                                    - quantile
+                                                    - type
+                                                    - ignoreZeros
+                                                  additionalProperties: false
+                                                - type: 'null'
+                                            funnelSettings:
+                                              anyOf:
+                                                - type: object
+                                                  properties:
+                                                    steps:
+                                                      minItems: 2
+                                                      maxItems: 20
+                                                      type: array
+                                                      items:
+                                                        type: object
+                                                        properties:
+                                                          name:
+                                                            type: string
+                                                          factTableId:
+                                                            type: string
+                                                          rowFilters:
+                                                            type: array
+                                                            items:
+                                                              type: object
+                                                              properties:
+                                                                operator:
+                                                                  type: string
+                                                                  enum:
+                                                                    - '='
+                                                                    - '!='
+                                                                    - <
+                                                                    - <=
+                                                                    - '>'
+                                                                    - '>='
+                                                                    - between
+                                                                    - not_between
+                                                                    - in
+                                                                    - not_in
+                                                                    - contains
+                                                                    - not_contains
+                                                                    - starts_with
+                                                                    - ends_with
+                                                                    - is_null
+                                                                    - not_null
+                                                                    - is_true
+                                                                    - is_false
+                                                                    - sql_expr
+                                                                    - saved_filter
+                                                                column:
+                                                                  type: string
+                                                                values:
+                                                                  type: array
+                                                                  items:
+                                                                    type: string
+                                                              required:
+                                                                - operator
+                                                              additionalProperties: false
+                                                          optional:
+                                                            type: boolean
+                                                          conversionWindow:
+                                                            anyOf:
+                                                              - type: object
+                                                                properties:
+                                                                  unit:
+                                                                    type: string
+                                                                    enum:
+                                                                      - weeks
+                                                                      - days
+                                                                      - hours
+                                                                      - minutes
+                                                                  value:
+                                                                    type: number
+                                                                    exclusiveMinimum: 0
+                                                                required:
+                                                                  - unit
+                                                                  - value
+                                                                additionalProperties: false
+                                                              - type: 'null'
+                                                        required:
+                                                          - name
+                                                          - factTableId
+                                                          - rowFilters
+                                                          - optional
+                                                        additionalProperties: false
+                                                    ordering:
+                                                      type: string
+                                                      enum:
+                                                        - sequential
+                                                        - strict
+                                                        - unordered
+                                                    concurrencyWindowSeconds:
+                                                      type: integer
+                                                      minimum: 0
+                                                    sessionBased:
+                                                      type: boolean
+                                                  required:
+                                                    - steps
+                                                  additionalProperties: false
+                                                - type: 'null'
+                                          required:
+                                            - owner
+                                            - datasource
+                                            - name
+                                            - description
+                                            - tags
+                                            - projects
+                                            - inverse
+                                            - metricType
+                                            - numerator
+                                            - denominator
+                                            - cappingSettings
+                                            - windowSettings
+                                            - priorSettings
+                                            - maxPercentChange
+                                            - minPercentChange
+                                            - minSampleSize
+                                            - winRisk
+                                            - loseRisk
+                                            - regressionAdjustmentOverride
+                                            - regressionAdjustmentEnabled
+                                            - regressionAdjustmentDays
+                                            - quantileSettings
+                                            - funnelSettings
+                                          additionalProperties: false
                                         unit:
                                           anyOf:
                                             - type: string
@@ -49541,6 +50759,412 @@ paths:
                             const: metric
                           metricId:
                             type: string
+                          draftMetric:
+                            type: object
+                            properties:
+                              managedBy:
+                                type: string
+                                enum:
+                                  - ''
+                                  - api
+                                  - admin
+                              owner:
+                                description: >-
+                                  The userId of the owner (or raw owner
+                                  name/email for legacy records)
+                                type: string
+                              datasource:
+                                type: string
+                              name:
+                                type: string
+                              description:
+                                type: string
+                                maxLength: 10000
+                              tags:
+                                type: array
+                                items:
+                                  type: string
+                              projects:
+                                type: array
+                                items:
+                                  type: string
+                              inverse:
+                                type: boolean
+                              archived:
+                                type: boolean
+                              replaces:
+                                type: array
+                                items:
+                                  type: string
+                              metricType:
+                                type: string
+                                enum:
+                                  - ratio
+                                  - mean
+                                  - proportion
+                                  - retention
+                                  - quantile
+                                  - dailyParticipation
+                                  - funnel
+                              numerator:
+                                anyOf:
+                                  - type: object
+                                    properties:
+                                      factTableId:
+                                        type: string
+                                      column:
+                                        type: string
+                                      aggregation:
+                                        type: string
+                                        enum:
+                                          - sum
+                                          - max
+                                          - count distinct
+                                          - hll merge
+                                          - kll merge
+                                      rowFilters:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            operator:
+                                              type: string
+                                              enum:
+                                                - '='
+                                                - '!='
+                                                - <
+                                                - <=
+                                                - '>'
+                                                - '>='
+                                                - between
+                                                - not_between
+                                                - in
+                                                - not_in
+                                                - contains
+                                                - not_contains
+                                                - starts_with
+                                                - ends_with
+                                                - is_null
+                                                - not_null
+                                                - is_true
+                                                - is_false
+                                                - sql_expr
+                                                - saved_filter
+                                            column:
+                                              type: string
+                                            values:
+                                              type: array
+                                              items:
+                                                type: string
+                                          required:
+                                            - operator
+                                          additionalProperties: false
+                                      aggregateFilter:
+                                        type: string
+                                      aggregateFilterColumn:
+                                        type: string
+                                    required:
+                                      - factTableId
+                                      - column
+                                    additionalProperties: false
+                                  - type: 'null'
+                              denominator:
+                                anyOf:
+                                  - type: object
+                                    properties:
+                                      factTableId:
+                                        type: string
+                                      column:
+                                        type: string
+                                      aggregation:
+                                        type: string
+                                        enum:
+                                          - sum
+                                          - max
+                                          - count distinct
+                                          - hll merge
+                                          - kll merge
+                                      rowFilters:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            operator:
+                                              type: string
+                                              enum:
+                                                - '='
+                                                - '!='
+                                                - <
+                                                - <=
+                                                - '>'
+                                                - '>='
+                                                - between
+                                                - not_between
+                                                - in
+                                                - not_in
+                                                - contains
+                                                - not_contains
+                                                - starts_with
+                                                - ends_with
+                                                - is_null
+                                                - not_null
+                                                - is_true
+                                                - is_false
+                                                - sql_expr
+                                                - saved_filter
+                                            column:
+                                              type: string
+                                            values:
+                                              type: array
+                                              items:
+                                                type: string
+                                          required:
+                                            - operator
+                                          additionalProperties: false
+                                      aggregateFilter:
+                                        type: string
+                                      aggregateFilterColumn:
+                                        type: string
+                                    required:
+                                      - factTableId
+                                      - column
+                                    additionalProperties: false
+                                  - type: 'null'
+                              cappingSettings:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    enum:
+                                      - absolute
+                                      - percentile
+                                      - ''
+                                  value:
+                                    type: number
+                                  ignoreZeros:
+                                    anyOf:
+                                      - type: boolean
+                                      - type: 'null'
+                                required:
+                                  - type
+                                  - value
+                                additionalProperties: false
+                              windowSettings:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    enum:
+                                      - conversion
+                                      - lookback
+                                      - ''
+                                  delayValue:
+                                    type: number
+                                  delayUnit:
+                                    type: string
+                                    enum:
+                                      - weeks
+                                      - days
+                                      - hours
+                                      - minutes
+                                  windowValue:
+                                    type: number
+                                  windowUnit:
+                                    type: string
+                                    enum:
+                                      - weeks
+                                      - days
+                                      - hours
+                                      - minutes
+                                required:
+                                  - type
+                                  - delayValue
+                                  - delayUnit
+                                  - windowValue
+                                  - windowUnit
+                                additionalProperties: false
+                              priorSettings:
+                                type: object
+                                properties:
+                                  override:
+                                    type: boolean
+                                  proper:
+                                    type: boolean
+                                  mean:
+                                    type: number
+                                  stddev:
+                                    type: number
+                                    exclusiveMinimum: 0
+                                required:
+                                  - override
+                                  - proper
+                                  - mean
+                                  - stddev
+                                additionalProperties: false
+                              maxPercentChange:
+                                type: number
+                              minPercentChange:
+                                type: number
+                              minSampleSize:
+                                type: number
+                              targetMDE:
+                                type: number
+                              displayAsPercentage:
+                                type: boolean
+                              winRisk:
+                                type: number
+                              loseRisk:
+                                type: number
+                              regressionAdjustmentOverride:
+                                type: boolean
+                              regressionAdjustmentEnabled:
+                                type: boolean
+                              regressionAdjustmentDays:
+                                type: number
+                              metricAutoSlices:
+                                type: array
+                                items:
+                                  type: string
+                              quantileSettings:
+                                anyOf:
+                                  - type: object
+                                    properties:
+                                      quantile:
+                                        type: number
+                                      type:
+                                        type: string
+                                        enum:
+                                          - unit
+                                          - event
+                                      ignoreZeros:
+                                        type: boolean
+                                      quantileEventCountColumn:
+                                        type: string
+                                    required:
+                                      - quantile
+                                      - type
+                                      - ignoreZeros
+                                    additionalProperties: false
+                                  - type: 'null'
+                              funnelSettings:
+                                anyOf:
+                                  - type: object
+                                    properties:
+                                      steps:
+                                        minItems: 2
+                                        maxItems: 20
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            name:
+                                              type: string
+                                            factTableId:
+                                              type: string
+                                            rowFilters:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  operator:
+                                                    type: string
+                                                    enum:
+                                                      - '='
+                                                      - '!='
+                                                      - <
+                                                      - <=
+                                                      - '>'
+                                                      - '>='
+                                                      - between
+                                                      - not_between
+                                                      - in
+                                                      - not_in
+                                                      - contains
+                                                      - not_contains
+                                                      - starts_with
+                                                      - ends_with
+                                                      - is_null
+                                                      - not_null
+                                                      - is_true
+                                                      - is_false
+                                                      - sql_expr
+                                                      - saved_filter
+                                                  column:
+                                                    type: string
+                                                  values:
+                                                    type: array
+                                                    items:
+                                                      type: string
+                                                required:
+                                                  - operator
+                                                additionalProperties: false
+                                            optional:
+                                              type: boolean
+                                            conversionWindow:
+                                              anyOf:
+                                                - type: object
+                                                  properties:
+                                                    unit:
+                                                      type: string
+                                                      enum:
+                                                        - weeks
+                                                        - days
+                                                        - hours
+                                                        - minutes
+                                                    value:
+                                                      type: number
+                                                      exclusiveMinimum: 0
+                                                  required:
+                                                    - unit
+                                                    - value
+                                                  additionalProperties: false
+                                                - type: 'null'
+                                          required:
+                                            - name
+                                            - factTableId
+                                            - rowFilters
+                                            - optional
+                                          additionalProperties: false
+                                      ordering:
+                                        type: string
+                                        enum:
+                                          - sequential
+                                          - strict
+                                          - unordered
+                                      concurrencyWindowSeconds:
+                                        type: integer
+                                        minimum: 0
+                                      sessionBased:
+                                        type: boolean
+                                    required:
+                                      - steps
+                                    additionalProperties: false
+                                  - type: 'null'
+                            required:
+                              - owner
+                              - datasource
+                              - name
+                              - description
+                              - tags
+                              - projects
+                              - inverse
+                              - metricType
+                              - numerator
+                              - denominator
+                              - cappingSettings
+                              - windowSettings
+                              - priorSettings
+                              - maxPercentChange
+                              - minPercentChange
+                              - minSampleSize
+                              - winRisk
+                              - loseRisk
+                              - regressionAdjustmentOverride
+                              - regressionAdjustmentEnabled
+                              - regressionAdjustmentDays
+                              - quantileSettings
+                              - funnelSettings
+                            additionalProperties: false
                           unit:
                             anyOf:
                               - type: string
@@ -49919,6 +51543,412 @@ paths:
                                           const: metric
                                         metricId:
                                           type: string
+                                        draftMetric:
+                                          type: object
+                                          properties:
+                                            managedBy:
+                                              type: string
+                                              enum:
+                                                - ''
+                                                - api
+                                                - admin
+                                            owner:
+                                              description: >-
+                                                The userId of the owner (or raw owner
+                                                name/email for legacy records)
+                                              type: string
+                                            datasource:
+                                              type: string
+                                            name:
+                                              type: string
+                                            description:
+                                              type: string
+                                              maxLength: 10000
+                                            tags:
+                                              type: array
+                                              items:
+                                                type: string
+                                            projects:
+                                              type: array
+                                              items:
+                                                type: string
+                                            inverse:
+                                              type: boolean
+                                            archived:
+                                              type: boolean
+                                            replaces:
+                                              type: array
+                                              items:
+                                                type: string
+                                            metricType:
+                                              type: string
+                                              enum:
+                                                - ratio
+                                                - mean
+                                                - proportion
+                                                - retention
+                                                - quantile
+                                                - dailyParticipation
+                                                - funnel
+                                            numerator:
+                                              anyOf:
+                                                - type: object
+                                                  properties:
+                                                    factTableId:
+                                                      type: string
+                                                    column:
+                                                      type: string
+                                                    aggregation:
+                                                      type: string
+                                                      enum:
+                                                        - sum
+                                                        - max
+                                                        - count distinct
+                                                        - hll merge
+                                                        - kll merge
+                                                    rowFilters:
+                                                      type: array
+                                                      items:
+                                                        type: object
+                                                        properties:
+                                                          operator:
+                                                            type: string
+                                                            enum:
+                                                              - '='
+                                                              - '!='
+                                                              - <
+                                                              - <=
+                                                              - '>'
+                                                              - '>='
+                                                              - between
+                                                              - not_between
+                                                              - in
+                                                              - not_in
+                                                              - contains
+                                                              - not_contains
+                                                              - starts_with
+                                                              - ends_with
+                                                              - is_null
+                                                              - not_null
+                                                              - is_true
+                                                              - is_false
+                                                              - sql_expr
+                                                              - saved_filter
+                                                          column:
+                                                            type: string
+                                                          values:
+                                                            type: array
+                                                            items:
+                                                              type: string
+                                                        required:
+                                                          - operator
+                                                        additionalProperties: false
+                                                    aggregateFilter:
+                                                      type: string
+                                                    aggregateFilterColumn:
+                                                      type: string
+                                                  required:
+                                                    - factTableId
+                                                    - column
+                                                  additionalProperties: false
+                                                - type: 'null'
+                                            denominator:
+                                              anyOf:
+                                                - type: object
+                                                  properties:
+                                                    factTableId:
+                                                      type: string
+                                                    column:
+                                                      type: string
+                                                    aggregation:
+                                                      type: string
+                                                      enum:
+                                                        - sum
+                                                        - max
+                                                        - count distinct
+                                                        - hll merge
+                                                        - kll merge
+                                                    rowFilters:
+                                                      type: array
+                                                      items:
+                                                        type: object
+                                                        properties:
+                                                          operator:
+                                                            type: string
+                                                            enum:
+                                                              - '='
+                                                              - '!='
+                                                              - <
+                                                              - <=
+                                                              - '>'
+                                                              - '>='
+                                                              - between
+                                                              - not_between
+                                                              - in
+                                                              - not_in
+                                                              - contains
+                                                              - not_contains
+                                                              - starts_with
+                                                              - ends_with
+                                                              - is_null
+                                                              - not_null
+                                                              - is_true
+                                                              - is_false
+                                                              - sql_expr
+                                                              - saved_filter
+                                                          column:
+                                                            type: string
+                                                          values:
+                                                            type: array
+                                                            items:
+                                                              type: string
+                                                        required:
+                                                          - operator
+                                                        additionalProperties: false
+                                                    aggregateFilter:
+                                                      type: string
+                                                    aggregateFilterColumn:
+                                                      type: string
+                                                  required:
+                                                    - factTableId
+                                                    - column
+                                                  additionalProperties: false
+                                                - type: 'null'
+                                            cappingSettings:
+                                              type: object
+                                              properties:
+                                                type:
+                                                  type: string
+                                                  enum:
+                                                    - absolute
+                                                    - percentile
+                                                    - ''
+                                                value:
+                                                  type: number
+                                                ignoreZeros:
+                                                  anyOf:
+                                                    - type: boolean
+                                                    - type: 'null'
+                                              required:
+                                                - type
+                                                - value
+                                              additionalProperties: false
+                                            windowSettings:
+                                              type: object
+                                              properties:
+                                                type:
+                                                  type: string
+                                                  enum:
+                                                    - conversion
+                                                    - lookback
+                                                    - ''
+                                                delayValue:
+                                                  type: number
+                                                delayUnit:
+                                                  type: string
+                                                  enum:
+                                                    - weeks
+                                                    - days
+                                                    - hours
+                                                    - minutes
+                                                windowValue:
+                                                  type: number
+                                                windowUnit:
+                                                  type: string
+                                                  enum:
+                                                    - weeks
+                                                    - days
+                                                    - hours
+                                                    - minutes
+                                              required:
+                                                - type
+                                                - delayValue
+                                                - delayUnit
+                                                - windowValue
+                                                - windowUnit
+                                              additionalProperties: false
+                                            priorSettings:
+                                              type: object
+                                              properties:
+                                                override:
+                                                  type: boolean
+                                                proper:
+                                                  type: boolean
+                                                mean:
+                                                  type: number
+                                                stddev:
+                                                  type: number
+                                                  exclusiveMinimum: 0
+                                              required:
+                                                - override
+                                                - proper
+                                                - mean
+                                                - stddev
+                                              additionalProperties: false
+                                            maxPercentChange:
+                                              type: number
+                                            minPercentChange:
+                                              type: number
+                                            minSampleSize:
+                                              type: number
+                                            targetMDE:
+                                              type: number
+                                            displayAsPercentage:
+                                              type: boolean
+                                            winRisk:
+                                              type: number
+                                            loseRisk:
+                                              type: number
+                                            regressionAdjustmentOverride:
+                                              type: boolean
+                                            regressionAdjustmentEnabled:
+                                              type: boolean
+                                            regressionAdjustmentDays:
+                                              type: number
+                                            metricAutoSlices:
+                                              type: array
+                                              items:
+                                                type: string
+                                            quantileSettings:
+                                              anyOf:
+                                                - type: object
+                                                  properties:
+                                                    quantile:
+                                                      type: number
+                                                    type:
+                                                      type: string
+                                                      enum:
+                                                        - unit
+                                                        - event
+                                                    ignoreZeros:
+                                                      type: boolean
+                                                    quantileEventCountColumn:
+                                                      type: string
+                                                  required:
+                                                    - quantile
+                                                    - type
+                                                    - ignoreZeros
+                                                  additionalProperties: false
+                                                - type: 'null'
+                                            funnelSettings:
+                                              anyOf:
+                                                - type: object
+                                                  properties:
+                                                    steps:
+                                                      minItems: 2
+                                                      maxItems: 20
+                                                      type: array
+                                                      items:
+                                                        type: object
+                                                        properties:
+                                                          name:
+                                                            type: string
+                                                          factTableId:
+                                                            type: string
+                                                          rowFilters:
+                                                            type: array
+                                                            items:
+                                                              type: object
+                                                              properties:
+                                                                operator:
+                                                                  type: string
+                                                                  enum:
+                                                                    - '='
+                                                                    - '!='
+                                                                    - <
+                                                                    - <=
+                                                                    - '>'
+                                                                    - '>='
+                                                                    - between
+                                                                    - not_between
+                                                                    - in
+                                                                    - not_in
+                                                                    - contains
+                                                                    - not_contains
+                                                                    - starts_with
+                                                                    - ends_with
+                                                                    - is_null
+                                                                    - not_null
+                                                                    - is_true
+                                                                    - is_false
+                                                                    - sql_expr
+                                                                    - saved_filter
+                                                                column:
+                                                                  type: string
+                                                                values:
+                                                                  type: array
+                                                                  items:
+                                                                    type: string
+                                                              required:
+                                                                - operator
+                                                              additionalProperties: false
+                                                          optional:
+                                                            type: boolean
+                                                          conversionWindow:
+                                                            anyOf:
+                                                              - type: object
+                                                                properties:
+                                                                  unit:
+                                                                    type: string
+                                                                    enum:
+                                                                      - weeks
+                                                                      - days
+                                                                      - hours
+                                                                      - minutes
+                                                                  value:
+                                                                    type: number
+                                                                    exclusiveMinimum: 0
+                                                                required:
+                                                                  - unit
+                                                                  - value
+                                                                additionalProperties: false
+                                                              - type: 'null'
+                                                        required:
+                                                          - name
+                                                          - factTableId
+                                                          - rowFilters
+                                                          - optional
+                                                        additionalProperties: false
+                                                    ordering:
+                                                      type: string
+                                                      enum:
+                                                        - sequential
+                                                        - strict
+                                                        - unordered
+                                                    concurrencyWindowSeconds:
+                                                      type: integer
+                                                      minimum: 0
+                                                    sessionBased:
+                                                      type: boolean
+                                                  required:
+                                                    - steps
+                                                  additionalProperties: false
+                                                - type: 'null'
+                                          required:
+                                            - owner
+                                            - datasource
+                                            - name
+                                            - description
+                                            - tags
+                                            - projects
+                                            - inverse
+                                            - metricType
+                                            - numerator
+                                            - denominator
+                                            - cappingSettings
+                                            - windowSettings
+                                            - priorSettings
+                                            - maxPercentChange
+                                            - minPercentChange
+                                            - minSampleSize
+                                            - winRisk
+                                            - loseRisk
+                                            - regressionAdjustmentOverride
+                                            - regressionAdjustmentEnabled
+                                            - regressionAdjustmentDays
+                                            - quantileSettings
+                                            - funnelSettings
+                                          additionalProperties: false
                                         unit:
                                           anyOf:
                                             - type: string
@@ -69301,6 +71331,412 @@ components:
                                   const: metric
                                 metricId:
                                   type: string
+                                draftMetric:
+                                  type: object
+                                  properties:
+                                    managedBy:
+                                      type: string
+                                      enum:
+                                        - ''
+                                        - api
+                                        - admin
+                                    owner:
+                                      description: >-
+                                        The userId of the owner (or raw owner
+                                        name/email for legacy records)
+                                      type: string
+                                    datasource:
+                                      type: string
+                                    name:
+                                      type: string
+                                    description:
+                                      type: string
+                                      maxLength: 10000
+                                    tags:
+                                      type: array
+                                      items:
+                                        type: string
+                                    projects:
+                                      type: array
+                                      items:
+                                        type: string
+                                    inverse:
+                                      type: boolean
+                                    archived:
+                                      type: boolean
+                                    replaces:
+                                      type: array
+                                      items:
+                                        type: string
+                                    metricType:
+                                      type: string
+                                      enum:
+                                        - ratio
+                                        - mean
+                                        - proportion
+                                        - retention
+                                        - quantile
+                                        - dailyParticipation
+                                        - funnel
+                                    numerator:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            factTableId:
+                                              type: string
+                                            column:
+                                              type: string
+                                            aggregation:
+                                              type: string
+                                              enum:
+                                                - sum
+                                                - max
+                                                - count distinct
+                                                - hll merge
+                                                - kll merge
+                                            rowFilters:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  operator:
+                                                    type: string
+                                                    enum:
+                                                      - '='
+                                                      - '!='
+                                                      - <
+                                                      - <=
+                                                      - '>'
+                                                      - '>='
+                                                      - between
+                                                      - not_between
+                                                      - in
+                                                      - not_in
+                                                      - contains
+                                                      - not_contains
+                                                      - starts_with
+                                                      - ends_with
+                                                      - is_null
+                                                      - not_null
+                                                      - is_true
+                                                      - is_false
+                                                      - sql_expr
+                                                      - saved_filter
+                                                  column:
+                                                    type: string
+                                                  values:
+                                                    type: array
+                                                    items:
+                                                      type: string
+                                                required:
+                                                  - operator
+                                                additionalProperties: false
+                                            aggregateFilter:
+                                              type: string
+                                            aggregateFilterColumn:
+                                              type: string
+                                          required:
+                                            - factTableId
+                                            - column
+                                          additionalProperties: false
+                                        - type: 'null'
+                                    denominator:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            factTableId:
+                                              type: string
+                                            column:
+                                              type: string
+                                            aggregation:
+                                              type: string
+                                              enum:
+                                                - sum
+                                                - max
+                                                - count distinct
+                                                - hll merge
+                                                - kll merge
+                                            rowFilters:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  operator:
+                                                    type: string
+                                                    enum:
+                                                      - '='
+                                                      - '!='
+                                                      - <
+                                                      - <=
+                                                      - '>'
+                                                      - '>='
+                                                      - between
+                                                      - not_between
+                                                      - in
+                                                      - not_in
+                                                      - contains
+                                                      - not_contains
+                                                      - starts_with
+                                                      - ends_with
+                                                      - is_null
+                                                      - not_null
+                                                      - is_true
+                                                      - is_false
+                                                      - sql_expr
+                                                      - saved_filter
+                                                  column:
+                                                    type: string
+                                                  values:
+                                                    type: array
+                                                    items:
+                                                      type: string
+                                                required:
+                                                  - operator
+                                                additionalProperties: false
+                                            aggregateFilter:
+                                              type: string
+                                            aggregateFilterColumn:
+                                              type: string
+                                          required:
+                                            - factTableId
+                                            - column
+                                          additionalProperties: false
+                                        - type: 'null'
+                                    cappingSettings:
+                                      type: object
+                                      properties:
+                                        type:
+                                          type: string
+                                          enum:
+                                            - absolute
+                                            - percentile
+                                            - ''
+                                        value:
+                                          type: number
+                                        ignoreZeros:
+                                          anyOf:
+                                            - type: boolean
+                                            - type: 'null'
+                                      required:
+                                        - type
+                                        - value
+                                      additionalProperties: false
+                                    windowSettings:
+                                      type: object
+                                      properties:
+                                        type:
+                                          type: string
+                                          enum:
+                                            - conversion
+                                            - lookback
+                                            - ''
+                                        delayValue:
+                                          type: number
+                                        delayUnit:
+                                          type: string
+                                          enum:
+                                            - weeks
+                                            - days
+                                            - hours
+                                            - minutes
+                                        windowValue:
+                                          type: number
+                                        windowUnit:
+                                          type: string
+                                          enum:
+                                            - weeks
+                                            - days
+                                            - hours
+                                            - minutes
+                                      required:
+                                        - type
+                                        - delayValue
+                                        - delayUnit
+                                        - windowValue
+                                        - windowUnit
+                                      additionalProperties: false
+                                    priorSettings:
+                                      type: object
+                                      properties:
+                                        override:
+                                          type: boolean
+                                        proper:
+                                          type: boolean
+                                        mean:
+                                          type: number
+                                        stddev:
+                                          type: number
+                                          exclusiveMinimum: 0
+                                      required:
+                                        - override
+                                        - proper
+                                        - mean
+                                        - stddev
+                                      additionalProperties: false
+                                    maxPercentChange:
+                                      type: number
+                                    minPercentChange:
+                                      type: number
+                                    minSampleSize:
+                                      type: number
+                                    targetMDE:
+                                      type: number
+                                    displayAsPercentage:
+                                      type: boolean
+                                    winRisk:
+                                      type: number
+                                    loseRisk:
+                                      type: number
+                                    regressionAdjustmentOverride:
+                                      type: boolean
+                                    regressionAdjustmentEnabled:
+                                      type: boolean
+                                    regressionAdjustmentDays:
+                                      type: number
+                                    metricAutoSlices:
+                                      type: array
+                                      items:
+                                        type: string
+                                    quantileSettings:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            quantile:
+                                              type: number
+                                            type:
+                                              type: string
+                                              enum:
+                                                - unit
+                                                - event
+                                            ignoreZeros:
+                                              type: boolean
+                                            quantileEventCountColumn:
+                                              type: string
+                                          required:
+                                            - quantile
+                                            - type
+                                            - ignoreZeros
+                                          additionalProperties: false
+                                        - type: 'null'
+                                    funnelSettings:
+                                      anyOf:
+                                        - type: object
+                                          properties:
+                                            steps:
+                                              minItems: 2
+                                              maxItems: 20
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  name:
+                                                    type: string
+                                                  factTableId:
+                                                    type: string
+                                                  rowFilters:
+                                                    type: array
+                                                    items:
+                                                      type: object
+                                                      properties:
+                                                        operator:
+                                                          type: string
+                                                          enum:
+                                                            - '='
+                                                            - '!='
+                                                            - <
+                                                            - <=
+                                                            - '>'
+                                                            - '>='
+                                                            - between
+                                                            - not_between
+                                                            - in
+                                                            - not_in
+                                                            - contains
+                                                            - not_contains
+                                                            - starts_with
+                                                            - ends_with
+                                                            - is_null
+                                                            - not_null
+                                                            - is_true
+                                                            - is_false
+                                                            - sql_expr
+                                                            - saved_filter
+                                                        column:
+                                                          type: string
+                                                        values:
+                                                          type: array
+                                                          items:
+                                                            type: string
+                                                      required:
+                                                        - operator
+                                                      additionalProperties: false
+                                                  optional:
+                                                    type: boolean
+                                                  conversionWindow:
+                                                    anyOf:
+                                                      - type: object
+                                                        properties:
+                                                          unit:
+                                                            type: string
+                                                            enum:
+                                                              - weeks
+                                                              - days
+                                                              - hours
+                                                              - minutes
+                                                          value:
+                                                            type: number
+                                                            exclusiveMinimum: 0
+                                                        required:
+                                                          - unit
+                                                          - value
+                                                        additionalProperties: false
+                                                      - type: 'null'
+                                                required:
+                                                  - name
+                                                  - factTableId
+                                                  - rowFilters
+                                                  - optional
+                                                additionalProperties: false
+                                            ordering:
+                                              type: string
+                                              enum:
+                                                - sequential
+                                                - strict
+                                                - unordered
+                                            concurrencyWindowSeconds:
+                                              type: integer
+                                              minimum: 0
+                                            sessionBased:
+                                              type: boolean
+                                          required:
+                                            - steps
+                                          additionalProperties: false
+                                        - type: 'null'
+                                  required:
+                                    - owner
+                                    - datasource
+                                    - name
+                                    - description
+                                    - tags
+                                    - projects
+                                    - inverse
+                                    - metricType
+                                    - numerator
+                                    - denominator
+                                    - cappingSettings
+                                    - windowSettings
+                                    - priorSettings
+                                    - maxPercentChange
+                                    - minPercentChange
+                                    - minSampleSize
+                                    - winRisk
+                                    - loseRisk
+                                    - regressionAdjustmentOverride
+                                    - regressionAdjustmentEnabled
+                                    - regressionAdjustmentDays
+                                    - quantileSettings
+                                    - funnelSettings
+                                  additionalProperties: false
                                 unit:
                                   anyOf:
                                     - type: string
@@ -72034,6 +74470,412 @@ components:
                             const: metric
                           metricId:
                             type: string
+                          draftMetric:
+                            type: object
+                            properties:
+                              managedBy:
+                                type: string
+                                enum:
+                                  - ''
+                                  - api
+                                  - admin
+                              owner:
+                                description: >-
+                                  The userId of the owner (or raw owner
+                                  name/email for legacy records)
+                                type: string
+                              datasource:
+                                type: string
+                              name:
+                                type: string
+                              description:
+                                type: string
+                                maxLength: 10000
+                              tags:
+                                type: array
+                                items:
+                                  type: string
+                              projects:
+                                type: array
+                                items:
+                                  type: string
+                              inverse:
+                                type: boolean
+                              archived:
+                                type: boolean
+                              replaces:
+                                type: array
+                                items:
+                                  type: string
+                              metricType:
+                                type: string
+                                enum:
+                                  - ratio
+                                  - mean
+                                  - proportion
+                                  - retention
+                                  - quantile
+                                  - dailyParticipation
+                                  - funnel
+                              numerator:
+                                anyOf:
+                                  - type: object
+                                    properties:
+                                      factTableId:
+                                        type: string
+                                      column:
+                                        type: string
+                                      aggregation:
+                                        type: string
+                                        enum:
+                                          - sum
+                                          - max
+                                          - count distinct
+                                          - hll merge
+                                          - kll merge
+                                      rowFilters:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            operator:
+                                              type: string
+                                              enum:
+                                                - '='
+                                                - '!='
+                                                - <
+                                                - <=
+                                                - '>'
+                                                - '>='
+                                                - between
+                                                - not_between
+                                                - in
+                                                - not_in
+                                                - contains
+                                                - not_contains
+                                                - starts_with
+                                                - ends_with
+                                                - is_null
+                                                - not_null
+                                                - is_true
+                                                - is_false
+                                                - sql_expr
+                                                - saved_filter
+                                            column:
+                                              type: string
+                                            values:
+                                              type: array
+                                              items:
+                                                type: string
+                                          required:
+                                            - operator
+                                          additionalProperties: false
+                                      aggregateFilter:
+                                        type: string
+                                      aggregateFilterColumn:
+                                        type: string
+                                    required:
+                                      - factTableId
+                                      - column
+                                    additionalProperties: false
+                                  - type: 'null'
+                              denominator:
+                                anyOf:
+                                  - type: object
+                                    properties:
+                                      factTableId:
+                                        type: string
+                                      column:
+                                        type: string
+                                      aggregation:
+                                        type: string
+                                        enum:
+                                          - sum
+                                          - max
+                                          - count distinct
+                                          - hll merge
+                                          - kll merge
+                                      rowFilters:
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            operator:
+                                              type: string
+                                              enum:
+                                                - '='
+                                                - '!='
+                                                - <
+                                                - <=
+                                                - '>'
+                                                - '>='
+                                                - between
+                                                - not_between
+                                                - in
+                                                - not_in
+                                                - contains
+                                                - not_contains
+                                                - starts_with
+                                                - ends_with
+                                                - is_null
+                                                - not_null
+                                                - is_true
+                                                - is_false
+                                                - sql_expr
+                                                - saved_filter
+                                            column:
+                                              type: string
+                                            values:
+                                              type: array
+                                              items:
+                                                type: string
+                                          required:
+                                            - operator
+                                          additionalProperties: false
+                                      aggregateFilter:
+                                        type: string
+                                      aggregateFilterColumn:
+                                        type: string
+                                    required:
+                                      - factTableId
+                                      - column
+                                    additionalProperties: false
+                                  - type: 'null'
+                              cappingSettings:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    enum:
+                                      - absolute
+                                      - percentile
+                                      - ''
+                                  value:
+                                    type: number
+                                  ignoreZeros:
+                                    anyOf:
+                                      - type: boolean
+                                      - type: 'null'
+                                required:
+                                  - type
+                                  - value
+                                additionalProperties: false
+                              windowSettings:
+                                type: object
+                                properties:
+                                  type:
+                                    type: string
+                                    enum:
+                                      - conversion
+                                      - lookback
+                                      - ''
+                                  delayValue:
+                                    type: number
+                                  delayUnit:
+                                    type: string
+                                    enum:
+                                      - weeks
+                                      - days
+                                      - hours
+                                      - minutes
+                                  windowValue:
+                                    type: number
+                                  windowUnit:
+                                    type: string
+                                    enum:
+                                      - weeks
+                                      - days
+                                      - hours
+                                      - minutes
+                                required:
+                                  - type
+                                  - delayValue
+                                  - delayUnit
+                                  - windowValue
+                                  - windowUnit
+                                additionalProperties: false
+                              priorSettings:
+                                type: object
+                                properties:
+                                  override:
+                                    type: boolean
+                                  proper:
+                                    type: boolean
+                                  mean:
+                                    type: number
+                                  stddev:
+                                    type: number
+                                    exclusiveMinimum: 0
+                                required:
+                                  - override
+                                  - proper
+                                  - mean
+                                  - stddev
+                                additionalProperties: false
+                              maxPercentChange:
+                                type: number
+                              minPercentChange:
+                                type: number
+                              minSampleSize:
+                                type: number
+                              targetMDE:
+                                type: number
+                              displayAsPercentage:
+                                type: boolean
+                              winRisk:
+                                type: number
+                              loseRisk:
+                                type: number
+                              regressionAdjustmentOverride:
+                                type: boolean
+                              regressionAdjustmentEnabled:
+                                type: boolean
+                              regressionAdjustmentDays:
+                                type: number
+                              metricAutoSlices:
+                                type: array
+                                items:
+                                  type: string
+                              quantileSettings:
+                                anyOf:
+                                  - type: object
+                                    properties:
+                                      quantile:
+                                        type: number
+                                      type:
+                                        type: string
+                                        enum:
+                                          - unit
+                                          - event
+                                      ignoreZeros:
+                                        type: boolean
+                                      quantileEventCountColumn:
+                                        type: string
+                                    required:
+                                      - quantile
+                                      - type
+                                      - ignoreZeros
+                                    additionalProperties: false
+                                  - type: 'null'
+                              funnelSettings:
+                                anyOf:
+                                  - type: object
+                                    properties:
+                                      steps:
+                                        minItems: 2
+                                        maxItems: 20
+                                        type: array
+                                        items:
+                                          type: object
+                                          properties:
+                                            name:
+                                              type: string
+                                            factTableId:
+                                              type: string
+                                            rowFilters:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  operator:
+                                                    type: string
+                                                    enum:
+                                                      - '='
+                                                      - '!='
+                                                      - <
+                                                      - <=
+                                                      - '>'
+                                                      - '>='
+                                                      - between
+                                                      - not_between
+                                                      - in
+                                                      - not_in
+                                                      - contains
+                                                      - not_contains
+                                                      - starts_with
+                                                      - ends_with
+                                                      - is_null
+                                                      - not_null
+                                                      - is_true
+                                                      - is_false
+                                                      - sql_expr
+                                                      - saved_filter
+                                                  column:
+                                                    type: string
+                                                  values:
+                                                    type: array
+                                                    items:
+                                                      type: string
+                                                required:
+                                                  - operator
+                                                additionalProperties: false
+                                            optional:
+                                              type: boolean
+                                            conversionWindow:
+                                              anyOf:
+                                                - type: object
+                                                  properties:
+                                                    unit:
+                                                      type: string
+                                                      enum:
+                                                        - weeks
+                                                        - days
+                                                        - hours
+                                                        - minutes
+                                                    value:
+                                                      type: number
+                                                      exclusiveMinimum: 0
+                                                  required:
+                                                    - unit
+                                                    - value
+                                                  additionalProperties: false
+                                                - type: 'null'
+                                          required:
+                                            - name
+                                            - factTableId
+                                            - rowFilters
+                                            - optional
+                                          additionalProperties: false
+                                      ordering:
+                                        type: string
+                                        enum:
+                                          - sequential
+                                          - strict
+                                          - unordered
+                                      concurrencyWindowSeconds:
+                                        type: integer
+                                        minimum: 0
+                                      sessionBased:
+                                        type: boolean
+                                    required:
+                                      - steps
+                                    additionalProperties: false
+                                  - type: 'null'
+                            required:
+                              - owner
+                              - datasource
+                              - name
+                              - description
+                              - tags
+                              - projects
+                              - inverse
+                              - metricType
+                              - numerator
+                              - denominator
+                              - cappingSettings
+                              - windowSettings
+                              - priorSettings
+                              - maxPercentChange
+                              - minPercentChange
+                              - minSampleSize
+                              - winRisk
+                              - loseRisk
+                              - regressionAdjustmentOverride
+                              - regressionAdjustmentEnabled
+                              - regressionAdjustmentDays
+                              - quantileSettings
+                              - funnelSettings
+                            additionalProperties: false
                           unit:
                             anyOf:
                               - type: string
