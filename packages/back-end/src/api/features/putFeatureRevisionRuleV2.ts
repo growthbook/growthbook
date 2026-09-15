@@ -1,6 +1,6 @@
 import isEqual from "lodash/isEqual";
 import {
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
   isScheduledRule,
@@ -281,7 +281,11 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       validateRuleAttributes(
         changedAttributes,
         req.context,
-        getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+        getRuleAttributeScopeProjectIds(
+          feature,
+          revision.metadata,
+          updatedRule,
+        ) ?? undefined,
       );
     }
     if (

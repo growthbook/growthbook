@@ -140,4 +140,34 @@ describe("changesRampPlan", () => {
       true,
     );
   });
+
+  it("against a stored plan, counts only fields that differ from it", () => {
+    const stored = {
+      steps: [
+        { interval: 3600, actions: [{ coverage: 0.5 }], status: "pending" },
+      ],
+      startActions: [],
+      endActions: [],
+      startDate: null,
+      cutoffDate: new Date("2030-01-01T00:00:00.000Z"),
+    } as never;
+    // The GET shape echoed back: dates as ISO or null, steps projected.
+    const echo = {
+      steps: [
+        { interval: 3600, actions: [{ coverage: 0.5 }], monitored: false },
+      ],
+      startActions: [],
+      endActions: [],
+      startDate: null,
+      cutoffDate: "2030-01-01T00:00:00.000Z",
+    };
+    expect(changesRampPlan(echo, stored)).toBe(false);
+    expect(
+      changesRampPlan(
+        { ...echo, steps: [{ interval: 60, actions: [] }] },
+        stored,
+      ),
+    ).toBe(true);
+    expect(changesRampPlan({ ...echo, cutoffDate: null }, stored)).toBe(true);
+  });
 });
