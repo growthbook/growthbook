@@ -219,7 +219,7 @@ export const putRampSchedule = async (
           `Cannot update: schedule changed to "${fresh.status}" while the request was in flight`,
         );
       }
-      if (fresh.targets.length && changesRampPlan(body)) {
+      if (fresh.targets.length && changesRampPlan(body, fresh)) {
         await assertRampScheduleReplanAllowed(context, fresh);
       }
       const updates: Record<string, unknown> = {};

@@ -1,6 +1,6 @@
 import isEqual from "lodash/isEqual";
 import {
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   ruleAppliesToEnv,
   isScheduledRule,
 } from "shared/util";
@@ -345,7 +345,11 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       validateRuleAttributes(
         changedAttributes,
         req.context,
-        getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+        getRuleAttributeScopeProjectIds(
+          feature,
+          revision.metadata,
+          updatedRule,
+        ) ?? undefined,
       );
     }
     if (patch.condition !== undefined || patch.savedGroups !== undefined) {
