@@ -193,35 +193,14 @@ describe("moving an entity across Projects over REST", () => {
 
     expect(res.status).toBe(200);
   });
-});
 
-describe("updating a project-scoped Saved Group over REST", () => {
-  const { app, setReqContext } = setupApp();
-
-  function as(userId: string, role: string) {
-    setReqContext(
-      new ReqContextClass({
-        org,
-        auditUser: { type: "api_key", apiKey: `k_${userId}` },
-        user: {
-          id: userId,
-          email: `${userId}@test.com`,
-          name: userId,
-          superAdmin: false,
-        },
-        role,
-        req: { query: {}, headers: {}, body: {} } as unknown as Request,
-      }),
-    );
-  }
-
-  const update = (id: string, body: Record<string, unknown>) =>
+  const updateGroup = (id: string, body: Record<string, unknown>) =>
     request(app)
       .post(`/api/v1/saved-groups/${id}`)
       .send(body)
       .set("Authorization", "Bearer x");
 
-  let seq = 0;
+  let groupSeq = 0;
   async function seedGroup(): Promise<string> {
     await mongoose.connection.collection("projects").insertMany(
       [SRC, DST].map((id) => ({
@@ -236,7 +215,7 @@ describe("updating a project-scoped Saved Group over REST", () => {
     const res = await request(app)
       .post("/api/v1/saved-groups")
       .send({
-        name: `moved_group_${++seq}`,
+        name: `moved_group_${++groupSeq}`,
         values: ["u1"],
         attributeKey: "userId",
         owner: "",
@@ -249,22 +228,22 @@ describe("updating a project-scoped Saved Group over REST", () => {
     return res.body.savedGroup.id as string;
   }
 
-  it("lets a project-level editor change values without sending projects", async () => {
+  it("lets a project-level editor change saved-group values without sending projects", async () => {
     const id = await seedGroup();
 
     as("u_split", "draft_reverter");
-    const res = await update(id, { values: ["u1", "u2"] });
+    const res = await updateGroup(id, { values: ["u1", "u2"] });
 
     expect(res.status).toBe(200);
     expect(res.body.savedGroup.projects).toEqual([SRC]);
     expect(res.body.savedGroup.values).toEqual(["u1", "u2"]);
   });
 
-  it("still moves projects when they are explicitly provided", async () => {
+  it("still moves saved-group projects when they are explicitly provided", async () => {
     const id = await seedGroup();
 
     as("u_both", "draft_reverter");
-    const res = await update(id, { projects: [DST] });
+    const res = await updateGroup(id, { projects: [DST] });
 
     expect(res.status).toBe(200);
     expect(res.body.savedGroup.projects).toEqual([DST]);
