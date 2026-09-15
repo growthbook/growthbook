@@ -50,6 +50,7 @@ server.on("request", (req, res) => {
 
 server.on("clientError", (err, socket) => {
   const code = (err as NodeJS.ErrnoException).code;
+  const bytesWritten = socket instanceof Socket ? socket.bytesWritten : 0;
   logger.warn(
     {
       err,
@@ -59,8 +60,9 @@ server.on("clientError", (err, socket) => {
     },
     "Client error before request was handled",
   );
-  // Registering this listener suppresses Node's default response, so mirror it.
-  if (code === "ECONNRESET" || !socket.writable) return;
+  // Registering this listener suppresses Node's default response, so mirror it:
+  // it replies only on an untouched socket, and uses 431 for oversized headers.
+  if (code === "ECONNRESET" || !socket.writable || bytesWritten > 0) return;
   if (code === "HPE_HEADER_OVERFLOW") {
     socket.end("HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n");
     return;
