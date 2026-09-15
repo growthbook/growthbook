@@ -4,7 +4,7 @@ import {
   RampStartState,
   putFeatureRevisionRuleRampScheduleValidator,
 } from "shared/validators";
-import { getApplicableEnvIds, resetReviewOnChange } from "shared/util";
+import { getApplicableEnvIds } from "shared/util";
 import { resolveRampStartState } from "back-end/src/services/rampSchedule";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
@@ -157,7 +157,7 @@ export async function setRuleRampSchedule(
       : action;
     const newRampActions = [...filtered, revisionAction];
 
-    // `changedEnvironments` drives per-env review reset and audit env fanout.
+    // `changedEnvironments` drives the audit env fanout.
     // When the caller didn't specify an env, use the resolved rule's full env
     // footprint — semantically the ramp affects every env the rule covers.
     const orgEnvs = getEnvironments(organization);
@@ -177,12 +177,6 @@ export async function setRuleRampSchedule(
         subject: canonicalRuleId,
         value: JSON.stringify(revisionAction),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments,
-        defaultValueChanged: false,
-        settings: organization.settings,
-      }),
     );
 
     const updated = await getRevision({

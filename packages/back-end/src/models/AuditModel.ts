@@ -39,6 +39,24 @@ const auditSchema = new mongoose.Schema({
   dateCreated: Date,
 });
 
+// History queries otherwise scan the org's entire audit log and sort in memory.
+auditSchema.index({
+  organization: 1,
+  "entity.object": 1,
+  "entity.id": 1,
+  dateCreated: -1,
+});
+auditSchema.index({
+  organization: 1,
+  "parent.object": 1,
+  "parent.id": 1,
+  dateCreated: -1,
+});
+auditSchema.index({ organization: 1, "user.id": 1, dateCreated: -1 });
+// Activity page filters by type alone, so the indexes above can't sort it.
+auditSchema.index({ organization: 1, "entity.object": 1, dateCreated: -1 });
+auditSchema.index({ organization: 1, "parent.object": 1, dateCreated: -1 });
+
 type AuditDocument = mongoose.Document & AuditInterface;
 
 const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);

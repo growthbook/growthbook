@@ -14,6 +14,9 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentMapForFeature: jest.fn(),
 }));
 
+jest.mock("back-end/src/services/moveDependentsGuard", () => ({
+  assertFeatureMoveDependentsGuard: jest.fn(),
+}));
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
   getSavedGroupMap: jest.fn(),

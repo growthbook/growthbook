@@ -246,7 +246,9 @@ async function getArmedPublishContext(
   const enablerId = resolveArmedPublishUserId(revision, null);
   if (!enablerId) return null;
   try {
-    return await getContextForUserIdInOrg(context.org, enablerId);
+    return await getContextForUserIdInOrg(context.org, enablerId, {
+      applyProjectRestrictions: false,
+    });
   } catch {
     return null;
   }

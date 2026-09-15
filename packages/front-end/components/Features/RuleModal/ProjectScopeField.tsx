@@ -57,6 +57,7 @@ export default function RuleProjectScopeField({
           <Link
             type="button"
             className="hover-underline"
+            weight="medium"
             onClick={() => setEnabled(true)}
           >
             <PiPlusBold className="mr-1" />
@@ -68,7 +69,7 @@ export default function RuleProjectScopeField({
         </Box>
       ) : (
         <>
-          <Flex align="center" gap="1" mb="3">
+          <Flex align="center" mb="3">
             <label className="mb-0" style={{ fontWeight: 600 }}>
               Rule Projects
             </label>

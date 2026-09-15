@@ -14,6 +14,7 @@ if [ -n "$apichanged" ]; then
     exit 1
   fi
   git add packages/back-end/generated/spec.yaml
+  git add -A docs/openapi.yaml docs/api docs/docs.json
 fi
 
 eslintconfigchanged=$(has_changes "eslint.config.mjs")

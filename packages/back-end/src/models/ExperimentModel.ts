@@ -34,6 +34,10 @@ import {
 } from "back-end/src/services/experiments";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
+import {
+  experimentAllocatesTrafficInNamespace,
+  NamespaceUsageExperiment,
+} from "back-end/src/util/namespaces";
 import { validateMetricOverrides } from "back-end/src/util/priors";
 import {
   queueSDKPayloadRefresh,
@@ -313,6 +317,7 @@ const experimentSchema = new mongoose.Schema({
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],
+  attributeScopeAllProjects: Boolean,
   pendingFeatureDrafts: [
     {
       _id: false,
@@ -563,12 +568,69 @@ export async function getAllExperiments(
   return await findExperiments(context, query, limit, sortBy);
 }
 
+// What `countActiveExperimentsUsingNamespace` reads: the projected fields
+// `experimentAllocatesTrafficInNamespace` needs, plus the ones it filters on.
+// Typed on `getCollection` so neither the filter nor the result needs a cast.
+type NamespaceUsageExperimentDoc = NamespaceUsageExperiment & {
+  organization: string;
+  type?: ExperimentType;
+};
+
+// Experiments that currently allocate traffic inside a namespace, per
+// `experimentAllocatesTrafficInNamespace` — the same definition of usage the
+// namespaces settings page lists. This is a referential-integrity check for
+// namespace deletes / re-hashing, so it is deliberately NOT filtered by the
+// caller's project read access and only projects the fields the check needs.
+//
+// Holdouts are excluded to match `getAllExperiments` (and so the settings
+// page), which defaults to `type: { $ne: "holdout" }`.
+//
+// `upgradeExperimentDoc` is skipped for the same reason as
+// `getAllExperimentsForStaleGraph`; of the fields read here only
+// `releasedVariationId` is derived by that migration, and
+// `experimentAllocatesTrafficInNamespace` mirrors its backfill, which is why
+// `results`, `winner` and `variations.id` are projected.
+export async function countActiveExperimentsUsingNamespace(
+  context: ReqContext | ApiReqContext,
+  namespaceId: string,
+): Promise<number> {
+  const docs = await getCollection<NamespaceUsageExperimentDoc>(COLLECTION)
+    .find(
+      {
+        organization: context.org.id,
+        archived: { $ne: true },
+        type: { $ne: "holdout" },
+        "phases.namespace.name": namespaceId,
+      },
+      {
+        projection: {
+          _id: 0,
+          status: 1,
+          hasVisualChangesets: 1,
+          hasURLRedirects: 1,
+          linkedFeatures: 1,
+          excludeFromPayload: 1,
+          releasedVariationId: 1,
+          results: 1,
+          winner: 1,
+          "variations.id": 1,
+          "phases.namespace": 1,
+        },
+      },
+    )
+    .toArray();
+
+  return docs.filter((e) =>
+    experimentAllocatesTrafficInNamespace(e, namespaceId),
+  ).length;
+}
+
 /**
  * Lightweight sibling of {@link getAllExperiments} for the feature
  * stale-detection and dependents graph. Projects only the fields that
  * `buildExperimentDependencyIndex`, `getDependentExperiments`,
- * `includeExperimentInPayload`, and the temp-rollout scan in
- * `getFeatureExperimentStates` read, and skips `upgradeExperimentDoc`. Of
+ * `includeExperimentInPayload`, and `getTempRolloutStaleReason` read, and
+ * skips `upgradeExperimentDoc`. Of
  * the projected fields, only `releasedVariationId` is derived by that
  * migration, so the same backfill is applied inline below. Same permission
  * filter as `getAllExperiments`.
@@ -577,6 +639,26 @@ export async function getAllExperiments(
  * `buildFeatureLookups`, but only the projected fields are populated at
  * runtime. Reach for `getAllExperiments` if you need a complete experiment.
  */
+// Which of `ids` are live experiments in the org, unfiltered by the caller's
+// read permissions. Used to tell "deleted" from "not visible to you".
+export async function getExistingExperimentIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const docs = await getCollection(COLLECTION)
+    .find(
+      {
+        organization: context.org.id,
+        id: { $in: ids },
+        archived: { $ne: true },
+      },
+      { projection: { _id: 0, id: 1 } },
+    )
+    .toArray();
+  return new Set(docs.map((d) => d.id as string));
+}
+
 export async function getAllExperimentsForStaleGraph(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
@@ -608,6 +690,11 @@ export async function getAllExperimentsForStaleGraph(
         winner: 1,
         "variations.id": 1,
         "phases.prerequisites": 1,
+        "phases.dateEnded": 1,
+        "phases.condition": 1,
+        "phases.coverage": 1,
+        "phases.savedGroups": 1,
+        "phases.namespace": 1,
       },
     })
     .toArray();
@@ -751,11 +838,13 @@ export async function createExperiment({
     nextSnapshotAttempt: nextUpdate ?? undefined,
   } satisfies Partial<ExperimentInterface> as ExperimentInterface;
 
-  await runValidateExperimentHooks({
-    context,
-    experiment: experimentToCreate,
-    original: null,
-  });
+  if (experimentToCreate.type !== "holdout") {
+    await runValidateExperimentHooks({
+      context,
+      experiment: experimentToCreate,
+      original: null,
+    });
+  }
 
   const exp = await ExperimentModel.create(experimentToCreate);
 
@@ -1918,7 +2007,8 @@ export async function getAllPayloadExperiments(
 
   return new Map(
     experiments
-      .filter((e) => includeExperimentInPayload(e))
+      // Keep drafts; getFeatureDefinition filters them per connection
+      .filter((e) => includeExperimentInPayload(e, [], { includeDrafts: true }))
       .map((e) => [e.id, e]),
   );
 }
@@ -2091,8 +2181,13 @@ export function getPayloadKeys(
   // Every org project id — only consulted for linked features that target all projects.
   allProjectIds: string[] = [],
 ): SDKPayloadKey[] {
-  // If experiment is not included in the SDK payload
-  if (!includeExperimentInPayload(experiment, linkedFeatures)) {
+  // If experiment is not included in the SDK payload. Drafts count so their
+  // edits refresh the payloads serving includeDraftExperimentRefs connections.
+  if (
+    !includeExperimentInPayload(experiment, linkedFeatures, {
+      includeDrafts: true,
+    })
+  ) {
     return [];
   }
 
@@ -2166,8 +2261,8 @@ const hasChangesForSDKPayloadRefresh = (
 ): boolean => {
   // Skip experiments that don't have linked changes
   if (
-    !includeExperimentInPayload(oldExperiment) &&
-    !includeExperimentInPayload(newExperiment)
+    !includeExperimentInPayload(oldExperiment, [], { includeDrafts: true }) &&
+    !includeExperimentInPayload(newExperiment, [], { includeDrafts: true })
   ) {
     return false;
   }

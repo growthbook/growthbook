@@ -20,6 +20,7 @@ import {
 import {
   SkillCommand,
   filterSkillItems,
+  skillDisplayName,
   type SkillItem,
 } from "@/enterprise/components/AIChat/Composer/extensions/skillCommand";
 import { metricTypeLabel } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
@@ -292,26 +293,54 @@ describe("chat composer serialization", () => {
     });
   });
 
+  describe("skillDisplayName", () => {
+    it("opens up hyphens and capitalizes only the first word", () => {
+      expect(skillDisplayName("flag-default-value")).toBe("Flag default value");
+      expect(skillDisplayName("dashboard-create")).toBe("Dashboard create");
+    });
+
+    it("leaves a single-word id alone apart from the initial capital", () => {
+      expect(skillDisplayName("dashboards")).toBe("Dashboards");
+    });
+
+    it("tolerates stray and repeated hyphens", () => {
+      expect(skillDisplayName("-flag--create-")).toBe("Flag create");
+    });
+
+    it("returns an empty string for an empty id", () => {
+      expect(skillDisplayName("")).toBe("");
+    });
+
+    it("keeps the pinned spelling of a proper noun", () => {
+      expect(skillDisplayName("growthbook-docs")).toBe("GrowthBook docs");
+    });
+  });
+
   describe("filterSkillItems", () => {
     const items: SkillItem[] = [
       {
         id: "feature-flags",
         label: "feature-flags",
-        description: "Read and modify flags",
         kind: "domain",
+        title: "Feature flags",
+        description: "Read and modify flags",
+        group: "feature-flags",
       },
       {
         id: "flag-targeting",
         label: "flag-targeting",
-        description: "Targeting rules",
         kind: "leaf",
+        title: "Flag targeting",
+        description: "Targeting rules",
         group: "feature-flags",
       },
       {
         id: "experiments",
         label: "experiments",
-        description: "Targeting an audience",
         kind: "domain",
+        title: "Experiments",
+        description: "Targeting an audience",
+        group: "experiments",
       },
     ];
 
@@ -333,18 +362,18 @@ describe("chat composer serialization", () => {
       expect(filterSkillItems(items, "", 2)).toHaveLength(2);
     });
 
-    it("lists domains before leaves when browsing, so entry points stay visible", () => {
+    it("keeps the server's order when browsing, so a group stays together", () => {
       expect(filterSkillItems(items, "").map((i) => i.id)).toEqual([
         "feature-flags",
-        "experiments",
         "flag-targeting",
+        "experiments",
       ]);
     });
 
-    it("keeps every domain visible even when the limit would cut leaves off", () => {
+    it("truncates from the end when the limit bites", () => {
       expect(filterSkillItems(items, "", 2).map((i) => i.id)).toEqual([
         "feature-flags",
-        "experiments",
+        "flag-targeting",
       ]);
     });
   });

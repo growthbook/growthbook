@@ -1,3 +1,4 @@
+import { getFactTableTimestampColumn } from "shared/experiments";
 import { format } from "shared/sql";
 import type { ColumnTopValuesParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -12,6 +13,7 @@ export function getColumnsTopValuesQuery(
     limit = 50,
     lookbackDays,
     maxValueLength,
+    searchTerm,
   }: ColumnTopValuesParams,
 ): string {
   if (columns.length === 0) {
@@ -27,6 +29,8 @@ export function getColumnsTopValuesQuery(
 
   const start = new Date();
   start.setDate(start.getDate() - lookbackDays);
+
+  const timestampColumn = getFactTableTimestampColumn(factTable);
 
   return format(
     `
@@ -44,7 +48,14 @@ __factTable AS (
   )}
 ),
 __topValues AS (
-  ${getTopValuesCTEBody(dialect, { columns, start, limit, maxValueLength })}
+  ${getTopValuesCTEBody(dialect, {
+    columns,
+    start,
+    limit,
+    maxValueLength,
+    searchTerm,
+    timestampColumn,
+  })}
 )
 SELECT column_name, value FROM __topValues
 ORDER BY column_name, count DESC
@@ -58,16 +69,34 @@ type TopValuesCTEBodyParams = {
   start: Date;
   limit: number;
   maxValueLength?: number;
+  searchTerm?: string;
+  timestampColumn: string;
 };
 
 function getTopValuesCTEBody(
   dialect: SqlDialect,
-  { columns, start, limit, maxValueLength }: TopValuesCTEBodyParams,
+  {
+    columns,
+    start,
+    limit,
+    maxValueLength,
+    searchTerm,
+    timestampColumn,
+  }: TopValuesCTEBodyParams,
 ): string {
-  const pairs = columns.map((c) => ({
-    keyLiteral: c.column.replace(/'/g, "''"),
-    valueSql: dialect.castToString(c.column),
-  }));
+  const pairs = columns.map((c) => {
+    const valueSql = dialect.castToString(c.column);
+    return {
+      keyLiteral: c.column.replace(/'/g, "''"),
+      valueSql: searchTerm
+        ? `CASE WHEN ${dialect.stringMatch(
+            `LOWER(${valueSql})`,
+            "contains",
+            searchTerm.toLowerCase(),
+          )} THEN ${valueSql} ELSE NULL END`
+        : valueSql,
+    };
+  });
 
   // When the dialect has a native approximate top-k aggregate use it
   // for better performance.
@@ -75,7 +104,7 @@ function getTopValuesCTEBody(
     return dialect.approxTopValuesCTEBody({
       pairs,
       fromTable: "__factTable",
-      whereClause: `timestamp >= ${dialect.toTimestamp(start)}`,
+      whereClause: `${timestampColumn} >= ${dialect.toTimestamp(start)}`,
       limit,
       maxValueLength,
     });
@@ -98,7 +127,7 @@ function getTopValuesCTEBody(
         SELECT ${u.keyExpr} AS column_name, ${u.valueExpr} AS value
         FROM __factTable
         ${u.fromContinuation}
-        WHERE timestamp >= ${dialect.toTimestamp(start)}
+        WHERE ${timestampColumn} >= ${dialect.toTimestamp(start)}
       ) __unpivot
       WHERE value IS NOT NULL
         ${lengthFilter}

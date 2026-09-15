@@ -79,7 +79,9 @@ interface Props {
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   open: boolean;
   cancel: () => void;
-  submit: () => void;
+  submit: (
+    blockOverride?: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  ) => void;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   stagedBlock:
     | DashboardBlockInterfaceOrData<DashboardBlockInterface>

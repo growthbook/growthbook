@@ -150,3 +150,47 @@ export function assertExposureQueriesTargetingAttributeColumnsValid(
     ),
   );
 }
+
+export function getEligibleContextualAttributes(
+  queryAttributeColumns: string[] | undefined,
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  const allowed = getAllowedTargetingAttributePropertyNames(attributeSchema);
+  return (queryAttributeColumns ?? []).filter((a) => allowed.has(a));
+}
+
+export function getEffectiveContextualAttributes(
+  selectedAttributes: string[] | undefined,
+  queryAttributeColumns: string[] | undefined,
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  const selected = new Set(selectedAttributes ?? []);
+  return getEligibleContextualAttributes(
+    queryAttributeColumns,
+    attributeSchema,
+  ).filter((a) => selected.has(a));
+}
+
+export function getDroppedContextualAttributes(
+  selectedAttributes: string[] | undefined,
+  queryAttributeColumns: string[] | undefined,
+  attributeSchema: SDKAttributeSchema | undefined,
+): string[] {
+  const eligible = new Set(
+    getEligibleContextualAttributes(queryAttributeColumns, attributeSchema),
+  );
+  return (selectedAttributes ?? []).filter((a) => !eligible.has(a));
+}
+
+export function assertContextualAttributesValid(
+  attributeSchema: SDKAttributeSchema | undefined,
+  cb: { id: string; name: string; contextualAttributes: string[] },
+): void {
+  assertExposureQueriesTargetingAttributeColumnsValid(attributeSchema, [
+    {
+      id: cb.id,
+      name: cb.name,
+      targetingAttributeColumns: cb.contextualAttributes,
+    },
+  ]);
+}

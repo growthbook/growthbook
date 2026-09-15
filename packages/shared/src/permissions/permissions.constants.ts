@@ -115,7 +115,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   // The lifecycle, one policy per action. Each bundles the three flag
   // entities, so an admin grants "may publish flags" without choosing between
-  // Features, Configs and Constants — the split exists for the checks.
+  // Features, Configs, and Constants — the split exists for the checks.
   FlagsCreate: [
     "readData",
     "createFeatures",

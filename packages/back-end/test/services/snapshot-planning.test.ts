@@ -1411,6 +1411,39 @@ describe("snapshot planning", () => {
     expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
   });
 
+  it.each([
+    ["cutoff:2020-01-15T00:12:00.000Z"],
+    ["combo:exp:country::dim_abc123"],
+  ])(
+    "plans an incremental-exploratory snapshot for custom dimension %s",
+    async (dimension) => {
+      wireIncrementalIntegration(makeIncrementalDatasource());
+      assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+        undefined as never,
+      );
+      exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
+
+      const plan = await planSnapshot({
+        experiment: makeExperiment(),
+        context: makeExploratoryContext(),
+        type: "exploratory",
+        triggeredBy: "manual",
+        phaseIndex: 0,
+        useCache: true,
+        defaultAnalysisSettings: makeAnalysisSettings({
+          dimensions: [dimension],
+        }),
+        additionalAnalysisSettings: [],
+        settingsForSnapshotMetrics: [],
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+
+      expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
+      expect(plan.snapshot.dimension).toBe(dimension);
+    },
+  );
+
   it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when the Overall units table requires a full refresh and prompting enabled", async () => {
     wireIncrementalIntegration(makeIncrementalDatasource());
     assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
@@ -1556,7 +1589,7 @@ describe("snapshot planning", () => {
     useRealIncrementalPrerequisites();
 
     const plan = await planSnapshot({
-      experiment: makeExperiment({ skipPartialData: true }),
+      experiment: makeExperiment({ activationMetric: "fact_m1" }),
       context: makeNeverMaterializedContext(),
       type: "exploratory",
       triggeredBy: "manual",
@@ -1576,7 +1609,7 @@ describe("snapshot planning", () => {
     );
     expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(
-      "'Exclude In-Progress Conversions' is not supported with Incremental Pipeline mode while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
+      "Activation metrics are not supported with Incremental Pipeline mode while in beta. Please remove the Activation Metric in the Analysis Settings.",
     );
   });
 

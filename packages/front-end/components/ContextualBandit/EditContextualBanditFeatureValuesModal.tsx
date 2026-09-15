@@ -14,6 +14,7 @@ import {
 } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
+import { getDefaultValue } from "@/services/features";
 import useApi from "@/hooks/useApi";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -78,9 +79,11 @@ export default function EditContextualBanditFeatureValuesModal({
   const initialVariations = useMemo(
     () =>
       cb.variations.map((v) => {
+        // An arm with no value on the linked rule must still seed a valid
+        // value for the feature's type — "" is not one.
         const raw =
           linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
-          "";
+          getDefaultValue(feature.valueType);
         // Seed the config backing so a config-backed feature's bandit arms open
         // in the config-backing editor (matches the experiment-ref editor).
         return {
@@ -91,7 +94,13 @@ export default function EditContextualBanditFeatureValuesModal({
               : raw,
         };
       }),
-    [cb.variations, linkedFeatureInfo.values, isConfigBacked, defaultConfigKey],
+    [
+      cb.variations,
+      linkedFeatureInfo.values,
+      isConfigBacked,
+      defaultConfigKey,
+      feature.valueType,
+    ],
   );
 
   const form = useForm<FormValues>({
@@ -114,9 +123,13 @@ export default function EditContextualBanditFeatureValuesModal({
           );
         }
 
-        const updatedVariations = values.variations.map((r) => ({
+        const updatedVariations = values.variations.map((r, i) => ({
           variationId: r.variationId,
-          value: validateFeatureValue(feature, r.value ?? "", ""),
+          value: validateFeatureValue(
+            feature,
+            r.value ?? "",
+            `Variation ${i + 1}`,
+          ),
         }));
 
         const needsRefix = updatedVariations.some(

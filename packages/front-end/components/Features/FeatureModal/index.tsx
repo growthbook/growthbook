@@ -307,7 +307,6 @@ export default function FeatureModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       open
       size="lg"
@@ -426,7 +425,7 @@ export default function FeatureModal({
         )}
 
         <TargetingProjectsField
-          mb="3"
+          mb="5"
           primaryProject={selectedProject}
           allProjects={!!form.watch("targetingAllProjects")}
           setAllProjects={(v) => form.setValue("targetingAllProjects", v)}

@@ -13,7 +13,6 @@ GrowthBook offers a fully managed event ingestion pipeline. Use our SDKs to trac
 - **Seamless Integration**: Built-in tracking in our SDKs.
 - **Near Real-Time**: Events are available in your warehouse typically within a few seconds.
 - **Broad Support**: Works with BigQuery and Snowflake today, with more warehouses coming soon.
-- **Works with Self-Hosting** - Use with either GrowthBook Cloud or your self-hosted GrowthBook instance.
 
 ## How it Works
 
@@ -56,7 +55,7 @@ Key-pair authentication must be configured on the Snowflake datasource connectio
 
 ## Get Started
 
-The event forwarder is an advanced Enterprise feature and must be enabled for your account. Contact your account manager or reach out to [sales@growthbook.io](mailto:sales@growthbook.io) to learn more and get started.
+The event forwarder is an advanced Pro/Enterprise feature and must be enabled for your account. Contact your account manager or reach out to [sales@growthbook.io](mailto:sales@growthbook.io) to learn more and get started.
 
 ## Sending Events
 
@@ -81,7 +80,7 @@ All of the attributes in the SDK are sent along with events as context.
 
 #### HTML Script Tag
 
-Simply add `data-tracking="growthbook"` to your script tag to enable.
+Add `data-tracking="growthbook"` to forward experiment view events that already fired. It does not enroll users in an experiment.
 
 ```html
 <script async
@@ -143,6 +142,15 @@ gb.logEvent("Page View");
 // With custom properties
 gb.logEvent("Button Click", {
   button: "Sign Up",
+});
+```
+
+Feature usage events are enabled by default. Disable them without affecting
+experiment view or custom events:
+
+```js
+growthbookTrackingPlugin({
+  enableFeatureUsageEvents: false,
 });
 ```
 

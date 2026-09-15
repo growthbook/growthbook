@@ -281,6 +281,7 @@ export interface OrganizationSettings {
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
   aiEnabled?: boolean;
+  aiAskDataEnabled?: boolean;
   defaultAIModel?: AIModel;
   embeddingModel?: EmbeddingModel;
   /** @deprecated */
@@ -343,6 +344,7 @@ export interface OrganizationSettings {
   testQueryDays?: number;
   disablePrecomputedDimensions?: boolean;
   useStickyBucketing?: boolean;
+  stickyBucketingOnByDefault?: boolean;
   useFallbackAttributes?: boolean;
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];

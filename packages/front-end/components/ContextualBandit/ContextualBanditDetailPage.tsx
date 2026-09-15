@@ -1,9 +1,13 @@
-import { ReactNode, useMemo, useState } from "react";
+import { Fragment, ReactNode, useMemo, useState } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
-import { ApiContextualBanditInterface } from "shared/validators";
+import {
+  ApiContextualBanditInterface,
+  getDroppedContextualAttributes,
+  getEffectiveContextualAttributes,
+} from "shared/validators";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -12,7 +16,11 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
-import { jsonToConds, useAttributeMap } from "@/services/features";
+import {
+  jsonToConds,
+  useAttributeMap,
+  useAttributeSchema,
+} from "@/services/features";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -193,6 +201,31 @@ export default function ContextualBanditDetailPage({
 
     return globalAttributes.filter((a) => contextual.has(a));
   }, [cb.condition, cb.contextualAttributes, attributeMap]);
+
+  const globalAttributeSchema = useAttributeSchema(false);
+  const { effectiveContextualAttributes, droppedContextualAttributes } =
+    useMemo(() => {
+      const queryAttrs = contextualBanditQueriesMap.get(
+        cb.contextualBanditQueryId,
+      )?.targetingAttributeColumns;
+      return {
+        effectiveContextualAttributes: getEffectiveContextualAttributes(
+          cb.contextualAttributes,
+          queryAttrs,
+          globalAttributeSchema,
+        ),
+        droppedContextualAttributes: getDroppedContextualAttributes(
+          cb.contextualAttributes,
+          queryAttrs,
+          globalAttributeSchema,
+        ),
+      };
+    }, [
+      cb.contextualAttributes,
+      cb.contextualBanditQueryId,
+      contextualBanditQueriesMap,
+      globalAttributeSchema,
+    ]);
 
   const formatExploratoryStage = (
     value?: number,
@@ -594,8 +627,13 @@ export default function ContextualBanditDetailPage({
                   {exposureQueryName || <em>none</em>}
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Contextual Attributes">
-                  {cb.contextualAttributes.length
-                    ? cb.contextualAttributes.join(", ")
+                  {effectiveContextualAttributes.length
+                    ? effectiveContextualAttributes.map((a, i) => (
+                        <Fragment key={a}>
+                          {i ? ", " : ""}
+                          <code>{a}</code>
+                        </Fragment>
+                      ))
                     : "—"}
                 </DetailSectionColumn>
               </Grid>
@@ -629,6 +667,22 @@ export default function ContextualBanditDetailPage({
                   {formatUpdateCadence(cb.scheduleValue, cb.scheduleUnit)}
                 </DetailSectionColumn>
               </Grid>
+              {droppedContextualAttributes.length > 0 && (
+                <Callout status="warning" mt="4">
+                  <Flex direction="column" gap="2">
+                    <Text as="span">
+                      These attributes were removed from the Contextual Bandit
+                      query or your organization&apos;s attributes and are no
+                      longer used. Edit the analysis settings to update them.
+                    </Text>
+                    <Flex align="center" gap="1" wrap="wrap">
+                      {droppedContextualAttributes.map((a) => (
+                        <AttributeBadge key={a} attributeId={a} />
+                      ))}
+                    </Flex>
+                  </Flex>
+                </Callout>
+              )}
             </OverviewSection>
           </Box>
         </TabsContent>

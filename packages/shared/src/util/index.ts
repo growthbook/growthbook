@@ -29,6 +29,9 @@ export * from "./strings";
 export * from "./units-query-settings";
 export * from "./event-forwarder-destination";
 export * from "./features";
+export * from "./featureHealth";
+export * from "./threeWayMerge";
+export * from "./draftConflict";
 export * from "./projectScopedRules";
 export * from "./featureDraftPurity";
 export * from "./configs";
@@ -43,6 +46,7 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./holdouts";
 export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";
@@ -121,6 +125,23 @@ export function getSnapshotAnalysis(
   );
 }
 
+export function findAnalysisComputeFailure(
+  analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis | null,
+): { metricId: string; errorMessage: string | null } | null {
+  for (const dimension of analysis?.results ?? []) {
+    for (const variation of dimension.variations ?? []) {
+      for (const [metricId, metric] of Object.entries(
+        variation.metrics ?? {},
+      )) {
+        if (metric?.computeFailed) {
+          return { metricId, errorMessage: metric.errorMessage ?? null };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function getSafeRolloutSnapshotAnalysis(
   snapshot: SafeRolloutSnapshotInterface,
   analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null,
@@ -171,8 +192,13 @@ export function generateVariationId() {
   return uniqid("var_");
 }
 
+// Takes only the three fields it reads, so a caller holding a projected
+// experiment doc can pass it without a cast.
 export function experimentHasLinkedChanges(
-  exp: ExperimentInterface | ExperimentInterfaceStringDates,
+  exp: Pick<
+    ExperimentInterface,
+    "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
+  >,
 ): boolean {
   if (exp.hasVisualChangesets) return true;
   if (exp.hasURLRedirects) return true;
@@ -197,14 +223,20 @@ export function experimentHasLiveLinkedChanges(
 export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: FeatureInterface[] = [],
+  options?: {
+    // Keep feature-only drafts (SDK connections with includeDraftExperimentRefs)
+    includeDrafts?: boolean;
+  },
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
 
   if (!experimentHasLinkedChanges(exp)) return false;
 
-  // Exclude if experiment is a draft and there are no visual changes or redirects (feature flags always ignore draft experiment rules)
+  // Exclude if experiment is a draft and there are no visual changes or redirects
+  // (feature flags ignore draft experiment rules unless includeDrafts is set)
   if (
+    !options?.includeDrafts &&
     !exp.hasVisualChangesets &&
     !exp.hasURLRedirects &&
     exp.status === "draft"
