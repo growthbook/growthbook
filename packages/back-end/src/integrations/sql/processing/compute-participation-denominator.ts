@@ -37,7 +37,7 @@ export function computeParticipationDenominator(
     metric.windowSettings.type === "conversion" &&
     !overrideConversionWindows
   ) {
-    endDateString = `LEAST(${dialect.getCurrentTimestamp()}, ${addHours(dialect, startDateString, windowHours)})`;
+    endDateString = `LEAST(${castToTimestamp(dialect.getCurrentTimestamp())}, ${addHours(dialect, startDateString, windowHours)})`;
   }
 
   return dialect.castToFloat(
