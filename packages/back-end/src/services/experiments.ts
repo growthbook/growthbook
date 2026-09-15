@@ -2442,43 +2442,6 @@ export async function assertCanRunExperimentChanges(
   }
 }
 
-// `POST /experiments/{id}/stop` already refuses a `releasedVariationId` that is
-// not one of the experiment's variations. When it matches nothing, the SDK
-// payload silently loses the release: a linked feature's experiment-ref rule is
-// dropped (its rule-side variation ids no longer include the released one once
-// they are re-synced), and a visual-changeset / redirect experiment gets no
-// forced variation. Same rule for the generic create/update routes. On update
-// it only runs when the request changes the resulting id or the set of
-// variation ids, so an unrelated edit (or a reorder) of an experiment that
-// already stores a stale id is not newly rejected. Note that `variations` sent
-// without ids are assigned fresh ids, so such an edit must resend the ids (or
-// clear `releasedVariationId`) to pass.
-export function assertValidReleasedVariationId(
-  updated: Pick<ExperimentInterface, "releasedVariationId" | "variations">,
-  existing?: Pick<ExperimentInterface, "releasedVariationId" | "variations">,
-): void {
-  const releasedVariationId = updated.releasedVariationId || "";
-  if (!releasedVariationId) return;
-
-  const variationIds = updated.variations.map((v) => v.id);
-  if (
-    existing &&
-    (existing.releasedVariationId || "") === releasedVariationId &&
-    isEqual(
-      [...existing.variations.map((v) => v.id)].sort(),
-      [...variationIds].sort(),
-    )
-  ) {
-    return;
-  }
-
-  if (!variationIds.includes(releasedVariationId)) {
-    throw new BadRequestError(
-      "invalid_released_variation_id: releasedVariationId must match one of the experiment's variation ids",
-    );
-  }
-}
-
 export function validateVariationIds(
   variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
 ) {

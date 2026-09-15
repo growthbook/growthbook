@@ -39,6 +39,7 @@ import {
   NamespaceUsageExperiment,
 } from "back-end/src/util/namespaces";
 import { validateMetricOverrides } from "back-end/src/util/priors";
+import { assertValidReleasedVariationId } from "back-end/src/util/releasedVariationId.util";
 import {
   queueSDKPayloadRefresh,
   URLRedirectExperiment,
@@ -816,6 +817,7 @@ export async function createExperiment({
   );
 
   validateMetricOverrides(data.metricOverrides);
+  assertValidReleasedVariationId(data);
 
   const experimentToCreate = {
     id: uniqid("exp_"),
@@ -903,6 +905,7 @@ export async function updateExperiment({
     throw new Error("Cannot set empty name for experiment!");
 
   validateMetricOverrides(allChanges.metricOverrides);
+  assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
 
   const writeResult = await ExperimentModel.updateOne(
     {
