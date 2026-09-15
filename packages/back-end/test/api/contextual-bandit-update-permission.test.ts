@@ -80,6 +80,8 @@ beforeEach(async () => {
     .insertOne(structuredClone(contextualBandit));
 });
 
+// api.setup's afterEach only clears mongoose-registered collections; this
+// model writes through the native driver.
 afterEach(async () => {
   await mongoose.connection.db!.collection("contextualbandits").deleteMany({});
 });
@@ -109,6 +111,18 @@ describe("PUT /api/v1/contextual-bandits/:id", () => {
     expect(response.body.contextualBandit.description).toBe(
       "Larger buttons on mobile",
     );
+  });
+
+  it("treats resending only the current status as a permitted no-op for that role", async () => {
+    useRole("analyst");
+
+    const response = await request(app)
+      .put(`/api/v1/contextual-bandits/${contextualBandit.id}`)
+      .send({ status: "running" })
+      .set("Authorization", "Bearer key_analyst");
+
+    expect(response.status).toBe(200);
+    expect(await storedStatus()).toBe("running");
   });
 
   it("allows a status change from a role with the run permission", async () => {
