@@ -233,7 +233,6 @@ const TemplateForm: FC<Props> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
-        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}

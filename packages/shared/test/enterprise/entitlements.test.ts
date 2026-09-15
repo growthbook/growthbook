@@ -1,10 +1,15 @@
-import { makeOrgLimits, FREE_ORG_LIMITS } from "shared/enterprise";
+import {
+  makeOrgLimits,
+  planTierFor,
+  FREE_ORG_LIMITS,
+  PRO_ORG_LIMITS,
+} from "shared/enterprise";
 import type { AccountPlan, OrgLimits } from "shared/enterprise";
 
 const FREE_LIMITS: OrgLimits = FREE_ORG_LIMITS;
 
-const PAID_LIMITS: OrgLimits = {
-  maxProjects: 3,
+const LICENSE_LIMITS: OrgLimits = {
+  maxProjects: 7,
   customEnvironments: false,
   roleManagement: false,
 };
@@ -13,13 +18,36 @@ function accessorFor({
   effectivePlan,
   orgLimits,
   licenseLimits,
+  planLimits,
 }: {
   effectivePlan: AccountPlan;
   orgLimits?: OrgLimits;
   licenseLimits?: OrgLimits;
+  planLimits?: OrgLimits;
 }) {
-  return makeOrgLimits({ effectivePlan, orgLimits, licenseLimits });
+  return makeOrgLimits({
+    effectivePlan,
+    orgLimits,
+    licenseLimits,
+    planLimits,
+  });
 }
+
+describe("planTierFor", () => {
+  it("maps free plans to the free tier", () => {
+    expect(planTierFor("oss")).toBe("free");
+    expect(planTierFor("starter")).toBe("free");
+  });
+
+  it("maps pro plans to the pro tier", () => {
+    expect(planTierFor("pro")).toBe("pro");
+    expect(planTierFor("pro_sso")).toBe("pro");
+  });
+
+  it("leaves enterprise untiered so it is never limited", () => {
+    expect(planTierFor("enterprise")).toBeNull();
+  });
+});
 
 describe("makeOrgLimits", () => {
   describe("grandfathered orgs (no stored limits)", () => {
@@ -32,6 +60,14 @@ describe("makeOrgLimits", () => {
         expect(limits.orgSupportsRoles()).toBe(true);
       },
     );
+
+    it("stays unrestricted on pro even when pro limits are configured", () => {
+      const limits = accessorFor({
+        effectivePlan: "pro",
+        planLimits: PRO_ORG_LIMITS,
+      });
+      expect(limits.getMaxProjects()).toBeNull();
+    });
   });
 
   describe("free plans (oss/starter) read org limits, ignore license limits", () => {
@@ -42,6 +78,7 @@ describe("makeOrgLimits", () => {
           effectivePlan,
           orgLimits: FREE_LIMITS,
           licenseLimits: { maxProjects: 999 }, // should be ignored on free plans
+          planLimits: PRO_ORG_LIMITS, // free never reads the live per-plan config
         });
         expect(limits.getMaxProjects()).toBe(1);
         expect(limits.isEnvironmentIdAllowed("production")).toBe(true);
@@ -51,26 +88,64 @@ describe("makeOrgLimits", () => {
     );
   });
 
-  describe("active paid plans read license limits, ignore org limits", () => {
-    it.each<AccountPlan>(["pro", "pro_sso", "enterprise"])(
-      "enforces license.limits on plan=%s",
+  describe("pro plans", () => {
+    it.each<AccountPlan>(["pro", "pro_sso"])(
+      "upgrades a stamped org to the pro tier's limits on plan=%s",
       (effectivePlan) => {
-        const limits = accessorFor({
-          effectivePlan,
-          orgLimits: FREE_LIMITS, // should be ignored on paid plans
-          licenseLimits: PAID_LIMITS,
-        });
+        const limits = accessorFor({ effectivePlan, orgLimits: FREE_LIMITS });
         expect(limits.getMaxProjects()).toBe(3);
+        expect(limits.isEnvironmentIdAllowed("production")).toBe(true);
         expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(false);
-        expect(limits.orgSupportsRoles()).toBe(false);
+        expect(limits.orgSupportsRoles()).toBe(true);
       },
     );
 
-    it("resolves to unlimited when the license has no limits snapshot", () => {
+    it("prefers the live per-plan config over the hardcoded pro defaults", () => {
+      const limits = accessorFor({
+        effectivePlan: "pro",
+        orgLimits: FREE_LIMITS,
+        planLimits: { ...PRO_ORG_LIMITS, maxProjects: 10 },
+      });
+      expect(limits.getMaxProjects()).toBe(10);
+    });
+
+    it("lets an explicit license snapshot win over the tier defaults", () => {
+      const limits = accessorFor({
+        effectivePlan: "pro",
+        orgLimits: FREE_LIMITS,
+        licenseLimits: LICENSE_LIMITS,
+        planLimits: PRO_ORG_LIMITS,
+      });
+      expect(limits.getMaxProjects()).toBe(7);
+      expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(false);
+    });
+
+    it("keeps role management even if a license snapshot revokes it", () => {
+      const limits = accessorFor({
+        effectivePlan: "pro",
+        orgLimits: FREE_LIMITS,
+        licenseLimits: LICENSE_LIMITS,
+      });
+      expect(limits.orgSupportsRoles()).toBe(true);
+    });
+  });
+
+  describe("enterprise is never affected by plan limits", () => {
+    it("ignores a stamped org snapshot", () => {
       const limits = accessorFor({
         effectivePlan: "enterprise",
         orgLimits: FREE_LIMITS,
-        licenseLimits: undefined,
+      });
+      expect(limits.getMaxProjects()).toBeNull();
+      expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(true);
+      expect(limits.orgSupportsRoles()).toBe(true);
+    });
+
+    it("ignores a license snapshot", () => {
+      const limits = accessorFor({
+        effectivePlan: "enterprise",
+        orgLimits: FREE_LIMITS,
+        licenseLimits: LICENSE_LIMITS,
       });
       expect(limits.getMaxProjects()).toBeNull();
       expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(true);

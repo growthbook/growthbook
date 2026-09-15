@@ -11,9 +11,11 @@ import useExplorationTableData from "./useExplorationTableData";
 export default function SimpleExplorationTable({
   exploration,
   config,
+  maxHeight = 360,
 }: {
   exploration: ProductAnalyticsExploration | null;
   config: ExplorationConfig;
+  maxHeight?: number;
 }) {
   const {
     rowData,
@@ -47,7 +49,7 @@ export default function SimpleExplorationTable({
   return (
     <Box
       style={{
-        maxHeight: 360,
+        maxHeight,
         overflow: "auto",
         borderRadius: "var(--radius-2)",
         border: "1px solid var(--gray-a4)",

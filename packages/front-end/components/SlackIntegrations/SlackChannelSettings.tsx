@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  NotificationCardFormat,
+  notificationCardFormats,
+  notificationCardFormatSchema,
+  NotificationSettings,
+  SlackWorkspaceConnectionFrontEndInterface,
+} from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiTrash } from "react-icons/pi";
 import {
@@ -18,14 +25,41 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
+import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
 
 const REQUIRED_SCOPES = [
   "chat:write",
+  "files:write",
   "channels:read",
   "groups:read",
   "channels:join",
+  "assistant:write",
+  "im:history",
+  "app_mentions:read",
+  "commands",
+  "links:read",
+  "links:write",
 ];
+
+const CARD_FORMAT_LABELS: Record<
+  (typeof notificationCardFormats)[number],
+  { label: string; description: string }
+> = {
+  compact: {
+    label: "Compact card",
+    description: "A short image highlighting the SRM warning.",
+  },
+  "compact-dark": {
+    label: "Compact dark",
+    description:
+      "A short image with a dark background and colored event header.",
+  },
+  detailed: {
+    label: "Detailed card",
+    description: "A larger image with the SRM warning and a results table.",
+  },
+};
 
 export const getSlackChannelLabel = (
   integration: SlackOAuthIntegrationInterface,
@@ -62,6 +96,16 @@ export default function SlackChannelSettings({
   const environments = useEnvironments();
   const [enabled, setEnabled] = useState(integration.enabled);
   const [events, setEvents] = useState(integration.events);
+  const initialNotificationSettings =
+    integration.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
+  const [notificationType, setNotificationType] = useState<
+    NotificationSettings["type"]
+  >(initialNotificationSettings.type);
+  const [cardFormat, setCardFormat] = useState<NotificationCardFormat>(
+    initialNotificationSettings.type === "image"
+      ? initialNotificationSettings.cardFormat
+      : DEFAULT_NOTIFICATION_SETTINGS.cardFormat,
+  );
   const [filterProjects, setFilterProjects] = useState(
     integration.projects || [],
   );
@@ -107,6 +151,10 @@ export default function SlackChannelSettings({
           projects: filterProjects,
           environments: filterEnvironments,
           tags: filterTags,
+          notificationSettings:
+            notificationType === "image"
+              ? { type: "image", cardFormat }
+              : { type: "text" },
         }),
       });
       await onSaved();
@@ -234,6 +282,45 @@ export default function SlackChannelSettings({
             <Callout status="warning" mt="3">
               Select at least one event before saving.
             </Callout>
+          )}
+        </Box>
+
+        <Box pt="5" style={{ borderTop: "1px solid var(--gray-a4)" }}>
+          <Heading as="h3" size="sm" mb="1">
+            Notification Format
+          </Heading>
+          <Text as="p" color="text-mid" mb="3">
+            Choose how SRM warnings appear. Significance notifications and other
+            events remain text-only.
+          </Text>
+          <RadioGroup
+            gap="3"
+            value={notificationType}
+            options={[
+              { value: "text", label: "Text only" },
+              { value: "image", label: "Image card" },
+            ]}
+            setValue={(value) => {
+              if (value !== "text" && value !== "image") return;
+              setNotificationType(value);
+              setSaved(false);
+            }}
+          />
+          {notificationType === "image" && (
+            <Box mt="3">
+              <RadioGroup
+                gap="3"
+                value={cardFormat}
+                options={notificationCardFormats.map((format) => ({
+                  value: format,
+                  ...CARD_FORMAT_LABELS[format],
+                }))}
+                setValue={(value) => {
+                  setCardFormat(notificationCardFormatSchema.parse(value));
+                  setSaved(false);
+                }}
+              />
+            </Box>
           )}
         </Box>
 

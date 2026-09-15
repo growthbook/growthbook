@@ -126,6 +126,7 @@ import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -139,6 +140,7 @@ import {
   sendPendingMemberEmail,
 } from "./email";
 import { ReqContextClass } from "./context";
+import { queueSDKPayloadRefresh } from "./features";
 
 export {
   getEnvironments,
@@ -1209,10 +1211,28 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
-    await updateOrganization(organization.id, {
-      settings: {
-        ...organization.settings,
-        ...config.organization.settings,
+    const settings = {
+      ...organization.settings,
+      ...config.organization.settings,
+    };
+    await updateOrganization(organization.id, { settings });
+
+    // The request snapshot cannot prove this write was a no-op.
+    // Refresh now because later resource imports can fail after settings persist.
+    const refreshContext = await getContextForAgendaJobByOrgId(organization.id);
+    queueSDKPayloadRefresh({
+      context: refreshContext,
+      payloadKeys: refreshContext.environments.map((environment) => ({
+        environment,
+        project: "",
+      })),
+      // Include connections whose environments were removed by the import.
+      sdkConnections: await findSDKConnectionsByOrganization(refreshContext),
+      treatEmptyProjectAsGlobal: true,
+      auditContext: {
+        event: "config imported",
+        model: "organization",
+        id: organization.id,
       },
     });
   }

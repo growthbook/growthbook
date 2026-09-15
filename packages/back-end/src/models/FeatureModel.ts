@@ -11,10 +11,12 @@ import {
   computeHoldoutExperimentLinkageDelta,
   getApplicableEnvIds,
   getExperimentIdsFromRules,
+  getRulesForEnvironment,
   liveRevisionFromFeature,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
   stemRuleId,
+  isScheduledRule,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -567,9 +569,16 @@ export async function getAllFeatures(
 // need a complete feature.
 export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
-  { includeArchived = false }: { includeArchived?: boolean } = {},
+  {
+    includeArchived = false,
+    ids,
+  }: { includeArchived?: boolean; ids?: string[] } = {},
 ): Promise<FeatureInterface[]> {
-  const q = featureListQuery(context.org.id, { includeArchived });
+  if (ids && !ids.length) return [];
+  const q: FilterQuery<FeatureDocument> = {
+    ...featureListQuery(context.org.id, { includeArchived }),
+    ...(ids ? { id: { $in: ids } } : {}),
+  };
 
   const docs = await FeatureModel.find(q, {
     description: 0,
@@ -749,6 +758,82 @@ export async function migrateDraft(
     logger.error(e, "Error migrating old feature draft");
   }
   return null;
+}
+
+// Features whose legacy inline `experiment` rules currently allocate traffic
+// inside a namespace: not archived, and in at least one enabled environment an
+// enabled experiment rule with the namespace enabled — the same rules the
+// namespaces settings page counts as usage. Referential-integrity check for
+// namespace deletes / re-hashing, so deliberately NOT filtered by the caller's
+// project read access. Both storage shapes are matched (flat `rules` and the
+// pre-migration `environmentSettings.<env>.rules`) and normalized on read.
+//
+// An org environment id containing a "." would not match the dotted
+// `environmentSettings.<env>.rules` path, so that branch silently skips it.
+// That only affects unmigrated docs, and the flat `rules` branch still covers
+// every migrated one.
+export async function countFeaturesWithExperimentRuleInNamespace(
+  context: ReqContext | ApiReqContext,
+  namespaceId: string,
+): Promise<number> {
+  const environments = context.environments;
+  const ruleMatch = {
+    $elemMatch: {
+      type: "experiment",
+      "namespace.enabled": true,
+      "namespace.name": namespaceId,
+    },
+  };
+  const docs = await FeatureModel.find({
+    organization: context.org.id,
+    archived: { $ne: true },
+    $or: [
+      { rules: ruleMatch },
+      ...environments.map((env) => ({
+        [`environmentSettings.${env}.rules`]: ruleMatch,
+      })),
+    ],
+  }).lean<LegacyFeatureInterface[]>();
+
+  return docs
+    .map((raw) =>
+      migrateRawFeatureToV2(
+        omit(raw, ["__v", "_id"]) as LegacyFeatureInterface,
+        context,
+      ),
+    )
+    .filter((f) =>
+      environments.some(
+        (env) =>
+          f.environmentSettings?.[env]?.enabled &&
+          getRulesForEnvironment(f.rules ?? [], env).some(
+            (r) =>
+              r.enabled &&
+              r.type === "experiment" &&
+              r.namespace?.enabled &&
+              r.namespace.name === namespaceId,
+          ),
+      ),
+    ).length;
+}
+
+// jsonSchema is projected out of the list loaders; fetch the enabled ones
+// separately for value validation. Results are merged onto features that
+// already passed the read-permission filter, so none is applied here.
+export async function getFeatureJsonSchemasByIds(
+  context: ReqContext | ApiReqContext,
+  ids?: string[],
+): Promise<Map<string, FeatureInterface["jsonSchema"]>> {
+  if (ids && !ids.length) return new Map();
+  const docs = await FeatureModel.find(
+    {
+      ...featureListQuery(context.org.id, { includeArchived: false }),
+      "jsonSchema.enabled": true,
+      ...(ids ? { id: { $in: ids } } : {}),
+    },
+    { id: 1, jsonSchema: 1 },
+  ).lean<Pick<FeatureInterface, "id" | "jsonSchema">[]>();
+  return new Map(docs.map((d) => [d.id, d.jsonSchema]));
 }
 
 export async function getFeaturesByIds(
@@ -2835,8 +2920,18 @@ async function createRampSchedulesForRevision(
   for (const action of actions) {
     if (action.mode !== "create" && action.mode !== "update") continue;
 
-    // Pro gate — see postRampSchedule.ts for rationale.
-    if (!context.hasPremiumFeature("schedule-feature-flag")) {
+    // Pro gate on new schedules only; editing an existing one stays allowed on
+    // any plan — see .agents/guides/backend/api-patterns.md. A create that
+    // replaces a rule's legacy scheduleRules with a ramp is such an edit.
+    if (
+      action.mode === "create" &&
+      !context.hasPremiumFeature("schedule-feature-flag") &&
+      !isScheduledRule(
+        feature.rules?.find(
+          (r) => stemRuleId(r.id) === stemRuleId(action.ruleId),
+        ),
+      )
+    ) {
       context.throwPlanDoesNotAllowError(
         "Ramp schedules require a Pro plan or above.",
       );

@@ -315,6 +315,7 @@
                   "sso",
                   "integrations/scim",
                   "compliance",
+                  "ip-addresses",
                   "account/audit-logs"
                 ]
               },
@@ -604,6 +605,10 @@
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
                   "api/data-sources/operation/getInformationSchema",
+                  "api/data-sources/operation/searchWarehouseTables",
+                  "api/data-sources/operation/getWarehouseTableSchema",
+                  "api/data-sources/operation/previewWarehouseColumnValues",
+                  "api/data-sources/operation/runSqlQuery",
                   "api/data-sources/operation/getInformationSchemaTable"
                 ]
               },
@@ -672,7 +677,8 @@
                   "api/experiments/operation/postExperimentSnapshot",
                   "api/experiments/operation/postVariationImageUpload",
                   "api/experiments/operation/deleteVariationScreenshot",
-                  "api/experiments/operation/getExperimentNames"
+                  "api/experiments/operation/getExperimentNames",
+                  "api/experiments/operation/postExperimentComment"
                 ]
               },
               {
@@ -1088,6 +1094,16 @@
                   "api/Holdouts/operation/startHoldoutAnalysis",
                   "api/Holdouts/operation/stopHoldout"
                 ]
+              },
+              {
+                "group": "Auto Runs",
+                "pages": [
+                  "api/AutoRuns/operation/listAutoRuns",
+                  "api/AutoRuns/operation/createAutoRun",
+                  "api/AutoRuns/operation/getAutoRun",
+                  "api/AutoRuns/operation/updateAutoRun",
+                  "api/AutoRuns/operation/appendAutoRunArtifact"
+                ]
               }
             ]
           },
@@ -1098,6 +1114,7 @@
               "api/AnalyticsExploration_model",
               "api/Archetype_model",
               "api/Attribute_model",
+              "api/AutoRun_model",
               "api/CodeRef_model",
               "api/Config_model",
               "api/ConfigKeyUsage_model",
@@ -1196,6 +1213,7 @@
               "api/Segment_model",
               "api/Settings_model",
               "api/Targeting Rule_model",
+              "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
               "api/VisualChangeset_model"

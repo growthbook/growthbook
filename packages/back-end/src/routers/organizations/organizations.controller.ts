@@ -2,7 +2,7 @@ import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
-  experimentHasLinkedChanges,
+  assertTargetingRulesDisjoint,
   getNamespaceRanges,
   getRulesForEnvironment,
   normalizeApprovalRuleSettings,
@@ -33,6 +33,10 @@ import {
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import {
+  assertNamespaceHashAttributeChangeAllowed,
+  assertNamespaceNotInUse,
+} from "back-end/src/services/namespaces";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -115,7 +119,10 @@ import {
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
-import { buildNamespace } from "back-end/src/util/namespaces";
+import {
+  buildNamespace,
+  experimentAllocatesTrafficInNamespace,
+} from "back-end/src/util/namespaces";
 import {
   deleteUser,
   getUserById,
@@ -1115,26 +1122,19 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
 
   const allExperiments = await getAllExperiments(context);
   allExperiments.forEach((e) => {
-    if (e.archived) return;
-
-    // Skip experiments that are not linked to any changes since they aren't included in the payload
-    if (!experimentHasLinkedChanges(e)) return;
-
-    // Skip if experiment is stopped and doesn't have a temporary rollout enabled
-    if (
-      e.status === "stopped" &&
-      (e.excludeFromPayload || !e.releasedVariationId)
-    ) {
-      return;
-    }
-
     // Skip if a namespace isn't enabled on the latest phase
-    if (!e.phases) return;
-    const phase = e.phases[e.phases.length - 1];
-    if (!phase) return;
-    if (!phase.namespace || !phase.namespace.enabled) return;
+    const phases = e.phases ?? [];
+    const phase = phases[phases.length - 1];
+    if (!phase?.namespace?.enabled) return;
 
     const ns = phase.namespace as NamespaceValue;
+
+    // Skip archived experiments, ones not linked to any changes, and stopped
+    // ones without a temporary rollout — none of them reach the payload. This
+    // is the same check the delete / re-hash guards enforce, so what this page
+    // lists as usage is exactly what those refuse to break.
+    if (!experimentAllocatesTrafficInNamespace(e, ns.name)) return;
+
     namespaces[ns.name] = namespaces[ns.name] || [];
 
     getNamespaceRanges(ns).forEach((range) => {
@@ -1258,9 +1258,16 @@ export async function putNamespaces(
   const namespaces = org.settings?.namespaces || [];
 
   // Make sure this namespace exists
-  if (namespaces.filter((n) => n.name === name).length === 0) {
+  const target = namespaces.find((n) => n.name === name);
+  if (!target) {
     throw new Error("Namespace not found.");
   }
+
+  await assertNamespaceHashAttributeChangeAllowed(
+    context,
+    target,
+    hashAttribute,
+  );
 
   const updatedNamespaces = namespaces.map((n) => {
     if (n.name !== name) return n;
@@ -1329,6 +1336,8 @@ export async function deleteNamespace(
   if (namespaces.length === updatedNamespaces.length) {
     throw new Error("Namespace not found.");
   }
+
+  await assertNamespaceNotInUse(context, name, "delete");
 
   await updateOrganization(org.id, {
     settings: {
@@ -1780,18 +1789,21 @@ export async function putOrganization(
       orig.externalId = org.externalId;
     }
     if (settings) {
-      updates.settings = {
-        ...org.settings,
-        // Drops rule references to deleted teams/environments, so the settings
-        // UI's "Saving removes it" note is true.
-        ...pruneApprovalRuleReferences(
-          normalizeApprovalRuleSettings(settings),
-          {
-            environments: (org.settings?.environments ?? []).map((e) => e.id),
-            teams: (context.teams ?? []).map((t) => t.id),
-          },
-        ),
-      };
+      // Drops rule references to deleted teams, environments, and projects, so
+      // the settings UI's "Saving removes it" note is true and a stale
+      // round-tripped rule can never block the save.
+      const pruned = pruneApprovalRuleReferences(
+        normalizeApprovalRuleSettings(settings),
+        {
+          environments: (org.settings?.environments ?? []).map((e) => e.id),
+          teams: (context.teams ?? []).map((t) => t.id),
+          projects: await context.getAllProjectIds(),
+        },
+      );
+      if (pruned.targetingReviewMode) {
+        assertTargetingRulesDisjoint(pruned.targetingReviewMode);
+      }
+      updates.settings = { ...org.settings, ...pruned };
       orig.settings = org.settings;
     }
 

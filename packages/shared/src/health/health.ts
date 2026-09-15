@@ -107,6 +107,17 @@ export function getBanditSRMValue(
   return snapshot.banditResult?.srm ?? snapshot.health?.traffic?.overall?.srm;
 }
 
+// Only standard snapshots with a single non-dimension-split result have a
+// meaningful overall result to fall back on; holdouts and dimension splits don't.
+function getStandardOverallResultForHealthFallback(
+  snapshot: ExperimentSnapshotInterface,
+) {
+  return snapshot.type === "standard" &&
+    snapshot.analyses?.[0]?.results?.length === 1
+    ? snapshot.analyses?.[0]?.results?.[0]
+    : undefined;
+}
+
 /**
  * SRM lookup for standard or holdout experiments. Requires the full
  * snapshot because the fallback path reads `analyses[0].results[0].srm`
@@ -121,16 +132,24 @@ export function getExperimentSRMValue(
   if (healthQuerySRM !== undefined) {
     return healthQuerySRM;
   }
-  // fall back to the first overall result only for standard snapshots
-  // that have a single non-dimension-split result; holdouts and
-  // dimension splits don't have a meaningful overall result here.
-  if (
-    snapshot.type === "standard" &&
-    snapshot.analyses?.[0]?.results?.length === 1
-  ) {
-    return snapshot.analyses?.[0]?.results?.[0]?.srm;
+  return getStandardOverallResultForHealthFallback(snapshot)?.srm;
+}
+
+/**
+ * Per-variation unit counts from the same source as `getExperimentSRMValue`:
+ * the dedicated health traffic query, falling back to the overall analysis
+ * result for standard snapshots.
+ */
+export function getExperimentVariationUnitsFromHealth(
+  snapshot: ExperimentSnapshotInterface,
+): number[] | undefined {
+  const healthUnits = snapshot.health?.traffic?.overall?.variationUnits;
+  if (healthUnits?.length) {
+    return healthUnits;
   }
-  return undefined;
+  return getStandardOverallResultForHealthFallback(snapshot)?.variations?.map(
+    (v) => v.users,
+  );
 }
 
 export function getSafeRolloutSRMValue(

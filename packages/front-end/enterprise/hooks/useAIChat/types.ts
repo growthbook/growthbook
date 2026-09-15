@@ -23,7 +23,7 @@ export type ActiveTurnItem =
       /** Serialized tool return value from tool-call-end SSE. */
       toolOutput?: unknown;
       errorMessage?: string;
-      /** Chart payload derived from runExploration tool output on tool-call-end. */
+      /** Chart payload derived from an exploration tool output. */
       toolResultData?: Record<string, unknown>;
     }
   | { kind: "thinking"; id: string };
