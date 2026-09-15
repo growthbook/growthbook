@@ -43,8 +43,8 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import track from "@/services/track";
-
-const PACKAGE = "@growthbook/wizard";
+import { getApiHost, isCloud } from "@/services/env";
+import { getWizardCommand } from "@/services/sdkWizard";
 
 // Ids match the launcher's --agent values; the flag on the command is `--${id}`.
 const AGENTS = [
@@ -71,7 +71,6 @@ const NO_WIZARD: ReadonlySet<string> = new Set([
 ]);
 
 export default function ConnectPage() {
-  const { organization } = useUser();
   const router = useRouter();
   const aiOnboarding = useFeatureIsOn("ai-assisted-onboarding");
   const flagsSettled = useFeaturesSettled();
@@ -172,7 +171,11 @@ export default function ConnectPage() {
   const exitHref =
     router.query.exitLocation === "features" ? "/features" : "/getstarted";
   const wizardable = !NO_WIZARD.has(language);
-  const command = `npx ${PACKAGE} --language ${language} --${agent}${organization.id ? ` --org ${organization.id}` : ""}`;
+  const command = getWizardCommand({
+    language,
+    agent,
+    apiHost: isCloud() ? null : getApiHost(),
+  });
   const agentLabel = AGENTS.find((a) => a.id === agent)?.label ?? "your agent";
 
   if (!flagsSettled) return <LoadingOverlay />;
