@@ -5,6 +5,7 @@ import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
 import { uploadsInit } from "./init/uploads";
+import { KEEP_ALIVE_TIMEOUT_MS } from "./util/secrets";
 import {
   initializeGrowthBookClient,
   destroyGrowthBookClient,
@@ -25,6 +26,8 @@ const server = app.listen(app.get("port"), () => {
   // import app directly). Self-contained and warn-only.
   void uploadsInit();
 });
+
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
 
 export default server;
 
@@ -48,6 +51,10 @@ process.on("SIGINT", async () => {
   onClose();
 });
 function onClose() {
+  // server.close() leaves idle keep-alive sockets open, so without this it
+  // blocks until each hits keepAliveTimeout
+  server.closeIdleConnections();
+
   // stop Express server
   server.close(async () => {
     logger.info("HTTP server closed");
