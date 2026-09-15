@@ -623,7 +623,7 @@ describe("extractRevisionMetadata", () => {
 
 describe("assertValidRuleProjectIds", () => {
   const context = {
-    getProjects: async () => [{ id: "p1" }, { id: "p2" }],
+    getAllProjectIds: async () => ["p1", "p2"],
   } as unknown as ReqContext;
   const rule = (projects?: string[]) =>
     ({ id: "r", type: "force", projects }) as unknown as FeatureRule;
