@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
   areProjectRolesValid,
@@ -1217,27 +1217,24 @@ export async function importConfig(
     };
     await updateOrganization(organization.id, { settings });
 
-    if (!isEqual(organization.settings, settings)) {
-      // Settings persist even if a later resource import fails; refresh from the saved org now.
-      const refreshContext = await getContextForAgendaJobByOrgId(
-        organization.id,
-      );
-      queueSDKPayloadRefresh({
-        context: refreshContext,
-        payloadKeys: refreshContext.environments.map((environment) => ({
-          environment,
-          project: "",
-        })),
-        // Include connections whose environments were removed by the import.
-        sdkConnections: await findSDKConnectionsByOrganization(refreshContext),
-        treatEmptyProjectAsGlobal: true,
-        auditContext: {
-          event: "config imported",
-          model: "organization",
-          id: organization.id,
-        },
-      });
-    }
+    // The request snapshot cannot prove this write was a no-op.
+    // Refresh now because later resource imports can fail after settings persist.
+    const refreshContext = await getContextForAgendaJobByOrgId(organization.id);
+    queueSDKPayloadRefresh({
+      context: refreshContext,
+      payloadKeys: refreshContext.environments.map((environment) => ({
+        environment,
+        project: "",
+      })),
+      // Include connections whose environments were removed by the import.
+      sdkConnections: await findSDKConnectionsByOrganization(refreshContext),
+      treatEmptyProjectAsGlobal: true,
+      auditContext: {
+        event: "config imported",
+        model: "organization",
+        id: organization.id,
+      },
+    });
   }
   if (config.datasources) {
     await Promise.all(

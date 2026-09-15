@@ -155,8 +155,31 @@ describe("organization config import payload refresh", () => {
     );
   });
 
+  it("refreshes when the import matches a stale request snapshot but overwrites a concurrent change", async () => {
+    const context = getContextForAgendaJobByOrgObject(organization);
+    const importedSettings = cloneDeep(organization.settings || {});
+    storedOrganization.settings = {
+      ...storedOrganization.settings,
+      environments: [
+        { id: "production", description: "", projects: ["concurrent-project"] },
+      ],
+    };
+
+    await importConfig(context, {
+      organization: { settings: importedSettings },
+    });
+
+    expect(storedOrganization.settings?.environments).toEqual([
+      { id: "production", description: "", projects: ["old-project"] },
+      { id: "staging", description: "" },
+    ]);
+    expect(queueSDKPayloadRefresh).toHaveBeenCalledTimes(1);
+    const [refresh] = jest.mocked(queueSDKPayloadRefresh).mock.calls[0];
+    expect(refresh.context).not.toBe(context);
+    expect(refresh.context.org.settings).toEqual(storedOrganization.settings);
+  });
+
   it.each<ConfigFile>([
-    {},
     { organization: { settings: {} } },
     { organization: { settings: { confidenceLevel: 0.95 } } },
     {
@@ -170,18 +193,27 @@ describe("organization config import payload refresh", () => {
       },
     },
   ])(
-    "skips refresh when effective settings are unchanged: %j",
+    "refreshes settings writes even when they match the request snapshot: %j",
     async (config) => {
       await importConfig(
         getContextForAgendaJobByOrgObject(organization),
         config,
       );
 
-      expect(queueSDKPayloadRefresh).not.toHaveBeenCalled();
-      expect(findOrganizationById).not.toHaveBeenCalled();
-      expect(findSDKConnectionsByOrganization).not.toHaveBeenCalled();
+      expect(queueSDKPayloadRefresh).toHaveBeenCalledTimes(1);
+      const [refresh] = jest.mocked(queueSDKPayloadRefresh).mock.calls[0];
+      expect(refresh.context.org.settings).toEqual(storedOrganization.settings);
     },
   );
+
+  it("skips refresh when organization settings are omitted", async () => {
+    await importConfig(getContextForAgendaJobByOrgObject(organization), {});
+
+    expect(updateOrganization).not.toHaveBeenCalled();
+    expect(queueSDKPayloadRefresh).not.toHaveBeenCalled();
+    expect(findOrganizationById).not.toHaveBeenCalled();
+    expect(findSDKConnectionsByOrganization).not.toHaveBeenCalled();
+  });
 
   it("does not refresh when saving settings fails", async () => {
     jest
