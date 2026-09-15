@@ -61,6 +61,237 @@ function seedSessionReplayId(sessionReplayId: string) {
   );
 }
 
+function makeLargeEvent(
+  approxBytes: number,
+  type: number = 3,
+  source: number = 0,
+): eventWithTime {
+  const padding = "x".repeat(Math.max(0, approxBytes - 80));
+  return {
+    type,
+    timestamp: Date.now(),
+    data: { source, payload: padding },
+  } as unknown as eventWithTime;
+}
+
+describe("sessionReplayPlugin — chunked flush for oversized buffers", () => {
+  let gb: GrowthBook;
+  let emitEvent: (event: eventWithTime) => void;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockRecord.mockClear();
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+
+    mockRecord.mockImplementation((options) => {
+      emitEvent = (options as { emit: (e: eventWithTime) => void }).emit;
+      return jest.fn();
+    });
+
+    gb = buildGrowthBook();
+
+    const plugin = sessionReplayPlugin({
+      ingestorHost: INGESTOR_HOST,
+      autoRecord: false,
+    });
+    plugin(gb);
+    gb.startSessionReplay();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    delete (global as unknown as Record<string, unknown>).fetch;
+    gb.destroy();
+    sessionStorage.clear();
+    _resetSampleDecisionsForTests();
+  });
+
+  it("splits an oversized buffer into multiple fetch calls with incrementing chunkIndex", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+
+    emitEvent(INTERACTION_EVENT);
+    await flushMicrotasks();
+
+    // Snapshot isolated into chunk 0, then ~600KB of large events
+    // partitioned into further batches
+    expect(fetchMock.mock.calls.length).toBe(3);
+
+    const chunkIndices = fetchMock.mock.calls.map((call) => {
+      const body = JSON.parse(call[1].body as string) as {
+        chunkIndex: number;
+      };
+      return body.chunkIndex;
+    });
+    expect(chunkIndices).toEqual([0, 1, 2]);
+  });
+
+  it("sends a single oversized event in its own batch without splitting it", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(makeLargeEvent(512 * 1024 + 100_000));
+
+    emitEvent(INTERACTION_EVENT);
+    await flushMicrotasks();
+
+    // Snapshot in batch 0, oversized event in batch 1
+    expect(fetchMock.mock.calls.length).toBe(2);
+
+    const allEvents = fetchMock.mock.calls.flatMap((call) => {
+      const body = JSON.parse(call[1].body as string) as {
+        events: unknown[];
+      };
+      return body.events;
+    });
+    // snapshot + large event (interaction lands in buffer after flush)
+    expect(allEvents.length).toBe(2);
+  });
+
+  it("sends metadata only with the first chunk in a multi-chunk flush", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+
+    emitEvent(INTERACTION_EVENT);
+    await flushMicrotasks();
+
+    expect(fetchMock.mock.calls.length).toBe(3);
+
+    // First chunk carries metadata
+    const firstBody = JSON.parse(
+      fetchMock.mock.calls[0][1].body as string,
+    ) as Record<string, unknown>;
+    expect(firstBody).toHaveProperty("featureEvals");
+    expect(firstBody).toHaveProperty("experimentEvals");
+    expect(firstBody).toHaveProperty("sessionEvents");
+
+    // Subsequent chunks have empty metadata arrays
+    for (let i = 1; i < fetchMock.mock.calls.length; i++) {
+      const body = JSON.parse(fetchMock.mock.calls[i][1].body as string) as {
+        featureEvals: { items: unknown[] };
+        experimentEvals: { items: unknown[] };
+        sessionEvents: { items: unknown[] };
+      };
+      expect(body.featureEvals.items).toEqual([]);
+      expect(body.experimentEvals.items).toEqual([]);
+      expect(body.sessionEvents.items).toEqual([]);
+    }
+  });
+
+  it("continues sending remaining batches after one chunk is permanently rejected", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 413,
+        statusText: "Payload Too Large",
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+      } as Response);
+    global.fetch = fetchMock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+
+    emitEvent(INTERACTION_EVENT);
+    await flushMicrotasks();
+
+    // All batches attempted even though one got 413
+    expect(fetchMock.mock.calls.length).toBe(4);
+  });
+
+  it("keeps the full snapshot in the first batch (chunkIndex=0)", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    const META_EVENT = {
+      type: 4,
+      timestamp: 999,
+      data: { href: "http://localhost", width: 1024, height: 768 },
+    } as unknown as eventWithTime;
+
+    emitEvent(META_EVENT);
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+    emitEvent(makeLargeEvent(200_000));
+
+    emitEvent(INTERACTION_EVENT);
+    await flushMicrotasks();
+
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+    const firstBody = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      chunkIndex: number;
+      events: Array<{ type: number }>;
+    };
+    expect(firstBody.chunkIndex).toBe(0);
+    expect(firstBody.events.some((e) => e.type === 2)).toBe(true);
+  });
+
+  it("sends a normal-sized buffer as a single chunk (no behavior change)", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    emitEvent(SNAPSHOT_EVENT);
+    emitEvent(INTERACTION_EVENT);
+
+    jest.runOnlyPendingTimers();
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("sessionReplayPlugin — remote settings and sampling", () => {
   let gb: GrowthBook;
 
