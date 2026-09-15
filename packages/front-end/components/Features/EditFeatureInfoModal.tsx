@@ -10,6 +10,7 @@ import {
   holdsFeatureMoveDestination,
   holdsTargetingDestination,
   reachedTargeting,
+  withStagedTargeting,
 } from "shared/permissions";
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
@@ -145,15 +146,12 @@ const EditFeatureInfoModal: FC<{
     mode === "existing"
       ? revisions.find((r) => r.version === selectedDraft)
       : undefined;
-  // Anything the flag reaches now, reached when the draft began, or already
-  // stages stays selectable, so removing it can be put back without the
-  // permission it would take to add it fresh.
+  // Anything the flag reaches live, in the draft being written into (live
+  // when a new draft is created), or reached when that draft began stays
+  // selectable, so removing it can be put back without the permission it
+  // would take to add it fresh. Same base as the endpoint.
   const reached = reachedTargeting(
-    {
-      project: feature.project,
-      targetingAllProjects: feature.targetingAllProjects,
-      targetingProjects: feature.targetingProjects,
-    },
+    withStagedTargeting(baseFeature, targetDraft?.metadata),
     baseFeature,
     revisions.find((r) => r.version === targetDraft?.baseVersion)?.metadata,
   );

@@ -1791,7 +1791,11 @@ export async function postFeatureApproveAndPublish(
         ),
       ];
       throw new Error(
-        `Your approval alone would not allow publishing: ${reasons.join("; ")}. Approve without publishing instead.`,
+        `Your approval alone would not allow publishing: ${
+          reasons.length
+            ? reasons.join("; ")
+            : "the draft would still need approval"
+        }. Approve without publishing instead.`,
       );
     }
   }
@@ -3211,6 +3215,13 @@ export async function postFeatureFork(
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
+  // The copied envelope stages that revision's targeting afresh.
+  assertTargetingDestination({
+    permissions: context.permissions,
+    existing: feature,
+    proposed: withStagedTargeting(feature, revision.metadata),
+    optedOut: await context.getTargetingOptOutProjectIds(),
+  });
 
   const newRevision = await createRevision({
     context,
@@ -5674,6 +5685,14 @@ export async function putFeature(
             version: targetDraftVersion,
           })
         : await getActiveDraft(context, feature);
+  if (
+    targetDraft &&
+    !(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(targetDraft.status)
+  ) {
+    throw new Error(
+      `Cannot edit a revision with status "${targetDraft.status}"`,
+    );
+  }
   // What the editor is changing from: the draft's staged value, else live.
   const effective = (key: string) =>
     (targetDraft?.metadata as Record<string, unknown> | undefined)?.[key] ??

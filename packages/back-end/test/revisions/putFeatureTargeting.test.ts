@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import type { Response } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
-import { putFeature } from "back-end/src/controllers/features";
+import { postFeatureFork, putFeature } from "back-end/src/controllers/features";
 import { putOrganization } from "back-end/src/routers/organizations/organizations.controller";
 import { publishRevision } from "back-end/src/models/FeatureModel";
 import { setupApp } from "../api/api.setup";
@@ -237,6 +237,36 @@ describe("putFeature targeting", () => {
       version: 2,
     });
     expect(draft?.metadata?.targetingProjects).toEqual([PRJ_A]);
+  });
+
+  it("refuses a published revision as the write target", async () => {
+    await seed();
+    await expect(
+      putFeature(
+        reqFor("u_admin", { description: "edited", targetDraftVersion: 1 }),
+        resSpy().res,
+      ),
+    ).rejects.toThrow('Cannot edit a revision with status "published"');
+  });
+
+  it("forking a revision that targeted more takes the atom", async () => {
+    await seed();
+    await revisions().updateOne(
+      { organization: ORG_ID, version: 1 },
+      { $set: { metadata: { targetingProjects: [PRJ_A] } } },
+    );
+    const fork = (userId: string) =>
+      postFeatureFork(
+        {
+          ...reqFor(userId, {}),
+          params: { id: FEATURE_ID, version: "1" },
+        } as unknown as Parameters<typeof postFeatureFork>[0],
+        resSpy().res,
+      );
+    await expect(fork("u_editor")).rejects.toThrow(
+      "You do not have permission to target project prj_a",
+    );
+    await expect(fork("u_admin")).resolves.toBeUndefined();
   });
 
   describe("a refused autoPublish", () => {

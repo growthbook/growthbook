@@ -87,8 +87,6 @@ export async function setRevisionMetadata(
     }
   }
 
-  normalizeTargetingInUpdates(metadataFields, feature);
-
   if (metadataFields.customFields !== undefined) {
     await validateCustomFields(
       metadataFields.customFields as Record<string, unknown>,
@@ -117,6 +115,7 @@ export async function setRevisionMetadata(
     // re-checks live.
     const draftMetadata = created ? undefined : revision.metadata;
     const stagedTargeting = withStagedTargeting(feature, draftMetadata);
+    normalizeTargetingInUpdates(metadataFields, stagedTargeting);
     const draftBase = created
       ? null
       : await getRevision({
