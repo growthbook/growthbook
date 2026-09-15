@@ -170,6 +170,7 @@ import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   createRevision,
   featureRevisionId,
+  getActiveReviewsFromLog,
   getRevision,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -4013,10 +4014,12 @@ export async function assertCanUndoFeatureReview({
   revision: FeatureRevisionInterface;
   user: EventUser;
 }): Promise<void> {
-  const ownVerdict = (revision.reviews ?? []).some(
-    (r) => r.userId === reviewerKeyForEventUser(user),
-  );
-  if (ownVerdict) return;
+  // Legacy revisions keep their verdicts only in the log.
+  const activeReviews =
+    revision.reviews ?? (await getActiveReviewsFromLog(context, revision));
+  if (activeReviews.some((r) => r.userId === reviewerKeyForEventUser(user))) {
+    return;
+  }
   if (
     !context.permissions.canReviewFeatureDrafts(
       feature,
