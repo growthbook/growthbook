@@ -7,6 +7,7 @@ import {
 } from "back-end/src/services/owner";
 import {
   findDimensionById,
+  hasDimensionDatasourceAccess,
   updateDimension as updateDimensionModel,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
@@ -15,11 +16,18 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 export const updateDimension = createApiRequestHandler(
   updateDimensionValidator,
 )(async (req) => {
+  if (!req.context.permissions.canUpdateDimension()) {
+    req.context.permissions.throwPermissionError();
+  }
+
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
 
   if (!dimension) {
     throw new Error("Could not find dimension with that id");
+  }
+  if (!(await hasDimensionDatasourceAccess(req.context, dimension))) {
+    throw new Error("You don't have access to this dimension");
   }
   if (req.body.datasourceId) {
     const datasourceDoc = await getDataSourceById(

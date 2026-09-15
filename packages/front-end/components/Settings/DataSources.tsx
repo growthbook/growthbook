@@ -1,14 +1,15 @@
 import React, { FC } from "react";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
+import Link from "@/ui/Link";
 import ProjectBadges from "@/components/ProjectBadges";
 import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 const DataSources: FC = () => {
   const router = useRouter();
@@ -21,7 +22,7 @@ const DataSources: FC = () => {
     : datasources;
 
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return <Callout status="error">{error}</Callout>;
   }
   if (!ready) {
     return <LoadingOverlay />;

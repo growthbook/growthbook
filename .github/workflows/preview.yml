@@ -10,13 +10,17 @@ on:
       - "pnpm-lock.yaml"
       - "Dockerfile"
       - ".dockerignore"
-    types: [opened, reopened, closed, synchronize, ready_for_review]
+    types: [opened, reopened, closed, synchronize]
 
 jobs:
   preview:
-    # Fly deploy secrets are not exposed to forked PRs.
-    if: ${{ github.repository == 'growthbook/growthbook' && !github.event.pull_request.head.repo.fork }}
+    if: >-
+      github.repository == 'growthbook/growthbook' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     outputs:
       url: ${{ steps.deploy.outputs.url }}
     concurrency:
@@ -28,24 +32,70 @@ jobs:
     env:
       APP_NAME: pr-${{ github.event.number }}-growthbook
       APP_URL: https://pr-${{ github.event.number }}-growthbook.fly.dev
-      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Checkout agent skills
+        if: ${{ github.event.action != 'closed' }}
+        uses: ./.github/actions/checkout-agent-skills
+
       - name: Generate Fly Dockerfile
         run: cat Dockerfile preview/Dockerfile.append > preview/Dockerfile.generated
 
       - name: Setup fly cli
-        if: ${{ env.FLY_API_TOKEN != '' }}
         uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # Fly's remote builder can't authenticate to the private dhi.io base image,
+      # so we build on CI via Depot (which can) and deploy the prebuilt image.
+      - name: Login to Docker Hardened Images
+        if: ${{ github.event.action != 'closed' }}
+        uses: docker/login-action@v4
+        with:
+          registry: dhi.io
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Install Depot CLI
+        if: ${{ github.event.action != 'closed' }}
+        uses: depot/setup-action@v1
+
+      - name: Login to Fly registry
+        if: ${{ github.event.action != 'closed' }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl auth docker
+
+      # The image push below targets registry.fly.io/<app>, which 404s if the
+      # app doesn't exist yet. Pre-create it so the first push on a new PR works.
+      - name: Ensure Fly app exists
+        if: ${{ github.event.action != 'closed' }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl apps create "${{ env.APP_NAME }}" --org growthbook || \
+            flyctl apps list | grep -qw "${{ env.APP_NAME }}"
+
+      - name: Build and push preview image
+        if: ${{ github.event.action != 'closed' }}
+        uses: depot/build-push-action@v1
+        with:
+          push: true
+          context: .
+          file: preview/Dockerfile.generated
+          project: vmp2ssvj9r
+          build-args: |
+            NODE_OPTIONS=--max-old-space-size=14336
+          tags: registry.fly.io/${{ env.APP_NAME }}:${{ github.sha }}
 
       - name: Deploy PR preview
         id: deploy
-        if: ${{ env.FLY_API_TOKEN != '' }}
         uses: superfly/fly-pr-review-apps@1.3.0
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         with:
+          image: registry.fly.io/${{ env.APP_NAME }}:${{ github.sha }}
           config: preview-pr-fly.toml
           name: ${{ env.APP_NAME }}
           org: growthbook
@@ -58,10 +108,12 @@ jobs:
 
       - name: Allocate public IP
         run: flyctl ips allocate-v4 --shared -a ${{ env.APP_NAME }}
-        if: ${{ github.event.action != 'closed' && env.FLY_API_TOKEN != '' }}
+        if: ${{ github.event.action != 'closed' }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Check deployment health
-        if: ${{ github.event.action != 'closed' && env.FLY_API_TOKEN != '' }}
+        if: ${{ github.event.action != 'closed' }}
         run: |
           URL="${{ env.APP_URL }}:4433/healthcheck"
           echo "Waiting for $URL to become healthy..."
@@ -76,7 +128,9 @@ jobs:
           exit 1
 
       - name: Stop machine
-        if: ${{ github.event.action != 'closed' && env.FLY_API_TOKEN != '' }}
+        if: ${{ github.event.action != 'closed' }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           set -euo pipefail
           echo "Stopping machines for ${{ env.APP_NAME }} (will auto-start on first request)..."

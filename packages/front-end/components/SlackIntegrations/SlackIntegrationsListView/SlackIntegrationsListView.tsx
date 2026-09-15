@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import pick from "lodash/pick";
+import { Box } from "@radix-ui/themes";
 import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import { TagInterface } from "shared/types/tag";
 import {
@@ -19,8 +20,12 @@ import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/Sla
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 
 type SlackIntegrationsListViewProps = {
+  legacyOnly?: boolean;
   onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;
   onCreateModalOpen: () => void;
   onModalClose: () => void;
@@ -40,6 +45,7 @@ type SlackIntegrationsListViewProps = {
 };
 
 export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
+  legacyOnly = false,
   onCreate,
   onUpdate,
   onDelete,
@@ -78,32 +84,49 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
         />
       ) : null}
 
-      {/* Heading w/ beta messaging */}
-      <div className="mb-4">
-        <div className="d-flex justify-space-between align-items-center">
-          <span className="badge badge-purple text-uppercase mr-2">Beta</span>
-          <h1>Slack Integrations</h1>
+      {legacyOnly ? (
+        <Box mb="4">
+          <Heading as="h2" size="md" mb="2">
+            Legacy Slack Integrations
+          </Heading>
+          <Text as="p" color="text-mid">
+            These connections continue to send notifications. You can edit or
+            delete them here while you move to workspace connections. After
+            verifying a new connection, delete the old connection to avoid
+            duplicate notifications.
+          </Text>
+        </Box>
+      ) : (
+        <div className="mb-4">
+          <div className="d-flex justify-space-between align-items-center">
+            <span className="badge badge-purple text-uppercase mr-2">Beta</span>
+            <h1>Slack Integrations</h1>
+          </div>
+          <p>Get alerts in Slack when your GrowthBook data is updated.</p>
+          <div className="alert alert-premium">
+            <h4>Free while in Beta</h4>
+            <p className="mb-0">
+              This feature will be free while we build it out and work out the
+              bugs.
+            </p>
+          </div>
         </div>
-        <p>Get alerts in Slack when your GrowthBook data is updated.</p>
-        <div className="alert alert-premium">
-          <h4>Free while in Beta</h4>
-          <p className="mb-0">
-            This feature will be free while we build it out and work out the
-            bugs.
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Feedback messages */}
       {errorMessage && (
-        <div className="alert alert-danger my-3">{errorMessage}</div>
+        <Callout status="error" my="3">
+          {errorMessage}
+        </Callout>
       )}
 
       {/* Empty state */}
       {slackIntegrations.length === 0 ? (
-        <SlackIntegrationsEmptyState>
-          <Button onClick={onCreateModalOpen}>New Slack integration</Button>
-        </SlackIntegrationsEmptyState>
+        legacyOnly ? null : (
+          <SlackIntegrationsEmptyState>
+            <Button onClick={onCreateModalOpen}>New Slack integration</Button>
+          </SlackIntegrationsEmptyState>
+        )
       ) : (
         <div>
           {/* List View */}
@@ -120,9 +143,11 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
             </div>
           ))}
 
-          <div className="mt-4 mb-5">
-            <Button onClick={onCreateModalOpen}>New Slack integration</Button>
-          </div>
+          {!legacyOnly && (
+            <Box mt="4" mb="5">
+              <Button onClick={onCreateModalOpen}>New Slack integration</Button>
+            </Box>
+          )}
         </div>
       )}
     </div>
@@ -140,11 +165,16 @@ const SlackIntegrationsEmptyState: FC<PropsWithChildren> = ({ children }) => (
   </div>
 );
 
-export const SlackIntegrationsListViewContainer = () => {
+export const SlackIntegrationsListViewContainer = ({
+  legacyOnly = false,
+}: {
+  legacyOnly?: boolean;
+}) => {
   const { apiCall } = useAuth();
 
-  const [modalMode, setModalMode] =
-    useState<SlackIntegrationModalMode | null>();
+  const [modalMode, setModalMode] = useState<SlackIntegrationModalMode | null>(
+    null,
+  );
 
   const handleOnEditModalOpen = useCallback(
     (id: string, data: SlackIntegrationEditParams) => {
@@ -270,10 +300,12 @@ export const SlackIntegrationsListViewContainer = () => {
 
   const { projects, tags } = useDefinitions();
 
+  if (legacyOnly && !loadError && slackIntegrations.length === 0) return null;
+
   return (
     <SlackIntegrationsListView
+      legacyOnly={legacyOnly}
       slackIntegrations={slackIntegrations}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'SlackIntegrationModalMode | null | undefined... Remove this comment to see the full error message
       modalMode={modalMode}
       onDelete={handleDelete}
       modalError={addEditError}

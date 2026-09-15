@@ -12,6 +12,9 @@ const context = {
     canCreateEnvironment: () => true,
     canUpdateEnvironment: () => true,
   },
+  limits: {
+    isEnvironmentIdAllowed: () => true,
+  },
 } as unknown as Context;
 
 describe("environment utils", () => {

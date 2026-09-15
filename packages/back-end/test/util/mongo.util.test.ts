@@ -3,6 +3,8 @@ import { setupApp } from "back-end/test/api/api.setup";
 import {
   getConnectionStringWithDeprecatedKeysMigratedForV3to4,
   dbSafeBulkWrite,
+  isDuplicateKeyError,
+  createWithVersionRetry,
 } from "back-end/src/util/mongo.util";
 
 describe("mongo utils", () => {
@@ -253,6 +255,133 @@ describe("mongo utils", () => {
           { id: "9", number: 9 },
         ]);
       });
+    });
+  });
+
+  describe("isDuplicateKeyError", () => {
+    it("returns false for non-object inputs", () => {
+      expect(isDuplicateKeyError(null)).toBe(false);
+      expect(isDuplicateKeyError(undefined)).toBe(false);
+      expect(isDuplicateKeyError("E11000")).toBe(false);
+      expect(isDuplicateKeyError(11000)).toBe(false);
+      expect(isDuplicateKeyError(false)).toBe(false);
+    });
+
+    it("returns true for top-level code 11000", () => {
+      expect(isDuplicateKeyError({ code: 11000 })).toBe(true);
+    });
+
+    it("returns false for other top-level codes", () => {
+      expect(isDuplicateKeyError({ code: 11001 })).toBe(false);
+      expect(isDuplicateKeyError({ code: 0 })).toBe(false);
+      expect(isDuplicateKeyError({ code: "11000" })).toBe(false);
+    });
+
+    it("returns true when any writeErrors entry has code 11000", () => {
+      expect(
+        isDuplicateKeyError({
+          writeErrors: [{ code: 11001 }, { code: 11000 }],
+        }),
+      ).toBe(true);
+    });
+
+    it("returns false when writeErrors contains only non-duplicate codes", () => {
+      expect(
+        isDuplicateKeyError({ writeErrors: [{ code: 11001 }, { code: 121 }] }),
+      ).toBe(false);
+      expect(isDuplicateKeyError({ writeErrors: [] })).toBe(false);
+    });
+
+    it("returns true when the message contains 'E11000' as a last-resort fallback", () => {
+      expect(
+        isDuplicateKeyError({
+          message:
+            'E11000 duplicate key error collection: growthbook.featurerevisions index: organization_1_featureId_1_version_1 dup key: { organization: "org_1", featureId: "f", version: 369 }',
+        }),
+      ).toBe(true);
+    });
+
+    it("returns false when message does not contain 'E11000'", () => {
+      expect(isDuplicateKeyError({ message: "something else broke" })).toBe(
+        false,
+      );
+      expect(isDuplicateKeyError({ message: "" })).toBe(false);
+    });
+
+    it("matches real Error instances that carry the E11000 message", () => {
+      // Mirror the shape mongoose's MongoServerError actually throws: a plain
+      // Error subclass whose `code` is sometimes stripped by wrapping layers
+      // but whose `message` is preserved.
+      const err = new Error(
+        "E11000 duplicate key error collection: growthbook.featurerevisions",
+      );
+      expect(isDuplicateKeyError(err)).toBe(true);
+    });
+
+    it("prefers the code path when both code and a non-matching message are present", () => {
+      expect(
+        isDuplicateKeyError({ code: 11000, message: "unrelated text" }),
+      ).toBe(true);
+    });
+  });
+
+  describe("createWithVersionRetry", () => {
+    function makeDuplicateKeyError(): Error & { code: number } {
+      const err = new Error("E11000 duplicate key error") as Error & {
+        code: number;
+      };
+      err.code = 11000;
+      return err;
+    }
+
+    it("returns the result of the first successful op call", async () => {
+      const op = jest.fn().mockResolvedValue("ok");
+      await expect(createWithVersionRetry(op)).resolves.toBe("ok");
+      expect(op).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry when op throws a non-duplicate-key error", async () => {
+      const err = new Error("validation failed");
+      const op = jest.fn().mockRejectedValue(err);
+      await expect(createWithVersionRetry(op)).rejects.toBe(err);
+      expect(op).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries on duplicate-key error and returns the eventual success value", async () => {
+      const op = jest
+        .fn()
+        .mockRejectedValueOnce(makeDuplicateKeyError())
+        .mockRejectedValueOnce(makeDuplicateKeyError())
+        .mockResolvedValue("ok");
+      await expect(createWithVersionRetry(op)).resolves.toBe("ok");
+      expect(op).toHaveBeenCalledTimes(3);
+    });
+
+    it("gives up after 5 attempts and throws the last duplicate-key error", async () => {
+      // Use distinguishable errors per attempt so we can assert the LAST one
+      // is the one that propagates (not the first).
+      const errs = Array.from({ length: 5 }, (_, i) => {
+        const e = new Error(`E11000 attempt ${i}`) as Error & {
+          code: number;
+        };
+        e.code = 11000;
+        return e;
+      });
+      const op = jest.fn();
+      errs.forEach((e) => op.mockRejectedValueOnce(e));
+
+      await expect(createWithVersionRetry(op)).rejects.toBe(errs[4]);
+      expect(op).toHaveBeenCalledTimes(5);
+    });
+
+    it("re-throws non-duplicate-key errors raised after one or more duplicate-key retries", async () => {
+      const fatal = new Error("connection lost");
+      const op = jest
+        .fn()
+        .mockRejectedValueOnce(makeDuplicateKeyError())
+        .mockRejectedValueOnce(fatal);
+      await expect(createWithVersionRetry(op)).rejects.toBe(fatal);
+      expect(op).toHaveBeenCalledTimes(2);
     });
   });
 });

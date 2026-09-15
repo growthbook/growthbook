@@ -1,6 +1,6 @@
 import { HiBadgeCheck } from "react-icons/hi";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -8,7 +8,8 @@ import React from "react";
 import { FaExclamationCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { PiArrowSquareOut, PiFolderDuotone } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
@@ -17,7 +18,7 @@ import HelperText from "@/ui/HelperText";
 export function PercentileLabel({
   metric,
 }: {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
 }) {
   if (
     isFactMetric(metric) &&
@@ -37,29 +38,46 @@ export function OfficialBadge({
   type,
   managedBy,
   disableTooltip,
+  tooltip,
+  usePortal,
   showOfficialLabel,
   color,
   leftGap,
+  ...marginProps
 }: {
   type: string;
   managedBy?: "" | "config" | "api" | "admin";
   disableTooltip?: boolean;
+  // Replaces the default "managed by the API" copy.
+  tooltip?: React.ReactNode;
+  // Needed when the badge sits inside a container that clips overflow.
+  usePortal?: boolean;
   showOfficialLabel?: boolean;
   color?: string;
   leftGap?: boolean;
-}) {
+} & MarginProps) {
   if (!managedBy) {
     if (leftGap)
-      return <div className="d-inline-block ml-1" style={{ width: 17 }} />;
+      return (
+        <Box
+          display="inline-block"
+          ml="1"
+          style={{ width: 17 }}
+          {...marginProps}
+        />
+      );
     return null;
   }
 
   return (
-    <span className="text-purple mr-1">
+    <Box display="inline" className="text-purple mr-1" {...marginProps}>
       <Tooltip
+        usePortal={usePortal}
         body={
           disableTooltip ? (
             ""
+          ) : tooltip ? (
+            tooltip
           ) : (
             <>
               <h4 className="pb-1">
@@ -110,7 +128,7 @@ export function OfficialBadge({
           <span className="ml-1 badge badge-purple">Official</span>
         ) : null}
       </Tooltip>
-    </span>
+    </Box>
   );
 }
 
@@ -130,14 +148,14 @@ export default function MetricName({
   officialBadgeLeftGap = true,
 }: {
   id?: string;
-  metric?: ExperimentMetricInterface;
+  metric?: ExperimentMetricDefinition;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
   showDescription?: boolean;
   filterConversionWindowMetrics?: boolean;
   isGroup?: boolean;
   showGroupIcon?: boolean;
-  metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
+  metrics?: { metric: ExperimentMetricDefinition | null; joinable: boolean }[];
   showLink?: boolean;
   badgeColor?: string;
   officialBadgePosition?: "left" | "right";

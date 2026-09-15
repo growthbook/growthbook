@@ -1,5 +1,5 @@
 import Handlebars from "handlebars";
-import { SQLVars } from "shared/types/sql";
+import { SQLVars, SqlDialect } from "shared/types/sql";
 import { FactTableColumnType, JSONColumnFields } from "shared/types/fact-table";
 import { helpers } from "./handlebarsHelpers";
 
@@ -60,6 +60,9 @@ function usesTemplateVariable(sql: string, variableName: string) {
 }
 
 // Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
+// Pass `dialect` so dialect-aware helpers like `{{sqlstring}}` produce output
+// that's safe for the current database. When omitted, helpers fall back to a
+// conservative dialect-agnostic escape.
 export function compileSqlTemplate(
   sql: string,
   {
@@ -70,6 +73,7 @@ export function compileSqlTemplate(
     customFields,
     phase,
   }: SQLVars,
+  dialect?: SqlDialect,
 ) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
@@ -141,7 +145,9 @@ export function compileSqlTemplate(
       ),
       knownHelpersOnly: true,
     });
-    return template(replacements);
+    return template(replacements, {
+      data: { dialect },
+    });
   } catch (e) {
     if (e.message.includes("not defined in [object Object]")) {
       const variableName = e.message.match(/"(.+?)"/)[1];
@@ -240,6 +246,66 @@ function getJSONFields(testValues: unknown[]): JSONColumnFields {
   });
 
   return fields;
+}
+
+export function columnNamesMatch(
+  a: string,
+  b: string,
+  caseSensitive = false,
+): boolean {
+  return caseSensitive ? a === b : a.toLowerCase() === b.toLowerCase();
+}
+
+// Map values are never undefined, so undefined means the key is absent.
+export function getColumnByName<T>(
+  map: Map<string, T>,
+  name: string,
+  caseSensitive = false,
+): T | undefined {
+  const direct = map.get(name);
+  if (direct !== undefined || caseSensitive) {
+    return direct;
+  }
+  const lower = name.toLowerCase();
+  for (const [key, value] of map) {
+    if (key.toLowerCase() === lower) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+export type DetectedJSONFields = {
+  fields: JSONColumnFields;
+  source: "querySchema" | "sampledValues";
+};
+
+/**
+ * Merge freshly-detected JSON sub-fields into the persisted set, preferring the
+ * existing entry when a field is already present. Fields supplied by query
+ * schema metadata follow the integration's SQL identifier casing rules. Fields
+ * inferred from JSON values use exact key matching.
+ */
+export function mergeJsonFields(
+  existing: JSONColumnFields | undefined,
+  incoming: DetectedJSONFields,
+  columnNamesAreCaseSensitive: boolean,
+): { fields: JSONColumnFields; changed: boolean } {
+  const fields: JSONColumnFields = { ...existing };
+  const presentNames = Object.keys(fields);
+  // Keys sampled from JSON values are literally case-sensitive; fields from
+  // schema metadata follow the integration's identifier casing rule.
+  const caseSensitive =
+    incoming.source === "sampledValues" || columnNamesAreCaseSensitive;
+  let changed = false;
+  for (const name of Object.keys(incoming.fields)) {
+    if (!presentNames.some((p) => columnNamesMatch(p, name, caseSensitive))) {
+      fields[name] = incoming.fields[name];
+      presentNames.push(name);
+      changed = true;
+    }
+  }
+  return { fields, changed };
 }
 
 export function determineColumnTypes(

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NotificationEventName } from "shared/types/events/base-types";
 import { zodNotificationEventNamesEnum } from "./events";
+import { notificationSettingsSchema } from "./notification-card";
 
 export const eventWebHookPayloadTypes = [
   "raw",
@@ -15,8 +16,19 @@ export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 
 export type EventWebHookMethod = (typeof eventWebHookMethods)[number];
 
-// Matches multi-level wildcard patterns like "feature.*" or "feature.revision.*".
-export const EVENT_WEBHOOK_WILDCARD_PATTERN = /^[a-z]+(\.[a-zA-Z]+)*\.\*$/;
+export const slackEventWebHookMetadata = z
+  .object({
+    // References SlackWorkspaceConnection within the webhook organization.
+    teamId: z.string().optional(),
+    channelName: z.string().optional(),
+    channelId: z.string().optional(),
+    configurationUrl: z.string().url().optional(),
+  })
+  .strict();
+
+// Matches multi-level wildcard patterns like "feature.*", "feature.revision.*",
+// or "savedGroup.revision.*" (resource names may be camelCase).
+export const EVENT_WEBHOOK_WILDCARD_PATTERN = /^[a-zA-Z]+(\.[a-zA-Z]+)*\.\*$/;
 
 export const isEventWebhookWildcard = (val: string) =>
   EVENT_WEBHOOK_WILDCARD_PATTERN.test(val);
@@ -63,6 +75,8 @@ export const eventWebHookInterface = z
     payloadType: z.enum(eventWebHookPayloadTypes),
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
+    slack: slackEventWebHookMetadata.optional(),
+    notificationSettings: notificationSettingsSchema.optional(),
     signingKey: z.string().min(2),
     lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),

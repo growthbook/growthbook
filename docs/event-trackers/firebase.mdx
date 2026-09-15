@@ -1,0 +1,33 @@
+---
+title: Setting Up Firebase as an Event Tracker
+description: Export Firebase Analytics to BigQuery, log experiment exposure from the SDK, then connect BigQuery to GrowthBook using the Firebase event schema.
+sidebarTitle: Firebase
+slug: firebase
+---
+
+import DefaultInstructions from "/snippets/event-trackers/_default-event-instructions.mdx";
+
+GrowthBook queries Firebase Analytics through BigQuery, not the Firebase API. Enable BigQuery export, log experiment exposure in your app, then connect BigQuery as a data source with the Firebase event tracker.
+
+## Exposure tracking
+
+Log an `experiment_viewed` event (or similar) from the GrowthBook SDK `trackingCallback`. Firebase Analytics events show up in BigQuery as daily `events_*` tables.
+
+```js
+import { logEvent } from "firebase/analytics";
+
+trackingCallback: (experiment, result) => {
+  logEvent(analytics, "experiment_viewed", {
+    experiment_id: experiment.key,
+    variation_id: result.key,
+  });
+};
+```
+
+## Export Firebase to BigQuery
+
+Firebase Analytics is BigQuery-only in GrowthBook. Follow [Firebase's BigQuery export](https://firebase.google.com/docs/projects/bigquery-export) and wait until the `analytics_*` dataset contains `events_*` tables.
+
+Then add **BigQuery** in GrowthBook and choose **Firebase** as the event tracker. GrowthBook applies the same default SQL it uses for Google Analytics 4.
+
+<DefaultInstructions eventTracker="Firebase" slug="firebase" />

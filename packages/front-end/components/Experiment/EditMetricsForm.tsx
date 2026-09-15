@@ -10,7 +10,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
 import { OrganizationSettings } from "shared/types/organization";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { CustomMetricSlice } from "shared/validators";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -24,7 +24,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -42,7 +42,7 @@ export interface EditMetricsFormInterface {
 
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null,
   settings: OrganizationSettings,
 ) {
   const defaultMetricOverrides = cloneDeep(overrides);
@@ -159,6 +159,7 @@ const EditMetricsForm: FC<{
     getIsExperimentIncludedInIncrementalRefresh(
       datasource ?? undefined,
       experiment.id,
+      experiment.type,
     );
 
   const form = useForm<EditMetricsFormInterface>({
@@ -186,7 +187,7 @@ const EditMetricsForm: FC<{
   }
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="edit-metrics-form"
       trackingEventModalSource={source}
       header="Edit Metrics"
@@ -227,12 +228,13 @@ const EditMetricsForm: FC<{
         }
         filterConversionWindowMetrics={isHoldout}
         experimentId={experiment.id}
+        experimentType={experiment.type}
       />
       {/* If the org has the feature, we render a callout within MetricsSelector */}
       {!hasCommercialFeature("metric-groups") ? (
         <PremiumCallout
           commercialFeature="metric-groups"
-          dismissable={true}
+          dismissible={true}
           id="metrics-list-metric-group-promo"
           docSection="metricGroups"
           mb="4"
@@ -250,7 +252,11 @@ const EditMetricsForm: FC<{
               <span className="font-italic">
                 Users must convert on this metric before being included.{" "}
               </span>
-              <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
+              <MetricsSelectorTooltip
+                onlyBinomial={true}
+                noFactFunnelMetrics={true}
+                isSingular={true}
+              />
             </div>
             <MetricSelector
               initialOption="None"
@@ -260,6 +266,7 @@ const EditMetricsForm: FC<{
               datasource={experiment.datasource}
               project={experiment.project}
               onlyBinomial
+              filterFactFunnelMetrics
               includeFacts={true}
             />
           </div>
@@ -325,7 +332,7 @@ const EditMetricsForm: FC<{
           </Collapsible>
         </>
       ) : null}
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

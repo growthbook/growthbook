@@ -1,6 +1,7 @@
 import React, { FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { RxDesktop } from "react-icons/rx";
+import { Flex } from "@radix-ui/themes";
 import { BsFlag } from "react-icons/bs";
 import { PiShuffle } from "react-icons/pi";
 import { ComputedExperimentInterface } from "shared/types/experiment";
@@ -8,13 +9,33 @@ import { date, datetime } from "shared/dates";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import WatchButton from "@/components/WatchButton";
 import SortedTags from "@/components/Tags/SortedTags";
-import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import Pagination from "@/components/Pagination";
+import {
+  ExperimentDot,
+  ExperimentStatusDetailsWithDot,
+} from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import Pagination from "@/ui/Pagination";
+import UITooltip from "@/ui/Tooltip";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
+import {
+  EXPERIMENT_HEALTH_STATE_LABELS,
+  getHealthStateFromDetailedStatus,
+  getTempRolloutTooltip,
+} from "@/services/experiments";
+import {
+  isTempRolloutHealthState,
+  TEMP_ROLLOUT_HEALTH,
+} from "@/services/health";
 
 interface ExperimentsListTableProps {
   tab: string;
-  SortableTH: FC<{
+  SortableTableColumnHeader: FC<{
     field: string;
     className?: string;
     children: React.ReactNode;
@@ -25,16 +46,18 @@ interface ExperimentsListTableProps {
   project?: string | null;
   searchValue: string;
   setSearchValue: (value: string) => void;
+  hrefBase?: string;
 }
 
 const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   tab,
-  SortableTH,
+  SortableTableColumnHeader,
   filtered,
   isFiltered,
   project,
   searchValue,
   setSearchValue,
+  hrefBase = "/experiment",
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const NUM_PER_PAGE = 20;
@@ -46,159 +69,231 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
     tab === "stopped" || tab === "running" || tab === "all";
   // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && filtered.some((e) => e.project);
+  const showHealthColumn = filtered.some((e) => e.healthState !== null);
 
   // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
     setCurrentPage(1);
   }, [filtered.length]);
 
+  const colSpan =
+    5 +
+    (showProjectColumn ? 1 : 0) +
+    (needsStatusColumn ? 1 : 0) +
+    (needsResultColumn ? 1 : 0) +
+    (showHealthColumn ? 1 : 0);
+
   return (
     <>
-      <table className="appbox table experiment-table gbtable responsive-table">
-        <thead>
-          <tr>
-            <th></th>
-            <SortableTH field="name" className="w-100">
+      <Table variant="list" stickyHeader roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader style={{ width: 40 }} />
+            <SortableTableColumnHeader field="name" style={{ maxWidth: 320 }}>
               Experiment
-            </SortableTH>
+            </SortableTableColumnHeader>
             {showProjectColumn && (
-              <SortableTH field="projectName">Project</SortableTH>
+              <SortableTableColumnHeader field="projectName">
+                Project
+              </SortableTableColumnHeader>
             )}
-            <SortableTH field="tags">Tags</SortableTH>
-            <SortableTH field="ownerName">Owner</SortableTH>
-            <SortableTH field="date">Date</SortableTH>
-            {needsStatusColumn && needsResultColumn ? (
-              <>
-                <SortableTH field="statusSortOrder">Status</SortableTH>
-                <th></th>
-              </>
-            ) : needsStatusColumn || needsResultColumn ? (
-              <SortableTH field="statusSortOrder">Status</SortableTH>
-            ) : null}
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.slice(start, end).map((e) => {
-            return (
-              <tr key={e.id} className="hover-highlight">
-                <td data-title="Watching status:" className="watching">
-                  <WatchButton item={e.id} itemType="experiment" type="icon" />
-                </td>
-                <td data-title="Experiment name:" className="p-0">
-                  <Link href={`/experiment/${e.id}`} className="d-block p-2">
-                    <div className="d-flex flex-column">
-                      <div className="d-flex">
-                        <span className="testname">{e.name}</span>
-                        {e.hasVisualChangesets ? (
-                          <Tooltip
-                            className="d-flex align-items-center ml-2"
-                            body="Visual experiment"
-                          >
-                            <RxDesktop className="text-blue" />
-                          </Tooltip>
-                        ) : null}
-                        {(e.linkedFeatures || []).length > 0 ? (
-                          <Tooltip
-                            className="d-flex align-items-center ml-2"
-                            body="Linked Feature Flag"
-                          >
-                            <BsFlag className="text-blue" />
-                          </Tooltip>
-                        ) : null}
-                        {e.hasURLRedirects ? (
-                          <Tooltip
-                            className="d-flex align-items-center ml-2"
-                            body="URL Redirect experiment"
-                          >
-                            <PiShuffle className="text-blue" />
-                          </Tooltip>
-                        ) : null}
-                      </div>
-                      {isFiltered && e.trackingKey && (
+            <SortableTableColumnHeader field="tags">
+              Tags
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="ownerName">
+              Owner
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="date">
+              Date
+            </SortableTableColumnHeader>
+            {needsStatusColumn && (
+              <SortableTableColumnHeader field="statusSortOrder">
+                Status
+              </SortableTableColumnHeader>
+            )}
+            {needsResultColumn &&
+              (needsStatusColumn ? (
+                <TableColumnHeader>Result</TableColumnHeader>
+              ) : (
+                <SortableTableColumnHeader field="statusSortOrder">
+                  Result
+                </SortableTableColumnHeader>
+              ))}
+            {showHealthColumn && (
+              <SortableTableColumnHeader field="healthSortOrder">
+                Health
+              </SortableTableColumnHeader>
+            )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filtered.slice(start, end).map((e) => (
+            <TableRow key={e.id}>
+              <TableCell className="watching">
+                <WatchButton item={e.id} itemType="experiment" type="icon" />
+              </TableCell>
+              <TableCell style={{ padding: "var(--space-0)" }}>
+                <Link
+                  href={`${hrefBase}/${e.id}`}
+                  style={{
+                    display: "block",
+                    padding: "var(--space-3)",
+                    color: "var(--gray-12)",
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <span className="testname">{e.name}</span>
+                      {e.hasVisualChangesets ? (
+                        <Tooltip
+                          flipTheme={false}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
+                          body="Visual experiment"
+                        >
+                          <RxDesktop className="text-blue" />
+                        </Tooltip>
+                      ) : null}
+                      {(e.linkedFeatures || []).length > 0 ? (
+                        <Tooltip
+                          flipTheme={false}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
+                          body="Linked Feature Flag"
+                        >
+                          <BsFlag className="text-blue" />
+                        </Tooltip>
+                      ) : null}
+                      {e.hasURLRedirects ? (
+                        <Tooltip
+                          flipTheme={false}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
+                          body="URL Redirect experiment"
+                        >
+                          <PiShuffle className="text-blue" />
+                        </Tooltip>
+                      ) : null}
+                    </div>
+                    {isFiltered &&
+                      e.trackingKey &&
+                      e.trackingKey !== e.name && (
                         <span
-                          className="testid text-muted small"
+                          className="testid"
                           title="Experiment Id"
+                          style={{
+                            fontSize: "var(--font-size-1)",
+                            color: "var(--gray-10)",
+                          }}
                         >
                           {e.trackingKey}
                         </span>
                       )}
-                    </div>
-                  </Link>
-                </td>
-                {showProjectColumn && (
-                  <td className="nowrap" data-title="Project:">
-                    {e.projectIsDeReferenced ? (
-                      <Tooltip
-                        body={
-                          <>
-                            Project <code>{e.project}</code> not found
-                          </>
-                        }
-                      >
-                        <span className="text-danger">Invalid project</span>
-                      </Tooltip>
-                    ) : (
-                      (e.projectName ?? <em>None</em>)
-                    )}
-                  </td>
-                )}
-
-                <td data-title="Tags:" className="table-tags">
-                  <SortedTags
-                    tags={Object.values(e.tags)}
-                    useFlex={true}
-                    {...tagLinkProps("experiments")}
-                    onTagClick={tagFilterOnClick(searchValue, setSearchValue)}
-                  />
-                </td>
-                <td className="nowrap" data-title="Owner:">
-                  {e.ownerName}
-                </td>
-                <td className="nowrap" title={datetime(e.date)}>
-                  {e.tab === "running"
-                    ? "started"
-                    : e.tab === "drafts"
-                      ? "created"
-                      : e.tab === "stopped"
-                        ? "ended"
-                        : e.tab === "archived"
-                          ? "updated"
-                          : ""}{" "}
-                  {date(e.date)}
-                </td>
-                {needsStatusColumn ? (
-                  <td className="nowrap" data-title="Status:">
-                    {e.statusIndicator.tooltip &&
-                    !e.statusIndicator.detailedStatus ? (
-                      <Tooltip body={e.statusIndicator.tooltip}>
-                        {e.statusIndicator.status}
-                      </Tooltip>
-                    ) : (
-                      e.statusIndicator.status
-                    )}
-                  </td>
-                ) : null}
-                {needsResultColumn ? (
-                  <td className="nowrap" data-title="Details:">
+                  </div>
+                </Link>
+              </TableCell>
+              {showProjectColumn && (
+                <TableCell>
+                  {e.projectIsDeReferenced ? (
+                    <Tooltip
+                      flipTheme={false}
+                      body={
+                        <>
+                          Project <code>{e.project}</code> not found
+                        </>
+                      }
+                    >
+                      <span className="text-danger">Invalid project</span>
+                    </Tooltip>
+                  ) : (
+                    (e.projectName ?? <em>None</em>)
+                  )}
+                </TableCell>
+              )}
+              <TableCell>
+                <SortedTags
+                  tags={Object.values(e.tags)}
+                  useFlex={true}
+                  {...tagLinkProps("experiments")}
+                  onTagClick={tagFilterOnClick(searchValue, setSearchValue)}
+                />
+              </TableCell>
+              <TableCell>{e.ownerName ?? <em>None</em>}</TableCell>
+              <TableCell title={datetime(e.date)}>
+                {e.tab === "running"
+                  ? "started"
+                  : e.tab === "drafts"
+                    ? "created"
+                    : e.tab === "stopped"
+                      ? "ended"
+                      : e.tab === "archived"
+                        ? "updated"
+                        : ""}{" "}
+                {date(e.date)}
+              </TableCell>
+              {needsStatusColumn ? (
+                <TableCell>
+                  {e.statusIndicator.tooltip &&
+                  !e.statusIndicator.detailedStatus ? (
+                    <Tooltip flipTheme={false} body={e.statusIndicator.tooltip}>
+                      {e.statusIndicator.status}
+                    </Tooltip>
+                  ) : (
+                    e.statusIndicator.status
+                  )}
+                </TableCell>
+              ) : null}
+              {needsResultColumn ? (
+                <TableCell>
+                  {getHealthStateFromDetailedStatus(
+                    e.statusIndicator.detailedStatus,
+                  ) ? null : (
                     <ExperimentStatusDetailsWithDot
                       statusIndicatorData={e.statusIndicator}
                     />
-                  </td>
-                ) : null}
-              </tr>
-            );
-          })}
+                  )}
+                </TableCell>
+              ) : null}
+              {showHealthColumn ? (
+                <TableCell style={{ whiteSpace: "nowrap" }}>
+                  {isTempRolloutHealthState(e.healthState) ? (
+                    <UITooltip content={getTempRolloutTooltip(e)}>
+                      <Flex gap="1" align="center">
+                        <ExperimentDot
+                          color={TEMP_ROLLOUT_HEALTH[e.healthState].color}
+                        />
+                        {EXPERIMENT_HEALTH_STATE_LABELS[e.healthState]}
+                      </Flex>
+                    </UITooltip>
+                  ) : e.healthState ? (
+                    <ExperimentStatusDetailsWithDot
+                      statusIndicatorData={e.statusIndicator}
+                    />
+                  ) : null}
+                </TableCell>
+              ) : null}
+            </TableRow>
+          ))}
           {filtered.length === 0 && (
-            <tr>
-              <td colSpan={10} className="text-center">
+            <TableRow>
+              <TableCell colSpan={colSpan} className="text-center">
                 {isFiltered
                   ? "No experiments match the current filter."
                   : "No experiments found."}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {filtered.length > NUM_PER_PAGE && (
         <Pagination
           numItemsTotal={filtered.length}

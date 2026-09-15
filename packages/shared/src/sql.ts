@@ -1,10 +1,44 @@
 import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
-import { FormatDialect } from "../types/sql";
+import { FormatDialect, SqlDialect, StringMatchFn } from "../types/sql";
 import { FormatError } from "../types/error";
 import { parseEnvInt } from "./util/numbers";
 
+/**
+ * Creates a function that builds a string-match condition (LIKE or a warehouse-native equivalent).
+ *
+ * This is needed because in some dialects, _ and \ are treated as wildcard characters for LIKE,
+ * and we want to escape them correctly to we can match them literally.
+ */
+export function createLikeStringMatchFn({
+  escapeStringLiteral,
+  escapeWildcards = (value: string) => value.replace(/([%_\\])/g, "\\$1"),
+  emitEscapeClause,
+}: {
+  escapeStringLiteral: (s: string) => string;
+  escapeWildcards?: (s: string) => string;
+  emitEscapeClause: boolean;
+}): StringMatchFn {
+  return (columnExpr, operator, value) => {
+    const pattern = escapeStringLiteral(escapeWildcards(value));
+    const escapeClause = emitEscapeClause
+      ? ` ESCAPE '${escapeStringLiteral("\\")}'`
+      : "";
+    switch (operator) {
+      case "starts_with":
+        return `${columnExpr} LIKE '${pattern}%'${escapeClause}`;
+      case "ends_with":
+        return `${columnExpr} LIKE '%${pattern}'${escapeClause}`;
+      case "contains":
+        return `${columnExpr} LIKE '%${pattern}%'${escapeClause}`;
+      case "not_contains":
+        return `${columnExpr} NOT LIKE '%${pattern}%'${escapeClause}`;
+    }
+  };
+}
+
 export const SQL_ROW_LIMIT = 1000;
+export const ASK_ROW_LIMIT = 500;
 
 export const MAX_SQL_LENGTH_TO_FORMAT = parseEnvInt(
   process.env.MAX_SQL_LENGTH_TO_FORMAT,
@@ -37,11 +71,19 @@ export function format(
   }
 }
 
+/**
+ * Drop a terminating semicolon even when a trailing comment follows it, e.g.
+ * `SELECT 1;\n-- note`. `/;\s*$/` misses that case and the leftover `;` then
+ * fails multi-statement checks after the query is wrapped in a subquery.
+ */
+export function stripTrailingSemicolon(sql: string): string {
+  return sql.replace(/;(\s|--[^\n]*|\/\*[\s\S]*?\*\/)*$/, "").trim();
+}
+
 export function ensureLimit(sql: string, limit: number): string {
   if (limit <= 0) throw new Error("Limit must be a positive integer");
 
-  // Remove trailing semicolons and spaces
-  sql = sql.replace(/;\s*$/, "").trim();
+  sql = stripTrailingSemicolon(sql);
 
   // Case 1: Has both LIMIT and OFFSET clauses
   const limitOffsetMatch = sql.match(/LIMIT\s+(\d+)\s+OFFSET\s+(\d+)$/i);
@@ -84,19 +126,84 @@ export function ensureLimit(sql: string, limit: number): string {
 }
 
 export function isReadOnlySQL(sql: string) {
-  const { strippedSql } = stripCommentsAndStrings(sql);
+  const { strippedSql } = stripCommentsAndStrings(sql, true);
 
   // Check the first keyword (e.g. "select", "with", etc.)
   return !!strippedSql.match(/^\s*(with|select|explain|show|describe|desc)\b/i);
 }
 
-export function isMultiStatementSQL(sql: string) {
-  const { strippedSql, parseError } = stripCommentsAndStrings(sql);
+const MAX_AGENT_SQL_LENGTH = 100_000;
 
-  // If there was a parse error, search the original string for semicolons
+const DML_DDL_DENY_LIST =
+  /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|MERGE|GRANT|REVOKE|CALL|EXEC|EXECUTE)\b/i;
+
+const DIALECT_ESCAPE_HATCHES =
+  /\b(INTO\s+OUTFILE|INTO\s+DUMPFILE|COPY\s+.{1,200}\s+TO|pg_read_file|pg_read_binary_file|LOAD_FILE|EXECUTE\s+IMMEDIATE)\b|(?<!\w)(file|url|s3)\s*\(/i;
+
+/**
+ * Stricter read-only SQL guard for agent-generated queries. Unlike
+ * `isReadOnlySQL` (first-keyword only), this scans the entire stripped
+ * statement for DML/DDL keywords, multi-statement boundaries, and
+ * dialect-specific escape hatches. Throws on violation.
+ */
+export function assertSafeReadOnlySQL(sql: string): void {
+  if (sql.length > MAX_AGENT_SQL_LENGTH) {
+    throw new Error(
+      `Query exceeds the ${MAX_AGENT_SQL_LENGTH}-character safety limit`,
+    );
+  }
+
+  const { strippedSql, parseError } = stripCommentsAndStrings(sql, true);
+
   if (parseError) {
-    // Ignore final trailing semicolon when searching to avoid common false positive
-    return sql.replace(/;\s*$/, "").includes(";");
+    throw new Error(
+      "Query has unterminated string or comment — cannot verify safety",
+    );
+  }
+
+  // First keyword must be SELECT or WITH
+  if (!/^\s*(SELECT|WITH)\b/i.test(strippedSql)) {
+    throw new Error("Only SELECT and WITH queries are allowed");
+  }
+
+  // Single statement only
+  if (strippedSql.includes(";")) {
+    throw new Error("Multi-statement queries are not allowed");
+  }
+
+  // Dialect-specific escape hatches (checked before generic SELECT INTO)
+  const escapeMatch = strippedSql.match(DIALECT_ESCAPE_HATCHES);
+  if (escapeMatch) {
+    throw new Error(`Disallowed expression: ${escapeMatch[0].trim()}`);
+  }
+
+  // SELECT INTO (but not INTO OUTFILE/DUMPFILE — caught above)
+  if (/\bSELECT\s+.*\bINTO\b/i.test(strippedSql)) {
+    throw new Error("SELECT INTO is not allowed");
+  }
+
+  // DML/DDL deny-list anywhere in the stripped SQL
+  const dmlMatch = strippedSql.match(DML_DDL_DENY_LIST);
+  if (dmlMatch) {
+    throw new Error(`Disallowed keyword: ${dmlMatch[0].toUpperCase()}`);
+  }
+}
+
+export function usesBackslashStringEscapes(
+  dialect: Pick<SqlDialect, "escapeStringLiteral">,
+): boolean {
+  return dialect.escapeStringLiteral("\\") !== "\\";
+}
+
+export function isMultiStatementSQL(sql: string, backslashEscapes: boolean) {
+  const { strippedSql, parseError } = stripCommentsAndStrings(
+    sql,
+    backslashEscapes,
+  );
+  if (parseError) {
+    // Parse failed, so string boundaries are unknown. Stay conservative and
+    // treat any non-trailing semicolon as a statement separator.
+    return stripTrailingSemicolon(sql).includes(";");
   }
   // Otherwise, search the stripped SQL for semicolons
   else {
@@ -104,7 +211,10 @@ export function isMultiStatementSQL(sql: string) {
   }
 }
 
-function stripCommentsAndStrings(sql: string): {
+function stripCommentsAndStrings(
+  sql: string,
+  backslashEscapes: boolean,
+): {
   strippedSql: string;
   parseError: boolean;
 } {
@@ -125,7 +235,7 @@ function stripCommentsAndStrings(sql: string): {
     const nextChar = i + 1 < n ? sql[i + 1] : null;
 
     if (state === "singleQuote") {
-      if (char === "\\") {
+      if (backslashEscapes && char === "\\") {
         // Skip escaped character (e.g. \' or \\)
         i++;
       } else if (char === "'") {
@@ -133,7 +243,7 @@ function stripCommentsAndStrings(sql: string): {
         state = null;
       }
     } else if (state === "doubleQuote") {
-      if (char === "\\") {
+      if (backslashEscapes && char === "\\") {
         // Skip escaped character (e.g. \" or \\)
         i++;
       } else if (char === '"') {
@@ -209,7 +319,12 @@ export function encodeSQLResults(
     return [];
   }
 
-  const columns = Object.keys(results[0]);
+  const columns = Array.from(
+    results.reduce((acc, row) => {
+      Object.keys(row).forEach((column) => acc.add(column));
+      return acc;
+    }, new Set<string>()),
+  );
   const encodedResults: SqlResultChunkData[] = [];
 
   function createChunk(): SqlResultChunkData {
@@ -239,7 +354,7 @@ export function encodeSQLResults(
   for (const row of results) {
     currentChunk.numRows++;
     for (const col of columns) {
-      const value = row[col];
+      const value = row[col] ?? null;
       currentChunk.data[col].push(value);
       currentChunkSize += getSize(value);
     }

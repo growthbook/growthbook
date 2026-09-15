@@ -2,12 +2,18 @@ import { FC, Fragment, useMemo, useState } from "react";
 import { QueryInterface } from "shared/types/query";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { SavedQuery } from "shared/validators";
+import {
+  isManagedWarehouseOutOfMemoryQueryError,
+  isManagedWarehousePendingQueryError,
+} from "shared/util";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ExpandableSavedQuery from "@/components/SavedQueries/ExpandableSavedQuery";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import Callout from "@/ui/Callout";
 import ExpandableQuery from "./ExpandableQuery";
 import QueryStatsRow from "./QueryStatsRow";
 
@@ -67,37 +73,50 @@ const AsyncQueriesModal: FC<{
 
   const contents = (
     <>
-      {error && (
-        <div className="alert alert-danger">
-          <div>
-            <strong>Error Processing Query Results</strong>
+      {error &&
+        (isManagedWarehousePendingQueryError(_error) ? (
+          <div className="mb-3">
+            <ManagedWarehouseNoEventsCallout />
           </div>
-          {error}
-          {traceback ? (
-            <Code
-              language="python"
-              filename="Python stack trace"
-              code={traceback.trim()}
-              showLineNumbers={false}
-              style={{ maxHeight: 500 }}
-            />
-          ) : null}
-        </div>
-      )}{" "}
+        ) : isManagedWarehouseOutOfMemoryQueryError(_error) ? (
+          <Callout status="error">
+            <div>
+              <strong>Query ran out of memory</strong>
+            </div>
+            The Managed Warehouse ran out of memory running this query. Try
+            shortening the date range or removing dimensions, then run it again.
+          </Callout>
+        ) : (
+          <Callout status="error">
+            <div>
+              <strong>Error Processing Query Results</strong>
+            </div>
+            {error}
+            {traceback ? (
+              <Code
+                language="python"
+                filename="Python stack trace"
+                code={traceback.trim()}
+                showLineNumbers={false}
+                style={{ maxHeight: 500 }}
+              />
+            ) : null}
+          </Callout>
+        ))}{" "}
       {data && data.queries.filter((q) => q === null).length > 0 && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           Could not fetch information about one or more of these queries. Try
           running them again.
-        </div>
+        </Callout>
       )}
       {data &&
         data.queries.filter((q) => q?.status === "queued").length > 0 &&
         datasourceId && (
-          <div className="alert alert-warning">
+          <Callout status="warning">
             One or more of these queries is waiting to run. Click{" "}
             <a href={`/datasources/queries/${datasourceId}`}>here</a> to see the
             status of all your queries
-          </div>
+          </Callout>
         )}
       {hasStats ? (
         <div className="mb-4">
@@ -166,12 +185,10 @@ const AsyncQueriesModal: FC<{
 
   if (inline) {
     if (apiError) {
-      return <div className="alert alert-danger">{apiError.message}</div>;
+      return <Callout status="error">{apiError.message}</Callout>;
     }
     if (savedQueryError) {
-      return (
-        <div className="alert alert-danger">{savedQueryError.message}</div>
-      );
+      return <Callout status="error">{savedQueryError.message}</Callout>;
     }
     if (!data) {
       return <LoadingSpinner />;
@@ -193,9 +210,9 @@ const AsyncQueriesModal: FC<{
         (shouldFetchSavedQueries() && !savedQueryData && !savedQueryError)) && (
         <LoadingOverlay />
       )}
-      {apiError && <div className="alert alert-danger">{apiError.message}</div>}
+      {apiError && <Callout status="error">{apiError.message}</Callout>}
       {savedQueryError && (
-        <div className="alert alert-danger">{savedQueryError.message}</div>
+        <Callout status="error">{savedQueryError.message}</Callout>
       )}
       {contents}
     </Modal>

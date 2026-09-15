@@ -16,7 +16,8 @@ interface ProjectRowMenuProps {
   canDelete: boolean;
   onEdit: () => void;
   onDelete: () => Promise<void>;
-  deleteProjectResources: boolean;
+  // null hides the choice — the project's resources are always deleted
+  deleteProjectResources: boolean | null;
   setDeleteProjectResources: (v: boolean) => void;
 }
 
@@ -105,17 +106,21 @@ export default function ProjectRowMenu({
                   Are you sure you want to delete the project{" "}
                   <strong>{project.name}</strong>?
                 </p>
-                <Checkbox
-                  value={deleteProjectResources}
-                  setValue={(v) => setDeleteProjectResources(v)}
-                  label="Also delete all of this project's resources"
-                  description="Features, experiments, etc."
-                />
-                {!deleteProjectResources && (
-                  <Callout status="warning" mt="3">
-                    <strong>Warning:</strong> You may end up with orphaned
-                    resources that will need to be cleaned up manually.
-                  </Callout>
+                {deleteProjectResources !== null && (
+                  <>
+                    <Checkbox
+                      value={deleteProjectResources}
+                      setValue={(v) => setDeleteProjectResources(v)}
+                      label="Also delete all of this project's resources"
+                      description="Features, experiments, etc."
+                    />
+                    {!deleteProjectResources && (
+                      <Callout status="warning" mt="3">
+                        <strong>Warning:</strong> You may end up with orphaned
+                        resources that will need to be cleaned up manually.
+                      </Callout>
+                    )}
+                  </>
                 )}
               </div>
               <div className="modal-footer">

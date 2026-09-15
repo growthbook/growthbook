@@ -23,7 +23,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { runFreeFormQuery } from "back-end/src/services/datasource";
 import {
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForPrompt,
   parsePrompt,
 } from "back-end/src/enterprise/services/ai";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
@@ -175,14 +175,17 @@ export async function putSavedQuery(
     );
   }
 
+  // Only include fields the caller actually sent — passing `undefined` would
+  // clear `dataVizConfig` (it's optional) and no-op `dateLastRan` (required),
+  // neither of which is intended for a partial update that omits them.
   const updateData = {
     ...req.body,
-    dateLastRan: req.body.dateLastRan
-      ? getValidDate(req.body.dateLastRan)
-      : undefined,
-    dataVizConfig: req.body.dataVizConfig
-      ? ensureDataVizIds(req.body.dataVizConfig)
-      : undefined,
+    ...(req.body.dateLastRan
+      ? { dateLastRan: getValidDate(req.body.dateLastRan) }
+      : {}),
+    ...(req.body.dataVizConfig
+      ? { dataVizConfig: ensureDataVizIds(req.body.dataVizConfig) }
+      : {}),
   };
 
   const savedQuery = await context.models.savedQueries.updateById(
@@ -291,7 +294,7 @@ export async function postGenerateSQL(
   const { input, datasourceId, temperature: reqTemperature } = req.body;
   const temperature = reqTemperature ?? 0.1;
   const context = getContextFromReq(req);
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
 
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
     context.throwPlanDoesNotAllowError(
@@ -311,7 +314,10 @@ export async function postGenerateSQL(
       message: "Datasource not found",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForPrompt(
+    context,
+    "generate-sql-query",
+  );
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

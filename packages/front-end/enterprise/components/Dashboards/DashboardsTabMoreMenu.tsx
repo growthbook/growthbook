@@ -215,11 +215,7 @@ export default function DashboardsTabMoreMenu({
             <DropdownMenuItem
               color="red"
               confirmation={{
-                confirmationTitle: (
-                  <>
-                    Delete Dashboard <i>{dashboard.title}</i>?
-                  </>
-                ),
+                confirmationTitle: `Delete Dashboard "${dashboard.title}"?`,
                 cta: "Delete",
                 submit: async () => {
                   await apiCall(`/dashboards/${dashboard.id}`, {

@@ -5,7 +5,12 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import React from "react";
-import { validateAndFixCondition } from "shared/util";
+import {
+  coverageToHoldoutSize,
+  holdoutSizeToCoverage,
+  MAX_HOLDOUT_SIZE,
+  validateAndFixCondition,
+} from "shared/util";
 import { Text, Separator } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -13,13 +18,14 @@ import { useAttributeSchema } from "@/services/features";
 import ConditionInput from "@/components//Features/ConditionInput";
 import SelectField from "@/components//Forms/SelectField";
 import {
-  AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
@@ -39,13 +45,13 @@ export default function EditHoldoutTargetingModal({
   const { apiCall } = useAuth();
   const [conditionKey, forceConditionRender] = useIncrementer();
 
-  const lastPhase: ExperimentPhaseStringDates | undefined =
-    experiment.phases[experiment.phases.length - 1];
+  const mainPhase: ExperimentPhaseStringDates | undefined =
+    experiment.phases[0];
 
   const defaultValues = {
-    condition: lastPhase?.condition ?? "",
-    savedGroups: lastPhase?.savedGroups ?? [],
-    coverage: lastPhase?.coverage ?? 1,
+    condition: mainPhase?.condition ?? "",
+    savedGroups: mainPhase?.savedGroups ?? [],
+    coverage: mainPhase?.coverage ?? 1,
     hashAttribute: experiment.hashAttribute || "id",
   };
 
@@ -70,7 +76,7 @@ export default function EditHoldoutTargetingModal({
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
@@ -84,7 +90,7 @@ export default function EditHoldoutTargetingModal({
         form={form}
         conditionKey={conditionKey}
       />
-    </Modal>
+    </ModalStandard>
   );
 }
 
@@ -103,14 +109,7 @@ function TargetingForm({
 
   const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
     .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map((s) => ({
-      label: s.property,
-      value: s.property,
-      description: s.description,
-      tags: s.tags,
-      datatype: s.datatype,
-      hashAttribute: s.hashAttribute,
-    }));
+    .map(toAttributeOption);
 
   // If the current hashAttribute isn't in the list, add it for backwards compatibility
   // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was creaetd
@@ -131,23 +130,13 @@ function TargetingForm({
           withRadixThemedPortal
           containerClassName="flex-1"
           label="Assign variation based on attribute"
-          labelClassName="font-weight-bold"
           options={hashAttributeOptions}
           sort={false}
           value={form.watch("hashAttribute")}
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
-          formatOptionLabel={(o, meta) => {
-            return (
-              <AttributeOptionWithTooltip
-                option={o as AttributeOptionForTooltip}
-                context={meta.context}
-              >
-                {o.label}
-              </AttributeOptionWithTooltip>
-            );
-          }}
+          formatOptionLabel={formatAttributeOptionLabel}
           helpText={"The globally unique tracking key for the experiment"}
         />
 
@@ -164,21 +153,25 @@ function TargetingForm({
             style={{ width: 110 }}
           >
             <Field
+              size="legacy"
               style={{ width: 105 }}
               value={
                 isNaN(form.watch("coverage") ?? 0)
                   ? "5"
-                  : decimalToPercent((form.watch("coverage") ?? 0) / 2)
+                  : decimalToPercent(
+                      coverageToHoldoutSize(form.watch("coverage") ?? 0),
+                    )
               }
               onChange={(e) => {
-                let decimal = percentToDecimal(e.target.value);
-                if (decimal > 1) decimal = 1;
-                if (decimal < 0) decimal = 0;
-                form.setValue("coverage", decimal * 2);
+                let holdoutSize = percentToDecimal(e.target.value);
+                if (holdoutSize > MAX_HOLDOUT_SIZE)
+                  holdoutSize = MAX_HOLDOUT_SIZE;
+                if (holdoutSize < 0) holdoutSize = 0;
+                form.setValue("coverage", holdoutSizeToCoverage(holdoutSize));
               }}
               type="number"
               min={0}
-              max={100}
+              max={decimalToPercent(MAX_HOLDOUT_SIZE)}
               step="1"
             />
             <span>%</span>

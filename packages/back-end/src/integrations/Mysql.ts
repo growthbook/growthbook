@@ -1,10 +1,13 @@
 import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
-import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
+import { SqlDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { getFactTableTypeFromMysqlTypeCode } from "back-end/src/util/warehouseColumnTypes";
+import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
+import { mysqlDialect } from "./dialects/mysql";
 
 export default class Mysql extends SqlIntegration {
   params!: MysqlConnectionParams;
@@ -14,11 +17,8 @@ export default class Mysql extends SqlIntegration {
     this.params =
       decryptDataSourceParams<MysqlConnectionParams>(encryptedParams);
   }
-  getFormatDialect(): FormatDialect {
-    return "mysql";
-  }
-  getSensitiveParamKeys(): string[] {
-    return ["password"];
+  getSqlDialect(): SqlDialect {
+    return mysqlDialect;
   }
   async runQuery(sql: string): Promise<QueryResponse> {
     const config: ConnectionOptions = {
@@ -36,86 +36,28 @@ export default class Mysql extends SqlIntegration {
       };
     }
     const conn = await mysql.createConnection(config);
-
-    const [rows] = await conn.query(sql);
-    conn.end();
-    return { rows: rows as RowDataPacket[] };
-  }
-  dateDiff(startCol: string, endCol: string) {
-    return `DATEDIFF(${endCol}, ${startCol})`;
-  }
-  addTime(
-    col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
-    amount: number,
-  ): string {
-    return `DATE_${
-      sign === "+" ? "ADD" : "SUB"
-    }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
-  }
-  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
-    const formatMap: Record<DateTruncGranularity, string> = {
-      hour: `DATE_FORMAT(${col}, '%Y-%m-%d %H:00:00')`,
-      day: `DATE(${col})`,
-      // Hack required for MySQL to calculate the start of the week
-      week: `DATE(DATE_SUB(${col}, INTERVAL WEEKDAY(${col}) DAY))`,
-      month: `DATE_FORMAT(${col}, '%Y-%m-01')`,
-      year: `DATE_FORMAT(${col}, '%Y-01-01')`,
-    };
-
-    return formatMap[granularity];
-  }
-  formatDate(col: string): string {
-    return `DATE_FORMAT(${col}, "%Y-%m-%d")`;
-  }
-  formatDateTimeString(col: string): string {
-    return `DATE_FORMAT(${col}, "%Y-%m-%d %H:%i:%S")`;
-  }
-  castToString(col: string): string {
-    return `cast(${col} as char)`;
-  }
-  ensureFloat(col: string): string {
-    return `CAST(${col} AS DOUBLE)`;
-  }
-  percentileCapSelectClause(
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-    }[],
-    metricTable: string,
-    where: string = "",
-  ): string {
-    if (values.length > 1) {
-      throw new Error(
-        "MySQL only supports one percentile capped metric at a time",
-      );
+    try {
+      const [rows, fields] = await conn.query(sql);
+      return {
+        rows: rows as RowDataPacket[],
+        columns: fields?.map((field) => {
+          const dataType =
+            field.columnType === undefined
+              ? undefined
+              : getFactTableTypeFromMysqlTypeCode(
+                  field.columnType,
+                  field.characterSet,
+                );
+          return { name: field.name, ...(dataType && { dataType }) };
+        }),
+      };
+    } finally {
+      try {
+        await conn.end();
+      } catch (e) {
+        logger.warn(e, "Failed to close MySQL connection");
+      }
     }
-
-    let whereClause = where;
-    if (values[0].ignoreZeros) {
-      whereClause = whereClause
-        ? `${whereClause} AND ${values[0].valueCol} != 0`
-        : `WHERE ${values[0].valueCol} != 0`;
-    }
-
-    return `
-    SELECT DISTINCT FIRST_VALUE(${values[0].valueCol}) OVER (
-      ORDER BY CASE WHEN p <= ${values[0].percentile} THEN p END DESC
-    ) AS ${values[0].outputCol}
-    FROM (
-      SELECT
-        ${values[0].valueCol},
-        PERCENT_RANK() OVER (ORDER BY ${values[0].valueCol}) p
-      FROM ${metricTable}
-      ${whereClause}
-    ) t`;
-  }
-  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
-    const raw = `JSON_EXTRACT(${jsonCol}, '$.${path}')`;
-    return isNumeric ? this.ensureFloat(raw) : raw;
   }
   hasQuantileTesting(): boolean {
     return false;

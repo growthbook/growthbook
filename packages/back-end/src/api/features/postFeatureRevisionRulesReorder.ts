@@ -1,7 +1,7 @@
-import cloneDeep from "lodash/cloneDeep";
 import { postFeatureRevisionRulesReorderValidator } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import type { FeatureRule } from "shared/types/feature";
+import { projectRulesForEnv } from "back-end/src/util/revisionRuleOps";
+import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -23,10 +23,7 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -48,13 +45,17 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
       );
     }
 
-    const envRules = revision.rules?.[environment] ?? [];
+    const flatRules: FeatureRule[] = revision.rules ?? [];
+    const { envRules, parentIndices } = projectRulesForEnv(
+      flatRules,
+      environment,
+    );
 
     const ruleMap = new Map(envRules.map((r) => [r.id, r]));
 
     const unknownIds = ruleIds.filter((id) => !ruleMap.has(id));
     if (unknownIds.length > 0) {
-      throw new BadRequestError(
+      throw new NotFoundError(
         `Unknown rule ID(s): ${unknownIds.join(", ")}. ruleIds must contain exactly the existing rule IDs for this environment.`,
       );
     }
@@ -84,11 +85,22 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
     const isNoop = envRules.every((r, i) => r.id === reordered[i].id);
     if (isNoop) {
       await discardIfJustCreated(req.context, revision, created);
-      return { revision: revisionToApiInterface(revision) };
+      return { revision: toApiRevision(revision, req.context, feature) };
     }
 
-    const newRules = cloneDeep(revision.rules ?? {});
-    newRules[environment] = reordered;
+    // Fold the reordered env slice back into the flat revision.rules array,
+    // preserving other-env rule positions.
+    const parentIdxSet = new Set(parentIndices);
+    const newRules: FeatureRule[] = [];
+    let envCursor = 0;
+    flatRules.forEach((r, idx) => {
+      if (parentIdxSet.has(idx)) {
+        newRules.push(reordered[envCursor]);
+        envCursor++;
+      } else {
+        newRules.push(r);
+      }
+    });
 
     await updateRevision(
       req.context,
@@ -101,18 +113,13 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
         subject: environment,
         value: JSON.stringify(ruleIds),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [environment],
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
     );
 
     const updated = await getRevision({
       context: req.context,
       organization: req.organization.id,
       featureId: feature.id,
+      feature,
       version: revision.version,
     });
     const finalRevision = updated ?? revision;
@@ -128,7 +135,7 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler(
       },
     );
 
-    return { revision: revisionToApiInterface(finalRevision) };
+    return { revision: toApiRevision(finalRevision, req.context, feature) };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

@@ -26,6 +26,7 @@ import {
   PopulationDataMetric,
 } from "shared/types/population-data";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
@@ -99,6 +100,11 @@ export const startPopulationDataQueries = async (
     }
   }
 
+  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(settings, {
+    query: "",
+    userIdType: params.populationSettings.userIdType,
+  });
+
   for (const m of legacyMetricSingles) {
     if (
       !integration.getPopulationMetricQuery ||
@@ -126,6 +132,7 @@ export const startPopulationDataQueries = async (
       segment: segment,
       settings,
       unitsSource: "otherQuery",
+      unitsSettings,
       factTableMap: params.factTableMap,
       populationSettings: params.populationSettings,
     };
@@ -161,6 +168,7 @@ export const startPopulationDataQueries = async (
       segment: segment,
       settings,
       unitsSource: "otherQuery",
+      unitsSettings,
       factTableMap: params.factTableMap,
       populationSettings: params.populationSettings,
     };
@@ -184,7 +192,7 @@ export const startPopulationDataQueries = async (
   return queries;
 };
 
-function readMetricData({
+export function readMetricData({
   metric,
   rows,
   metricPrefix,
@@ -243,10 +251,7 @@ function readMetricData({
     if (r.dim_pre_date) {
       const users = (r.users as number) ?? 0;
       const week = lastMondayString(r.dim_pre_date as string);
-      if (!histogram[week]) {
-        histogram[week] = users;
-      }
-      histogram[week] += users;
+      histogram[week] = (histogram[week] ?? 0) + users;
     }
   });
 

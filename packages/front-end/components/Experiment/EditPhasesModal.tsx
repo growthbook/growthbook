@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Table, {
   TableBody,
   TableCell,
@@ -21,6 +24,7 @@ import NewPhaseForm from "./NewPhaseForm";
 export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutateExperiment: () => void;
   editTargeting: (() => void) | null;
   source?: string;
@@ -29,6 +33,7 @@ export interface Props {
 export default function EditPhasesModal({
   close,
   experiment,
+  linkedFeatures,
   mutateExperiment,
   editTargeting,
   source,
@@ -57,6 +62,7 @@ export default function EditPhasesModal({
           }
         }}
         experiment={experiment}
+        linkedFeatures={linkedFeatures}
         mutate={mutateExperiment}
       />
     );
@@ -84,7 +90,7 @@ export default function EditPhasesModal({
     );
   }
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="edit-phases-modal"
       trackingEventModalSource={source}
       open={true}
@@ -153,7 +159,6 @@ export default function EditPhasesModal({
                       (experiment.status !== "running" || !hasLinkedChanges) &&
                       experiment.phases.length > 1 && (
                         <DeleteButton
-                          useRadix
                           text="Delete"
                           displayName="phase"
                           onClick={async () => {
@@ -184,6 +189,6 @@ export default function EditPhasesModal({
           New Phase
         </Button>
       )}
-    </DialogLayout>
+    </ModalStandard>
   );
 }

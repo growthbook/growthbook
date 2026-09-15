@@ -11,7 +11,7 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { MdSwapCalls } from "react-icons/md";
 import { PiInfo } from "react-icons/pi";
@@ -32,7 +32,7 @@ import VariationStatsTable from "@/ui/VariationStatsTable";
 export interface AnalysisResultSummaryProps {
   data?: {
     metricRow: number;
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     metricSnapshotSettings?: MetricSnapshotSettings;
     dimensionName?: string;
     dimensionValue?: string | ReactNode;

@@ -12,6 +12,7 @@ export type Props = {
   premiumText?: string | JSX.Element;
   useTip?: boolean;
   variant?: "outline" | "solid";
+  inheritColor?: boolean;
 } & MarginProps;
 
 const PaidFeatureBadge = ({
@@ -19,6 +20,7 @@ const PaidFeatureBadge = ({
   premiumText,
   useTip = true,
   variant = "outline",
+  inheritColor = false,
   ...badgeProps
 }: Props) => {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
@@ -57,6 +59,10 @@ const PaidFeatureBadge = ({
       radius="full"
       style={{
         cursor: "default",
+        ...(inheritColor && {
+          color: "currentColor",
+          boxShadow: "inset 0 0 0 1px currentColor",
+        }),
       }}
       {...badgeProps}
     />

@@ -1,10 +1,12 @@
 import {
+  assertSafeReadOnlySQL,
   buildMinimalOrCondition,
   decodeSQLResults,
   encodeSQLResults,
   ensureLimit,
   isMultiStatementSQL,
   isReadOnlySQL,
+  usesBackslashStringEscapes,
 } from "../src/sql";
 
 describe("ensureLimit", () => {
@@ -156,6 +158,11 @@ describe("ensureLimit", () => {
       const result = ensureLimit(sql, 10);
       expect(result).toBe("SELECT * FROM users LIMIT 10");
     });
+    it("should strip a trailing semicolon even when a comment follows it", () => {
+      const sql = "SELECT * FROM users;\n-- note";
+      const result = ensureLimit(sql, 10);
+      expect(result).toBe("SELECT * FROM users\nLIMIT 10");
+    });
   });
 });
 
@@ -265,12 +272,12 @@ describe("isReadOnlySQL", () => {
 describe("isMultiStatementSQL", () => {
   it("should return true for multiple statements", () => {
     const sql = "SELECT * FROM users; SELECT * FROM orders;";
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
 
   it("should return false for single statement", () => {
     const sql = "SELECT * FROM users;";
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
 
   it("should ignore comments when counting statements", () => {
@@ -278,12 +285,12 @@ describe("isMultiStatementSQL", () => {
       -- This is a comment; Select 1;
       SELECT * FROM users; /* Another comment; SELECT 1; */
     `;
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
 
   it("should handle statements without semicolons", () => {
     const sql = "SELECT * FROM users";
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
 
   it("should handle complex multi-statement SQL", () => {
@@ -293,81 +300,134 @@ describe("isMultiStatementSQL", () => {
       )
       SELECT * FROM recent_orders WHERE amount > 100;
     `;
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
   it("should ignore semicolons within simple strings", () => {
     const sql = "SELECT 'This is a test; still in string' AS test_col;";
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
   it("should handle CTAS statements", () => {
     const sql = "CREATE TABLE new_table AS SELECT * FROM users";
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
   it("is not tricked by quotes and block comments", () => {
     const sql = `SELECT '/*'; DROP TABLE users; SELECT '*/';`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by quotes and line comments", () => {
     const sql = `SELECT '--'; DROP TABLE users`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by backslash escaped strings", () => {
     const sql = `SELECT 'It\\'s a test'; DROP TABLE users; SELECT '1';`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by fake escaped backslashes", () => {
     const sql = `SELECT 'This is a backslash: \\\\'; DROP TABLE users; SELECT '1';`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by single quotes that are escaped by doubling the quotes", () => {
     const sql = `SELECT 'It''s a test'; DROP TABLE users; SELECT '1';`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
 
   it("is not tricked by double quotes and block comments", () => {
     const sql = `SELECT "/*"; DROP TABLE users; SELECT "*/";`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by double quotes and line comments", () => {
     const sql = `SELECT "--"; DROP TABLE users`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by backslash escaped double quoted strings", () => {
     const sql = `SELECT "It\\'s a test"; DROP TABLE users; SELECT "1";`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by fake escaped backslashes in double quoted strings", () => {
     const sql = `SELECT "This is a backslash: \\\\"; DROP TABLE users; SELECT "1";`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by single quotes that are escaped by doubling the double quotes", () => {
     const sql = `SELECT "It''s a test"; DROP TABLE users; SELECT "1";`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
 
   it("is not tricked by backtick quotes and block comments", () => {
     const sql = `SELECT \`/*\`; DROP TABLE users; SELECT \`*/\`;`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by backtick quotes and line comments", () => {
     const sql = `SELECT \`--\`; DROP TABLE users`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("is not tricked by doubled backticks", () => {
     const sql = `SELECT \`It\`\`s a test\`; DROP TABLE users; SELECT \`1\`;`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
   });
   it("allows parse errors as long as there are no semicolons", () => {
     const sql = `SELECT 'It\\'`;
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
   it("allows parse errors as long as there is only a trailing semicolon", () => {
     const sql = `SELECT 'It\\'; `;
-    expect(isMultiStatementSQL(sql)).toBe(false);
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
   });
   it("blocks all internal semicolons when there is a parse error", () => {
     const sql = `SELECT 'It\\'; DROP TABLE users`;
-    expect(isMultiStatementSQL(sql)).toBe(true);
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
+  });
+});
+
+describe("isMultiStatementSQL — dialect-aware backslash escaping", () => {
+  it("allows a backslash string literal on a non-backslash dialect (the reported bug)", () => {
+    const sql = `SELECT * FROM t WHERE id LIKE 'a\\_b' ESCAPE '\\'`;
+    expect(isMultiStatementSQL(sql, false)).toBe(false);
+  });
+  it("allows multi-line  query with a ';' in a comment and a backslash ESCAPE literal", () => {
+    const sql = `-- Dimension: Country (by user_id); Fact Table: Sessions (by user_id)
+WITH __rawExperiment AS (
+  SELECT timestamp, experiment_id, user_id
+  FROM "fake-database".sessions
+  WHERE timestamp >= timestamp '2026-05-26 19:00:00'
+    AND experiment_id LIKE replace('my-experiment-id-here', '_', '\\_') ESCAPE '\\'
+)
+SELECT timestamp, user_id FROM __rawExperiment;`;
+    expect(isMultiStatementSQL(sql, false)).toBe(false);
+  });
+  it("still blocks a real statement separator on a non-backslash dialect", () => {
+    expect(isMultiStatementSQL(`SELECT 1; DROP TABLE users`, false)).toBe(true);
+  });
+  it("blocks an injection hidden behind a backslash literal on a non-backslash dialect", () => {
+    const sql = `SELECT 1 WHERE x = '\\'; DROP TABLE t; --'`;
+    expect(isMultiStatementSQL(sql, false)).toBe(true);
+  });
+  it("blocks a real statement separator when a -- sits inside a string and the query ends mid-string", () => {
+    const sql = `SELECT '--'; DROP TABLE users; SELECT 'unterminated`;
+    expect(isMultiStatementSQL(sql, false)).toBe(true);
+  });
+  it("blocks a backslash-escaped-quote injection on a backslash dialect", () => {
+    const sql = `SELECT 'It\\'s a test'; DROP TABLE users`;
+    expect(isMultiStatementSQL(sql, true)).toBe(true);
+  });
+  it("allows a benign single statement with a backslash escape on a backslash dialect", () => {
+    const sql = `SELECT 'a\\nb' AS c`;
+    expect(isMultiStatementSQL(sql, true)).toBe(false);
+  });
+});
+
+describe("usesBackslashStringEscapes", () => {
+  it("is false for ANSI doubled-quote escaping (Trino, Athena, Postgres, MSSQL, Vertica)", () => {
+    const escapeStringLiteral = (v: string) => v.replace(/'/g, "''");
+    expect(usesBackslashStringEscapes({ escapeStringLiteral })).toBe(false);
+  });
+  it("is true when backslashes are doubled (MySQL, Snowflake, Redshift, ClickHouse)", () => {
+    const escapeStringLiteral = (v: string) =>
+      v.replace(/\\/g, "\\\\").replace(/'/g, "''");
+    expect(usesBackslashStringEscapes({ escapeStringLiteral })).toBe(true);
+  });
+  it("is true when quotes/backslashes are backslash-prefixed (BigQuery, Databricks)", () => {
+    const escapeStringLiteral = (v: string) => v.replace(/(['\\])/g, "\\$1");
+    expect(usesBackslashStringEscapes({ escapeStringLiteral })).toBe(true);
   });
 });
 
@@ -534,6 +594,224 @@ describe("buildMinimalOrCondition", () => {
   });
 });
 
+describe("assertSafeReadOnlySQL", () => {
+  // --- Valid queries ---
+  it("allows simple SELECT", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1")).not.toThrow();
+  });
+
+  it("allows SELECT with FROM", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM users WHERE id = 1"),
+    ).not.toThrow();
+  });
+
+  it("allows WITH (CTE)", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("WITH cte AS (SELECT 1 AS n) SELECT * FROM cte"),
+    ).not.toThrow();
+  });
+
+  it("allows subqueries and aggregates", () => {
+    expect(() =>
+      assertSafeReadOnlySQL(
+        "SELECT source, COUNT(*) AS cnt FROM signups GROUP BY source ORDER BY cnt DESC LIMIT 10",
+      ),
+    ).not.toThrow();
+  });
+
+  // --- DML keywords inside string literals should NOT trigger ---
+  it("ignores DML keywords inside single-quoted strings", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t WHERE name = 'DROP TABLE'"),
+    ).not.toThrow();
+  });
+
+  it("ignores DML keywords inside double-quoted identifiers", () => {
+    expect(() => assertSafeReadOnlySQL('SELECT "DELETE" FROM t')).not.toThrow();
+  });
+
+  it("ignores DML keywords inside backtick-quoted identifiers", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT `INSERT` FROM t")).not.toThrow();
+  });
+
+  // --- First keyword ---
+  it("rejects EXPLAIN", () => {
+    expect(() => assertSafeReadOnlySQL("EXPLAIN SELECT 1")).toThrow(
+      "Only SELECT and WITH",
+    );
+  });
+
+  it("rejects SHOW", () => {
+    expect(() => assertSafeReadOnlySQL("SHOW TABLES")).toThrow(
+      "Only SELECT and WITH",
+    );
+  });
+
+  it("rejects INSERT as first keyword", () => {
+    expect(() => assertSafeReadOnlySQL("INSERT INTO t VALUES (1)")).toThrow();
+  });
+
+  // --- Multi-statement ---
+  it("rejects multi-statement with semicolon", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1; DROP TABLE users")).toThrow(
+      "Multi-statement",
+    );
+  });
+
+  it("allows trailing semicolon (stripped by parser)", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1;")).not.toThrow();
+  });
+
+  // --- DML/DDL deny-list ---
+  it("rejects DELETE anywhere in query", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t WHERE 1=1 DELETE FROM t"),
+    ).toThrow("DELETE");
+  });
+
+  it("rejects DROP in subquery", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT (DROP TABLE users) FROM dual"),
+    ).toThrow("DROP");
+  });
+
+  it("rejects CREATE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 CREATE TABLE foo (id INT)"),
+    ).toThrow("CREATE");
+  });
+
+  it("rejects TRUNCATE", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1 TRUNCATE TABLE foo")).toThrow(
+      "TRUNCATE",
+    );
+  });
+
+  it("rejects GRANT", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 GRANT ALL ON foo TO bar"),
+    ).toThrow("GRANT");
+  });
+
+  // --- SELECT INTO ---
+  it("rejects SELECT INTO", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * INTO new_table FROM old_table"),
+    ).toThrow("SELECT INTO");
+  });
+
+  // --- Comment-wrapped DML ---
+  it("rejects DML after line comment on next line", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 -- safe\nDROP TABLE x"),
+    ).toThrow("DROP");
+  });
+
+  it("rejects DML after block comment", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT 1 /* comment */ DROP TABLE x"),
+    ).toThrow("DROP");
+  });
+
+  it("allows DML keyword inside block comment (stripped)", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT /* DROP TABLE x */ 1 FROM t"),
+    ).not.toThrow();
+  });
+
+  // --- Dialect escape hatches ---
+  it("rejects INTO OUTFILE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t INTO OUTFILE '/tmp/data.csv'"),
+    ).toThrow("INTO OUTFILE");
+  });
+
+  it("rejects INTO DUMPFILE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM t INTO DUMPFILE '/tmp/data.bin'"),
+    ).toThrow("INTO DUMPFILE");
+  });
+
+  it("rejects pg_read_file", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT pg_read_file('/etc/passwd')"),
+    ).toThrow("pg_read_file");
+  });
+
+  it("rejects LOAD_FILE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT LOAD_FILE('/etc/passwd')"),
+    ).toThrow("LOAD_FILE");
+  });
+
+  it("rejects ClickHouse file() function", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM file('/path/to/data.csv')"),
+    ).toThrow("file(");
+  });
+
+  it("rejects ClickHouse url() function", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM url('http://evil.com/data')"),
+    ).toThrow("url(");
+  });
+
+  it("rejects ClickHouse s3() function", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT * FROM s3('s3://bucket/key')"),
+    ).toThrow("s3(");
+  });
+
+  // --- Unterminated strings/comments ---
+  it("rejects unterminated single-quoted string", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 'unterminated")).toThrow(
+      "unterminated",
+    );
+  });
+
+  it("rejects unterminated block comment", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT /* never closed")).toThrow(
+      "unterminated",
+    );
+  });
+
+  // --- Length cap ---
+  it("rejects queries exceeding length cap", () => {
+    const long = "SELECT " + "x".repeat(100_001);
+    expect(() => assertSafeReadOnlySQL(long)).toThrow("safety limit");
+  });
+
+  // --- Edge cases ---
+  it("allows quoted identifiers containing deny-list words", () => {
+    expect(() =>
+      assertSafeReadOnlySQL('SELECT 1 AS "EXECUTE" FROM t'),
+    ).not.toThrow();
+  });
+
+  it("does not false-positive on words containing deny-list substrings", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT updated_at, created_at FROM events"),
+    ).not.toThrow();
+  });
+
+  it("does not false-positive on 'file' as a column name (no parens)", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("SELECT file FROM documents"),
+    ).not.toThrow();
+  });
+
+  it("handles case-insensitive DML", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1 dRoP TABLE foo")).toThrow(
+      "DROP",
+    );
+  });
+
+  it("handles leading whitespace and newlines", () => {
+    expect(() => assertSafeReadOnlySQL("  \n  SELECT 1 FROM t")).not.toThrow();
+  });
+});
+
 describe("encodeSQLResults", () => {
   it("should encode and decode SQL results correctly", () => {
     const results = [
@@ -587,5 +865,30 @@ describe("encodeSQLResults", () => {
 
     const decoded = decodeSQLResults(encoded);
     expect(decoded).toEqual(results);
+  });
+
+  it("preserves columns that are missing from the first row", () => {
+    const results = [
+      { id: 1, name: "Alice" },
+      { id: 2, name: "Bob", grid: [1, 2, 3] },
+    ];
+
+    const encoded = encodeSQLResults(results);
+    expect(encoded).toEqual([
+      {
+        numRows: 2,
+        data: {
+          id: [1, 2],
+          name: ["Alice", "Bob"],
+          grid: [null, [1, 2, 3]],
+        },
+      },
+    ]);
+
+    const decoded = decodeSQLResults(encoded);
+    expect(decoded).toEqual([
+      { id: 1, name: "Alice", grid: null },
+      { id: 2, name: "Bob", grid: [1, 2, 3] },
+    ]);
   });
 });

@@ -12,6 +12,10 @@ interface SavedGroupRowMenuProps {
   canDelete: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  // When set, the Delete row is shown but disabled with this tooltip. Used
+  // to surface preconditions like "must be archived first" instead of
+  // silently hiding the option from a user who otherwise has permission.
+  deleteDisabledReason?: string;
 }
 
 export default function SavedGroupRowMenu({
@@ -19,8 +23,11 @@ export default function SavedGroupRowMenu({
   canDelete,
   onEdit,
   onDelete,
+  deleteDisabledReason,
 }: SavedGroupRowMenuProps) {
   const [open, setOpen] = useState(false);
+
+  const showDelete = canDelete || !!deleteDisabledReason;
 
   return (
     <DropdownMenu
@@ -52,10 +59,13 @@ export default function SavedGroupRowMenu({
             Edit
           </DropdownMenuItem>
         )}
-        {canDelete && (
+        {showDelete && (
           <DropdownMenuItem
             color="red"
+            disabled={!canDelete}
+            tooltip={!canDelete ? deleteDisabledReason : undefined}
             onClick={() => {
+              if (!canDelete) return;
               onDelete();
               setOpen(false);
             }}

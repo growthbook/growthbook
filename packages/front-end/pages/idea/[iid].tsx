@@ -7,7 +7,6 @@ import {
   FaChartLine,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import Link from "next/link";
 import { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import {
   ExperimentInterfaceStringDates,
@@ -15,6 +14,7 @@ import {
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { date } from "shared/dates";
+import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -38,6 +38,7 @@ import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const IdeaPage = (): ReactElement => {
   const router = useRouter();
@@ -95,9 +96,7 @@ const IdeaPage = (): ReactElement => {
 
   if (dataError) {
     return (
-      <div className="alert alert-danger">
-        There was a problem loading this idea
-      </div>
+      <Callout status="error">There was a problem loading this idea</Callout>
     );
   }
   if (!data) {
@@ -182,7 +181,7 @@ const IdeaPage = (): ReactElement => {
             )}
           {canEdit && (
             <div className="col-auto d-flex">
-              <MoreMenu>
+              <MoreMenu useRadix={false}>
                 <a
                   href="#"
                   className="dropdown-item"
@@ -206,6 +205,7 @@ const IdeaPage = (): ReactElement => {
                   <FaArchive /> {idea.archived ? "Unarchive" : "Archive"}
                 </a>
                 <DeleteButton
+                  useRadix={false}
                   displayName="Idea"
                   link={true}
                   className="dropdown-item text-dark"
@@ -228,7 +228,7 @@ const IdeaPage = (): ReactElement => {
         </div>
       </div>
       {data.experiment && (
-        <div className="bg-white border border-info p-3 mb-3">
+        <div className="appbox border-info p-3 mb-3">
           <div className="d-flex">
             <strong className="mr-3">Linked Experiment: </strong>
             <Link href={`/experiment/${data.experiment.id}`} className="mr-3">
@@ -247,7 +247,7 @@ const IdeaPage = (): ReactElement => {
       )}
       <div className="mb-3 row">
         <div className="col">
-          <div className="bg-white p-3 border idea-wrap mb-4">
+          <div className="appbox p-3 idea-wrap mb-4">
             <InlineForm
               editing={edit}
               canEdit={canEdit}
@@ -317,6 +317,7 @@ const IdeaPage = (): ReactElement => {
                       </div>
                       {projects.length > 0 && (
                         <SelectField
+                          size="legacy"
                           label="Project"
                           value={form.watch("project")}
                           onChange={(v) => form.setValue("project", v)}
@@ -399,7 +400,7 @@ const IdeaPage = (): ReactElement => {
 
         {canEstimateImpact && (
           <div className="col-md-3 pl-0">
-            <div className="mb-3 bg-white p-3 border">
+            <div className="appbox mb-3 p-3">
               <div
                 className="p-2 border bg-impact text-light text-center"
                 style={{ opacity: 0.99, margin: "0 auto" }}

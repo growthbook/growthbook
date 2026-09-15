@@ -87,12 +87,14 @@ export function useFeaturePageData(
   });
 
   // Only fetch a specific version if it isn't already in the base response or cache.
+  // Until the base response arrives we can't tell, so wait rather than double-fetch.
   const requestedVersionInBaseSet =
     baseData?.revisions?.some((r) => r.version === selectedVersion) ?? false;
   const requestedVersionInCache =
     selectedVersion != null && !!cachedRevisions[selectedVersion];
   const shouldFetchFromRevisionsEndpoint =
     !!fid &&
+    !!baseData &&
     selectedVersion != null &&
     !requestedVersionInBaseSet &&
     !requestedVersionInCache;
@@ -120,6 +122,7 @@ export function useFeaturePageData(
       false);
   const shouldFetchBaseVersion =
     !!fid &&
+    !!baseData &&
     selectedRevisionBaseVersion != null &&
     !baseVersionInCache &&
     !baseVersionInBaseSet;
@@ -306,7 +309,7 @@ export function useFeaturePageData(
     const isMine = (r: MinimalFeatureRevisionInterface) =>
       !!userId &&
       (r.createdBy?.id === userId ||
-        r.contributors?.some((c) => c?.id === userId));
+        r.contributors?.some((id) => id === userId));
 
     const drafts = data?.revisionList?.filter(isActiveDraft) ?? [];
     const myDraft = drafts.find(isMine) ?? null;
@@ -343,11 +346,16 @@ export function useFeaturePageData(
       return match;
     }
 
+    // A specific non-live version is selected but its revision has not loaded
+    // yet (e.g. a ?v=N deep link outside the base response's full-revision
+    // window). Do not fall back to live feature values under that version's
+    // URL -- wait for the revision to load.
+    if (currentVersion !== baseFeature.version) {
+      return null;
+    }
+
     // Create dummy revision for old features without revision history
-    const rules: Record<string, FeatureRule[]> = {};
-    environments.forEach((env) => {
-      rules[env.id] = baseFeature.environmentSettings?.[env.id]?.rules || [];
-    });
+    const rules: FeatureRule[] = baseFeature.rules ?? [];
     return {
       baseVersion: baseFeature.version,
       comment: "",
@@ -364,7 +372,7 @@ export function useFeaturePageData(
       version: baseFeature.version,
       prerequisites: baseFeature.prerequisites || [],
     };
-  }, [revisions, version, environments, baseFeature]);
+  }, [revisions, version, baseFeature]);
 
   const feature = useMemo(() => {
     if (!revision || !baseFeature) return null;

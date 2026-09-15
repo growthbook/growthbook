@@ -15,6 +15,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Metadata from "@/ui/Metadata";
 import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Callout from "@/ui/Callout";
 
 const numberFormatter = Intl.NumberFormat();
 export interface Props {
@@ -189,9 +190,9 @@ export default function SafeRolloutAnalysisSettingsSummary({
         </div>
       </div>
       {refreshError && (
-        <div className="alert alert-danger mt-2">
+        <Callout status="error" mt="2">
           <strong>Error updating data: </strong> {refreshError}
-        </div>
+        </Callout>
       )}
     </div>
   );

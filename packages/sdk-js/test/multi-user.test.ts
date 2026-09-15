@@ -699,6 +699,34 @@ describe("UserScopedGrowthBook", () => {
     gb.destroy();
   });
 
+  it("supports a user-scoped feature usage callback", () => {
+    const gb = new GrowthBookClient();
+
+    gb.initSync({
+      payload: {
+        features: {
+          feature: {
+            defaultValue: false,
+          },
+        },
+      },
+    });
+
+    const usage = jest.fn();
+    const scoped = gb.createScopedInstance({
+      attributes: {
+        id: "1",
+      },
+    });
+    scoped.setFeatureUsageCallback(usage);
+
+    scoped.evalFeature("feature");
+    scoped.evalFeature("feature");
+    expect(usage).toHaveBeenCalledTimes(1);
+
+    gb.destroy();
+  });
+
   it("writes to devLogs", () => {
     const gb = new GrowthBookClient();
     gb.initSync({

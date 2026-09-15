@@ -131,9 +131,10 @@ const SDKEndpoints: FC<{
                     )}
                   </td>
                   <td>
-                    <MoreMenu>
+                    <MoreMenu useRadix={false}>
                       {canDelete ? (
                         <DeleteButton
+                          useRadix={false}
                           onClick={async () => {
                             await apiCall(`/keys`, {
                               method: "DELETE",

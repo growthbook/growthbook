@@ -1,10 +1,16 @@
 import { z } from "zod";
+import {
+  dateGranularity,
+  baseExplorationConfigValidator,
+} from "../../validators/product-analytics";
 import { namedSchema } from "../../validators/openapi-helpers";
 
 import {
   apiCreateDashboardBlockInterface,
   apiDashboardBlockInterface,
+  blockComparisonValidator,
   dashboardBlockInterface,
+  DASHBOARD_GRID_COLS,
 } from "./dashboard-block";
 
 export const dashboardEditLevel = z.enum(["published", "private"]);
@@ -24,6 +30,38 @@ export const dashboardUpdateSchedule = z.discriminatedUnion("type", [
     .strict(),
 ]);
 
+export const DASHBOARD_GRID_ROW_HEIGHT_DEFAULT = 40;
+export const dashboardGridConfig = z
+  .object({
+    cols: z
+      .number()
+      .int()
+      .min(1)
+      .max(DASHBOARD_GRID_COLS)
+      .default(DASHBOARD_GRID_COLS),
+    rowHeight: z
+      .number()
+      .int()
+      .min(8)
+      .default(DASHBOARD_GRID_ROW_HEIGHT_DEFAULT),
+  })
+  .strict();
+export type DashboardGridConfig = z.infer<typeof dashboardGridConfig>;
+
+export const dashboardGlobalControlsValidator = z
+  .object({
+    dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
+    dateGranularity: z.enum(dateGranularity).optional(),
+    // Experiment-block filters, applied per-block via globalControlSettings.
+    // `projects: []` means all projects; absent means no dashboard-wide filter.
+    projects: z.array(z.string()).optional(),
+    experimentSearchString: z.string().optional(),
+  })
+  .strict();
+export type DashboardGlobalControls = z.infer<
+  typeof dashboardGlobalControlsValidator
+>;
+
 export const dashboardInterface = z
   .object({
     id: z.string(),
@@ -39,6 +77,12 @@ export const dashboardInterface = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
+    globalControls: dashboardGlobalControlsValidator.optional(),
+    // Dashboard-wide period comparison, set from the dashboard date controls.
+    // Takes precedence over a block's own setting (see resolveBlockComparison)
+    // and is honored on refresh and render.
+    comparison: blockComparisonValidator.optional(),
+    grid: dashboardGridConfig.optional(),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
     nextUpdate: z.date().optional(),
     lastUpdated: z.date().optional(),
@@ -66,7 +110,75 @@ export const apiDashboardInterface = namedSchema(
     }),
 );
 
-export const apiCreateDashboardBody = z
+/** A GET response is a superset of what a write accepts; drop the extra rather than reject it. */
+function withoutKeys(raw: unknown, keys: readonly string[]): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const copy = { ...(raw as Record<string, unknown>) };
+  for (const key of keys) {
+    delete copy[key];
+  }
+  return copy;
+}
+
+/** Every block on a create is new, so none of them may carry server-owned keys. */
+const apiCreateDashboardBlock = z.preprocess(
+  (raw) => withoutKeys(raw, ["id", "uid", "organization"]),
+  apiCreateDashboardBlockInterface,
+);
+
+/**
+ * `{ "id": "dshblk_…" }` carries a saved block through untouched. An update
+ * replaces the whole list, and re-sending tiles verbatim just to keep them is a
+ * transcription job — write out only the blocks you are actually changing.
+ */
+export const dashboardBlockRef = z.strictObject({ id: z.string().min(1) });
+export type DashboardBlockRef = z.infer<typeof dashboardBlockRef>;
+
+export function isDashboardBlockRef(
+  block: unknown,
+): block is DashboardBlockRef {
+  return dashboardBlockRef.safeParse(block).success;
+}
+
+/**
+ * A saved block sent in full: the create shape plus the `id` that says which
+ * tile it is. `uid` and `organization` are the server's — accepted so a block
+ * copied straight from the `GET` parses, ignored on the way in. Sharing the
+ * create shape is what lets an edit drop `explorerAnalysisId` to re-run a chart.
+ */
+const apiUpdateSavedBlockOptions = apiCreateDashboardBlockInterface.options.map(
+  (option) =>
+    option.extend({
+      id: z.string().min(1),
+      uid: z.string().optional(),
+      organization: z.string().optional(),
+    }),
+);
+const apiUpdateSavedBlock = z.discriminatedUnion(
+  "type",
+  apiUpdateSavedBlockOptions as [
+    (typeof apiUpdateSavedBlockOptions)[number],
+    ...(typeof apiUpdateSavedBlockOptions)[number][],
+  ],
+);
+
+const apiUpdateDashboardBlock = z.preprocess(
+  // A block whose id was removed to re-add it as a new tile still carries the
+  // server keys from the GET; drop those rather than reject it.
+  (raw) => {
+    const id = (raw as { id?: unknown } | null)?.id;
+    if (typeof id === "string" && id) return raw;
+    return withoutKeys(raw, ["uid", "organization"]);
+  },
+  // Ref first: it is strict, so a fuller block falls through to the shapes below.
+  z.union([
+    dashboardBlockRef,
+    apiUpdateSavedBlock,
+    apiCreateDashboardBlockInterface,
+  ]),
+);
+
+const apiCreateDashboardFields = z
   .object({
     title: z.string().describe("The display name of the Dashboard"),
     editLevel: z
@@ -105,18 +217,39 @@ export const apiCreateDashboardBody = z
         "General Dashboards only, Experiment Dashboards use the experiment's projects",
       )
       .optional(),
-    blocks: z.array(apiCreateDashboardBlockInterface),
+    globalControls: dashboardGlobalControlsValidator.optional(),
+    comparison: blockComparisonValidator
+      .optional()
+      .describe(
+        "Dashboard-wide compare-to-previous-period. Takes precedence over any " +
+          "per-block comparison.",
+      ),
+    blocks: z.array(apiCreateDashboardBlock),
   })
   .strict();
 
-export const apiUpdateDashboardBody = apiCreateDashboardBody
+/** Everything a GET returns that a write cannot set — derived, so a new field can't be missed. */
+const READ_ONLY_DASHBOARD_FIELDS = Object.keys(dashboardInterface.shape).filter(
+  (key) => !(key in apiCreateDashboardFields.shape),
+);
+
+export const apiCreateDashboardBody = z.preprocess(
+  (raw) => withoutKeys(raw, READ_ONLY_DASHBOARD_FIELDS),
+  apiCreateDashboardFields,
+);
+
+const apiUpdateDashboardFields = apiCreateDashboardFields
   .omit({ experimentId: true, blocks: true })
   .extend({
-    blocks: z.array(
-      z.union([apiCreateDashboardBlockInterface, apiDashboardBlockInterface]),
-    ),
+    blocks: z.array(apiUpdateDashboardBlock),
   })
   .partial();
+
+/** `experimentId` too: an update cannot reparent a dashboard, but a GET still returns it. */
+export const apiUpdateDashboardBody = z.preprocess(
+  (raw) => withoutKeys(raw, [...READ_ONLY_DASHBOARD_FIELDS, "experimentId"]),
+  apiUpdateDashboardFields,
+);
 
 export const apiGetDashboardsForExperimentValidator = {
   bodySchema: z.never(),

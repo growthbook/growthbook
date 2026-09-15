@@ -2,7 +2,6 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
-  Variation,
   postExperimentValidator,
 } from "shared/validators";
 import { omit } from "lodash";
@@ -12,16 +11,27 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import {
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
+import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -153,16 +163,26 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
-    // check if tracking key is unique
-    if (!payload.bypassDuplicateKeyCheck) {
+    // check if tracking key is unique (skip the lookup entirely if the caller
+    // is bypassing the duplicate check and the org doesn't require uniqueness)
+    const requireUniqueTrackingKeys =
+      !!req.organization.settings?.requireUniqueExperimentTrackingKeys;
+    if (requireUniqueTrackingKeys || !payload.bypassDuplicateKeyCheck) {
       const existingByTrackingKey = await getExperimentByTrackingKey(
         req.context,
         payload.trackingKey,
       );
       if (existingByTrackingKey) {
-        throw new Error(
-          `Experiment with tracking key already exists: ${payload.trackingKey}`,
-        );
+        if (requireUniqueTrackingKeys) {
+          throw new Error(
+            `Experiment with tracking key already exists: ${payload.trackingKey}. Your organization requires unique experiment tracking keys and bypassDuplicateKeyCheck is ignored.`,
+          );
+        }
+        if (!payload.bypassDuplicateKeyCheck) {
+          throw new Error(
+            `Experiment with tracking key already exists: ${payload.trackingKey}.`,
+          );
+        }
       }
     }
 
@@ -232,7 +252,16 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       }
     }
     if (payload.variations) {
-      validateVariationIds(payload.variations as Variation[]);
+      validateVariationIds(payload.variations);
+    }
+
+    if (payload.precomputedUnitDimensionIds !== undefined) {
+      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context: req.context,
+        datasource,
+        exposureQueryId: payload.assignmentQueryId,
+        dimensionIds: payload.precomputedUnitDimensionIds,
+      });
     }
 
     // Validate attributionModel + lookbackOverride consistency
@@ -256,6 +285,33 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
+    // Opt-in attribute registration check (org-level setting). Applies to the
+    // experiment's hashAttribute/fallbackAttribute and every phase's condition.
+    const attributeScope = lazyAttributeScope(() =>
+      getExperimentAttributeScopeProjects(req.context, {
+        project: payload.project,
+      }),
+    );
+    await assertRegisteredAttributesScoped(
+      req.context,
+      {
+        hashAttribute: payload.hashAttribute,
+        fallbackAttribute: payload.fallbackAttribute,
+      },
+      "experiment",
+      undefined,
+      attributeScope,
+    );
+    for (const phase of payload.phases ?? []) {
+      await assertRegisteredAttributesScoped(
+        req.context,
+        { condition: phase.condition },
+        "experiment phase",
+        undefined,
+        attributeScope,
+      );
+    }
+
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
       {
@@ -264,6 +320,27 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       },
       req.organization,
       datasource,
+    );
+
+    // Same validation as PUT /schedule; existingSchedule is null on create.
+    if (payload.statusUpdateSchedule) {
+      validateScheduleUpdate({
+        context: req.context,
+        experimentType: payload.type ?? "standard",
+        status: newExperiment.status,
+        archived: !!newExperiment.archived,
+        phaseStart:
+          newExperiment.phases[newExperiment.phases.length - 1]?.dateStarted,
+        existingSchedule: null,
+        variations: newExperiment.variations,
+        goalMetrics: newExperiment.goalMetrics,
+        incoming: payload.statusUpdateSchedule,
+      });
+    }
+
+    await assertValidExperimentPrerequisites(
+      req.context,
+      phasePrerequisites(newExperiment.phases),
     );
 
     const experiment = await createExperiment({

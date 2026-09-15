@@ -4,6 +4,16 @@ import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
+import { uploadsInit } from "./init/uploads";
+import {
+  initializeGrowthBookClient,
+  destroyGrowthBookClient,
+} from "./services/growthbook";
+
+// Initialize GrowthBook singleton before starting server
+initializeGrowthBookClient().catch((error) => {
+  logger.error({ err: error }, "Failed to initialize GrowthBook at startup");
+});
 
 const server = app.listen(app.get("port"), () => {
   logger.info(
@@ -11,6 +21,9 @@ const server = app.listen(app.get("port"), () => {
       "env",
     )} mode. Press CTRL-C to stop`,
   );
+  // Boot-time operational check (real server only; not exercised by tests, which
+  // import app directly). Self-contained and warn-only.
+  void uploadsInit();
 });
 
 export default server;
@@ -38,6 +51,10 @@ function onClose() {
   // stop Express server
   server.close(async () => {
     logger.info("HTTP server closed");
+
+    // Cleanup GrowthBook client
+    destroyGrowthBookClient();
+
     // Gracefully close Agenda
     const agenda = getAgendaInstance();
     await agenda.stop();

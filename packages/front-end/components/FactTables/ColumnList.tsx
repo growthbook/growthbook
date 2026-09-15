@@ -1,4 +1,8 @@
-import { FactTableInterface } from "shared/types/fact-table";
+import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import {
+  getFactTableIdColumn,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { useEffect, useMemo, useState } from "react";
 import {
   PiUserBold,
@@ -15,6 +19,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Avatar from "@/ui/Avatar";
 import ColumnModal from "./ColumnModal";
 
@@ -50,15 +55,45 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
     return () => clearInterval(interval);
   }, [factTable.columnRefreshPending, mutateDefinitions]);
 
+  // Expand JSON columns so each detected sub-field (e.g. `attributes.plan`)
+  // shows as its own read-only pseudo-column row, rather than being hidden
+  // inside a single `attributes` row.
   const availableColumns = useMemo(() => {
-    return (factTable.columns || []).filter((col) => !col.deleted);
+    const out: (ColumnInterface & { jsonFieldParent?: string })[] = [];
+    for (const col of factTable.columns || []) {
+      if (col.deleted) continue;
+      // Virtual columns are managed in their own tab, not the Columns list.
+      if (col.isVirtual) continue;
+      out.push(col);
+      if (col.datatype === "json" && col.jsonFields) {
+        for (const [field, data] of Object.entries(col.jsonFields)) {
+          out.push({
+            ...col,
+            column: `${col.column}.${field}`,
+            name: `${col.column}.${field}`,
+            datatype: data.datatype,
+            jsonFields: undefined,
+            isAutoSliceColumn: false,
+            alwaysInlineFilter: false,
+            autoSlices: undefined,
+            jsonFieldParent: col.column,
+          });
+        }
+      }
+    }
+    return out;
   }, [factTable]);
+
+  const timestampColumn = getFactTableTimestampColumn(factTable);
 
   const columns = useAddComputedFields(availableColumns, (column) => ({
     ...column,
     name: column.name || column.column,
     id: column.name || column.column,
-    identifier: factTable.userIdTypes.includes(column.column),
+    identifier: factTable.userIdTypes.some(
+      (idType) => getFactTableIdColumn(factTable, idType) === column.column,
+    ),
+    isJsonField: !!column.jsonFieldParent,
     type:
       column.datatype === "number"
         ? column.numberFormat || "number"
@@ -89,18 +124,21 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
       ) : null}
 
       {factTable.columnsError && (
-        <div className="alert alert-danger">
-          <strong>
-            Error {columns.length > 0 ? "Refreshing" : "Detecting"} Columns
-          </strong>
-          : {factTable.columnsError}
-        </div>
+        <Callout status="error">
+          <span>
+            <strong>
+              Error {columns.length > 0 ? "Refreshing" : "Detecting"} Columns
+            </strong>
+            : {factTable.columnsError}
+          </span>
+        </Callout>
       )}
 
       <div className="row align-items-center">
         {columns.length > 0 && (
           <div className="col-auto mr-auto">
             <Field
+              size="legacy"
               placeholder="Search..."
               type="search"
               {...searchInputProps}
@@ -110,7 +148,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
         {canEdit && (
           <div className="col-auto">
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               loading={refreshing || !!factTable.columnRefreshPending}
               onClick={async () => {
@@ -135,11 +173,13 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
         )}
       </div>
       {columns.some((col) => !col.deleted && col.datatype === "") && (
-        <div className="alert alert-warning mt-2">
-          Could not detect the data type for some columns. You can manually
-          specify data types below. Only numeric columns can be used to create
-          Metrics.
-        </div>
+        <Callout status="warning" mt="2">
+          <span>
+            Could not detect the data type for some columns. You can manually
+            specify data types below. Only numeric columns can be used to create
+            Metrics.
+          </span>
+        </Callout>
       )}
       {columns.length > 0 ? (
         <>
@@ -173,7 +213,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                           </Avatar>
                         </Tooltip>
                       )}
-                      {col.column === "timestamp" && (
+                      {col.column === timestampColumn && (
                         <Tooltip
                           body="Main date field used for sorting and filtering"
                           tipPosition="left"
@@ -244,7 +284,15 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                       )}
                     </div>
                   </td>
-                  <td>{col.column}</td>
+                  <td>
+                    {col.isJsonField ? (
+                      <span className="text-muted" style={{ paddingLeft: 16 }}>
+                        {col.column}
+                      </span>
+                    ) : (
+                      col.column
+                    )}
+                  </td>
                   <td>{col.name !== col.column ? `"${col.name}"` : ""}</td>
                   <td>
                     {col.datatype || "unknown"}{" "}
@@ -259,7 +307,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                   </td>
                   <td>
                     <div className="d-flex align-items-center px-1">
-                      {canEdit && (
+                      {canEdit && !col.isJsonField && (
                         <IconButton
                           size="2"
                           variant="ghost"
@@ -295,10 +343,12 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
           {pagination}
         </>
       ) : (
-        <div className="alert alert-warning mt-3">
-          <strong>Unable to Auto-Detect Columns</strong>. Double check your SQL
-          above to make sure it&apos;s correct and returning rows.
-        </div>
+        <Callout status="warning" mt="3">
+          <span>
+            <strong>Unable to Auto-Detect Columns</strong>. Double check your
+            SQL above to make sure it&apos;s correct and returning rows.
+          </span>
+        </Callout>
       )}
     </>
   );

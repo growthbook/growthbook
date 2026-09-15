@@ -8,7 +8,7 @@ import { MetricSnapshotSettings } from "shared/types/report";
 import {
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
-  isPrecomputedDimension,
+  isDimensionPrecomputed,
 } from "shared/experiments";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -58,6 +58,7 @@ export default function ExperimentDimensionBlock({
 
   const _confidenceLevels = useConfidenceLevels(experiment.project);
   const _pValueThreshold = usePValueThreshold(experiment.project);
+
   const bayesianConfidenceLevels =
     ssrPolyfills?.useConfidenceLevels?.(experiment.project) ||
     _confidenceLevels;
@@ -70,6 +71,7 @@ export default function ExperimentDimensionBlock({
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => ({
     id: v.key || v.index + "",
+    experimentVariationId: v.id,
     index: v.index,
     name: v.name,
     weight:
@@ -182,8 +184,9 @@ export default function ExperimentDimensionBlock({
         differenceType={differenceType}
         setDifferenceType={isEditing ? setDifferenceType : undefined}
         renderMetricName={(metric) => metric.name}
-        showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some(
-          isPrecomputedDimension,
+        showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
+          // Pass in empty array to indicate pre-computed standalone (not exp) dimensions are fine
+          isDimensionPrecomputed(d, []),
         )}
         sortBy={blockSortBy ?? null}
         setSortBy={isEditing ? setSortBy : undefined}

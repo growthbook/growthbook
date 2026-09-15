@@ -28,6 +28,14 @@ type VariationWithIndexAndStatus = Variation & {
 export function getLatestPhaseVariations(
   experiment: ExperimentWithVariationsAndPhases,
 ): VariationWithIndexAndStatus[] {
+  const latestPhaseIndex = experiment.phases.length - 1;
+  return getPhaseVariations(experiment, latestPhaseIndex);
+}
+
+export function getPhaseVariations(
+  experiment: ExperimentWithVariationsAndPhases,
+  phaseIndex: number,
+): VariationWithIndexAndStatus[] {
   const allVariations = getAllVariations(experiment);
   const defaultResponse = allVariations.map((v, i) => ({
     ...v,
@@ -35,20 +43,16 @@ export function getLatestPhaseVariations(
     status: "active" as const,
   }));
 
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
+  const phase = experiment.phases?.[phaseIndex];
 
   // safe guard in case phase or variations are missing or are an empty array
-  if (
-    !latestPhase ||
-    !latestPhase.variations ||
-    latestPhase.variations.length === 0
-  ) {
+  if (!phase || !phase.variations || phase.variations.length === 0) {
     return defaultResponse;
   }
 
   let hasMissing = false;
   const foundVariations: VariationWithIndexAndStatus[] = [];
-  for (const v of latestPhase.variations) {
+  for (const v of phase.variations) {
     const foundVariation = allVariations.find((allV) => allV.id === v.id);
     if (foundVariation === undefined) {
       hasMissing = true;

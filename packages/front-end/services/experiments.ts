@@ -11,24 +11,32 @@ import {
   ExperimentStatus,
   ExperimentTemplateInterface,
   MetricOverride,
+  ExperimentHealthState,
 } from "shared/types/experiment";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourcePipelineSettings,
+} from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { getValidDate } from "shared/dates";
+import { ago, getValidDate } from "shared/dates";
+import { getTempRolloutStaleReason, pValueFormatter } from "shared/util";
+import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
-  FactTableInterface,
+  FactTableDefinition,
   FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
+  getFunnelStepMetric,
   getLatestPhaseVariations,
   getMetricResultStatus,
   getMetricSampleSize,
   hasEnoughData,
+  isFactFunnelMetric,
   isFactMetric,
   isMetricGroupId,
   isRatioMetric,
@@ -38,11 +46,18 @@ import {
   createAutoSliceDataForMetric,
   generateSliceString,
   generateSelectAllSliceString,
+  parseFunnelStepMetricId,
+  parseSliceMetricId,
   parseSliceQueryString,
   SliceDataForMetric,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { ReactElement } from "react";
+import { ReactElement, useMemo } from "react";
+import {
+  expandTempRolloutToken,
+  TEMP_ROLLOUT_HEALTH,
+  TempRolloutHealthState,
+} from "@/services/health";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -51,6 +66,15 @@ import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
+
+export const NO_DATA_ERROR_MESSAGE = "No data";
+
+export function getComputeErrorMessage(
+  stats?: Pick<SnapshotMetric, "computeFailed" | "errorMessage"> | null,
+): string | null {
+  const message = stats?.computeFailed ? stats.errorMessage : null;
+  return message && message !== NO_DATA_ERROR_MESSAGE ? message : null;
+}
 
 export const compareRows = (
   a: ExperimentTableRow,
@@ -164,16 +188,34 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   );
 }
 
+/**
+ * Returns the `statusUpdateSchedule.startAt` Date for an experiment if it
+ * parses to a future date, otherwise null. Past-dated and missing schedules
+ * both map to "start immediately" so they flow through the start-now path.
+ */
+export function getFutureScheduledStartDate(
+  experiment: ExperimentInterfaceStringDates,
+): Date | null {
+  const raw = experiment.statusUpdateSchedule?.startAt;
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) return null;
+  return parsed > new Date() ? parsed : null;
+}
+
 export type ExperimentTableRow = {
   label: string | ReactElement;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
   error?: RowError;
-  numSlices?: number;
+  // Child row presentation (generic parent/child)
+  numChildren?: number;
+  isChildRow?: boolean;
+  childRowType?: "slice" | "funnelStep";
   // Slice row properties
   isSliceRow?: boolean;
   parentRowId?: string;
@@ -184,6 +226,14 @@ export type ExperimentTableRow = {
     levels: string[];
   }>;
   allSliceLevels?: string[];
+  // Funnel step row properties
+  funnelStepIndex?: number;
+  funnelStepOptional?: boolean;
+  replacedByMetricName?: string;
+  // Dimension-table rows: the raw dimension value this row belongs to. On a
+  // parent row this equals its label; child rows (e.g. funnel steps) carry it
+  // because their label is the step name, not the dimension value.
+  dimensionValue?: string;
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
 };
@@ -192,11 +242,36 @@ export function useDomain(
   variations: ExperimentReportVariation[], // must be ordered, baseline first
   rows: ExperimentTableRow[],
   differenceType: DifferenceType,
+  // When the analysis uses one-sided intervals (e.g. safe rollouts), one CI
+  // bound is "fake" (±Infinity). In that case we anchor the open side at 0
+  // rather than inferring a finite extent from it, so the domain is "0 +
+  // padding around the real bound" instead of "[ci, ci]".
+  oneSided = false,
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   let lowerBound = 0;
   let upperBound = 0;
+  let hasBound = false;
+
+  const addBounds = (nextLower: number, nextUpper: number) => {
+    if (!Number.isFinite(nextLower) || !Number.isFinite(nextUpper)) return;
+    if (!hasBound) {
+      lowerBound = nextLower;
+      upperBound = nextUpper;
+      hasBound = true;
+      return;
+    }
+    lowerBound = Math.min(lowerBound, nextLower);
+    upperBound = Math.max(upperBound, nextUpper);
+  };
+
+  const getFallbackHalfSpan = (...values: number[]) => {
+    const finite = values.filter((v) => Number.isFinite(v));
+    const maxAbs = finite.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+    // Keep a visible range for near-zero one-sided CIs.
+    return Math.max(maxAbs * 0.6, 0.01);
+  };
   rows.forEach((row) => {
     // Skip metric slice rows that are hidden (not expanded)
     if (row.isHiddenByFilter) {
@@ -234,16 +309,62 @@ export function useDomain(
       if (Math.abs(ci[0]) === Infinity || Math.abs(ci[1]) === Infinity) {
         ci = stats.ci ?? [0, 0];
       }
-      if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
-      if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
+
+      const [ci0, ci1] = ci;
+      const expected = Number.isFinite(stats.expected ?? NaN)
+        ? (stats.expected as number)
+        : 0;
+
+      const loFinite = Number.isFinite(ci0);
+      const hiFinite = Number.isFinite(ci1);
+
+      if (oneSided) {
+        // One bound is fake (±Infinity). Build the extent from the *real*
+        // values only — the finite bound and the point estimate — plus 0 as a
+        // reference. Because we take min/max, 0 only widens the domain when it
+        // is actually the extreme (the real CI sits entirely on one side of
+        // it); a "proper" CI that has drifted across 0 keeps its real bounds
+        // and 0 simply sits interior. The open side is drawn out to the plot
+        // edge by the consuming graph.
+        const realValues = [expected, 0];
+        if (loFinite) realValues.push(ci0);
+        if (hiFinite) realValues.push(ci1);
+        addBounds(Math.min(...realValues), Math.max(...realValues));
+      } else if (loFinite && hiFinite) {
+        addBounds(ci0, ci1);
+      } else if (!loFinite && hiFinite) {
+        // One-sided [-Infinity, X]: infer a symmetric-ish finite left extent.
+        const halfSpan = getFallbackHalfSpan(ci1, expected);
+        addBounds(Math.min(expected, 0) - halfSpan, ci1);
+      } else if (loFinite && !hiFinite) {
+        // One-sided [Y, Infinity]: infer a symmetric-ish finite right extent.
+        const halfSpan = getFallbackHalfSpan(ci0, expected);
+        addBounds(ci0, Math.max(expected, 0) + halfSpan);
+      } else {
+        // Degenerate [±Infinity, ±Infinity] - keep the row visible around expected.
+        const halfSpan = getFallbackHalfSpan(expected);
+        addBounds(expected - halfSpan, expected + halfSpan);
+      }
     });
   });
+
+  if (!hasBound) {
+    return [-0.05, 0.05];
+  }
+
   lowerBound = lowerBound <= 0 ? lowerBound : 0;
   upperBound = upperBound >= 0 ? upperBound : 0;
+
+  // Ensure we always cross 0 with at least a small visual delta.
+  const span = Math.max(upperBound - lowerBound, 0.01);
+  const minZeroDelta = Math.max(span * 0.03, 0.005);
+  if (lowerBound >= 0) lowerBound = -minZeroDelta;
+  if (upperBound <= 0) upperBound = minZeroDelta;
+
   return [lowerBound, upperBound];
 }
 
-export function applyMetricOverrides<T extends ExperimentMetricInterface>(
+export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
   metric: T,
   metricOverrides?: MetricOverride[],
 ): {
@@ -313,22 +434,90 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
   return { newMetric, overrideFields };
 }
 
-export function pValueFormatter(pValue: number, digits: number = 3): string {
-  if (typeof pValue !== "number") {
-    return "";
-  }
-  return pValue < Math.pow(10, -digits)
-    ? `<0.${"0".repeat(digits - 1)}1`
-    : pValue.toFixed(digits);
+export const EXPERIMENT_HEALTH_STATE_LABELS: Record<
+  ExperimentHealthState,
+  string
+> = {
+  "no-data": "No data",
+  unhealthy: "Unhealthy",
+  "temp-rollout": TEMP_ROLLOUT_HEALTH["temp-rollout"].label,
+  "old-temp-rollout": TEMP_ROLLOUT_HEALTH["old-temp-rollout"].label,
+};
+
+export function getTempRolloutTooltip(
+  exp: Pick<ExperimentInterfaceStringDates, "phases">,
+): string {
+  const dateEnded = exp.phases?.[exp.phases.length - 1]?.dateEnded;
+  const stopped = dateEnded ? `Stopped ${ago(dateEnded)}` : "Stopped";
+  return `${stopped} and its rollout is still being served. Stop it once the winner is in code.`;
 }
+
+const HEALTH_SORT_ORDER: Record<ExperimentHealthState, number> = {
+  "temp-rollout": 1,
+  "old-temp-rollout": 2,
+  "no-data": 3,
+  unhealthy: 4,
+};
+
+// Running-experiment data problems, as opposed to results.
+const DETAILED_STATUS_HEALTH_STATES: Record<string, ExperimentHealthState> = {
+  "No data": "no-data",
+  Unhealthy: "unhealthy",
+};
+
+export function getHealthStateFromDetailedStatus(
+  detailedStatus?: string,
+): ExperimentHealthState | null {
+  if (!detailedStatus) return null;
+  return DETAILED_STATUS_HEALTH_STATES[detailedStatus] ?? null;
+}
+
+// Whether the rollout is actually served is decided server-side with the same
+// published-rule check as the experiment page's banner.
+export function getTempRolloutHealthState(
+  exp: Pick<ExperimentInterfaceStringDates, "status" | "phases">,
+  hasLiveTempRollout: boolean,
+  now: Date = new Date(),
+): TempRolloutHealthState | null {
+  if (exp.status !== "stopped" || !hasLiveTempRollout) return null;
+  return getTempRolloutStaleReason(exp, now);
+}
+
+export function getExperimentHealthState(
+  exp: Pick<ExperimentInterfaceStringDates, "status" | "phases">,
+  detailedStatus: string | undefined,
+  hasLiveTempRollout: boolean,
+  now: Date = new Date(),
+): ExperimentHealthState | null {
+  return (
+    getHealthStateFromDetailedStatus(detailedStatus) ??
+    getTempRolloutHealthState(exp, hasLiveTempRollout, now)
+  );
+}
+
+export function getHealthSearchTokens(
+  state: ExperimentHealthState | null,
+): ExperimentHealthState[] {
+  return state ? expandTempRolloutToken(state) : [];
+}
+
+export function getHealthSortOrder(
+  state: ExperimentHealthState | null,
+): number {
+  return state ? HEALTH_SORT_ORDER[state] : 0;
+}
+
+export { pValueFormatter };
 
 export function useExperimentSearch({
   allExperiments,
   defaultSortField = "date",
   defaultSortDir = -1,
   filterResults,
-  localStorageKey = "experiments",
+  localStorageKey,
   watchedExperimentIds,
+  tempRolloutExperimentIds,
+  controlledSearchValue,
 }: {
   allExperiments: ExperimentInterfaceStringDates[];
   defaultSortField?: keyof ComputedExperimentInterface;
@@ -336,8 +525,13 @@ export function useExperimentSearch({
   filterResults?: (
     items: ComputedExperimentInterface[],
   ) => ComputedExperimentInterface[];
-  localStorageKey?: string;
+  localStorageKey: string;
   watchedExperimentIds?: string[];
+  tempRolloutExperimentIds?: string[];
+  // When provided, drives filtering from a stored search string (e.g. a
+  // dashboard block's saved filter) instead of a user-typed input. Bypasses the
+  // URL `q` param so it doesn't leak into or clobber the page's search state.
+  controlledSearchValue?: string;
 }) {
   const {
     getExperimentMetricById,
@@ -348,6 +542,10 @@ export function useExperimentSearch({
   } = useDefinitions();
   const { getOwnerDisplay } = useUser();
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
+  const tempRolloutIds = useMemo(
+    () => new Set(tempRolloutExperimentIds ?? []),
+    [tempRolloutExperimentIds],
+  );
 
   const experiments: ComputedExperimentInterface[] = useAddComputedFields(
     allExperiments,
@@ -361,6 +559,11 @@ export function useExperimentSearch({
       const rawSavedGroup = lastPhase?.savedGroups || [];
       const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
       const isWatched = watchedExperimentIds?.includes(exp.id) ?? false;
+      const healthState = getExperimentHealthState(
+        exp,
+        statusIndicator.detailedStatus,
+        tempRolloutIds.has(exp.id),
+      );
 
       return {
         ownerName: getOwnerDisplay(exp.owner),
@@ -383,9 +586,11 @@ export function useExperimentSearch({
         statusIndicator,
         statusSortOrder,
         isWatched,
+        healthState,
+        healthSortOrder: getHealthSortOrder(healthState),
       };
     },
-    [getExperimentMetricById, getOwnerDisplay, getProjectById],
+    [getExperimentMetricById, getOwnerDisplay, getProjectById, tempRolloutIds],
   );
 
   return useSearch({
@@ -393,7 +598,11 @@ export function useExperimentSearch({
     localStorageKey,
     defaultSortField,
     defaultSortDir,
-    updateSearchQueryOnChange: true,
+    updateSearchQueryOnChange: controlledSearchValue === undefined,
+    controlledSearchValue,
+    // 0 is falsy and would otherwise fall through to undefined in the sort
+    // comparator, leaving healthy rows unordered against the rest.
+    defaultMappings: { healthSortOrder: 0 },
     searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
@@ -432,15 +641,6 @@ export function useExperimentSearch({
         ) {
           has.push("screenshots");
         }
-        if (
-          item.status === "stopped" &&
-          !item.excludeFromPayload &&
-          (item.linkedFeatures?.length ||
-            item.hasURLRedirects ||
-            item.hasVisualChangesets)
-        ) {
-          has.push("rollout", "tempRollout");
-        }
         return has;
       },
       variations: (item) => getLatestPhaseVariations(item).length,
@@ -452,6 +652,7 @@ export function useExperimentSearch({
       trackingKey: (item) => item.trackingKey,
       id: (item) => [item.id, item.trackingKey],
       status: (item) => item.status,
+      health: (item) => getHealthSearchTokens(item.healthState),
       result: (item) =>
         item.status === "stopped" ? item.results || "unfinished" : "unfinished",
       owner: (item) => [item.owner, item.ownerName],
@@ -525,8 +726,8 @@ export function getRowResults({
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
-  metric: ExperimentMetricInterface;
-  denominator?: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
+  denominator?: ExperimentMetricDefinition;
   metricDefaults: MetricDefaults;
   minSampleSize: number;
   ciUpper: number;
@@ -839,32 +1040,160 @@ export function convertExperimentToTemplate(
   return template;
 }
 
+export function datasourceHasWritableEphemeralPipeline(
+  datasource: DataSourceInterfaceWithParams | null | undefined,
+  hasPipelineModeFeature: boolean,
+): boolean {
+  const pipelineSettings = datasource?.settings?.pipelineSettings;
+  return (
+    !!datasource?.properties?.supportsWritingTables &&
+    !!pipelineSettings?.allowWriting &&
+    pipelineSettings?.mode === "ephemeral" &&
+    !!pipelineSettings?.writeDataset &&
+    hasPipelineModeFeature
+  );
+}
+
+export function getHonoredPrecomputedUnitDimensionIds(
+  precomputedUnitDimensionIds: string[] | undefined,
+  datasource: DataSourceInterfaceWithParams | null | undefined,
+  hasPipelineModeFeature: boolean,
+): string[] {
+  if (
+    !datasourceHasWritableEphemeralPipeline(datasource, hasPipelineModeFeature)
+  ) {
+    return [];
+  }
+  return precomputedUnitDimensionIds ?? [];
+}
+
 export function getIsExperimentIncludedInIncrementalRefresh(
   datasource: DataSourceInterfaceWithParams | undefined,
   experimentId: string | undefined,
+  experimentType: ExperimentInterfaceStringDates["type"],
 ): boolean {
-  const isPipelineIncrementalEnabled =
-    datasource?.settings.pipelineSettings?.mode === "incremental";
-  if (!isPipelineIncrementalEnabled) {
-    return false;
+  const pipelineSettings = datasource?.settings.pipelineSettings;
+  if (!pipelineSettings) return false;
+
+  // For the New Experiment form (no experimentId yet) we want to know
+  // whether any experiment created on this datasource would default into
+  // incremental refresh. That's true when `mode === "incremental"` and
+  // there's no include-list scoping it down. Per-experiment opt-in lists
+  // do not affect new (unsaved) experiments.
+  if (!experimentId) {
+    return (
+      pipelineSettings.allowWriting === true &&
+      pipelineSettings.mode === "incremental" &&
+      pipelineSettings.includedExperimentIds === undefined
+    );
   }
 
-  const includedExperimentIds =
-    datasource?.settings.pipelineSettings?.includedExperimentIds;
-  const excludedExperimentIds =
-    datasource?.settings.pipelineSettings?.excludedExperimentIds;
+  return isExperimentIncrementalEnabled(
+    pipelineSettings,
+    experimentId,
+    experimentType,
+  );
+}
 
-  if (experimentId && excludedExperimentIds?.includes(experimentId)) {
-    return false;
+// Returns updated pipeline settings that disable incremental refresh for the
+// given experiment. Mirror of `getPipelineSettingsAfterReenablingExperiment`.
+//
+// - Always drops the experiment from `incrementalOptInExperimentIds`
+//   (the opt-in signal in non-incremental modes).
+// - Adds it to `excludedExperimentIds` only when `mode === "incremental"`,
+//   since excluded is only consulted in that mode.
+export function getPipelineSettingsAfterDisablingExperiment(
+  pipelineSettings: DataSourcePipelineSettings | undefined,
+  experimentId: string,
+): DataSourcePipelineSettings | undefined {
+  if (!pipelineSettings) return pipelineSettings;
+
+  const next: DataSourcePipelineSettings = { ...pipelineSettings };
+
+  const optIn = next.incrementalOptInExperimentIds;
+  if (optIn?.includes(experimentId)) {
+    const filtered = optIn.filter((id) => id !== experimentId);
+    next.incrementalOptInExperimentIds =
+      filtered.length > 0 ? filtered : undefined;
   }
 
-  // If no specific experiment IDs are set, all experiments are included
-  // If experimentId is not provided, consider it included for the New Experiment form
-  if (includedExperimentIds === undefined || !experimentId) {
-    return true;
+  if (next.mode === "incremental") {
+    const excluded = next.excludedExperimentIds ?? [];
+    if (!excluded.includes(experimentId)) {
+      next.excludedExperimentIds = [...excluded, experimentId];
+    }
   }
 
-  return includedExperimentIds.includes(experimentId);
+  return next;
+}
+
+// Returns updated pipeline settings that re-enable incremental refresh for
+// the given experiment. Mirror of `getPipelineSettingsAfterDisablingExperiment`.
+//
+// - Always drops the experiment from `excludedExperimentIds`
+//   (the "force off" signal in incremental mode).
+// - Adds it to `incrementalOptInExperimentIds` only when `mode === "ephemeral"`,
+//   since opt-in is ignored in incremental mode and disabled mode doesn't
+//   run anything.
+export function getPipelineSettingsAfterReenablingExperiment(
+  pipelineSettings: DataSourcePipelineSettings | undefined,
+  experimentId: string,
+): DataSourcePipelineSettings | undefined {
+  if (!pipelineSettings) return pipelineSettings;
+
+  const next: DataSourcePipelineSettings = { ...pipelineSettings };
+
+  const excluded = next.excludedExperimentIds;
+  if (excluded?.includes(experimentId)) {
+    const filtered = excluded.filter((id) => id !== experimentId);
+    next.excludedExperimentIds = filtered.length > 0 ? filtered : undefined;
+  }
+
+  if (next.mode === "ephemeral") {
+    const optIn = next.incrementalOptInExperimentIds ?? [];
+    if (!optIn.includes(experimentId)) {
+      next.incrementalOptInExperimentIds = [...optIn, experimentId];
+    }
+  }
+
+  return next;
+}
+
+/**
+ * Display name for a metric id that appears in snapshot results, including the
+ * derived ids that have no stored metric of their own: funnel steps are named
+ * off their parent as "Parent: Step", slices off their encoded levels as
+ * "Parent (col: val)". Falls back to the raw id so an unresolvable metric still
+ * labels its row.
+ */
+export function getResultMetricDisplayName(
+  metricId: string,
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null,
+): string {
+  const metric = getExperimentMetricById(metricId);
+  if (metric) return metric.name;
+
+  const stepInfo = parseFunnelStepMetricId(metricId);
+  if (stepInfo.isFunnelStepMetric && stepInfo.stepIndex !== null) {
+    const parent = getExperimentMetricById(stepInfo.baseMetricId);
+    const step =
+      parent && isFactFunnelMetric(parent)
+        ? getFunnelStepMetric(parent, stepInfo.stepIndex)
+        : null;
+    return step?.name ?? metricId;
+  }
+
+  const { baseMetricId, sliceLevels } = parseSliceMetricId(metricId);
+  const baseName = getExperimentMetricById(baseMetricId)?.name;
+  if (!baseName || !sliceLevels.length) return metricId;
+
+  const sliceContext = sliceLevels
+    .map(
+      (s) =>
+        `${s.column}: ${s.levels.length ? s.levels.join(" OR ") : "other"}`,
+    )
+    .join(", ");
+  return `${baseName} (${sliceContext})`;
 }
 
 // Extracts available metrics and groups (for result filtering) from experiment metrics
@@ -879,7 +1208,7 @@ export function getAvailableMetricsFilters({
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
 }): {
   groups: { id: string; name: string }[];
   metrics: { id: string; name: string }[];
@@ -937,7 +1266,7 @@ export function getAvailableMetricTags({
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricGroups: MetricGroupInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
 }): string[] {
   const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
   const expandedSecondaries = expandMetricGroups(
@@ -986,9 +1315,9 @@ export function getAvailableSliceTags({
     }>;
   }> | null;
   metricGroups: MetricGroupInterface[];
-  factTables: FactTableInterface[];
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
-  getFactTableById: (id: string) => FactTableInterface | null;
+  factTables: FactTableDefinition[];
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  getFactTableById: (id: string) => FactTableDefinition | null;
 }): AvailableSliceTag[] {
   const sliceTagsMap = new Map<
     string,
@@ -996,7 +1325,7 @@ export function getAvailableSliceTags({
   >();
 
   // Build factTableMap for parseSliceQueryString
-  const factTableMap: Record<string, FactTableInterface> = {};
+  const factTableMap: Record<string, FactTableDefinition> = {};
   factTables.forEach((table) => {
     factTableMap[table.id] = table;
   });

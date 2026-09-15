@@ -28,6 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import SetupAbandonedPage from "@/components/InitialSetup/SetupAbandonedPage";
+import Callout from "@/ui/Callout";
 
 export type SdkFormValues = {
   languages: SDKLanguage[];
@@ -98,9 +99,9 @@ export default function SetupFlow() {
 
   if (!canUseSetupFlow) {
     return (
-      <div className="alert alert-warning mt-5">
+      <Callout status="warning" mt="5">
         You do not have permission to use this setup flow.
-      </div>
+      </Callout>
     );
   }
 

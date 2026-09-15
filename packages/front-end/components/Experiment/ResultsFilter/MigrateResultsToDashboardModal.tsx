@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DifferenceType } from "shared/types/stats";
 import {
+  DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
   DashboardInterface,
   getBlockData,
   CREATE_BLOCK_TYPE,
@@ -420,6 +421,7 @@ export default function MigrateResultsToDashboardModal({
                   projects: experiment.project ? [experiment.project] : [],
                   userId: userId,
                   blocks,
+                  globalControls: DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
                 }),
               });
               finalDashboardId = res.dashboard.id;
@@ -556,7 +558,6 @@ export default function MigrateResultsToDashboardModal({
           autoCloseOnSubmit={false}
           trackingEventModalType="migrate-results-to-dashboard"
           trackingEventModalSource="experiment-results"
-          useRadixButton={true}
         >
           <Page display="Select Dashboard & Block">
             <SelectDashboardAndBlockPage

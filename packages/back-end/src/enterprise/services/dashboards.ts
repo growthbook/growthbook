@@ -1,19 +1,23 @@
-import { isEqual, uniqWith } from "lodash";
+import { isEqual, omit, uniqWith } from "lodash";
 import { isString } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
   blockHasFieldOfType,
+  buildComparisonExplorationConfig,
   BlockSnapshotSettings,
   getBlockAnalysisSettings,
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
+  getEffectiveExplorationConfig,
   snapshotSatisfiesBlock,
+  DashboardBlockWithAnalysisId,
   DashboardInterface,
   MetricExplorerBlockInterface,
   DashboardBlockInterface,
+  resolveBlockComparison,
+  resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -39,6 +43,7 @@ import {
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 /**
@@ -222,6 +227,7 @@ export async function updateExperimentDashboards({
     const explorationsUpdated = await updateDashboardExplorations(
       context,
       editableBlocks,
+      dashboard,
     );
     if (metricAnalysesUpdated || explorationsUpdated) {
       await context.models.dashboards.dangerousUpdateBypassPermission(
@@ -240,7 +246,7 @@ export async function updateNonExperimentDashboard(
   const newBlocks = dashboard.blocks.map((block) => ({ ...block }));
   await updateDashboardMetricAnalyses(context, newBlocks);
   await updateDashboardSavedQueries(context, newBlocks);
-  await updateDashboardExplorations(context, newBlocks);
+  await updateDashboardExplorations(context, newBlocks, dashboard);
   await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
     blocks: newBlocks,
     nextUpdate:
@@ -312,6 +318,37 @@ export async function updateDashboardMetricAnalyses(
       block.metricAnalysisId = queryRunner.model.id;
       block.analysisSettings.startDate = startDate;
       block.analysisSettings.endDate = endDate;
+
+      // Keep the compare-to-previous-period analysis in sync with the rolled
+      // window. The previous window is derived (never reserved) — an adjacent
+      // window of equal length immediately preceding the current one — so it
+      // rolls alongside the primary on every manual/scheduled refresh. Resolved
+      // through the shared seam so a future dashboard-wide compare toggle drives
+      // this the same way the per-block setting does.
+      //
+      // COST NOTE / revisit: this runs a second metric analysis per
+      // compare-enabled block, so a dashboard with N such blocks issues up to 2N
+      // analyses per refresh cycle. Fine today (they run concurrently via the
+      // Promise.all below), but if query costs run up — e.g. dashboards with many
+      // metric blocks on a tight updateSchedule — consider batching the current
+      // and previous windows into a single analysis/query instead of two.
+      if (resolveBlockComparison(block)?.enabled) {
+        const spanMs = endDate.getTime() - startDate.getTime();
+        const comparisonSettings: MetricAnalysisSettings = {
+          ...settings,
+          startDate: new Date(startDate.getTime() - spanMs),
+          endDate: startDate,
+        };
+        const comparisonQueryRunner = await createMetricAnalysis(
+          context,
+          metric,
+          comparisonSettings,
+          "metric",
+          false,
+        );
+        block.comparisonMetricAnalysisId = comparisonQueryRunner.model.id;
+      }
+
       return true;
     }),
   );
@@ -323,31 +360,155 @@ const PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "sql-exploration",
+  "funnel-exploration",
 ] as const;
 
-function isProductAnalyticsExplorationBlock(
-  block: DashboardInterface["blocks"][number],
-): block is DashboardInterface["blocks"][number] & {
-  explorerAnalysisId: string;
-  config: ExplorationConfig;
-} {
+type ProductAnalyticsExplorationBlock = Extract<
+  DashboardInterface["blocks"][number],
+  { type: (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number] }
+>;
+
+/** An exploration type carrying a config. Its analysis id is what says run or already ran. */
+function isExplorationBlockWithConfig(block: { type: string }): boolean {
   return (
     PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES.includes(
       block.type as (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number],
-    ) &&
-    "explorerAnalysisId" in block &&
-    typeof (block as { explorerAnalysisId?: string }).explorerAnalysisId ===
-      "string" &&
-    (block as { explorerAnalysisId: string }).explorerAnalysisId.length > 0 &&
-    "config" in block &&
-    (block as { config?: unknown }).config != null
+    ) && (block as { config?: unknown }).config != null
   );
+}
+
+/** Empty means the block has no result yet, which is what says run it. */
+export function explorationAnalysisId(block: { type: string }): string {
+  return (block as { explorerAnalysisId?: string }).explorerAnalysisId ?? "";
+}
+
+function isProductAnalyticsExplorationBlock(
+  block: DashboardInterface["blocks"][number],
+): block is ProductAnalyticsExplorationBlock {
+  return isExplorationBlockWithConfig(block) && !!explorationAnalysisId(block);
+}
+
+/** Narrowed to what `getEffectiveExplorationConfig` reads. */
+type EffectiveConfigInput = Parameters<typeof getEffectiveExplorationConfig>[0];
+
+/** Runs blocks sent as a bare `config`. Throws: a new tile has no previous result to fall back on. */
+export async function runNewApiExplorationBlocks<
+  T extends { type: string; title: string },
+>(
+  context: ReqContext | ApiReqContext,
+  blocks: T[],
+  dashboard: Pick<DashboardInterface, "globalControls" | "comparison">,
+): Promise<DashboardBlockWithAnalysisId<T>[]> {
+  // In parallel: serial runs on a six-tile dashboard risk the request timing out.
+  return Promise.all(
+    blocks.map(async (block): Promise<DashboardBlockWithAnalysisId<T>> => {
+      // Casts: the conditional return type states what TS can't infer per branch.
+      if (!isExplorationBlockNeedingRun(block)) {
+        return block as DashboardBlockWithAnalysisId<T>;
+      }
+
+      // Enroll before querying, or the tile renders "click Update" forever.
+      const enrolled =
+        dashboard.globalControls?.dateRange &&
+        block.globalControlSettings?.dateRange === undefined
+          ? {
+              ...block,
+              globalControlSettings: {
+                ...block.globalControlSettings,
+                dateRange: true,
+              },
+            }
+          : block;
+
+      // Reads only type/config/globalControlSettings; a create block has no id.
+      const config = dashboard.globalControls
+        ? getEffectiveExplorationConfig(
+            enrolled as unknown as EffectiveConfigInput,
+            dashboard,
+          )
+        : block.config;
+      // Dashboard-wide wins over the block's own — the precedence tiles render under.
+      const comparison = resolveBlockComparison(block, dashboard);
+
+      // Never cached: a fuzzy hit stores a dateRange the tile reads as stale.
+      const exploration = await runProductAnalyticsExploration(
+        context,
+        config,
+        {
+          cache: "never",
+        },
+      );
+      if (!exploration) {
+        throw new BadRequestError(
+          `Could not run the query for "${block.title}". Check the block's datasource, metrics, and date range.`,
+        );
+      }
+      // A failed run still returns an exploration, so a truthy check alone saves
+      // a broken tile. `running` is legitimate — the sync budget — so only a
+      // reported error rejects, carrying the warehouse's own words.
+      if (exploration.status === "error") {
+        throw new BadRequestError(
+          `The query for "${block.title}" failed: ${
+            exploration.error || "no error reported"
+          }`,
+        );
+      }
+
+      const previous = comparison
+        ? await runProductAnalyticsExploration(
+            context,
+            buildComparisonExplorationConfig(
+              config,
+              resolveComparisonPreviousTimeFrame(config.dateRange, comparison),
+            ),
+            { cache: "never" },
+          )
+        : null;
+
+      // A failed comparison run is reported, not thrown, so an unchecked id
+      // here would save a broken previous-period series next to a good
+      // primary. Dropping it renders the tile without the comparison instead.
+      const previousId =
+        previous && previous.status !== "error" ? previous.id : undefined;
+      if (previous && !previousId) {
+        logger.warn(
+          { blockTitle: block.title, err: previous.error },
+          "Comparison query failed for a new dashboard block; saving without it",
+        );
+      }
+
+      return {
+        // Any comparison id the caller sent belongs to an earlier run, so only
+        // this run's may survive: dropped when the comparison failed and when
+        // it is now off, never carried over next to a fresh primary.
+        ...omit(enrolled, "comparisonExplorerAnalysisId"),
+        explorerAnalysisId: exploration.id,
+        ...(previousId ? { comparisonExplorerAnalysisId: previousId } : {}),
+      } as DashboardBlockWithAnalysisId<T>;
+    }),
+  );
+}
+
+/** Structural, not a union guard: covers both shapes, where the id is optional and required. */
+function isExplorationBlockNeedingRun<T extends { type: string }>(
+  block: T,
+): block is T & {
+  title: string;
+  config: ProductAnalyticsExplorationBlock["config"];
+  comparison?: ProductAnalyticsExplorationBlock["comparison"];
+  globalControlSettings?: { dateRange?: boolean };
+} {
+  return isExplorationBlockWithConfig(block) && !explorationAnalysisId(block);
 }
 
 // Returns a boolean indicating whether the blocks have been modified and will need to be saved to db
 export async function updateDashboardExplorations(
   context: ReqContext | ApiReqContext,
   blocks: DashboardInterface["blocks"],
+  // Optional so the future dashboard-wide compare toggle can drive every block
+  // through resolveBlockComparison without changing this signature again.
+  dashboard?: Pick<DashboardInterface, "globalControls" | "comparison">,
 ): Promise<boolean> {
   const explorationBlocks = blocks.filter(isProductAnalyticsExplorationBlock);
   if (explorationBlocks.length === 0) return false;
@@ -355,16 +516,78 @@ export async function updateDashboardExplorations(
   let anyUpdated = false;
   for (const block of explorationBlocks) {
     try {
-      const exploration = await runProductAnalyticsExploration(
-        context,
-        block.config,
-        { cache: "never" },
-      );
+      // Re-resolve the comparison every refresh so predefined previous windows
+      // roll forward with the primary range (custom windows stay fixed).
+      const comparison = resolveBlockComparison(block, dashboard);
+      const primaryConfig = dashboard
+        ? getEffectiveExplorationConfig(block, dashboard)
+        : block.config;
+      // allSettled (not all): a comparison failure (timeout, upstream schema
+      // change, transient warehouse issue) must not block the primary refresh
+      // and leave the whole block frozen at its last refresh.
+      const [primaryResult, comparisonResult] = await Promise.allSettled([
+        runProductAnalyticsExploration(context, primaryConfig, {
+          cache: "never",
+        }),
+        comparison
+          ? runProductAnalyticsExploration(
+              context,
+              buildComparisonExplorationConfig(
+                primaryConfig,
+                resolveComparisonPreviousTimeFrame(
+                  primaryConfig.dateRange,
+                  comparison,
+                ),
+              ),
+              { cache: "never" },
+            )
+          : Promise.resolve(null),
+      ]);
+      if (primaryResult.status === "rejected") {
+        throw primaryResult.reason;
+      }
       // This should never happen when cache="never", but just in case
-      if (!exploration) {
+      if (!primaryResult.value) {
         throw new Error("Failed run to run product analytics query");
       }
-      block.explorerAnalysisId = exploration.id;
+      // A failed run resolves rather than rejecting, so without this the block
+      // would point at a broken result and the refresh would report success.
+      if (primaryResult.value.status === "error") {
+        throw new Error(
+          primaryResult.value.error || "Product analytics query failed",
+        );
+      }
+      block.explorerAnalysisId = primaryResult.value.id;
+
+      const comparisonRun =
+        comparisonResult.status === "fulfilled" ? comparisonResult.value : null;
+      // Thrown and reported failures are the same outcome here: no usable
+      // previous-period run this cycle.
+      const comparisonFailure =
+        comparisonResult.status === "rejected"
+          ? comparisonResult.reason
+          : comparisonRun?.status === "error"
+            ? comparisonRun.error || "Product analytics query failed"
+            : undefined;
+      if (comparisonFailure) {
+        logger.warn(
+          {
+            err: comparisonFailure,
+            blockId: block.id,
+            blockType: block.type,
+          },
+          "Failed to refresh product analytics comparison; cleared the stale comparison",
+        );
+      }
+      if (comparisonRun && !comparisonFailure) {
+        block.comparisonExplorerAnalysisId = comparisonRun.id;
+      } else {
+        // Nothing usable, so leave no id behind — whether the comparison is now
+        // off or its run failed. The primary has just rolled to a new window, so
+        // a retained id is the window before the *old* primary: a plausible
+        // delta against the wrong baseline, worse than no comparison at all.
+        delete block.comparisonExplorerAnalysisId;
+      }
       anyUpdated = true;
     } catch (e) {
       logger.warn(

@@ -1,6 +1,6 @@
 import clsx from "clsx";
-import Link from "next/link";
 import { FaCheck } from "react-icons/fa";
+import Link from "@/ui/Link";
 import styles from "./SuccessCard.module.scss";
 
 type Props = {

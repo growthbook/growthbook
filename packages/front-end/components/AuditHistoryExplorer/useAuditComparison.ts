@@ -273,18 +273,29 @@ export function useAuditComparison<T>(
   const flatIds = useMemo(() => flatEntries.map((e) => e.id), [flatEntries]);
 
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    if (config.singleSelect)
+      return flatEntries.length ? [flatEntries[0].id] : [];
     if (flatEntries.length < 2) return flatEntries.map((e) => e.id);
     return [flatEntries[0].id, flatEntries[1].id];
   });
 
-  // When new entries load, if selection is still the default pair, stay pointing
-  // at the two newest entries.
+  // When new entries load, if selection is still the default, stay pointing at
+  // the newest entry (single-select) or the two newest (compare mode).
   useEffect(() => {
     if (!isDefaultPairRef.current) return;
-    if (flatEntries.length >= 2) {
+    if (config.singleSelect) {
+      if (flatEntries.length) setSelectedIds([flatEntries[0].id]);
+    } else if (flatEntries.length >= 2) {
       setSelectedIds([flatEntries[0].id, flatEntries[1].id]);
     }
-  }, [flatEntries]);
+  }, [flatEntries, config.singleSelect]);
+
+  // Single-entry comparison base (singleSelect surfaces only). "current" diffs
+  // the selected version against the live/latest one (what a revert would do);
+  // "previous"/"next" diff against the neighbouring version.
+  const [comparisonBase, setComparisonBase] = useState<
+    "current" | "previous" | "next"
+  >("current");
 
   const selectedSorted = useMemo(
     () => expandSelectionRange(flatIds, selectedIds),
@@ -409,13 +420,24 @@ export function useAuditComparison<T>(
   // Single-entry selection has no steps — always use merged diff view.
   const diffViewMode = isSingleEntry ? "single" : diffViewModeStored;
 
+  // "Next version" has no meaning on the newest entry; clear a stale selection
+  // so the base selector never shows a disabled option as the active value.
+  const noNewerEntry = !!singleEntryFirst && flatIds[0] === singleEntryFirst.id;
+  useEffect(() => {
+    if (comparisonBase === "next" && noNewerEntry) {
+      setComparisonBase("current");
+    }
+  }, [comparisonBase, noNewerEntry]);
+
   // For diffing: pre of step A is its postSnapshot, post of step B is its postSnapshot.
   // For a create entry (pre=null), show as "created with these values".
+  // For synthetic create steps currentStep[0] is null, so pre is null
+  // (showing the create event as "everything new").
+  const stepPre = currentStep?.[0] ? (stepEntryA?.postSnapshot ?? null) : null;
+  const stepPost = stepEntryB?.postSnapshot ?? null;
   const stepDiffs = useAuditDiff<T>({
-    // For synthetic create steps currentStep[0] is null, so pre is null
-    // (showing the create event as "everything new").
-    pre: currentStep?.[0] ? (stepEntryA?.postSnapshot ?? null) : null,
-    post: stepEntryB?.postSnapshot ?? null,
+    pre: stepPre,
+    post: stepPost,
     config,
   });
 
@@ -423,12 +445,32 @@ export function useAuditComparison<T>(
   // For multi-entry ranges: if the oldest entry is a create event (preSnapshot===null),
   // treat the range as "from nothing" so all creation-time fields appear as new.
   // Otherwise use oldest.postSnapshot as the baseline.
-  const mergedDiffs = useAuditDiff<T>({
-    pre:
-      isSingleEntry || singleEntryFirst?.preSnapshot === null
+  // In singleSelect mode the baseline is user-selectable (current/prev/next);
+  // otherwise it's the standard "this change" baseline (the entry's own pre).
+  const singleSelectBase = (): T | null => {
+    if (!singleEntryFirst) return null;
+    if (comparisonBase === "previous") {
+      return singleEntryFirst.preSnapshot ?? null;
+    }
+    if (comparisonBase === "next") {
+      const idx = flatIds.indexOf(singleEntryFirst.id);
+      const newer = idx > 0 ? flatEntries[idx - 1] : null;
+      return newer?.postSnapshot ?? singleEntryFirst.preSnapshot ?? null;
+    }
+    // "current" — the live/latest version
+    return flatEntries[0]?.postSnapshot ?? null;
+  };
+
+  const mergedPre =
+    config.singleSelect && isSingleEntry
+      ? singleSelectBase()
+      : isSingleEntry || singleEntryFirst?.preSnapshot === null
         ? (singleEntryFirst?.preSnapshot ?? null)
-        : (singleEntryFirst?.postSnapshot ?? null),
-    post: singleEntryLast?.postSnapshot ?? null,
+        : (singleEntryFirst?.postSnapshot ?? null);
+  const mergedPost = singleEntryLast?.postSnapshot ?? null;
+  const mergedDiffs = useAuditDiff<T>({
+    pre: mergedPre,
+    post: mergedPost,
     config,
   });
 
@@ -436,6 +478,11 @@ export function useAuditComparison<T>(
     () => (diffViewMode === "single" ? mergedDiffs : stepDiffs),
     [diffViewMode, mergedDiffs, stepDiffs],
   );
+
+  // Whole before/after snapshots for the non-sectional "Raw JSON" view,
+  // matching the pre/post used to build activeDiffsRaw.
+  const activeRawPre = diffViewMode === "single" ? mergedPre : stepPre;
+  const activeRawPost = diffViewMode === "single" ? mergedPost : stepPost;
 
   // Exclude no-op diffs (a === b) so badges, renders, and "No changes" stay consistent
   const activeDiffs = useMemo(
@@ -583,6 +630,8 @@ export function useAuditComparison<T>(
     diffViewMode,
     setDiffViewModeRaw,
     activeDiffs,
+    activeRawPre,
+    activeRawPost,
     customRenderGroups,
     activeBadges,
     displayFailed,
@@ -592,5 +641,7 @@ export function useAuditComparison<T>(
     singleEntryFirst,
     singleEntryLast,
     isSingleEntry,
+    comparisonBase,
+    setComparisonBase,
   };
 }

@@ -1,0 +1,8 @@
+---
+description: "Guidance for migrating legacy back-end models to BaseModel"
+globs: packages/back-end/src/models/**/*.ts
+alwaysApply: false
+---
+# Legacy Model Migrations
+
+When migrating a legacy model to `BaseModel`, read and follow `.agents/guides/backend/legacy-model-migration-patterns.md`.

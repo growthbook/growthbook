@@ -94,12 +94,13 @@
 
 .nodeSublabel {
   color: var(--color-text-low);
+  text-align: center;
 }
 
 // ─── Connector ───────────────────────────────────────────────────────────────
 
 .connector {
-  width: 50px;
+  width: 70px;
   flex-shrink: 0;
   align-self: flex-start;
 }
@@ -114,11 +115,10 @@
   text-align: center;
   margin-top: 2px;
   color: var(--color-text-low);
-  white-space: nowrap;
 }
 
 .connectorSpacer {
-  width: 50px;
+  width: 70px;
   flex-shrink: 0;
   margin-top: 10.5px;
   align-self: flex-start;
@@ -157,14 +157,13 @@
 
 .timelineRoot {
   min-width: 0;
-  overflow: hidden;
 }
 
 .timelineScroll {
-  overflow-x: auto;
   padding: 6px 8px;
 }
 
 .timelineRow {
-  width: fit-content;
+  flex-wrap: wrap;
+  row-gap: 8px;
 }

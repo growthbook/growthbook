@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Collapsible from "react-collapsible";
 import { Box, Flex, Separator, Text, TextField } from "@radix-ui/themes";
 import { PiNetwork, PiTrash } from "react-icons/pi";
@@ -98,10 +99,9 @@ export default function DataVizDimensionPanel({
                 <>
                   {dimensions.map((dimension, index) => {
                     return (
-                      <>
+                      <Fragment key={index}>
                         {index > 0 && <Separator size="4" mt="2" />}
                         <Select
-                          key={index}
                           label={
                             <Flex justify="between" align="center">
                               <Text as="label">
@@ -145,7 +145,7 @@ export default function DataVizDimensionPanel({
                               ],
                             } as Partial<DataVizConfig>);
                           }}
-                          size="2"
+                          size="sm"
                           placeholder="Select a dimension"
                         >
                           {axisKeys.map((key) => (
@@ -193,7 +193,7 @@ export default function DataVizDimensionPanel({
                                         ],
                                       });
                                     }}
-                                    size="2"
+                                    size="md"
                                   >
                                     <SelectItem value="grouped">
                                       Grouped
@@ -250,7 +250,7 @@ export default function DataVizDimensionPanel({
                             </Flex>
                           </>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </>

@@ -1,0 +1,40 @@
+.headerRow {
+  background-color: var(--slate-2);
+}
+
+.cell {
+  box-sizing: border-box;
+  padding: var(--qrt-cell-padding);
+  line-height: var(--qrt-cell-line-height);
+  border-right: var(--qrt-cell-border) solid var(--slate-a4);
+  border-bottom: var(--qrt-cell-border) solid var(--slate-a4);
+  font-size: var(--qrt-cell-font-size);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.firstColumn {
+  border-left: var(--qrt-cell-border) solid var(--slate-a4);
+}
+
+.indexCell {
+  font-weight: 700;
+  background-color: var(--slate-2);
+}
+
+.headerCell {
+  font-weight: 700;
+  background-color: var(--slate-2);
+  border-top: var(--qrt-cell-border) solid var(--slate-a4);
+}
+
+:global(.dark-theme) {
+  .indexCell,
+  .headerCell,
+  .headerRow {
+    // we cannot use --slate-a2 here because it is transparent
+    // so we hard code the color of slate-a2 on top of background color
+    background-color: rgba(36, 43, 61, 1);
+  }
+}

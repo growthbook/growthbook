@@ -1,0 +1,13 @@
+// Copy button in the value cell fades in only while the cell is hovered.
+.valueCell {
+  .copyButton {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 250ms ease;
+  }
+
+  &:hover .copyButton {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

@@ -1,8 +1,9 @@
 import express from "express";
 import { z } from "zod";
 import {
-  explorationConfigValidator,
+  productAnalyticsRunRequestBodyValidator,
   aiChatFeedbackRatingValidator,
+  aiChatMentionValidator,
 } from "shared/validators";
 import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
 import { wrapController } from "back-end/src/routers/wrapController";
@@ -24,7 +25,7 @@ router.get(
 router.post(
   "/run",
   validateRequestMiddleware({
-    body: z.object({ config: explorationConfigValidator }).strict(),
+    body: productAnalyticsRunRequestBodyValidator,
     query: z
       .object({ cache: z.enum(["preferred", "required", "never"]) })
       .optional(),
@@ -41,6 +42,7 @@ router.post(
         conversationId: z.string().min(1),
         datasourceId: z.string(),
         model: aiModelValidator,
+        mentions: aiChatMentionValidator.array().optional(),
       })
       .strict(),
   }),

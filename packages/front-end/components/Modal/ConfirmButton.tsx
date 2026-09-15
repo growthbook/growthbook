@@ -1,17 +1,17 @@
 import { ReactNode, FC, useState, ReactElement, isValidElement } from "react";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const ConfirmButton: FC<{
   onClick: () => Promise<void>;
   modalHeader: string;
   confirmationText?: string | ReactElement;
-  ctaColor?: string;
-  cta?: string | ReactElement;
+  cta?: string;
   ctaEnabled?: boolean;
-  size?: "md" | "lg" | "max" | "fill";
+  size?: "md" | "lg";
   children: ReactNode;
   additionalMessage?: ReactElement | null | string;
   disabled?: boolean;
+  isDestructive?: boolean;
 }> = ({
   onClick,
   modalHeader,
@@ -19,23 +19,23 @@ const ConfirmButton: FC<{
   cta = "Yes",
   ctaEnabled = true,
   size = "md",
-  ctaColor = "primary",
   children,
   additionalMessage = "",
   disabled = false,
+  isDestructive = false,
 }) => {
   const [confirming, setConfirming] = useState(false);
   return (
     <>
-      {confirming ? (
-        <Modal
+      {confirming && (
+        <ModalStandard
           trackingEventModalType=""
           header={modalHeader}
           close={() => setConfirming(false)}
           open={true}
           cta={cta}
           ctaEnabled={ctaEnabled}
-          submitColor={ctaColor}
+          ctaColor={isDestructive ? "red" : "violet"}
           submit={onClick}
           size={size}
         >
@@ -46,9 +46,7 @@ const ConfirmButton: FC<{
             ) : (
               <p>{additionalMessage}</p>
             ))}
-        </Modal>
-      ) : (
-        ""
+        </ModalStandard>
       )}
       <span
         onClick={(e) => {

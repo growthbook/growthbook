@@ -33,8 +33,9 @@ export async function createUser(
   }
 
   const expandedMembers = await expandOrgMembers(org.members);
+  const userNameLower = (userName || "").toLowerCase();
   const existingOrgMember = expandedMembers.find(
-    (member) => member.email === userName,
+    (member) => member.email.toLowerCase() === userNameLower,
   );
 
   const responseObj = cloneDeep(req.body);

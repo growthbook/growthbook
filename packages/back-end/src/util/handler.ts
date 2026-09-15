@@ -1,13 +1,27 @@
 import { Request, RequestHandler } from "express";
-import { z, ZodType, ZodNever, output } from "zod";
-import { ApiPaginationFields } from "shared/validators";
+import { z, ZodType, ZodNever, output, core } from "zod";
+import { ApiPaginationFields, ApiErrorCode } from "shared/validators";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
-import { HttpVerb } from "back-end/src/api/apiModelHandlers";
+import {
+  ApiEndpointSpec,
+  ExampleRequest,
+  HttpVerb,
+  RequestSchemas,
+} from "shared/api-spec";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { ConflictError } from "./errors";
+import { PublishBlockedError } from "back-end/src/revisions/publishGates";
+import {
+  ApiError,
+  BulkImportPartialFailureError,
+  BulkPublishCommitError,
+  MergeConflictError,
+  SoftWarningError,
+} from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
+
+export type { ApiEndpointSpec, ExampleRequest, HttpVerb, RequestSchemas };
 
 export type ApiRequest<
   ResponseType = never,
@@ -22,37 +36,14 @@ export type ApiRequest<
     z.infer<QuerySchema>
   >;
 
-export type ExampleRequest<
-  Params = unknown,
-  Body = unknown,
-  Query = unknown,
-  Response = unknown,
-> = {
-  params?: Params;
-  body?: Body;
-  query?: Query;
-  response?: Response;
-};
-
-export type RequestSchemas<ParamsSchema, BodySchema, QuerySchema> = {
-  bodySchema?: BodySchema;
-  querySchema?: QuerySchema;
-  paramsSchema?: ParamsSchema;
-};
-
-export type ApiEndpointSpec<
+// Back-end-only extension of ApiEndpointSpec that adds express middleware.
+// The shared type is intentionally framework-agnostic.
+export type BackEndApiEndpointSpec<
   ParamsSchema,
   BodySchema,
   QuerySchema,
   ResponseSchema,
-> = RequestSchemas<ParamsSchema, BodySchema, QuerySchema> & {
-  responseSchema: ResponseSchema;
-  method: HttpVerb;
-  path: string;
-  operationId: string;
-  summary?: string;
-  description?: string;
-  tags?: string[];
+> = ApiEndpointSpec<ParamsSchema, BodySchema, QuerySchema, ResponseSchema> & {
   middleware?: RequestHandler[];
   exampleRequest?: ExampleRequest<
     z.infer<ParamsSchema>,
@@ -61,7 +52,52 @@ export type ApiEndpointSpec<
     z.infer<ResponseSchema>
   >;
   excludeFromSpec?: boolean;
+  version?: "v1" | "v2";
+  deprecated?: boolean;
+  /**
+   * RFC 8594 `Deprecation` header field value. Accepts either `"true"` (deprecated
+   * now, no removal date) or `"@<unix-timestamp>"` (deprecated as of that date).
+   */
+  deprecationDate?: string;
+  /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
+  possibleErrors?: readonly ApiErrorCode[];
 };
+
+/** How far into a branch the value validated before failing. */
+function branchDepth(branch: readonly core.$ZodIssue[]): number {
+  return Math.max(0, ...branch.map((issue) => issue.path.length));
+}
+
+/**
+ * The branch the value was most plausibly trying to be: it complained least,
+ * and among equals matched deepest. Reporting every branch of a union buries
+ * the real error under the shapes the value was never meant to satisfy — on a
+ * new dashboard block that meant four "add an id" errors around one bad field.
+ */
+function bestBranch(
+  branches: readonly (readonly core.$ZodIssue[])[],
+): readonly core.$ZodIssue[] {
+  return branches.reduce((best, branch) => {
+    if (branch.length !== best.length) {
+      return branch.length < best.length ? branch : best;
+    }
+    return branchDepth(branch) > branchDepth(best) ? branch : best;
+  });
+}
+
+/** A union issue's own message is just "Invalid input"; the real ones are per-branch in `errors`. */
+function describeIssue(
+  issue: core.$ZodIssue,
+  prefix: PropertyKey[] = [],
+): string[] {
+  const path = [...prefix, ...issue.path];
+  if (issue.code === "invalid_union" && issue.errors.length) {
+    return bestBranch(issue.errors).flatMap((inner) =>
+      describeIssue(inner, path),
+    );
+  }
+  return ["[" + path.join(".") + "] " + issue.message];
+}
 
 function validate<T extends ZodType>(
   schema: T,
@@ -79,9 +115,9 @@ function validate<T extends ZodType>(
   if (!result.success) {
     return {
       success: false,
-      errors: result.error.issues.map((i) => {
-        return "[" + i.path.join(".") + "] " + i.message;
-      }),
+      errors: [
+        ...new Set(result.error.issues.flatMap((i) => describeIssue(i))),
+      ],
     };
   }
 
@@ -103,6 +139,125 @@ export type WrappedRequestHandler<
   z.infer<QuerySchema>
 >;
 
+/**
+ * The "raw" business-logic handler an API endpoint is defined with: it reads a
+ * request-shaped object and resolves to the response body. This is the function
+ * passed into the curried `createApiRequestHandler(...)(handler)` call — the one
+ * the Express wrapper closes over. We expose its type so callers that drive the
+ * handler without Express (see `runApiHandler` + the in-process dispatcher) get
+ * the same contract.
+ */
+export type RawApiRequestHandler<
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
+  ResponseSchema extends ZodType = ZodType<never>,
+> = (
+  req: ApiRequest<
+    z.infer<ResponseSchema>,
+    ParamsSchema,
+    BodySchema,
+    QuerySchema
+  >,
+) => Promise<z.infer<ResponseSchema>>;
+
+/**
+ * The single source of truth for "validate the three inputs, run the business
+ * handler, shape success/error into `{status, body}`". Both the Express wrapper
+ * (`createApiRequestHandler`) and the in-process dispatcher call this, so there
+ * is exactly one copy of the validation + response/error contract and the two
+ * surfaces can never drift.
+ *
+ * Notes:
+ *  - Validation writes the *parsed* (Zod-transformed/coerced/defaulted) output
+ *    back onto `req`, so the handler reads the same values it would over HTTP.
+ *  - The returned `body` is the in-memory object; callers are responsible for
+ *    serialization (`res.json` over HTTP, `JSON.stringify` round-trip for the
+ *    dispatcher's on-the-wire fidelity).
+ */
+export async function runApiHandler(
+  req: { params: unknown; query: unknown; body: unknown },
+  schemas: {
+    params?: ZodType;
+    body?: ZodType;
+    query?: ZodType;
+  },
+  handler: (req: never) => Promise<unknown>,
+): Promise<{ status: number; body: unknown }> {
+  const allErrors: string[] = [];
+  if (schemas.params && !(schemas.params instanceof ZodNever)) {
+    const validated = validate(schemas.params, req.params);
+    if (!validated.success) {
+      allErrors.push(`Request params: ` + validated.errors.join(", "));
+    } else {
+      req.params = validated.data;
+    }
+  }
+  if (schemas.query && !(schemas.query instanceof ZodNever)) {
+    const validated = validate(schemas.query, req.query);
+    if (!validated.success) {
+      allErrors.push(`Querystring: ` + validated.errors.join(", "));
+    } else {
+      req.query = validated.data;
+    }
+  }
+  if (schemas.body && !(schemas.body instanceof ZodNever)) {
+    const validated = validate(schemas.body, req.body);
+    if (!validated.success) {
+      allErrors.push(`Request body: ` + validated.errors.join(", "));
+    } else {
+      req.body = validated.data;
+    }
+  }
+  if (allErrors.length > 0) {
+    return { status: 400, body: { message: allErrors.join("\n") } };
+  }
+
+  try {
+    const result = await handler(req as never);
+    return { status: 200, body: result };
+  } catch (e) {
+    const body: ApiErrorResponse = { message: e.message };
+    if (e instanceof ApiError) {
+      body.code = e.code;
+      body.details = e.details;
+      // Transitional back-compat: mirror conflicts to top level so existing
+      // external clients of feature-revision publish/rebase don't break.
+      // TODO: remove once clients are reading `details.conflicts` instead.
+      if (e instanceof MergeConflictError) {
+        body.conflicts = e.details.conflicts;
+      }
+    }
+    // Aggregated publish gates: the typed `gates` list names each blocking
+    // gate and the body flag that clears it, plus a flattened `warnings`
+    // array so existing SoftWarningError-style retry flows keep working.
+    if (e instanceof PublishBlockedError) {
+      body.gates = e.gates;
+      body.warnings = e.warnings;
+    }
+    // Bulk-publish commit failures carry per-item outcomes so callers can see
+    // which entities compensated cleanly.
+    if (e instanceof BulkPublishCommitError) {
+      (body as Record<string, unknown>).items = e.items;
+    }
+    if (e instanceof BulkImportPartialFailureError) {
+      Object.assign(body, e.counts, { errors: e.errors });
+    }
+    // Surface soft warnings so clients can re-submit with ignoreWarnings
+    if (e instanceof SoftWarningError) {
+      body.warnings = e.warnings;
+      // Front-end shows a "Save anyway" dialog and doesn't need a retry hint
+      const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
+      if (!isJwtAuth) {
+        body.message =
+          e.message +
+          '\n\nEither address the warnings or re-send with `"ignoreWarnings": true` in the request body to acknowledge them and proceed.';
+      }
+    }
+    return { status: e.status || 400, body };
+  }
+}
+
 export type OpenApiRoute<
   ParamsSchema extends ZodType = ZodType<unknown>,
   BodySchema extends ZodType = ZodType<unknown>,
@@ -118,7 +273,27 @@ export type OpenApiRoute<
     QuerySchema,
     ResponseSchema
   >;
+  /**
+   * The unwrapped business-logic handler, exposed so in-process callers (the
+   * dispatcher) can run it via `runApiHandler` without an Express `res`/`next`.
+   * Same function the Express `handler` wraps — so both paths share validation
+   * and response/error shaping.
+   */
+  rawHandler: RawApiRequestHandler<
+    ParamsSchema,
+    BodySchema,
+    QuerySchema,
+    ResponseSchema
+  >;
   middleware?: RequestHandler[];
+  /** API version prefix for the OpenAPI spec path (default: "v1"). */
+  version?: "v1" | "v2";
+  deprecated?: boolean;
+  /**
+   * RFC 8594 `Deprecation` header field value. Accepts either `"true"` (deprecated
+   * now, no removal date) or `"@<unix-timestamp>"` (deprecated as of that date).
+   */
+  deprecationDate?: string;
   summary?: string;
   description?: string;
   tags?: string[];
@@ -135,6 +310,8 @@ export type OpenApiRoute<
     z.infer<ResponseSchema>
   >;
   excludeFromSpec?: boolean;
+  /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
+  possibleErrors?: readonly ApiErrorCode[];
 };
 
 export function createApiRequestHandler<
@@ -143,7 +320,12 @@ export function createApiRequestHandler<
   QuerySchema extends ZodType = ZodType<never>,
   ResponseSchema extends ZodType = ZodType<never>,
 >(
-  data: ApiEndpointSpec<ParamsSchema, BodySchema, QuerySchema, ResponseSchema>,
+  data: BackEndApiEndpointSpec<
+    ParamsSchema,
+    BodySchema,
+    QuerySchema,
+    ResponseSchema
+  >,
 ) {
   const {
     paramsSchema,
@@ -159,6 +341,10 @@ export function createApiRequestHandler<
     path,
     middleware,
     excludeFromSpec,
+    version,
+    deprecated,
+    deprecationDate,
+    possibleErrors,
   } = data;
 
   return (
@@ -178,55 +364,18 @@ export function createApiRequestHandler<
       ResponseSchema
     > = async (req, res, next) => {
       try {
-        const allErrors: string[] = [];
-        if (paramsSchema && !(paramsSchema instanceof ZodNever)) {
-          const validated = validate(paramsSchema, req.params);
-          if (!validated.success) {
-            allErrors.push(`Request params: ` + validated.errors.join(", "));
-          } else {
-            req.params = validated.data as z.output<ParamsSchema>;
-          }
-        }
-        if (querySchema && !(querySchema instanceof ZodNever)) {
-          const validated = validate(querySchema, req.query);
-          if (!validated.success) {
-            allErrors.push(`Querystring: ` + validated.errors.join(", "));
-          } else {
-            req.query = validated.data;
-          }
-        }
-        if (bodySchema && !(bodySchema instanceof ZodNever)) {
-          const validated = validate(bodySchema, req.body);
-          if (!validated.success) {
-            allErrors.push(`Request body: ` + validated.errors.join(", "));
-          } else {
-            req.body = validated.data;
-          }
-        }
-        if (allErrors.length > 0) {
-          return res.status(400).json({
-            message: allErrors.join("\n"),
-          });
-        }
-
-        try {
-          const result = await handler(
-            req as ApiRequest<
-              ApiErrorResponse | z.infer<ResponseSchema>,
-              ParamsSchema,
-              BodySchema,
-              QuerySchema
-            >,
-          );
-          return res.status(200).json(result);
-        } catch (e) {
-          const body: ApiErrorResponse = { message: e.message };
-          // Surface the structured conflicts so clients can react to them.
-          if (e instanceof ConflictError && e.conflicts) {
-            body.conflicts = e.conflicts;
-          }
-          return res.status(e.status || 400).json(body);
-        }
+        const { status, body } = await runApiHandler(
+          req,
+          {
+            params: paramsSchema,
+            body: bodySchema,
+            query: querySchema,
+          },
+          handler,
+        );
+        return res
+          .status(status)
+          .json(body as ApiErrorResponse | z.infer<ResponseSchema>);
       } catch (e) {
         next(e);
       }
@@ -246,6 +395,9 @@ export function createApiRequestHandler<
       tags,
       exampleRequest,
       middleware,
+      version,
+      deprecated,
+      deprecationDate,
       schemas: {
         params: paramsSchema,
         body: bodySchema,
@@ -253,7 +405,9 @@ export function createApiRequestHandler<
         response: responseSchema,
       },
       handler: wrappedHandler,
+      rawHandler: handler,
       excludeFromSpec,
+      possibleErrors,
     };
 
     return route;

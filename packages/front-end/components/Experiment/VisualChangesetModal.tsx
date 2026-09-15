@@ -9,7 +9,7 @@ import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import { GBAddCircle } from "@/components/Icons";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 
 const defaultType = "simple";
@@ -111,7 +111,7 @@ const VisualChangesetModal: FC<{
     );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="visual-changeset-modal"
       trackingEventModalSource={source}
       open
@@ -124,6 +124,7 @@ const VisualChangesetModal: FC<{
       cta={cta}
     >
       <Field
+        size="legacy"
         required
         label={editorUrlLabel}
         containerClassName="mb-2"
@@ -160,6 +161,7 @@ const VisualChangesetModal: FC<{
             <div className="row">
               <div className="col-2">
                 <SelectField
+                  size="legacy"
                   value={
                     !form.watch(`urlPatterns.${i}.include`) ? "false" : "true"
                   }
@@ -173,10 +175,14 @@ const VisualChangesetModal: FC<{
                 />
               </div>
               <div className="col">
-                <Field {...form.register(`urlPatterns.${i}.pattern`)} />
+                <Field
+                  size="legacy"
+                  {...form.register(`urlPatterns.${i}.pattern`)}
+                />
               </div>
               <div className="col-2">
                 <SelectField
+                  size="legacy"
                   value={form.watch(`urlPatterns.${i}.type`)}
                   options={[
                     { label: "Simple", value: "simple" },
@@ -285,7 +291,7 @@ const VisualChangesetModal: FC<{
           Your URL patterns do not match the target URL
         </Callout>
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 

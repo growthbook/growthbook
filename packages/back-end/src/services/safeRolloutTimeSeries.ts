@@ -19,7 +19,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
-import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
+import { getFactMetricDefinitionForHash } from "back-end/src/services/experimentTimeSeries";
 
 export async function updateSafeRolloutTimeSeries({
   context,
@@ -71,7 +71,23 @@ export async function updateSafeRolloutTimeSeries({
     factTableMap = await getFactTableMap(context);
   }
 
-  const timeSeriesVariationsPerMetricId = metricsIds.reduce(
+  // A metric whose analysis failed to compute is stored as a zeroed result
+  // flagged computeFailed. Skip it so we don't persist those zeros as a real
+  // time series point; surviving metrics still record.
+  const recordableMetricIds = metricsIds.filter(
+    (metricId) =>
+      !variations.some(
+        (_, variationIndex) =>
+          analysisResults?.variations[variationIndex]?.metrics[metricId]
+            ?.computeFailed,
+      ),
+  );
+
+  if (recordableMetricIds.length === 0) {
+    return;
+  }
+
+  const timeSeriesVariationsPerMetricId = recordableMetricIds.reduce(
     (acc, metricId) => {
       acc[metricId] = variations.map((_, variationIndex) => ({
         id: safeRolloutSnapshot.settings.variations[variationIndex].id,
@@ -94,7 +110,7 @@ export async function updateSafeRolloutTimeSeries({
   );
 
   const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
-    metricsIds.map((metricId) => ({
+    recordableMetricIds.map((metricId) => ({
       source: "safe-rollout",
       sourceId: safeRollout.id,
       metricId,
@@ -173,34 +189,17 @@ function getSafeRolloutMetricSettingsHash(
   const factMetric = factMetrics?.find((metric) => metric.id === metricId);
   if (!factMetric) {
     return hashObject(metricSettings ?? { id: metricId });
-  } else {
-    const numeratorFactTableId = factMetric.numerator.factTableId;
-    const numeratorFactTable = numeratorFactTableId
-      ? factTableMap?.get(numeratorFactTableId)
-      : undefined;
-
-    const denominatorFactTableId = factMetric.denominator?.factTableId;
-    const denominatorFactTable = denominatorFactTableId
-      ? factTableMap?.get(denominatorFactTableId)
-      : undefined;
-
-    return hashObject({
-      ...metricSettings,
-      metricType: factMetric.metricType,
-      numerator: factMetric.numerator,
-      denominator: factMetric.denominator,
-      cappingSettings: factMetric.cappingSettings,
-      quantileSettings: factMetric.quantileSettings,
-      numeratorFactTable: {
-        sql: numeratorFactTable?.sql,
-        eventName: numeratorFactTable?.eventName,
-        filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
-      },
-      denominatorFactTable: {
-        sql: denominatorFactTable?.sql,
-        eventName: denominatorFactTable?.eventName,
-        // TODO: include denominator filters?
-      },
-    });
   }
+  // Unlike the experiment hash, this one never serialized funnelSettings, and
+  // standard metrics store null (which JSON.stringify keeps) — omit it so
+  // their hashes stay stable.
+  const { funnelSettings, ...definition } = getFactMetricDefinitionForHash(
+    factMetric,
+    factTableMap,
+  );
+  return hashObject({
+    ...metricSettings,
+    ...definition,
+    ...(funnelSettings ? { funnelSettings } : {}),
+  });
 }

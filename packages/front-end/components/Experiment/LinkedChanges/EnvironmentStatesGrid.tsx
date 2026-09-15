@@ -3,10 +3,10 @@ import {
   PiCaretDown,
   PiCaretRight,
   PiCheckCircleFill,
-  PiWarningFill,
+  PiXCircleFill,
 } from "react-icons/pi";
 import { useState } from "react";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 
@@ -33,10 +33,10 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
     <Box p="4" px="5">
       <Link color="dark" onClick={() => setEnvironmentsOpen((prev) => !prev)}>
         <Flex align="center">
-          <Text color="text-low" weight="semibold" size="medium">
+          <Text color="text-low" weight="semibold" size="md">
             Environments
           </Text>
-          <Text color="text-low" size="medium" ml="1">
+          <Text color="text-low" size="md" ml="1">
             ({activeCount}/{totalCount})
           </Text>
           <Box ml="2">
@@ -56,23 +56,21 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
         >
           {environmentStates.map(({ env, isActive, tooltip }) => (
             <Box key={env} minWidth="0">
-              <Tooltip
-                body={tooltip}
-                tipPosition="top"
-                style={{
-                  display: "block",
-                  width: "fit-content",
-                  maxWidth: "100%",
-                }}
-              >
-                <Flex gap="2" align="center" minWidth="0">
+              <Tooltip content={tooltip} side="top" maxWidth="300px">
+                <Flex
+                  gap="2"
+                  align="center"
+                  minWidth="0"
+                  display="inline-flex"
+                  maxWidth="100%"
+                >
                   <Box
                     flexShrink="0"
                     style={{
-                      color: isActive ? "var(--green-11)" : "var(--amber-11)",
+                      color: isActive ? "var(--green-11)" : "var(--slate-9)",
                     }}
                   >
-                    {isActive ? <PiCheckCircleFill /> : <PiWarningFill />}
+                    {isActive ? <PiCheckCircleFill /> : <PiXCircleFill />}
                   </Box>
                   <Box className="text-ellipsis" title={env} minWidth="0">
                     <Text weight="medium">{env}</Text>

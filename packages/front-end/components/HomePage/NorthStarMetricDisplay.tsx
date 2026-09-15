@@ -2,6 +2,7 @@ import React from "react";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getFactMetricPrimaryFactTableId,
   getMetricLink,
   isBinomialMetric,
   isFactMetric,
@@ -22,6 +23,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 const NorthStarMetricDisplay = ({
   metricId,
@@ -58,7 +60,7 @@ const NorthStarMetricDisplay = ({
   }>(`/metrics/${metricId}/northstar`);
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   if (!metric || !data) {
@@ -80,7 +82,7 @@ const NorthStarMetricDisplay = ({
   const datasource = getDatasourceById(metric.datasource);
   const formatter = getExperimentMetricFormatter(metric, getFactTableById);
   const factTable = isFactMetric(metric)
-    ? getFactTableById(metric.numerator.factTableId)
+    ? getFactTableById(getFactMetricPrimaryFactTableId(metric))
     : undefined;
 
   return (
@@ -122,14 +124,14 @@ const NorthStarMetricDisplay = ({
           ) : (
             <>
               {hasQueries && status === "failed" && (
-                <div className="alert alert-danger my-3">
+                <Callout status="error" my="3">
                   Error running the analysis.
-                </div>
+                </Callout>
               )}
               {hasQueries && status === "running" && (
-                <div className="alert alert-info my-3">
+                <Callout status="info" my="3">
                   Your analysis is currently running.
-                </div>
+                </Callout>
               )}
               {status !== "running" && status !== "failed" && (
                 <div className="mb-2">
@@ -143,9 +145,19 @@ const NorthStarMetricDisplay = ({
           )}
           {datasource && permissionsUtil.canRunMetricQueries(datasource) ? (
             isFactMetric(metric) ? (
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
+              <RunQueriesButton
+                icon="refresh"
+                cta={analysis ? "Refresh Data" : "Run Analysis"}
+                mutate={mutate}
+                model={
+                  analysis ?? {
+                    queries: [],
+                    runStarted: new Date(),
+                  }
+                }
+                cancelEndpoint={`/metric-analysis/${analysis?.id}/cancel`}
+                position="left"
+                onSubmit={async () => {
                   //setError(null);
                   try {
                     const endOfToday = new Date();
@@ -181,26 +193,21 @@ const NorthStarMetricDisplay = ({
                     //setError(e.message);
                   }
                 }}
-              >
-                <RunQueriesButton
-                  icon="refresh"
-                  cta={analysis ? "Refresh Data" : "Run Analysis"}
-                  mutate={mutate}
-                  model={
-                    analysis ?? {
-                      queries: [],
-                      runStarted: new Date(),
-                    }
-                  }
-                  cancelEndpoint={`/metric-analysis/${analysis?.id}/cancel`}
-                  color="outline-primary"
-                  position="left"
-                />
-              </form>
+              />
             ) : (
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
+              <RunQueriesButton
+                icon="refresh"
+                cta={analysis ? "Refresh Data" : "Run Analysis"}
+                model={
+                  data.data.metric ?? {
+                    queries: [],
+                    runStarted: new Date(),
+                  }
+                }
+                cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                position="left"
+                mutate={mutate}
+                onSubmit={async () => {
                   try {
                     await apiCall(`/metric/${metric.id}/analysis`, {
                       method: "POST",
@@ -210,22 +217,7 @@ const NorthStarMetricDisplay = ({
                     console.error(e);
                   }
                 }}
-              >
-                <RunQueriesButton
-                  icon="refresh"
-                  cta={analysis ? "Refresh Data" : "Run Analysis"}
-                  model={
-                    data.data.metric ?? {
-                      queries: [],
-                      runStarted: new Date(),
-                    }
-                  }
-                  cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
-                  color="outline-primary"
-                  position="left"
-                  mutate={mutate}
-                />
-              </form>
+              />
             )
           ) : null}
         </div>

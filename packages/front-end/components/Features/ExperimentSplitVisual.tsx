@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import React, { CSSProperties } from "react";
+import React, { CSSProperties, Fragment } from "react";
 import { ExperimentValue, FeatureValueType } from "shared/types/feature";
 import {
   getVariationColor,
@@ -35,6 +35,7 @@ export default function ExperimentSplitVisual({
   );
 
   const coverageVal = coverage ? coverage : 0;
+  const totalUnallocatedPct = (1 - coverageVal) * 100;
 
   return (
     <div className={`${totalWeights > 1 ? "overflow-hidden" : ""}`}>
@@ -59,7 +60,7 @@ export default function ExperimentSplitVisual({
             />{" "}
             {unallocated}{" "}
             <strong className="nowrap">
-              ({parseFloat(((1 - coverage) * 100).toPrecision(5)) + "%"})
+              ({parseFloat(totalUnallocatedPct.toPrecision(5)) + "%"})
             </strong>
           </div>
         )}
@@ -79,6 +80,10 @@ export default function ExperimentSplitVisual({
               const thisLeft = previewLeft;
               const percentVal =
                 val.weight && coverage ? val.weight * coverage * 100 : 0;
+              const gapPct =
+                val.weight && coverage < 1
+                  ? val.weight * (1 - coverage) * 100
+                  : 0;
               previewLeft += 100 * val.weight;
               const additionalStyles: CSSProperties = {
                 width: percentVal + "%",
@@ -97,68 +102,53 @@ export default function ExperimentSplitVisual({
               )}%)`;
 
               return (
-                <div
-                  key={i}
-                  className={`${styles.previewBar}`}
-                  style={additionalStyles}
-                >
-                  <Tooltip
-                    body={variationLabel}
-                    style={{ width: "100%", height: "100%" }}
+                <Fragment key={i}>
+                  <div
+                    className={`${styles.previewBar}`}
+                    style={additionalStyles}
                   >
-                    <></>
-                  </Tooltip>
-                  {showPercentages && (
-                    <div className={styles.percentMarker}>
-                      <span className="nowrap">
-                        {parseFloat(percentVal.toPrecision(4)) + "%"}
-                      </span>
-                      {showValues && (
-                        <>
-                          {" "}
-                          - <strong>{valueDisplay}</strong>
-                        </>
-                      )}
+                    <Tooltip
+                      body={variationLabel}
+                      style={{ width: "100%", height: "100%" }}
+                    >
+                      <></>
+                    </Tooltip>
+                    {showPercentages && (
+                      <div className={styles.percentMarker}>
+                        <span className="nowrap">
+                          {parseFloat(percentVal.toPrecision(4)) + "%"}
+                        </span>
+                        {showValues && (
+                          <>
+                            {" "}
+                            - <strong>{valueDisplay}</strong>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {stackLeft && gapPct > 0 && (
+                    <div
+                      className={`${styles.previewBar}`}
+                      style={{
+                        position: "relative",
+                        width: gapPct + "%",
+                        height: 30,
+                      }}
+                    >
+                      <Tooltip
+                        body={`Not included: ${parseFloat(
+                          gapPct.toPrecision(5),
+                        )}%`}
+                        style={{ width: "100%", height: "100%" }}
+                      >
+                        <></>
+                      </Tooltip>
                     </div>
                   )}
-                </div>
+                </Fragment>
               );
             })}
-            {stackLeft && coverageVal < 1 && (
-              <div
-                className={`${styles.previewBar} unallocated`}
-                style={{
-                  position: "relative",
-                  width: (1 - coverageVal) * 100 + "%",
-                  height: 30,
-                }}
-              >
-                <Tooltip
-                  body={`Not included: ${parseFloat(
-                    ((1 - coverageVal) * 100).toPrecision(5),
-                  )}% - users will skip this rule`}
-                  style={{ width: "100%", height: "100%" }}
-                >
-                  <></>
-                </Tooltip>
-                {showPercentages && (
-                  <div className={`${styles.percentMarker}`}>
-                    <span>
-                      <span className="nowrap">
-                        {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
-                          "%"}
-                      </span>
-                      {showValues && (
-                        <>
-                          {" "}
-                          - <strong>unallocated</strong>
-                        </>
-                      )}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>

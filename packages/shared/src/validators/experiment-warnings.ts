@@ -19,12 +19,56 @@ export const multipleExposures = z
   })
   .strict();
 
+export const srmVariationBalance = z
+  .object({
+    name: z.string(),
+    users: z.number(),
+    // Configured traffic share for the phase (normalize against the sum).
+    weight: z.number(),
+  })
+  .strict();
+
 export const srm = z
   .object({
     type: z.literal("srm"),
     experimentName: z.string(),
     experimentId: z.string(),
     threshold: z.number(),
+    // Evidence captured at emission time. Absent on events emitted before
+    // these fields existed.
+    pValue: z.number().optional(),
+    variations: z.array(srmVariationBalance).optional(),
+  })
+  .strict();
+
+export const noData = z
+  .object({
+    type: z.literal("no-data"),
+    experimentName: z.string(),
+    experimentId: z.string(),
+  })
+  .strict();
+
+export const scheduledStatusUpdateFailed = z
+  .object({
+    type: z.literal("scheduled-status-update-failed"),
+    experimentName: z.string(),
+    experimentId: z.string(),
+    // "start" | "stop" — which scheduled transition failed.
+    scheduledStatusUpdateType: z.enum(["start", "stop"]),
+    attempts: z.number().int().positive(),
+    maxAttempts: z.number().int().positive(),
+    // false once we've hit the retry cap and cleared `nextScheduledStatusUpdate`.
+    willRetry: z.boolean(),
+    reason: z.string(),
+  })
+  .strict();
+
+export const underpowered = z
+  .object({
+    type: z.literal("underpowered"),
+    experimentName: z.string(),
+    experimentId: z.string(),
   })
   .strict();
 
@@ -32,6 +76,9 @@ export const experimentWarningNotificationPayload = z.union([
   autoUpdateFailed,
   multipleExposures,
   srm,
+  noData,
+  scheduledStatusUpdateFailed,
+  underpowered,
 ]);
 
 export type ExperimentWarningNotificationPayload = z.infer<

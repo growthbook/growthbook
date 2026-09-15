@@ -169,6 +169,12 @@ def get_dimension_column_name(dimension: str) -> str:
         dimension_column_name = "dim_exp_" + dimension.split(":")[1]
     elif dimension.startswith("precomputed:"):
         dimension_column_name = "dim_exp_" + dimension.split(":")[1]
+    # Neither alias may start with "dim_exp_", which post-stratification
+    # treats as strata columns
+    elif dimension.startswith("cutoff:"):
+        dimension_column_name = "dim_cutoff"
+    elif dimension.startswith("combo:"):
+        dimension_column_name = "dim_combo"
     elif dimension.startswith("dim_"):
         dimension_column_name = "dim_unit_" + dimension
 
@@ -1154,7 +1160,7 @@ def process_single_metric(
     all_var_ids: Set[str] = set([v for a in analyses for v in a.var_ids])
     unknown_var_ids = detect_unknown_variations(rows=pdrows, var_ids=all_var_ids)
 
-    results: List[List[DimensionResponse]] = []
+    analysis_results: List[ExperimentMetricAnalysisResult] = []
     for a in analyses:
         # skip pre-computed dimension reaggregation for quantile metrics
         attempted_quantile_dimension_reaggregation = a.dimension.startswith(
@@ -1169,25 +1175,41 @@ def process_single_metric(
             attempted_quantile_dimension_reaggregation
             or attempted_quantile_overall_reaggregation
         ):
+            analysis_results.append(
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=list(unknown_var_ids),
+                    dimensions=[],
+                    multipleExposures=0,
+                )
+            )
             continue
-        results.append(
-            process_analysis(
+        try:
+            dimensions = process_analysis(
                 rows=pdrows,
                 var_id_map=get_var_id_map(a.var_ids),
                 metric=metric,
                 analysis=a,
             )
-        )
+            analysis_results.append(
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=list(unknown_var_ids),
+                    dimensions=dimensions,
+                    multipleExposures=0,
+                )
+            )
+        except Exception as e:
+            analysis_results.append(
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=list(unknown_var_ids),
+                    dimensions=[],
+                    multipleExposures=0,
+                    error=str(e),
+                    traceback=traceback.format_exc(),
+                )
+            )
     return ExperimentMetricAnalysis(
         metric=metric.id,
-        analyses=[
-            ExperimentMetricAnalysisResult(
-                unknownVariations=list(unknown_var_ids),
-                dimensions=r,
-                multipleExposures=0,
-            )
-            for r in results
-        ],
+        analyses=analysis_results,
     )
 
 
@@ -1245,6 +1267,7 @@ def preprocess_bandits(
         bandit_weights_seed=bandit_settings.bandit_weights_seed,
         weight_by_period=bandit_settings.weight_by_period,
         top_two=bandit_settings.top_two,
+        min_variation_weight=bandit_settings.min_variation_weight,
         alpha=alpha,
         inverse=metric.inverse,
     )

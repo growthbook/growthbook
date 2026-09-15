@@ -1,11 +1,16 @@
 import { TestQueryRow } from "shared/types/integrations";
 
+/** RFC 4180-style quoting so commas/newlines/quotes in headers do not split columns. */
+function quoteCsvField(value: string): string {
+  return `"${String(value).replace(/"/g, '""')}"`;
+}
+
 export function convertToCSV(rows: TestQueryRow[]): string {
   if (!rows.length) return "";
 
   const headers = Object.keys(rows[0]);
   const csv = [
-    headers.join(","), // header row
+    headers.map(quoteCsvField).join(","),
     ...rows.map((row) =>
       headers
         .map((field) => {

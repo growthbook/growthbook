@@ -1,6 +1,7 @@
 import { FC } from "react";
 import ApiKeys from "@/components/Settings/ApiKeys";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const ApiKeysPage: FC = () => {
   const permissionsUtils = usePermissionsUtil();
@@ -10,9 +11,9 @@ const ApiKeysPage: FC = () => {
   ) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }

@@ -3,13 +3,13 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function StaleDetectionModal({
   close,
@@ -34,7 +34,10 @@ export default function StaleDetectionModal({
   const enabling = !!feature.neverStale;
   const newNeverStale = !enabling;
 
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   const staleGated: boolean = (() => {
     const raw = settings?.requireReviews;
@@ -44,22 +47,28 @@ export default function StaleDetectionModal({
     return !!reviewSetting?.requireReviewOn;
   })();
 
-  const canAutoPublish = isAdmin || !staleGated;
+  // Approval-gating and AUTHORITY are separate factors — see the metadata
+  // modals; without the publish atom a draft-only user defaulted into a 403.
+  const canAutoPublish =
+    (isAdmin || !staleGated) && permissionsUtil.canPublishFeature(feature, []);
 
-  const defaultDraft = useDefaultDraft(revisionList);
-  const [mode, setMode] = useState<DraftMode>(staleGated ? "new" : "publish");
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
+  );
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open
       close={close}
       header={`${
         enabling ? "Enable" : "Disable"
-      } stale feature flag detection for ${feature.id}`}
+      } stale Feature Flag detection for ${feature.id}`}
       cta={
         mode === "publish" ? (enabling ? "Enable" : "Disable") : "Save to draft"
       }
@@ -82,10 +91,9 @@ export default function StaleDetectionModal({
         await mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null) setVersion(resolvedVersion);
+        if (resolvedVersion !== null) setVersion(resolvedVersion);
         if (enabling && mode === "publish") onEnable?.();
       }}
-      useRadixButton={true}
     >
       <DraftSelectorForChanges
         feature={feature}
@@ -102,6 +110,6 @@ export default function StaleDetectionModal({
           ? `Enable stale detection for ${feature.id}?`
           : `Disable stale detection for ${feature.id}? It will no longer be marked as stale.`}
       </p>
-    </Modal>
+    </ModalStandard>
   );
 }

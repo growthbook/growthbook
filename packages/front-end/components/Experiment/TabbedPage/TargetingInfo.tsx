@@ -3,12 +3,7 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import clsx from "clsx";
-import {
-  calculateNamespaceCoverage,
-  getNamespaceRanges,
-  NamespaceValue,
-} from "shared/util";
-import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
+import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -39,25 +34,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-function getNamespaceDisplayData(
-  namespace?: NamespaceValue,
-  namespacesList?: { name: string; label?: string }[],
-): { range: number; ranges: [number, number][]; name: string } {
-  if (!namespace || !namespace.enabled) {
-    return { range: 1, ranges: [], name: "" };
-  }
-  const range = calculateNamespaceCoverage(namespace);
-  // Mirror the merge that happens on save so the review accurately reflects
-  // what will be persisted. Without this, three discrete ranges like
-  // [0.2, 0.3], [0.6, 0.9], [0.9, 1] get collapsed into a single hull
-  // [0.2 - 1], hiding the gap between 0.3 and 0.6.
-  const ranges = mergeContiguousRanges(getNamespaceRanges(namespace));
-  const name =
-    namespacesList?.find((n) => n.name === namespace.name)?.label ||
-    namespace.name;
-  return { range, ranges, name };
-}
-
 function formatRanges(ranges: [number, number][]): string {
   return ranges.map(([start, end]) => `[${start} - ${end}]`).join(" ");
 }
@@ -83,7 +59,7 @@ export default function TargetingInfo({
 
   // Calculate total namespace allocation
   const {
-    range: namespaceRange,
+    coverage: namespaceCoverage,
     ranges: namespaceRanges,
     name: namespaceName,
   } = getNamespaceDisplayData(phase.namespace, namespaces);
@@ -118,7 +94,7 @@ export default function TargetingInfo({
 
   const changesHasNamespace = changes?.namespace && changes.namespace.enabled;
   const {
-    range: changesNamespaceRange,
+    coverage: changesNamespaceCoverage,
     ranges: changesNamespaceRanges,
     name: changesNamespaceName,
   } = getNamespaceDisplayData(changes?.namespace, namespaces);
@@ -342,7 +318,7 @@ export default function TargetingInfo({
                           <>
                             {namespaceName}{" "}
                             <span className="text-muted">
-                              ({percentFormatter.format(namespaceRange)})
+                              ({percentFormatter.format(namespaceCoverage)})
                             </span>
                             {showNamespaceRanges &&
                               namespaceRanges.length > 0 && (
@@ -367,7 +343,11 @@ export default function TargetingInfo({
                           <>
                             {changesNamespaceName}{" "}
                             <span className="text-muted">
-                              ({percentFormatter.format(changesNamespaceRange)})
+                              (
+                              {percentFormatter.format(
+                                changesNamespaceCoverage,
+                              )}
+                              )
                             </span>
                             {showNamespaceRanges &&
                               changesNamespaceRanges.length > 0 && (

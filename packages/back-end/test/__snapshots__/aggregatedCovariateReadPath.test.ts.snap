@@ -1,0 +1,164 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`covariate insert SQL builders aggregated builder reads daily partials and re-aggregates them 1`] = `
+"INSERT INTO
+  proj.ds.cov (user_id, fact_ra1_value)
+SELECT
+  *
+FROM
+  (
+    WITH
+      __newCovariateValues AS (
+        SELECT
+          p.user_id AS user_id,
+          SUM(
+            COALESCE(
+              (
+                CASE
+                  WHEN p.event_date >= CAST('2023-12-22' AS DATE)
+                  AND p.event_date < CAST('2024-01-01' AS DATE) THEN p.fact_ra1_value
+                  ELSE NULL
+                END
+              ),
+              0
+            )
+          ) AS m0_covariate_value
+        FROM
+          proj.ds.gb_aggregated_ft_events_user_id p
+          INNER JOIN (
+            SELECT
+              user_id
+            FROM
+              proj.ds.units
+          ) d ON (d.user_id = p.user_id)
+        WHERE
+          p.event_date >= CAST('2023-12-22' AS DATE)
+          AND p.event_date < CAST('2024-01-01' AS DATE)
+        GROUP BY
+          p.user_id
+      )
+    SELECT
+      user_id,
+      COALESCE(c.m0_covariate_value, 0) AS fact_ra1_value
+    FROM
+      __newCovariateValues c
+  )"
+`;
+
+exports[`covariate insert SQL builders legacy builder aligns the per-row covariate window to whole UTC days when requested 1`] = `
+"INSERT INTO
+  proj.ds.cov (user_id, fact_ra14_value)
+SELECT
+  *
+FROM
+  (
+    WITH
+      __factTable AS ( -- Fact Table (Events)
+        SELECT
+          cast(user_id as string) as user_id,
+          CAST(m.timestamp as DATETIME) as timestamp,
+          -- Test Fact Metric
+          m.amount as m0_value
+        FROM
+          (
+            SELECT
+              *
+            FROM
+              events
+          ) m
+        WHERE
+          m.timestamp >= '2025-10-10 00:00:00'
+          AND m.timestamp < '2025-10-24 00:00:00.000'
+      ),
+      __newCovariateValues AS (
+        SELECT
+          m.user_id AS user_id,
+          SUM(
+            COALESCE(
+              (
+                CASE
+                  WHEN m.timestamp >= '2025-10-10 00:00:00.000'
+                  AND m.timestamp < '2025-10-24 00:00:00.000' THEN m0_value
+                  ELSE NULL
+                END
+              ),
+              0
+            )
+          ) AS m0_covariate_value
+        FROM
+          __factTable m
+          INNER JOIN (
+            SELECT
+              user_id
+            FROM
+              proj.ds.units
+          ) d ON (d.user_id = m.user_id)
+        GROUP BY
+          m.user_id
+      )
+    SELECT
+      user_id,
+      COALESCE(c.m0_covariate_value, 0) AS fact_ra14_value
+    FROM
+      __newCovariateValues c
+  )"
+`;
+
+exports[`covariate insert SQL builders legacy builder scans raw events with the per-row covariate window 1`] = `
+"INSERT INTO
+  proj.ds.cov (user_id, fact_ra1_value)
+SELECT
+  *
+FROM
+  (
+    WITH
+      __factTable AS ( -- Fact Table (Events)
+        SELECT
+          cast(user_id as string) as user_id,
+          CAST(m.timestamp as DATETIME) as timestamp,
+          -- Test Fact Metric
+          m.amount as m0_value
+        FROM
+          (
+            SELECT
+              *
+            FROM
+              events
+          ) m
+        WHERE
+          m.timestamp >= '2023-12-22 00:00:00'
+          AND m.timestamp < '2024-01-01 00:00:00.000'
+      ),
+      __newCovariateValues AS (
+        SELECT
+          m.user_id AS user_id,
+          SUM(
+            COALESCE(
+              (
+                CASE
+                  WHEN m.timestamp >= '2023-12-22 00:00:00.000'
+                  AND m.timestamp < '2024-01-01 00:00:00.000' THEN m0_value
+                  ELSE NULL
+                END
+              ),
+              0
+            )
+          ) AS m0_covariate_value
+        FROM
+          __factTable m
+          INNER JOIN (
+            SELECT
+              user_id
+            FROM
+              proj.ds.units
+          ) d ON (d.user_id = m.user_id)
+        GROUP BY
+          m.user_id
+      )
+    SELECT
+      user_id,
+      COALESCE(c.m0_covariate_value, 0) AS fact_ra1_value
+    FROM
+      __newCovariateValues c
+  )"
+`;

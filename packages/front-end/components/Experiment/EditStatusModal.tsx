@@ -5,6 +5,7 @@ import {
 import { useForm } from "react-hook-form";
 import { datetime } from "shared/dates";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import { getHoldoutStage } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
@@ -12,7 +13,7 @@ import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -30,7 +31,6 @@ export default function EditStatusModal({
   holdout,
 }: Props) {
   const isHoldout = experiment.type === "holdout";
-  const experimentStatus = experiment.status;
   const form = useForm<{
     status: ExperimentStatus | "analysis";
     reason: string;
@@ -39,8 +39,8 @@ export default function EditStatusModal({
     defaultValues: {
       status:
         isHoldout &&
-        experimentStatus === "running" &&
-        experiment.phases.length === 2
+        holdout &&
+        getHoldoutStage(holdout, experiment) === "analysis-period"
           ? "analysis"
           : experiment.status,
       reason: "",
@@ -73,7 +73,7 @@ export default function EditStatusModal({
     },
   ];
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="edit-status-modal"
       trackingEventModalSource={source}
       header={
@@ -123,7 +123,7 @@ export default function EditStatusModal({
     >
       {isHoldout && (
         <Box mb="4">
-          <Text size="medium" color="text-mid">
+          <Text size="md" color="text-mid">
             <strong>Warning: </strong>Changing the status of a Holdout will
             delete the existing schedule and could change the behavior of
             associated Feature Flags and Metrics.
@@ -137,8 +137,8 @@ export default function EditStatusModal({
         </Callout>
       )}
       <SelectField
+        size="legacy"
         label="Status"
-        labelClassName="font-weight-bold"
         options={statusOptions}
         onChange={(v) => {
           const status = v as ExperimentStatus | "analysis";
@@ -151,8 +151,8 @@ export default function EditStatusModal({
         experiment.status === "running" && (
           <>
             <Field
+              size="legacy"
               label="Reason for stopping the test"
-              labelClassName="font-weight-bold"
               textarea
               {...form.register("reason")}
               placeholder="(optional)"
@@ -166,6 +166,6 @@ export default function EditStatusModal({
             />
           </>
         )}
-    </DialogLayout>
+    </ModalStandard>
   );
 }

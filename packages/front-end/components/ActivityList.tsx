@@ -3,6 +3,7 @@ import { AuditInterface } from "shared/types/audit";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import useApi from "@/hooks/useApi";
+import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import EventUser from "./Avatar/EventUser";
 import { auditInterfaceUserToEventUser } from "./Avatar/auditUserToEventUser";
@@ -23,7 +24,7 @@ const ActivityList: FC<{
     experiments: { id: string; name: string }[];
   }>("/activity");
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;

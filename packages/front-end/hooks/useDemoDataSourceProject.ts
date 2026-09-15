@@ -1,7 +1,9 @@
 import { ProjectInterface } from "shared/types/project";
 import {
+  DEMO_EXPERIMENT_ID,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
+  isSampleDatasource,
 } from "shared/demo-datasource";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useMemo } from "react";
@@ -46,23 +48,33 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
 
   const demoFeatureId = getDemoDataSourceFeatureId();
 
-  // We assume the demo datasource is the one that has only one project and it's the demo datasource project
   const demoDataSource: DataSourceInterfaceWithParams | null = useMemo(() => {
-    if (!demoProjectId) return null;
+    if (!orgId) return null;
 
     return (
-      datasources.find(
-        (d) => d.projects?.length === 1 && d.projects[0] === demoProjectId,
+      datasources.find((d) =>
+        isSampleDatasource({
+          datasourceId: d.id,
+          type: d.type,
+          host: d.params && "host" in d.params ? d.params.host : undefined,
+          projects: d.projects,
+          organizationId: orgId,
+        }),
       ) || null
     );
-  }, [datasources, demoProjectId]);
+  }, [datasources, orgId]);
   const demoDataSourceId = demoDataSource?.id || null;
 
-  // We assume the demo experiment is the one under the demo project
   const demoExperiment: ExperimentInterfaceStringDates | null = useMemo(() => {
     if (!demoProjectId) return null;
 
-    return experiments.find((d) => d.project === demoProjectId) || null;
+    return (
+      experiments.find((e) => e.id === DEMO_EXPERIMENT_ID) ||
+      // Legacy seeds used random experiment IDs — assume the demo experiment
+      // is the one under the demo project.
+      experiments.find((d) => d.project === demoProjectId) ||
+      null
+    );
   }, [experiments, demoProjectId]);
   const demoExperimentId = demoExperiment?.id || null;
 

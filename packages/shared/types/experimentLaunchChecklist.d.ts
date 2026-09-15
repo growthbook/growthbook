@@ -10,7 +10,8 @@ export interface ChecklistTask {
     | "tag"
     | "screenshots"
     | "prerequisiteTargeting"
-    | "customField";
+    | "customField"
+    | "schedule";
 }
 
 export interface ExperimentLaunchChecklistInterface {

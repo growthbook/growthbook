@@ -6,6 +6,7 @@ import {
   TaxIdType,
 } from "shared/types/subscriptions";
 import { DailyUsage, UsageLimits } from "shared/types/organization";
+import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { LicenseServerError } from "back-end/src/util/errors";
 import {
   getLicense,
@@ -36,7 +37,7 @@ import {
 import {
   getDailyUsageForOrg,
   migrateOverageEventsForOrgId,
-} from "back-end/src/services/clickhouse";
+} from "back-end/src/services/licenseServerManagedClickhouse";
 import {
   createSetupIntent,
   deletePaymentMethodById,
@@ -103,7 +104,10 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
 );
 
 export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
-  async function (req: AuthRequest, res: Response) {
+  async function (
+    req: AuthRequest<{ radarSessionId?: string }>,
+    res: Response,
+  ) {
     const context = getContextFromReq(req);
 
     if (!context.permissions.canManageBilling()) {
@@ -111,12 +115,14 @@ export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
     }
 
     const { org, userName } = context;
+    const { radarSessionId } = req.body || {};
 
     const result = await postNewProSubscriptionIntentToLicenseServer(
       org.id,
       org.name,
       org.ownerEmail,
       userName,
+      { radarSessionId },
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
@@ -194,7 +200,10 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
     );
 
     const managedWarehouseDatasource = await getGrowthbookDatasource(context);
-    if (managedWarehouseDatasource) {
+    if (
+      managedWarehouseDatasource &&
+      !isManagedWarehouseAwaitingProvisioning(managedWarehouseDatasource)
+    ) {
       // new pro users might have events in the overage_events table if they had
       // use more than 1M events.  This moves those events over to the main table,
       // so that they can see them.
@@ -272,6 +281,13 @@ export async function cancelSubscription(req: AuthRequest, res: Response) {
     throw new Error("No license found for organization");
   }
 
+  // Enterprise contracts are sales-managed; the UI hides cancel, so block the API too.
+  if (license.plan === "enterprise") {
+    throw new Error(
+      "Enterprise subscriptions can't be canceled here. Please contact your account executive or support@growthbook.io.",
+    );
+  }
+
   await postCancelSubscriptionToLicenseServer(license.id);
 
   res.status(200).json({
@@ -280,7 +296,7 @@ export async function cancelSubscription(req: AuthRequest, res: Response) {
 }
 
 export async function postSetupIntent(
-  req: AuthRequest<null, null>,
+  req: AuthRequest<{ radarSessionId?: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -290,12 +306,15 @@ export async function postSetupIntent(
   }
 
   const { org } = context;
+  const { radarSessionId } = req.body || {};
 
   try {
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const { clientSecret } = await createSetupIntent(org.licenseKey);
+    const { clientSecret } = await createSetupIntent(org.licenseKey, {
+      radarSessionId,
+    });
     return res.status(200).json({ clientSecret });
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });

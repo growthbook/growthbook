@@ -6,7 +6,7 @@ import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { getSRMValue } from "shared/health";
+import { getBanditSRMValue } from "shared/health";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -67,7 +67,7 @@ export default function BanditSummaryResultsTab({
     ssrPolyfills?.getExperimentMetricById?.(mid) ||
     getExperimentMetricById(mid ?? "");
 
-  const { latest: _latest } = useSnapshot();
+  const { latestSummary: _latest } = useSnapshot();
   const latest = _latest ?? ssrSnapshot;
   const multipleExposures = latest?.multipleExposures;
 
@@ -128,11 +128,7 @@ export default function BanditSummaryResultsTab({
         {!isPublic && (
           <Flex direction="column" gap="2" mx="3">
             <SRMWarning
-              srm={
-                latest
-                  ? (getSRMValue("multi-armed-bandit", latest) ?? Infinity)
-                  : Infinity
-              }
+              srm={latest ? (getBanditSRMValue(latest) ?? Infinity) : Infinity}
               users={users}
               showWhenHealthy={false}
               isBandit={true}

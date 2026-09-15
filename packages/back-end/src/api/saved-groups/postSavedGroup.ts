@@ -27,6 +27,10 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       }
     }
 
+    // Creation never requires approval (consistent with features): a brand-new
+    // saved group has no dependents, so creating it can't change any feature's
+    // targeting. Approvals apply to subsequent changes via the revision flow.
+
     // If this is a condition group, make sure the condition is valid and not empty
     if (type === "condition") {
       if (attributeKey || values) {
@@ -81,7 +85,9 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       type: type,
       values: values || [],
       groupName: name,
-      owner: owner || "",
+      // Falls back to the authenticated user (only present for Personal Access
+      // Tokens) when no owner is provided, otherwise stays empty.
+      owner: owner || req.context.userId || "",
       condition: condition || "",
       attributeKey,
       projects,

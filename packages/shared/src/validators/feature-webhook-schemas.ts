@@ -13,6 +13,7 @@ const revisionPrerequisite = z.object({
 
 export const featureRevisionWebhookPayload = z
   .object({
+    id: z.string().optional().describe("Revision ID"),
     featureId: z.string().describe("The feature this revision belongs to"),
     baseVersion: z.number().int(),
     version: z.number().int(),

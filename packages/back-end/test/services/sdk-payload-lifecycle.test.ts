@@ -15,17 +15,12 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import {
   buildSDKPayloadForConnection,
-  getFeatureDefinitions,
   isSDKConnectionAffectedByPayloadKey,
   queueSDKPayloadRefresh,
   refreshSDKPayloadCache,
   type SDKPayloadRawData,
   type ConnectionPayloadOptions,
 } from "back-end/src/services/features";
-import {
-  getFeatureDefinitionsWithCache,
-  getPayloadParamsFromApiKey,
-} from "back-end/src/controllers/features";
 import * as FeatureModel from "back-end/src/models/FeatureModel";
 import * as ExperimentModel from "back-end/src/models/ExperimentModel";
 
@@ -46,6 +41,7 @@ jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
 }));
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeatures: jest.fn().mockResolvedValue([]),
+  getAllFeaturesWithoutEditorFields: jest.fn().mockResolvedValue([]),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllPayloadExperiments: jest.fn().mockResolvedValue(new Map()),
@@ -57,6 +53,11 @@ jest.mock("back-end/src/services/organizations", () => ({
     org,
     models: (global as unknown as { __mockContextModels: unknown })
       .__mockContextModels,
+    getAllProjectIds: jest.fn(
+      async () =>
+        (global as unknown as { __mockAllProjectIds?: string[] })
+          .__mockAllProjectIds ?? [],
+    ),
     userId: "u",
     email: "e@e.com",
     userName: "U",
@@ -70,17 +71,7 @@ jest.mock("back-end/src/services/organizations", () => ({
 jest.mock("back-end/src/jobs/updateAllJobs", () => ({
   triggerWebhookJobs: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock("back-end/src/services/features", () => ({
-  ...jest.requireActual("back-end/src/services/features"),
-  getFeatureDefinitions: jest.fn(),
-}));
 
-const findSDKConnectionByKey = jest.requireMock(
-  "back-end/src/models/SdkConnectionModel",
-).findSDKConnectionByKey as jest.Mock;
-const lookupOrganizationByApiKey = jest.requireMock(
-  "back-end/src/util/api-key.util",
-).dangerousLookupOrganizationByApiKey as jest.Mock;
 const getSDKPayloadCacheLocationMock = jest.requireMock(
   "back-end/src/models/SdkConnectionCacheModel",
 ).getSDKPayloadCacheLocation as jest.Mock;
@@ -89,6 +80,14 @@ const findSDKConnectionsByOrganization = jest.requireMock(
 ).findSDKConnectionsByOrganization as jest.Mock;
 const triggerWebhookJobs = jest.requireMock("back-end/src/jobs/updateAllJobs")
   .triggerWebhookJobs as jest.Mock;
+const getContextForAgendaJobByOrgObject = jest.requireMock(
+  "back-end/src/services/organizations",
+).getContextForAgendaJobByOrgObject as jest.Mock;
+// The background context refreshSDKPayloadCache created for its last call.
+const agendaContext = () =>
+  getContextForAgendaJobByOrgObject.mock.results.slice(-1)[0].value as {
+    getAllProjectIds: jest.Mock;
+  };
 
 function minimalContext(overrides?: Partial<ApiReqContext>): ApiReqContext {
   return {
@@ -103,6 +102,7 @@ function minimalContext(overrides?: Partial<ApiReqContext>): ApiReqContext {
       settings: { environments: [{ id: "production", projects: [] }] },
     },
     models: {} as ApiReqContext["models"],
+    getAllProjectIds: async () => [],
     userId: "u1",
     email: "e@e.com",
     userName: "User",
@@ -131,6 +131,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
     (
       global as unknown as { __mockContextModels: unknown }
     ).__mockContextModels = undefined;
+    (
+      global as unknown as { __mockAllProjectIds?: string[] }
+    ).__mockAllProjectIds = undefined;
   });
 
   describe("isSDKConnectionAffectedByPayloadKey", () => {
@@ -196,164 +199,6 @@ describe("SDK payload lifecycle (comprehensive)", () => {
     });
   });
 
-  describe("getFeatureDefinitionsWithCache", () => {
-    const mockGetById = jest.fn();
-    const mockUpsert = jest.fn().mockResolvedValue(undefined);
-
-    it("returns parsed cache when storage !== none and getById returns content", async () => {
-      getSDKPayloadCacheLocationMock.mockReturnValue("mongodb");
-      const cached = {
-        features: { f1: { defaultValue: "cached" } },
-        dateUpdated: new Date().toISOString(),
-      };
-      mockGetById.mockResolvedValueOnce({ contents: JSON.stringify(cached) });
-
-      const ctx = minimalContext({
-        models: {
-          ...minimalContext().models,
-          sdkConnectionCache: { getById: mockGetById, upsert: mockUpsert },
-        },
-      } as ReqContext["models"]);
-
-      const defs = await getFeatureDefinitionsWithCache({
-        context: ctx as ReqContext,
-        params: {
-          key: "sdk-conn-1",
-          organization: "org-1",
-          environment: "production",
-          projects: [],
-          languages: ["javascript"],
-          sdkVersion: "1.0.0",
-        },
-      });
-
-      expect(mockGetById).toHaveBeenCalledWith("sdk-conn-1");
-      expect(defs.features).toEqual({ f1: { defaultValue: "cached" } });
-      expect(mockUpsert).not.toHaveBeenCalled();
-    });
-
-    it("on cache miss calls getFeatureDefinitions and upserts with params.key", async () => {
-      getSDKPayloadCacheLocationMock.mockReturnValue("mongodb");
-      mockGetById.mockResolvedValueOnce(null);
-      (getFeatureDefinitions as jest.Mock).mockResolvedValueOnce({
-        features: { f1: { defaultValue: "generated" } },
-        dateUpdated: new Date(),
-        experiments: [],
-      });
-
-      const ctx = minimalContext({
-        models: {
-          ...minimalContext().models,
-          sdkConnectionCache: { getById: mockGetById, upsert: mockUpsert },
-          savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
-          safeRollout: {
-            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
-          },
-          holdout: {
-            getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
-          },
-        },
-      } as ReqContext["models"]);
-
-      await getFeatureDefinitionsWithCache({
-        context: ctx as ReqContext,
-        params: {
-          key: "sdk-miss-key",
-          organization: "org-1",
-          environment: "production",
-          projects: [],
-          languages: ["javascript"],
-          sdkVersion: "1.0.0",
-        },
-      });
-
-      expect(getFeatureDefinitions).toHaveBeenCalled();
-      expect(mockUpsert).toHaveBeenCalledWith(
-        "sdk-miss-key",
-        expect.any(String),
-        expect.objectContaining({ event: "cache-miss" }),
-      );
-    });
-
-    it("when storage is none skips cache read and write", async () => {
-      getSDKPayloadCacheLocationMock.mockReturnValue("none");
-      (getFeatureDefinitions as jest.Mock).mockResolvedValueOnce({
-        features: {},
-        dateUpdated: new Date(),
-        experiments: [],
-      });
-
-      const ctx = minimalContext({
-        models: {
-          ...minimalContext().models,
-          sdkConnectionCache: { getById: mockGetById, upsert: mockUpsert },
-          savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
-          safeRollout: {
-            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
-          },
-          holdout: {
-            getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
-          },
-        },
-      } as ReqContext["models"]);
-
-      await getFeatureDefinitionsWithCache({
-        context: ctx as ReqContext,
-        params: {
-          key: "any",
-          organization: "org-1",
-          environment: "production",
-          projects: [],
-          languages: ["javascript"],
-          sdkVersion: "1.0.0",
-        },
-      });
-
-      expect(mockGetById).not.toHaveBeenCalled();
-      expect(mockUpsert).not.toHaveBeenCalled();
-      expect(getFeatureDefinitions).toHaveBeenCalled();
-    });
-  });
-
-  describe("getPayloadParamsFromApiKey", () => {
-    it("sdk-* key returns connection params from findSDKConnectionByKey", async () => {
-      const connection = {
-        key: "sdk-abc",
-        organization: "org-1",
-        environment: "production",
-        projects: ["p1"],
-        languages: ["javascript"],
-        sdkVersion: "1.0.0",
-      } as SDKConnectionInterface;
-      findSDKConnectionByKey.mockResolvedValue(connection);
-
-      const params = await getPayloadParamsFromApiKey("sdk-abc", {} as never);
-      expect(findSDKConnectionByKey).toHaveBeenCalledWith("sdk-abc");
-      expect(params.key).toBe("sdk-abc");
-      expect(params.organization).toBe("org-1");
-      expect(params.environment).toBe("production");
-      expect(params.languages).toEqual(["javascript"]);
-    });
-
-    it("non-sdk key uses lookupOrganizationByApiKey and formatLegacyCacheKey", async () => {
-      lookupOrganizationByApiKey.mockResolvedValue({
-        organization: "org-1",
-        secret: false,
-        environment: "production",
-        project: "proj1",
-        encryptSDK: false,
-        encryptionKey: "",
-      });
-      const params = await getPayloadParamsFromApiKey("pk_legacy", {
-        query: {},
-      } as never);
-      expect(lookupOrganizationByApiKey).toHaveBeenCalledWith("pk_legacy");
-      expect(params.key).toMatch(/^legacy:/);
-      expect(params.languages).toEqual(["legacy"]);
-      expect(params.sdkVersion).toBe("0.0.0");
-    });
-  });
-
   describe("refreshSDKPayloadCache", () => {
     it("bulk path: deleteAllLegacyCacheEntries, load rawData once, findSDKConnectionsByOrganization, build+upsert per connection, triggerWebhookJobs", async () => {
       getSDKPayloadCacheLocationMock.mockReturnValue("mongo");
@@ -392,8 +237,15 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        constants: { getAll: jest.fn().mockResolvedValue([]) },
+        configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
         },
       };
       (
@@ -424,6 +276,391 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       );
       expect(triggerWebhookJobs).toHaveBeenCalled();
     });
+
+    // Models touched only when payloads are actually built and stored. Kept
+    // separate so tests can assert the early paths never reach them.
+    function payloadBuildModels() {
+      return {
+        safeRollout: {
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        constants: { getAll: jest.fn().mockResolvedValue([]) },
+        configs: { getAll: jest.fn().mockResolvedValue([]) },
+        holdout: {
+          getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
+        },
+        projects: { getAll: jest.fn().mockResolvedValue([]) },
+      };
+    }
+    function expectNoPayloadBuildLoads(
+      models: ReturnType<typeof payloadBuildModels>,
+    ) {
+      expect(models.savedGroups.getAll).not.toHaveBeenCalled();
+      expect(
+        models.safeRollout.getAllPayloadSafeRollouts,
+      ).not.toHaveBeenCalled();
+      expect(models.constants.getAll).not.toHaveBeenCalled();
+      expect(
+        models.rampSchedules.getPayloadRampMonitoredRuleMap,
+      ).not.toHaveBeenCalled();
+      expect(models.holdout.getAllPayloadHoldouts).not.toHaveBeenCalled();
+      expect(models.projects.getAll).not.toHaveBeenCalled();
+      expect(ExperimentModel.getAllVisualExperiments).not.toHaveBeenCalled();
+      expect(
+        ExperimentModel.getAllURLRedirectExperiments,
+      ).not.toHaveBeenCalled();
+    }
+    const twoEnvOrg = {
+      ...minimalContext().org,
+      settings: {
+        environments: [
+          { id: "production", projects: [] },
+          { id: "dev", projects: [] },
+        ],
+      },
+    };
+    const sdkConn = (
+      key: string,
+      projects: string[],
+      environment = "production",
+    ) =>
+      ({
+        key,
+        organization: "org-1",
+        environment,
+        projects,
+      }) as SDKConnectionInterface;
+
+    it.each(["none", "mongo"] as const)(
+      "storage %s: triggerWebhookJobs receives exactly the affected connections; with no cache only the loads that decide that set run",
+      async (storage) => {
+        getSDKPayloadCacheLocationMock.mockReturnValue(storage);
+        const deleteAllLegacy = jest.fn().mockResolvedValue(undefined);
+        const upsert = jest.fn().mockResolvedValue(undefined);
+        const affectedGlobal = sdkConn("sdk-global-prod", []);
+        const affectedProject = sdkConn("sdk-p1-prod", ["p1"]);
+        const otherProject = sdkConn("sdk-p2-prod", ["p2"]);
+        const otherEnv = sdkConn("sdk-global-dev", [], "dev");
+        findSDKConnectionsByOrganization.mockResolvedValue([
+          affectedGlobal,
+          otherProject,
+          affectedProject,
+          otherEnv,
+        ]);
+
+        const mockModels = {
+          sdkConnectionCache: {
+            deleteAllLegacyCacheEntries: deleteAllLegacy,
+            upsert,
+          },
+          ...payloadBuildModels(),
+        };
+        (
+          global as unknown as { __mockContextModels: unknown }
+        ).__mockContextModels = mockModels;
+
+        const payloadKeys = [{ environment: "production", project: "p1" }];
+        await refreshSDKPayloadCache({
+          context: minimalContext({
+            org: twoEnvOrg,
+            models: mockModels as unknown as ReqContext["models"],
+          }) as ReqContext,
+          payloadKeys,
+          sdkConnections: [],
+        });
+
+        // Same side effects and notification fan-out regardless of cache location
+        expect(deleteAllLegacy).toHaveBeenCalledTimes(1);
+        expect(ExperimentModel.getAllPayloadExperiments).toHaveBeenCalledTimes(
+          1,
+        );
+        expect(findSDKConnectionsByOrganization).toHaveBeenCalledTimes(1);
+        expect(triggerWebhookJobs).toHaveBeenCalledTimes(1);
+        expect(triggerWebhookJobs).toHaveBeenCalledWith(
+          expect.objectContaining({
+            org: expect.objectContaining({ id: "org-1" }),
+          }),
+          payloadKeys,
+          [affectedGlobal, affectedProject],
+          true,
+        );
+
+        if (storage === "none") {
+          // Nothing persists a pre-built payload: only the lean feature load and
+          // the experiments (both needed to widen the keys) are read; nothing is
+          // built or upserted.
+          expect(
+            FeatureModel.getAllFeaturesWithoutEditorFields,
+          ).toHaveBeenCalledTimes(1);
+          expect(FeatureModel.getAllFeatures).not.toHaveBeenCalled();
+          expectNoPayloadBuildLoads(mockModels);
+          expect(upsert).not.toHaveBeenCalled();
+        } else {
+          expect(FeatureModel.getAllFeatures).toHaveBeenCalledTimes(1);
+          expect(
+            FeatureModel.getAllFeaturesWithoutEditorFields,
+          ).not.toHaveBeenCalled();
+          expect(mockModels.savedGroups.getAll).toHaveBeenCalledTimes(1);
+          // Holdouts only for environments that have an affected connection
+          expect(
+            mockModels.holdout.getAllPayloadHoldouts,
+          ).toHaveBeenCalledTimes(1);
+          expect(mockModels.holdout.getAllPayloadHoldouts).toHaveBeenCalledWith(
+            "production",
+          );
+          expect(upsert).toHaveBeenCalledTimes(2);
+          expect(upsert).toHaveBeenCalledWith(
+            "sdk-global-prod",
+            expect.any(String),
+            undefined,
+          );
+          expect(upsert).toHaveBeenCalledWith(
+            "sdk-p1-prod",
+            expect.any(String),
+            undefined,
+          );
+          // Consumers fetch the payload from the cache, so every upsert must
+          // have happened before they are notified.
+          const notifiedAt = triggerWebhookJobs.mock.invocationCallOrder[0];
+          upsert.mock.invocationCallOrder.forEach((order) =>
+            expect(order).toBeLessThan(notifiedAt),
+          );
+        }
+      },
+    );
+
+    it.each(["none", "mongo"] as const)(
+      "storage %s: no matching connections returns after the feature/experiment loads and before everything else, without notifying",
+      async (storage) => {
+        getSDKPayloadCacheLocationMock.mockReturnValue(storage);
+        const deleteAllLegacy = jest.fn().mockResolvedValue(undefined);
+        const upsert = jest.fn().mockResolvedValue(undefined);
+        findSDKConnectionsByOrganization.mockResolvedValue([
+          sdkConn("sdk-dev", [], "dev"),
+        ]);
+        const mockModels = {
+          sdkConnectionCache: {
+            deleteAllLegacyCacheEntries: deleteAllLegacy,
+            upsert,
+          },
+          ...payloadBuildModels(),
+        };
+        (
+          global as unknown as { __mockContextModels: unknown }
+        ).__mockContextModels = mockModels;
+
+        await refreshSDKPayloadCache({
+          context: minimalContext({
+            org: twoEnvOrg,
+            models: mockModels as unknown as ReqContext["models"],
+          }) as ReqContext,
+          payloadKeys: [{ environment: "production", project: "p1" }],
+          sdkConnections: [],
+        });
+
+        expect(deleteAllLegacy).toHaveBeenCalledTimes(1);
+        expect(ExperimentModel.getAllPayloadExperiments).toHaveBeenCalledTimes(
+          1,
+        );
+        if (storage === "none") {
+          expect(
+            FeatureModel.getAllFeaturesWithoutEditorFields,
+          ).toHaveBeenCalledTimes(1);
+        } else {
+          expect(FeatureModel.getAllFeatures).toHaveBeenCalledTimes(1);
+        }
+        expectNoPayloadBuildLoads(mockModels);
+        expect(upsert).not.toHaveBeenCalled();
+        expect(triggerWebhookJobs).not.toHaveBeenCalled();
+      },
+    );
+
+    // Cross-project prerequisites (#6858): a change to a project-A feature that
+    // a project-B feature lists as a prerequisite must also reach connections
+    // scoped to project B, on both cache paths.
+    describe.each(["none", "mongo"] as const)(
+      "storage %s: cross-project prerequisite widening happens before connections are matched",
+      (storage) => {
+        const parent = {
+          id: "parent-flag",
+          organization: "org-1",
+          project: "prj-a",
+          valueType: "boolean",
+          defaultValue: "true",
+          environmentSettings: { production: { enabled: true } },
+          rules: [],
+          prerequisites: [],
+        } as unknown as FeatureInterface;
+        const dependent = {
+          id: "dependent-flag",
+          organization: "org-1",
+          project: "prj-b",
+          valueType: "boolean",
+          defaultValue: "false",
+          environmentSettings: { production: { enabled: true } },
+          rules: [],
+          prerequisites: [{ id: "parent-flag", condition: "{}" }],
+        } as unknown as FeatureInterface;
+        const connA = sdkConn("sdk-a", ["prj-a"]);
+        const connB = sdkConn("sdk-b", ["prj-b"]);
+        const connC = sdkConn("sdk-c", ["prj-c"]);
+        const changedParentKeys = [
+          { environment: "production", project: "prj-a" },
+        ];
+
+        let upsert: jest.Mock;
+        let mockModels: ReturnType<typeof payloadBuildModels> & {
+          sdkConnectionCache: {
+            deleteAllLegacyCacheEntries: jest.Mock;
+            upsert: jest.Mock;
+          };
+        };
+        beforeEach(() => {
+          // These module mocks keep their resolved value across tests
+          // (clearAllMocks only clears calls), so start each case from empty.
+          (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue([]);
+          (
+            FeatureModel.getAllFeaturesWithoutEditorFields as jest.Mock
+          ).mockResolvedValue([]);
+          (
+            ExperimentModel.getAllPayloadExperiments as jest.Mock
+          ).mockResolvedValue(new Map());
+          getSDKPayloadCacheLocationMock.mockReturnValue(storage);
+          upsert = jest.fn().mockResolvedValue(undefined);
+          mockModels = {
+            sdkConnectionCache: {
+              deleteAllLegacyCacheEntries: jest
+                .fn()
+                .mockResolvedValue(undefined),
+              upsert,
+            },
+            ...payloadBuildModels(),
+          };
+          (
+            global as unknown as { __mockContextModels: unknown }
+          ).__mockContextModels = mockModels;
+          findSDKConnectionsByOrganization.mockResolvedValue([
+            connA,
+            connB,
+            connC,
+          ]);
+        });
+        function useFeatures(features: FeatureInterface[]) {
+          (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue(
+            features,
+          );
+          (
+            FeatureModel.getAllFeaturesWithoutEditorFields as jest.Mock
+          ).mockResolvedValue(features);
+        }
+        async function refresh(
+          extra: Partial<Parameters<typeof refreshSDKPayloadCache>[0]> = {},
+        ) {
+          await refreshSDKPayloadCache({
+            context: minimalContext({
+              models: mockModels as unknown as ReqContext["models"],
+            }) as ReqContext,
+            payloadKeys: changedParentKeys,
+            sdkConnections: [],
+            ...extra,
+          });
+        }
+        function expectNotified(
+          connections: SDKConnectionInterface[],
+          projects: string[],
+        ) {
+          expect(triggerWebhookJobs).toHaveBeenCalledTimes(1);
+          const [, keys, notified] = triggerWebhookJobs.mock.calls[0];
+          expect(notified).toEqual(connections);
+          expect(
+            (keys as { environment: string; project: string }[])
+              .map((k) => k.project)
+              .sort(),
+          ).toEqual([...projects].sort());
+          if (storage === "none") {
+            expect(upsert).not.toHaveBeenCalled();
+          } else {
+            expect(upsert.mock.calls.map((c) => c[0]).sort()).toEqual(
+              connections.map((c) => c.key).sort(),
+            );
+            // Every cache write lands before anyone is notified.
+            const notifiedAt = triggerWebhookJobs.mock.invocationCallOrder[0];
+            upsert.mock.invocationCallOrder.forEach((order) =>
+              expect(order).toBeLessThan(notifiedAt),
+            );
+          }
+        }
+
+        it("top-level prerequisite in another project: the dependent's connection is notified too", async () => {
+          useFeatures([parent, dependent]);
+          await refresh();
+          expectNotified([connA, connB], ["prj-a", "prj-b"]);
+          // No all-projects dependent: the project list is not consulted.
+          expect(agendaContext().getAllProjectIds).not.toHaveBeenCalled();
+        });
+
+        it("prerequisite on the phase of an experiment referenced by an experiment-ref rule", async () => {
+          const viaExperiment = {
+            ...dependent,
+            prerequisites: [],
+            rules: [
+              {
+                type: "experiment-ref",
+                id: "fr_1",
+                enabled: true,
+                experimentId: "exp-x",
+                variations: [],
+              },
+            ],
+          } as unknown as FeatureInterface;
+          (
+            ExperimentModel.getAllPayloadExperiments as jest.Mock
+          ).mockResolvedValue(
+            new Map([
+              [
+                "exp-x",
+                {
+                  id: "exp-x",
+                  phases: [
+                    { prerequisites: [{ id: "parent-flag", condition: "{}" }] },
+                  ],
+                },
+              ],
+            ]),
+          );
+          useFeatures([parent, viaExperiment]);
+          await refresh();
+          expectNotified([connA, connB], ["prj-a", "prj-b"]);
+        });
+
+        it("all-projects dependent: every project's connection is notified and the project list is consulted", async () => {
+          const everywhere = {
+            ...dependent,
+            project: "",
+            targetingAllProjects: true,
+          } as unknown as FeatureInterface;
+          (
+            global as unknown as { __mockAllProjectIds?: string[] }
+          ).__mockAllProjectIds = ["prj-a", "prj-b", "prj-c"];
+          useFeatures([parent, everywhere]);
+          await refresh();
+          expectNotified([connA, connB, connC], ["prj-a", "prj-b", "prj-c"]);
+          expect(agendaContext().getAllProjectIds).toHaveBeenCalledTimes(1);
+        });
+
+        it("skipRefreshForProject still wins over a project the widening reintroduces", async () => {
+          useFeatures([parent, dependent]);
+          await refresh({ skipRefreshForProject: "prj-b" });
+          expectNotified([connA], ["prj-a"]);
+        });
+      },
+    );
 
     it("targeted path: uses sdkConnectionsToUpdate, does not call findSDKConnectionsByOrganization", async () => {
       getSDKPayloadCacheLocationMock.mockReturnValue("mongo");
@@ -456,8 +693,15 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        constants: { getAll: jest.fn().mockResolvedValue([]) },
+        configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
         },
       };
       (
@@ -567,8 +811,15 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        constants: { getAll: jest.fn().mockResolvedValue([]) },
+        configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
         },
       };
       (
@@ -621,8 +872,15 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        constants: { getAll: jest.fn().mockResolvedValue([]) },
+        configs: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
         },
       };
       (

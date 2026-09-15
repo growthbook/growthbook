@@ -1,0 +1,67 @@
+import React from "react";
+import { Flex } from "@radix-ui/themes";
+import { PiCaretRight } from "react-icons/pi";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import styles from "./Breadcrumbs.module.scss";
+
+export interface BreadcrumbItem {
+  display: string;
+  href?: string;
+}
+
+export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
+  return (
+    <nav aria-label="Breadcrumb">
+      <Flex align="center" gap="1">
+        {items.map((item, i) => {
+          const isLast = i === items.length - 1;
+
+          return (
+            <React.Fragment key={i}>
+              {i > 0 && (
+                <span className={styles.separator} aria-hidden="true">
+                  <PiCaretRight
+                    size={15}
+                    style={{ color: "var(--color-text-high)" }}
+                  />
+                </span>
+              )}
+              <span
+                title={item.display}
+                className={isLast ? styles.current : styles.ancestor}
+              >
+                {item.href ? (
+                  <Link
+                    className={!isLast ? styles.crumbLink : undefined}
+                    truncate
+                    href={item.href}
+                    size="md"
+                    weight="bold"
+                    aria-current={isLast ? "page" : undefined}
+                  >
+                    {item.display}
+                  </Link>
+                ) : (
+                  <span
+                    aria-current={isLast ? "page" : undefined}
+                    className={!isLast ? styles.crumbLink : undefined}
+                  >
+                    <Text
+                      size="md"
+                      weight="semibold"
+                      color="text-high"
+                      truncate
+                    >
+                      {item.display}
+                    </Text>
+                  </span>
+                )}
+              </span>
+            </React.Fragment>
+          );
+        })}
+      </Flex>
+    </nav>
+  );
+}

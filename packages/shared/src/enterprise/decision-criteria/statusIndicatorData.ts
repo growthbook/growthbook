@@ -5,11 +5,14 @@ import {
   ExperimentResultStatusData,
   ExperimentDataForStatus,
 } from "shared/types/experiment";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getExperimentResultStatus } from "./decisionCriteria";
+
+export type MetricNameResolver = (metricId: string) => string;
 
 export type StatusIndicatorData = {
   color: "amber" | "green" | "red" | "gold" | "indigo" | "gray" | "pink";
-  status: "Running" | "Stopped" | "Draft" | "Archived";
+  status: "Running" | "Stopped" | "Draft" | "Scheduled" | "Archived";
   detailedStatus?: string;
   needsAttention?: boolean;
   tooltip?: string;
@@ -17,12 +20,22 @@ export type StatusIndicatorData = {
   sortOrder: number;
 };
 
-export function getStatusIndicatorData(
-  experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates,
-  skipArchived: boolean,
-  healthSettings: ExperimentHealthSettings,
-  decisionCriteria: DecisionCriteriaData,
-): StatusIndicatorData {
+export function getStatusIndicatorData({
+  experimentData,
+  skipArchived,
+  healthSettings,
+  decisionCriteria,
+  metricGroups,
+  resolveMetricName,
+}: {
+  experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
+  skipArchived: boolean;
+  healthSettings: ExperimentHealthSettings;
+  decisionCriteria: DecisionCriteriaData;
+  metricGroups: MetricGroupInterface[];
+  // Errored metric ids are shown as-is when omitted.
+  resolveMetricName?: MetricNameResolver;
+}): StatusIndicatorData {
   if (!skipArchived && experimentData.archived) {
     return {
       color: "gold",
@@ -32,6 +45,13 @@ export function getStatusIndicatorData(
   }
 
   if (experimentData.status === "draft") {
+    if (experimentData.nextScheduledStatusUpdate) {
+      return {
+        color: "indigo",
+        status: "Scheduled",
+        sortOrder: 7,
+      };
+    }
     return {
       color: "pink",
       status: "Draft",
@@ -44,9 +64,13 @@ export function getStatusIndicatorData(
       experimentData,
       healthSettings,
       decisionCriteria,
+      metricGroups,
     });
     if (runningStatusData) {
-      return getDetailedRunningStatusIndicatorData(runningStatusData);
+      return getDetailedRunningStatusIndicatorData(
+        runningStatusData,
+        resolveMetricName,
+      );
     }
 
     // 6. Otherwise, show running status
@@ -58,6 +82,14 @@ export function getStatusIndicatorData(
   }
 
   if (experimentData.status === "stopped") {
+    if (experimentData.type === "contextual-bandit") {
+      return {
+        color: "gray",
+        status: "Stopped",
+        sortOrder: 4,
+      };
+    }
+
     switch (experimentData.results) {
       case "won":
         return {
@@ -88,6 +120,7 @@ export function getStatusIndicatorData(
           detailedStatus: "Didn't finish",
           sortOrder: 1,
         };
+      case undefined:
       default:
         return {
           color: "amber",
@@ -99,15 +132,13 @@ export function getStatusIndicatorData(
     }
   }
 
-  // TODO: Future statuses
-  // return ["indigo", "soft", "Scheduled"];
-
   // FIXME: How can we make this rely on the typechecker instead of throwing an error?
   throw new Error(`Unknown experiment status`);
 }
 
 function getDetailedRunningStatusIndicatorData(
   decisionData: ExperimentResultStatusData,
+  resolveMetricName?: MetricNameResolver,
 ): StatusIndicatorData {
   switch (decisionData.status) {
     case "rollback-now":
@@ -137,6 +168,15 @@ function getDetailedRunningStatusIndicatorData(
         needsAttention: true,
         sortOrder: 11,
       };
+    case "scheduled-end-review":
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "Ready for review",
+        tooltip: decisionData.tooltip,
+        needsAttention: true,
+        sortOrder: 10.5,
+      };
     case "no-data":
       return {
         color: "amber",
@@ -146,6 +186,22 @@ function getDetailedRunningStatusIndicatorData(
         needsAttention: true,
         sortOrder: 10,
       };
+    case "data-incomplete": {
+      const erroredNames = decisionData.erroredMetrics.map(
+        (id) => resolveMetricName?.(id) ?? id,
+      );
+      const subject = erroredNames.length
+        ? erroredNames.join(", ")
+        : "Some metrics";
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "Data incomplete",
+        tooltip: `${subject} could not be computed, so ship and review recommendations are paused. Roll back recommendations still apply.`,
+        needsAttention: true,
+        sortOrder: 9.5,
+      };
+    }
     case "unhealthy":
       return {
         color: "amber",

@@ -49,9 +49,7 @@ export default function UpgradeModal({
     useState(false);
   const [showCloudEnterpriseTrialSuccess, setShowCloudEnterpriseTrialSuccess] =
     useState(false);
-  const [cloudProUpgradeSetup, setCloudProUpgradeSetup] = useState<{
-    clientSecret: string;
-  } | null>(null);
+  const [showCloudProUpgrade, setShowCloudProUpgrade] = useState(false);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
   const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] =
     useState(false);
@@ -144,13 +142,10 @@ export default function UpgradeModal({
           setError("Unknown response");
         }
       } else if (useInlineUpgradeForm) {
-        // Sets up in-app upgrade
-        const { clientSecret } = await apiCall<{
-          clientSecret: string;
-        }>(`/subscription/setup-intent`, {
-          method: "POST",
-        });
-        setCloudProUpgradeSetup({ clientSecret });
+        // Sets up in-app upgrade. StripeProvider will load Stripe.js, create
+        // a Radar session, and fetch the SetupIntent client secret itself
+        // so the Radar session ID is tied to the SetupIntent.
+        setShowCloudProUpgrade(true);
         setLoading(false);
       } else {
         // Otherwise, this creates a new checkout session and will redirect to the Stripe checkout page
@@ -289,6 +284,11 @@ export default function UpgradeModal({
       "Create product analytics dashboards and control who can view and edit them.",
     "metric-groups": "Simplify experiment analysis with Metric Groups",
     "advanced-permissions": "Manage advanced user permissions",
+    "role-management":
+      "Assign roles to teammates instead of making everyone an admin",
+    "unlimited-projects": "Create as many projects as you need",
+    "custom-environments":
+      "Create custom environments beyond production, dev, staging, and test",
     "encrypt-features-endpoint": "SDK endpoint encryption",
     "schedule-feature-flag": "Schedule feature flag rollouts",
     "override-metrics": "Override metric definitions on a per-experiment basis",
@@ -320,6 +320,8 @@ export default function UpgradeModal({
       "Define retention metrics that measure return activity",
     "metric-populations": "Analyze metrics for different sub-populations",
     "multi-armed-bandits": "Run adaptive experiments with Bandits",
+    "contextual-bandits":
+      "Run context-aware adaptive experiments with Contextual Bandits",
     "historical-power":
       "Power calculator that uses historical data for accurate predictions",
     "decision-framework":
@@ -762,10 +764,10 @@ export default function UpgradeModal({
           header={`🎉 Your 14-day Enterprise Trial starts now!`}
           isTrial={true}
         />
-      ) : cloudProUpgradeSetup ? (
-        <StripeProvider initialClientSecret={cloudProUpgradeSetup.clientSecret}>
+      ) : showCloudProUpgrade ? (
+        <StripeProvider setupIntentEndpoint="/subscription/setup-intent">
           <CloudProUpgradeModal
-            close={() => setCloudProUpgradeSetup(null)}
+            close={() => setShowCloudProUpgrade(false)}
             closeParent={close}
           />
         </StripeProvider>
@@ -847,7 +849,7 @@ export default function UpgradeModal({
             {showEnterpriseTreatment ? enterpriseTreatment() : proTreatment()}
           </div>
 
-          {error && <div className="alert alert-danger">{error}</div>}
+          {error && <Callout status="error">{error}</Callout>}
         </Modal>
       )}
     </>

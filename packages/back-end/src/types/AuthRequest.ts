@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { UserScopedGrowthBook } from "@growthbook/growthbook";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { AuditInterface } from "shared/types/audit";
 import {
@@ -9,6 +10,7 @@ import {
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
 import { UserInterface } from "shared/types/user";
+import { AppFeatures } from "shared/types/app-features";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
@@ -30,7 +32,13 @@ export type AuthRequest<
 > = Request<Params, unknown, Body, QueryParams> & {
   currentUser: Pick<
     UserInterface,
-    "email" | "id" | "name" | "verified" | "superAdmin"
+    | "email"
+    | "id"
+    | "name"
+    | "verified"
+    | "superAdmin"
+    | "npsSurveyAt"
+    | "dateCreated"
   >;
   email: string;
   verified?: boolean;
@@ -42,9 +50,12 @@ export type AuthRequest<
   superAdmin?: boolean;
   organization?: OrganizationInterface;
   teams: TeamInterface[];
+  // Ids of restrictAccess projects, loaded with the org for permission resolution
+  restrictedProjects?: string[];
   audit: (
     data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">,
   ) => Promise<void>;
+  gb?: UserScopedGrowthBook<AppFeatures>;
 } & PermissionFunctions;
 
 export type ResponseWithStatusAndError<T = unknown> = Response<

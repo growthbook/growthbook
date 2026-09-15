@@ -20,7 +20,7 @@ router.get(
 router.post(
   "/",
   validateRequestMiddleware({
-    body: z.object({
+    body: z.strictObject({
       property: z.string(),
       description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
@@ -28,6 +28,7 @@ router.post(
       format: z.string().optional(),
       enum: z.string().optional(),
       hashAttribute: z.boolean().optional(),
+      disableEqualityConditions: z.boolean().optional(),
       tags: z.array(z.string()).optional(),
     }),
   }),
@@ -37,7 +38,7 @@ router.post(
 router.put(
   "/",
   validateRequestMiddleware({
-    body: z.object({
+    body: z.strictObject({
       property: z.string(),
       description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
@@ -46,6 +47,7 @@ router.put(
       enum: z.string().optional(),
       hashAttribute: z.boolean().optional(),
       archived: z.boolean().optional(),
+      disableEqualityConditions: z.boolean().optional(),
       previousName: z.string().optional(),
       tags: z.array(z.string()).optional(),
     }),

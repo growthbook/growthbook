@@ -9,6 +9,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
+import Callout from "@/ui/Callout";
 
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -32,9 +33,9 @@ const WebhooksPage: FC = () => {
   if (!canManageWebhooks) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -79,7 +80,7 @@ const WebhooksPage: FC = () => {
                   <td>{datetime(secret.dateCreated)}</td>
                   <td>{datetime(secret.dateUpdated)}</td>
                   <td>
-                    <MoreMenu>
+                    <MoreMenu useRadix={false}>
                       <a
                         href="#"
                         className="dropdown-item"
@@ -91,6 +92,7 @@ const WebhooksPage: FC = () => {
                         Edit
                       </a>
                       <DeleteButton
+                        useRadix={false}
                         onClick={async () => {
                           await apiCall<void>(`/webhook-secrets/${secret.id}`, {
                             method: "DELETE",

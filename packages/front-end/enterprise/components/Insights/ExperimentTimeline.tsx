@@ -8,7 +8,6 @@ import {
 } from "shared/types/experiment";
 import { getValidDate, date } from "shared/dates";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   TooltipWithBounds,
@@ -17,6 +16,7 @@ import {
 } from "@visx/tooltip";
 import { format } from "date-fns";
 import { GridColumns } from "@visx/grid";
+import Link from "@/ui/Link";
 import styles from "@/components/Metrics/DateGraph.module.scss";
 import { formatPercent } from "@/services/metrics";
 import EmptyState from "@/components/EmptyState";

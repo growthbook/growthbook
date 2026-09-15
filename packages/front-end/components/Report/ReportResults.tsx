@@ -215,6 +215,7 @@ export default function ReportResults({
             differenceType={analysis?.settings.differenceType}
             ssrPolyfills={ssrPolyfills}
             isReportContext
+            snapshot={snapshot}
           >
             {showDateResults ? (
               <DateResults

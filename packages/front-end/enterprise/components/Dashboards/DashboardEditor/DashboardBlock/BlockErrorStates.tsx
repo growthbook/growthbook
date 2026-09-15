@@ -5,7 +5,7 @@ import {
 import { Flex, Text } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 
 interface BlockErrorStateProps {
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;

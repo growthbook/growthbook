@@ -1,0 +1,22 @@
+.popoverContent {
+  width: 680px;
+  max-width: min(680px, 90vw);
+}
+
+.inner {
+  padding: 33px 40px 36px;
+}
+
+.urlField {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 6, 46, 0.2);
+  border-radius: 6px;
+  background: var(--color-surface);
+  overflow: hidden;
+  white-space: nowrap;
+}

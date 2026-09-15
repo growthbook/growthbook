@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { SavedQuery } from "shared/validators";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { ago, datetime } from "shared/dates";
-import Link from "next/link";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -119,9 +119,10 @@ export default function SqlQueryDetail() {
             Edit
           </Button>
         )}
-        <MoreMenu useRadix={true}>
+        <MoreMenu>
           {canDelete && (
             <DeleteButton
+              useRadix={false}
               className="dropdown-item"
               onClick={async () => {
                 await apiCall(`/saved-queries/${savedQuery.id}`, {
@@ -157,7 +158,6 @@ export default function SqlQueryDetail() {
             error={debugResults.error || ""}
             allowDownload={false}
             showSampleHeader={false}
-            renderedSQLLabel="Refresh Error"
             close={() => setDebugResults(null)}
           />
         )}
@@ -190,7 +190,6 @@ export default function SqlQueryDetail() {
               error={savedQuery.results?.error || ""}
               allowDownload={true}
               showSampleHeader={false}
-              renderedSQLLabel="SQL"
             />
           </Box>
         ) : null}

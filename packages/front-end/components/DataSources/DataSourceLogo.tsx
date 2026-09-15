@@ -71,6 +71,9 @@ export const eventTrackerMapping: Record<
     logo: "/images/3rd-party-logos/datasource-logos/clevertap.png",
     label: "CleverTap",
   },
+  eventForwarder: {
+    label: "Event Forwarder",
+  },
   custom: {
     label: "Other",
   },

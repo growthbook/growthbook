@@ -8,7 +8,6 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import clsx from "clsx";
 import {
   expandMetricGroups,
   getAllVariations,
@@ -23,6 +22,7 @@ import CompactResults from "@/components/Experiment/CompactResults";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import Callout from "@/ui/Callout";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 import {
   PresentationDeck,
@@ -439,15 +439,16 @@ const Presentation = ({
               Results
             </h2>
             {e.experiment.results && (
-              <div
-                className={clsx("alert", {
-                  "alert-success": e.experiment.results === "won",
-                  "alert-danger": e.experiment.results === "lost",
-                  "alert-info":
-                    !e.experiment.results ||
-                    e.experiment.results === "inconclusive",
-                  "alert-warning": e.experiment.results === "dnf",
-                })}
+              <Callout
+                status={
+                  e.experiment.results === "won"
+                    ? "success"
+                    : e.experiment.results === "lost"
+                      ? "error"
+                      : e.experiment.results === "dnf"
+                        ? "warning"
+                        : "info"
+                }
               >
                 <strong>{resultsText}</strong>
                 {e.experiment.analysis && (
@@ -459,7 +460,7 @@ const Presentation = ({
                     </div>
                   </div>
                 )}
-              </div>
+              </Callout>
             )}
 
             <div
@@ -533,14 +534,14 @@ const Presentation = ({
             >
               Results
             </h2>
-            <div className={clsx("alert", "alert-warning", "mt-3")}>
+            <Callout status="warning" mt="3">
               <strong>No data for this experiment</strong>
               {resultsText && (
                 <>
                   . <strong>{resultsText}</strong>
                 </>
               )}
-            </div>
+            </Callout>
           </>
         ),
         steps: 0,

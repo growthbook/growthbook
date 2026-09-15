@@ -21,6 +21,7 @@ import { GridColumns } from "@visx/grid";
 import styles from "@/components/Metrics/DateGraph.module.scss";
 import EmptyState from "@/components/EmptyState";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import VariationLabel from "@/ui/VariationLabel";
 
 const margin = { top: 30, right: 60, bottom: 30, left: 200 }; // Increased right margin to prevent end tick cutoff
 
@@ -424,25 +425,13 @@ const HoldoutTimeline: React.FC<{
                         Shipped:
                       </Text>
                       {tooltipData.shippedVariation ? (
-                        <div
-                          className={`variation variation${tooltipData.shippedVariation.index} with-variation-label d-flex align-items-center`}
-                        >
-                          <span
-                            className="label"
-                            style={{ width: 20, height: 20, flex: "none" }}
-                          >
-                            {tooltipData.shippedVariation.index}
-                          </span>
-                          <span
-                            className="d-inline-block"
-                            style={{
-                              width: 150,
-                              lineHeight: "14px",
-                            }}
-                          >
-                            {tooltipData.shippedVariation.name}
-                          </span>
-                        </div>
+                        <VariationLabel
+                          number={tooltipData.shippedVariation.index}
+                          name={tooltipData.shippedVariation.name}
+                          size="md"
+                          maxWidth="170px"
+                          disableTooltip
+                        />
                       ) : (
                         <span>--</span>
                       )}

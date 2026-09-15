@@ -1,4 +1,9 @@
-import { dateStringArrayBetweenDates, getValidDate } from "../src/dates";
+import {
+  dateStringArrayBetweenDates,
+  getValidDate,
+  resolveScheduleStopAfter,
+  resolveScheduledStop,
+} from "../src/dates";
 
 describe("getValidDate", () => {
   it("Uses the fallback", () => {
@@ -57,5 +62,99 @@ describe("dateStringArrayBetweenDates", () => {
       "'2020-01-05'",
       "'2020-01-07'",
     ]);
+  });
+});
+
+describe("resolveScheduleStopAfter", () => {
+  it("adds days", () => {
+    const base = new Date(Date.UTC(2020, 0, 5, 10, 0, 0));
+    expect(resolveScheduleStopAfter(base, { value: 14, unit: "days" })).toEqual(
+      new Date(Date.UTC(2020, 0, 19, 10, 0, 0)),
+    );
+  });
+
+  it("adds hours", () => {
+    const base = new Date(Date.UTC(2020, 0, 5, 10, 0, 0));
+    expect(resolveScheduleStopAfter(base, { value: 6, unit: "hours" })).toEqual(
+      new Date(Date.UTC(2020, 0, 5, 16, 0, 0)),
+    );
+  });
+
+  it("truncates seconds and milliseconds", () => {
+    const base = new Date(Date.UTC(2020, 0, 5, 10, 30, 45, 123));
+    const result = resolveScheduleStopAfter(base, { value: 1, unit: "days" });
+    expect(result.getSeconds()).toBe(0);
+    expect(result.getMilliseconds()).toBe(0);
+  });
+});
+
+describe("resolveScheduledStop", () => {
+  const base = new Date(Date.UTC(2020, 0, 1, 0, 0, 0));
+  const now = new Date(Date.UTC(2020, 0, 2, 0, 0, 0));
+
+  it("keeps an absolute stopAt and stages it when active + future", () => {
+    const future = new Date(Date.UTC(2020, 0, 10, 0, 0, 0));
+    const r = resolveScheduledStop({
+      stopAt: future,
+      base,
+      active: true,
+      now,
+    });
+    expect(r.stopAt).toEqual(future);
+    expect(r.stopAfter).toBeNull();
+    expect(r.stagedStop).toEqual({ type: "stop", date: future });
+  });
+
+  it("does not stage an absolute stopAt when inactive", () => {
+    const future = new Date(Date.UTC(2020, 0, 10, 0, 0, 0));
+    const r = resolveScheduledStop({
+      stopAt: future,
+      base,
+      active: false,
+      now,
+    });
+    expect(r.stopAt).toEqual(future);
+    expect(r.stagedStop).toBeNull();
+  });
+
+  it("does not stage a past stopAt even when active", () => {
+    const past = new Date(Date.UTC(2019, 0, 1, 0, 0, 0));
+    const r = resolveScheduledStop({ stopAt: past, base, active: true, now });
+    expect(r.stopAt).toEqual(past);
+    expect(r.stagedStop).toBeNull();
+  });
+
+  it("resolves a relative stopAfter off base and stages it when active", () => {
+    const r = resolveScheduledStop({
+      stopAfter: { value: 7, unit: "days" },
+      base,
+      active: true,
+      now,
+    });
+    expect(r.stopAt).toEqual(new Date(Date.UTC(2020, 0, 8, 0, 0, 0)));
+    expect(r.stopAfter).toBeNull();
+    expect(r.stagedStop).toEqual({
+      type: "stop",
+      date: new Date(Date.UTC(2020, 0, 8, 0, 0, 0)),
+    });
+  });
+
+  it("defers a relative stopAfter when inactive (draft)", () => {
+    const r = resolveScheduledStop({
+      stopAfter: { value: 7, unit: "days" },
+      base,
+      active: false,
+      now,
+    });
+    expect(r.stopAt).toBeNull();
+    expect(r.stopAfter).toEqual({ value: 7, unit: "days" });
+    expect(r.stagedStop).toBeNull();
+  });
+
+  it("returns nulls when no end is set", () => {
+    const r = resolveScheduledStop({ base, active: true, now });
+    expect(r.stopAt).toBeNull();
+    expect(r.stopAfter).toBeNull();
+    expect(r.stagedStop).toBeNull();
   });
 });

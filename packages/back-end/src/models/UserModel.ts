@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { Document } from "mongodb";
 import { UserInterface } from "shared/types/user";
 import {
   usingOpenId,
@@ -28,6 +27,8 @@ const userSchema = new mongoose.Schema({
   superAdmin: Boolean,
   verified: Boolean,
   agreedToTerms: Boolean,
+  npsSurveyStatus: String,
+  npsSurveyAt: Date,
   minTokenDate: Date,
   dateCreated: Date,
 });
@@ -105,8 +106,24 @@ export async function getUserById(id: string): Promise<UserInterface | null> {
 export async function getUserByEmail(
   email: string,
 ): Promise<UserInterface | null> {
-  const user = await getCollection(COLLECTION).findOne({ email });
-  return user ? toInterface(user) : null;
+  const collection = getCollection(COLLECTION);
+
+  // Exact case-sensitive match. Existing duplicate accounts (e.g.
+  // `User@x.com` and `user@x.com`) keep resolving to their own row.
+  const exact = await collection.findOne({ email });
+  if (exact) return toInterface(exact);
+
+  // If the input had any uppercase, retry with the lowercased form.
+  // `createUser` lowercases on insert, so for any account created
+  // after this fix landed this second lookup hits the unique `email`
+  // index — no scan.
+  const lower = email.toLowerCase();
+  if (lower !== email) {
+    const lowerHit = await collection.findOne({ email: lower });
+    if (lowerHit) return toInterface(lowerHit);
+  }
+
+  return null;
 }
 
 export async function getUsersByIds(ids: string[]): Promise<UserInterface[]> {
@@ -147,7 +164,7 @@ export async function createUser({
   return toInterface(
     await UserModel.create({
       name,
-      email,
+      email: email.toLowerCase(),
       passwordHash,
       id: uniqid("u_"),
       verified,
@@ -156,27 +173,6 @@ export async function createUser({
       agreedToTerms,
     }),
   );
-}
-
-export async function findVerifiedEmails(
-  emails: string[] | undefined,
-): Promise<string[]> {
-  let users: Document[] = [];
-  if (emails) {
-    users = await getCollection(COLLECTION)
-      .find({
-        email: { $in: emails },
-        verified: true,
-      })
-      .toArray();
-  } else {
-    users = await getCollection(COLLECTION)
-      .find({
-        verified: true,
-      })
-      .toArray();
-  }
-  return users.map((u) => u.email);
 }
 
 export async function resetMinTokenDate(userId: string) {
@@ -194,7 +190,12 @@ export async function resetMinTokenDate(userId: string) {
 
 export async function updateUser(
   id: string,
-  updates: Partial<Pick<UserInterface, "passwordHash" | "name">>,
+  updates: Partial<
+    Pick<
+      UserInterface,
+      "passwordHash" | "name" | "npsSurveyStatus" | "npsSurveyAt"
+    >
+  >,
 ) {
   await UserModel.updateOne(
     {

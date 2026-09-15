@@ -45,7 +45,7 @@ export default function AffectedEnvironmentsBadges({
       ) : (
         envIds.map((envId) => {
           const isGated =
-            gatedEnvSet != null &&
+            !!gatedEnvSet &&
             (gatedEnvSet === "all" ||
               (gatedEnvSet !== "none" && gatedEnvSet.has(envId)));
           return (

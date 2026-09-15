@@ -1,9 +1,16 @@
+import { useCallback } from "react";
+import { PiArrowDown, PiArrowUp } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
 import type { QueryInterface } from "shared/types/query";
+import { formatNumericLikeForDisplay } from "shared/util";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
+import Text from "@/ui/Text";
 import useExplorationTableData from "./useExplorationTableData";
 
 export default function ExplorerDataTable({
@@ -14,6 +21,10 @@ export default function ExplorerDataTable({
   hasChart = false,
   isStale = false,
   query = null,
+  compareEnabled = false,
+  comparisonExploration = null,
+  comparisonMode = null,
+  serverTableTrendsByRow = null,
 }: {
   exploration: ProductAnalyticsExploration | null;
   error: string | null;
@@ -22,26 +33,120 @@ export default function ExplorerDataTable({
   hasChart?: boolean;
   isStale?: boolean;
   query?: QueryInterface | null;
+  compareEnabled?: boolean;
+  comparisonExploration?: ProductAnalyticsExploration | null;
+  comparisonMode?: ComparisonMode | null;
+  serverTableTrendsByRow?: Record<string, number | null>[] | null;
 }) {
   const {
     rowData,
     orderedColumnKeys,
+    columnLabels,
     headerStructure,
     explorationReturnedNoData,
-  } = useExplorationTableData(exploration, submittedExploreState);
+    csvColumnKeys,
+    csvColumnLabels,
+    tableCompareActive,
+    compareColumnMetaByKey,
+  } = useExplorationTableData(exploration, submittedExploreState, {
+    compareEnabled,
+    comparisonExploration,
+    comparisonMode,
+    serverTableTrendsByRow,
+  });
+  const rawTableDataset =
+    submittedExploreState?.type === "sql" &&
+    submittedExploreState.dataset.type === "sql" &&
+    submittedExploreState.chartType === "rawTable"
+      ? submittedExploreState.dataset
+      : null;
+  const rawRows = rawTableDataset ? (exploration?.result.rawRows ?? []) : null;
+  const rawColumnKeys = rawTableDataset
+    ? Object.keys(rawTableDataset.columnTypes).filter(
+        (column) => !(rawTableDataset.hiddenColumns ?? []).includes(column),
+      )
+    : [];
+
+  const renderCell = useCallback(
+    (key: string, value: unknown, row: Record<string, unknown>) => {
+      if (!tableCompareActive) {
+        return formatNumericLikeForDisplay(value);
+      }
+      const colMeta = compareColumnMetaByKey?.[key];
+      if (
+        colMeta?.compareCell !== "current" ||
+        typeof row[colMeta.trendRowKey] !== "number" ||
+        Number.isNaN(row[colMeta.trendRowKey] as number)
+      ) {
+        return formatNumericLikeForDisplay(value);
+      }
+      const trendRaw = row[colMeta.trendRowKey] as number;
+      const valueString = formatNumericLikeForDisplay(value);
+      const flat = trendRaw === 0;
+      const trendColor = flat
+        ? undefined
+        : trendRaw > 0
+          ? "var(--green-9)"
+          : "var(--red-9)";
+      return (
+        <Flex align="center" gap="2">
+          <Text size="md">{valueString}</Text>
+          <span
+            style={{
+              color: trendColor ?? "var(--color-text-mid)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 12,
+              lineHeight: 1,
+            }}
+          >
+            {!flat &&
+              (trendRaw > 0 ? (
+                <PiArrowUp
+                  style={{ verticalAlign: "middle", flexShrink: 0 }}
+                  size={12}
+                  color={trendColor}
+                />
+              ) : (
+                <PiArrowDown
+                  style={{ verticalAlign: "middle", flexShrink: 0 }}
+                  size={12}
+                  color={trendColor}
+                />
+              ))}
+            {`${Math.abs(trendRaw).toFixed(2)}%`}
+          </span>
+        </Flex>
+      );
+    },
+    [tableCompareActive, compareColumnMetaByKey],
+  );
 
   return (
     <DisplayTestQueryResults
-      results={rowData}
+      results={rawRows ?? rowData}
       duration={query?.statistics?.executionDurationMs ?? 0}
       sql={query?.query || ""}
       error={error || ""}
-      showNoRowsWarning={explorationReturnedNoData && !hasChart}
+      showNoRowsWarning={
+        (rawRows ? rawRows.length === 0 : explorationReturnedNoData) &&
+        !hasChart
+      }
       allowDownload={true}
       showSampleHeader={false}
       showDuration={!!query?.statistics}
-      headerStructure={headerStructure ?? undefined}
-      orderedColumnKeys={orderedColumnKeys}
+      headerStructure={rawRows ? undefined : (headerStructure ?? undefined)}
+      orderedColumnKeys={rawRows ? rawColumnKeys : orderedColumnKeys}
+      columnLabels={rawRows ? undefined : columnLabels}
+      csvColumnKeys={rawRows ? undefined : csvColumnKeys}
+      csvColumnLabels={rawRows ? undefined : csvColumnLabels}
+      rowsLabel={
+        rawRows && exploration?.result.truncated
+          ? `the first ${SQL_ROW_LIMIT} rows`
+          : undefined
+      }
+      renderCell={renderCell}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
     />
   );

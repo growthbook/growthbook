@@ -1,0 +1,8 @@
+---
+description: "Data fetching and mutation patterns for the front-end application"
+globs: packages/front-end/**/*.tsx,packages/front-end/**/*.ts
+alwaysApply: false
+---
+# Front-end Data Fetching
+
+Before changing front-end data fetching or mutations, read and follow `.agents/guides/frontend/data-fetching.md`.

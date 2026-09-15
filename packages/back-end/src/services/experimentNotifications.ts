@@ -1,11 +1,8 @@
-import {
-  includeExperimentInPayload,
-  getSnapshotAnalysis,
-  ensureAndReturn,
-} from "shared/util";
+import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import {
   expandMetricGroups,
   getMetricResultStatus,
+  parseFunnelStepMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getLatestPhaseVariations,
@@ -18,6 +15,10 @@ import {
   getHealthSettings,
 } from "shared/enterprise";
 import { ExperimentAnalysisSummary } from "shared/validators";
+import {
+  getExperimentSRMValue,
+  getExperimentVariationUnitsFromHealth,
+} from "shared/health";
 import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentHealthSettings,
@@ -26,14 +27,16 @@ import {
   ExperimentResultStatusData,
 } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
+import { hasEventSubscribers } from "back-end/src/events/hasEventSubscribers";
 import {
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
@@ -47,11 +50,13 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
   experiment,
   event,
   data,
+  notify = true,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   event: T;
   data: CreateEventData<"experiment", T>;
+  notify?: boolean;
 }) => {
   const changedEnvs = includeExperimentInPayload(experiment)
     ? getEnvironmentIdsFromOrg(context.org)
@@ -67,6 +72,7 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
     environments: changedEnvs,
     tags: experiment.tags || [],
     containsSecrets: false,
+    notify,
   });
 };
 
@@ -131,6 +137,90 @@ export const notifyAutoUpdate = ({
       }),
   });
 
+// Fires on every failed attempt of the scheduled-status-update job (not
+// memoized). Each event carries the attempt count and whether another retry
+// will follow, so downstream channels can choose to surface only the
+// terminal failure (`willRetry: false`) if desired.
+export const notifyScheduledStatusUpdateFailed = ({
+  context,
+  experiment,
+  scheduledStatusUpdateType,
+  attempts,
+  maxAttempts,
+  willRetry,
+  reason,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  scheduledStatusUpdateType: "start" | "stop";
+  attempts: number;
+  maxAttempts: number;
+  willRetry: boolean;
+  reason: string;
+}) =>
+  dispatchEvent({
+    context,
+    experiment,
+    event: "warning",
+    data: {
+      object: {
+        type: "scheduled-status-update-failed",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        scheduledStatusUpdateType,
+        attempts,
+        maxAttempts,
+        willRetry,
+        reason,
+      },
+    },
+  });
+
+// Emitted when the scheduled-status-update job applies a start/stop. Not
+// memoized — each scheduled transition fires once. Flows to org webhooks/Slack
+// like other experiment events.
+export const notifyScheduledStatusUpdateApplied = ({
+  context,
+  experiment,
+  action,
+  shipped,
+  shippedVariationId,
+  forced,
+  recommendedVariationId,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  action: "started" | "stopped" | "kept-running";
+  shipped?: boolean;
+  shippedVariationId?: string;
+  forced?: boolean;
+  recommendedVariationId?: string;
+}) => {
+  const variationName = (id?: string) =>
+    id ? experiment.variations.find((v) => v.id === id)?.name : undefined;
+  const shippedVariationName = variationName(shippedVariationId);
+  const recommendedVariationName = variationName(recommendedVariationId);
+
+  return dispatchEvent({
+    context,
+    experiment,
+    event: "info.scheduled-status-update",
+    data: {
+      object: {
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        action,
+        ...(shipped !== undefined ? { shipped } : {}),
+        ...(shippedVariationId ? { shippedVariationId } : {}),
+        ...(shippedVariationName ? { shippedVariationName } : {}),
+        ...(forced !== undefined ? { forced } : {}),
+        ...(recommendedVariationId ? { recommendedVariationId } : {}),
+        ...(recommendedVariationName ? { recommendedVariationName } : {}),
+      },
+    },
+  });
+};
+
 export const notifyMultipleExposures = async ({
   context,
   experiment,
@@ -175,14 +265,31 @@ export const notifyMultipleExposures = async ({
   );
 };
 
+const getSrmVariationBalance = (
+  experiment: ExperimentInterface,
+  snapshot: ExperimentSnapshotInterface,
+) => {
+  const units = getExperimentVariationUnitsFromHealth(snapshot);
+  if (!units?.length) return undefined;
+  const weights =
+    experiment.phases[experiment.phases.length - 1]?.variationWeights ?? [];
+  return experiment.variations.map((v, i) => ({
+    name: v.name,
+    users: units[i] ?? 0,
+    weight: weights[i] ?? 0,
+  }));
+};
+
 export const notifySrm = async ({
   context,
   experiment,
+  snapshot,
   currentStatus,
   healthSettings,
 }: {
   context: Context;
   experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotInterface;
   currentStatus: ExperimentResultStatusData;
   healthSettings: ExperimentHealthSettings;
 }) => {
@@ -197,6 +304,8 @@ export const notifySrm = async ({
     dispatch: async () => {
       if (!triggered) return;
 
+      const pValue = getExperimentSRMValue(snapshot);
+      const variations = getSrmVariationBalance(experiment, snapshot);
       await dispatchEvent({
         context,
         experiment,
@@ -207,6 +316,8 @@ export const notifySrm = async ({
             experimentId: experiment.id,
             experimentName: experiment.name,
             threshold: healthSettings.srmThreshold,
+            ...(pValue !== undefined ? { pValue } : {}),
+            ...(variations ? { variations } : {}),
           },
         },
       });
@@ -214,6 +325,87 @@ export const notifySrm = async ({
   });
 
   return triggered && !experiment.pastNotifications?.includes("srm");
+};
+
+export const notifyUnderpowered = async ({
+  context,
+  experiment,
+  currentStatus,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  currentStatus: ExperimentResultStatusData;
+}) => {
+  const triggered =
+    currentStatus.status === "unhealthy" &&
+    !!currentStatus.unhealthyData.lowPowered;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "underpowered",
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
+
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "underpowered",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      });
+    },
+  });
+
+  return triggered && !experiment.pastNotifications?.includes("underpowered");
+};
+
+export const notifyNoData = async ({
+  context,
+  experiment,
+  snapshot,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotInterface;
+}) => {
+  // Mirror the front-end "No data yet" check: the snapshot ran successfully but
+  // the default analysis returned no variation rows.
+  const analysis = getSnapshotAnalysis(snapshot);
+  const triggered =
+    snapshot.status === "success" &&
+    (analysis?.results?.[0]?.variations?.length ?? 0) === 0;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "no-data",
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
+
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "no-data",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      });
+    },
+  });
+
+  return triggered && !experiment.pastNotifications?.includes("no-data");
 };
 
 type ExperimentSignificanceChange = {
@@ -279,7 +471,7 @@ export const computeExperimentChanges = async ({
     return [];
   }
 
-  const lastSnapshot = await getLatestSnapshot({
+  const lastSnapshot = await getLatestSuccessfulSnapshot({
     context,
     experiment: experiment.id,
     phase: experiment.phases.length - 1,
@@ -348,7 +540,14 @@ export const computeExperimentChanges = async ({
           : curMetric.chanceToWin;
       if (criticalValue === undefined) continue;
 
-      const metric = ensureAndReturn(await getExperimentMetricById(context, m));
+      // Skip notifying on funnel step metrics
+      if (parseFunnelStepMetricId(m).isFunnelStepMetric) continue;
+
+      // A snapshot's results can carry metric ids with no resolvable definition
+      // (e.g. a slice metric since removed from the org), so skip those rather
+      // than failing the update.
+      const metric = await getExperimentMetricById(context, m);
+      if (!metric) continue;
 
       const { resultsStatus: curResultsStatus } = getMetricResultStatus({
         metric,
@@ -439,12 +638,23 @@ export const notifySignificance = async ({
     await sendSignificanceEmail(context, experiment, experimentChanges);
   }
 
+  const notify = await hasEventSubscribers({
+    organizationId: context.org.id,
+    eventName: "experiment.info.significance",
+    projects: experiment.project ? [experiment.project] : [],
+    tags: experiment.tags || [],
+    environments: includeExperimentInPayload(experiment)
+      ? getEnvironmentIdsFromOrg(context.org)
+      : [],
+  });
+
   await Promise.all(
     experimentChanges.map((change) =>
       dispatchEvent({
         context,
         experiment,
         event: "info.significance",
+        notify,
         data: {
           object: change,
         },
@@ -458,11 +668,13 @@ export const notifyDecision = async ({
   experiment,
   currentStatus,
   lastStatus,
+  source,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   currentStatus: ExperimentResultStatusData;
   lastStatus?: ExperimentResultStatusData;
+  source: "scheduled-end" | "analysis";
 }) => {
   if (
     currentStatus.status === "ship-now" ||
@@ -490,6 +702,7 @@ export const notifyDecision = async ({
             experimentId: experiment.id,
             experimentName: experiment.name,
             decisionDescription: currentStatus.tooltip,
+            source,
           },
         },
       });
@@ -526,6 +739,54 @@ async function getDecisionCriteria(
   return decisionCriteria;
 }
 
+// The scheduled end passing can itself flip the EDF status to decisive
+// (getExperimentResultStatus forces a decision once the end date is past), and
+// no snapshot update happens at that moment — the snapshot-driven
+// notifyDecision would see identical before/after statuses and never fire.
+// Detect the flip by comparing the status with and without the schedule.
+export const notifyScheduledEndDecision = async ({
+  context,
+  experiment,
+  metricGroups,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  metricGroups: MetricGroupInterface[];
+}) => {
+  const healthSettings = getHealthSettings(
+    context.org.settings,
+    orgHasPremiumFeature(context.org, "decision-framework"),
+  );
+  const decisionCriteria = await getDecisionCriteria(
+    context,
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
+      context.org.settings?.defaultDecisionCriteriaId,
+  );
+
+  const currentStatus = getExperimentResultStatus({
+    experimentData: experiment,
+    healthSettings,
+    decisionCriteria,
+    metricGroups,
+  });
+  if (!currentStatus) return false;
+
+  const lastStatus = getExperimentResultStatus({
+    experimentData: { ...experiment, statusUpdateSchedule: null },
+    healthSettings,
+    decisionCriteria,
+    metricGroups,
+  });
+
+  return notifyDecision({
+    context,
+    experiment,
+    currentStatus,
+    lastStatus,
+    source: "scheduled-end",
+  });
+};
+
 export const notifyExperimentChange = async ({
   context,
   experiment,
@@ -555,12 +816,23 @@ export const notifyExperimentChange = async ({
     experiment.decisionFrameworkSettings?.decisionCriteriaId ??
       context.org.settings?.defaultDecisionCriteriaId,
   );
+  const metricGroups = await context.models.metricGroups.getAll();
 
   const currentStatus = getExperimentResultStatus({
     experimentData: experiment,
     healthSettings,
     decisionCriteria,
+    metricGroups,
   });
+
+  const triggeredNoData = await notifyNoData({
+    context,
+    experiment,
+    snapshot,
+  });
+  if (triggeredNoData) {
+    notificationsTriggered.push("no-data");
+  }
 
   if (currentStatus) {
     const triggeredMultipleExposures = await notifyMultipleExposures({
@@ -575,11 +847,21 @@ export const notifyExperimentChange = async ({
     const triggeredSrm = await notifySrm({
       context,
       experiment,
+      snapshot,
       currentStatus,
       healthSettings,
     });
     if (triggeredSrm) {
       notificationsTriggered.push("srm");
+    }
+
+    const triggeredUnderpowered = await notifyUnderpowered({
+      context,
+      experiment,
+      currentStatus,
+    });
+    if (triggeredUnderpowered) {
+      notificationsTriggered.push("underpowered");
     }
 
     const lastStatus = getExperimentResultStatus({
@@ -593,12 +875,14 @@ export const notifyExperimentChange = async ({
       },
       healthSettings,
       decisionCriteria,
+      metricGroups,
     });
     const triggeredDecision = await notifyDecision({
       context,
       experiment,
       lastStatus,
       currentStatus,
+      source: "analysis",
     });
     if (triggeredDecision) {
       notificationsTriggered.push("decision");

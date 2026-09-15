@@ -1,10 +1,16 @@
 import { z } from "zod";
 
-const memberRoleInfoValidator = z
+const roleRuleValidator = z
   .object({
     role: z.string(),
     limitAccessByEnvironment: z.boolean(),
     environments: z.array(z.string()),
+  })
+  .strict();
+
+const memberRoleInfoValidator = roleRuleValidator
+  .extend({
+    additionalRoles: z.array(roleRuleValidator).optional(),
   })
   .strict();
 
@@ -38,6 +44,16 @@ export const postApiKeyValidator = z.strictObject({
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
+  additionalRoles: z.array(roleRuleValidator).optional(),
+});
+
+export const putApiKeyValidator = z.strictObject({
+  role: z.string(),
+  description: z.string().optional(),
+  limitAccessByEnvironment: z.boolean().optional(),
+  environments: z.array(z.string()).optional(),
+  projectRoles: z.array(projectMemberRoleValidator).optional(),
+  additionalRoles: z.array(roleRuleValidator).optional(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({

@@ -1,0 +1,755 @@
+import { randomUUID } from "crypto";
+import { setTimeout as delay } from "timers/promises";
+import { z } from "zod";
+import type { AIChatMessage } from "shared/ai-chat";
+import { offScreenDashboardWriteRejection } from "shared/enterprise";
+import type { AIAgentPendingAction } from "shared/validators";
+import { aiTool } from "back-end/src/enterprise/services/ai";
+import {
+  createAgentHandler,
+  type AgentConfig,
+  type SkillLoadResult,
+} from "back-end/src/enterprise/services/agent-handler";
+import { AWAITING_CONFIRMATION_RESULT } from "back-end/src/enterprise/services/stream-processor";
+import {
+  dispatchInternal,
+  normalizePath,
+  type DispatchInput,
+  type DispatchResult,
+} from "back-end/src/agent/dispatcher";
+import { listDomainSkills, readSkill } from "back-end/src/agent/skills";
+
+// =============================================================================
+// System prompt
+// =============================================================================
+
+const GENERIC_PREAMBLE = `
+You are GrowthBook's AI assistant. You can read and modify the user's GrowthBook
+data by calling the GrowthBook REST API through the \`callApi\` tool. You are
+running inside the user's logged-in GrowthBook session, so the same permissions
+the user has in the UI apply to your API calls — there is no separate API key
+to manage.
+
+How to use the \`callApi\` tool:
+- Pass an HTTP-style request: { method, path (full, including version), query?,
+  body? }. \`body\` must be a JSON object/array, not a JSON-encoded string.
+- The response is { status, body }: treat 2xx as success; 4xx/5xx carry an
+  error \`message\`. On a non-2xx, fix the request and retry; if the same error
+  recurs 3+ times, stop and explain to the user.
+- Product Analytics results are the exception: use
+  \`body.exploration.status\`, not the HTTP status, to determine whether the
+  query succeeded. If an exploration is still running, follow the loaded
+  workflow's bounded \`wait\` and GET polling instructions.
+- If a response is too large, retry with narrower filters, pagination, fewer
+  dimensions, or a shorter date range.
+- Never invent endpoints — only call paths documented in a skill you've loaded.
+- When a write is the right next step, just issue the call. You do NOT need to
+  ask the user to confirm writes before making them — issuing the call is how
+  you propose the change.
+- On any write, pass \`summary\`: what changes, in the user's terms rather than
+  the API's. It is the only thing they read before approving — the request body
+  is collapsed — so it has to stand alone. One line for a small change; for a
+  write with several parts, a lead line then a markdown bullet per part. On an
+  update, describe the delta rather than the end state: what is added, removed,
+  or changed. "Create dashboard 'Growth KPIs' with 6 blocks: revenue KPI,
+  signup trend, …" is useful and "Create a dashboard" is not.
+
+How to use the \`askUser\` tool:
+- Use it ONLY when the request is genuinely ambiguous and you can't pick a
+  sensible default — e.g. several plausible datasources/projects/environments
+  match and guessing wrong would waste a query. Don't use it for write
+  confirmations or ordinary yes/no follow-ups, and never to offer an option you
+  would then refuse — if you already know one branch is not allowed, say so now
+  instead of spending the user's turn to arrive there.
+- After calling it, stop and emit no further tool calls or text; the reply
+  arrives as the next chat message.
+
+How to end a turn:
+- Do all \`loadSkill\` / \`callApi\` work first, then end with ONE short plain-text
+  markdown message — that last message is the user-visible reply; everything
+  before it is collapsed as intermediate work. Keep it to 1–4 sentences (or a
+  short bulleted list), reference specific numbers from the API responses, and
+  don't restate the question, recap steps, or paste raw JSON.
+- Calling \`askUser\` is the alternative way to end a turn (the question is the
+  user-visible content — emit no plain text after it).
+
+How to use skills:
+- The "Available skills" section lists **domain routers** only. Full
+  instructions are NOT inlined — load them with \`loadSkill\`.
+- Canonical skills were originally written for external, shell-capable agents.
+  Treat their HTTP methods, paths, bodies, sequencing, and safety guardrails as
+  authoritative, but translate every \`gb-call METHOD PATH [body]\` example into
+  a \`callApi\` request and every polling \`sleep\` into a \`wait\` call. Never
+  run shell commands. Ignore API-key, host, \`gb-setup\`, and credential
+  instructions because this assistant uses the logged-in session.
+- **Two-step workflow** for domain routers that have sub-skills:
+  1. \`loadSkill('<domain>')\` — read orientation, shared guardrails, and the
+     workflow table (leaf names + when to use each).
+  2. \`loadSkill('<domain>/references/<leaf>')\` — follow that leaf's detailed
+     \`callApi\` workflow.
+- **Standalone domains** such as \`growthbook-docs\` have no children — one
+  \`loadSkill\` is enough.
+- Pick the narrowest leaf that matches; only load multiple leaves if the
+  request genuinely spans workflows (e.g. create flag then target it).
+- If no domain fits, ask the user to clarify. Do not invent endpoints.
+- The turn may already **open** with one or more completed \`loadSkill\` calls you
+  did not make. Those are skills the user picked explicitly from the composer's
+  slash-command menu, so treat them as their stated intent: follow them rather
+  than routing to a different skill, and don't re-load them. Each leaf arrives
+  with its domain router alongside it, for the shared conventions — that router
+  is context, not a prompt to load anything further.
+- When several arrive together, the user is chaining a multi-step request (e.g.
+  \`feature-flags/references/flag-create\` then
+  \`feature-flags/references/flag-targeting\`). Work through them in the order given,
+  carrying results forward, and answer once at the end rather than per skill.
+
+# Page context
+
+User messages may begin with a single line of the form:
+
+  [Page context: <url-path>]
+
+This is automatically injected by the chat UI and indicates the page the
+user was viewing in the GrowthBook app when they sent the message. It is
+NOT something the user typed — do not echo it back. Treat it as a hint
+about what entity the user is referring to when they say "this experiment",
+"this feature", "the metric on this page", etc. Map \`/features/<key>\` to that
+feature, \`/experiment/<id>\` to that experiment, \`/metric/<id>\` or
+\`/fact-metrics/<id>\` to that metric,
+\`/product-analytics/dashboards/<id>\` to that dashboard, and collection pages
+to browsing that resource. Load the matching skill before acting. If page
+context is irrelevant to the request, ignore it.
+
+An Analytics dashboard the user is looking at is the one they mean by "this
+dashboard", "the dashboard", or an unqualified "add a chart" — take the id from
+the path and edit that dashboard rather than asking which one or building a
+second one.
+
+**That is the only dashboard you can change.** Updating or deleting one is
+allowed only while the user is viewing it, so a request naming a different
+dashboard is refused whatever the title resolves to — including from the
+dashboard list.
+
+Refuse it in your first reply. Name the dashboard they are on, say that is the
+only one you can change, and ask them to open the one they meant and tell you
+when they are there. Do not look the other one up, and do not \`askUser\` to
+offer it as a choice: a name that does not match the page is not ambiguity,
+it is a refusal you already know the answer to, and asking spends the user's
+turn to reach the same place. Creating a new dashboard has no such
+restriction — end that reply with a link to the new dashboard, and say that
+changing it means opening that link first.
+
+A user message may carry other auto-injected lines of the same
+\`[Label: value]\` shape — e.g. \`[Active product-analytics datasource: <id>]\`,
+a soft hint about the datasource the user currently has selected. These are
+also injected by the UI (not typed by the user); follow the same rules — do
+not echo them, and treat them as hints. For analytics, use the active datasource
+without listing or asking unless the user names a different one.
+
+For analytics, produce at most one successful chart per turn. Failed or empty
+runs may be corrected, but stop after the first successful exploration. The UI
+renders the chart automatically from the tool result. Use
+\`exploration.result.rows\` for specific numeric insights, and reuse
+\`exploration.config\` when modifying a previous chart.
+
+One of these lines is authoritative rather than a hint:
+
+  [Referenced by the user: Revenue (metric: met_abc123)]
+
+It appears when the user @-mentioned entities in the composer, and it maps each
+\`@Name\` already present in their text to the exact id they picked. Use those
+ids directly — do not search or list to re-resolve a mentioned name, and do not
+substitute a different entity that happens to have a similar name. Keep using
+the readable name in your reply.
+
+# Linking to pages
+
+You run inside the user's GrowthBook session as a sidebar assistant, so you
+can navigate them to relevant pages by including links in your final reply.
+
+- Use a **relative, same-origin path** for ordinary resource links (e.g.
+  \`/features/dark-mode\`). Never build an absolute URL or guess a host — the
+  app is already at the right origin and relative links resolve against it.
+- Product Analytics \`explorationUrl\` values are the exception: copy the
+  returned URL exactly, including its origin and complete encoded \`config\`
+  query value. Never decode, re-encode, shorten, or reconstruct it.
+- Use normal markdown link syntax with a human-readable label:
+  \`[dark-mode flag](/features/dark-mode)\`. Prefer the entity's name/key as the
+  label, not the raw path.
+- **Whenever you create or modify a resource, end with a link to view it.**
+  After creating a flag, link the flag; after launching/stopping an
+  experiment, link the experiment; after saving a draft revision, link the
+  revision. This is the most useful place to offer navigation.
+- Also offer a link when the user is clearly headed somewhere — e.g. you just
+  found the flag/experiment/metric they asked about, or you're pointing them
+  at a list to browse.
+- Keep it light: one or two genuinely relevant links per reply, woven into the
+  sentence. Don't append a wall of links or link things the user didn't ask
+  about.
+
+Path patterns (the same URL ↔ entity mappings the skills document):
+
+- Feature flag: \`/features/<feature-key>\` (draft revision: \`/features/<feature-key>?v=<version>\`)
+- Experiment: \`/experiment/<id>\`; experiments list: \`/experiments\`
+- Metric: \`/metric/<id>\`; fact metric: \`/fact-metrics/<id>\`
+- Project: \`/projects/<id>\`; environments: \`/environments\`
+- Analytics dashboard: \`/product-analytics/dashboards/<id>\`
+- Product-analytics charts: use the exact \`explorationUrl\` returned by the
+  exploration response.
+
+If you're unsure of the exact path for an entity type, fall back to the
+human-readable identifier in prose and skip the link rather than guessing.
+
+# GrowthBook concepts
+
+A short orientation so you can reason about cross-cutting questions
+without loading a skill. Load the relevant skill before issuing API calls.
+
+- **Feature Flags**: Boolean / string / number / JSON flags identified by a
+  human-readable key (e.g. "dark-mode") that control rollouts. Each flag
+  has per-environment settings with targeting rules. Default is off in all
+  environments unless the user asks otherwise. The flag's \`valueType\` is
+  set at creation and cannot be changed later.
+- **Experiments**: A/B or multivariate tests with status
+  draft/running/stopped, a tracking key, variations, and goal / secondary /
+  guardrail metrics. URLs are of the form \`/experiment/<id>\`.
+- **Bandits**: Multi-armed bandit tests that dynamically reallocate traffic
+  to winning variations.
+- **Holdouts**: Groups of users held back from experiments to measure the
+  cumulative impact of experimentation over time.
+- **Safe Rollouts**: Gradual feature rollouts with automatic monitoring —
+  they pause if guardrail metrics regress.
+- **Metrics**: Reusable quantitative measures used to evaluate experiments
+  or build product analytics charts. Legacy metrics are defined directly
+  with SQL; Fact Metrics are built on top of Fact Tables (reusable SQL
+  table definitions, more efficient to run).
+- **Metric Groups**: Named, ordered collections of metrics that can be
+  attached to experiments together.
+- **Saved Groups**: Reusable audience segments referenced from feature
+  targeting rules. Passed by reference — updates propagate everywhere.
+- **Environments**: Deployment contexts (e.g. "production", "staging").
+  Feature flags toggle and rule independently per environment.
+- **Projects**: Organizational grouping. Features, experiments, and
+  metrics can be scoped to projects.
+- **Tags**: User-defined labels on features / experiments / metrics for
+  organization and filtering.
+- **SDK Connections**: Configuration for client / server SDKs that deliver
+  feature flag values. SDK connections are scoped per environment and can
+  optionally be filtered by project.
+- **Attributes**: User properties (e.g. country, plan, browser) defined in
+  the customer's SDK implementation and registered in GrowthBook so
+  targeting rules can reference them.
+- **Permissions**: Three tiers — global, project-scoped, and
+  environment-scoped. Your effective permissions match the logged-in
+  user's; respect 403 responses and don't retry on them.
+
+When references are ambiguous, prefer human-readable identifiers (feature
+keys, experiment names) over internal IDs in your replies. Use internal
+IDs only for API calls or when constructing URLs.
+`.trim();
+
+function buildGeneralAgentSystemPrompt(): string {
+  const domains = listDomainSkills();
+  if (!domains.length) {
+    return GENERIC_PREAMBLE;
+  }
+  const skillsIndex = domains
+    .map(
+      ({ name, description }) =>
+        `- **${name}** — ${description || "(no description)"}`,
+    )
+    .join("\n");
+  return [
+    GENERIC_PREAMBLE,
+    "",
+    "# Available skills",
+    "",
+    "Call `loadSkill` with one of these names to get the full workflow:",
+    "",
+    skillsIndex,
+  ].join("\n");
+}
+
+// =============================================================================
+// Path matchers & helpers
+// =============================================================================
+
+const SQL_QUERY_PATH_RE =
+  /^\/api\/v[12]\/data-sources\/[^/]+\/sql\/(search-tables|table-schema|preview-values|run-query)\/?$/;
+
+// Strips `confirm` from agent-initiated SQL run-query bodies to prevent the
+// model from bypassing the cost confirmation gate.
+function stripConfirmFromSqlBody(path: string, body: unknown): unknown {
+  if (
+    !SQL_QUERY_PATH_RE.test(normalizePath(path)) ||
+    !body ||
+    typeof body !== "object"
+  ) {
+    return body;
+  }
+  const bodyObj = body as Record<string, unknown>;
+  if (!("confirm" in bodyObj)) return body;
+  return Object.fromEntries(
+    Object.entries(bodyObj).filter(([k]) => k !== "confirm"),
+  );
+}
+
+/**
+ * Deterministic mutation gate. Any non-GET call mutates configuration and is
+ * parked for explicit user confirmation, except a small allowlist of
+ * read-only POSTs that compute data without changing configuration.
+ *
+ * The path is normalized first (via the dispatcher's `normalizePath`) so the
+ * allowlist matches regardless of whether the LLM sends `/api/v1/...`,
+ * `/v1/...`, or `/...` — the same forms the dispatcher accepts when routing.
+ */
+function requiresMutationConfirmation(input: DispatchInput): boolean {
+  if (input.method === "GET") return false;
+  const path = normalizePath(input.path);
+  if (/^\/api\/v[12]\/experiments\/[^/]+\/snapshot\/?$/.test(path)) {
+    return false;
+  }
+  if (
+    input.method === "POST" &&
+    /^\/api\/v1\/product-analytics\/(metric|fact-table|data-source|funnel)-exploration\/?$/.test(
+      path,
+    )
+  ) {
+    return false;
+  }
+  // SQL query endpoints are read-only POSTs with their own cost confirmation
+  if (SQL_QUERY_PATH_RE.test(path)) {
+    return false;
+  }
+  return true;
+}
+
+/** The page the user was on for the newest message that carried one. */
+function latestPageContext(messages: AIChatMessage[]): string | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role === "user" && message.currentPage) {
+      return message.currentPage;
+    }
+  }
+  return undefined;
+}
+
+/** Only the dashboard on screen may be written: an update replaces its block list outright. */
+function offScreenDashboardWrite(
+  input: DispatchInput,
+  messages: AIChatMessage[],
+): { status: "rejected"; message: string } | undefined {
+  const message = offScreenDashboardWriteRejection({
+    method: input.method,
+    path: normalizePath(input.path),
+    currentPage: latestPageContext(messages),
+  });
+  return message ? { status: "rejected", message } : undefined;
+}
+
+/** Models sometimes JSON-encode `body` as a string; parse it back. */
+function coerceBody(body: unknown): unknown {
+  if (typeof body !== "string") return body;
+  const trimmed = body.trim();
+  if (!trimmed || (trimmed[0] !== "{" && trimmed[0] !== "[")) {
+    return body;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // Not valid JSON — let the handler reject it with a real error.
+    return body;
+  }
+}
+
+/** Bound every callApi result before it reaches the model, SSE, or storage. */
+const MAX_BODY_CHARS = 64_000;
+
+function summarizeResult(result: DispatchResult): {
+  status: number;
+  body: unknown;
+} {
+  const serialized = safeStringify(result);
+  if (serialized.length > MAX_BODY_CHARS) {
+    return {
+      status: result.status,
+      body: {
+        truncated: true,
+        message:
+          "Response was too large to return. Try reducing the request scope with narrower filters, pagination, fewer dimensions, or a shorter date range.",
+      },
+    };
+  }
+
+  return result;
+}
+
+function shapeCallApiResult(result: DispatchResult): DispatchResult {
+  return summarizeResult(result);
+}
+
+function safeStringify(v: unknown): string {
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
+}
+
+// =============================================================================
+// Tool schemas & descriptions
+// =============================================================================
+
+// --- callApi ---------------------------------------------------------------
+
+const callApiInputSchema = z.object({
+  method: z
+    .enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
+    .describe("HTTP method for the request"),
+  path: z
+    .string()
+    .describe(
+      "Full path including version prefix, e.g. '/api/v1/features/feat_abc'",
+    ),
+  query: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .optional()
+    .describe("Query string parameters as a flat object of strings"),
+  body: z
+    .unknown()
+    .optional()
+    .describe(
+      "Request body for POST/PUT/PATCH. Pass it as a JSON object/array " +
+        "directly — do NOT wrap it in a JSON-encoded string. Example: " +
+        '`{"foo": "bar"}`, not `"{\\"foo\\":\\"bar\\"}"`.',
+    ),
+  summary: z
+    .string()
+    .min(1)
+    .max(1200)
+    .optional()
+    .describe(
+      "What this call changes, in the user's terms. Markdown; rendered on the " +
+        "confirmation prompt for a mutating call, where the request body is " +
+        "collapsed behind a disclosure — this is the only description they " +
+        "read before approving. One line for a small change. For a write with " +
+        "several parts, a short lead line then one bullet per part, and on an " +
+        "update describe the delta (added / removed / changed), not the whole " +
+        "resulting object. Name things the way the UI does, not the API: " +
+        '"Adds a bar chart of Revenue per User over the last 12 months", not ' +
+        '"appends blocks[5]". Ignored for reads.',
+    ),
+});
+
+const CALL_API_DESCRIPTION =
+  "Make a request to the GrowthBook REST API. " +
+  "Use `loadSkill` first to get the workflow and endpoint details for the " +
+  "capability area you need. Returns { status, body }: 2xx is success, " +
+  "non-2xx contains an error message in body.message.";
+
+// --- loadSkill -------------------------------------------------------------
+
+const loadSkillInputSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .describe(
+      "Top-level skill name from 'Available skills', or a qualified <domain>/references/<workflow> path from a loaded domain router.",
+    ),
+});
+
+const LOAD_SKILL_DESCRIPTION =
+  "Load a top-level skill or qualified workflow reference. Call this when " +
+  "you've decided which skill applies to the user's request — its return value " +
+  "contains the detailed REST API workflow (endpoints, request bodies, " +
+  "examples) for that capability area. Returns { status, name, description, " +
+  "body } on a hit, or { status: 'not_found', availableSkills } if the " +
+  "name doesn't match — in which case retry with a valid name.";
+
+/** Built here so a model-issued load and a slash-command-seeded one are identical. */
+function loadSkillResult(name: string): SkillLoadResult | undefined {
+  const skill = readSkill(name);
+  if (!skill) return undefined;
+  return {
+    status: "ok",
+    name: skill.name,
+    description: skill.description,
+    body: skill.body,
+  };
+}
+
+// --- askUser ---------------------------------------------------------------
+
+const askUserOptionSchema = z.object({
+  id: z
+    .string()
+    .min(1)
+    .describe(
+      "Stable identifier for the option (e.g. a datasource id). The agent will receive this back via the user's reply context.",
+    ),
+  label: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe("Display text shown on the button — short and unambiguous."),
+  description: z
+    .string()
+    .max(300)
+    .optional()
+    .describe("Optional sub-line shown under the label for extra context."),
+});
+
+const askUserInputSchema = z.object({
+  question: z
+    .string()
+    .min(1)
+    .max(500)
+    .describe("Plain-language question to present to the user."),
+  options: z
+    .array(askUserOptionSchema)
+    .min(2)
+    .max(8)
+    .describe(
+      "Two to eight options the user can pick from. Order them by likelihood.",
+    ),
+  allowMultiple: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      "If true, the user can select multiple options. Default is single-select.",
+    ),
+});
+
+const ASK_USER_DESCRIPTION =
+  "Ask the user a multiple-choice question and stop. The chat UI renders the " +
+  "options as clickable buttons; the user's pick arrives as the next chat " +
+  "message. Use only when the request is ambiguous and you cannot pick a " +
+  "sensible default. After calling this, end your turn.";
+
+// --- wait ------------------------------------------------------------------
+
+const waitInputSchema = z.object({
+  seconds: z
+    .number()
+    .int()
+    .min(1)
+    .max(30)
+    .describe("Number of seconds to wait before continuing, from 1 to 30."),
+});
+
+const WAIT_DESCRIPTION =
+  "Wait briefly before checking an asynchronous operation again. Use only " +
+  "when a loaded workflow explicitly instructs you to poll, and obey that " +
+  "workflow's attempt limit.";
+
+/** Query values arrive loosely typed from the model; the dispatcher wants strings. */
+function stripQueryStrings(
+  query: Record<string, string | number | boolean> | undefined,
+): Record<string, string> | undefined {
+  if (!query) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(query)) {
+    out[k] = String(v);
+  }
+  return out;
+}
+
+// =============================================================================
+// AgentConfig
+// =============================================================================
+
+type GeneralAgentParams = Record<string, never>;
+
+const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
+  agentType: "general",
+  promptType: "general-chat",
+
+  // No per-request params shape the system prompt — it's fully static so the
+  // LLM provider can cache it across conversations. A preselected datasource
+  // rides along as a soft per-message hint instead (see `injectDatasourceHint`
+  // and the `[Active product-analytics datasource: …]` prefix).
+  parseParams: () => ({}),
+
+  injectDatasourceHint: true,
+
+  buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
+
+  // No skill restriction, and needed for a `/` menu pick to survive.
+  resolveSkill: loadSkillResult,
+
+  buildTools: (ctx, buffer, _params, emit) => ({
+    loadSkill: aiTool({
+      description: LOAD_SKILL_DESCRIPTION,
+      inputSchema: loadSkillInputSchema,
+      execute: async (input) => {
+        const result = loadSkillResult(input.name);
+        if (!result) {
+          return {
+            status: "not_found" as const,
+            message: `No skill named "${input.name}". Pick one from availableSkills and retry.`,
+            availableSkills: listDomainSkills().map((s) => s.name),
+          };
+        }
+        return result;
+      },
+    }),
+
+    callApi: aiTool({
+      description: CALL_API_DESCRIPTION,
+      inputSchema: callApiInputSchema,
+      execute: async (input) => {
+        const query = stripQueryStrings(input.query);
+        const dispatchInput: DispatchInput = {
+          method: input.method,
+          path: input.path,
+          query,
+          body: stripConfirmFromSqlBody(input.path, coerceBody(input.body)),
+        };
+
+        // Before the card, which only shows a summary the model wrote.
+        const offScreen = offScreenDashboardWrite(
+          dispatchInput,
+          buffer.getMessages(),
+        );
+        if (offScreen) return offScreen;
+
+        // Park the call and end the turn; the handler replays the stored call
+        // verbatim once the user decides, so the model never sees the gate.
+        if (requiresMutationConfirmation(dispatchInput)) {
+          const pendingAction: AIAgentPendingAction = {
+            id: randomUUID(),
+            method: dispatchInput.method,
+            path: dispatchInput.path,
+            ...(query ? { query } : {}),
+            ...(dispatchInput.body !== undefined
+              ? { body: dispatchInput.body }
+              : {}),
+            // The model's own summary when it supplied one — the confirmation
+            // card hides a summary equal to `method path`, so without this a
+            // multi-block write shows nothing but the endpoint.
+            summary:
+              input.summary?.trim() ||
+              `${dispatchInput.method} ${dispatchInput.path.split("?")[0]}`,
+            createdAt: Date.now(),
+          };
+          buffer.setPendingAction(pendingAction);
+          if (emit) {
+            emit("confirm-action", {
+              actionId: pendingAction.id,
+              method: pendingAction.method,
+              path: pendingAction.path,
+              summary: pendingAction.summary,
+              ...(pendingAction.query ? { query: pendingAction.query } : {}),
+              ...(pendingAction.body !== undefined
+                ? { body: pendingAction.body }
+                : {}),
+            });
+          }
+          return AWAITING_CONFIRMATION_RESULT;
+        }
+
+        const result = await dispatchInternal(ctx, dispatchInput);
+
+        // SQL cost confirmation gate: when run-query returns
+        // confirmation_required, park a confirmed re-call as a pending
+        // action so the user sees a confirmation card with cost details.
+        if (
+          result.status === 200 &&
+          SQL_QUERY_PATH_RE.test(normalizePath(dispatchInput.path)) &&
+          result.body &&
+          typeof result.body === "object" &&
+          (result.body as Record<string, unknown>).status ===
+            "confirmation_required"
+        ) {
+          const confirmedBody =
+            typeof dispatchInput.body === "object" && dispatchInput.body
+              ? {
+                  ...(dispatchInput.body as Record<string, unknown>),
+                  confirm: true,
+                }
+              : { confirm: true };
+          const costMessage = (result.body as Record<string, unknown>)
+            .message as string | undefined;
+          const pendingAction: AIAgentPendingAction = {
+            id: randomUUID(),
+            method: "POST",
+            path: dispatchInput.path,
+            ...(query ? { query } : {}),
+            body: confirmedBody,
+            summary: costMessage ?? "Execute SQL query",
+            createdAt: Date.now(),
+          };
+          buffer.setPendingAction(pendingAction);
+          if (emit) {
+            emit("confirm-action", {
+              actionId: pendingAction.id,
+              method: pendingAction.method,
+              path: pendingAction.path,
+              summary: pendingAction.summary,
+              body: confirmedBody,
+            });
+          }
+          return AWAITING_CONFIRMATION_RESULT;
+        }
+
+        return shapeCallApiResult(result);
+      },
+    }),
+
+    wait: aiTool({
+      description: WAIT_DESCRIPTION,
+      inputSchema: waitInputSchema,
+      execute: async (input, { abortSignal }) => {
+        await delay(input.seconds * 1000, undefined, {
+          signal: abortSignal,
+          ref: false,
+        });
+        return {
+          status: "completed",
+          waitedSeconds: input.seconds,
+        };
+      },
+    }),
+
+    askUser: aiTool({
+      description: ASK_USER_DESCRIPTION,
+      inputSchema: askUserInputSchema,
+      execute: async (input) => {
+        // The UI renders the options as buttons; a click sends the label as
+        // the next user message.
+        if (emit) {
+          emit("ask-user", {
+            question: input.question,
+            options: input.options,
+            allowMultiple: input.allowMultiple ?? false,
+          });
+        }
+        return {
+          status: "asked",
+          message:
+            "Question shown to the user. Stop now — wait for their reply on the next turn.",
+        };
+      },
+    }),
+  }),
+
+  temperature: 0.1,
+  maxSteps: 30,
+  maxConsecutiveToolErrors: 5,
+};
+
+// =============================================================================
+// Public exports
+// =============================================================================
+
+export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
+
+// Exposed for unit tests — see test/agent/general-agent.test.ts
+export const _buildGeneralAgentSystemPrompt = buildGeneralAgentSystemPrompt;
+export const _coerceBody = coerceBody;
+export const _offScreenDashboardWrite = offScreenDashboardWrite;
+export const _requiresMutationConfirmation = requiresMutationConfirmation;
+export const _stripConfirmFromSqlBody = stripConfirmFromSqlBody;
+export const _shapeCallApiResult = shapeCallApiResult;

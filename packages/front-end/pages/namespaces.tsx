@@ -12,6 +12,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Table, {
   TableHeader,
   TableBody,
@@ -41,11 +42,7 @@ const NamespacesPage: FC = () => {
   const { apiCall } = useAuth();
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -67,7 +64,7 @@ const NamespacesPage: FC = () => {
         />
       )}
       <Flex align="center" justify="between" mb="1">
-        <Heading as="h1" size="x-large">
+        <Heading as="h1" size="xl">
           Experiment Namespaces
         </Heading>
         {canCreate && (

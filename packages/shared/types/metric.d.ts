@@ -96,6 +96,18 @@ export interface MetricInterface {
   queryFormat?: "sql" | "builder";
 }
 
+// Slimmed metric returned by the definitions endpoint. Heavy fields are
+// excluded; fetch the full metric by id when they're needed.
+export type MetricDefinitionInterface = Omit<
+  MetricInterface,
+  | "sql"
+  | "templateVariables"
+  | "conditions"
+  | "queries"
+  | "analysis"
+  | "analysisError"
+>;
+
 export type LegacyMetricInterface = Omit<
   MetricInterface,
   "cappingSettings" | "windowSettings" | "priorSettings"

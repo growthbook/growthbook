@@ -255,7 +255,7 @@ export default function DifferenceTypeChooserChangeColumnLabel({
     >
       <DropdownMenuGroup>
         <DropdownMenuLabel
-          textSize="1"
+          textSize="sm"
           textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
         >
           Difference Type

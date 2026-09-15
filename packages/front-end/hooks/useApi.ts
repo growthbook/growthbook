@@ -1,11 +1,13 @@
 import useSWR, { SWRConfiguration } from "swr";
 import { useAuth } from "@/services/auth";
 
-export interface UseApiOptions {
+export interface UseApiOptions<Response = unknown> {
   autoRevalidate?: boolean;
   shouldRun?: () => boolean;
   orgScoped?: boolean;
-  refreshInterval?: number;
+  // Number of ms between background refreshes, or a function of the latest
+  // data returning the next interval (0 disables it). SWR supports both.
+  refreshInterval?: number | ((latestData: Response | undefined) => number);
 }
 
 export default function useApi<Response = unknown>(
@@ -15,7 +17,7 @@ export default function useApi<Response = unknown>(
     autoRevalidate = true,
     orgScoped = true,
     refreshInterval,
-  }: UseApiOptions = {},
+  }: UseApiOptions<Response> = {},
 ) {
   const { apiCall, orgId } = useAuth();
 

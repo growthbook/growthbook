@@ -352,7 +352,6 @@ const ExperimentCarouselModal: FC<{
                     close();
                   }
                 }}
-                useRadix={true}
               />
             )}
           </Box>

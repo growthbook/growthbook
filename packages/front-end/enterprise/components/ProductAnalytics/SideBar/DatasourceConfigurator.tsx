@@ -10,7 +10,7 @@ import {
   ExplorationDataset,
   ExplorationConfig,
 } from "shared/validators";
-import { PiCheck } from "react-icons/pi";
+import { isManagedWarehouseNoEventsGuidanceMessage } from "shared/util";
 import SelectField from "@/components/Forms/SelectField";
 import {
   createEmptyValue,
@@ -27,9 +27,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import BuildTablesCard from "./BuildTablesCard";
 import PendingTablesCard from "./PendingTablesCard";
+import TimestampColumnSelector from "./TimestampColumnSelector";
 
 type TableOption = {
   tableName: string;
@@ -43,7 +44,6 @@ export default function DatasourceConfigurator({
   dataset: ExplorationDataset;
 }) {
   const { datasources, project } = useDefinitions();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const { setDraftExploreState, draftExploreState } = useExplorerContext();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -188,12 +188,11 @@ export default function DatasourceConfigurator({
   return (
     <Flex direction="column" gap="2">
       {informationSchema?.error ? (
-        <Callout status="error" mt="2">
-          <Flex direction="column" gap="2">
-            <Text weight="medium">
-              We&apos;re unable to identify tables for this Data Source.
-            </Text>
-            <Text>Reason: {informationSchema?.error?.message}</Text>
+        isManagedWarehouseNoEventsGuidanceMessage(
+          informationSchema.error.message,
+        ) ? (
+          <Flex direction="column" gap="2" mt="2">
+            <ManagedWarehouseNoEventsCallout />
             <Tooltip
               body="You do not have permission to retry generating an information schema for this datasource."
               shouldDisplay={!canRunQueries}
@@ -201,14 +200,36 @@ export default function DatasourceConfigurator({
               <Button
                 disabled={!canRunQueries}
                 variant="soft"
-                color="red"
+                color="gray"
                 onClick={() => refreshOrCreateInfoSchema("PUT")}
               >
                 Retry
               </Button>
             </Tooltip>
           </Flex>
-        </Callout>
+        ) : (
+          <Callout status="error" mt="2">
+            <Flex direction="column" gap="2">
+              <Text weight="medium">
+                We&apos;re unable to identify tables for this Data Source.
+              </Text>
+              <Text>Reason: {informationSchema?.error?.message}</Text>
+              <Tooltip
+                body="You do not have permission to retry generating an information schema for this datasource."
+                shouldDisplay={!canRunQueries}
+              >
+                <Button
+                  disabled={!canRunQueries}
+                  variant="soft"
+                  color="inherit"
+                  onClick={() => refreshOrCreateInfoSchema("PUT")}
+                >
+                  Retry
+                </Button>
+              </Tooltip>
+            </Flex>
+          </Callout>
+        )
       ) : datasourceId && !informationSchema && !fetching ? (
         <BuildTablesCard
           refreshOrCreateInfoSchema={refreshOrCreateInfoSchema}
@@ -254,10 +275,10 @@ export default function DatasourceConfigurator({
                       ).toLocaleString()}`}
                     </div>
                     {!canRunQueries ? (
-                      <div className="alert alert-warning mt-2">
+                      <Callout status="warning" mt="2">
                         You do not have permission to refresh this information
                         schema.
-                      </div>
+                      </Callout>
                     ) : null}
                   </div>
                 }
@@ -275,6 +296,7 @@ export default function DatasourceConfigurator({
             )}
           </Flex>
           <SelectField
+            size="legacy"
             value={databaseDataset?.table || ""}
             onChange={(value) => {
               const selectedTable = tableOptions.find(
@@ -310,55 +332,24 @@ export default function DatasourceConfigurator({
             forceUndefinedValueToNull
           />
           {tableData && (
-            <Flex direction="column" gap="2" mt="2">
-              <Text weight="medium">Timestamp Column</Text>
-              <Flex justify="between" align="center">
-                <Text color="text-low">
-                  {databaseDataset?.timestampColumn ||
-                    "Select timestamp column..."}
-                </Text>
-                <DropdownMenu
-                  open={dropdownOpen}
-                  onOpenChange={setDropdownOpen}
-                  trigger={
-                    <Button size="xs" variant="ghost">
-                      <Text weight="semibold" size="small">
-                        {!databaseDataset?.timestampColumn
-                          ? "select"
-                          : "change"}
-                      </Text>
-                    </Button>
-                  }
-                >
-                  {tableData.columns.map((column) => (
-                    <DropdownMenuItem
-                      key={column.columnName}
-                      onClick={() => {
-                        setDraftExploreState(
-                          (prev) =>
-                            ({
-                              ...prev,
-                              dataset: {
-                                ...prev.dataset,
-                                timestampColumn: column.columnName,
-                              },
-                            }) as ExplorationConfig,
-                        );
-                      }}
-                    >
-                      <Flex align="center" justify="between" gap="2">
-                        <Flex align="center" width="20px">
-                          {databaseDataset?.timestampColumn ===
-                          column.columnName ? (
-                            <PiCheck size={16} />
-                          ) : null}
-                        </Flex>
-                        {column.columnName}
-                      </Flex>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenu>
-              </Flex>
+            <Flex mt="2">
+              <TimestampColumnSelector
+                timestampColumn={databaseDataset?.timestampColumn ?? ""}
+                columns={tableData.columns.map((column) => column.columnName)}
+                onChange={(timestampColumn) => {
+                  if (timestampColumn === null) return;
+                  setDraftExploreState(
+                    (prev) =>
+                      ({
+                        ...prev,
+                        dataset: {
+                          ...prev.dataset,
+                          timestampColumn,
+                        },
+                      }) as ExplorationConfig,
+                  );
+                }}
+              />
             </Flex>
           )}
         </>

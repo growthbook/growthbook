@@ -10,7 +10,7 @@ import {
   PiWarningBold,
   PiX,
 } from "react-icons/pi";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { datetime } from "shared/dates";
 import EventUser from "@/components/Avatar/EventUser";
 import { auditUserInfoToEventUser } from "@/components/Avatar/auditUserToEventUser";
@@ -24,13 +24,21 @@ import {
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import SplitButton from "@/ui/SplitButton";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
+import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Badge from "@/ui/Badge";
-import { ExpandableDiff } from "@/components/Features/DraftModal";
+import {
+  ExpandableDiff,
+  useDiffFormat,
+  DiffFormatToggle,
+  stringifyForRawDiff,
+} from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { PAGE_LIMIT, UseAuditEntriesResult } from "./useAuditEntries";
 import { AuditDiffConfig, CoarsenedAuditEntry } from "./types";
 import {
@@ -87,7 +95,7 @@ function AuditEntryCompareLabel({
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="lg">
             {labelA}
           </Text>
         </Flex>
@@ -109,7 +117,7 @@ function AuditEntryCompareLabel({
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="lg">
             {labelB}
           </Text>
         </Flex>
@@ -170,15 +178,15 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
             ).map(([label, value]) => (
               <Flex key={label} gap="2" align="baseline">
                 <span style={{ minWidth: 80, flexShrink: 0 }}>
-                  <Text size="medium" color="text-mid">
+                  <Text size="md" color="text-mid">
                     {label}
                   </Text>
                 </span>
-                <Text size="medium">{value}</Text>
+                <Text size="md">{value}</Text>
               </Flex>
             ))}
           </Flex>
-          <Text size="medium" weight="medium" color="text-mid" mb="1" as="div">
+          <Text size="md" weight="medium" color="text-mid" mb="1" as="div">
             Details
           </Text>
           <div className="diff-wrapper">
@@ -202,6 +210,18 @@ export interface CompareAuditEventsProps<T> {
   auditEntries: UseAuditEntriesResult<T>;
   /** Human-readable map from event string to display name, e.g. "experiment.start" → "Started" */
   eventLabels?: Record<string, string>;
+  /**
+   * Optional "revert to this version" action. When provided, a CTA is shown
+   * while viewing a single entry; `onRevert` receives that entry (its
+   * `postSnapshot` is the state to restore).
+   */
+  revert?: {
+    cta: string;
+    disabled?: boolean;
+    confirmTitle?: string;
+    confirmBody?: React.ReactNode;
+    onRevert: (entry: CoarsenedAuditEntry<T>) => void | Promise<void>;
+  };
 }
 
 const EMPTY_EVENT_LABELS: Record<string, string> = {};
@@ -210,6 +230,7 @@ export default function CompareAuditEvents<T>({
   config,
   auditEntries,
   eventLabels = EMPTY_EVENT_LABELS,
+  revert,
 }: CompareAuditEventsProps<T>) {
   const { allAuditEvents } = auditEntries;
   const {
@@ -245,6 +266,8 @@ export default function CompareAuditEvents<T>({
     diffViewMode,
     setDiffViewModeRaw,
     activeDiffs,
+    activeRawPre,
+    activeRawPost,
     customRenderGroups,
     activeBadges,
     displayFailed,
@@ -253,10 +276,28 @@ export default function CompareAuditEvents<T>({
     singleEntryFirst,
     singleEntryLast,
     isSingleEntry,
+    comparisonBase,
+    setComparisonBase,
   } = useAuditComparison(config, auditEntries, eventLabels);
 
   // Tracks which time-range quick action is currently loading (key = range label).
   const [pendingRange, setPendingRange] = useState<string | null>(null);
+
+  const singleSelect = !!config.singleSelect;
+  const contentView = config.contentView;
+  // The focused content view is the default when configured.
+  const [showContent, setShowContent] = useState(!!contentView);
+
+  const [confirmRevertEntry, setConfirmRevertEntry] =
+    useState<CoarsenedAuditEntry<T> | null>(null);
+
+  // App-wide preference: human-readable renders vs raw JSON diffs.
+  const [format, setFormat] = useDiffFormat();
+  // The contentView toggle only offers formatted/json, but `format` is a shared
+  // preference that can be "raw" from another surface — coerce so we never land
+  // on a view the toggle can't switch away from.
+  const effectiveFormat =
+    contentView && format === "raw" ? "formatted" : format;
 
   /**
    * Returns [newestId, oldestId] for the time window: all entries whose dateEnd
@@ -332,13 +373,15 @@ export default function CompareAuditEvents<T>({
       <Box
         key={entry.id}
         className={`${styles.row} ${isSelected ? styles.rowSelected : ""}`}
-        onClick={() => toggleSelection(entry.id)}
+        onClick={() =>
+          singleSelect ? viewSingle(entry.id) : toggleSelection(entry.id)
+        }
       >
-        {!isExclusivelySelected && (
+        {!singleSelect && !isExclusivelySelected && (
           <div className={styles.viewSingleWrapper}>
             <Button
               variant="outline"
-              size="xs"
+              size="sm"
               className={styles.viewSingleButton}
               onClick={async (e) => {
                 e?.preventDefault();
@@ -350,19 +393,21 @@ export default function CompareAuditEvents<T>({
             </Button>
           </div>
         )}
-        <div
-          className={styles.filterCheckbox}
-          style={{ marginTop: -6, marginLeft: -6 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleSelection(entry.id);
-          }}
-        >
-          <RadixCheckbox
-            checked={isSelected}
-            style={{ pointerEvents: "none" }}
-          />
-        </div>
+        {!singleSelect && (
+          <div
+            className={styles.filterCheckbox}
+            style={{ marginTop: -6, marginLeft: -6 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSelection(entry.id);
+            }}
+          >
+            <RadixCheckbox
+              checked={isSelected}
+              style={{ pointerEvents: "none" }}
+            />
+          </div>
+        )}
         <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
           <Flex align="center" justify="between" gap="2" width="100%">
             <Flex align="center" gap="1">
@@ -384,13 +429,15 @@ export default function CompareAuditEvents<T>({
               />
             )}
           </Flex>
-          <Box mt="2">
-            <AuditEntryAuthor user={entry.user} display="avatar-name" />
-          </Box>
-          <Text as="div">
+          <Text size="sm" color="text-low">
             {entry.count > 1
               ? datetime(entry.dateEnd)
-              : datetime(entry.dateStart)}
+              : datetime(entry.dateStart)}{" "}
+            ·{" "}
+            <EventUser
+              user={auditUserInfoToEventUser(entry.user)}
+              display="name"
+            />
           </Text>
           {entry.count > 1 && (
             <Box mt="1">
@@ -415,15 +462,30 @@ export default function CompareAuditEvents<T>({
 
   return (
     <Flex style={{ flex: 1, minHeight: 0, height: "100%" }}>
+      {confirmRevertEntry && revert && (
+        <ConfirmDialog
+          title={revert.confirmTitle ?? revert.cta}
+          content={
+            revert.confirmBody ??
+            "This restores the selected version as a new change. Nothing is lost — you can revert again."
+          }
+          yesText="Revert"
+          onConfirm={async () => {
+            await revert.onRevert(confirmRevertEntry);
+            setConfirmRevertEntry(null);
+          }}
+          onCancel={() => setConfirmRevertEntry(null)}
+        />
+      )}
       {/* Left column */}
       <Box
         style={{ width: 300, minWidth: 300, minHeight: 0 }}
         className={`${styles.sidebar} ${styles.sidebarLeft} overflow-auto`}
       >
         {/* Quick actions */}
-        {flatEntries.length >= 2 && (
+        {!singleSelect && flatEntries.length >= 2 && (
           <Box className={`${styles.section} border-bottom`} pb="2">
-            <Text size="medium" weight="medium" color="text-mid" mb="2" as="p">
+            <Text size="md" weight="medium" color="text-mid" mb="2" as="p">
               Quick actions
             </Text>
             <Flex direction="column" className={styles.quickActionsList}>
@@ -443,7 +505,7 @@ export default function CompareAuditEvents<T>({
                 <Box className={styles.rowSpacer} />
                 <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                   <Text weight="semibold">Most recent change</Text>
-                  <Text size="small" color="text-low" as="div">
+                  <Text size="sm" color="text-low" as="div">
                     <span
                       style={{
                         display: "block",
@@ -519,7 +581,7 @@ export default function CompareAuditEvents<T>({
                     <Text weight="semibold">All changes</Text>
                     {loadingAll && !pendingRange && <LoadingSpinner />}
                   </Flex>
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     {total} total
                   </Text>
                 </Flex>
@@ -531,8 +593,8 @@ export default function CompareAuditEvents<T>({
         {/* Group by + entry list */}
         <Box className={styles.section} pb="3">
           <Flex align="center" justify="between" mb="2">
-            <Text size="medium" weight="medium" color="text-mid">
-              Select a range of changes
+            <Text size="md" weight="medium" color="text-mid">
+              {singleSelect ? "Select a version" : "Select a range of changes"}
             </Text>
             {!config.hideFilters &&
               sectionLabels.length > 0 &&
@@ -711,7 +773,7 @@ export default function CompareAuditEvents<T>({
                             background: "var(--gray-6)",
                           }}
                         />
-                        <Text size="small" weight="medium" color="text-low">
+                        <Text size="sm" weight="medium" color="text-low">
                           {getSeparatorLabel(date)}
                         </Text>
                         <Box
@@ -734,7 +796,7 @@ export default function CompareAuditEvents<T>({
                         px="2"
                         py="1"
                       >
-                        <Text color="text-low" size="small">
+                        <Text color="text-low" size="sm">
                           {item.marker.label}
                         </Text>
                       </Flex>,
@@ -762,7 +824,7 @@ export default function CompareAuditEvents<T>({
                       >
                         {lines.map((line) => (
                           <Flex key={line} align="center">
-                            <Text color="text-low" size="small">
+                            <Text color="text-low" size="sm">
                               {line}
                             </Text>
                           </Flex>
@@ -783,7 +845,7 @@ export default function CompareAuditEvents<T>({
                     <Flex gap="4" mt="1" justify="between">
                       <Button
                         variant="ghost"
-                        size="xs"
+                        size="sm"
                         onClick={loadMore}
                         disabled={loading || loadingAll}
                       >
@@ -793,7 +855,7 @@ export default function CompareAuditEvents<T>({
                       {remaining > PAGE_LIMIT && (
                         <Button
                           variant="ghost"
-                          size="xs"
+                          size="sm"
                           onClick={handleLoadAll}
                           disabled={loading || loadingAll}
                         >
@@ -828,17 +890,17 @@ export default function CompareAuditEvents<T>({
               mb="3"
               style={{ borderBottom: "1px solid var(--gray-5)" }}
             >
-              <Flex align="center" justify="between" gap="4" wrap="wrap">
+              <Flex align="start" justify="between" gap="4" wrap="wrap">
                 <Flex align="center" gap="4">
                   {diffViewMode === "steps" && (
                     <>
-                      <Heading as="h2" size="small" mb="0">
+                      <Heading as="h2" size="sm" mb="0">
                         Step {safeDiffPage + 1} of {steps.length}
                       </Heading>
                       <Flex gap="2">
                         <Button
                           variant="soft"
-                          size="sm"
+                          size="md"
                           disabled={safeDiffPage <= 0}
                           onClick={() => setDiffPage((p) => Math.max(0, p - 1))}
                         >
@@ -846,7 +908,7 @@ export default function CompareAuditEvents<T>({
                         </Button>
                         <Button
                           variant="soft"
-                          size="sm"
+                          size="md"
                           disabled={safeDiffPage >= steps.length - 1}
                           onClick={() =>
                             setDiffPage((p) =>
@@ -875,7 +937,7 @@ export default function CompareAuditEvents<T>({
                               />
                             </Tooltip>
                           )}
-                          <Text weight="semibold" size="medium">
+                          <Text weight="semibold" size="lg">
                             {getEntryLabel(singleEntryFirst)}
                           </Text>
                         </Flex>
@@ -897,20 +959,67 @@ export default function CompareAuditEvents<T>({
                       />
                     ))}
                 </Flex>
-                {!isSingleEntry && (
+                {!isSingleEntry ? (
                   <Flex align="center" gap="2">
-                    <Text size="medium" weight="medium" color="text-mid">
+                    <Text size="md" weight="medium" color="text-mid">
                       Show diff as
                     </Text>
                     <Select
                       value={diffViewMode}
                       setValue={(v) => setDiffViewModeRaw(v)}
-                      size="2"
+                      size="md"
                       mb="0"
                     >
                       <SelectItem value="steps">Steps</SelectItem>
                       <SelectItem value="single">Single diff</SelectItem>
                     </Select>
+                  </Flex>
+                ) : (
+                  <Flex align="center" gap="3">
+                    {singleSelect && singleEntryFirst && (
+                      <Flex align="center" gap="2">
+                        <Text size="md" weight="medium" color="text-mid">
+                          Compare against
+                        </Text>
+                        <Select
+                          value={comparisonBase}
+                          setValue={(v) =>
+                            setComparisonBase(v as typeof comparisonBase)
+                          }
+                          size="md"
+                          mb="0"
+                        >
+                          <SelectItem value="current">
+                            Current version
+                          </SelectItem>
+                          <SelectItem value="previous">
+                            Previous version
+                          </SelectItem>
+                          <SelectItem
+                            value="next"
+                            disabled={
+                              flatEntries[0]?.id === singleEntryFirst.id
+                            }
+                          >
+                            Next version
+                          </SelectItem>
+                        </Select>
+                      </Flex>
+                    )}
+                    {revert &&
+                      singleEntryFirst &&
+                      flatEntries[0]?.id !== singleEntryFirst.id && (
+                        <Button
+                          variant="outline"
+                          color="red"
+                          disabled={revert.disabled}
+                          onClick={() =>
+                            setConfirmRevertEntry(singleEntryFirst)
+                          }
+                        >
+                          {revert.cta}
+                        </Button>
+                      )}
                   </Flex>
                 )}
               </Flex>
@@ -931,7 +1040,7 @@ export default function CompareAuditEvents<T>({
 
             {/* Diff content */}
             {displayFailed.length > 0 ? (
-              <Callout status="error" contentsAs="div" mt="4">
+              <Callout status="error" mt="4">
                 <Flex direction="column" gap="2" align="start">
                   <span>
                     Could not load change
@@ -943,85 +1052,148 @@ export default function CompareAuditEvents<T>({
             ) : activeDiffs.length === 0 ? (
               <Text color="text-low">No changes between these entries.</Text>
             ) : (
-              <>
-                {/* Hoisted summaries: badges + human-readable renders per section */}
-                {(activeBadges.length > 0 || customRenderGroups.length > 0) && (
-                  <Box>
-                    <Heading as="h5" size="small" color="text-mid" mt="4">
-                      Summary of changes
-                    </Heading>
+              <Box>
+                <Heading as="h5" size="sm" color="text-mid" mt="4">
+                  Summary of changes
+                </Heading>
 
-                    {/* Badge strip — same layout as revision comparison modal */}
-                    {activeBadges.length > 0 && (
-                      <Flex wrap="wrap" gap="2" mt="2" mb="2">
-                        {activeBadges.map(({ label, action }) => (
-                          <Badge
-                            key={label}
-                            color="gray"
-                            variant="soft"
-                            label={label}
-                            // action is passed through for future colour mapping
-                            data-action={action}
-                          />
-                        ))}
-                      </Flex>
-                    )}
-
-                    <Flex direction="column" gap="0">
-                      {customRenderGroups.map(
-                        ({ label, renders, suppressCardLabel }) => (
-                          <Box
-                            key={label}
-                            p="3"
-                            my="3"
-                            className="rounded bg-light"
-                          >
-                            {!suppressCardLabel && (
-                              <Heading
-                                as="h6"
-                                size="small"
-                                color="text-mid"
-                                mb="2"
-                              >
-                                {label}
-                              </Heading>
-                            )}
-                            {renders.map((r, i) => (
-                              <Box key={i}>{r}</Box>
-                            ))}
-                          </Box>
-                        ),
-                      )}
-                    </Flex>
-                  </Box>
+                {/* Badge strip — same layout as revision comparison modal */}
+                {activeBadges.length > 0 && (
+                  <Flex wrap="wrap" gap="2" mt="2">
+                    {activeBadges.map(({ label, action }) => (
+                      <Badge
+                        key={label}
+                        color="gray"
+                        variant="soft"
+                        label={label}
+                        // action is passed through for future colour mapping
+                        data-action={action}
+                      />
+                    ))}
+                  </Flex>
                 )}
 
-                {/* Raw JSON diffs */}
-                {(activeBadges.length > 0 || customRenderGroups.length > 0) && (
-                  <Heading as="h5" size="small" color="text-mid" mt="4" mb="3">
-                    Change details
-                  </Heading>
-                )}
-                <Flex
-                  direction="column"
-                  gap="4"
-                  key={`${stepEntryA?.id ?? singleEntryFirst?.id}-${stepEntryB?.id ?? singleEntryLast?.id}`}
-                >
-                  {activeDiffs.map((d, i) => (
-                    <Box key={i}>
-                      <ExpandableDiff
-                        title={d.label}
-                        a={d.a}
-                        b={d.b}
-                        defaultOpen={
-                          !d.defaultCollapsed && isSectionVisible(d.label)
+                {contentView ? (
+                  <Box mt="3" mb="3">
+                    <SplitButton
+                      variant="outline"
+                      className="diff-format-toggle"
+                    >
+                      <Button
+                        size="md"
+                        variant={showContent ? "solid" : "outline"}
+                        onClick={() => setShowContent(true)}
+                      >
+                        {contentView.label}
+                      </Button>
+                      <Button
+                        size="md"
+                        variant={
+                          !showContent && effectiveFormat === "formatted"
+                            ? "solid"
+                            : "outline"
                         }
-                        styles={COMPACT_DIFF_STYLES}
+                        onClick={() => {
+                          setShowContent(false);
+                          setFormat("formatted");
+                        }}
+                      >
+                        Formatted changes
+                      </Button>
+                      <Button
+                        size="md"
+                        variant={
+                          !showContent && effectiveFormat === "json"
+                            ? "solid"
+                            : "outline"
+                        }
+                        onClick={() => {
+                          setShowContent(false);
+                          setFormat("json");
+                        }}
+                      >
+                        JSON diffs
+                      </Button>
+                    </SplitButton>
+                  </Box>
+                ) : (
+                  <DiffFormatToggle
+                    value={format}
+                    setValue={setFormat}
+                    mt="3"
+                    mb="3"
+                  />
+                )}
+
+                {/* Formatted mode shows human-readable renders when available;
+                    otherwise it falls back to the JSON diffs. */}
+                {contentView && showContent ? (
+                  activeRawPost ? (
+                    <Box my="3">
+                      <Code
+                        language={contentView.language}
+                        code={contentView.get(activeRawPost as T)}
                       />
                     </Box>
-                  ))}
-                </Flex>
-              </>
+                  ) : (
+                    <Text color="text-low">No content for this version.</Text>
+                  )
+                ) : effectiveFormat === "formatted" &&
+                  customRenderGroups.length > 0 ? (
+                  <Flex direction="column" gap="0">
+                    {customRenderGroups.map(
+                      ({ label, renders, suppressCardLabel }) => (
+                        <Box
+                          key={label}
+                          p="3"
+                          my="3"
+                          className="rounded bg-light"
+                        >
+                          {!suppressCardLabel && (
+                            <Heading as="h6" size="sm" color="text-mid" mb="2">
+                              {label}
+                            </Heading>
+                          )}
+                          {renders.map((r, i) => (
+                            <Box key={i}>{r}</Box>
+                          ))}
+                        </Box>
+                      ),
+                    )}
+                  </Flex>
+                ) : effectiveFormat === "raw" ? (
+                  // Non-sectional: a single diff of the entire before/after shape.
+                  <Box my="3">
+                    <ExpandableDiff
+                      title="Raw JSON"
+                      a={stringifyForRawDiff(activeRawPre)}
+                      b={stringifyForRawDiff(activeRawPost)}
+                      defaultOpen
+                      styles={COMPACT_DIFF_STYLES}
+                    />
+                  </Box>
+                ) : (
+                  <Flex
+                    direction="column"
+                    gap="4"
+                    key={`${stepEntryA?.id ?? singleEntryFirst?.id}-${stepEntryB?.id ?? singleEntryLast?.id}`}
+                  >
+                    {activeDiffs.map((d, i) => (
+                      <Box key={i}>
+                        <ExpandableDiff
+                          title={d.label}
+                          a={d.a}
+                          b={d.b}
+                          defaultOpen={
+                            !d.defaultCollapsed && isSectionVisible(d.label)
+                          }
+                          styles={COMPACT_DIFF_STYLES}
+                        />
+                      </Box>
+                    ))}
+                  </Flex>
+                )}
+              </Box>
             )}
             {singleEntryLast &&
               (isSingleEntry ||

@@ -10,31 +10,31 @@ export default function TextStories() {
       <Flex direction="column" gap="3">
         <span>Unwrapped text example</span>
         <Grid columns="repeat(3, 1fr)" gap="0.5rem">
-          <Text size="small" weight="regular" color={textColor}>
+          <Text size="sm" weight="regular" color={textColor}>
             body/small/regular
           </Text>
-          <Text size="small" weight="medium" color={textColor}>
+          <Text size="sm" weight="medium" color={textColor}>
             body/small/medium
           </Text>
-          <Text size="small" weight="semibold" color={textColor}>
+          <Text size="sm" weight="semibold" color={textColor}>
             body/small/semibold
           </Text>
-          <Text size="medium" weight="regular" color={textColor}>
+          <Text size="md" weight="regular" color={textColor}>
             body/medium/regular
           </Text>
-          <Text size="medium" weight="medium" color={textColor}>
+          <Text size="md" weight="medium" color={textColor}>
             body/medium/medium
           </Text>
-          <Text size="medium" weight="semibold" color={textColor}>
+          <Text size="md" weight="semibold" color={textColor}>
             body/medium/semibold
           </Text>
-          <Text size="large" weight="regular" color={textColor}>
+          <Text size="lg" weight="regular" color={textColor}>
             body/large/regular
           </Text>
-          <Text size="large" weight="medium" color={textColor}>
+          <Text size="lg" weight="medium" color={textColor}>
             body/large/medium
           </Text>
-          <Text size="large" weight="semibold" color={textColor}>
+          <Text size="lg" weight="semibold" color={textColor}>
             body/large/semibold
           </Text>
         </Grid>

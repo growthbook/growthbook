@@ -89,6 +89,7 @@ export default function ChanceToWinThresholdField<
 
   return (
     <Field
+      size="legacy"
       label={label}
       type="number"
       step="any"

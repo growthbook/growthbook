@@ -20,7 +20,7 @@ import { LicenseInterface } from "shared/enterprise";
 import { DataSourceInterface } from "shared/types/datasource";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useForm } from "react-hook-form";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
@@ -38,8 +38,14 @@ import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import SelectField from "@/components/Forms/SelectField";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
+import {
+  DEFAULT_DATA_REGION,
+  DataRegion,
+  useDataRegionOptions,
+} from "@/services/dataRegions";
 
 interface memberOrgProps {
   id: string;
@@ -79,6 +85,9 @@ function OrganizationRow({
   const [licenseLoading, setLicenseLoading] = useState(false);
   const { apiCall } = useAuth();
   const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
+  const [clickhouseRegion, setClickhouseRegion] =
+    useState<DataRegion>(DEFAULT_DATA_REGION);
+  const dataRegionOptions = useDataRegionOptions();
   const [managedWarehouseId, setManagedWarehouseId] = useState(
     datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
@@ -134,6 +143,7 @@ function OrganizationRow({
       {
         method: "POST",
         headers: { "X-Organization": organization.id },
+        body: JSON.stringify({ region: clickhouseRegion }),
       },
     );
     setClickhouseModalOpen(false);
@@ -162,6 +172,17 @@ function OrganizationRow({
         >
           Are you sure you want to create a Managed Warehouse data source for
           this organization?
+          <Box mt="3">
+            <SelectField
+              size="small"
+              legacyLabelFormatting={false}
+              label="Data region"
+              value={clickhouseRegion}
+              onChange={(value) => setClickhouseRegion(value as DataRegion)}
+              options={dataRegionOptions}
+              helpText="Where this org's event data is stored. This cannot be changed later."
+            />
+          </Box>
         </Modal>
       )}
       {editSSOOpen && (
@@ -181,6 +202,7 @@ function OrganizationRow({
         className={clsx({
           "table-warning": current,
           "table-danger": organization.disabled,
+          "table-secondary": organization.suspended && !organization.disabled,
         })}
       >
         <td>
@@ -242,10 +264,7 @@ function OrganizationRow({
         <tr>
           <td colSpan={8} className="bg-light">
             <h3>Summary</h3>
-            <div
-              className="mb-3 bg-white border p-3"
-              style={{ border: "1px solid var(--border-color-200)" }}
-            >
+            <div className="appbox mb-3 p-3">
               <div className="row">
                 <div className="col-2 text-right">Name:</div>
                 <div className="col-auto font-weight-bold">
@@ -276,7 +295,9 @@ function OrganizationRow({
                   {ssoInfo
                     ? `yes (${
                         ssoInfo.id
-                      } for domains: ${ssoInfo.emailDomains?.join(", ")})`
+                      } for domains: ${ssoInfo.emailDomains?.join(", ")})${
+                        ssoInfo.disabled ? " — DISABLED" : ""
+                      }`
                     : "no"}
                 </div>
                 {isCloud() && (
@@ -347,6 +368,7 @@ function OrganizationRow({
                     <div className="col-auto">
                       {managedWarehouseId ? (
                         <ConfirmButton
+                          isDestructive
                           onClick={async () => {
                             await apiCall(
                               `/datasource/${managedWarehouseId}/recreate-managed-warehouse`,
@@ -529,7 +551,7 @@ function MemberRow({
                 )}
                 {memberOrgs.map((o) => (
                   <div className="mb-2 col-3" key={o.id + member.id}>
-                    <div className="mx-2  border bg-white p-3 rounded-lg">
+                    <div className="appbox mx-2 mb-0 p-3">
                       <div>
                         <span className="font-weight-bold">Name:</span> {o.name}
                       </div>
@@ -649,16 +671,14 @@ const Admin: FC = () => {
 
   if (!superAdmin) {
     return (
-      <div className="alert alert-danger">
-        Only super admins can view this page
-      </div>
+      <Callout status="error">Only super admins can view this page</Callout>
     );
   }
   if (!isCloud() && license?.plan != "enterprise") {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         You must be on an enterprise license to view this page
-      </div>
+      </Callout>
     );
   }
 
@@ -676,10 +696,7 @@ const Admin: FC = () => {
       <h1>GrowthBook Admin</h1>
       {!isCloud() && (
         <>
-          <div
-            className="p-3 bg-white"
-            style={{ border: "1px solid var(--border-color-200)" }}
-          >
+          <div className="appbox p-3">
             <ShowLicenseInfo showInput={false} />{" "}
           </div>
           <div className="divider border-bottom mb-3 mt-3" />
@@ -714,6 +731,7 @@ const Admin: FC = () => {
                 }}
               >
                 <Field
+                  size="legacy"
                   label="Search:"
                   labelClassName="mr-2"
                   value={search}
@@ -734,7 +752,7 @@ const Admin: FC = () => {
               </span>
             </div>
           </div>
-          {error && <div className="alert alert-danger">{error}</div>}
+          {error && <Callout status="error">{error}</Callout>}
           <div className="position-relative">
             {loading && <LoadingOverlay />}
             <table className="table appbox" style={{ tableLayout: "fixed" }}>
@@ -823,6 +841,7 @@ const Admin: FC = () => {
                 }}
               >
                 <Field
+                  size="legacy"
                   label="Search:"
                   labelClassName="mr-2"
                   value={memberSearch}
@@ -844,9 +863,7 @@ const Admin: FC = () => {
               </span>
             </div>
           </div>
-          {memberError && (
-            <div className="alert alert-danger">{memberError}</div>
-          )}
+          {memberError && <Callout status="error">{memberError}</Callout>}
           <div className="position-relative">
             {memberLoading && <LoadingOverlay />}
             <table className="table appbox" style={{ tableLayout: "fixed" }}>
@@ -1162,6 +1179,7 @@ function EditSSOModal({
       <h3>Organization: {organizationName}</h3>
 
       <SelectField
+        size="legacy"
         label="Identity Provider Type"
         value={currentValue.idpType || ""}
         onChange={(idpType) =>
@@ -1181,6 +1199,7 @@ function EditSSOModal({
       />
 
       <Field
+        size="legacy"
         label="SSO Id"
         {...form.register("id")}
         pattern="^[a-zA-Z0-9_]+$"
@@ -1189,9 +1208,15 @@ function EditSSOModal({
         helpText="A short id to identify this organization. Examples: 'acme', 'dunder_mifflin', 'initech'"
       />
 
-      <Field label="Client ID" {...form.register("clientId")} required />
+      <Field
+        size="legacy"
+        label="Client ID"
+        {...form.register("clientId")}
+        required
+      />
 
       <Field
+        size="legacy"
         label="Client Secret"
         type="text"
         {...form.register("clientSecret")}
@@ -1200,6 +1225,7 @@ function EditSSOModal({
       />
 
       <StringArrayField
+        legacyHeight
         label="Email Domains"
         value={form.watch("emailDomains") || []}
         onChange={(emailDomains) => form.setValue("emailDomains", emailDomains)}
@@ -1209,6 +1235,7 @@ function EditSSOModal({
       {currentValue.idpType === "okta" ||
       currentValue.idpType === "onelogin" ? (
         <Field
+          size="legacy"
           label="Base URL"
           {...form.register("baseURL")}
           type="url"
@@ -1216,10 +1243,15 @@ function EditSSOModal({
         />
       ) : null}
       {currentValue.idpType === "azure" || currentValue.idpType === "auth0" ? (
-        <Field label="Tenant ID" {...form.register("tenantId")} required />
+        <Field
+          size="legacy"
+          label="Tenant ID"
+          {...form.register("tenantId")}
+          required
+        />
       ) : null}
       {currentValue.idpType === "auth0" ? (
-        <Field label="Audience" {...form.register("audience")} />
+        <Field size="legacy" label="Audience" {...form.register("audience")} />
       ) : null}
 
       <Checkbox
@@ -1232,10 +1264,12 @@ function EditSSOModal({
       {currentValue.idpType === "oidc" ? (
         <>
           <Field
+            size="legacy"
             label="Additional Scope"
             {...form.register("additionalScope")}
           />
           <Field
+            size="legacy"
             label="Metadata (JSON)"
             textarea
             {...form.register("metadata")}

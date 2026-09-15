@@ -21,6 +21,7 @@ import { MakeModelClass } from "./BaseModel";
 const BaseClass = MakeModelClass({
   schema: customFieldsValidator,
   collectionName: "customfields",
+  affectsDefinitionsVersion: true,
   idPrefix: "cfd_",
   auditLog: {
     entity: "customField",

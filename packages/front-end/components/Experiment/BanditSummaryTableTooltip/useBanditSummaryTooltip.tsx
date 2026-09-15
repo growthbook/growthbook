@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { BanditEvent } from "shared/validators";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { WIN_THRESHOLD_PROBABILITY } from "@/components/Experiment/BanditSummaryTable";
 import {
   LayoutX,
@@ -20,7 +20,7 @@ export function useBanditSummaryTooltip({
   probabilities,
   regressionAdjustmentEnabled,
 }: {
-  metric: ExperimentMetricInterface | null;
+  metric: ExperimentMetricDefinition | null;
   variations: { id: string; index: number; name: string }[];
   currentEvent: BanditEvent;
   probabilities: number[];

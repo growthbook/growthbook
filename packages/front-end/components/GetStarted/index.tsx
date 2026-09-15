@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useState, useEffect, useMemo } from "react";
 import {
   Box,
@@ -11,7 +12,6 @@ import {
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
 import router from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -26,9 +26,10 @@ import {
 } from "@/components/GetStarted/FeaturedCards";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
-import OverviewCard from "@/components/GetStarted/OverviewCard";
 import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
+import { HomeMarketingBanner } from "@/components/Marketing/MarketingBanner";
 import Callout from "@/ui/Callout";
+import AutoRunCallout from "@/components/GetStarted/AutoRunCallout";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import NeedingAttention from "@/components/GetStarted/NeedingAttention";
@@ -36,12 +37,13 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import AdvancedFeaturesCard from "@/components/GetStarted/AdvancedFeaturesCard";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
+import { isExperimentationLeaning } from "@/services/onboarding";
 import { DocSection } from "@/components/DocLink";
-import { AppFeatures } from "@/types/app-features";
 import useApi from "@/hooks/useApi";
+import useAgentOnboarding from "@/hooks/useAgentOnboarding";
 
 type AdvancedFeature = (
   | { docSection: DocSection; href?: never }
@@ -120,14 +122,17 @@ const advancedFeatureList: AdvancedFeature[] = [
   ...dataScientistFeatureList,
 ];
 
-const GetStartedAndHomePage = (): React.ReactElement => {
+const GetStartedAndHomePage = ({
+  showMarketingBanner = false,
+}: {
+  showMarketingBanner?: boolean;
+} = {}): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
   const { organization } = useUser();
-  const gb = useGrowthBook<AppFeatures>();
 
   const { data } = useApi<{ hasFeatures: boolean; hasExperiments: boolean }>(
     "/organization/feature-exp-usage",
@@ -144,9 +149,10 @@ const GetStartedAndHomePage = (): React.ReactElement => {
       projects: [project],
       id: "production",
     });
-  const canCreateFeature = permissionsUtils.canCreateFeature({
-    project,
-  });
+  const canCreateFeature = permissionsUtils.canCreateFeature(
+    { project },
+    NO_ENVIRONMENT_BINDING,
+  );
   const canCreateExperiment = permissionsUtils.canCreateExperiment({
     project,
   });
@@ -155,15 +161,9 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const hasExperiments = data?.hasExperiments || false;
   const orgIsUsingFeatureOrExperiment = hasFeatures || hasExperiments;
 
-  const intentToExperiment =
-    organization?.demographicData?.ownerUsageIntents?.includes("experiments") ||
-    organization?.demographicData?.ownerUsageIntents?.length === 0 ||
-    !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
-
-  const showDataScientistView =
-    intentToExperiment &&
-    isCloud() &&
-    gb.isOn("experimentation-focused-onboarding");
+  const showDataScientistView = isExperimentationLeaning(
+    organization?.demographicData,
+  );
 
   const [showGettingStarted, setShowGettingStarted] = useState<boolean>(
     !orgIsUsingFeatureOrExperiment,
@@ -179,6 +179,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const orgHasConnectedSDK =
     sdkConnectionData && sdkConnectionData.connections.some((c) => c.connected);
   const showSetUpFlow = canUseSetupFlow && !orgHasConnectedSDK;
+  const agentOnboarding = useAgentOnboarding();
 
   // If they view the guide, clear the current step
   useEffect(() => {
@@ -215,10 +216,9 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         />
       )}
       {openNewExperimentModal && (
-        <NewExperimentForm
+        <CreateExperimentModal
           onClose={() => setOpenNewExperimentModal(false)}
           source="home-page"
-          isNewExperiment={true}
         />
       )}
       {openNewFeatureFlagModal && (
@@ -244,6 +244,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         px={{ initial: "2", xs: "4", sm: "7" }}
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
+        {showMarketingBanner && <HomeMarketingBanner />}
         <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
           <Text size="7" weight="regular" mb="5" as="div">
             Home
@@ -340,6 +341,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                   </Button>
                 )}
               </Flex>
+              <AutoRunCallout />
               {!showGettingStarted && (
                 <Callout status="info" size="md" mb="4">
                   <Text size="2">
@@ -377,7 +379,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                     <Callout status="wizard" size="md" mb="6">
                       Connect to your SDK to get started.{" "}
                       <Link
-                        href="/setup"
+                        href={agentOnboarding ? "/connect" : "/setup"}
                         className="font-weight-bold"
                         style={{ color: "inherit" }}
                       >
@@ -385,43 +387,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                       </Link>{" "}
                       <PiArrowSquareOut />
                     </Callout>
-                  )}
-
-                  {!showDataScientistView && (
-                    <Box mb="6">
-                      <Box mb="3">
-                        <Text size="1" weight="bold">
-                          PRODUCT OVERVIEW
-                        </Text>
-                      </Box>
-
-                      <Flex
-                        direction={{ initial: "column", sm: "row" }}
-                        gap="4"
-                      >
-                        <OverviewCard
-                          imgUrl="/images/get-started/thumbnails/intro-to-growthbook.svg"
-                          hoverText="Launch Video Player"
-                          onClick={() => setShowVideoId("b4xUnDGRKRQ")}
-                          playTime={5}
-                          type="video"
-                        />
-
-                        <OverviewCard
-                          imgUrl="/images/get-started/thumbnails/quantile-metrics-blog.png"
-                          hoverText="View Blog Post"
-                          href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
-                          type="link"
-                        />
-
-                        <OverviewCard
-                          imgUrl="/images/get-started/thumbnails/4.3-release.png"
-                          hoverText="View Blog Post"
-                          href="https://blog.growthbook.io/growthbook-version-4-3/"
-                          type="link"
-                        />
-                      </Flex>
-                    </Box>
                   )}
 
                   {showDataScientistView && (

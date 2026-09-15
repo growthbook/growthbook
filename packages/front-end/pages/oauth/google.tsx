@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Callout from "@/ui/Callout";
 
 const Google: FC = () => {
   const [code, setCode] = useState<string | null>(null);
@@ -22,7 +23,7 @@ const Google: FC = () => {
   const { mutateDefinitions } = useDefinitions();
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!code) {
     return <LoadingOverlay />;

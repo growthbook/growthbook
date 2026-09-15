@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { featureRevisionWebhookPayload } from "./feature-webhook-schemas";
+import {
+  bulkPublishIdField,
+  revisionPublishFailedExtension,
+} from "./revision-publish-failed";
 
 export const featureRevisionCreatedPayload =
   featureRevisionWebhookPayload.strict();
@@ -90,14 +94,39 @@ export type FeatureRevisionDiscardedPayload = z.infer<
   typeof featureRevisionDiscardedPayload
 >;
 
+export const featureRevisionReopenedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionReopenedPayload = z.infer<
+  typeof featureRevisionReopenedPayload
+>;
+
+export const featureRevisionRecalledPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionRecalledPayload = z.infer<
+  typeof featureRevisionRecalledPayload
+>;
+
+export const featureRevisionReviewRetractedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionReviewRetractedPayload = z.infer<
+  typeof featureRevisionReviewRetractedPayload
+>;
+
+export const featureRevisionPublishScheduleChangedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionPublishScheduleChangedPayload = z.infer<
+  typeof featureRevisionPublishScheduleChangedPayload
+>;
+
 export const featureRevisionRebasedPayload =
   featureRevisionWebhookPayload.strict();
 export type FeatureRevisionRebasedPayload = z.infer<
   typeof featureRevisionRebasedPayload
 >;
 
-export const featureRevisionPublishedPayload =
-  featureRevisionWebhookPayload.strict();
+export const featureRevisionPublishedPayload = featureRevisionWebhookPayload
+  .extend({ bulkPublishId: bulkPublishIdField })
+  .strict();
 export type FeatureRevisionPublishedPayload = z.infer<
   typeof featureRevisionPublishedPayload
 >;
@@ -106,8 +135,16 @@ export const featureRevisionRevertedPayload = featureRevisionWebhookPayload
   .extend({
     // The version that was reverted *to* (source of truth for the new published state).
     revertedToVersion: z.number().int(),
+    bulkPublishId: bulkPublishIdField,
   })
   .strict();
 export type FeatureRevisionRevertedPayload = z.infer<
   typeof featureRevisionRevertedPayload
+>;
+
+export const featureRevisionPublishFailedPayload = featureRevisionWebhookPayload
+  .extend(revisionPublishFailedExtension)
+  .strict();
+export type FeatureRevisionPublishFailedPayload = z.infer<
+  typeof featureRevisionPublishFailedPayload
 >;

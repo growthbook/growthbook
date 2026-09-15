@@ -1,0 +1,130 @@
+import type {
+  Revision,
+  ReviewDecision,
+  RevisionTargetType,
+} from "shared/enterprise";
+import { proposedProjectScope } from "shared/util";
+import type { Context } from "back-end/src/models/BaseModel";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+
+/**
+ * Event routing scope for a revision lifecycle event: every project the change
+ * touches — the snapshot's (source), any destination its proposed changes relocate
+ * it to, and where the entity actually LIVES now.
+ *
+ * All three, because each alone has a blind spot. The snapshot predates a move, so
+ * a project-filtered webhook on the destination heard nothing about changes
+ * arriving in it. And an old draft publishing after the entity moved by some other
+ * route names neither the live project in its snapshot nor in its ops, so the
+ * project that owns the entity today heard nothing at all.
+ */
+export function revisionEventProjects(
+  revision: {
+    target: { snapshot?: unknown; proposedChanges?: unknown };
+  },
+  liveEntity?: { project?: string; projects?: string[] } | null,
+): string[] {
+  const snapshot = (revision.target.snapshot ?? {}) as {
+    project?: string;
+    projects?: string[];
+  };
+  const proposed = proposedProjectScope(revision.target.proposedChanges);
+  const all = new Set<string>([
+    ...(snapshot.projects ?? (snapshot.project ? [snapshot.project] : [])),
+    ...(proposed.projects ?? (proposed.project ? [proposed.project] : [])),
+    ...(liveEntity?.projects ??
+      (liveEntity?.project ? [liveEntity.project] : [])),
+  ]);
+  return [...all];
+}
+
+// Webhook-event plugin layer for the generic revision system.
+//
+// This is a SEPARATE registry from revisions/index (the EntityRevisionAdapter
+// registry). That one is loaded during model initialization (context ->
+// RevisionModel -> revisions/index -> adapter), so its adapters can't import
+// the event-dispatch pipeline without a circular-import (the pipeline imports
+// back into the models). This registry instead lives at the handler layer —
+// it's only imported by controllers/handlers, never during model init — so it
+// can statically import each entity's event-dispatch service safely.
+//
+// To add webhook events for a new approval type, add one entry to `registry`
+// below (plus its dispatch service + notificationEvents). The generic revision
+// controller dispatches via `getRevisionWebhookAdapter` and never names a
+// specific entity type.
+
+/**
+ * Entity-agnostic description of a revision lifecycle transition. Carries any
+ * data the handler has on hand that the dispatcher would otherwise re-derive
+ * (e.g. the review decision).
+ */
+export type RevisionLifecycleAction =
+  | { type: "created" }
+  // `change` is supplied by field-specific handlers (values/condition/metadata/
+  // archive). The generic /revision controller omits it, in which case the
+  // dispatcher derives it from the revision's proposed-changes.
+  | {
+      type: "updated";
+      // Union across entity types: saved groups use condition/values; constants
+      // use value; configs add schema. The dispatcher narrows to its subset.
+      change?:
+        | "metadata"
+        | "condition"
+        | "values"
+        | "value"
+        | "schema"
+        | "archive";
+    }
+  | { type: "reviewRequested" }
+  | {
+      type: "reviewed";
+      decision: ReviewDecision;
+      userId: string;
+      comment?: string;
+    }
+  | { type: "rebased" }
+  | { type: "published" }
+  // A deferred publish (scheduled / auto-on-approval) was given up on after
+  // failing. Carries the failure context for the `revision.publishFailed` event.
+  | {
+      type: "publishFailed";
+      reason: string;
+      terminal: boolean;
+      attempts: number;
+    }
+  | { type: "discarded" }
+  | { type: "reopened" }
+  // Recall returns an active review to draft; reopen revives discarded work.
+  | { type: "recalled" }
+  // Lifecycle transitions must not reuse content-diff events.
+  | { type: "reviewRetracted" }
+  | { type: "publishScheduleChanged" }
+  // Reverted fires for direct and approval-gated landings.
+  | { type: "reverted" };
+
+export interface RevisionWebhookAdapter {
+  /**
+   * Emit the entity's webhook/notification event for a revision lifecycle
+   * transition. Must be fire-and-forget (swallow its own errors) so a failed
+   * notification never breaks the revision write.
+   */
+  dispatch(
+    context: Context,
+    revision: Revision,
+    action: RevisionLifecycleAction,
+  ): Promise<void>;
+}
+
+const registry: Partial<Record<RevisionTargetType, RevisionWebhookAdapter>> = {
+  "saved-group": { dispatch: dispatchSavedGroupRevisionEvent },
+  constant: { dispatch: dispatchConstantRevisionEvent },
+  config: { dispatch: dispatchConfigRevisionEvent },
+};
+
+export function getRevisionWebhookAdapter(
+  type: RevisionTargetType,
+): RevisionWebhookAdapter | undefined {
+  return registry[type];
+}

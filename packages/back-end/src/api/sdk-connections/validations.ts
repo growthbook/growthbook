@@ -54,6 +54,7 @@ interface CreateSdkConnectionRequestBody
   encryptPayload?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
@@ -61,6 +62,7 @@ interface CreateSdkConnectionRequestBody
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeReferencedPrerequisites?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -101,6 +103,28 @@ export async function validateProjects(
     throw new Error(
       `The following projects do not exist: ${nonexistentProjects.join(", ")}`,
     );
+}
+
+export function validateRequireProjectForSdkConnections(
+  org: OrganizationInterface,
+  projects: string[] | undefined,
+  existingProjects?: string[],
+) {
+  if (!org.settings?.requireProjectForSdkConnections) return;
+
+  const message =
+    "SDK Connection is required to be associated with at least one project";
+
+  if (!existingProjects) {
+    if (!projects?.length) {
+      throw new Error(message);
+    }
+    return;
+  }
+
+  if (existingProjects.length > 0 && projects?.length === 0) {
+    throw new Error(message);
+  }
 }
 
 export function validateLanguage(reqLanguage: string): SDKLanguage {
@@ -162,6 +186,7 @@ export async function validatePostPayload(
     encryptPayload = false,
     includeVisualExperiments = false,
     includeDraftExperiments = false,
+    includeDraftExperimentRefs = false,
     includeExperimentNames = false,
     includeRedirectExperiments = false,
     includeRuleIds = false,
@@ -178,6 +203,7 @@ export async function validatePostPayload(
   validateName(name);
 
   validateEnvironment(context.org, environment);
+  validateRequireProjectForSdkConnections(context.org, projects);
 
   if (projects && projects.length) {
     await validateProjects(context, projects);
@@ -199,6 +225,7 @@ export async function validatePostPayload(
     encryptPayload,
     includeVisualExperiments,
     includeDraftExperiments,
+    includeDraftExperimentRefs,
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
@@ -229,6 +256,7 @@ export async function validatePutPayload(
     encryptPayload,
     includeVisualExperiments,
     includeDraftExperiments,
+    includeDraftExperimentRefs,
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
@@ -246,6 +274,11 @@ export async function validatePutPayload(
   if (name) validateName(name);
 
   if (environment) validateEnvironment(context.org, environment);
+  validateRequireProjectForSdkConnections(
+    context.org,
+    projects,
+    sdkConnection.projects,
+  );
 
   if (projects && projects.length) {
     await validateProjects(context, projects);
@@ -267,6 +300,7 @@ export async function validatePutPayload(
     encryptPayload,
     includeVisualExperiments,
     includeDraftExperiments,
+    includeDraftExperimentRefs,
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,

@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
-import uniqid from "uniqid";
-import { QueryInterface, QueryType } from "shared/types/query";
+import { QueryInterface, QueryStatistics, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
 import { ApiQuery } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
+import { generateId } from "back-end/src/util/uuid";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -40,6 +40,7 @@ const querySchema = new mongoose.Schema({
   finishedAt: Date,
   heartbeat: Date,
   externalId: String,
+  externalIdMetadata: {},
   result: {},
   rawResult: [],
   hasChunkedResults: Boolean,
@@ -83,16 +84,23 @@ export async function getQueriesByIds(
 export async function getQueryStatusesByIds(
   organization: string,
   ids: string[],
-): Promise<Pick<QueryInterface, "id" | "status" | "finishedAt">[]> {
+): Promise<
+  Pick<
+    QueryInterface,
+    "id" | "status" | "finishedAt" | "heartbeat" | "createdAt"
+  >[]
+> {
   if (!ids.length) return [];
   const docs = await QueryModel.find(
     { organization, id: { $in: ids } },
-    { id: 1, status: 1, finishedAt: 1, _id: 0 },
+    { id: 1, status: 1, finishedAt: 1, heartbeat: 1, createdAt: 1, _id: 0 },
   );
   return docs.map((d) => ({
     id: d.id,
     status: d.status,
     finishedAt: d.finishedAt,
+    heartbeat: d.heartbeat,
+    createdAt: d.createdAt,
   }));
 }
 
@@ -129,6 +137,29 @@ export async function countRunningQueries(
     datasource,
     status: "running",
   }).count();
+}
+
+export async function setQueryExternalId(
+  context: ReqContext,
+  query: QueryInterface,
+  externalId: string,
+  metadata?: QueryInterface["externalIdMetadata"],
+): Promise<QueryInterface["status"] | null> {
+  if (query.organization !== context.org.id) {
+    throw new Error("Cannot update query from different organization");
+  }
+
+  const doc = await QueryModel.findOneAndUpdate(
+    { organization: context.org.id, id: query.id },
+    {
+      $set: {
+        externalId,
+        ...(metadata ? { externalIdMetadata: metadata } : {}),
+      },
+    },
+    { new: true, projection: { status: 1 } },
+  );
+  return doc?.status ?? null;
 }
 
 export async function updateQuery(
@@ -203,6 +234,79 @@ export async function updateQueryIfRunning(
     { $set: processedChanges },
   );
   return result.matchedCount > 0;
+}
+
+/**
+ * Conditional update gated on the doc being still in a pending state
+ * (queued or running). Returns whether the update matched. Used by
+ * executeQuery to fence the run() call so a concurrent cancel that moved
+ * the doc to a terminal state can't be resurrected.
+ */
+export async function updateQueryIfPending(
+  context: ReqContext | ApiReqContext,
+  query: QueryInterface,
+  changes: Partial<QueryInterface>,
+): Promise<boolean> {
+  if (query.organization !== context.org.id) {
+    throw new Error("Cannot update query from different organization");
+  }
+  const result = await QueryModel.updateOne(
+    {
+      organization: context.org.id,
+      id: query.id,
+      status: { $in: ["queued", "running"] },
+    },
+    { $set: changes },
+  );
+  return result.matchedCount > 0;
+}
+
+/**
+ * Bulk-mark Query docs as failed, only if currently running or queued.
+ * Won't downgrade succeeded docs. Returns the number affected.
+ */
+export async function markPendingQueriesAsFailed(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+  error: string,
+): Promise<number> {
+  if (!ids.length) return 0;
+  const result = await QueryModel.updateMany(
+    {
+      organization: context.org.id,
+      id: { $in: ids },
+      status: { $in: ["running", "queued"] },
+    },
+    {
+      $set: {
+        status: "failed",
+        finishedAt: new Date(),
+        error,
+      },
+    },
+  );
+  return result.modifiedCount;
+}
+
+/**
+ * Prove the owning runner is still alive for queries it hasn't started yet.
+ * Returns the number affected.
+ */
+export async function touchQueuedQueriesHeartbeat(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<number> {
+  if (!ids.length) return 0;
+
+  const result = await QueryModel.updateMany(
+    {
+      organization: context.org.id,
+      id: { $in: ids },
+      status: "queued",
+    },
+    { $set: { heartbeat: new Date() } },
+  );
+  return result.modifiedCount;
 }
 
 export async function getRecentQuery(
@@ -280,7 +384,7 @@ export async function createNewQuery({
   displayTitle,
   dependencies = [],
   running = false,
-  queryType = "",
+  queryType = "unknown",
   runAtEnd = false,
 }: {
   organization: string;
@@ -297,7 +401,7 @@ export async function createNewQuery({
     createdAt: new Date(),
     datasource,
     heartbeat: new Date(),
-    id: uniqid("qry_"),
+    id: generateId("qry_"),
     language,
     organization,
     query,
@@ -325,7 +429,7 @@ export async function createNewQueryFromCached({
     createdAt: new Date(),
     datasource: existing.datasource,
     heartbeat: new Date(),
-    id: uniqid("qry_"),
+    id: generateId("qry_"),
     displayTitle: existing.displayTitle,
     language: existing.language,
     organization: existing.organization,
@@ -342,6 +446,47 @@ export async function createNewQueryFromCached({
     runAtEnd: runAtEnd,
     cachedQueryUsed: existing.cachedQueryUsed || existing.id,
     hasChunkedResults: existing.hasChunkedResults,
+  };
+  const doc = await QueryModel.create(data);
+  return toInterface(doc);
+}
+
+export async function createCompletedQuery({
+  organization,
+  datasource,
+  language,
+  query,
+  displayTitle,
+  queryType,
+  rawResult,
+  statistics,
+}: {
+  organization: string;
+  datasource: string;
+  language: QueryLanguage;
+  query: string;
+  displayTitle?: string;
+  queryType: QueryType;
+  rawResult: Record<string, unknown>[];
+  statistics?: QueryStatistics;
+}): Promise<QueryInterface> {
+  const now = new Date();
+  const data: QueryInterface = {
+    id: generateId("qry_"),
+    organization,
+    datasource,
+    language,
+    query,
+    displayTitle,
+    queryType,
+    status: "succeeded",
+    createdAt: now,
+    startedAt: now,
+    finishedAt: now,
+    heartbeat: now,
+    rawResult,
+    statistics,
+    dependencies: [],
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);

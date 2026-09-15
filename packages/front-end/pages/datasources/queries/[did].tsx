@@ -11,13 +11,15 @@ import { ago, datetime } from "shared/dates";
 import { QueryInterface } from "shared/types/query";
 import { capitalize } from "lodash";
 import { IconButton } from "@radix-ui/themes";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import { useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -32,6 +34,7 @@ const DataSourceQueries = (): React.ReactElement => {
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
   const d = getDatasourceById(did);
+  const managedWarehousePending = d ? isManagedWarehouseUnavailable(d) : false;
 
   const canView = d && permissions.check("readData", d.projects || []);
   const canCancel = d && permissions.check("runQueries", d.projects || []);
@@ -56,9 +59,9 @@ const DataSourceQueries = (): React.ReactElement => {
   if (!canView) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -66,9 +69,9 @@ const DataSourceQueries = (): React.ReactElement => {
   if (datasourceError || queriesError) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           {datasourceError ?? queriesError?.message}
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -79,9 +82,9 @@ const DataSourceQueries = (): React.ReactElement => {
   if (!d) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Datasource <code>{did}</code> does not exist.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -92,24 +95,34 @@ const DataSourceQueries = (): React.ReactElement => {
         <div className="d-flex">
           <h1>Data Source Queries</h1>
         </div>
-        <p>No queries have been run on this Data Source.</p>
+        {managedWarehousePending ? (
+          <div className="mt-3">
+            <ManagedWarehouseNoEventsCallout />
+          </div>
+        ) : (
+          <p>No queries have been run on this Data Source.</p>
+        )}
       </div>
     );
   }
 
   return (
     <div className="container pagecontents">
+      {managedWarehousePending ? (
+        <div className="mt-3 mb-3">
+          <ManagedWarehouseNoEventsCallout />
+        </div>
+      ) : null}
       {modalData && (
-        <Modal
+        <ModalStandard
           trackingEventModalType=""
           open
           close={() => setModalData(null)}
           size="lg"
           header={"Inspect query"}
-          includeCloseCta={false}
         >
           <ExpandableQuery query={modalData} i={0} total={1} />{" "}
-        </Modal>
+        </ModalStandard>
       )}
 
       <PageHead

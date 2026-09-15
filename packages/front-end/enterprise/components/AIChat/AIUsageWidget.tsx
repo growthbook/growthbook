@@ -95,7 +95,7 @@ export default function AIUsageWidget() {
   if (!data) {
     return (
       <Box px="2" pb="3" pt="1" flexShrink="0">
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           No usage data available
         </Text>
       </Box>
@@ -118,13 +118,13 @@ export default function AIUsageWidget() {
       <Flex justify="between" align="center">
         <Flex align="center" direction="row" gap="1">
           <PiSparkle color="var(--violet-9)" size={15} />
-          <Text size="small" weight="medium" color="text-mid">
+          <Text size="sm" weight="medium" color="text-mid">
             Daily usage
           </Text>
         </Flex>
         <Flex align="center" direction="row" gap="1">
           <UsageBadge pct={Math.round(pct)} />
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             {Math.round(pct)}%
           </Text>
         </Flex>
@@ -134,7 +134,7 @@ export default function AIUsageWidget() {
         color={getUsageStatusColor(getUsageStatus(pct))}
         size="3"
       />
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         <Flex align="center" direction="row" gap="1">
           <PiClock />
           {formatResetInLabel(data.nextResetAt)}

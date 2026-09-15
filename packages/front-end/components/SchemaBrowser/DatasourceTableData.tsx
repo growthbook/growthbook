@@ -1,33 +1,58 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  isManagedWarehouseUnavailable,
+  MANAGED_WAREHOUSE_EVENTS_TABLE,
+} from "shared/util";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { InformationSchemaTablesInterface } from "shared/types/integrations";
+import { JSONColumnFields } from "shared/types/fact-table";
 import { useEffect, useMemo, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
 import { Box } from "@radix-ui/themes";
+import clsx from "clsx";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import { useAuth } from "@/services/auth";
+import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
-import { AreaWithHeader } from "./SqlExplorerModal";
+import {
+  columnInsertDisabledReason,
+  insertColumnIntoSelect,
+} from "@/services/schemaBrowserSql";
+import AreaWithHeader from "./AreaWithHeader";
+import {
+  SchemaCopyButton,
+  SchemaSqlInsertButton,
+} from "./SchemaBrowserSqlActions";
+import actionStyles from "./SchemaBrowserSqlActions.module.scss";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
-  datasourceId: string;
-  tableId: string;
+  currentTable: { id: string; path: string };
   setError: (error: string | null) => void;
   canRunQueries: boolean;
+  sql?: string;
+  updateSqlInput?: (sql: string) => void;
 };
 
 export default function DatasourceSchema({
   datasource,
-  tableId,
-  datasourceId,
+  currentTable,
   setError,
   canRunQueries,
+  sql = "",
+  updateSqlInput,
 }: Props) {
+  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
+
   const { data, mutate } = useApi<{
     table: InformationSchemaTablesInterface;
-  }>(`/datasource/${datasourceId}/schema/table/${tableId}`);
+  }>(`/datasource/${datasource.id}/schema/table/${currentTable.id}`, {
+    shouldRun: () => !!currentTable.id && !managedWarehousePending,
+  });
 
   const table = data?.table;
   const [fetching, setFetching] = useState(false);
@@ -35,17 +60,68 @@ export default function DatasourceSchema({
   const [dateLastUpdated, setDateLastUpdated] = useState<Date | null>(null);
   const [columnFilter, setColumnFilter] = useState("");
   const { apiCall } = useAuth();
+  // For a managed warehouse, the raw information schema reports `attributes` /
+  // `properties` as single JSON columns. Pull the detected sub-fields from the
+  // built-in `ch_events` fact table so they show as `attributes.<field>` rows,
+  // matching the fact-table column list. jsonFields is slimmed out of the
+  // definitions copy, so fetch the full fact table by id.
+  const isManagedWarehouseEventsTable =
+    datasource.type === "growthbook_clickhouse" &&
+    table?.tableName === MANAGED_WAREHOUSE_EVENTS_TABLE;
+  const { factTable: eventsFactTable } = useFullFactTable(
+    isManagedWarehouseEventsTable
+      ? MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID
+      : null,
+  );
+  const jsonFieldsByColumn = useMemo<Record<string, JSONColumnFields>>(() => {
+    if (!eventsFactTable || eventsFactTable.datasource !== datasource.id) {
+      return {};
+    }
+    const map: Record<string, JSONColumnFields> = {};
+    for (const col of eventsFactTable.columns) {
+      if (col.datatype === "json" && !col.deleted && col.jsonFields) {
+        map[col.column] = col.jsonFields;
+      }
+    }
+    return map;
+  }, [eventsFactTable, datasource.id]);
+
+  // Information-schema columns with JSON sub-fields expanded into their own
+  // pseudo-column rows (`attributes.<field>`).
+  const expandedColumns = useMemo(() => {
+    const out: { columnName: string; dataType: string; jsonField?: boolean }[] =
+      [];
+    // A warehouse that materializes JSON sub-fields as native subcolumns
+    // already reports them here, so the expansion below would list them twice.
+    const seen = new Set((table?.columns || []).map((c) => c.columnName));
+    for (const column of table?.columns || []) {
+      out.push({ columnName: column.columnName, dataType: column.dataType });
+      const jsonFields = jsonFieldsByColumn[column.columnName];
+      if (jsonFields) {
+        for (const [field, data] of Object.entries(jsonFields)) {
+          const columnName = `${column.columnName}.${field}`;
+          if (seen.has(columnName)) continue;
+          seen.add(columnName);
+          out.push({
+            columnName,
+            dataType: data.datatype,
+            jsonField: true,
+          });
+        }
+      }
+    }
+    return out;
+  }, [table?.columns, jsonFieldsByColumn]);
 
   const filteredColumns = useMemo(() => {
-    if (!table?.columns) return [];
-    if (!columnFilter) return table.columns;
+    if (!columnFilter) return expandedColumns;
 
-    return table.columns.filter((column) => {
+    return expandedColumns.filter((column) => {
       return column.columnName
         .toLowerCase()
         .includes(columnFilter.trim().toLowerCase());
     });
-  }, [columnFilter, table?.columns]);
+  }, [columnFilter, expandedColumns]);
 
   useEffect(() => {
     if (fetching) {
@@ -78,9 +154,23 @@ export default function DatasourceSchema({
   useEffect(() => {
     setFetching(false);
     setColumnFilter("");
-  }, [tableId]);
+  }, [currentTable.id]);
 
-  if (tableId && !table)
+  if (managedWarehousePending) {
+    return (
+      <div
+        className="p-2"
+        style={{
+          height: "50%",
+          flex: 1,
+        }}
+      >
+        <ManagedWarehouseNoEventsCallout />
+      </div>
+    );
+  }
+
+  if (currentTable.id && !table)
     return (
       <div
         className="p-2"
@@ -131,10 +221,10 @@ export default function DatasourceSchema({
                           ).toLocaleString()}`}
                         </div>
                         {!canRunQueries ? (
-                          <div className="alert alert-warning mt-2">
+                          <Callout status="warning" mt="2">
                             You do not have permission to refresh this
                             information schema.
-                          </div>
+                          </Callout>
                         ) : null}
                       </div>
                     }
@@ -152,7 +242,7 @@ export default function DatasourceSchema({
                             status: number;
                             table?: InformationSchemaTablesInterface;
                           }>(
-                            `/datasource/${datasourceId}/schema/table/${table.id}`,
+                            `/datasource/${datasource.id}/schema/table/${table.id}`,
                             {
                               method: "PUT",
                             },
@@ -172,6 +262,7 @@ export default function DatasourceSchema({
           </div>
           <Box mt="1">
             <Field
+              size="legacy"
               type="search"
               value={columnFilter}
               onChange={(e) => setColumnFilter(e.target.value)}
@@ -183,14 +274,59 @@ export default function DatasourceSchema({
       }
     >
       <div style={{ overflow: "auto", height: "100%" }}>
-        <table className="table table-sm">
+        <table className={clsx("table", "table-sm", actionStyles.columnTable)}>
           <tbody>
             {filteredColumns.length > 0 ? (
               <>
-                {filteredColumns?.map((column) => {
+                {filteredColumns?.map((column, i) => {
+                  const insertDisabledReason = columnInsertDisabledReason(
+                    sql,
+                    currentTable.path,
+                    column.columnName,
+                  );
                   return (
-                    <tr key={`${table.tableName}:${column.columnName}`}>
-                      <td className="pl-3">{column.columnName}</td>
+                    // Index-suffixed: a duplicate name would otherwise give two
+                    // rows one key, and React strands them on filter updates.
+                    <tr key={`${table.tableName}:${column.columnName}:${i}`}>
+                      <td className="pl-3">
+                        <div className={actionStyles.row}>
+                          <span
+                            className={clsx(
+                              actionStyles.label,
+                              column.jsonField && "text-muted",
+                            )}
+                            style={
+                              column.jsonField ? { paddingLeft: 16 } : undefined
+                            }
+                          >
+                            {column.columnName}
+                          </span>
+                          <span className={actionStyles.actions}>
+                            <SchemaCopyButton
+                              value={column.columnName}
+                              tooltip="Copy column name"
+                            />
+                            {updateSqlInput && !column.jsonField ? (
+                              <SchemaSqlInsertButton
+                                tooltip="Add to SELECT"
+                                disabled={!!insertDisabledReason}
+                                disabledTooltip={
+                                  insertDisabledReason ?? undefined
+                                }
+                                onClick={() => {
+                                  updateSqlInput(
+                                    insertColumnIntoSelect(
+                                      sql,
+                                      column.columnName,
+                                      currentTable.path,
+                                    ),
+                                  );
+                                }}
+                              />
+                            ) : null}
+                          </span>
+                        </div>
+                      </td>
                       <td className="pr-3 text-right text-muted">
                         {column.dataType}
                       </td>

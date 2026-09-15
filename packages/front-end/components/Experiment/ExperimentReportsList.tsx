@@ -145,6 +145,7 @@ export default function ExperimentReportsList({
                 <td style={{ width: 50 }}>
                   {filteredReport.showDelete ? (
                     <DeleteButton
+                      useRadix={false}
                       displayName="Custom Report"
                       link={true}
                       className="fade-hover"

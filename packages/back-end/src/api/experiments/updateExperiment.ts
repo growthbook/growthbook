@@ -1,7 +1,6 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
-  Variation,
   updateExperimentValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -11,16 +10,34 @@ import {
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
+  assertCanRunExperimentChanges,
+  normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
+  getExperimentAttributeScopeProjects,
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import {
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
+import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
+import { assertLivePayloadChangeAllowed } from "back-end/src/services/experimentLivePayload";
+import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
+import {
+  startExperiment,
+  validateExperimentChange,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   resolveOwnerEmail,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
@@ -95,19 +112,29 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   // check if tracking key is unique
+  const requireUniqueTrackingKeys =
+    !!req.organization.settings?.requireUniqueExperimentTrackingKeys;
   if (
     req.body.trackingKey != null &&
     req.body.trackingKey !== experiment.trackingKey &&
-    !req.body.bypassDuplicateKeyCheck
+    (requireUniqueTrackingKeys || !req.body.bypassDuplicateKeyCheck)
   ) {
     const existingByTrackingKey = await getExperimentByTrackingKey(
       req.context,
       req.body.trackingKey,
     );
     if (existingByTrackingKey) {
-      throw new Error(
-        `Experiment with tracking key already exists: ${req.body.trackingKey}`,
-      );
+      // If organization requires unique tracking keys, always reject duplicates
+      if (requireUniqueTrackingKeys) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${req.body.trackingKey}. Your organization requires unique experiment tracking keys and bypassDuplicateKeyCheck is ignored.`,
+        );
+      }
+      if (!req.body.bypassDuplicateKeyCheck) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${req.body.trackingKey}.`,
+        );
+      }
     }
   }
 
@@ -123,6 +150,9 @@ export const updateExperiment = createApiRequestHandler(
       req.body.customFields ?? experiment.customFields,
       req.context,
       req.body.project ?? experiment.project,
+      // A project change must re-validate all values against the new
+      // project's fields, so only grandfather unchanged values in place
+      projectChanged ? undefined : experiment.customFields,
     );
   }
 
@@ -191,7 +221,44 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
-    validateVariationIds(req.body.variations as Variation[]);
+    validateVariationIds(req.body.variations);
+  }
+
+  const effectivePrecomputedUnitDimensionType =
+    req.body.type ?? experiment.type ?? "standard";
+  if (effectivePrecomputedUnitDimensionType === "multi-armed-bandit") {
+    // If request includes precomputed unit dimensions for a bandit, error
+    if (req.body.precomputedUnitDimensionIds !== undefined) {
+      throw new Error(
+        "Precomputed unit dimensions are not supported for bandit experiments",
+      );
+    }
+    // if experiment is just switching to a bandit, silently clear precomputed unit dimensions
+    if (req.body.type === "multi-armed-bandit") {
+      req.body.precomputedUnitDimensionIds = [];
+    }
+  }
+
+  const shouldValidatePrecomputedUnitDimensionIds =
+    req.body.precomputedUnitDimensionIds !== undefined ||
+    (req.body.datasourceId !== undefined &&
+      req.body.datasourceId !== experiment.datasource) ||
+    (req.body.assignmentQueryId !== undefined &&
+      req.body.assignmentQueryId !== experiment.exposureQueryId);
+  if (shouldValidatePrecomputedUnitDimensionIds) {
+    const effectivePrecomputedUnitDimensionIds =
+      req.body.precomputedUnitDimensionIds ??
+      experiment.precomputedUnitDimensionIds ??
+      [];
+    if (effectivePrecomputedUnitDimensionIds.length > 0) {
+      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context: req.context,
+        datasource,
+        exposureQueryId:
+          req.body.assignmentQueryId ?? experiment.exposureQueryId,
+        dimensionIds: effectivePrecomputedUnitDimensionIds,
+      });
+    }
   }
 
   if (
@@ -226,20 +293,148 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
-  const updatedExperiment = await updateExperimentToDb({
-    context: req.context,
-    experiment: experiment,
-    changes: updateExperimentApiPayloadToInterface(
+  const attributeScope = lazyAttributeScope(() =>
+    getExperimentAttributeScopeProjects(req.context, {
+      project:
+        req.body.project !== undefined ? req.body.project : experiment.project,
+      linkedFeatures: experiment.linkedFeatures,
+    }),
+  );
+  await assertRegisteredAttributesScoped(
+    req.context,
+    {
+      hashAttribute: req.body.hashAttribute,
+      fallbackAttribute: req.body.fallbackAttribute,
+    },
+    "experiment",
+    {
+      hashAttribute: experiment.hashAttribute,
+      fallbackAttribute: experiment.fallbackAttribute,
+    },
+    attributeScope,
+  );
+  // Match persisted phases by condition value, not index — clients that
+  // insert or delete phases must not re-validate grandfathered conditions.
+  const persistedConditions = new Set(
+    (experiment.phases ?? []).map((p) => p.condition),
+  );
+  for (const phase of req.body.phases ?? []) {
+    await assertRegisteredAttributesScoped(
+      req.context,
+      { condition: phase.condition },
+      "experiment phase",
       {
-        ...req.body,
-        ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
+        condition:
+          phase.condition !== undefined &&
+          persistedConditions.has(phase.condition)
+            ? phase.condition
+            : undefined,
       },
-      experiment,
-      map,
-      req.organization,
-    ),
+      attributeScope,
+    );
+  }
+
+  const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
+  const changes = updateExperimentApiPayloadToInterface(
+    {
+      ...req.body,
+      ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
+    },
+    experiment,
+    map,
+    req.organization,
+  );
+
+  normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  // canUpdateExperiment (above) is the analysis-level check. Fields that reach
+  // SDK payloads additionally need run-experiments permission in the
+  // environments the experiment affects — the same rule, on the same fields,
+  // as the dashboard's POST /experiment/:id.
+  await assertCanRunExperimentChanges(req.context, experiment, changes);
+
+  // Linked feature rules would keep the old variation ids; the dashboard
+  // refuses this too. Coverage and weights stay editable, as in its targeting flow.
+  await assertLivePayloadChangeAllowed(req.context, experiment, {
+    variations: changes.variations,
   });
+  // The served (latest) phase is checked against the latest stored phase;
+  // earlier phases are history, so any parent the stored experiment already
+  // references is not re-validated when they are echoed or reordered.
+  if (changes.phases) {
+    await assertValidExperimentPrerequisites(
+      req.context,
+      changes.phases[changes.phases.length - 1]?.prerequisites,
+      experiment.phases[experiment.phases.length - 1]?.prerequisites,
+    );
+    await assertValidExperimentPrerequisites(
+      req.context,
+      phasePrerequisites(changes.phases.slice(0, -1)),
+      phasePrerequisites(experiment.phases),
+    );
+  }
+
+  // Same validation as PUT /schedule, against the stored schedule and the
+  // post-update variations/metrics.
+  if (req.body.statusUpdateSchedule) {
+    validateScheduleUpdate({
+      context: req.context,
+      experimentType: req.body.type ?? experiment.type ?? "standard",
+      status: experiment.status,
+      archived: !!experiment.archived,
+      phaseStart: experiment.phases[experiment.phases.length - 1]?.dateStarted,
+      existingSchedule: experiment.statusUpdateSchedule,
+      variations: changes.variations ?? experiment.variations,
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      incoming: req.body.statusUpdateSchedule,
+    });
+  }
+
+  const isStartingFromDraft =
+    experiment.status === "draft" && changes.status === "running";
+
+  await validateExperimentChange({ context: req.context, experiment, changes });
+
+  let experimentForUpdate = experiment;
+  let changesForUpdate = changes;
+
+  if (isStartingFromDraft) {
+    // Persist the non-status changes (including any new statusUpdateSchedule)
+    // BEFORE starting, so startExperiment -> executeExperimentStart resolves a
+    // relative stopAfter off the real start time using the freshly-saved
+    // schedule (rather than the stale pre-start draft).
+    const remainingChanges = { ...changes };
+    delete remainingChanges.status;
+    if (Object.keys(remainingChanges).length > 0) {
+      await updateExperimentToDb({
+        context: req.context,
+        experiment,
+        changes: remainingChanges,
+      });
+    }
+    // Route draft->running transitions through the dedicated lifecycle method
+    // so ramp lockdown, checklist, and pending-draft publish behavior stays
+    // consistent across all entry points.
+    const { updated } = await startExperiment({
+      context: req.context,
+      experimentId: experiment.id,
+      // behavior for patch endpoint is to skip pre-launch checklist
+      skipChecklist: true,
+    });
+    experimentForUpdate = updated;
+    // All non-status changes were already persisted above; startExperiment
+    // handled the transition (and resolved the schedule), so nothing remains.
+    changesForUpdate = {};
+  }
+
+  const updatedExperiment =
+    Object.keys(changesForUpdate).length > 0
+      ? await updateExperimentToDb({
+          context: req.context,
+          experiment: experimentForUpdate,
+          changes: changesForUpdate,
+        })
+      : experimentForUpdate;
 
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
