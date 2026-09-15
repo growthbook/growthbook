@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import {
   canInlineFilterColumn,
+  getColumnRefWhereClause,
   getFactTableTimestampColumn,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
@@ -18,9 +19,11 @@ import {
   TestFactFilterProps,
   TestRowFiltersProps,
   TestVirtualColumnProps,
+  PreviewMetricRowsProps,
   FactFilterTestResults,
   ColumnInterface,
   FactTableColumnType,
+  RowFilter,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { QueryStatus } from "shared/types/query";
@@ -48,6 +51,7 @@ import {
   getSourceIntegrationObject,
   getIntegrationIdentifierQuote,
 } from "back-end/src/services/datasource";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import {
@@ -115,6 +119,71 @@ export const getFactTableById = async (
     factTable,
   });
 };
+
+async function previewMetricRowsQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: FactTableInterface,
+  rowFilters: RowFilter[],
+): Promise<FactFilterTestResults> {
+  if (!context.permissions.canRunTestQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (
+    !integration.getTestQuery ||
+    !integration.runTestQuery ||
+    !(integration instanceof SqlIntegration)
+  ) {
+    throw new Error("Testing not supported on this data source");
+  }
+
+  const timestampColumn = getFactTableTimestampColumn(factTable);
+  const dialect = integration.getSqlDialect();
+
+  const where = getColumnRefWhereClause({
+    factTable,
+    columnRef: { factTableId: factTable.id, column: "", rowFilters },
+    escapeStringLiteral: dialect.escapeStringLiteral,
+    stringMatch: dialect.stringMatch,
+    jsonExtract: dialect.jsonExtract,
+    evalBoolean: dialect.evalBoolean,
+    castToTimestamp: dialect.castToTimestamp,
+    identifierQuote: dialect.identifierQuote,
+  });
+
+  const sql = integration.getTestQuery({
+    // Must have a newline after factTable sql in case it ends with a comment.
+    query: `SELECT * FROM (
+      ${factTable.sql}
+    ) f${where.length ? ` WHERE ${where.join("\n AND ")}` : ""}`,
+    templateVariables: {
+      eventName: factTable.eventName,
+    },
+    testDays: 7,
+    limit: 20,
+    timestampColumn,
+  });
+
+  try {
+    const results = await integration.runTestQuery(
+      sql,
+      [timestampColumn],
+      "factTableValidation",
+    );
+    return {
+      sql,
+      ...results,
+    };
+  } catch (e) {
+    return {
+      sql,
+      error: e.message,
+    };
+  }
+}
 
 function mergeColumnsWithTypeMap(
   existingColumns: ColumnInterface[],
@@ -1015,6 +1084,39 @@ export const postRowFiltersTest = async (
     datasource,
     factTable,
     req.body.rowFilters,
+  );
+
+  res.status(200).json({
+    status: 200,
+    result,
+  });
+};
+
+export const postPreviewMetricRows = async (
+  req: AuthRequest<PreviewMetricRowsProps, { id: string }>,
+  res: Response<{
+    status: 200;
+    result: FactFilterTestResults;
+  }>,
+) => {
+  const data = req.body;
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  const result = await previewMetricRowsQuery(
+    context,
+    datasource,
+    factTable,
+    data.rowFilters,
   );
 
   res.status(200).json({

@@ -1,7 +1,7 @@
 import { UseFormReturn } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
-import { ColumnRef } from "shared/types/fact-table";
+import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -9,6 +9,7 @@ import useFullFactTable from "@/hooks/useFullFactTable";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
@@ -19,7 +20,6 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
 import MetricTypeSelect, {
-  TYPE_DESCRIPTIONS,
   TYPE_LABELS,
 } from "@/components/FactTables/MetricEditor/MetricTypeSelect";
 import AdvancedSettings from "@/components/FactTables/MetricEditor/AdvancedSettings";
@@ -27,6 +27,11 @@ import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
 import FunnelStepsDisplay from "@/components/FactTables/MetricEditor/FunnelStepsDisplay";
 import PreviewPanel from "@/components/FactTables/MetricEditor/PreviewPanel";
+import MetricDescription from "@/components/FactTables/MetricEditor/MetricDescription";
+import {
+  getFunnelPreviewSQL,
+  getPreviewSQL,
+} from "@/components/FactTables/MetricEditor/previewSql";
 import ColumnSelect from "@/components/FactTables/MetricEditor/ColumnSelect";
 import ThresholdBasisRow, {
   ThresholdBasisValue,
@@ -59,7 +64,9 @@ export default function MetricEditor({
   form,
   canEdit,
   onRepresentableChange,
+  existingMetric,
 }: {
+  existingMetric?: FactMetricInterface | null;
   form: UseFormReturn<CreateFactMetricFormProps>;
   canEdit: boolean;
   // Lets MetricWorkspace gate its Save button on the same representable
@@ -71,11 +78,14 @@ export default function MetricEditor({
   const { getFactTableById, getDatasourceById, factTables, project } =
     useDefinitions();
   const { hasCommercialFeature } = useUser();
+  const [showDescription, setShowDescription] = useState(false);
+  const [showTags, setShowTags] = useState(false);
 
   const metricType = form.watch("metricType");
   const numerator = form.watch("numerator");
   const denominator = form.watch("denominator");
   const quantileSettings = form.watch("quantileSettings");
+  const windowSettings = form.watch("windowSettings");
   const funnelSettings = form.watch("funnelSettings");
   const datasourceId = form.watch("datasource");
   const datasource = getDatasourceById(datasourceId);
@@ -106,6 +116,35 @@ export default function MetricEditor({
     (ft) => !datasourceId || ft.datasource === datasourceId,
   );
 
+  const previewSql = (() => {
+    if (metricType === "funnel") {
+      return funnelSettings && funnelSettings.steps.length > 0
+        ? getFunnelPreviewSQL({
+            steps: funnelSettings.steps,
+            factTable:
+              getFactTableById(funnelSettings.steps[0].factTableId) ?? null,
+            windowSettings,
+          })
+        : null;
+    }
+    return getPreviewSQL({
+      type: metricType,
+      // Only meaningful for type === "quantile", where the form always sets
+      // it - this default just satisfies the type for every other metric.
+      quantileSettings: quantileSettings ?? {
+        type: "event",
+        quantile: 0.5,
+        ignoreZeros: false,
+      },
+      windowSettings,
+      numerator,
+      denominator,
+      numeratorFactTable: getFactTableById(numerator.factTableId) ?? null,
+      denominatorFactTable:
+        getFactTableById(denominator?.factTableId || "") ?? null,
+    });
+  })();
+
   const formTypeResult = formTypeFromStored(
     { metricType, numerator, denominator, quantileSettings },
     factTable,
@@ -121,11 +160,13 @@ export default function MetricEditor({
   // rewrite the definition on save - this applies regardless of canEdit.
   if (!formTypeResult.representable) {
     return (
-      <Callout status="warning">
-        This metric&apos;s definition can&apos;t be shown in this editor:{" "}
-        {UNREPRESENTABLE_REASON_COPY[formTypeResult.reason]}. Edit it via the
-        API, or contact support if this is unexpected.
-      </Callout>
+      <Flex direction="column" gap="3">
+        <Callout status="warning">
+          This metric&apos;s definition can&apos;t be shown in this editor:{" "}
+          {UNREPRESENTABLE_REASON_COPY[formTypeResult.reason]}. Edit it via the
+          API, or contact support if this is unexpected.
+        </Callout>
+      </Flex>
     );
   }
   const formType = formTypeResult.type;
@@ -179,10 +220,38 @@ export default function MetricEditor({
     );
     // Datasource is derived from the fact table, not selected directly (spec).
     if (newFactTable) form.setValue("datasource", newFactTable.datasource);
+    if (
+      metricType === "ratio" &&
+      (!denominator?.factTableId ||
+        denominator.factTableId === numerator.factTableId)
+    ) {
+      form.setValue(
+        "denominator",
+        onFactTableChange(
+          denominator ?? { factTableId: "", column: "$$count", rowFilters: [] },
+          newFactTableId,
+          newFactTable,
+          hasCountDistinctHLL,
+        ),
+      );
+    }
   }
 
   const isFunnel = formType === "funnel";
   const isRatioOrFunnel = formType === "ratio" || isFunnel;
+  const primaryFactTableSelect = (
+    <Select
+      label="Fact table"
+      value={primaryFactTableId}
+      setValue={changeFactTable}
+    >
+      {availableFactTables.map((ft) => (
+        <SelectItem key={ft.id} value={ft.id}>
+          {ft.name} ({getDatasourceById(ft.datasource)?.name || ft.datasource})
+        </SelectItem>
+      ))}
+    </Select>
+  );
   const thresholdValue: ThresholdBasisValue = {
     aggregateFilterColumn: numerator.aggregateFilterColumn,
     aggregateFilter: numerator.aggregateFilter,
@@ -192,17 +261,86 @@ export default function MetricEditor({
   const valueShape = shapeForValueType(formType);
 
   return (
-    <Grid columns={{ initial: "1", md: "2fr 1fr" }} gap="4">
-      <Flex direction="column" gap="4">
+    <Grid columns={{ initial: "1", md: "minmax(0, 1fr) 380px" }} gap="4">
+      <Flex direction="column" gap="4" minWidth="0">
         <Frame>
-          <Heading as="h4" size="sm" mb="1">
+          <Flex align="center" gap="1" mb="3">
+            <Heading as="h4" size="sm" mb="0">
+              Details
+            </Heading>
+            <OfficialBadge type="metric" managedBy={form.watch("managedBy")} />
+          </Flex>
+          {canEdit ? (
+            <Flex direction="column" gap="4">
+              <Text color="text-mid">
+                Define this metric with a clear name, description, and tags.
+              </Text>
+              <TextField
+                label="Name"
+                markRequired
+                value={form.watch("name")}
+                onChange={(e) => form.setValue("name", e.target.value)}
+                required
+              />
+              <Grid columns={{ initial: "1", sm: "2" }} gap="4">
+                <div style={{ minWidth: 0 }}>
+                  {showDescription || form.watch("description") ? (
+                    <Field
+                      label="Description"
+                      textarea
+                      autoFocus={showDescription}
+                      value={form.watch("description")}
+                      onChange={(e) => {
+                        setShowDescription(true);
+                        form.setValue("description", e.target.value);
+                      }}
+                    />
+                  ) : (
+                    <Flex direction="column" align="start" gap="3">
+                      <Text weight="semibold">Description</Text>
+                      <Link size="sm" onClick={() => setShowDescription(true)}>
+                        + Add a description
+                      </Link>
+                    </Flex>
+                  )}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  {showTags || !!form.watch("tags")?.length ? (
+                    <TagsInput
+                      label="Tags"
+                      autoFocus={showTags}
+                      value={form.watch("tags") || []}
+                      onChange={(tags) => {
+                        setShowTags(true);
+                        form.setValue("tags", tags);
+                      }}
+                    />
+                  ) : (
+                    <Flex direction="column" align="start" gap="3">
+                      <Text weight="semibold">Tags</Text>
+                      <Link size="sm" onClick={() => setShowTags(true)}>
+                        + Group with related metrics
+                      </Link>
+                    </Flex>
+                  )}
+                </div>
+              </Grid>
+            </Flex>
+          ) : (
+            <Flex direction="column" gap="6">
+              <DataList
+                columns={1}
+                data={[{ label: "Name", value: form.watch("name") }]}
+              />
+              {existingMetric && <MetricDescription metric={existingMetric} />}
+            </Flex>
+          )}
+        </Frame>
+
+        <Frame>
+          <Heading as="h4" size="sm" mb="3">
             Metric Type
           </Heading>
-          {canEdit && (
-            <Text color="text-mid" as="div" mb="3">
-              Choose what kind of number this metric produces.
-            </Text>
-          )}
           {canEdit ? (
             <MetricTypeSelect
               value={formType}
@@ -217,43 +355,16 @@ export default function MetricEditor({
               <Text weight="semibold" as="div">
                 {TYPE_LABELS[formType]}
               </Text>
-              <Text size="sm" color="text-mid" as="div">
-                {TYPE_DESCRIPTIONS[formType]}
-              </Text>
             </Flex>
           )}
         </Frame>
 
         <Frame>
-          <Heading as="h4" size="sm" mb="1">
+          <Heading as="h4" size="sm" mb="3">
             Definition
           </Heading>
-          {canEdit && (
-            <Text color="text-mid" as="div" mb="3">
-              Tell us what to count and where to find it, and we&apos;ll take
-              care of matching it to the right experiments.
-            </Text>
-          )}
           <Flex direction="column" gap="3">
-            {/* Ratio's numerator has no override of its own, so this select
-                is its only way to set a fact table - only funnel (which owns
-                per-step fact tables via FunnelStepsInput) hides it. Read-only
-                mode shows it here for every type except ratio, which shows
-                its own Fact Table line per-part below instead. */}
-            {canEdit && !isFunnel && (
-              <Select
-                label="Fact table"
-                value={primaryFactTableId}
-                setValue={changeFactTable}
-              >
-                {availableFactTables.map((ft) => (
-                  <SelectItem key={ft.id} value={ft.id}>
-                    {ft.name} (
-                    {getDatasourceById(ft.datasource)?.name || ft.datasource})
-                  </SelectItem>
-                ))}
-              </Select>
-            )}
+            {canEdit && !isRatioOrFunnel && primaryFactTableSelect}
             {!canEdit && !isRatioOrFunnel && (
               <DataList
                 columns={1}
@@ -325,6 +436,7 @@ export default function MetricEditor({
 
             {formType === "ratio" && denominator && (
               <RatioFields
+                numeratorFactTableSelect={primaryFactTableSelect}
                 numerator={numerator}
                 onNumeratorChange={(v: ColumnRef) =>
                   form.setValue("numerator", v)
@@ -388,56 +500,6 @@ export default function MetricEditor({
               ))}
           </Flex>
         </Frame>
-
-        <Frame>
-          <Flex align="center" gap="1" mb="1">
-            <Heading as="h4" size="sm" mb="0">
-              Basics
-            </Heading>
-            <OfficialBadge type="metric" managedBy={form.watch("managedBy")} />
-          </Flex>
-          {canEdit && (
-            <Text color="text-mid" as="div" mb="3">
-              Define this metric with a clear name, description, and tags.
-            </Text>
-          )}
-          {canEdit ? (
-            <Flex direction="column" gap="3">
-              <TextField
-                label="Name"
-                value={form.watch("name")}
-                onChange={(e) => form.setValue("name", e.target.value)}
-                required
-              />
-              <Field
-                label="Description"
-                textarea
-                value={form.watch("description")}
-                onChange={(e) => form.setValue("description", e.target.value)}
-              />
-              <TagsInput
-                label="Tags"
-                autoFocus={false}
-                value={form.watch("tags") || []}
-                onChange={(tags) => form.setValue("tags", tags)}
-              />
-            </Flex>
-          ) : (
-            <Flex direction="column" gap="6">
-              <DataList
-                columns={1}
-                data={[
-                  { label: "Name", value: form.watch("name") },
-                  {
-                    label: "Description",
-                    value: form.watch("description") || "—",
-                  },
-                ]}
-              />
-            </Flex>
-          )}
-        </Frame>
-
         <AdvancedSettings
           form={form}
           formType={formType}
@@ -446,8 +508,12 @@ export default function MetricEditor({
         />
       </Flex>
 
-      <Flex direction="column" gap="4">
-        <PreviewPanel />
+      <Flex direction="column" gap="4" minWidth="0">
+        <PreviewPanel
+          draft={canEdit ? form.watch() : null}
+          previewSql={previewSql}
+          metric={canEdit ? null : existingMetric}
+        />
       </Flex>
     </Grid>
   );

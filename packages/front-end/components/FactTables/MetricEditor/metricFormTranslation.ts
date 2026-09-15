@@ -603,7 +603,13 @@ function resetWindowForTypeSwitch(
 ): MetricWindowSettings | undefined {
   if (!windowSettings) return windowSettings;
   if (currentMetricType === "retention" && newFormType !== "retention") {
-    return { ...windowSettings, delayValue: 0, delayUnit: "hours" };
+    return {
+      ...windowSettings,
+      delayValue: 0,
+      delayUnit: "hours",
+      type: "",
+      windowValue: 0,
+    };
   }
   if (currentMetricType !== "retention" && newFormType === "retention") {
     const withDelay =

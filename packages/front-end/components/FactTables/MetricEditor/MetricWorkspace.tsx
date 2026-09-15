@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import omit from "lodash/omit";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -9,6 +10,7 @@ import {
   FunnelSettings,
   UpdateFactMetricProps,
 } from "shared/types/fact-table";
+import Text from "@/ui/Text";
 import {
   CreateFactMetricFormProps,
   fromFactMetricFormValues,
@@ -21,10 +23,11 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
 import MetricEditor from "@/components/FactTables/MetricEditor/MetricEditor";
 import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateFieldMapping";
 import { FactMetricSeed } from "@/components/FactTables/MetricEditor/templateMetric";
+
+import styles from "./MetricWorkspace.module.scss";
 
 type DefaultsContext = Pick<
   Parameters<typeof getDefaultFactMetricProps>[0],
@@ -87,6 +90,7 @@ export default function MetricWorkspace({
   mutate,
   onSaved,
   onCancel,
+  actionsContainer,
 }: {
   existing: FactMetricInterface | null;
   // Seeds defaults for a brand-new metric (create payload, not update) -
@@ -106,6 +110,7 @@ export default function MetricWorkspace({
   mutate: () => void;
   onSaved?: (metric: FactMetricInterface) => void;
   onCancel?: () => void;
+  actionsContainer: HTMLDivElement | null;
 }) {
   const { datasources, project, getFactTableById, getDatasourceById } =
     useDefinitions();
@@ -125,6 +130,22 @@ export default function MetricWorkspace({
   const form = useForm<CreateFactMetricFormProps>({
     defaultValues: buildFormDefaults(seedSource, defaultsCtx),
   });
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const [actionsRight, setActionsRight] = useState(16);
+  const [floating, setFloating] = useState(false);
+  useEffect(() => {
+    if (!actionsContainer || !isEditing) return;
+    const observer = new IntersectionObserver(
+      ([entry]) =>
+        setFloating(
+          !entry.isIntersecting && entry.boundingClientRect.bottom < -48,
+        ),
+      // Wait until the whole header is 48px above the viewport.
+      { rootMargin: "48px 0px 0px 0px" },
+    );
+    observer.observe(actionsContainer);
+    return () => observer.disconnect();
+  }, [actionsContainer, isEditing]);
   const [error, setError] = useState<string | null>(null);
   // Definition-can't-be-represented is a rare edge case (existing metrics
   // with a legacy sketch aggregation, mostly) - true is the correct default
@@ -141,6 +162,19 @@ export default function MetricWorkspace({
   const [needsMapping, setNeedsMapping] = useState(
     () => !!duplicateFrom?.numerator && !duplicateFrom.numerator.factTableId,
   );
+
+  useEffect(() => {
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    const observer = new ResizeObserver(() => {
+      setActionsRight(
+        document.documentElement.clientWidth -
+          workspace.getBoundingClientRect().right,
+      );
+    });
+    observer.observe(workspace);
+    return () => observer.disconnect();
+  }, [needsMapping]);
 
   function resync(source: FactMetricSeed | null) {
     form.reset(buildFormDefaults(source, defaultsCtx));
@@ -242,49 +276,55 @@ export default function MetricWorkspace({
     );
   }
 
-  const actionRow = isEditing && (
+  const actions = (
     <Flex
-      justify="between"
-      align="center"
-      py="3"
-      px="4"
-      style={{
-        background: "var(--color-panel-solid)",
-        borderRadius: "var(--radius-3)",
-      }}
+      direction="column"
+      gap="3"
+      className={floating ? styles.floatingActions : undefined}
+      style={floating ? { right: actionsRight } : undefined}
     >
-      <Text color="text-mid">
-        {existing ? "Editing metric" : "Creating a new metric"}
-      </Text>
-      <Flex gap="2">
-        <Button variant="soft" color="gray" onClick={handleDiscard}>
-          {onCancel ? "Cancel" : "Discard"}
-        </Button>
-        <Button
-          onClick={handleSave}
-          setError={setError}
-          disabled={!representable}
-        >
-          Save
-        </Button>
+      {error && <Callout status="error">{error}</Callout>}
+      <Flex gap="3" justify="between" align="center">
+        {floating && (
+          <Flex direction="column" className={styles.title}>
+            <Text weight="semibold" truncate>
+              {form.watch("name") || "New Metric"}
+            </Text>
+            <Text size="sm" color="text-mid">
+              {existing ? "Unsaved changes" : "Unsaved draft"}
+            </Text>
+          </Flex>
+        )}
+        <Flex gap="2" ml="auto" flexShrink="0">
+          <Button variant="soft" color="gray" onClick={handleDiscard}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            setError={setError}
+            disabled={!representable}
+          >
+            Save metric
+          </Button>
+        </Flex>
       </Flex>
     </Flex>
   );
 
   return (
-    <Flex direction="column" gap="3">
-      {isEditing && error && <Callout status="error">{error}</Callout>}
-      {actionRow}
+    <Flex
+      direction="column"
+      gap="3"
+      ref={workspaceRef}
+      className={isEditing && floating ? styles.withFloatingActions : undefined}
+    >
+      {isEditing && actionsContainer && createPortal(actions, actionsContainer)}
       <MetricEditor
+        existingMetric={existing}
         form={form}
         canEdit={isEditing}
         onRepresentableChange={setRepresentable}
       />
-      {/* Editing a metric definition is a long form (type, definition,
-          basics, advanced settings) - repeat just the buttons at the bottom
-          so Save/Discard don't scroll out of reach. The error stays above,
-          not duplicated here. */}
-      {actionRow}
     </Flex>
   );
 }
