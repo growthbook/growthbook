@@ -56,10 +56,18 @@ export default function TargetingProjectsField({
     baseline.targetingProjects.includes(projectId) ||
     (permissionsUtil.canTargetFeatureProjects([projectId]) &&
       !targetingOptOutProjectIds.includes(projectId));
+  // Both reasons when both apply; a grant alone would not unblock an opt-out.
   const disabledReason = (projectId: string) =>
-    targetingOptOutProjectIds.includes(projectId)
-      ? "This Project doesn't allow targeting from other Projects' Feature Flags"
-      : "You don't have permission to target this Project";
+    [
+      targetingOptOutProjectIds.includes(projectId)
+        ? "This Project doesn't allow targeting from other Projects' Feature Flags"
+        : null,
+      permissionsUtil.canTargetFeatureProjects([projectId])
+        ? null
+        : "You don't have permission to target this Project",
+    ]
+      .filter((reason): reason is string => reason !== null)
+      .join(". ");
   // `projects` is already read-filtered, so a restricted Project the viewer
   // cannot see is never offered. One already selected still needs a chip so
   // it can be seen and removed.
@@ -90,8 +98,8 @@ export default function TargetingProjectsField({
   );
   const hiddenOptedOut = optedOutNames.filter((n) => n === null).length;
   const namedOptedOut = optedOutNames.filter((n): n is string => n !== null);
-  const allProjectsReason =
-    targetingOptOutProjectIds.length > 0 && !baseline.allProjects
+  const allProjectsReason = [
+    targetingOptOutProjectIds.length > 0
       ? `${[
           ...namedOptedOut,
           ...(hiddenOptedOut
@@ -104,7 +112,13 @@ export default function TargetingProjectsField({
         ].join(", ")} ${
           targetingOptOutProjectIds.length === 1 ? "doesn't" : "don't"
         } allow targeting`
-      : "Requires permission to target all Projects";
+      : null,
+    permissionsUtil.canTargetFeatureProjects("all")
+      ? null
+      : "Requires permission to target all Projects",
+  ]
+    .filter((reason): reason is string => reason !== null)
+    .join(". ");
 
   const help = `Also include this ${entityLabel} in these Projects' SDK payloads`;
 
