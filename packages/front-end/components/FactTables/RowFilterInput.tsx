@@ -1,6 +1,9 @@
 import { Flex } from "@radix-ui/themes";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { useMemo, useState } from "react";
+import { PiTable } from "react-icons/pi";
+import Button from "@/ui/Button";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { factTableToColumnSource, isRowFilterComplete } from "./rowFilterUtils";
@@ -31,13 +34,32 @@ export function RowFilterInput({
   const datasource = getDatasourceById(
     getFactTableById(factTable.id)?.datasource || "",
   );
-  const showSampleRows =
+  const canShowSampleRows =
     !!datasource && permissionsUtil.canRunTestQueries(datasource);
+  const canViewSampleRows = value.every(isRowFilterComplete);
 
   return (
     <Flex direction="column" gap="2">
-      <strong>Row Filter</strong>
-      {sampleRowsOpen && (
+      <Flex align="center" justify="between" gap="2">
+        <strong>Row Filter</strong>
+        {canShowSampleRows && (
+          <Tooltip
+            shouldDisplay={!canViewSampleRows}
+            body="Fill out all filters first"
+          >
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!canViewSampleRows}
+              icon={<PiTable size={14} />}
+              onClick={() => setSampleRowsOpen(true)}
+            >
+              View sample rows
+            </Button>
+          </Tooltip>
+        )}
+      </Flex>
+      {canShowSampleRows && sampleRowsOpen && (
         <SampleRowsModal
           factTableId={factTable.id}
           rowFilters={value}
@@ -51,13 +73,7 @@ export function RowFilterInput({
         columnSource={columnSource}
         dateInputWidth={260}
       />
-      <RowFilterActions
-        onAdd={(filter) => setValue([...value, filter])}
-        onViewSampleRows={
-          showSampleRows ? () => setSampleRowsOpen(true) : undefined
-        }
-        canViewSampleRows={value.every(isRowFilterComplete)}
-      />
+      <RowFilterActions onAdd={(filter) => setValue([...value, filter])} />
     </Flex>
   );
 }

@@ -356,7 +356,12 @@ export default function AdvancedSettings({
                               )
                             }
                             options={factTable.columns
-                              .filter((c) => c.isAutoSliceColumn && !c.deleted)
+                              .filter(
+                                (c) =>
+                                  c.isAutoSliceColumn &&
+                                  !c.deleted &&
+                                  !factTable.userIdTypes.includes(c.column),
+                              )
                               .map((c) => ({
                                 label: c.name || c.column,
                                 value: c.column,
@@ -520,22 +525,21 @@ export default function AdvancedSettings({
                     ))}
                   </>
                 )}
+                {canEditOfficial && (
+                  <Checkbox
+                    label="Mark as official metric"
+                    disabled={form.watch("managedBy") === "api"}
+                    disabledMessage="This Metric is managed by the API, so it can not be edited in the UI."
+                    description="Official Metrics can only be modified by Admins or users with the ManageOfficialResources policy."
+                    value={form.watch("managedBy") === "admin"}
+                    setValue={(value) =>
+                      form.setValue("managedBy", value ? "admin" : "")
+                    }
+                  />
+                )}
               </Flex>
             </TabsContent>
           </Tabs>
-
-          {canEditOfficial && (
-            <Checkbox
-              label="Mark as official metric"
-              disabled={form.watch("managedBy") === "api"}
-              disabledMessage="This Metric is managed by the API, so it can not be edited in the UI."
-              description="Official Metrics can only be modified by Admins or users with the ManageOfficialResources policy."
-              value={form.watch("managedBy") === "admin"}
-              setValue={(value) =>
-                form.setValue("managedBy", value ? "admin" : "")
-              }
-            />
-          )}
         </Flex>
       </details>
     </Frame>

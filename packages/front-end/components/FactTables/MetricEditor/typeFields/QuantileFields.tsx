@@ -8,7 +8,7 @@ import {
 import RadioGroup from "@/ui/RadioGroup";
 import { Select, SelectItem } from "@/ui/Select";
 import TextField from "@/ui/TextField";
-import Switch from "@/ui/Switch";
+import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import DataList from "@/ui/DataList";
 import { getPercentileLabel } from "@/services/metrics";
@@ -197,10 +197,11 @@ export default function QuantileFields({
             }}
           />
         )}
-        <Switch
+        <Checkbox
           label="Ignore zeros"
+          weight="regular"
           value={quantileSettings.ignoreZeros}
-          onChange={(ignoreZeros) =>
+          setValue={(ignoreZeros) =>
             onQuantileSettingsChange({ ...quantileSettings, ignoreZeros })
           }
         />
