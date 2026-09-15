@@ -5,7 +5,7 @@ import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "../api.setup";
 
-// A prerequisite may only point at an existing, unarchived boolean flag that
+// A prerequisite may only point at an existing, unarchived flag that
 // does not depend on the feature being written — what the dashboard picker
 // enforces. Every REST write path applies it, and only to parents the write
 // introduces, so stored references to a since-archived parent still echo.
@@ -121,7 +121,6 @@ describe("prerequisite parents on REST feature writes", () => {
   const badParents: [string, string, number, RegExp][] = [
     ["a missing flag", "missing_flag", 404, /not found/],
     ["an archived flag", "parent_archived", 400, /is archived/],
-    ["a non-boolean flag", "parent_string", 400, /boolean feature, not string/],
     ["the feature itself", FLAG, 400, /its own prerequisite/],
     ["a flag that depends on this one", "parent_cyclic", 400, /circular/],
     ["a flag two hops above this one", "parent_deep", 400, /circular/],
@@ -138,13 +137,18 @@ describe("prerequisite parents on REST feature writes", () => {
     },
   );
 
-  it("v2 rule add accepts a valid parent", async () => {
-    const res = await send("post", RULES_V2, {
-      rule: forceRule({ prerequisites: [prereq("parent_ok")] }),
-    });
-    expect(res.body.message).toBeUndefined();
-    expect(res.status).toBe(200);
-  });
+  // Inline prerequisites carry their own condition, so a rule may gate on a
+  // flag of any type; only a feature's top-level prerequisites must be boolean.
+  it.each(["parent_ok", "parent_string"])(
+    "v2 rule add accepts a prerequisite on %s",
+    async (id) => {
+      const res = await send("post", RULES_V2, {
+        rule: forceRule({ prerequisites: [prereq(id)] }),
+      });
+      expect(res.body.message).toBeUndefined();
+      expect(res.status).toBe(200);
+    },
+  );
 
   // One case per remaining write path proves the wiring; the rules themselves
   // are covered above.
@@ -232,13 +236,13 @@ describe("prerequisite parents on REST feature writes", () => {
                 {
                   type: "force",
                   value: "true",
-                  prerequisites: [prereq("parent_string")],
+                  prerequisites: [prereq("parent_archived")],
                 },
               ],
             },
           },
         }),
-      /boolean feature/,
+      /is archived/,
     ],
     [
       "revision prerequisites endpoint",
@@ -300,9 +304,9 @@ describe("prerequisite parents on REST feature writes", () => {
 
     it("still rejects a newly added bad parent on the same feature", async () => {
       const res = await send("post", RULES_V2, {
-        rule: forceRule({ prerequisites: [prereq("parent_string")] }),
+        rule: forceRule({ prerequisites: [prereq("parent_cyclic")] }),
       });
-      expect(res.body.message).toMatch(/boolean feature/);
+      expect(res.body.message).toMatch(/circular/);
       expect(res.status).toBe(400);
     });
   });

@@ -64,6 +64,30 @@ describe("assertValidPrerequisiteParents", () => {
   });
 });
 
+describe("assertValidPrerequisiteParents value types", () => {
+  const str = { ...flag("str"), valueType: "string" } as FeatureInterface;
+
+  it("requires a boolean parent only for top-level prerequisites", async () => {
+    stub(() => ({ str }));
+    const child = flag("child");
+    await expect(
+      assertValidPrerequisiteParents(ctx, {
+        ...child,
+        rules: [
+          {
+            type: "force",
+            value: "true",
+            prerequisites: [{ id: "str", condition: "{}" }],
+          },
+        ],
+      } as unknown as FeatureInterface),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertValidPrerequisiteParents(ctx, flag("child", "str")),
+    ).rejects.toThrow(/must be a boolean feature, not string/);
+  });
+});
+
 describe("assertValidExperimentPrerequisites", () => {
   const gate = (id: string) => ({ id, condition: '{"value": true}' });
 
@@ -79,6 +103,15 @@ describe("assertValidExperimentPrerequisites", () => {
       ctx,
       expect.objectContaining({ ids: ["ok"] }),
     );
+  });
+
+  it("accepts a parent of any value type", async () => {
+    stub(() => ({ str: { ...flag("str"), valueType: "string" } }));
+    await expect(
+      assertValidExperimentPrerequisites(ctx, [
+        { id: "str", condition: '{"value": "control"}' },
+      ]),
+    ).resolves.toBeUndefined();
   });
 
   it("rejects a missing or archived parent", async () => {
