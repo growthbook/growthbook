@@ -1,9 +1,8 @@
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   FactTableDefinition,
   MetricWindowSettings,
 } from "shared/types/fact-table";
-import RadioGroup from "@/ui/RadioGroup";
 import TextField from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Checkbox from "@/ui/Checkbox";
@@ -56,8 +55,10 @@ export default function RetentionFields({
   if (!canEdit) {
     return (
       <Flex direction="column" gap="3">
-        <Text weight="semibold">Retention Period</Text>
-        <Text as="div">{retentionWindowProse(windowSettings)}</Text>
+        <Flex direction="column" gap="2">
+          <Text weight="semibold">Retention Period</Text>
+          <Text as="div">{retentionWindowProse(windowSettings)}</Text>
+        </Flex>
         {hasThreshold && (
           <ThresholdBasisRow
             value={threshold}
@@ -72,102 +73,114 @@ export default function RetentionFields({
 
   return (
     <Flex direction="column" gap="3">
-      <Text weight="semibold">Retention Period</Text>
-      <Flex gap="2" align="center" wrap="wrap">
-        <RadioGroup
-          value={mode}
-          setValue={(value) =>
-            onWindowSettingsChange(
-              onRetentionDelayOrModeChange(windowSettings, {
-                type: "mode",
-                value: value as "starting" | "between",
-              }),
-            )
-          }
-          options={[
-            { value: "starting", label: "Starting" },
-            { value: "between", label: "Between" },
-          ]}
-        />
-        <Text size="sm">Event must occur</Text>
-        <TextField
-          aria-label="Delay value"
-          type="number"
-          style={{ width: 70 }}
-          value={windowSettings.delayValue}
-          onChange={(e) =>
-            onWindowSettingsChange(
-              onRetentionDelayOrModeChange(windowSettings, {
-                type: "delay",
-                value: Number(e.target.value),
-              }),
-            )
-          }
-        />
-        {mode === "between" && (
-          <>
-            <Text size="sm">and</Text>
-            <TextField
-              aria-label="End value"
-              type="number"
-              style={{ width: 70 }}
-              value={retentionEnd(windowSettings)}
-              onChange={(e) =>
-                onWindowSettingsChange(
-                  onRetentionDelayOrModeChange(windowSettings, {
-                    type: "end",
-                    value: Number(e.target.value),
-                  }),
-                )
-              }
-            />
-          </>
-        )}
-        <Select
-          aria-label="Time unit"
-          value={windowSettings.delayUnit}
-          setValue={(unit) =>
-            onWindowSettingsChange({
-              ...windowSettings,
-              delayUnit: unit as MetricWindowSettings["delayUnit"],
-              windowUnit: unit as MetricWindowSettings["windowUnit"],
-            })
-          }
-        >
-          {UNIT_OPTIONS.map((u) => (
-            <SelectItem key={u.value} value={u.value}>
-              {u.label}
-            </SelectItem>
-          ))}
-        </Select>
-        <Text size="sm">after exposure</Text>
+      <Flex
+        direction="column"
+        gap="2"
+        role="group"
+        aria-label="Retention Period"
+      >
+        <Text weight="semibold">Retention Period</Text>
+        <Flex gap="2" align="center" wrap="wrap">
+          <Select
+            aria-label="Retention period mode"
+            style={{ minWidth: 120, flexShrink: 0 }}
+            value={mode}
+            setValue={(value) =>
+              onWindowSettingsChange(
+                onRetentionDelayOrModeChange(windowSettings, {
+                  type: "mode",
+                  value: value as "starting" | "between",
+                }),
+              )
+            }
+          >
+            <SelectItem value="starting">Starting</SelectItem>
+            <SelectItem value="between">Between</SelectItem>
+          </Select>
+          <TextField
+            aria-label="Delay value"
+            type="number"
+            style={{ width: 80 }}
+            value={windowSettings.delayValue}
+            onChange={(e) =>
+              onWindowSettingsChange(
+                onRetentionDelayOrModeChange(windowSettings, {
+                  type: "delay",
+                  value: Number(e.target.value),
+                }),
+              )
+            }
+          />
+          {mode === "between" && (
+            <>
+              <Text>and</Text>
+              <TextField
+                aria-label="End value"
+                type="number"
+                style={{ width: 80 }}
+                value={retentionEnd(windowSettings)}
+                onChange={(e) =>
+                  onWindowSettingsChange(
+                    onRetentionDelayOrModeChange(windowSettings, {
+                      type: "end",
+                      value: Number(e.target.value),
+                    }),
+                  )
+                }
+              />
+            </>
+          )}
+          <Select
+            aria-label="Time unit"
+            style={{ minWidth: 100, flexShrink: 0 }}
+            value={windowSettings.delayUnit}
+            setValue={(unit) =>
+              onWindowSettingsChange({
+                ...windowSettings,
+                delayUnit: unit as MetricWindowSettings["delayUnit"],
+                windowUnit: unit as MetricWindowSettings["windowUnit"],
+              })
+            }
+          >
+            {UNIT_OPTIONS.map((u) => (
+              <SelectItem key={u.value} value={u.value}>
+                {u.label}
+              </SelectItem>
+            ))}
+          </Select>
+          <Text whiteSpace="nowrap">after exposure</Text>
+        </Flex>
       </Flex>
 
-      <Checkbox
-        label="Require a minimum amount (Threshold)"
-        value={hasThreshold}
-        setValue={(checked) =>
-          onThresholdChange(
-            checked
-              ? { aggregateFilterColumn: "$$count", aggregateFilter: "" }
-              : // Explicit undefined, not {} - onThresholdChange merges this
-                // into the existing numerator (MetricEditor.tsx), so an empty
-                // object would leave both fields exactly as they were and
-                // hasThreshold would immediately read true again next render.
-                {
-                  aggregateFilterColumn: undefined,
-                  aggregateFilter: undefined,
-                },
-          )
-        }
-      />
-      {hasThreshold && (
-        <ThresholdBasisRow
-          value={threshold}
-          onChange={onThresholdChange}
-          factTable={factTable}
+      <Flex direction="column" gap="3">
+        <Checkbox
+          label="Require a minimum amount (Threshold)"
+          value={hasThreshold}
+          setValue={(checked) =>
+            onThresholdChange(
+              checked
+                ? { aggregateFilterColumn: "$$count", aggregateFilter: "" }
+                : // Explicit undefined, not {} - onThresholdChange merges this
+                  // into the existing numerator (MetricEditor.tsx), so an empty
+                  // object would leave both fields exactly as they were and
+                  // hasThreshold would immediately read true again next render.
+                  {
+                    aggregateFilterColumn: undefined,
+                    aggregateFilter: undefined,
+                  },
+            )
+          }
         />
-      )}
+        {hasThreshold && (
+          <Box pl="5">
+            <ThresholdBasisRow
+              value={threshold}
+              onChange={onThresholdChange}
+              factTable={factTable}
+            />
+          </Box>
+        )}
+      </Flex>
     </Flex>
   );
 }
