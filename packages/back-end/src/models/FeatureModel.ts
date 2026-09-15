@@ -3066,19 +3066,27 @@ async function createRampSchedulesForRevision(
             ]
           : [];
 
-    const startActions: RampStepAction[] =
-      action.startActions !== undefined
-        ? Array.isArray(action.startActions)
-          ? action.startActions.map(normalizeAction)
-          : []
-        : getStartActionsFromRules({
-            rules: result.rules ?? feature.rules ?? [],
-            targetId,
-            ruleId: action.ruleId,
-            environment: action.environment,
-          });
+    // Like steps, empty startActions are "not provided": the rollback anchor
+    // is derived from the rule as published.
+    const explicitStartActions = Array.isArray(action.startActions)
+      ? action.startActions.map(normalizeAction)
+      : [];
+    const startActionsExplicit = explicitStartActions.length > 0;
+    const startActions: RampStepAction[] = startActionsExplicit
+      ? explicitStartActions
+      : getStartActionsFromRules({
+          rules: result.rules ?? feature.rules ?? [],
+          targetId,
+          ruleId: action.ruleId,
+          environment: action.environment,
+        });
 
     if (action.mode === "create") {
+      if (!startActions.length) {
+        throw new Error(
+          `Ramp target rule "${action.ruleId}" not found in the published revision`,
+        );
+      }
       // Guard against duplicate schedules: if the revision is re-published or
       // an older revision is published while a live schedule already targets
       // this rule, skip the create rather than producing a second schedule
@@ -3118,7 +3126,7 @@ async function createRampSchedulesForRevision(
             activatingRevisionVersion: revision.version,
           },
         ],
-        startActions: startActions.length > 0 ? startActions : undefined,
+        startActions,
         steps,
         endActions: endActions.length > 0 ? endActions : undefined,
         startDate: startDate ?? undefined,
@@ -3189,11 +3197,7 @@ async function createRampSchedulesForRevision(
         edited.push(key);
       };
       set(updateAction.name !== undefined, "name", updateAction.name);
-      set(
-        updateAction.startActions !== undefined,
-        "startActions",
-        startActions.length > 0 ? startActions : undefined,
-      );
+      set(startActionsExplicit, "startActions", startActions);
       set(stepsExplicit, "steps", steps);
       set(
         updateAction.endActions !== undefined,
@@ -3319,9 +3323,9 @@ async function createRampSchedulesForRevision(
           } else {
             set(stepsExplicit, "steps", steps);
             set(
-              canEditStartActions && updateAction.startActions !== undefined,
+              canEditStartActions && startActionsExplicit,
               "startActions",
-              startActions.length > 0 ? startActions : undefined,
+              startActions,
             );
             // Start strategy is a pre-start decision — only editable while the
             // ramp hasn't crossed into step 0. Toggling it on re-arms the
