@@ -23,9 +23,11 @@ module.exports = {
     {
       name: "front-end",
       script: "node_modules/next/dist/bin/next",
-      // Flag must exceed the ALB's idle_timeout; Next ignores keepAliveTimeout
-      // unless it is passed here, leaving Node's 5s default and causing 502s.
-      args: "start --keepAliveTimeout 3605000",
+      // Next ignores keepAliveTimeout unless it is passed here, leaving Node's
+      // 5s default. Same env var and default as the back-end reads in secrets.ts.
+      args: `start --keepAliveTimeout ${
+        process.env.KEEP_ALIVE_TIMEOUT_MS || 60 * 60 * 1000 + 5000
+      }`,
       cwd: "./packages/front-end",
       autorestart: process.env.PM2_AUTORESTART === "true",
       max_memory_restart: process.env.PM2_MAX_MEMORY_RESTART || "6G",
