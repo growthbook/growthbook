@@ -16,7 +16,7 @@ const LABELS = {
   transcribing: "Transcribing…",
 } as const;
 
-// Its own glyph per state, not just color: color-only state fails WCAG 1.4.1.
+// Glyphs, not color alone: color-only state fails WCAG 1.4.1. Both waits share the spinner.
 const ICONS = {
   idle: PiMicrophone,
   starting: PiSpinnerGap,
@@ -42,33 +42,40 @@ export default function DictationButton({
   const label = LABELS[status];
   const Icon = error && status === "idle" ? PiMicrophoneSlash : ICONS[status];
 
+  const button = (
+    <button
+      ref={micRef}
+      type="button"
+      // Shared geometry, so "filled" is just the send button's class.
+      className={`${primary && !recording ? styles.sendButton : styles.dictateButton}${
+        recording ? ` ${styles.dictateButtonActive}` : ""
+      }`}
+      onClick={toggle}
+      // Busy states stay undimmed; toggle already ignores the click while transcribing.
+      disabled={disabled}
+      aria-label={label}
+      aria-pressed={recording}
+      aria-busy={spinning}
+    >
+      {spinning ? (
+        <span className={aiChatStyles.spinIcon}>
+          <Icon size={16} />
+        </span>
+      ) : (
+        <Icon size={16} />
+      )}
+    </button>
+  );
+
   return (
     <Tooltip content={label}>
-      {/* Radix tooltips need an enabled trigger, so the wrapper is what gets hovered. */}
-      <span className={styles.dictateTrigger}>
-        <button
-          ref={micRef}
-          type="button"
-          // Shared geometry, so "filled" is just the send button's class.
-          className={`${primary && !recording ? styles.sendButton : styles.dictateButton}${
-            recording ? ` ${styles.dictateButtonActive}` : ""
-          }`}
-          onClick={toggle}
-          // Busy states stay undimmed; toggle already ignores the click while transcribing.
-          disabled={disabled}
-          aria-label={label}
-          aria-pressed={recording}
-          aria-busy={spinning}
-        >
-          {spinning ? (
-            <span className={aiChatStyles.spinIcon}>
-              <Icon size={16} />
-            </span>
-          ) : (
-            <Icon size={16} />
-          )}
-        </button>
-      </span>
+      {/* The button is the trigger so it opens on focus; a disabled one needs
+          the wrapper, since pointer events never reach it. */}
+      {disabled ? (
+        <span className={styles.dictateTrigger}>{button}</span>
+      ) : (
+        button
+      )}
     </Tooltip>
   );
 }
