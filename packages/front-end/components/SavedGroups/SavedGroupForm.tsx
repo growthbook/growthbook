@@ -42,6 +42,9 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import Callout from "@/ui/Callout";
+import LargeSavedGroupPerformanceWarning, {
+  useLargeSavedGroupSupport,
+} from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import ConflictCallout, {
   ConflictProvider,
 } from "@/components/DraftConflicts/ConflictContext";
@@ -183,6 +186,7 @@ const SavedGroupForm: FC<{
       currentRevision?.status === "merged");
 
   const { mutateDefinitions, project, getProjectById } = useDefinitions();
+  const largeSavedGroupSupport = useLargeSavedGroupSupport(project);
 
   const { data: savedGroupsData } = useApi<{
     savedGroups: SavedGroupWithoutValues[];
@@ -648,10 +652,16 @@ const SavedGroupForm: FC<{
         </Callout>
       )}
       {!editInfoOnly && !editConditionOnly && current.type === "condition" && (
-        <div className="form-group">
-          Updating this group will automatically update any associated Features
-          and Experiments.
-        </div>
+        <>
+          <LargeSavedGroupPerformanceWarning
+            type="condition"
+            {...largeSavedGroupSupport}
+          />
+          <div className="form-group">
+            Updating this group will automatically update any associated
+            Features and Experiments.
+          </div>
+        </>
       )}
       {!editConditionOnly && (
         <>

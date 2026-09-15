@@ -313,7 +313,7 @@ export type Options = {
   /** @deprecated */
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
@@ -340,7 +340,7 @@ export type ClientOptions = {
   streamingHostRequestHeaders?: Record<string, string>;
   clientKey?: string;
   decryptionKey?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
@@ -352,7 +352,7 @@ export type GlobalContext = {
   experiments?: AutoExperiment[];
   enabled?: boolean;
   qaMode?: boolean;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   contextualBandits?: ContextualBanditDefinitions;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
@@ -489,7 +489,7 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
@@ -616,7 +616,30 @@ export interface StickyAssignmentsDocument {
   assignments: StickyAssignments;
 }
 
+/**
+ * The v1 shape of a saved group: the values in an ID list. Kept under this name
+ * because it is part of this package's public API. New code should use
+ * SavedGroupsPayload.
+ */
 export type SavedGroupsValues = Record<string, (string | number)[]>;
+
+/**
+ * The savedGroupReferencesV2 shape of one saved group. Covers every kind of
+ * group, not just ID lists. A `type` this SDK does not know must match nobody
+ * rather than throw, since the payload can be newer than the SDK.
+ */
+export type SavedGroupPayloadEntry =
+  | { type: "list"; attributeKey: string; values: (string | number)[] }
+  | { type: "condition"; condition: ConditionInterface };
+
+/**
+ * The `savedGroups` field as it arrives in a payload. Entries use either shape
+ * above. Check each entry rather than assuming they all match.
+ */
+export type SavedGroupsPayload = Record<
+  string,
+  (string | number)[] | SavedGroupPayloadEntry
+>;
 
 export type BaseLog = {
   timestamp: string;

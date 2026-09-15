@@ -251,6 +251,12 @@ export default function SDKConnectionForm({
     () => currentSdkCapabilities.includes("savedGroupReferences"),
     [currentSdkCapabilities],
   );
+  // v2 covers every Saved Group type. v1 covers ID Lists only, so Condition
+  // Groups keep shipping inline until the SDK is upgraded.
+  const supportsAllSavedGroupTypes = useMemo(
+    () => currentSdkCapabilities.includes("savedGroupReferencesV2"),
+    [currentSdkCapabilities],
+  );
 
   useEffect(() => {
     if (!showSavedGroupSettings) {
@@ -1187,13 +1193,30 @@ export default function SDKConnectionForm({
                   commercialFeature="large-saved-groups"
                   body={
                     <>
-                      <p>
-                        Reduce the size of your payload by moving ID List Saved
-                        Groups from inline evaluation to a separate key in the
-                        payload json. Re-using an ID List in multiple features
-                        or experiments will no longer meaningfully increase the
-                        size of your payload.
-                      </p>
+                      {supportsAllSavedGroupTypes ? (
+                        <p>
+                          Reduce the size of your payload by moving Saved Groups
+                          from inline evaluation to a separate key in the
+                          payload json. Re-using a Saved Group in multiple
+                          features or experiments will no longer meaningfully
+                          increase the size of your payload.
+                        </p>
+                      ) : (
+                        <>
+                          <p>
+                            Reduce the size of your payload by moving ID List
+                            Saved Groups from inline evaluation to a separate
+                            key in the payload json. Re-using an ID List in
+                            multiple features or experiments will no longer
+                            meaningfully increase the size of your payload.
+                          </p>
+                          <p>
+                            This SDK version covers ID Lists only. Saved Groups
+                            that use a condition keep shipping inline until you
+                            upgrade the SDK.
+                          </p>
+                        </>
+                      )}
                       <HelperText status="warning" size="sm">
                         This feature is not supported by old SDK versions
                         {form.watch("remoteEvalEnabled")

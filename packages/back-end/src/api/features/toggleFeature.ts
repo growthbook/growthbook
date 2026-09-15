@@ -271,7 +271,13 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       canUseRestApiBypassSetting(req),
     );
     return {
-      feature: await resolveOwnerEmail(getApiFeatureObj(data), req.context),
+      feature: await resolveOwnerEmail(
+        getApiFeatureObj({
+          ...data,
+          savedGroupFormat: req.query.savedGroupFormat,
+        }),
+        req.context,
+      ),
       ...(data.bypassedGates.length
         ? { bypassedGates: data.bypassedGates }
         : {}),
