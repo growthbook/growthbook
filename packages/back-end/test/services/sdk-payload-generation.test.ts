@@ -24,6 +24,7 @@ import {
   getFeatureDefinitionsResponse,
   applySavedGroupHashing,
   getUsedSavedGroupIds,
+  getApiFeatureObj,
   type SDKPayloadRawData,
   type ConnectionPayloadOptions,
 } from "back-end/src/services/features";
@@ -2240,5 +2241,91 @@ describe("getUsedSavedGroupIds", () => {
       groupMap,
     );
     expect(used.has("unused")).toBe(false);
+  });
+});
+
+describe("getApiFeatureObj savedGroupFormat", () => {
+  const groupMap: GroupMap = new Map([
+    ["grp_list", { type: "list", attributeKey: "id", values: ["u_1"] }],
+    [
+      "grp_cond",
+      { type: "condition", condition: JSON.stringify({ plan: "pro" }) },
+    ],
+  ]);
+
+  const organization = {
+    id: "org",
+    settings: { environments: [{ id: "production" }] },
+  } as OrganizationInterface;
+
+  const feature = {
+    id: "f",
+    organization: "org",
+    defaultValue: "off",
+    valueType: "string",
+    owner: "",
+    description: "",
+    project: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    version: 1,
+    environmentSettings: {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            id: "r1",
+            type: "force",
+            value: "on",
+            description: "",
+            enabled: true,
+            savedGroups: [{ match: "all", ids: ["grp_list", "grp_cond"] }],
+          },
+        ],
+      },
+    },
+  } as unknown as FeatureInterface;
+
+  const definitionFor = (savedGroupFormat?: "v1" | "v2") =>
+    getApiFeatureObj({
+      feature,
+      organization,
+      groupMap,
+      experimentMap: new Map(),
+      revision: null,
+      safeRolloutMap: new Map(),
+      savedGroupFormat,
+    }).environments.production.definition;
+
+  it("keeps $inGroup and inlines Condition Groups under v1", () => {
+    expect(JSON.parse(definitionFor("v1") || "{}")).toEqual({
+      defaultValue: "off",
+      rules: [
+        {
+          condition: {
+            $and: [{ id: { $inGroup: "grp_list" } }, { plan: "pro" }],
+          },
+          force: "on",
+        },
+      ],
+    });
+  });
+
+  it("references every group under v2", () => {
+    expect(JSON.parse(definitionFor("v2") || "{}")).toEqual({
+      defaultValue: "off",
+      rules: [
+        {
+          condition: {
+            $and: [{ $savedGroup: "grp_list" }, { $savedGroup: "grp_cond" }],
+          },
+          force: "on",
+        },
+      ],
+    });
+  });
+
+  it("defaults to v1 when the caller does not pin a format", () => {
+    expect(definitionFor()).toEqual(definitionFor("v1"));
   });
 });

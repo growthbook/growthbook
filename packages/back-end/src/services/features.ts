@@ -2784,6 +2784,38 @@ export function toApiRevisionV2(
  * v2 feature API shape: top-level flat `rules` array + `environments[env]`
  * containing only `enabled` / `defaultValue` / `definition` (no rules).
  */
+/**
+ * Which saved group format a REST caller asked for in the `definition` field.
+ * `v1` keeps `$inGroup` for ID Lists and inlines Condition Groups. `v2` sends
+ * every group as a `$savedGroup` reference.
+ *
+ * Neither form ships the group contents. A caller resolving a reference has to
+ * fetch the groups separately, which is already true of `$inGroup` today.
+ */
+export type ApiSavedGroupFormat = "v1" | "v2";
+
+/**
+ * Builds the strategy behind an `ApiSavedGroupFormat`. `v1` is the default and
+ * never changes; a new format means a new enum value, not a new meaning for an
+ * old one.
+ *
+ * No organization is passed on purpose. Without it the strategy cannot inline,
+ * so a REST response can never fall back to embedding group values.
+ */
+function getApiSavedGroupStrategy(
+  format: ApiSavedGroupFormat | undefined,
+  groupMap: GroupMap,
+) {
+  return getSavedGroupPayloadStrategy({
+    capabilities:
+      format === "v2"
+        ? ["savedGroupReferences", "savedGroupReferencesV2"]
+        : ["savedGroupReferences"],
+    savedGroupReferencesEnabled: true,
+    groupMap,
+  });
+}
+
 export function getApiFeatureObjV2({
   feature,
   organization,
@@ -2793,6 +2825,7 @@ export function getApiFeatureObjV2({
   revisions,
   safeRolloutMap,
   rampScheduleMap,
+  savedGroupFormat,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
@@ -2802,7 +2835,12 @@ export function getApiFeatureObjV2({
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   rampScheduleMap?: Map<string, string>;
+  savedGroupFormat?: ApiSavedGroupFormat;
 }): ApiFeatureWithRevisionsV2 {
+  const savedGroupStrategy = getApiSavedGroupStrategy(
+    savedGroupFormat,
+    groupMap,
+  );
   // `baseConfig` (Config mode) is a discrete field; `defaultValueConfig` is the
   // default's own extension (a descendant it patches, else null) — the exposed
   // `defaultValue` is the override patch, never the raw `@config:` directive.
@@ -2822,6 +2860,7 @@ export function getApiFeatureObjV2({
       environment: env,
       safeRolloutMap,
       organization,
+      savedGroupStrategy,
     });
     featureEnvironments[env] = { enabled, defaultValue };
     if (definition) {
@@ -2949,6 +2988,7 @@ export function getApiFeatureObj({
   revision,
   revisions,
   safeRolloutMap,
+  savedGroupFormat,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
@@ -2957,7 +2997,12 @@ export function getApiFeatureObj({
   revision: FeatureRevisionInterface | null;
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  savedGroupFormat?: ApiSavedGroupFormat;
 }): ApiFeatureWithRevisions {
+  const savedGroupStrategy = getApiSavedGroupStrategy(
+    savedGroupFormat,
+    groupMap,
+  );
   // Scrub the internal `@config:` directive out of the exposed values and
   // surface config backing via `baseConfig`/`defaultValueConfig` instead
   // (mirrors the v2 REST shape; `@const:` refs are left intact). Shared by the
@@ -2996,6 +3041,7 @@ export function getApiFeatureObj({
       safeRolloutMap,
       namespaces: namespacesToMap(organization.settings?.namespaces),
       organization,
+      savedGroupStrategy,
     });
 
     featureEnvironments[env] = {
@@ -3056,6 +3102,7 @@ export function getApiFeatureObj({
         safeRolloutMap,
         namespaces: namespacesToMap(organization.settings?.namespaces),
         organization,
+        savedGroupStrategy,
       });
 
       environmentRules[env] = revRulesByEnv[env] ?? [];
