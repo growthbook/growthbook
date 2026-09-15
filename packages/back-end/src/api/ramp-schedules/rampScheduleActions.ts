@@ -1492,9 +1492,8 @@ export const updateStepsRampSchedule = createApiRequestHandler({
           actions: fresh.steps[idx]?.actions ?? [],
         }),
       );
-      // Judged against the in-lock document with the preserved actions, so
-      // an echo is not a re-plan and a plan reviewed meanwhile is not
-      // overwritten by a body that matched the earlier read.
+      // Compared in-lock with the preserved actions, so an echo is not a
+      // re-plan and a plan reviewed meanwhile is not silently overwritten.
       if (
         fresh.targets.length &&
         changesRampPlan({ steps: incomingSteps }, fresh)

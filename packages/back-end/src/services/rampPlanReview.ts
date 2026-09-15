@@ -1,7 +1,7 @@
 import isEqual from "lodash/isEqual";
 import { orgRequiresAnyReview, PermissionError } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
-import type { RampScheduleInterface } from "shared/validators";
+import type { RampScheduleInterface, RampStep } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -84,6 +84,19 @@ const PLAN_FIELDS = [
 type PlanField = (typeof PLAN_FIELDS)[number];
 type StoredPlan = Partial<Pick<RampScheduleInterface, PlanField>>;
 
+// The step shape the API emits and accepts; the fields the scheduler reads.
+export function toApiRampStep(
+  step: Partial<RampStep> & Pick<RampStep, "interval">,
+) {
+  return {
+    interval: step.interval,
+    actions: step.actions ?? [],
+    approvalNotes: step.approvalNotes ?? undefined,
+    monitored: !!step.monitored,
+    holdConditions: step.holdConditions ?? undefined,
+  };
+}
+
 // The shape GET emits for each field, so an echoed schedule compares equal to
 // the stored one whatever extra fields the document carries.
 function normalizePlanField(field: PlanField, value: unknown): unknown {
@@ -91,13 +104,7 @@ function normalizePlanField(field: PlanField, value: unknown): unknown {
     return value ? new Date(value as string | Date).toISOString() : null;
   }
   if (field === "steps") {
-    return ((value as RampScheduleInterface["steps"]) ?? []).map((s) => ({
-      interval: s.interval ?? null,
-      actions: s.actions ?? [],
-      approvalNotes: s.approvalNotes ?? null,
-      monitored: !!s.monitored,
-      holdConditions: s.holdConditions ?? null,
-    }));
+    return ((value as RampStep[]) ?? []).map(toApiRampStep);
   }
   return value ?? null;
 }

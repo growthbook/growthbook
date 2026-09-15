@@ -20,6 +20,7 @@ import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
   assertRampScheduleReplanAllowed,
   changesRampPlan,
+  toApiRampStep,
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
@@ -238,13 +239,7 @@ export function rampScheduleToApiInterface(
     entityId: doc.entityId,
     targets: doc.targets,
     startActions: doc.startActions,
-    steps: doc.steps.map((s) => ({
-      interval: s.interval,
-      actions: s.actions,
-      approvalNotes: s.approvalNotes ?? undefined,
-      monitored: !!s.monitored,
-      holdConditions: s.holdConditions ?? undefined,
-    })),
+    steps: doc.steps.map(toApiRampStep),
     endActions: doc.endActions,
     startDate: dateToIso(doc.startDate),
     cutoffDate: dateToIso(doc.cutoffDate),

@@ -2442,11 +2442,9 @@ export async function assertCanRunExperimentChanges(
   }
 }
 
-// Assigns ids and keys to variations that lack them, then checks both are
-// unique. With `existing` (an update), an omitted id keeps the stored one, as
-// an echoed GET does through `variationId`: filled from the stored variation
-// with the same key, else the same position, unless another variation claims
-// it. A freshly minted id would read as a change to every linked feature rule.
+// Assigns missing ids and keys, then checks both are unique. On an update
+// (`existing`), an omitted id keeps the stored one by key, else by position,
+// so linked feature rules keep pointing at the same variations.
 export function validateVariationIds(
   variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
   existing?: Pick<Variation, "id" | "key">[],
