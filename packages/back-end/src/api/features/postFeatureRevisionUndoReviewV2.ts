@@ -1,11 +1,6 @@
-import {
-  ANY_REVIEW_FOOTPRINT,
-  featureReviewCandidateProjects,
-} from "shared/util";
 import { postFeatureRevisionUndoReviewV2Validator } from "shared/validators";
 import {
-  getFeatureReviewApproverProjects,
-  getFeatureReviewFootprint,
+  assertCanUndoFeatureReview,
   toApiRevisionV2,
 } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
@@ -24,16 +19,6 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canReviewFeatureDrafts(
-      feature,
-      ANY_REVIEW_FOOTPRINT,
-      featureReviewCandidateProjects(feature, req.context.org.settings),
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
   const revision = await getRevision({
     context: req.context,
     organization: req.organization.id,
@@ -42,23 +27,12 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
-  if (
-    !req.context.permissions.canReviewFeatureDrafts(
-      feature,
-      await getFeatureReviewFootprint({
-        context: req.context,
-        feature,
-        revision,
-      }),
-      await getFeatureReviewApproverProjects({
-        context: req.context,
-        feature,
-        revision,
-      }),
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
+  await assertCanUndoFeatureReview({
+    context: req.context,
+    feature,
+    revision,
+    user: req.context.auditUser,
+  });
 
   const allowed = ["approved", "changes-requested"];
   if (!allowed.includes(revision.status)) {

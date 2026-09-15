@@ -72,20 +72,22 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
-  RevisionRampAction,
-  HoldoutInterface,
-  ContextualBanditInterface,
-  SdkConnectionCacheAuditContext,
   ApiEventUser,
-  apiFeatureRevisionValidator,
-  ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
+  ApiFeatureEnvironmentV2,
+  apiFeatureRevisionV2Validator,
+  apiFeatureRevisionValidator,
   ApiFeatureRule,
   ApiFeatureRuleV2,
-  apiFeatureRevisionV2Validator,
+  ApiFeatureWithRevisions,
   ApiFeatureWithRevisionsV2,
-  ApiFeatureEnvironmentV2,
+  ContextualBanditInterface,
+  EventUser,
+  HoldoutInterface,
   resolveSavedGroupsInput,
+  reviewerKeyForEventUser,
+  RevisionRampAction,
+  SdkConnectionCacheAuditContext,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -3997,6 +3999,35 @@ export async function getFeatureReviewFootprint({
 
 // Targeting projects whose own reviewers this draft needs, judged against live
 // the way the review panel judges it.
+// Who may retract a verdict on a draft: anyone who could review it now, or the
+// verdict's own author even after the draft or their role moved them out of
+// its reviewer set.
+export async function assertCanUndoFeatureReview({
+  context,
+  feature,
+  revision,
+  user,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  user: EventUser;
+}): Promise<void> {
+  const ownVerdict = (revision.reviews ?? []).some(
+    (r) => r.userId === reviewerKeyForEventUser(user),
+  );
+  if (ownVerdict) return;
+  if (
+    !context.permissions.canReviewFeatureDrafts(
+      feature,
+      await getFeatureReviewFootprint({ context, feature, revision }),
+      await getFeatureReviewApproverProjects({ context, feature, revision }),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+}
+
 export async function getFeatureReviewApproverProjects({
   context,
   feature,

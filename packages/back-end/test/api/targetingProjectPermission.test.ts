@@ -130,6 +130,14 @@ beforeAll(async () => {
       environments: [],
       projectRoles: [projectRole(prjB, "flag_editor")],
     },
+    // Reviews B's flags.
+    {
+      id: "u_b_reviewer",
+      role: "noaccess",
+      limitAccessByEnvironment: false,
+      environments: [],
+      projectRoles: [projectRole(prjB, "flag_reviewer")],
+    },
     // Reads B's flags; reviews only in C, which has an approval rule of its own.
     {
       id: "u_c_reviewer",
@@ -506,6 +514,43 @@ describe("undoing a review", () => {
       expect(res.status).toBe(403);
     } finally {
       delete settings.requireReviews;
+    }
+  });
+
+  it("still lets a reviewer retract their own verdict after losing review access", async () => {
+    const id = await seedFeature();
+    as("u_admin");
+    const staged = await api.put(
+      `/api/v2/features/${id}/revisions/new/metadata`,
+      { description: "under review" },
+    );
+    const version = (staged.body as { revision: { version: number } }).revision
+      .version;
+    const requested = await api.post(
+      `/api/v2/features/${id}/revisions/${version}/request-review`,
+      {},
+    );
+    expect(requested.status).toBe(200);
+
+    as("u_b_reviewer");
+    const approved = await api.post(
+      `/api/v2/features/${id}/revisions/${version}/submit-review`,
+      { action: "approve", skipAutoPublish: true },
+    );
+    expect(approved.status).toBe(200);
+
+    const member = org.members.find((m) => m.id === "u_b_reviewer");
+    const roles = member?.projectRoles;
+    if (member) member.projectRoles = [projectRole(prjB, "readonly")];
+    try {
+      as("u_b_reviewer");
+      const undone = await api.post(
+        `/api/v2/features/${id}/revisions/${version}/undo-review`,
+        {},
+      );
+      expect(undone.status).toBe(200);
+    } finally {
+      if (member) member.projectRoles = roles;
     }
   });
 });

@@ -310,7 +310,7 @@ export const updateFeatureV2 = createApiRequestHandler(
           undefined,
           rule,
         ) ?? undefined,
-        existingRule as Parameters<typeof validateRuleAttributes>[3],
+        existingRule,
       );
     }
     inboundFlatRules = req.body.rules.map((rule) =>

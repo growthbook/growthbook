@@ -64,17 +64,17 @@ import {
   SDKCapability,
 } from "shared/sdk-versioning";
 import {
-  SafeRolloutInterface,
-  HoldoutInterface,
-  SafeRolloutRule,
   ACTIVE_DRAFT_STATUSES,
+  HoldoutInterface,
+  RampScheduleInterface,
+  RampStepAction,
   RevisionMetadata,
   RevisionRampAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
   RevisionRampUpdateAction,
-  RampStepAction,
-  RampScheduleInterface,
+  SafeRolloutInterface,
+  SafeRolloutRule,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -170,6 +170,7 @@ import {
   getDraftRevision,
   assertCanAutoPublish,
   revisionRequiresReview,
+  assertCanUndoFeatureReview,
 } from "back-end/src/services/features";
 import { assessRevisionApproval } from "back-end/src/services/featurePublishGates";
 import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
@@ -1990,15 +1991,6 @@ export async function postFeatureUndoReview(
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
-  if (
-    !context.permissions.canReviewFeatureDrafts(
-      feature,
-      ANY_REVIEW_FOOTPRINT,
-      featureReviewCandidateProjects(feature, context.org.settings),
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -2007,15 +1999,12 @@ export async function postFeatureUndoReview(
     version: parseInt(version),
   });
   if (!revision) throw new Error("Could not find feature revision");
-  if (
-    !context.permissions.canReviewFeatureDrafts(
-      feature,
-      await getFeatureReviewFootprint({ context, feature, revision }),
-      await getFeatureReviewApproverProjects({ context, feature, revision }),
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanUndoFeatureReview({
+    context,
+    feature,
+    revision,
+    user: res.locals.eventAudit,
+  });
   const newStatus = await undoReview(context, revision, res.locals.eventAudit);
 
   const afterUndo =
