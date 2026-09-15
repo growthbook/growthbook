@@ -23,8 +23,6 @@ module.exports = {
     {
       name: "front-end",
       script: "node_modules/next/dist/bin/next",
-      // Deliberately no --keepAliveTimeout: raising it past the ALB's idle
-      // timeout would hang Next's shutdown, which only drops idle sockets in dev.
       args: "start",
       cwd: "./packages/front-end",
       autorestart: process.env.PM2_AUTORESTART === "true",
