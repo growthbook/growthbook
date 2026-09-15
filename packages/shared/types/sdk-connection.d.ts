@@ -29,6 +29,7 @@ export type EditSDKConnectionParams = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeExperimentIds?: boolean;
   includeProjectIdInMetadata?: boolean;
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
@@ -54,6 +55,7 @@ export type CreateSDKConnectionParams = {
   includeExperimentNames: boolean;
   includeRedirectExperiments: boolean;
   includeRuleIds: boolean;
+  includeExperimentIds: boolean;
   includeProjectIdInMetadata: boolean;
   includeCustomFieldsInMetadata: boolean;
   allowedCustomFieldsInMetadata: string[];
@@ -92,6 +94,7 @@ export interface SDKConnectionInterface {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeExperimentIds?: boolean;
   includeProjectIdInMetadata?: boolean;
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
