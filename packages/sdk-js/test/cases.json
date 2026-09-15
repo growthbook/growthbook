@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.8.0",
+  "specVersion": "0.9.0",
   "evalCondition": [
     [
       "$not - pass",
@@ -10821,5 +10821,1019 @@
         }
       }
     ]
-  ]
+  ],
+  "savedGroupReferencesV2": {
+    "evalCondition": [
+      [
+        "list entry matches when the attribute is in the list",
+        {
+          "$savedGroup": "grp_list"
+        },
+        {
+          "id": "u_1"
+        },
+        true,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "list entry does not match when the attribute is absent from the list",
+        {
+          "$savedGroup": "grp_list"
+        },
+        {
+          "id": "u_9"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "condition entry matches when its condition passes",
+        {
+          "$savedGroup": "grp_cond"
+        },
+        {
+          "plan": "pro"
+        },
+        true,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "condition entry does not match when its condition fails",
+        {
+          "$savedGroup": "grp_cond"
+        },
+        {
+          "plan": "free"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "follows a chain of condition groups",
+        {
+          "$savedGroup": "grp_a"
+        },
+        {
+          "country": "US"
+        },
+        true,
+        {
+          "grp_a": {
+            "type": "condition",
+            "condition": {
+              "$savedGroup": "grp_b"
+            }
+          },
+          "grp_b": {
+            "type": "condition",
+            "condition": {
+              "$savedGroup": "grp_c"
+            }
+          },
+          "grp_c": {
+            "type": "condition",
+            "condition": {
+              "country": "US"
+            }
+          }
+        }
+      ],
+      [
+        "follows a chain and fails at the end",
+        {
+          "$savedGroup": "grp_a"
+        },
+        {
+          "country": "CA"
+        },
+        false,
+        {
+          "grp_a": {
+            "type": "condition",
+            "condition": {
+              "$savedGroup": "grp_b"
+            }
+          },
+          "grp_b": {
+            "type": "condition",
+            "condition": {
+              "$savedGroup": "grp_c"
+            }
+          },
+          "grp_c": {
+            "type": "condition",
+            "condition": {
+              "country": "US"
+            }
+          }
+        }
+      ],
+      [
+        "resolves inside $not",
+        {
+          "$not": {
+            "$savedGroup": "grp_list"
+          }
+        },
+        {
+          "id": "u_9"
+        },
+        true,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "resolves inside $and",
+        {
+          "$and": [
+            {
+              "$savedGroup": "grp_list"
+            },
+            {
+              "$savedGroup": "grp_cond"
+            }
+          ]
+        },
+        {
+          "id": "u_1",
+          "plan": "pro"
+        },
+        true,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "resolves inside $or",
+        {
+          "$or": [
+            {
+              "$savedGroup": "grp_list"
+            },
+            {
+              "$savedGroup": "grp_cond"
+            }
+          ]
+        },
+        {
+          "id": "u_9",
+          "plan": "pro"
+        },
+        true,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "match all: passes only when in every group",
+        {
+          "$and": [
+            {
+              "$savedGroup": "grp_list"
+            },
+            {
+              "$savedGroup": "grp_cond"
+            }
+          ]
+        },
+        {
+          "id": "u_1",
+          "plan": "free"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "match any: passes when in one group",
+        {
+          "$or": [
+            {
+              "$savedGroup": "grp_list"
+            },
+            {
+              "$savedGroup": "grp_cond"
+            }
+          ]
+        },
+        {
+          "id": "u_9",
+          "plan": "free"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "match none: an AND of NOTs passes when in neither group",
+        {
+          "$and": [
+            {
+              "$not": {
+                "$savedGroup": "grp_list"
+              }
+            },
+            {
+              "$not": {
+                "$savedGroup": "grp_cond"
+              }
+            }
+          ]
+        },
+        {
+          "id": "u_9",
+          "plan": "free"
+        },
+        true,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "match none: an AND of NOTs fails when in one group, unlike a negated pair",
+        {
+          "$and": [
+            {
+              "$not": {
+                "$savedGroup": "grp_list"
+              }
+            },
+            {
+              "$not": {
+                "$savedGroup": "grp_cond"
+              }
+            }
+          ]
+        },
+        {
+          "id": "u_1",
+          "plan": "free"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "combines with plain attribute targeting",
+        {
+          "$and": [
+            {
+              "country": "US"
+            },
+            {
+              "$savedGroup": "grp_list"
+            }
+          ]
+        },
+        {
+          "country": "US",
+          "id": "u_1"
+        },
+        true,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "combines with plain attribute targeting and fails on the attribute",
+        {
+          "$and": [
+            {
+              "country": "US"
+            },
+            {
+              "$savedGroup": "grp_list"
+            }
+          ]
+        },
+        {
+          "country": "CA",
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "list entry intersects when the attribute is an array",
+        {
+          "$savedGroup": "grp_list"
+        },
+        {
+          "id": ["u_9", "u_2"]
+        },
+        true,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "list entry matches numeric values",
+        {
+          "$savedGroup": "grp_num"
+        },
+        {
+          "age": 21
+        },
+        true,
+        {
+          "grp_num": {
+            "type": "list",
+            "attributeKey": "age",
+            "values": [21, 30]
+          }
+        }
+      ],
+      [
+        "a cycle resolves to false instead of hanging",
+        {
+          "$savedGroup": "grp_x"
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_x": {
+            "type": "condition",
+            "condition": {
+              "$savedGroup": "grp_y"
+            }
+          },
+          "grp_y": {
+            "type": "condition",
+            "condition": {
+              "$savedGroup": "grp_x"
+            }
+          }
+        }
+      ],
+      [
+        "an unknown group type matches nobody",
+        {
+          "$savedGroup": "grp_future"
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_future": {
+            "type": "somethingNew",
+            "values": ["u_1"]
+          }
+        }
+      ],
+      [
+        "an id that is not in the payload matches nobody",
+        {
+          "$savedGroup": "grp_missing"
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "a non-string operator value matches nobody",
+        {
+          "$savedGroup": ["grp_list"]
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "a list entry with no values matches nobody",
+        {
+          "$savedGroup": "grp_bad"
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_bad": {
+            "type": "list",
+            "attributeKey": "id"
+          }
+        }
+      ],
+      [
+        "a condition entry with no condition matches nobody",
+        {
+          "$savedGroup": "grp_bad"
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_bad": {
+            "type": "condition"
+          }
+        }
+      ],
+      [
+        "$savedGroup cannot resolve a legacy bare array",
+        {
+          "$savedGroup": "grp_legacy"
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_legacy": ["u_1"],
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          }
+        }
+      ],
+      [
+        "$inGroup still works beside typed entries",
+        {
+          "id": {
+            "$inGroup": "grp_legacy"
+          }
+        },
+        {
+          "id": "u_1"
+        },
+        true,
+        {
+          "grp_legacy": ["u_1"],
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          }
+        }
+      ],
+      [
+        "$inGroup cannot resolve a typed entry",
+        {
+          "id": {
+            "$inGroup": "grp_list"
+          }
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ],
+      [
+        "the authoring operator $savedGroups is not understood",
+        {
+          "$savedGroups": ["grp_list"]
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          },
+          "grp_cond": {
+            "type": "condition",
+            "condition": {
+              "plan": "pro"
+            }
+          }
+        }
+      ]
+    ],
+    "feature": [
+      [
+        "a rule condition using a saved group reference",
+        {
+          "attributes": {
+            "id": "u_1",
+            "plan": "pro"
+          },
+          "savedGroups": {
+            "grp_list": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["u_1", "u_2"]
+            },
+            "grp_cond": {
+              "type": "condition",
+              "condition": {
+                "plan": "pro"
+              }
+            }
+          },
+          "features": {
+            "flag": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "condition": {
+                    "$savedGroup": "grp_cond"
+                  },
+                  "force": true,
+                  "id": "rule_1"
+                }
+              ]
+            }
+          }
+        },
+        "flag",
+        {
+          "value": true,
+          "on": true,
+          "off": false,
+          "source": "force",
+          "ruleId": "rule_1"
+        }
+      ],
+      [
+        "a rule condition using a saved group reference that does not match",
+        {
+          "attributes": {
+            "id": "u_1",
+            "plan": "free"
+          },
+          "savedGroups": {
+            "grp_list": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["u_1", "u_2"]
+            },
+            "grp_cond": {
+              "type": "condition",
+              "condition": {
+                "plan": "pro"
+              }
+            }
+          },
+          "features": {
+            "flag": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "condition": {
+                    "$savedGroup": "grp_cond"
+                  },
+                  "force": true,
+                  "id": "rule_1"
+                }
+              ]
+            }
+          }
+        },
+        "flag",
+        {
+          "value": false,
+          "on": false,
+          "off": true,
+          "source": "defaultValue",
+          "ruleId": ""
+        }
+      ],
+      [
+        "a prerequisite gate that itself uses a saved group reference",
+        {
+          "attributes": {
+            "id": "u_1"
+          },
+          "savedGroups": {
+            "grp_parent_on": {
+              "type": "condition",
+              "condition": {
+                "value": true
+              }
+            }
+          },
+          "features": {
+            "parent": {
+              "defaultValue": true
+            },
+            "child": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "parentConditions": [
+                    {
+                      "id": "parent",
+                      "condition": {
+                        "$savedGroup": "grp_parent_on"
+                      }
+                    }
+                  ],
+                  "force": true,
+                  "id": "child_rule"
+                }
+              ]
+            }
+          }
+        },
+        "child",
+        {
+          "value": true,
+          "on": true,
+          "off": false,
+          "source": "force",
+          "ruleId": "child_rule"
+        }
+      ],
+      [
+        "a prerequisite gate whose saved group reference does not match",
+        {
+          "attributes": {
+            "id": "u_1"
+          },
+          "savedGroups": {
+            "grp_parent_on": {
+              "type": "condition",
+              "condition": {
+                "value": true
+              }
+            }
+          },
+          "features": {
+            "parent": {
+              "defaultValue": false
+            },
+            "child": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "parentConditions": [
+                    {
+                      "id": "parent",
+                      "condition": {
+                        "$savedGroup": "grp_parent_on"
+                      }
+                    }
+                  ],
+                  "force": true,
+                  "id": "child_rule"
+                }
+              ]
+            }
+          }
+        },
+        "child",
+        {
+          "value": false,
+          "on": false,
+          "off": true,
+          "source": "defaultValue",
+          "ruleId": ""
+        }
+      ]
+    ],
+    "run": [
+      [
+        "an experiment targeted by a saved group reference",
+        {
+          "attributes": {
+            "id": "u_1",
+            "plan": "pro"
+          },
+          "savedGroups": {
+            "grp_list": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["u_1", "u_2"]
+            },
+            "grp_cond": {
+              "type": "condition",
+              "condition": {
+                "plan": "pro"
+              }
+            }
+          }
+        },
+        {
+          "key": "sg-exp",
+          "variations": [0, 1],
+          "condition": {
+            "$savedGroup": "grp_cond"
+          }
+        },
+        0,
+        true,
+        true
+      ],
+      [
+        "an experiment skipped because the saved group does not match",
+        {
+          "attributes": {
+            "id": "u_1",
+            "plan": "free"
+          },
+          "savedGroups": {
+            "grp_list": {
+              "type": "list",
+              "attributeKey": "id",
+              "values": ["u_1", "u_2"]
+            },
+            "grp_cond": {
+              "type": "condition",
+              "condition": {
+                "plan": "pro"
+              }
+            }
+          }
+        },
+        {
+          "key": "sg-exp",
+          "variations": [0, 1],
+          "condition": {
+            "$savedGroup": "grp_cond"
+          }
+        },
+        0,
+        false,
+        false
+      ],
+      [
+        "an experiment gated by a prerequisite that uses a saved group reference",
+        {
+          "attributes": {
+            "id": "u_1",
+            "plan": "pro"
+          },
+          "savedGroups": {
+            "grp_parent_on": {
+              "type": "condition",
+              "condition": {
+                "value": true
+              }
+            },
+            "grp_cond": {
+              "type": "condition",
+              "condition": {
+                "plan": "pro"
+              }
+            }
+          },
+          "features": {
+            "parent": {
+              "defaultValue": true
+            }
+          }
+        },
+        {
+          "key": "sg-prereq-exp",
+          "variations": [0, 1],
+          "parentConditions": [
+            {
+              "id": "parent",
+              "condition": {
+                "$savedGroup": "grp_parent_on"
+              }
+            }
+          ]
+        },
+        0,
+        true,
+        true
+      ],
+      [
+        "an experiment blocked because its prerequisite saved group does not match",
+        {
+          "attributes": {
+            "id": "u_1",
+            "plan": "pro"
+          },
+          "savedGroups": {
+            "grp_parent_on": {
+              "type": "condition",
+              "condition": {
+                "value": true
+              }
+            },
+            "grp_cond": {
+              "type": "condition",
+              "condition": {
+                "plan": "pro"
+              }
+            }
+          },
+          "features": {
+            "parent": {
+              "defaultValue": false
+            }
+          }
+        },
+        {
+          "key": "sg-prereq-exp",
+          "variations": [0, 1],
+          "parentConditions": [
+            {
+              "id": "parent",
+              "condition": {
+                "$savedGroup": "grp_parent_on"
+              }
+            }
+          ]
+        },
+        0,
+        false,
+        false
+      ]
+    ]
+  }
 }
