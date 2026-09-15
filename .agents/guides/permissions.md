@@ -217,6 +217,8 @@ context.permissions.canReviewFeatureDrafts(
   approverProjects,
 );
 // Targeting Projects: gate the DELTA with `holdsTargetingDestination` (shared).
+// Staging writes judge it against `stagingTargetingBase` (live, the draft, and
+// the revision the draft was created from); landing judges against live.
 context.permissions.canTargetFeatureProjects(addedProjects);
 
 // Environment-scoped permissions
