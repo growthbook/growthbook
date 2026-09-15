@@ -16,10 +16,10 @@ import {
 import { ThresholdBasisRow, ThresholdBasisValue } from "./ThresholdBasisRow";
 
 const UNIT_OPTIONS = [
-  { value: "minutes", label: "Minutes" },
-  { value: "hours", label: "Hours" },
-  { value: "days", label: "Days" },
-  { value: "weeks", label: "Weeks" },
+  { value: "minutes", label: "minutes" },
+  { value: "hours", label: "hours" },
+  { value: "days", label: "days" },
+  { value: "weeks", label: "weeks" },
 ];
 
 function retentionWindowProse(windowSettings: MetricWindowSettings): string {
