@@ -1,9 +1,4 @@
-import {
-  PiMicrophone,
-  PiMicrophoneSlash,
-  PiSpinnerGap,
-  PiStop,
-} from "react-icons/pi";
+import { PiMicrophone, PiSpinnerGap, PiStop } from "react-icons/pi";
 import Tooltip from "@/ui/Tooltip";
 import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
 import type { Dictation } from "./useDictation";
@@ -26,7 +21,7 @@ const ICONS = {
 
 /** Mic toggle. Renders nothing when dictation isn't available to the org. */
 export default function DictationButton({
-  dictation: { available, status, error, toggle, micRef },
+  dictation: { available, status, toggle, micRef },
   disabled = false,
   primary = false,
 }: {
@@ -40,14 +35,14 @@ export default function DictationButton({
   const recording = status === "recording";
   const spinning = status === "starting" || status === "transcribing";
   const label = LABELS[status];
-  const Icon = error && status === "idle" ? PiMicrophoneSlash : ICONS[status];
+  const Icon = ICONS[status];
 
   const button = (
     <button
       ref={micRef}
       type="button"
       // Shared geometry, so "filled" is just the send button's class.
-      className={`${primary && !recording ? styles.sendButton : styles.dictateButton}${
+      className={`${primary && status === "idle" ? styles.sendButton : styles.dictateButton}${
         recording ? ` ${styles.dictateButtonActive}` : ""
       }`}
       onClick={toggle}
