@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import { cloneDeep } from "lodash";
+import { cloneDeep, isEqual } from "lodash";
 import { Request } from "express";
 import {
   areProjectRolesValid,
@@ -126,6 +126,7 @@ import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -139,6 +140,7 @@ import {
   sendPendingMemberEmail,
 } from "./email";
 import { ReqContextClass } from "./context";
+import { queueSDKPayloadRefresh } from "./features";
 
 export {
   getEnvironments,
@@ -1209,12 +1211,33 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
-    await updateOrganization(organization.id, {
-      settings: {
-        ...organization.settings,
-        ...config.organization.settings,
-      },
-    });
+    const settings = {
+      ...organization.settings,
+      ...config.organization.settings,
+    };
+    await updateOrganization(organization.id, { settings });
+
+    if (!isEqual(organization.settings, settings)) {
+      // Settings persist even if a later resource import fails; refresh from the saved org now.
+      const refreshContext = await getContextForAgendaJobByOrgId(
+        organization.id,
+      );
+      queueSDKPayloadRefresh({
+        context: refreshContext,
+        payloadKeys: refreshContext.environments.map((environment) => ({
+          environment,
+          project: "",
+        })),
+        // Include connections whose environments were removed by the import.
+        sdkConnections: await findSDKConnectionsByOrganization(refreshContext),
+        treatEmptyProjectAsGlobal: true,
+        auditContext: {
+          event: "config imported",
+          model: "organization",
+          id: organization.id,
+        },
+      });
+    }
   }
   if (config.datasources) {
     await Promise.all(
