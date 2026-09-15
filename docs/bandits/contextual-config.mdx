@@ -18,19 +18,22 @@ This page is a checklist of everything you need in place before running your fir
 ## Requirements at a glance
 
 - **An Enterprise plan** — Contextual Bandits are an Enterprise-only beta feature.
-- **A supported SDK on a compatible version** — currently JavaScript, React, Node.js, and Python (see below).
+- **A supported SDK on a compatible version** — currently JavaScript, React, Node.js, Python, Go, Kotlin (Android), and Swift (iOS) (see below).
 - **A Fact Metric to use as the Decision Metric** — legacy (non-fact) metrics are not supported as decision metrics.
 
 ## 1. Install or upgrade to a compatible SDK
 
 Contextual Bandit support ships in the following SDKs:
 
-| SDK        | Package                        | Compatible versions |
-| ---------- | ------------------------------ | ------------------- |
-| JavaScript | `@growthbook/growthbook`       | 1.7.0 or higher     |
-| React      | `@growthbook/growthbook-react` | 1.7.0 or higher     |
-| Node.js    | `@growthbook/growthbook`       | 1.7.0 or higher     |
-| Python     | `growthbook`                   | 3.1.0 or higher     |
+| SDK              | Package                                   | Compatible versions |
+| ---------------- | ----------------------------------------- | ------------------- |
+| JavaScript       | `@growthbook/growthbook`                  | 1.7.0 or higher     |
+| React            | `@growthbook/growthbook-react`            | 1.7.0 or higher     |
+| Node.js          | `@growthbook/growthbook`                  | 1.7.0 or higher     |
+| Python           | `growthbook`                              | 3.1.0 or higher     |
+| Go               | `github.com/growthbook/growthbook-golang` | 0.5.0 or higher     |
+| Kotlin (Android) | `io.growthbook.sdk:GrowthBook`            | 8.0.0 or higher     |
+| Swift (iOS)      | `growthbook-swift`                        | 1.2.3 or higher     |
 
 Install or upgrade to a compatible version with your package manager:
 
@@ -40,9 +43,13 @@ npm install --save @growthbook/growthbook
 npm install --save @growthbook/growthbook-react
 # Python apps
 pip install --upgrade growthbook
+# Go apps
+go get github.com/growthbook/growthbook-golang@latest
 ```
 
-Note: for JS-based SDKs, 1.7 is a backwards-compatible release.
+Kotlin (Android) and Swift (iOS) are added through Gradle and Swift Package Manager (or CocoaPods) rather than a shell command — see the [Kotlin](/lib/kotlin) and [Swift](/lib/swift) SDK docs for the dependency snippets, and pin at least the version in the table above.
+
+Note: for JS-based SDKs, 1.7 is a backwards-compatible release. Kotlin 8.0.0, by contrast, is a major release: it adds contextual bandit support alongside breaking changes (SDK-owned model types such as `GBContext` and `GBOptions` can no longer be constructed by application code — build a context through `GBSDKBuilder`), so read its [changelog](https://github.com/growthbook/growthbook-kotlin/blob/main/CHANGELOG.md) before upgrading.
 
 <Note>
 **What happens on older SDKs?**
