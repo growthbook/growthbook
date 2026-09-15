@@ -1475,21 +1475,11 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
-  if (
-    schedule.targets.length &&
-    changesRampPlan({ steps: req.body.steps }, schedule)
-  ) {
-    await assertRampScheduleReplanAllowed(
-      req.context,
-      schedule,
-      canUseRestApiBypassSetting(req),
-    );
-  }
 
   const { schedule: updated } = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) => {
+    async (fresh) => {
       // The PUT body intentionally omits step actions (coverage patches) —
       // preserve them from the in-lock doc so a concurrent advance's state
       // isn't clobbered.
@@ -1502,6 +1492,19 @@ export const updateStepsRampSchedule = createApiRequestHandler({
           actions: fresh.steps[idx]?.actions ?? [],
         }),
       );
+      // Judged against the in-lock document with the preserved actions, so
+      // an echo is not a re-plan and a plan reviewed meanwhile is not
+      // overwritten by a body that matched the earlier read.
+      if (
+        fresh.targets.length &&
+        changesRampPlan({ steps: incomingSteps }, fresh)
+      ) {
+        await assertRampScheduleReplanAllowed(
+          req.context,
+          fresh,
+          canUseRestApiBypassSetting(req),
+        );
+      }
       return updateRampSteps(req.context, fresh, incomingSteps);
     },
   );

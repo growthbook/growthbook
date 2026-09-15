@@ -585,14 +585,6 @@ export class RampScheduleModel extends BaseClass {
     if (!schedule) {
       throw new NotFoundError("Ramp schedule not found");
     }
-    if (schedule.targets.length && changesRampPlan(req.body, schedule)) {
-      await assertRampScheduleReplanAllowed(
-        this.context,
-        schedule,
-        canUseRestApiBypassSetting(req),
-      );
-    }
-
     // Locked so the read-modify-write can't clobber a concurrent advance.
     return runLockedRampScheduleAction(
       this.context,
@@ -608,6 +600,15 @@ export class RampScheduleModel extends BaseClass {
     if (!["pending", "ready", "paused"].includes(schedule.status)) {
       throw new Error(
         `Cannot update ramp schedule in status "${schedule.status}". Only pending, ready, or paused schedules can be modified.`,
+      );
+    }
+    // Judged against the in-lock document, so a plan reviewed meanwhile is
+    // not overwritten by a body that matched the earlier read.
+    if (schedule.targets.length && changesRampPlan(req.body, schedule)) {
+      await assertRampScheduleReplanAllowed(
+        this.context,
+        schedule,
+        canUseRestApiBypassSetting(req),
       );
     }
 
