@@ -2,6 +2,7 @@ import {
   addedTargetingProjects,
   assertTargetingDestination,
   holdsTargetingDestination,
+  reachedTargeting,
   withStagedTargeting,
 } from "shared/permissions";
 
@@ -220,5 +221,31 @@ describe("assertTargetingDestination refusal messages", () => {
         optedOut: ["prj_hidden"],
       }),
     ).not.toThrow("prj_hidden");
+  });
+});
+
+describe("reachedTargeting", () => {
+  it("unions the current state with every prior, keeping the current primary", () => {
+    expect(
+      reachedTargeting(
+        { project: "prj_x", targetingProjects: [] },
+        { project: "prj_b", targetingProjects: ["prj_a"] },
+        { targetingProjects: ["prj_c"] },
+        null,
+      ),
+    ).toEqual({
+      project: "prj_x",
+      targetingAllProjects: false,
+      targetingProjects: ["prj_b", "prj_a", "prj_c"],
+    });
+  });
+
+  it("reaches all projects when any state did", () => {
+    expect(
+      reachedTargeting(
+        { project: "prj_b", targetingProjects: ["prj_a"] },
+        { project: "prj_b", targetingAllProjects: true },
+      ).targetingAllProjects,
+    ).toBe(true);
   });
 });

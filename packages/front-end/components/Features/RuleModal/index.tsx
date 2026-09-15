@@ -56,6 +56,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useAuth } from "@/services/auth";
 import { useLocalAttributeScopePicker } from "@/components/Experiment/useAttributeScopePicker";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -113,7 +114,6 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
@@ -336,6 +336,12 @@ const RULE_FIELD_LABELS: Record<string, string> = {
   experimentId: "Experiment",
 };
 
+// null (all projects) absorbs every other set.
+const unionProjectIds = (...sets: (string[] | null)[]): string[] | null =>
+  sets.some((s) => s === null)
+    ? null
+    : Array.from(new Set(sets.flat() as string[]));
+
 export default function RuleModal({
   close,
   feature,
@@ -402,6 +408,9 @@ export default function RuleModal({
       ? (baseFeature.rules ?? []).find((r) => r.id === ruleId)
       : undefined;
   const isLiveRule = !!liveRule;
+  const draftBaseMetadata = useFeatureRevisionsContext()?.revisions.find(
+    (r) => r.version === draftRevision?.baseVersion,
+  )?.metadata;
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -2391,8 +2400,21 @@ export default function RuleModal({
     setAllProjects: setScopeAllProjects,
     selectedProjects,
     setSelectedProjects,
-    // Limit scoping to the feature's delivery set (null = all projects).
-    allowedProjectIds: getTargetingProjectIds(feature),
+    // The feature's delivery set (null = all projects), plus what it reached
+    // live or when the draft began and what this rule already had, so a
+    // removed scope can be put back.
+    allowedProjectIds: unionProjectIds(
+      getTargetingProjectIds(feature),
+      getTargetingProjectIds(baseFeature),
+      draftBaseMetadata
+        ? getTargetingProjectIds({
+            project: draftBaseMetadata.project ?? baseFeature.project,
+            targetingAllProjects: draftBaseMetadata.targetingAllProjects,
+            targetingProjects: draftBaseMetadata.targetingProjects,
+          })
+        : [],
+      liveRule?.projects ?? [],
+    ),
   };
 
   // Resolved env list used by child components that care about which envs the

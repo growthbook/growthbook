@@ -232,6 +232,33 @@ describe("landing a draft that stages a targeting project", () => {
   });
 });
 
+describe("putting back what a draft removed", () => {
+  it("takes nothing, even after live moved on without it", async () => {
+    const id = await seedFeature([prjA]);
+    as("u_b_editor");
+    const dropped = await api.put(
+      `/api/v2/features/${id}/revisions/new/metadata`,
+      { targetingProjects: [] },
+    );
+    expect(dropped.status).toBe(200);
+    const version = (dropped.body as { revision: { version: number } }).revision
+      .version;
+
+    as("u_admin");
+    const drifted = await api.post(`/api/v1/features/${id}`, {
+      targetingProjects: [],
+    });
+    expect(drifted.status).toBe(200);
+
+    as("u_b_editor");
+    const restored = await api.put(
+      `/api/v2/features/${id}/revisions/${version}/metadata`,
+      { targetingProjects: [prjA] },
+    );
+    expect(restored.status).toBe(200);
+  });
+});
+
 describe("a project that does not allow targeting", () => {
   it("refuses new targeting and all-projects, but keeps existing targeting editable", async () => {
     as("u_admin");

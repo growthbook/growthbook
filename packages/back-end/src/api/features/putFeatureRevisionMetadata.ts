@@ -4,6 +4,7 @@ import { putFeatureRevisionMetadataValidator } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
 import {
   assertTargetingDestination,
+  reachedTargeting,
   withStagedTargeting,
 } from "shared/permissions";
 import type { ApiReqContext } from "back-end/types/api";
@@ -111,15 +112,23 @@ export async function setRevisionMetadata(
       );
     }
 
-    // Against the draft's staged targeting, so echoing a colleague's addition
-    // is free; landing re-checks live.
-    const stagedTargeting = withStagedTargeting(
-      feature,
-      created ? undefined : revision.metadata,
-    );
+    // Against everything live or staged reaches, so echoing a colleague's
+    // addition or putting back what the draft removed is free; landing
+    // re-checks live.
+    const draftMetadata = created ? undefined : revision.metadata;
+    const stagedTargeting = withStagedTargeting(feature, draftMetadata);
+    const draftBase = created
+      ? null
+      : await getRevision({
+          context,
+          organization: organization.id,
+          featureId: feature.id,
+          feature,
+          version: revision.baseVersion,
+        });
     assertTargetingDestination({
       permissions: context.permissions,
-      existing: stagedTargeting,
+      existing: reachedTargeting(stagedTargeting, feature, draftBase?.metadata),
       proposed: withStagedTargeting(stagedTargeting, metadataFields),
       optedOut: await context.getTargetingOptOutProjectIds(),
     });

@@ -1,12 +1,13 @@
 import {
+  assertTargetingDestination,
   canCommentOnRevisionEntity,
   canStageArchiveDraft,
-  metadataTouchesPayload,
   holdsMoveDestination,
-  assertTargetingDestination,
-  projectScopeChanged,
-  withStagedTargeting,
+  metadataTouchesPayload,
   NO_ENVIRONMENT_BINDING,
+  projectScopeChanged,
+  reachedTargeting,
+  withStagedTargeting,
 } from "shared/permissions";
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
@@ -5731,12 +5732,22 @@ export async function putFeature(
     ),
   ) as Partial<FeatureInterface>;
   normalizeTargetingInUpdates(metadataUpdates, feature);
-  // Against the draft's staged targeting, so echoing a colleague's addition is
-  // free; landing re-checks live.
+  // Against everything live or staged reaches, so echoing a colleague's
+  // addition or putting back what the draft removed is free; landing
+  // re-checks live.
   const stagedTargeting = withStagedTargeting(feature, targetDraft?.metadata);
+  const draftBase = targetDraft
+    ? await getRevision({
+        context,
+        organization: feature.organization,
+        featureId: feature.id,
+        feature,
+        version: targetDraft.baseVersion,
+      })
+    : null;
   assertTargetingDestination({
     permissions: context.permissions,
-    existing: stagedTargeting,
+    existing: reachedTargeting(stagedTargeting, feature, draftBase?.metadata),
     proposed: withStagedTargeting(stagedTargeting, metadataUpdates),
     optedOut: await context.getTargetingOptOutProjectIds(),
   });

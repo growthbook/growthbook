@@ -128,32 +128,32 @@ describe("putFeature targeting", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
-    const base = {
-      organization: ORG_ID,
-      featureId: FEATURE_ID,
-      baseVersion: 1,
-      createdBy: {
-        type: "dashboard",
-        id: "u_admin",
-        email: "a@t.co",
-        name: "A",
-      },
-      comment: "",
-      rules: {},
-      defaultValue: "false",
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-    };
-    await revisions().insertOne({ ...base, version: 1, status: "published" });
+    await revisions().insertOne(
+      revisionDoc({ version: 1, status: "published" }),
+    );
     if (staged) {
-      await revisions().insertOne({
-        ...base,
-        version: 2,
-        status: "draft",
-        metadata: staged,
-      });
+      await revisions().insertOne(
+        revisionDoc({ version: 2, status: "draft", metadata: staged }),
+      );
     }
   };
+  const revisionDoc = (overrides: Record<string, unknown>) => ({
+    organization: ORG_ID,
+    featureId: FEATURE_ID,
+    baseVersion: 1,
+    createdBy: {
+      type: "dashboard",
+      id: "u_admin",
+      email: "a@t.co",
+      name: "A",
+    },
+    comment: "",
+    rules: {},
+    defaultValue: "false",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    ...overrides,
+  });
 
   it("refuses an unknown targeting project as a permission error before checking it exists", async () => {
     await seed();
@@ -198,6 +198,45 @@ describe("putFeature targeting", () => {
       version: 2,
     });
     expect(draft?.metadata?.targetingProjects).toEqual([]);
+  });
+
+  it("lets a draft put back what its base revision targeted, even after live moved on", async () => {
+    await seed();
+    // Base v1 targeted A; live is now v3 without it; draft v2 (from v1) dropped it.
+    await revisions().updateOne(
+      { organization: ORG_ID, version: 1 },
+      { $set: { metadata: { targetingProjects: [PRJ_A] } } },
+    );
+    await revisions().insertMany([
+      revisionDoc({
+        version: 2,
+        status: "draft",
+        metadata: { targetingProjects: [] },
+      }),
+      revisionDoc({
+        version: 3,
+        status: "published",
+        metadata: { targetingProjects: [] },
+      }),
+    ]);
+    await mongoose.connection
+      .collection("features")
+      .updateOne(
+        { organization: ORG_ID, id: FEATURE_ID },
+        { $set: { version: 3 } },
+      );
+
+    const { res, captured } = resSpy();
+    await putFeature(
+      reqFor("u_editor", { targetingProjects: [PRJ_A], targetDraftVersion: 2 }),
+      res,
+    );
+    expect(captured.status).toBe(200);
+    const draft = await revisions().findOne({
+      organization: ORG_ID,
+      version: 2,
+    });
+    expect(draft?.metadata?.targetingProjects).toEqual([PRJ_A]);
   });
 
   describe("a refused autoPublish", () => {

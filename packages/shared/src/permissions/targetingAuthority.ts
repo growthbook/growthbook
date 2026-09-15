@@ -48,6 +48,36 @@ export function withStagedTargeting(
   };
 }
 
+// Everything the flag reaches in its current (staged) state plus any prior
+// states: live, and the revision the draft was created from. The base a
+// staging write is judged against, so a draft can put back what it removed
+// without the permission it would take to add it fresh. A moved primary stays
+// reached.
+export function reachedTargeting(
+  current: TargetingScoped,
+  ...priors: (Partial<TargetingScoped> | null | undefined)[]
+): TargetingScoped {
+  const states = [current, ...priors];
+  return {
+    project: current.project,
+    targetingAllProjects: states.some((s) => !!s?.targetingAllProjects),
+    targetingProjects: Array.from(
+      new Set(
+        states.flatMap((s) =>
+          s
+            ? [
+                ...(s.project && s.project !== current.project
+                  ? [s.project]
+                  : []),
+                ...(s.targetingProjects ?? []),
+              ]
+            : [],
+        ),
+      ),
+    ),
+  };
+}
+
 type TargetingPermissions = {
   canTargetFeatureProjects: (projects: string[] | "all") => boolean;
 };

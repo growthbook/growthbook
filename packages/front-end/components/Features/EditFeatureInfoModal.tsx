@@ -9,6 +9,7 @@ import {
 import {
   holdsFeatureMoveDestination,
   holdsTargetingDestination,
+  reachedTargeting,
 } from "shared/permissions";
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
@@ -33,9 +34,12 @@ import DraftSelectorForChanges, {
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 const EditFeatureInfoModal: FC<{
+  // The feature as viewed (draft changes merged in) and as published.
   feature: FeatureInterface;
+  baseFeature: FeatureInterface;
   revisionList: MinimalFeatureRevisionInterface[];
   cancel: () => void;
   mutate: () => void;
@@ -44,6 +48,7 @@ const EditFeatureInfoModal: FC<{
   dependents: number;
 }> = ({
   feature,
+  baseFeature,
   revisionList,
   cancel,
   mutate,
@@ -134,6 +139,23 @@ const EditFeatureInfoModal: FC<{
   const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
+  );
+  const revisions = useFeatureRevisionsContext()?.revisions ?? [];
+  const targetDraft =
+    mode === "existing"
+      ? revisions.find((r) => r.version === selectedDraft)
+      : undefined;
+  // Anything the flag reaches now, reached when the draft began, or already
+  // stages stays selectable, so removing it can be put back without the
+  // permission it would take to add it fresh.
+  const reached = reachedTargeting(
+    {
+      project: feature.project,
+      targetingAllProjects: feature.targetingAllProjects,
+      targetingProjects: feature.targetingProjects,
+    },
+    baseFeature,
+    revisions.find((r) => r.version === targetDraft?.baseVersion)?.metadata,
   );
 
   const conflict = useDraftConflict<Record<string, unknown>>({
@@ -290,6 +312,10 @@ const EditFeatureInfoModal: FC<{
             setTargetingProjects={(v) =>
               form.setValue("targetingProjects", v, { shouldDirty: true })
             }
+            baseline={{
+              allProjects: !!reached.targetingAllProjects,
+              targetingProjects: reached.targetingProjects ?? [],
+            }}
           />
           <Box mb="4">
             <label>Tags</label>
