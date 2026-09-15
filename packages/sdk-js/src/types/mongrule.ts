@@ -10,6 +10,16 @@ type AndCondition = {
 type NotCondition = {
   $not: ConditionInterface;
 };
+/**
+ * A reference to one saved group, resolved against the payload's `savedGroups`.
+ * Top level like `$and` and `$or`, not scoped to an attribute.
+ *
+ * The authoring operator `$savedGroups` (plural, an array) never reaches an
+ * SDK, so it has no type here on purpose.
+ */
+type SavedGroupCondition = {
+  $savedGroup: string;
+};
 export type Operator =
   | "$in"
   | "$ini"
@@ -90,6 +100,7 @@ export type ConditionInterface =
   | NorCondition
   | AndCondition
   | NotCondition
+  | SavedGroupCondition
   | OperatorCondition;
 
 export type ParentConditionInterface = {
