@@ -23,8 +23,6 @@ const DeleteButton: FC<{
   displayName: string;
   text?: string;
   title?: string;
-  // The verb for the confirmation ("Delete" by default, e.g. "Remove").
-  cta?: string;
   useIcon?: boolean;
   useRadix?: boolean;
   deleteMessage?: ReactElement | null | string;
@@ -43,7 +41,6 @@ const DeleteButton: FC<{
   link = false,
   text = "",
   title = "",
-  cta = "Delete",
   useIcon = true,
   useRadix = true,
   deleteMessage = "Are you sure? This action cannot be undone.",
@@ -70,10 +67,10 @@ const DeleteButton: FC<{
       {confirming ? (
         <ModalStandard
           trackingEventModalType=""
-          header={`${cta} ${displayName}`}
+          header={`Delete ${displayName}`}
           close={() => setConfirming(false)}
           open={true}
-          cta={cta}
+          cta="Delete"
           ctaColor="red"
           submit={onClick}
           ctaEnabled={canDelete}

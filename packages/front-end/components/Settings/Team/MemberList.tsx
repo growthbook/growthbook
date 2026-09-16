@@ -157,11 +157,12 @@ const MemberList: FC<{
     ]),
   ];
 
+  const hasRuleHere = (member: ExpandedMember) =>
+    !!project && scopedProjectIds(member).includes(project);
+
   // On a Project, lead with the people someone deliberately granted a role here.
-  const [scopedRolesOnly, setScopedRolesOnly] = useState(
-    () =>
-      !!project &&
-      members.some(([, member]) => scopedProjectIds(member).includes(project)),
+  const [scopedRolesOnly, setScopedRolesOnly] = useState(() =>
+    members.some(([, member]) => hasRuleHere(member)),
   );
   // Searching looks across the whole organization, so a query session starts
   // with the filter off. Swapping the filter mid-query sticks for that query;
@@ -180,8 +181,6 @@ const MemberList: FC<{
     if (!next.trim()) setSearchScopedOnly(null);
     setSearchValue(next);
   };
-  const hasRuleHere = (member: ExpandedMember) =>
-    !!project && scopedProjectIds(member).includes(project);
   const [roleFilterOpen, setRoleFilterOpen] = useState(false);
 
   const membersList: ExpandedMember[] = members

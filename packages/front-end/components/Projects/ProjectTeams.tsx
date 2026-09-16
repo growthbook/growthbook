@@ -75,9 +75,10 @@ const ProjectTeamRuleModal: FC<{
   project: string;
   mode: "create" | "add";
   candidates: Team[];
+  saveRules: (team: Team, projectRoles: ProjectMemberRole[]) => Promise<void>;
   close: () => void;
   onSuccess: () => void;
-}> = ({ project, mode, candidates, close, onSuccess }) => {
+}> = ({ project, mode, candidates, saveRules, close, onSuccess }) => {
   const { apiCall } = useAuth();
   const { getProjectById } = useDefinitions();
   const [name, setName] = useState("");
@@ -121,15 +122,7 @@ const ProjectTeamRuleModal: FC<{
             }),
           });
         } else if (team) {
-          await apiCall(`/teams/${team.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              permissions: {
-                ...teamRoleInfo(team),
-                projectRoles: [...rulesWithoutProject(team, project), rule],
-              },
-            }),
-          });
+          await saveRules(team, [...rulesWithoutProject(team, project), rule]);
         }
         onSuccess();
       }}
@@ -251,6 +244,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
           project={project}
           mode={ruleModal}
           candidates={addCandidates}
+          saveRules={saveRules}
           close={() => setRuleModal(null)}
           onSuccess={() => {
             refreshOrganization();
