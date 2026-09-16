@@ -1,6 +1,6 @@
 import { isEqual } from "lodash";
 import { pruneApprovalRuleReferences } from "shared/util";
-import { ProjectMemberRole } from "shared/types/organization";
+import { TeamInterface } from "shared/types/team";
 import {
   ManagedBy,
   ProjectInterface,
@@ -15,7 +15,10 @@ import {
   pruneDefinitionsVersionProject,
   touchDefinitionsVersion,
 } from "./DefinitionsVersionModel";
-import { updateOrganization } from "./OrganizationModel";
+import {
+  removeProjectRolesForProject,
+  updateOrganization,
+} from "./OrganizationModel";
 import { MakeModelClass } from "./BaseModel";
 
 function slugify(text: string): string {
@@ -106,47 +109,21 @@ export class ProjectModel extends BaseClass {
     await pruneDefinitionsVersionProject(this.context.org.id, doc.id);
     // Approval rules naming the project would otherwise block later settings
     // saves once the dashboard round-trips them.
-    const org = this.context.org;
-    const settings = org.settings ?? {};
+    const settings = this.context.org.settings ?? {};
     const pruned = pruneApprovalRuleReferences(settings, {
       projects: (await this.context.getAllProjectIds()).filter(
         (id) => id !== doc.id,
       ),
     });
+    if (!isEqual(pruned, settings)) {
+      await updateOrganization(this.context.org.id, { settings: pruned });
+    }
     // Project roles naming it are dead grants; drop them wherever they live.
-    const withoutRole = <T extends { projectRoles?: ProjectMemberRole[] }>(
-      record: T,
-    ): T =>
-      record.projectRoles?.some((rule) => rule.project === doc.id)
-        ? {
-            ...record,
-            projectRoles: record.projectRoles.filter(
-              (rule) => rule.project !== doc.id,
-            ),
-          }
-        : record;
-    const members = org.members.map(withoutRole);
-    const invites = org.invites.map(withoutRole);
-    const pendingMembers = (org.pendingMembers ?? []).map(withoutRole);
-    const orgUpdates = {
-      ...(isEqual(pruned, settings) ? {} : { settings: pruned }),
-      ...(isEqual(members, org.members) ? {} : { members }),
-      ...(isEqual(invites, org.invites) ? {} : { invites }),
-      ...(isEqual(pendingMembers, org.pendingMembers ?? [])
-        ? {}
-        : { pendingMembers }),
-    };
-    if (Object.keys(orgUpdates).length) {
-      await updateOrganization(org.id, orgUpdates);
-    }
-    for (const team of await this.context.models.teams.getAll()) {
-      const next = withoutRole(team);
-      if (next !== team) {
-        await this.context.models.teams.dangerousUpdateBypassPermission(team, {
-          projectRoles: next.projectRoles,
-        });
-      }
-    }
+    await removeProjectRolesForProject(this.context.org.id, doc.id);
+    await getCollection<TeamInterface>("teams").updateMany(
+      { organization: this.context.org.id, "projectRoles.project": doc.id },
+      { $pull: { projectRoles: { project: doc.id } } },
+    );
   }
 
   protected migrate(doc: MigratedProject) {

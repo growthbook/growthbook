@@ -320,6 +320,25 @@ type DeletableKeys = Extract<
   "restrictLoginMethod"
 >;
 
+// Targeted pull, so concurrent edits to other members, invites, or pending
+// members are untouched.
+export async function removeProjectRolesForProject(
+  organizationId: string,
+  projectId: string,
+) {
+  const rule = { project: projectId };
+  await OrganizationModel.updateOne(
+    { id: organizationId },
+    {
+      $pull: {
+        "members.$[].projectRoles": rule,
+        "invites.$[].projectRoles": rule,
+        "pendingMembers.$[].projectRoles": rule,
+      },
+    },
+  );
+}
+
 export async function updateOrganization(
   id: string,
   update: Partial<OrganizationInterface>,
