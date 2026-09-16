@@ -415,13 +415,13 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                             Add members
                           </DropdownMenuItem>
                         )}
-                        {canManageTeam && (
+                        {(canManageTeam || canManageMembers) && (
                           <DropdownMenuItem
                             onClick={() => {
                               router.push(`/settings/team/${team.id}`);
                             }}
                           >
-                            Team settings
+                            View team
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
