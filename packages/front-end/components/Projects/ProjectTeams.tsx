@@ -138,7 +138,7 @@ const ProjectTeamRuleModal: FC<{
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            containerClassName="mb-3"
+            mb="3"
           />
           <Field
             label="Description"
@@ -354,14 +354,16 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
               </Button>
             </Tooltip>
           )}
-          <PremiumTooltip commercialFeature="teams">
-            <Button
-              disabled={!canCreate || !hasCommercialFeature("teams")}
-              onClick={() => setRuleModal("create")}
-            >
-              Create team
-            </Button>
-          </PremiumTooltip>
+          {canCreate && (
+            <PremiumTooltip commercialFeature="teams">
+              <Button
+                disabled={!hasCommercialFeature("teams")}
+                onClick={() => setRuleModal("create")}
+              >
+                Create team
+              </Button>
+            </PremiumTooltip>
+          )}
         </Flex>
       </Flex>
       <Text as="p" size="sm" color="text-low" mb="2">
