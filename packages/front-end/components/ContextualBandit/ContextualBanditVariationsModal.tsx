@@ -202,7 +202,10 @@ export default function ContextualBanditVariationsModal({
           showDescriptions
           showPreview={false}
           // Splits are hidden and weights are reconciled server-side, so the
-          // weight is a placeholder the input requires but never shows.
+          // weight is a placeholder the input requires but never shows. The
+          // no-op setWeight is needed because FeatureVariationsInput only
+          // renders its Add-variation footer when setWeight is passed.
+          setWeight={() => {}}
           variations={watchedVariations.map((v) => ({
             value: v.key || "",
             name: v.name,
