@@ -152,7 +152,11 @@ const ProjectPage: FC = () => {
     return (
       <div className="container pagecontents">
         <Callout status="error">
-          Project <code>{pid}</code> does not exist.
+          Project{" "}
+          <Text as="span" size="inherit" mono>
+            {pid}
+          </Text>{" "}
+          does not exist.
         </Callout>
       </div>
     );
@@ -218,11 +222,19 @@ const ProjectPage: FC = () => {
             <Flex gap="6" mb="4">
               <Metadata
                 label="Public ID (SDK payloads)"
-                value={<code>{p.publicId || p.id}</code>}
+                value={
+                  <Text size="sm" mono>
+                    {p.publicId || p.id}
+                  </Text>
+                }
               />
               <Metadata
                 label="ID (API)"
-                value={<code className="text-muted">{p.id}</code>}
+                value={
+                  <Text size="sm" color="text-low" mono>
+                    {p.id}
+                  </Text>
+                }
               />
             </Flex>
           </Flex>

@@ -75,7 +75,11 @@ const TeamPage: FC = () => {
     return (
       <div className="container pagecontents">
         <Callout status="error">
-          Team <code>{tid}</code> does not exist.
+          Team{" "}
+          <Text as="span" size="inherit" mono>
+            {tid}
+          </Text>{" "}
+          does not exist.
         </Callout>
       </div>
     );
@@ -183,7 +187,11 @@ const TeamPage: FC = () => {
             <Tooltip
               body={
                 <>
-                  Project <code>{team.defaultProject}</code> not found
+                  Project{" "}
+                  <Text as="span" size="inherit" mono>
+                    {team.defaultProject}
+                  </Text>{" "}
+                  not found
                 </>
               }
             >
