@@ -35,6 +35,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import PageHead from "@/components/Layout/PageHead";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -246,6 +247,7 @@ const ProjectPage: FC = () => {
                 radius="full"
                 size="2"
                 highContrast
+                aria-label="Project actions"
               >
                 <BsThreeDotsVertical size={18} />
               </IconButton>
@@ -258,12 +260,15 @@ const ProjectPage: FC = () => {
                 Edit project settings
               </DropdownMenuItem>
               {canDelete && (
-                <DropdownMenuItem
-                  color="red"
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  Delete project
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    color="red"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    Delete project
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuGroup>
           </DropdownMenu>

@@ -45,7 +45,7 @@ const DeleteProjectModal: FC<{
       }}
     >
       <Text as="p">
-        Are you sure you want to delete the project{" "}
+        Are you sure you want to delete the Project{" "}
         <strong>{project.name}</strong>?
       </Text>
       {!isDemoProject && (
@@ -53,7 +53,7 @@ const DeleteProjectModal: FC<{
           <Checkbox
             value={deleteResources}
             setValue={setDeleteResources}
-            label="Also delete all of this project's resources"
+            label="Also delete all of this Project's resources"
             description="Features, experiments, etc."
           />
           {!deleteResources && (
