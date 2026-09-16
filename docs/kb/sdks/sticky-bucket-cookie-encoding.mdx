@@ -1,0 +1,111 @@
+---
+title: Sticky Bucket Cookies and WAF False Positives
+description: Why the browser sticky bucket cookie is only partially percent-encoded, how that can trigger a WAF SQL injection rule, and how to fix it.
+sidebarTitle: Sticky Bucket Cookies and WAFs
+slug: sticky-bucket-cookie-encoding
+---
+
+`BrowserCookieStickyBucketService` writes cookies that are only partially percent-encoded. `{`, `}` and `:` stay literal in the cookie value, and `|` stays literal in the cookie name.
+
+This is valid per [RFC 6265](https://datatracker.ietf.org/doc/html/rfc6265), and every GrowthBook SDK reads it correctly. But generic Web Application Firewall (WAF) rulesets — including Cloudflare's OWASP Core Ruleset — pattern-match those characters and may score the cookie as an SQL injection attempt. The WAF then acts on the **request**, and because the cookie is sent on every request once set, you can end up challenging or blocking every legitimate user.
+
+## Symptoms
+
+- Users get a Managed Challenge, CAPTCHA, or block page on a site with no bot problem.
+- It persists across page loads and stops only when the sticky bucket cookie is cleared.
+- WAF logs show an SQL injection or OWASP anomaly-score rule firing on a cookie or the `Cookie` header.
+- The cookie name starts with `gbStickyBuckets__`.
+
+A cookie written by the browser service looks like this:
+
+```
+gbStickyBuckets__id||e49b8ce1-c7ec-47c7-af50-e059b561a54e={%22attributeName%22:%22id%22%2C%22assignments%22:{%22pro...
+```
+
+`"` and `,` are encoded as `%22` and `%2C`, but `{`, `}` and `:` are not — and the name contains a literal `||`.
+
+## Start with your WAF logs
+
+Find the rule ID that fired and the field it matched on. That detail decides which fix below will work: the first one changes the cookie **value** only, and cannot help if the rule is matching the **name**.
+
+## Fixes
+
+### 1. Pass a custom `js-cookie` converter
+
+The best option in most cases. Give `js-cookie` a write converter that doesn't revert any characters:
+
+```js
+import Cookies from "js-cookie";
+import { BrowserCookieStickyBucketService } from "@growthbook/growthbook";
+
+const stickyBucketService = new BrowserCookieStickyBucketService({
+  jsCookie: Cookies.withConverter({
+    write: (value) => encodeURIComponent(value),
+  }),
+});
+```
+
+The value is now fully encoded, with `{`, `}` and `:` written as `%7B`, `%7D` and `%3A`.
+
+This is safe to roll out. `decodeURIComponent` handles the old and new forms identically, so cookies already in users' browsers keep working, edge and server-side readers need no change, and no sticky bucket assignments need migrating.
+
+<Warning>
+  `withConverter({ write })` replaces the *value* converter only. `js-cookie` encodes the cookie name on a separate internal path, so the `||` is still written literally. If your rule matches on the cookie name — or on `||` anywhere in the `Cookie` header — this won't clear the block.
+</Warning>
+
+### 2. Scope a WAF exception
+
+Skip the Managed Challenge (or the specific OWASP rule ID) for this cookie, as narrowly as you can:
+
+- Match `gbStickyBuckets__*`, not all cookies.
+- Restrict the rule to the path or host serving your app.
+- Skip the one rule ID that is firing, not the whole ruleset.
+
+### 3. Switch to `localStorage`
+
+`LocalStorageStickyBucketService` removes the cookie entirely, so the WAF has nothing to match on.
+
+This only works if nothing outside the browser reads the sticky bucket. A CDN edge worker that evaluates features server-side — for example a [Cloudflare Worker](/lib/edge/cloudflare) — needs that cookie.
+
+## Why it happens
+
+Two things combine.
+
+**GrowthBook builds the cookie name with pipes.** `StickyBucketService.getKey()` returns `` `${prefix}${attributeName}||${attributeValue}` ``.
+
+**`js-cookie` leaves some characters literal on purpose.** Its default write converter runs `encodeURIComponent` over the value, then reverts these characters — all permitted by RFC 6265 — for readability:
+
+```
+# $ & + / : < = > ? @ [ ] ^ ` { | }
+```
+
+The cookie **name** goes through a separate hardcoded path that reverts a shorter list, which is why the pipes survive:
+
+```
+# $ & + ^ ` |
+```
+
+`BrowserCookieStickyBucketService` passes its `JSON.stringify` output straight to `jsCookie.set()`, leaving all encoding to `js-cookie`. Neither piece is a bug on its own; the problem is the combination meeting a generic ruleset.
+
+<Note>
+  `ExpressCookieStickyBucketService` encodes both name and value in full, so the same document written server-side looks different on the wire:
+
+```
+gbStickyBuckets__id%7C%7Cabc-123=%7B%22attributeName%22%3A%22id%22%2C...
+```
+
+  Both forms decode identically, so interop is unaffected — but a rule matching a literal `||` fires on the client-written cookie only.
+</Note>
+
+Verified against `@growthbook/growthbook` 1.7.x with `js-cookie` v3.
+
+## Reporting to support
+
+If you still need help, include:
+
+1. The SDK, its version, and which sticky bucket service you use.
+2. Where the cookie is written — client-side, server-side, or a proxy/CDN.
+3. The raw `Set-Cookie` response header, not the devtools cookie panel view.
+4. **The WAF rule ID that fired, and the field it matched on.**
+
+Item 4 is the one that determines which fix will actually work.
