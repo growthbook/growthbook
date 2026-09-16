@@ -4,6 +4,7 @@ import { Member, ProjectMemberRole } from "shared/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import {
   assertMemberRoleInfoValid,
+  assertProjectRulesReferenceProjects,
   assertRoleChangeAllowed,
 } from "back-end/src/services/organizations";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -79,6 +80,11 @@ export const updateMemberRole = createApiRequestHandler(
 
   // Same validation every member-role writer runs, internal or REST.
   assertMemberRoleInfoValid(req.context.org, updatedMember);
+  await assertProjectRulesReferenceProjects(
+    req.context,
+    orgUser.projectRoles,
+    updatedMember.projectRoles,
+  );
 
   try {
     const updatedOrgMembers = cloneDeep(req.context.org.members);

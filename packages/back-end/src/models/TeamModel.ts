@@ -12,6 +12,7 @@ import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   addMembersToTeam,
   assertCanChangeTeamMembership,
+  assertProjectRulesReferenceProjects,
   getMembersOfTeam,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
@@ -123,12 +124,24 @@ export class TeamModel extends BaseClass {
     }
   }
 
-  protected async customValidation(doc: TeamInterface) {
+  protected async customValidation(
+    doc: TeamInterface,
+    previousDoc?: TeamInterface,
+  ) {
     if (
       !isRoleValid(doc.role, this.context.org) ||
       !areProjectRolesValid(doc.projectRoles, this.context.org)
     ) {
       return this.context.throwBadRequestError("Invalid role");
+    }
+    try {
+      await assertProjectRulesReferenceProjects(
+        this.context,
+        previousDoc?.projectRoles,
+        doc.projectRoles,
+      );
+    } catch (e) {
+      return this.context.throwBadRequestError(e.message);
     }
   }
 
