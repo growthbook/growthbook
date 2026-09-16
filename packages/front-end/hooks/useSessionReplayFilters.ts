@@ -39,6 +39,11 @@ const PARAM_TO_SYNTAX: Record<string, string> = {
   experimentKey: "experiment:",
 };
 
+/** Needs quoting if the value contains spaces or commas (parser delimiters). */
+function quoteIfNeeded(val: string): string {
+  return val.includes(" ") || val.includes(",") ? `"${val}"` : val;
+}
+
 function queryParamsToSearchString(
   query: Record<string, string | string[] | undefined>,
 ): string {
@@ -46,8 +51,7 @@ function queryParamsToSearchString(
   for (const [param, prefix] of Object.entries(PARAM_TO_SYNTAX)) {
     const val = query[param];
     if (typeof val === "string" && val) {
-      const escaped = val.includes(" ") || val.includes(",") ? `"${val}"` : val;
-      parts.push(`${prefix}${escaped}`);
+      parts.push(`${prefix}${quoteIfNeeded(val)}`);
     }
   }
   return parts.join(" ");
@@ -103,18 +107,44 @@ function syntaxFiltersToQueryParams(
   return params;
 }
 
+/**
+ * Extracts the filter-relevant query params from the router, ignoring
+ * non-filter params like page/sessionId. Used as the single source of
+ * truth for committed filters — the API always reads from here.
+ */
+function routerQueryToParams(
+  query: Record<string, string | string[] | undefined>,
+): Record<string, string> {
+  const params: Record<string, string> = {};
+  for (const key of Object.keys(PARAM_TO_SYNTAX)) {
+    const val = query[key];
+    if (typeof val === "string" && val) {
+      params[key] = val;
+    }
+  }
+  return params;
+}
+
 export function useSessionReplayFilters(router: NextRouter, project: string) {
   const [searchValue, setSearchValue] = useState(() =>
     queryParamsToSearchString(router.query),
   );
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-  // Distinguishes user edits (should push page=1) from URL-driven syncs
-  const changeSourceRef = useRef<"user" | "url">("url");
-  // Tracks the last URL string this hook pushed, so the sync effect can
-  // skip self-generated navigations and avoid overwriting the local input.
-  const lastPushedUrlRef = useRef<string>("");
 
-  // Sync searchValue from URL on back/forward navigation
+  // queryParams for the API comes directly from the URL — single source of truth.
+  const queryParams = useMemo(
+    () => routerQueryToParams(router.query),
+    [router.query],
+  );
+
+  // syntaxFilters for the filter dropdowns come from the search input
+  const { syntaxFilters } = useMemo(
+    () => transformQuery(searchValue, FILTER_KEYS),
+    [searchValue],
+  );
+
+  // Sync searchValue from URL on back/forward, but only when there's
+  // no pending user edit (active debounce means the user is still typing).
   const urlSearchString = useMemo(
     () => queryParamsToSearchString(router.query),
     [router.query],
@@ -123,59 +153,51 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
   useEffect(() => {
     if (urlSearchString === prevUrlRef.current) return;
     prevUrlRef.current = urlSearchString;
-    // Skip if this URL change came from our own push
-    if (urlSearchString === lastPushedUrlRef.current) return;
-    changeSourceRef.current = "url";
+    if (debounceRef.current) return;
     setSearchValue(urlSearchString);
   }, [urlSearchString]);
 
-  const { syntaxFilters } = useMemo(
-    () => transformQuery(searchValue, FILTER_KEYS),
-    [searchValue],
-  );
-
-  const queryParams = useMemo(
+  // Push search input changes to the URL (debounced).
+  const parsedParams = useMemo(
     () => syntaxFiltersToQueryParams(syntaxFilters),
     [syntaxFilters],
   );
-
-  // Push filter changes to the URL (debounced). Only push when the change
-  // came from user interaction — URL-driven syncs must not push back.
-  const prevParamsRef = useRef<string>(JSON.stringify(queryParams));
+  const prevParsedRef = useRef<string>(JSON.stringify(parsedParams));
   useEffect(() => {
-    const serialized = JSON.stringify(queryParams);
-    if (serialized === prevParamsRef.current) return;
-    prevParamsRef.current = serialized;
-
-    if (changeSourceRef.current === "url") return;
+    const serialized = JSON.stringify(parsedParams);
+    if (serialized === prevParsedRef.current) return;
+    prevParsedRef.current = serialized;
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
+      debounceRef.current = undefined;
       const query: Record<string, string> = { page: "1" };
-      for (const [k, v] of Object.entries(queryParams)) {
+      for (const [k, v] of Object.entries(parsedParams)) {
         if (v) query[k] = v;
       }
       const sessionId = router.query.sessionId;
       if (typeof sessionId === "string" && sessionId) {
         query.sessionId = sessionId;
       }
-      lastPushedUrlRef.current = queryParamsToSearchString(query);
+      prevUrlRef.current = queryParamsToSearchString(query);
       void router.push({ pathname: "/session-replay", query }, undefined, {
         shallow: true,
       });
     }, 400);
 
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = undefined;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryParams]);
+  }, [parsedParams]);
 
   const searchInputProps = useMemo(
     () => ({
       value: searchValue,
       onChange: (e: ChangeEvent<HTMLInputElement>) => {
-        changeSourceRef.current = "user";
         setSearchValue(e.target.value);
       },
     }),
@@ -183,7 +205,6 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
   );
 
   const setSearchValueAndNavigate = useCallback((value: string) => {
-    changeSourceRef.current = "user";
     setSearchValue(value);
   }, []);
 
