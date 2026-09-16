@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { IconButton } from "@radix-ui/themes";
 import { ProjectInterface } from "shared/types/project";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
+import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 
@@ -40,15 +40,9 @@ export default function ProjectRowMenu({
     <>
       <DropdownMenu
         trigger={
-          <IconButton
-            variant="ghost"
-            color="gray"
-            radius="full"
-            size="2"
-            highContrast
-          >
+          <Button variant="ghost" color="gray" aria-label="Project actions">
             <BsThreeDotsVertical size={18} />
-          </IconButton>
+          </Button>
         }
         open={open}
         onOpenChange={setOpen}
