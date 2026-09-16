@@ -16,26 +16,20 @@ type Group = Pick<
   SavedGroupInterface,
   "id" | "type" | "condition" | "projects"
 >;
+// Prerequisite conditions test the parent's value, not a user, so the SDK
+// evaluates them without Saved Groups. Only rule targeting is scanned.
 type Targeting = {
   condition?: string;
   savedGroups?: { ids: string[] }[];
-  prerequisites?: { condition?: string }[];
 };
 type Feature = Pick<
   FeatureInterface,
-  | "project"
-  | "targetingProjects"
-  | "targetingAllProjects"
-  | "rules"
-  | "prerequisites"
-  | "environmentSettings"
+  "project" | "targetingProjects" | "targetingAllProjects" | "rules"
 >;
 type ProjectScope = string[] | null;
-type ScopedTargeting = {
-  key: string;
-  targeting: Targeting;
+type ScopedRule = {
+  rule: Feature["rules"][number];
   projects: ProjectScope;
-  rule?: Feature["rules"][number];
 };
 
 // Parse operators, not substrings: IDs may also appear as ordinary targeting
@@ -56,13 +50,9 @@ export function savedGroupIdsInTargeting(targeting: Targeting): Set<string> {
       }
     }
   };
-  for (const condition of [
-    targeting.condition,
-    ...(targeting.prerequisites ?? []).map((p) => p.condition),
-  ]) {
-    if (!condition) continue;
+  if (targeting.condition) {
     try {
-      visit(JSON.parse(condition));
+      visit(JSON.parse(targeting.condition));
     } catch {
       throw new BadRequestError("Invalid targeting condition JSON");
     }
@@ -95,39 +85,20 @@ export function assertSavedGroupReferencesInScope(
   for (const id of savedGroupIdsInTargeting(targeting)) visit(id);
 }
 
-function featureTargeting(feature: Feature): ScopedTargeting[] {
+function scopedRules(feature: Feature): ScopedRule[] {
   const projects = getTargetingProjectIds(feature);
-  return [
-    {
-      key: "feature",
-      targeting: { prerequisites: feature.prerequisites },
-      projects,
-    },
-    ...Object.entries(feature.environmentSettings ?? {})
-      .filter(([, env]) => env.enabled)
-      .map(([id, env]) => ({
-        key: `environment:${id}`,
-        targeting: env,
-        projects,
-      })),
-    ...(feature.rules ?? []).map((rule): ScopedTargeting => {
-      const ruleProjects = ruleProjectScope(rule);
-      // Match SDK delivery: intersect the rule's scope with the Feature Flag's
-      // primary/targeting Projects. Group-to-group scopes do not constrain it.
-      const delivery =
-        ruleProjects === null
-          ? projects
-          : projects === null
-            ? ruleProjects
-            : ruleProjects.filter((p) => projects.includes(p));
-      return {
-        key: `rule:${rule.id}`,
-        targeting: rule,
-        projects: delivery,
-        rule,
-      };
-    }),
-  ];
+  return (feature.rules ?? []).map((rule) => {
+    const ruleProjects = ruleProjectScope(rule);
+    // Match SDK delivery: intersect the rule's scope with the Feature Flag's
+    // primary/targeting Projects. Group-to-group scopes do not constrain it.
+    const delivery =
+      ruleProjects === null
+        ? projects
+        : projects === null
+          ? ruleProjects
+          : ruleProjects.filter((p) => projects.includes(p));
+    return { rule, projects: delivery };
+  });
 }
 
 export async function assertFeatureSavedGroupScope(
@@ -136,30 +107,25 @@ export async function assertFeatureSavedGroupScope(
   previous?: Feature | Feature[],
 ): Promise<void> {
   if (context.org.settings?.enforceSavedGroupProjectScope !== true) return;
-  const targeting = featureTargeting(feature);
+  const current = scopedRules(feature);
   const baselines = (
     Array.isArray(previous) ? previous : previous ? [previous] : []
-  ).map((state) => ({ state, targeting: featureTargeting(state) }));
-  if (baselines.some((baseline) => isEqual(targeting, baseline.targeting)))
-    return;
+  ).map((state) => ({ state, rules: scopedRules(state) }));
+  if (baselines.some((baseline) => isEqual(current, baseline.rules))) return;
 
   const toValidate: [Targeting, ProjectScope][] = [];
-  for (const current of targeting) {
-    const prior = baselines.flatMap((baseline) => {
-      const counterpart = current.rule
-        ? findStoredRuleCounterpart(baseline.state.rules ?? [], current.rule)
-        : undefined;
-      // No stored counterpart means no exemption from the validation below.
-      if (current.rule && !counterpart) return [];
-      const key = current.rule ? `rule:${counterpart?.id}` : current.key;
-      return baseline.targeting.filter((t) => t.key === key);
+  for (const { rule, projects: delivery } of current) {
+    // No stored counterpart means no exemption from the validation below.
+    const prior = baselines.flatMap(({ state, rules }) => {
+      const counterpart = findStoredRuleCounterpart(state.rules ?? [], rule);
+      return rules.filter((r) => r.rule === counterpart);
     });
-    for (const id of savedGroupIdsInTargeting(current.targeting)) {
-      let projects = current.projects;
+    for (const id of savedGroupIdsInTargeting(rule)) {
+      let projects = delivery;
       // Grandfather the same reference where it was already stored. New rule
       // references and additional delivery Projects still require full DAG validation.
       for (const existing of prior) {
-        if (!savedGroupIdsInTargeting(existing.targeting).has(id)) continue;
+        if (!savedGroupIdsInTargeting(existing.rule).has(id)) continue;
         if (existing.projects === null) {
           projects = [];
           break;
@@ -192,23 +158,9 @@ export async function assertFeatureSavedGroupScope(
 
 export function featureForSavedGroupValidation(
   feature: Feature,
-  revision: Pick<
-    FeatureRevisionInterface,
-    "metadata" | "rules" | "prerequisites" | "environmentsEnabled"
-  >,
+  revision: Pick<FeatureRevisionInterface, "metadata" | "rules">,
 ): Feature {
-  return {
-    ...feature,
-    ...revision.metadata,
-    rules: revision.rules,
-    prerequisites: revision.prerequisites,
-    environmentSettings: Object.fromEntries(
-      Object.entries(feature.environmentSettings ?? {}).map(([id, env]) => [
-        id,
-        { ...env, enabled: revision.environmentsEnabled?.[id] ?? env.enabled },
-      ]),
-    ),
-  };
+  return { ...feature, ...revision.metadata, rules: revision.rules };
 }
 
 // Compare the full consumer DAG before and after a group change. Track each
@@ -275,9 +227,9 @@ export async function assertSavedGroupProjectScope(
   const groups = new Map<string, Group>(
     (await scan.models.savedGroups.getAll()).map((g) => [g.id, g]),
   );
-  const breaks = (targeting: Targeting, projects: ProjectScope) =>
+  const breaks = ({ rule, projects }: ScopedRule) =>
     savedGroupScopeChangeBreaksTargeting(
-      targeting,
+      rule,
       projects,
       proposed,
       groups,
@@ -304,12 +256,7 @@ export async function assertSavedGroupProjectScope(
     featuresByFeatureId: byId,
   });
   for (const feature of features) {
-    if (
-      featureTargeting(feature).some(({ targeting, projects }) =>
-        breaks(targeting, projects),
-      )
-    )
-      refuse();
+    if (scopedRules(feature).some(breaks)) refuse();
   }
   for (const draft of drafts) {
     const feature = byId[draft.featureId];
@@ -317,9 +264,7 @@ export async function assertSavedGroupProjectScope(
     if (feature?.version === draft.version) continue;
     if (
       feature &&
-      featureTargeting(featureForSavedGroupValidation(feature, draft)).some(
-        ({ targeting, projects }) => breaks(targeting, projects),
-      )
+      scopedRules(featureForSavedGroupValidation(feature, draft)).some(breaks)
     )
       refuse();
   }

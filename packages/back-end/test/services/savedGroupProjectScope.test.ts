@@ -65,22 +65,14 @@ const map = (...groups: SavedGroupInterface[]) =>
 const targeting = { condition: '{"id":{"$inGroup":"group"}}' };
 
 describe("Saved Group project scope", () => {
-  it("finds structured, nested, negative and prerequisite references without matching literal IDs", () => {
+  it("finds structured, nested and negative references without matching literal IDs", () => {
     expect([
       ...savedGroupIdsInTargeting({
         savedGroups: [{ ids: ["structured"] }],
         condition:
           '{"$and":[{"id":{"$inGroup":"positive"}},{"$not":{"id":{"$notInGroup":"negative"}}},{"id":"literal"},{"$savedGroups":["nested"]},{"$savedGroups":"single"}]}',
-        prerequisites: [{ condition: '{"value":{"$inGroup":"prerequisite"}}' }],
       }),
-    ]).toEqual([
-      "structured",
-      "positive",
-      "negative",
-      "nested",
-      "single",
-      "prerequisite",
-    ]);
+    ]).toEqual(["structured", "positive", "negative", "nested", "single"]);
   });
 
   it.each([undefined, [], ["a"], ["a", "b"]])(
@@ -192,7 +184,6 @@ describe("feature writes and publish validation", () => {
     const proposed = featureForSavedGroupValidation(original, {
       metadata: { project: "b" },
       rules: original.rules,
-      prerequisites: [],
     } as FeatureRevisionInterface);
     await expect(
       assertFeatureSavedGroupScope(context, proposed, original),
@@ -257,7 +248,6 @@ describe("feature writes and publish validation", () => {
     const proposed = featureForSavedGroupValidation(f, {
       metadata: { targetingProjects: ["b"] },
       rules: f.rules,
-      prerequisites: [],
     } as FeatureRevisionInterface);
     await expect(
       assertFeatureSavedGroupScope(context, proposed, f),
@@ -266,75 +256,6 @@ describe("feature writes and publish validation", () => {
     await expect(
       assertFeatureSavedGroupScope(context, proposed, f),
     ).resolves.toBeUndefined();
-  });
-
-  it("checks feature and environment prerequisites", async () => {
-    for (const f of [
-      feature({
-        project: "b",
-        rules: [],
-        prerequisites: [{ id: "other", ...targeting }],
-      }),
-      feature({
-        project: "b",
-        rules: [],
-        environmentSettings: {
-          production: {
-            enabled: true,
-            prerequisites: [{ id: "other", ...targeting }],
-          },
-        },
-      }),
-    ])
-      await expect(assertFeatureSavedGroupScope(context, f)).rejects.toThrow(
-        "not available",
-      );
-  });
-
-  it("ignores disabled environment prerequisites on writes and publication", async () => {
-    const original = feature({
-      rules: [],
-      environmentSettings: {
-        production: { enabled: true },
-        staging: {
-          enabled: false,
-          prerequisites: [{ id: "other", ...targeting }],
-        },
-      },
-    });
-    const proposed = { ...original, targetingProjects: ["b"] };
-    await expect(
-      assertFeatureSavedGroupScope(context, proposed, original),
-    ).resolves.toBeUndefined();
-    await expect(
-      assertFeatureSavedGroupScope(context, proposed),
-    ).resolves.toBeUndefined();
-    expect(getAll).not.toHaveBeenCalled();
-  });
-
-  it("rechecks environment prerequisites when enabling an environment", async () => {
-    const original = feature({
-      rules: [],
-      targetingProjects: ["b"],
-      environmentSettings: {
-        staging: {
-          enabled: false,
-          prerequisites: [{ id: "other", ...targeting }],
-        },
-      },
-    });
-    const proposed = {
-      ...original,
-      environmentSettings: {
-        staging: { ...original.environmentSettings.staging, enabled: true },
-      },
-    };
-    await expect(
-      assertFeatureSavedGroupScope(context, proposed, original),
-    ).rejects.toThrow("not available");
-    await expect(
-      assertFeatureSavedGroupScope(context, proposed),
-    ).rejects.toThrow("not available");
   });
 
   it("preserves legacy references when opening drafts, editing values, and publishing", async () => {
@@ -453,39 +374,6 @@ describe("feature writes and publish validation", () => {
     ).rejects.toThrow("not available");
   });
 
-  it("preserves stored prerequisite references while rejecting new ones", async () => {
-    const existing = feature({
-      project: "b",
-      rules: [],
-      prerequisites: [{ id: "other", ...targeting }],
-      environmentSettings: {
-        production: {
-          enabled: true,
-          prerequisites: [{ id: "other", ...targeting }],
-        },
-      },
-    });
-    const edited = {
-      ...existing,
-      prerequisites: [
-        {
-          id: "other",
-          condition: '{"$and":[{"id":{"$inGroup":"group"}},{"country":"US"}]}',
-        },
-      ],
-    };
-    await expect(
-      assertFeatureSavedGroupScope(context, edited, existing),
-    ).resolves.toBeUndefined();
-    await expect(
-      assertFeatureSavedGroupScope(
-        context,
-        { ...edited, rules: feature().rules },
-        existing,
-      ),
-    ).rejects.toThrow("not available");
-  });
-
   it("preserves existing rule references across legacy rule ID normalization", async () => {
     const existing = feature({ project: "b" });
     existing.rules[0] = {
@@ -508,7 +396,6 @@ describe("feature writes and publish validation", () => {
     const storedDraft = featureForSavedGroupValidation(live, {
       metadata: { project: "b" },
       rules: feature().rules,
-      prerequisites: [],
     } as FeatureRevisionInterface);
     const edited = {
       ...storedDraft,
@@ -528,32 +415,10 @@ describe("feature writes and publish validation", () => {
     const storedDraft = featureForSavedGroupValidation(live, {
       metadata: { project: "b", targetingProjects: [] },
       rules: feature().rules,
-      prerequisites: [],
     } as FeatureRevisionInterface);
     const merged = { ...live, rules: storedDraft.rules };
     await expect(
       assertFeatureSavedGroupScope(context, merged, [live, storedDraft]),
-    ).rejects.toThrow("not available");
-  });
-
-  it("uses the draft's environment toggle when checking new exposure", async () => {
-    const live = feature({
-      project: "b",
-      rules: [],
-      environmentSettings: {
-        production: {
-          enabled: false,
-          prerequisites: [{ id: "other", ...targeting }],
-        },
-      },
-    });
-    const proposed = featureForSavedGroupValidation(live, {
-      rules: [],
-      prerequisites: [],
-      environmentsEnabled: { production: true },
-    } as FeatureRevisionInterface);
-    await expect(
-      assertFeatureSavedGroupScope(context, proposed, live),
     ).rejects.toThrow("not available");
   });
 });
@@ -681,7 +546,6 @@ describe("Saved Group re-scoping", () => {
         version: 2,
         rules: feature().rules,
         metadata: { project: "a" },
-        prerequisites: [],
       } as FeatureRevisionInterface,
     ]);
     await expect(narrow()).rejects.toThrow("active Feature Flag drafts");
@@ -727,25 +591,6 @@ describe("Saved Group re-scoping", () => {
       }),
     ]);
     await expect(narrow()).resolves.toBeUndefined();
-  });
-
-  it("ignores disabled environment prerequisites when re-scoping a group", async () => {
-    const f = feature({
-      rules: [],
-      targetingProjects: ["b"],
-      environmentSettings: {
-        production: { enabled: true },
-        staging: {
-          enabled: false,
-          prerequisites: [{ id: "other", ...targeting }],
-        },
-      },
-    });
-    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([f]);
-    await expect(narrow()).resolves.toBeUndefined();
-
-    f.environmentSettings.staging.enabled = true;
-    await expect(narrow()).rejects.toThrow("existing Feature Flag references");
   });
 
   it("allows narrowing with no invalidated references", async () => {
