@@ -61,6 +61,10 @@ const TeamPage: FC = () => {
         : "All Projects";
 
   const team = teams?.find((team) => team.id === tid);
+  // Narrow managers arrive from a Project and can't open the Teams list.
+  const crumbProject = getProjectById(
+    team?.defaultProject || team?.projectRoles?.[0]?.project || "",
+  );
   const isEditable = !team?.managedByIdp;
 
   const project = getProjectById(team?.defaultProject || "");
@@ -106,7 +110,14 @@ const TeamPage: FC = () => {
 
       <PageHead
         breadcrumb={[
-          { display: "Teams", href: "/settings/team#teams" },
+          canManageTeam
+            ? { display: "Teams", href: "/settings/team#teams" }
+            : {
+                display: crumbProject?.name ?? "Projects",
+                href: crumbProject
+                  ? `/project/${crumbProject.id}`
+                  : "/projects",
+              },
           { display: team.name },
         ]}
       />
@@ -144,6 +155,7 @@ const TeamPage: FC = () => {
                     radius="full"
                     size="3"
                     highContrast
+                    aria-label="Team actions"
                   >
                     <BsThreeDotsVertical size={18} />
                   </IconButton>
@@ -215,12 +227,14 @@ const TeamPage: FC = () => {
                 ))}
               </Flex>
             </Flex>
-            <Button
-              variant="outline"
-              onClick={() => setPermissionModalOpen(true)}
-            >
-              Edit team permissions
-            </Button>
+            {canManageTeam && (
+              <Button
+                variant="outline"
+                onClick={() => setPermissionModalOpen(true)}
+              >
+                Edit team permissions
+              </Button>
+            )}
           </Flex>
           {approvalScopes.length > 0 && (
             <>
@@ -248,6 +262,10 @@ const TeamPage: FC = () => {
                             : "/settings#approval-flow"
                         }
                       >
+                        {scopeLabel(scope.project)}
+                      </Link>
+                    ) : scope.project ? (
+                      <Link href={`/project/${scope.project}#approvals`}>
                         {scopeLabel(scope.project)}
                       </Link>
                     ) : (
@@ -309,6 +327,7 @@ const TeamPage: FC = () => {
                           radius="full"
                           size="2"
                           highContrast
+                          aria-label="Member actions"
                         >
                           <BsThreeDotsVertical size={18} />
                         </IconButton>

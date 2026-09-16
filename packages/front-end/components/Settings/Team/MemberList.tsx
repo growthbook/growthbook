@@ -1,4 +1,4 @@
-import React, { FC, ReactNode, useEffect, useState } from "react";
+import React, { FC, ReactNode, useEffect, useRef, useState } from "react";
 import {
   ExpandedMember,
   OrganizationInterface,
@@ -160,10 +160,17 @@ const MemberList: FC<{
   const hasRuleHere = (member: ExpandedMember) =>
     !!project && scopedProjectIds(member).includes(project);
 
-  // On a Project, lead with the people someone deliberately granted a role here.
-  const [scopedRolesOnly, setScopedRolesOnly] = useState(() =>
-    members.some(([, member]) => hasRuleHere(member)),
-  );
+  // On a Project, lead with the people someone deliberately granted a role
+  // here. Members load after mount, so decide once they have arrived.
+  const [scopedRolesOnly, setScopedRolesOnly] = useState(false);
+  const scopedDefaultApplied = useRef(false);
+  const anyRuleHere = members.some(([, member]) => hasRuleHere(member));
+  const membersLoaded = members.length > 0;
+  useEffect(() => {
+    if (scopedDefaultApplied.current || !project || !membersLoaded) return;
+    scopedDefaultApplied.current = true;
+    setScopedRolesOnly(anyRuleHere);
+  }, [project, membersLoaded, anyRuleHere]);
   // Searching looks across the whole organization, so a query session starts
   // with the filter off. Swapping the filter mid-query sticks for that query;
   // clearing the box returns to the mode chosen before searching.

@@ -20,7 +20,6 @@ import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidt
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Button from "@/ui/Button";
 import SplitButton from "@/ui/SplitButton";
-import Callout from "@/ui/Callout";
 import TextField from "@/ui/TextField";
 import Field from "@/components/Forms/Field";
 import { Select, SelectItem } from "@/ui/Select";
@@ -147,11 +146,6 @@ const ProjectTeamRuleModal: FC<{
             onChange={(e) => setDescription(e.target.value)}
           />
         </>
-      ) : candidates.length === 0 ? (
-        <Callout status="info">
-          The remaining teams carry a global role or are managed externally, so
-          adding them here needs Team Management.
-        </Callout>
       ) : (
         <Box mb="3">
           <Select label="Team" value={teamId} setValue={setTeamId}>
@@ -163,9 +157,7 @@ const ProjectTeamRuleModal: FC<{
           </Select>
         </Box>
       )}
-      {(mode === "create" || candidates.length > 0) && (
-        <ProjectRuleFields rule={rule} setRule={setRule} />
-      )}
+      <ProjectRuleFields rule={rule} setRule={setRule} />
     </ModalStandard>
   );
 };
@@ -291,7 +283,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
           <SplitButton
             variant="outline"
             menu={
-              teams.length > rows.length ? (
+              addCandidates.length > 0 ? (
                 <DropdownMenu
                   trigger={
                     <Button
@@ -347,7 +339,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
             return (
               <TableRow key={team.id}>
                 <TableCell>
-                  {canManageTeam ? (
+                  {canManageTeam || canManageMembers ? (
                     <Link href={`/settings/team/${team.id}`}>{team.name}</Link>
                   ) : (
                     team.name
