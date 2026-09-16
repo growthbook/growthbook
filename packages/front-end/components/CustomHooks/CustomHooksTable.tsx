@@ -160,6 +160,7 @@ export default function CustomHooksTable({
                         radius="full"
                         size="2"
                         highContrast
+                        aria-label="Custom hook actions"
                       >
                         <BsThreeDotsVertical size={16} />
                       </IconButton>
@@ -172,7 +173,7 @@ export default function CustomHooksTable({
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onClick={() => setHistoryHook(hook)}>
-                      History &amp; revert
+                      {canRevert(hook) ? "History & revert" : "History"}
                     </DropdownMenuItem>
                     {canToggle(hook) && (
                       <DropdownMenuItem
