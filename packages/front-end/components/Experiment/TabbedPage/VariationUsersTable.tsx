@@ -75,7 +75,7 @@ export default function VariationUsersTable({
           {variations.map((v, i) => {
             return (
               <tr key={v.id}>
-                <td className={"border-right"}>
+                <td className="border-right text-truncate">
                   {hideVariationIndex ? (
                     <Text color="text-mid" weight="medium">
                       {v.name}
