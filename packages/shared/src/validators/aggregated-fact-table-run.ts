@@ -30,6 +30,7 @@ const aggregatedFactTableRun = z
     result: z
       .object({
         lastMaxTimestamp: z.date().nullable(),
+        lastMaxTimestampRaw: z.string().nullable().optional(),
         firstEventDate: z.date().nullable(),
         lastEventDate: z.date().nullable(),
       })

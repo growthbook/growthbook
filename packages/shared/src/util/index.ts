@@ -23,12 +23,21 @@ import {
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
 import { HoldoutInterfaceStringDates } from "../validators/holdout";
-import { featureHasEnvironment } from "./features";
+import {
+  featureHasEnvironment,
+  getAttributeScopeProjectIds,
+  StagedTargetingScope,
+  TargetingScopedEntity,
+} from "./features";
 
 export * from "./strings";
 export * from "./units-query-settings";
 export * from "./event-forwarder-destination";
 export * from "./features";
+export * from "./featureHealth";
+export * from "./threeWayMerge";
+export * from "./draftConflict";
+export * from "./projectScopedRules";
 export * from "./featureDraftPurity";
 export * from "./configs";
 export * from "./deep-merge";
@@ -42,6 +51,7 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./holdouts";
 export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";
@@ -120,6 +130,23 @@ export function getSnapshotAnalysis(
   );
 }
 
+export function findAnalysisComputeFailure(
+  analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis | null,
+): { metricId: string; errorMessage: string | null } | null {
+  for (const dimension of analysis?.results ?? []) {
+    for (const variation of dimension.variations ?? []) {
+      for (const [metricId, metric] of Object.entries(
+        variation.metrics ?? {},
+      )) {
+        if (metric?.computeFailed) {
+          return { metricId, errorMessage: metric.errorMessage ?? null };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function getSafeRolloutSnapshotAnalysis(
   snapshot: SafeRolloutSnapshotInterface,
   analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null,
@@ -170,8 +197,13 @@ export function generateVariationId() {
   return uniqid("var_");
 }
 
+// Takes only the three fields it reads, so a caller holding a projected
+// experiment doc can pass it without a cast.
 export function experimentHasLinkedChanges(
-  exp: ExperimentInterface | ExperimentInterfaceStringDates,
+  exp: Pick<
+    ExperimentInterface,
+    "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
+  >,
 ): boolean {
   if (exp.hasVisualChangesets) return true;
   if (exp.hasURLRedirects) return true;
@@ -196,14 +228,20 @@ export function experimentHasLiveLinkedChanges(
 export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: FeatureInterface[] = [],
+  options?: {
+    // Keep feature-only drafts (SDK connections with includeDraftExperimentRefs)
+    includeDrafts?: boolean;
+  },
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
 
   if (!experimentHasLinkedChanges(exp)) return false;
 
-  // Exclude if experiment is a draft and there are no visual changes or redirects (feature flags always ignore draft experiment rules)
+  // Exclude if experiment is a draft and there are no visual changes or redirects
+  // (feature flags ignore draft experiment rules unless includeDrafts is set)
   if (
+    !options?.includeDrafts &&
     !exp.hasVisualChangesets &&
     !exp.hasURLRedirects &&
     exp.status === "draft"
@@ -391,13 +429,32 @@ export function getRulesForEnvironment(
 
 // A rule's own project scope: explicit list, or null = all projects. Empty array
 // means "no project" (leak-safe — never "all"); allProjects/legacy-absent → null.
-export function ruleProjectScope(rule: FeatureRule): string[] | null {
+export function ruleProjectScope(rule: {
+  allProjects?: boolean;
+  projects?: string[];
+}): string[] | null {
   if (rule == null || typeof rule !== "object") return [];
   if (rule.allProjects === true) return null;
   // allProjects === false is explicit scoping — an absent/empty list means no
   // project, never "all". Only the legacy state (no scope fields) falls back to all.
   if (rule.allProjects !== false && rule.projects == null) return null;
   return Array.isArray(rule.projects) ? rule.projects : [];
+}
+
+// Attribute scope for one rule: the feature's scope narrowed to the projects
+// the rule itself targets. A rule scoped outside the delivery set (or to no
+// project) reaches nowhere and so narrows nothing.
+export function getRuleAttributeScopeProjectIds(
+  entity: TargetingScopedEntity,
+  staged: StagedTargetingScope | undefined,
+  rule: { allProjects?: boolean; projects?: string[] },
+): string[] | null {
+  const featureScope = getAttributeScopeProjectIds(entity, staged);
+  const ruleScope = ruleProjectScope(rule);
+  if (ruleScope === null || ruleScope.length === 0) return featureScope;
+  if (featureScope === null) return ruleScope;
+  const narrowed = ruleScope.filter((p) => featureScope.includes(p));
+  return narrowed.length ? narrowed : featureScope;
 }
 
 // Whether a rule is served into an SDK payload: true only where its own scope,

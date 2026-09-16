@@ -65,8 +65,9 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Contextual Bandits",
         href: "/contextual-bandits",
         path: /^contextual-bandits?($|\/)/,
-        beta: true,
-        filter: ({ gb }) => !!gb?.isOn("contextual-bandits"),
+        // Default ON; the remote flag only turns this off for specific orgs.
+        filter: ({ gb }) =>
+          gb?.getFeatureValue("contextual-bandits", true) ?? true,
       },
       {
         name: "Holdouts",
@@ -104,17 +105,17 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Explore",
         href: "/product-analytics/explore",
-        path: /^product-analytics\/explore(\/(?!funnel).*)?$/,
+        path: /^product-analytics\/explore(\/(?!funnel|sql).*)?$/,
       },
       {
-        name: "Funnel Builder",
+        name: "Funnels",
         href: "/product-analytics/explore/funnel",
         path: /^product-analytics\/explore\/funnel/,
       },
       {
-        name: "SQL Reports",
-        href: "/sql-explorer",
-        path: /^sql-explorer/,
+        name: "SQL Explorer",
+        href: "/product-analytics/explore/sql",
+        path: /^product-analytics\/explore\/sql/,
       },
       {
         name: "Dashboards",
@@ -269,6 +270,13 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageOrgSettings(),
       },
       {
+        name: "Projects",
+        href: "/projects",
+        path: /^project/,
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canViewProjectsPage(),
+      },
+      {
         name: "Members",
         href: "/settings/team",
         path: /^settings\/team/,
@@ -281,13 +289,6 @@ export const navlinks: SidebarLinkProps[] = [
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canCreateAndUpdateTag() ||
           permissionsUtils.canDeleteTag(),
-      },
-      {
-        name: "Projects",
-        href: "/projects",
-        path: /^project/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewProjectsPage(),
       },
       {
         name: "Custom Fields",
@@ -324,8 +325,12 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Slack",
         href: "/integrations/slack",
         path: /^integrations\/slack/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canManageIntegrations(),
+        // Default ON so self-hosted and airgapped installs without a features
+        // payload still see the link; the remote flags only turn it off.
+        filter: ({ permissionsUtils, gb }) =>
+          permissionsUtils.canManageIntegrations() &&
+          ((gb?.getFeatureValue("slack-workspace-ui", true) ?? true) ||
+            (gb?.getFeatureValue("slack-integration", true) ?? true)),
       },
       {
         name: "Import your data",

@@ -49,20 +49,10 @@ type AttributeParts = {
 // changed — so pre-existing violations don't block unrelated edits.
 // When `project` is provided, attributes scoped to other projects are
 // treated as unregistered (matches the frontend dropdown filtering).
-export function assertRegisteredAttributes(
-  context: ReqContext,
+function getChangedAttributeKeys(
   parts: AttributeParts,
-  label: string,
   existingParts?: AttributeParts,
-  project?: string | string[],
-): void {
-  const { isOn, requireProjectScoping } =
-    getRequireRegisteredAttributesSettings(
-      context.org.settings?.requireRegisteredAttributes,
-    );
-  if (!isOn) return;
-
-  const attributeSchema = context.org.settings?.attributeSchema || [];
+): string[] {
   const keys: string[] = [];
 
   const changed = (field: keyof AttributeParts): boolean =>
@@ -81,6 +71,24 @@ export function assertRegisteredAttributes(
     }
   }
 
+  return keys;
+}
+
+export function assertRegisteredAttributes(
+  context: ReqContext,
+  parts: AttributeParts,
+  label: string,
+  existingParts?: AttributeParts,
+  project?: string | string[],
+): void {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(
+      context.org.settings?.requireRegisteredAttributes,
+    );
+  if (!isOn) return;
+
+  const attributeSchema = context.org.settings?.attributeSchema || [];
+  const keys = getChangedAttributeKeys(parts, existingParts);
   if (!keys.length) return;
 
   // Pass `project` to the categorizer only when the org has opted into the
@@ -96,6 +104,42 @@ export function assertRegisteredAttributes(
   throw new BadRequestError(
     formatUnregisteredAttributesError(label, { unknown, outOfProject }),
   );
+}
+
+export type AttributeScopeLoader = () => Promise<string[] | undefined>;
+
+// Variant for endpoints whose attribute scope requires I/O (revision reads,
+// linked-feature sweeps): `loadScope` runs only when the org enforces project
+// scoping AND an attribute-bearing field actually changed.
+export async function assertRegisteredAttributesScoped(
+  context: ReqContext,
+  parts: AttributeParts,
+  label: string,
+  existingParts: AttributeParts | undefined,
+  loadScope: AttributeScopeLoader,
+): Promise<void> {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(
+      context.org.settings?.requireRegisteredAttributes,
+    );
+  if (!isOn) return;
+  if (!getChangedAttributeKeys(parts, existingParts).length) return;
+
+  assertRegisteredAttributes(
+    context,
+    parts,
+    label,
+    existingParts,
+    requireProjectScoping ? await loadScope() : undefined,
+  );
+}
+
+// Share one deferred scope across several assertions; loads at most once.
+export function lazyAttributeScope(
+  load: AttributeScopeLoader,
+): AttributeScopeLoader {
+  let cached: Promise<string[] | undefined> | undefined;
+  return () => (cached ??= load());
 }
 
 // Shared formatter so the message is identical between assertRegisteredAttributes

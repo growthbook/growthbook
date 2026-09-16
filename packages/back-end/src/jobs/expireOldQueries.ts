@@ -1,5 +1,5 @@
 import Agenda from "agenda";
-import { Queries } from "shared/types/query";
+import { Queries, QueryInterface } from "shared/types/query";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableRunInterface,
@@ -43,7 +43,20 @@ const JOB_NAME = "expireOldQueries";
 const STALLED_SNAPSHOT_THRESHOLD_MS = 60 * 60 * 1000;
 // The allowable time between the last query finishing and the snapshot being finalized
 const STALLED_FINALIZE_GRACE_MS = 10 * 60 * 1000;
+// The runner beats every queued query doc it owns every 30 seconds; 5 minutes
+// without a beat is ten missed beats, enough to consider it stalled
+const QUEUED_HEARTBEAT_STALE_MS = 5 * 60 * 1000;
+// createNewQuery stamps createdAt and heartbeat from two separate `new Date()`
+// calls, so a never-heartbeated doc shows a gap of about a millisecond. A real
+// beat lands at least one 30s tick later, so a 1s gap separates the two.
+// This ensures we don't consider just created docs as stalled.
+const HEARTBEAT_MIN_GAP_MS = 1000;
+// With a 5 minute candidate window every long-running live snapshot is a
+// candidate on every tick, so the snapshot reaper pages past live waiters
+// instead of stopping at the first page. This caps the work one tick can do;
+// the warn below surfaces it.
 const STALLED_SNAPSHOT_REAP_LIMIT = 50;
+const STALLED_SNAPSHOT_REAP_MAX_PER_TICK = 500;
 
 // Accessed via raw collections (not context-scoped BaseModel) so this cross-org reaper needs no per-run org context.
 const AGGREGATED_FACT_TABLE_RUN_COLLECTION = "aggregatedfacttableruns";
@@ -232,56 +245,129 @@ const expireOldQueries = async () => {
   }
 };
 
-async function reapStalledSnapshots() {
-  const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
-  const candidates = await dangerousFindStalledRunningSnapshotsFromAllOrgs(
-    stalledBefore,
-    STALLED_SNAPSHOT_REAP_LIMIT,
-  );
+export type StalledQueryStatus = Pick<
+  QueryInterface,
+  "id" | "status" | "finishedAt" | "heartbeat" | "createdAt"
+>;
 
-  for (const snapshot of candidates) {
+export type StalledSnapshotVerdict =
+  | "active" // leave alone this tick
+  | "stalled-terminal" // every query terminal, snapshot never finalized
+  | "orphaned-dead" // nothing running, queued docs were heartbeated and all beats are stale
+  | "orphaned-unknown"; // nothing running, queued docs never heartbeated
+
+export function classifyStalledSnapshot({
+  queryStatuses,
+  snapshotDateCreated,
+  now,
+}: {
+  queryStatuses: StalledQueryStatus[];
+  snapshotDateCreated: Date;
+  now: number;
+}): StalledSnapshotVerdict {
+  if (queryStatuses.some((q) => q.status === "running")) {
+    return "active";
+  }
+
+  const queued = queryStatuses.filter((q) => q.status === "queued");
+
+  const snapshotAge = now - snapshotDateCreated.getTime();
+  const latestFinishedAt = Math.max(
+    0,
+    ...queryStatuses.map((s) => s.finishedAt?.getTime() ?? 0),
+  );
+  // Orphaned DAGs may have no finished queries, so fall back to snapshot age.
+  const lastActivityAt =
+    latestFinishedAt > 0 ? latestFinishedAt : snapshotDateCreated.getTime();
+  // Before heartbeats for queued queries, snapshots were considered stalled if they
+  // were at least 60 minutes old, with no running queries and none finishing in the last 10 minutes.
+  const meetsFallbackLegacyCriteria =
+    snapshotAge >= STALLED_SNAPSHOT_THRESHOLD_MS &&
+    now - lastActivityAt >= STALLED_FINALIZE_GRACE_MS;
+
+  if (queued.length === 0) {
+    return meetsFallbackLegacyCriteria ? "stalled-terminal" : "active";
+  }
+
+  const heartbeated = queued.filter(
+    (q) =>
+      q.heartbeat &&
+      q.createdAt &&
+      q.heartbeat.getTime() - q.createdAt.getTime() >= HEARTBEAT_MIN_GAP_MS,
+  );
+  if (heartbeated.length === 0) {
+    return meetsFallbackLegacyCriteria ? "orphaned-unknown" : "active";
+  }
+
+  // The newest beat decides: a runner beats all of its queued docs in one
+  // updateMany, so any fresh beat means the owner is still alive.
+  const newestBeat = Math.max(...heartbeated.map((q) => q.heartbeat.getTime()));
+  return now - newestBeat >= QUEUED_HEARTBEAT_STALE_MS
+    ? "orphaned-dead"
+    : "active";
+}
+
+// Oldest-first pages of running snapshots older than the heartbeat window,
+// excluding ids already yielded so a page of live waiters can't hide newer
+// dead snapshots behind it.
+async function* stalledSnapshotCandidates(stalledBefore: Date) {
+  const seen: string[] = [];
+  while (seen.length < STALLED_SNAPSHOT_REAP_MAX_PER_TICK) {
+    const page = await dangerousFindStalledRunningSnapshotsFromAllOrgs(
+      stalledBefore,
+      Math.min(
+        STALLED_SNAPSHOT_REAP_LIMIT,
+        STALLED_SNAPSHOT_REAP_MAX_PER_TICK - seen.length,
+      ),
+      seen,
+    );
+    if (!page.length) return;
+    for (const snapshot of page) {
+      seen.push(snapshot.id);
+      yield snapshot;
+    }
+  }
+  logger.warn(
+    `Stalled-snapshot reaper examined ${STALLED_SNAPSHOT_REAP_MAX_PER_TICK} candidates this tick; newer stalled snapshots may be delayed`,
+  );
+}
+
+async function reapStalledSnapshots() {
+  const now = Date.now();
+  const stalledBefore = new Date(now - QUEUED_HEARTBEAT_STALE_MS);
+
+  for await (const snapshot of stalledSnapshotCandidates(stalledBefore)) {
     const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
     if (!queryIds.length) continue;
 
-    const statuses = await getQueryStatusesByIds(
+    const queryStatuses = await getQueryStatusesByIds(
       snapshot.organization,
       queryIds,
     );
-    if (statuses.length !== queryIds.length) continue;
+    if (queryStatuses.length !== queryIds.length) continue;
 
-    const running = statuses.filter((q) => q.status === "running");
-    const queued = statuses.filter((q) => q.status === "queued");
-    const allTerminal = statuses.every(
-      (q) => q.status === "succeeded" || q.status === "failed",
-    );
+    const queued = queryStatuses.filter((q) => q.status === "queued");
+    const verdict = classifyStalledSnapshot({
+      queryStatuses,
+      snapshotDateCreated: snapshot.dateCreated,
+      now,
+    });
+    if (verdict === "active") continue;
+    const isOrphanedDag =
+      verdict === "orphaned-dead" || verdict === "orphaned-unknown";
 
-    // Queued queries have no heartbeat. If the in-memory runner disappears
-    // before starting them, the normal stale-query path will never see them.
-    const orphanedDag = running.length === 0 && queued.length > 0;
-
-    if (!allTerminal && !orphanedDag) continue;
-
-    const latestFinishedAt = Math.max(
-      0,
-      ...statuses.map((s) => s.finishedAt?.getTime() ?? 0),
-    );
-    // Orphaned DAGs may have no finished queries, so fall back to snapshot age.
-    const lastActivityAt =
-      latestFinishedAt > 0 ? latestFinishedAt : snapshot.dateCreated.getTime();
-    if (Date.now() - lastActivityAt < STALLED_FINALIZE_GRACE_MS) continue;
-
-    const statusById = new Map(statuses.map((s) => [s.id, s.status]));
+    const statusById = new Map(queryStatuses.map((s) => [s.id, s.status]));
     snapshot.queries.forEach((q) => {
       q.status = statusById.get(q.query) ?? q.status;
     });
 
     const shouldScheduleSnapshotRetry =
-      orphanedDag &&
+      isOrphanedDag &&
       !snapshot.report &&
       snapshot.type === "standard" &&
       snapshot.triggeredBy === "schedule";
 
-    const error = orphanedDag
+    const error = isOrphanedDag
       ? shouldScheduleSnapshotRetry
         ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A retry has been scheduled."
         : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
@@ -295,12 +381,12 @@ async function reapStalledSnapshots() {
     if (!reaped) continue;
 
     logger.info(
-      orphanedDag
+      isOrphanedDag
         ? `Reaped orphaned snapshot ${snapshot.id} (experiment ${snapshot.experiment}): ${queued.length} of ${queryIds.length} queries stuck in "queued" with nothing running`
         : `Reaped stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
     );
 
-    if (orphanedDag) {
+    if (isOrphanedDag) {
       await markPendingQueriesAsFailed(
         context,
         queued.map((q) => q.id),

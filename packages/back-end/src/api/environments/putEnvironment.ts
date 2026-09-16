@@ -6,6 +6,7 @@ import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { validatePayload } from "./validations";
 
 export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
@@ -62,8 +63,9 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
           (c) => c.environment === id,
         );
 
+        // Re-read the org: req.context still holds the pre-update environments, which would rebuild payloads against the old project list
         queueSDKPayloadRefresh({
-          context: req.context,
+          context: await getContextForAgendaJobByOrgId(org.id),
           payloadKeys: [],
           sdkConnections: affectedConnections,
           auditContext: {

@@ -1,0 +1,19 @@
+---
+title: Setting Up ClickHouse as a Data Source
+description: Connect ClickHouse to GrowthBook with a connection URL, database, and a read-only user. Allowlist the Cloud IP if needed.
+sidebarTitle: ClickHouse
+slug: clickhouse
+---
+
+import CloudEgressIP from '/snippets/partials/_cloud-egress-ip.mdx';
+
+Connecting to Clickhouse is very straightforward. You just need to provide the connection string and credentials. If you
+are using something like Clickhouse Cloud, you can find the connection string in the UI.
+
+<Frame>
+  <img src="/static/images/guides/guide-clickhouse-1.png" alt="Clickhouse Cloud Connection String" width="600" />
+</Frame>
+
+If you are making connection credentials just for GrowthBook, you can give it read-only access to the database.
+
+<CloudEgressIP />

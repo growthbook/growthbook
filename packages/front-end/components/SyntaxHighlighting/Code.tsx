@@ -61,6 +61,7 @@ export default function Code({
   className = "",
   style: _style,
   expandable = false,
+  collapsedLines,
   containerClassName,
   filename,
   errorLine,
@@ -74,6 +75,8 @@ export default function Code({
   className?: string;
   style?: CSSProperties;
   expandable?: boolean;
+  /** Lines to show while collapsed. Defaults to the stylesheet's ~10em. */
+  collapsedLines?: number;
   containerClassName?: string;
   filename?: string | ReactElement;
   errorLine?: number;
@@ -95,7 +98,7 @@ export default function Code({
 
   const { theme } = useAppearanceUITheme();
 
-  const enoughLines = code.split("\n").length > 8;
+  const enoughLines = code.split("\n").length > (collapsedLines ?? 8);
 
   const style = useMemo(() => {
     const style = cloneDeep(theme === "dark" ? dark : light);
@@ -112,10 +115,15 @@ export default function Code({
 
     if (maxHeight) {
       style['pre[class*="language-"]'].maxHeight = maxHeight;
+    } else if (collapsedLines !== undefined && !isExpanded) {
+      // Line box is the code font size (0.85rem) times its line height, plus
+      // the 1em of padding Prism puts above and below
+      style['pre[class*="language-"]'].maxHeight =
+        `calc(${collapsedLines * 1.275}rem + 2em)`;
     }
 
     return style;
-  }, [theme, maxHeight]);
+  }, [theme, maxHeight, collapsedLines, isExpanded]);
 
   const shouldRenderPrism =
     hasExpanded ||

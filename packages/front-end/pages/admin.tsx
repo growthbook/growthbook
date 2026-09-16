@@ -163,7 +163,6 @@ function OrganizationRow({
       )}
       {clickhouseModalOpen && (
         <Modal
-          useRadixButton={false}
           open={true}
           header="Create Clickhouse Data Source"
           close={() => setClickhouseModalOpen(false)}
@@ -265,10 +264,7 @@ function OrganizationRow({
         <tr>
           <td colSpan={8} className="bg-light">
             <h3>Summary</h3>
-            <div
-              className="mb-3 bg-white border p-3"
-              style={{ border: "1px solid var(--border-color-200)" }}
-            >
+            <div className="appbox mb-3 p-3">
               <div className="row">
                 <div className="col-2 text-right">Name:</div>
                 <div className="col-auto font-weight-bold">
@@ -555,7 +551,7 @@ function MemberRow({
                 )}
                 {memberOrgs.map((o) => (
                   <div className="mb-2 col-3" key={o.id + member.id}>
-                    <div className="mx-2  border bg-white p-3 rounded-lg">
+                    <div className="appbox mx-2 mb-0 p-3">
                       <div>
                         <span className="font-weight-bold">Name:</span> {o.name}
                       </div>
@@ -700,10 +696,7 @@ const Admin: FC = () => {
       <h1>GrowthBook Admin</h1>
       {!isCloud() && (
         <>
-          <div
-            className="p-3 bg-white"
-            style={{ border: "1px solid var(--border-color-200)" }}
-          >
+          <div className="appbox p-3">
             <ShowLicenseInfo showInput={false} />{" "}
           </div>
           <div className="divider border-bottom mb-3 mt-3" />
@@ -945,7 +938,6 @@ const EditMember: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}
@@ -1160,7 +1152,6 @@ function EditSSOModal({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       submit={form.handleSubmit(async (data) => {
         const payload = generateSSOConnection({

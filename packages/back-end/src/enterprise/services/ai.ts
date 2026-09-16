@@ -29,7 +29,7 @@ import {
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   getProviderForAIModel,
-  isReasoningModel,
+  supportsTemperature,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
@@ -241,6 +241,31 @@ export const secondsUntilAICanBeUsedAgainForEmbeddings = async (
   return secondsUntilAICanBeUsedAgainForProvider(context, provider);
 };
 
+export const secondsUntilAICanBeUsedAgainForSTT = async (
+  context: ReqContext | ApiReqContext,
+): Promise<number> => {
+  if (!IS_CLOUD) return 0;
+  const { sttModel } = await getAISettingsForOrg(context);
+  const provider = getProviderForAIModel("stt", sttModel ?? "") ?? undefined;
+  return secondsUntilAICanBeUsedAgainForProvider(context, provider);
+};
+
+export const recordSTTUsage = async (
+  context: ReqContext | ApiReqContext,
+  audioBytes: number,
+  provider: AIProvider,
+): Promise<void> => {
+  if (!IS_CLOUD) return;
+  const { keySource } = await getAISettingsForOrg(context);
+  // The org pays its own provider directly, so nothing to meter.
+  if (keySource[provider] === "organization") return;
+  // ponytail: audio has no tokens, so charge a KB apiece. Add a minutes counter if dictation spend needs real attribution.
+  await updateTokenUsage({
+    numTokensUsed: Math.ceil(audioBytes / 1024),
+    organization: context.org,
+  });
+};
+
 const constructMessages = (
   prompt: string,
   instructions?: string,
@@ -317,11 +342,11 @@ export const simpleCompletion = async ({
 
   const messages = constructMessages(prompt, instructions);
 
-  // Reasoning models reject `temperature`; omit it rather than let the
-  // provider warn and drop it.
-  const effectiveTemperature = isReasoningModel(model)
-    ? undefined
-    : temperature;
+  // Some models reject `temperature` outright (400) and others silently drop
+  // it; omit it entirely for both.
+  const effectiveTemperature = supportsTemperature(model)
+    ? temperature
+    : undefined;
 
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
@@ -425,11 +450,11 @@ export const streamingChatCompletion = async ({
     throw new Error("AI provider not enabled or key not set");
   }
 
-  // Reasoning models reject `temperature`; omit it rather than let the
-  // provider warn and drop it.
-  const effectiveTemperature = isReasoningModel(model)
-    ? undefined
-    : temperature;
+  // Some models reject `temperature` outright (400) and others silently drop
+  // it; omit it entirely for both.
+  const effectiveTemperature = supportsTemperature(model)
+    ? temperature
+    : undefined;
 
   const recordUsage = async ({
     inputTokens,
@@ -495,7 +520,17 @@ export const streamingChatCompletion = async ({
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
-    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+    ...(tools
+      ? {
+          tools,
+          stopWhen: stepCountIs(maxSteps),
+          // Same force-a-final-answer guard parsePrompt uses: a model that
+          // keeps calling tools until it exhausts maxSteps otherwise ends ON
+          // a tool call, and the stream closes having emitted no text at all.
+          prepareStep: ({ stepNumber }: { stepNumber: number }) =>
+            stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
+        }
+      : {}),
     ...(abortSignal ? { abortSignal } : {}),
     onFinish: ({ totalUsage }) => {
       // onFinish's `usage` is only the last step; totalUsage covers the run.
@@ -649,13 +684,21 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     }
   }
 
-  // Reasoning models reject `temperature`; omit it rather than let the
-  // provider warn and drop it.
-  const effectiveTemperature = isReasoningModel(model)
-    ? undefined
-    : temperature;
+  // Some models reject `temperature` outright (400) and others silently drop
+  // it; omit it entirely for both.
+  const effectiveTemperature = supportsTemperature(model)
+    ? temperature
+    : undefined;
+
+  // Per-attempt step telemetry. Without it a no-output failure is
+  // indistinguishable from a model that answered in prose on step one —
+  // only the first is helped by a bigger maxSteps.
+  let stepsUsed = 0;
+  let toolsCalled: string[] = [];
 
   const generateOnce = async () => {
+    stepsUsed = 0;
+    toolsCalled = [];
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
@@ -683,7 +726,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
               stepNumber >= maxSteps - 1 ? { toolChoice: "none" as const } : {},
           }
         : {}),
-      ...(onStepFinish ? { onStepFinish } : {}),
+      onStepFinish: (step) => {
+        stepsUsed++;
+        for (const call of step.toolCalls ?? [])
+          toolsCalled.push(call.toolName);
+        onStepFinish?.(step);
+      },
     });
     // Read the lazy `output` getter HERE, inside this awaited function, so the
     // try/catch below catches BOTH generation failures. generateText only
@@ -728,6 +776,11 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       // Spread caller context FIRST so the authoritative error fields below
       // always win — a colliding logContext key can't mask the real signal.
       ...(logContext ?? {}),
+      orgId: context.org.id,
+      userId: context.userId,
+      stepsUsed,
+      maxSteps,
+      toolsCalled,
       errorType: objErr ? "no-object" : "no-output",
       finishReason: objErr?.finishReason,
       cause: e.cause instanceof Error ? e.cause.message : String(e.cause ?? ""),
@@ -797,10 +850,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
           err.finishReason === "length") ||
         (NoObjectGeneratedError.isInstance(retryErr) &&
           retryErr.finishReason === "length");
+      // No output at all (burned its steps on tools, or answered in prose) —
+      // rephrasing won't help, narrowing the request will.
+      const ranOutOfSteps = NoOutputGeneratedError.isInstance(retryErr);
       throw new Error(
         truncated
           ? "Your request produced a response too large to return in one piece. Try a more focused request — for example, edit one section or a few elements at a time, then layer on more."
-          : "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
+          : ranOutOfSteps
+            ? "The AI didn't finish this request — it spent its time gathering page details instead of returning a change. Try pointing it at a specific element, or splitting this into smaller changes."
+            : "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
       );
     }
   }

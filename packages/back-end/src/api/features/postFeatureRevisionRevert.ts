@@ -1,6 +1,8 @@
 import {
   metadataTouchesPayload,
   holdsMoveDestination,
+  assertTargetingDestination,
+  withStagedTargeting,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
@@ -16,6 +18,7 @@ import {
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import type { ApiReqContext } from "back-end/types/api";
@@ -255,6 +258,13 @@ export async function revertFeatureRevision(
       metadataChanges.targetingProjects = m.targetingProjects;
       hasMetaChange = true;
     }
+    // Restoring a wider targeting set delivers into those projects again.
+    assertTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, metadataChanges),
+      optedOut: await context.getTargetingOptOutProjectIds(),
+    });
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;
@@ -407,13 +417,11 @@ export async function revertFeatureRevision(
   });
   if (!liveRevision)
     throw new InternalServerError("Could not load live revision");
-
-  const allEnvironmentIds = getEnvironmentIdsFromOrg(context.org);
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: liveRevision,
     revision: { ...liveRevision, ...revisionChanges } as typeof liveRevision,
-    allEnvironments: allEnvironmentIds,
+    orgEnvironments: getEnvironments(context.org),
     settings: organization.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
@@ -443,6 +451,7 @@ export async function revertFeatureRevision(
         ]
       : [];
 
+  await assertFeatureMoveDependentsGuard(context, feature, changes.metadata);
   const { revision: publishedRevision, updatedFeature } =
     await createAndPublishRevision({
       context,

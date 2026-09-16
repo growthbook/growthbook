@@ -10,6 +10,9 @@ import {
 // and the reference detector (validators/constant) so they can't drift.
 export const CONSTANT_EXTENDS_KEY = "$extends";
 
+// The single NAT gateway address all GrowthBook Cloud egress leaves from; keep in sync with docs/ip-addresses.mdx.
+export const CLOUD_EGRESS_IP = "52.70.79.40";
+
 export const GB_SDK_ID_DEV = "sdk-UmQ03OkUDAu7Aox";
 export const GB_SDK_ID_PROD = "sdk-ueFMOgZ2daLa0M";
 
@@ -59,6 +62,8 @@ export const DEFAULT_TOP_VALUES_LOOKBACK_UNIT = "days";
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
 export const DEFAULT_USE_STICKY_BUCKETING = false;
+
+export const DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT = true;
 
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
@@ -295,6 +300,7 @@ export const entityEvents = {
   vercelNativeIntegration: ["create", "update", "delete"],
   factTable: ["autocreate", "create", "update", "delete"],
   customField: ["create", "update", "delete"],
+  autoRun: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
   safeRollout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],

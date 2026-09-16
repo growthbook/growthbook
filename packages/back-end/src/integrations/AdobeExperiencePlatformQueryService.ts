@@ -35,6 +35,7 @@ export default class AdobeExperiencePlatformQueryService extends SqlIntegration 
   getSqlDialect(): SqlDialect {
     return adobeExperiencePlatformQueryServiceDialect;
   }
+  // Query Service OIDs are unverified, so leave column types undetected.
   runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(toPostgresConnectionParams(this.params), sql);
   }

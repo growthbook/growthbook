@@ -1,3 +1,4 @@
+import { stringToBoolean } from "shared/util";
 import { listMetricsValidator } from "shared/validators";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
@@ -11,10 +12,16 @@ import {
 export const listMetrics = createApiRequestHandler(listMetricsValidator)(async (
   req,
 ) => {
+  const includeArchived =
+    req.query.includeArchived === undefined
+      ? undefined
+      : stringToBoolean(req.query.includeArchived.toString());
+
   // Filter at the database level for better performance
   const metrics = await getMetricsByOrganization(req.context, {
     datasourceId: req.query.datasourceId,
     projectId: req.query.projectId,
+    includeArchived,
   });
 
   const datasources = await getDataSourcesByOrganization(req.context);

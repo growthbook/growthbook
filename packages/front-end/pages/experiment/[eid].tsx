@@ -227,6 +227,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           source="eid"
         />
       )}
@@ -245,6 +246,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setEditPhasesOpen(false)}
           mutateExperiment={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           editTargeting={editTargeting}
           source="eid"
         />
@@ -254,6 +256,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setTargetingModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
           // source="eid"
         />
@@ -267,6 +270,7 @@ const ExperimentPage = (): ReactElement => {
           }}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
           focusVariationId={trafficFocusVariation}
           addVariationOnOpen={addVariationOnOpen}
@@ -277,6 +281,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setNamespaceModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
         />
       )}

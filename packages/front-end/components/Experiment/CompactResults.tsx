@@ -46,6 +46,7 @@ import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import { ReplacedMetricWarning } from "@/components/Metrics/MetricReplacement";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -819,6 +820,9 @@ export function getRenderLabelColumn({
                   </Link>
                 )}
               </Text>
+              {row?.replacedByMetricName ? (
+                <ReplacedMetricWarning name={row.replacedByMetricName} />
+              ) : null}
             </span>
           </span>
         </div>

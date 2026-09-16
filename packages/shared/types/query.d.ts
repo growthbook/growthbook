@@ -123,6 +123,8 @@ export type QueryType =
   // Event log queries
   | "eventLogSummary"
   | "eventLogRecords"
+  // AI agent SQL queries (Ask Your Data)
+  | "askDataAgentQuery"
 
   // ---
   // Legacy, should be deprecated

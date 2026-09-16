@@ -42,6 +42,7 @@ type DropdownProps = {
   // collision, so e.g. "top" opens upward when there's room, else downward.
   menuSide?: "top" | "right" | "bottom" | "left";
   menuWidth?: "full" | number;
+  menuMaxHeight?: number | string;
   children: AllowedChildren;
   color?: RadixDropdownMenu.ContentProps["color"];
   variant?: RadixDropdownMenu.ContentProps["variant"];
@@ -64,6 +65,7 @@ export function DropdownMenu({
   menuPlacement = "start",
   menuSide = "bottom",
   menuWidth,
+  menuMaxHeight,
   children,
   color,
   variant,
@@ -171,6 +173,7 @@ export function DropdownMenu({
           }
           style={{
             width: typeof menuWidth === "number" ? menuWidth : undefined,
+            maxHeight: menuMaxHeight,
             visibility: isHiddenWithDelay ? "hidden" : "visible",
           }}
         >
@@ -213,6 +216,7 @@ type DropdownItemProps = {
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   tooltip?: string;
+  tooltipStyle?: React.CSSProperties;
   confirmation?: {
     submit: () => Promise<void> | void;
     getConfirmationContent?: () => Promise<string | ReactElement | null>;
@@ -234,6 +238,7 @@ export function DropdownMenuItem({
   onClick,
   confirmation,
   tooltip,
+  tooltipStyle = { width: "max-content" },
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -340,7 +345,13 @@ export function DropdownMenuItem({
           {confirmationContent ?? "Are you sure? This action cannot be undone."}
         </ModalStandard>
       )}
-      {tooltip ? <Tooltip body={tooltip}>{menuItem}</Tooltip> : menuItem}
+      {tooltip ? (
+        <Tooltip body={tooltip} popperStyle={tooltipStyle}>
+          {menuItem}
+        </Tooltip>
+      ) : (
+        menuItem
+      )}
     </>
   );
 }

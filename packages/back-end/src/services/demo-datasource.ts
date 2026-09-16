@@ -1,3 +1,4 @@
+import { getApplicableEnvIds } from "shared/util";
 import {
   DEMO_DATASOURCE_HOST,
   DEMO_DATASOURCE_ID,
@@ -54,7 +55,6 @@ import {
   deleteFeature,
   getFeature,
 } from "back-end/src/models/FeatureModel";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   createFactTable,

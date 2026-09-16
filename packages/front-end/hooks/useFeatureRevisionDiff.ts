@@ -263,7 +263,7 @@ export function useFeatureRevisionDiff({
         if (!isEqual(pre?.tags, post.tags) && post.tags !== undefined)
           metaBadges.push({ label: "Edit tags", action: "edit tags" });
         if (
-          !isEqual(pre?.neverStale, post.neverStale) &&
+          (pre?.neverStale ?? false) !== (post.neverStale ?? false) &&
           post.neverStale !== undefined
         )
           metaBadges.push({
@@ -271,7 +271,7 @@ export function useFeatureRevisionDiff({
             action: "edit stale setting",
           });
         if (
-          !isEqual(pre?.customFields, post.customFields) &&
+          !isEqual(pre?.customFields ?? null, post.customFields ?? null) &&
           post.customFields !== undefined
         )
           metaBadges.push({

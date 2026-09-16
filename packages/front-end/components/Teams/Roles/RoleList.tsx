@@ -30,7 +30,7 @@ export default function RoleList() {
 
   return (
     <Box mb="4">
-      <Table variant="list" stickyHeader roundedCorners>
+      <Table variant="surface">
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Role</TableColumnHeader>

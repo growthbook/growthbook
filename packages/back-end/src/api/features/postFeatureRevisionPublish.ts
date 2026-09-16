@@ -21,6 +21,7 @@ import {
   planFeatureRevisionMerge,
 } from "back-end/src/services/featurePublishGates";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import {
   BadRequestError,
   ConflictError,
@@ -185,11 +186,21 @@ export async function publishFeatureRevision(
     }
   }
 
-  if (plan.requiresReview && revision.status !== "approved" && !canBypass) {
+  // Coverage, not just status: an approval given while the draft was narrower
+  // does not sanction what it changes now. Same condition as the gate layer.
+  if (
+    plan.requiresReview &&
+    !(revision.status === "approved" && plan.hasCoveringApproval) &&
+    !canBypass
+  ) {
     throw new BadRequestError(
-      `This revision requires approval before publishing (status: "${revision.status}"). ` +
-        "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants FlagsBypassApprovals on this project.",
+      revision.status === "approved" && plan.uncoveredApprovers.length
+        ? "This draft now changes environments its approvers cannot approve. " +
+          "It needs approval from someone with review rights across everything it changes, " +
+          "or a role/token that grants FlagsBypassApprovals on this project."
+        : `This revision requires approval before publishing (status: "${revision.status}"). ` +
+          "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+          "or use a role/token that grants FlagsBypassApprovals on this project.",
     );
   }
 
@@ -230,6 +241,13 @@ export async function publishFeatureRevision(
     !feature.archived
   ) {
     await assertFeatureArchiveDependentsGuard(req.context, feature);
+  }
+  if (!inlineValidationGates) {
+    await assertFeatureMoveDependentsGuard(
+      req.context,
+      feature,
+      mergeChanges.metadata,
+    );
   }
 
   const updatedFeature = await publishRevision({

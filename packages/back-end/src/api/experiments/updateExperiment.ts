@@ -10,13 +10,23 @@ import {
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
+  assertCanRunExperimentChanges,
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
+  getExperimentAttributeScopeProjects,
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
+import { assertLivePayloadChangeAllowed } from "back-end/src/services/experimentLivePayload";
+import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
 import {
   startExperiment,
   validateExperimentChange,
@@ -140,6 +150,9 @@ export const updateExperiment = createApiRequestHandler(
       req.body.customFields ?? experiment.customFields,
       req.context,
       req.body.project ?? experiment.project,
+      // A project change must re-validate all values against the new
+      // project's fields, so only grandfather unchanged values in place
+      projectChanged ? undefined : experiment.customFields,
     );
   }
 
@@ -208,7 +221,7 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
-    validateVariationIds(req.body.variations);
+    validateVariationIds(req.body.variations, experiment.variations);
   }
 
   const effectivePrecomputedUnitDimensionType =
@@ -280,25 +293,44 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  // Opt-in attribute registration check (org-level setting). Covers the
-  // experiment-level hash/fallback attributes and every provided phase.
-  assertRegisteredAttributes(
+  const attributeScope = lazyAttributeScope(() =>
+    getExperimentAttributeScopeProjects(req.context, {
+      project:
+        req.body.project !== undefined ? req.body.project : experiment.project,
+      linkedFeatures: experiment.linkedFeatures,
+    }),
+  );
+  await assertRegisteredAttributesScoped(
     req.context,
     {
       hashAttribute: req.body.hashAttribute,
       fallbackAttribute: req.body.fallbackAttribute,
     },
     "experiment",
-    undefined,
-    experiment.project,
+    {
+      hashAttribute: experiment.hashAttribute,
+      fallbackAttribute: experiment.fallbackAttribute,
+    },
+    attributeScope,
+  );
+  // Match persisted phases by condition value, not index — clients that
+  // insert or delete phases must not re-validate grandfathered conditions.
+  const persistedConditions = new Set(
+    (experiment.phases ?? []).map((p) => p.condition),
   );
   for (const phase of req.body.phases ?? []) {
-    assertRegisteredAttributes(
+    await assertRegisteredAttributesScoped(
       req.context,
       { condition: phase.condition },
       "experiment phase",
-      undefined,
-      experiment.project,
+      {
+        condition:
+          phase.condition !== undefined &&
+          persistedConditions.has(phase.condition)
+            ? phase.condition
+            : undefined,
+      },
+      attributeScope,
     );
   }
 
@@ -314,6 +346,33 @@ export const updateExperiment = createApiRequestHandler(
   );
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  // canUpdateExperiment (above) is the analysis-level check. Fields that reach
+  // SDK payloads additionally need run-experiments permission in the
+  // environments the experiment affects — the same rule, on the same fields,
+  // as the dashboard's POST /experiment/:id.
+  await assertCanRunExperimentChanges(req.context, experiment, changes);
+
+  // Linked feature rules would keep the old variation ids; the dashboard
+  // refuses this too. Coverage and weights stay editable, as in its targeting flow.
+  await assertLivePayloadChangeAllowed(req.context, experiment, {
+    variations: changes.variations,
+  });
+  // The served (latest) phase is checked against the latest stored phase;
+  // earlier phases are history, so any parent the stored experiment already
+  // references is not re-validated when they are echoed or reordered.
+  if (changes.phases) {
+    await assertValidExperimentPrerequisites(
+      req.context,
+      changes.phases[changes.phases.length - 1]?.prerequisites,
+      experiment.phases[experiment.phases.length - 1]?.prerequisites,
+    );
+    await assertValidExperimentPrerequisites(
+      req.context,
+      phasePrerequisites(changes.phases.slice(0, -1)),
+      phasePrerequisites(experiment.phases),
+    );
+  }
 
   // Same validation as PUT /schedule, against the stored schedule and the
   // post-update variations/metrics.

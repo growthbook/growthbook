@@ -35,6 +35,7 @@ export function parseExperimentFactMetricsParams(
     settings: ExperimentSnapshotSettings;
     factTableMap: FactTableMap;
     lastMaxTimestamp: Date | null;
+    lastMaxTimestampRaw?: string | null;
     covariateTableAlias: string;
     forcedUserIdType?: string;
     // When set, restrict fact-table discovery to a single FT. Cross-FT
@@ -45,6 +46,10 @@ export function parseExperimentFactMetricsParams(
     // refresh inserts so a metric hub like `[A/B, A/C]` can populate the
     // FT_A cache without tripping the 2-FT cap on {A, B, C}.
     targetFactTableId?: string;
+    // When true, column references use the bare `m` alias instead of
+    // per-source `m{i}` aliases. Set for multi-FT funnel statistics queries
+    // where all sources are flattened into one table.
+    flattenSources?: boolean;
   },
 ): {
   // One entry per fact table touched by `metrics` (clamped to a single entry
@@ -93,6 +98,7 @@ export function parseExperimentFactMetricsParams(
       factTablesWithMetrics,
       params.covariateTableAlias,
       `m${m.index}`,
+      params.flattenSources ?? false,
     );
   });
 
@@ -173,6 +179,9 @@ export function parseExperimentFactMetricsParams(
       metricStart: startDate,
       metricEnd,
       bindingLastMaxTimestamp,
+      lastMaxTimestampRaw: bindingLastMaxTimestamp
+        ? (params.lastMaxTimestampRaw ?? null)
+        : null,
       minCovariateStartDate,
       maxCovariateEndDate,
     };

@@ -25,9 +25,9 @@ const FLAG_SCOPES: Record<RevisionAction, ActionPermission["scope"]> = {
   delete: "environment",
   publish: "environment",
   revert: "environment",
-  // Draft, review, and bypass are project-scoped; bypass does not replace publish.
+  review: "environment",
+  // Draft and bypass are project-scoped; bypass does not replace publish.
   draft: "project",
-  review: "project",
   bypass: "project",
 };
 
@@ -86,6 +86,13 @@ export const REVISION_PERMISSIONS: Record<
     bypass: { permission: "bypassApprovalSavedGroups", scope: "project" },
   },
 };
+
+export function revisionActionPermission(
+  model: RevisionModel,
+  action: RevisionAction,
+): ActionPermission {
+  return REVISION_PERMISSIONS[model][action];
+}
 
 /** The bypass-approval atom for an entity, named as data (gate metadata). */
 export function bypassApprovalPermission(model: RevisionModel): Permission {

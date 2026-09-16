@@ -1,14 +1,20 @@
 import {
   validateFeatureValue,
+  getRuleAttributeScopeProjectIds,
   getConfigBackingPatch,
   getConfigBackingKey,
   normalizeTargetingInUpdates,
   rulesEqualIgnoringScopeEncoding,
 } from "shared/util";
 import { isEqual } from "lodash";
+import {
+  assertTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -50,8 +56,14 @@ import {
   dispatchFeatureRevisionEvent,
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields, validateRuleAttributes } from "./validations";
+import {
+  assertValidRuleEnvironments,
+  validateChangedRuleReferences,
+  validateCustomFields,
+  validateRuleAttributes,
+} from "./validations";
 import {
   canBypassReviewChecks,
   canUseRestApiBypassSetting,
@@ -61,7 +73,10 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidRuleProjectIds,
+  assertValidChangedRuleProjectIds,
+  assertUniqueRuleIds,
+  assertValidChangedRuleExperimentIds,
+  validateRulesScheduleRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -127,6 +142,16 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   await assertValidProjectId(project, req.context);
+  assertTargetingDestination({
+    permissions: req.context.permissions,
+    existing: feature,
+    proposed: withStagedTargeting(feature, {
+      project,
+      targetingAllProjects,
+      targetingProjects,
+    }),
+    optedOut: await req.context.getTargetingOptOutProjectIds(),
+  });
   await assertValidProjectIds(targetingProjects, req.context);
 
   const projectChanged = project !== undefined && project !== feature.project;
@@ -140,6 +165,9 @@ export const updateFeatureV2 = createApiRequestHandler(
       customFields ?? feature.customFields,
       req.context,
       effectiveProject,
+      // A project change must re-validate all values against the new
+      // project's fields, so only grandfather unchanged values in place
+      projectChanged ? undefined : feature.customFields,
     );
   }
 
@@ -262,16 +290,54 @@ export const updateFeatureV2 = createApiRequestHandler(
     // DB writes. `mapV2ApiRuleToFeatureRule` doesn't validate, so we cover
     // flat v2 rules explicitly here (env-rules go through `fromApiEnvSettings…`).
     for (const rule of req.body.rules) {
+      const existingRule = rule.id
+        ? feature.rules?.find((r) => r.id === rule.id)
+        : undefined;
       validateRuleAttributes(
         rule as Parameters<typeof validateRuleAttributes>[0],
         req.context,
-        feature.project,
+        // Validate against the post-update targeting state so a single PUT
+        // can't narrow targeting while keeping out-of-scope rules, narrowed
+        // further to the projects the rule itself targets.
+        getRuleAttributeScopeProjectIds(
+          {
+            project: req.body.project ?? feature.project,
+            targetingAllProjects:
+              req.body.targetingAllProjects ?? feature.targetingAllProjects,
+            targetingProjects:
+              req.body.targetingProjects ?? feature.targetingProjects,
+          },
+          undefined,
+          rule,
+        ) ?? undefined,
+        existingRule,
       );
     }
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
-    await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    assertUniqueRuleIds(inboundFlatRules);
+    assertValidRuleEnvironments(req.context, inboundFlatRules);
+    await assertValidChangedRuleProjectIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await assertValidChangedRuleExperimentIds(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    await validateChangedRuleReferences(
+      inboundFlatRules,
+      feature.rules ?? [],
+      req.context,
+    );
+    validateRulesScheduleRules(
+      inboundFlatRules,
+      req.context,
+      feature.rules ?? [],
+    );
     // Request-supplied config keys must exist, be live, and belong to the
     // default config's family — same gate as the revision rule endpoints.
     await assertValidRuleConfigKeys(
@@ -391,6 +457,16 @@ export const updateFeatureV2 = createApiRequestHandler(
     extractRevisionMetadata(updates);
   updates = updatesAfterMetadata;
 
+  await assertValidPrerequisiteParents(
+    req.context,
+    {
+      ...feature,
+      rules: inboundFlatRules ?? feature.rules,
+      prerequisites: updates.prerequisites ?? feature.prerequisites,
+    },
+    feature,
+  );
+
   const newPrerequisites = updates.prerequisites ?? null;
   if (newPrerequisites !== null) {
     delete updates.prerequisites;
@@ -438,6 +514,13 @@ export const updateFeatureV2 = createApiRequestHandler(
     hasHoldoutChange;
 
   if (hasRevisionChanges) {
+    if (hasMetadataChanges) {
+      await assertFeatureMoveDependentsGuard(
+        req.context,
+        feature,
+        metadataChanges,
+      );
+    }
     const revisionChanges: Partial<FeatureRevisionInterface> = {
       ...(hasEnvEnabledChanges
         ? { environmentsEnabled: changedEnvEnabled }

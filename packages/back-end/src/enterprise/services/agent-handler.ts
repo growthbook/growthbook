@@ -2,9 +2,10 @@ import { randomUUID } from "crypto";
 import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
 import type { AIModel, AIPromptType } from "shared/ai";
-import type { AIChatMessage } from "shared/ai-chat";
+import type { AIChatMention, AIChatMessage } from "shared/ai-chat";
 import { stringifyToolResultForStorage } from "shared/ai-chat";
 import type { AIAgentPendingAction } from "shared/validators";
+import { offScreenDashboardWriteRejection } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
@@ -56,6 +57,13 @@ export {
 // Public types
 // =============================================================================
 
+export interface SkillLoadResult {
+  status: "ok";
+  name: string;
+  description: string;
+  body: string;
+}
+
 export interface AgentConfig<TParams = unknown> {
   /** Unique key that scopes conversations to this agent (e.g. "product-analytics"). */
   agentType: string;
@@ -91,6 +99,22 @@ export interface AgentConfig<TParams = unknown> {
     params: TParams,
     emit?: AgentEmit,
   ) => ToolSet;
+
+  /**
+   * Slash-command resolver. Seeded calls use the same shape as a real
+   * `loadSkill` result. Unset (PA chat) makes any `skill` on the body a no-op.
+   */
+  resolveSkill?: (name: string) => SkillLoadResult | undefined;
+
+  /**
+   * Annotate @-mentions with `stale` when they're out of scope for this turn.
+   * Stale mentions still reach the model so it can say they're unavailable.
+   */
+  resolveMentions?: (
+    ctx: ReqContext,
+    mentions: AIChatMention[],
+    params: TParams,
+  ) => Promise<AIChatMention[]>;
 
   temperature?: number;
   maxSteps?: number;
@@ -145,6 +169,8 @@ type AgentRequestBody = {
    * message as a soft `datasourceHint` (see `AIChatUserMessage`).
    */
   datasourceId?: string;
+  mentions?: AIChatMention[];
+  skills?: string[];
 } & Record<string, unknown>;
 
 type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
@@ -320,12 +346,24 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     // gate. A cancel/supersede with a follow-up message lets the model react
     // to the rejection plus the new instruction in the same turn.
     if (pendingAction) {
+      // Re-checked here, not only when the model proposed it: the user can
+      // navigate off the dashboard between the card appearing and clicking
+      // Confirm, and the stored call would then write to an off-screen one.
+      const offScreenNow = isConfirm
+        ? offScreenDashboardWriteRejection({
+            method: pendingAction.method,
+            path: pendingAction.path,
+            currentPage:
+              typeof body.currentPage === "string" ? body.currentPage : null,
+          })
+        : undefined;
       await resolvePendingAction(
         context,
         buffer,
         pendingAction,
         emit,
-        isConfirm,
+        isConfirm && !offScreenNow,
+        offScreenNow,
       );
       buffer.setPendingAction(undefined);
     }
@@ -339,7 +377,33 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         config.injectDatasourceHint && typeof body.datasourceId === "string"
           ? body.datasourceId
           : undefined;
-      appendUserMessage(buffer, message, body.currentPage, datasourceHint);
+      const skills = Array.from(new Set(body.skills ?? []));
+      const mentions =
+        config.resolveMentions && body.mentions?.length
+          ? await config.resolveMentions(context, body.mentions, params)
+          : body.mentions;
+      appendUserMessage(
+        buffer,
+        message,
+        body.currentPage,
+        datasourceHint,
+        mentions,
+        skills,
+      );
+      if (config.resolveSkill) {
+        const seeded = new Set<string>();
+        for (const name of skills) {
+          // A leaf picked from the `/` menu arrives without the domain router the
+          // model would have read on its way there, so its shared conventions
+          // would be missing. Seed the router first, as the two-step flow does.
+          const domain = name.split("/")[0];
+          for (const target of domain === name ? [name] : [domain, name]) {
+            if (seeded.has(target)) continue;
+            seeded.add(target);
+            seedSkillLoad(buffer, emit, target, config.resolveSkill);
+          }
+        }
+      }
     }
     buffer.setStreaming(true);
 
@@ -477,6 +541,8 @@ function appendUserMessage(
   message: string,
   currentPage?: string,
   datasourceHint?: string,
+  mentions?: AIChatMention[],
+  skills?: string[],
 ): void {
   const userMessage: AIChatMessage = {
     role: "user",
@@ -490,8 +556,60 @@ function appendUserMessage(
     ...(datasourceHint && datasourceHint.trim()
       ? { datasourceHint: datasourceHint.trim() }
       : {}),
+    ...(mentions && mentions.length ? { mentions } : {}),
+    ...(skills && skills.length ? { skills } : {}),
   };
   buffer.appendMessages([userMessage]);
+}
+
+function seedSkillLoad(
+  buffer: ConversationBuffer,
+  emit: AgentEmit,
+  name: string,
+  resolveSkill: (name: string) => SkillLoadResult | undefined,
+): void {
+  const result = resolveSkill(name);
+  if (!result) {
+    logger.warn(`Ignoring unknown slash-command skill "${name}"`);
+    return;
+  }
+
+  const toolCallId = randomUUID();
+  const args = { name };
+
+  emit("tool-call-input", {
+    toolCallId,
+    toolName: "loadSkill",
+    input: serializeUnknownForSSE(args),
+  });
+  emit("tool-call-end", {
+    toolName: "loadSkill",
+    toolCallId,
+    input: serializeUnknownForSSE(args),
+    output: serializeUnknownForSSE(result),
+  });
+
+  buffer.appendMessages([
+    {
+      role: "assistant",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [{ type: "tool-call", toolCallId, toolName: "loadSkill", args }],
+    },
+    {
+      role: "tool",
+      id: randomUUID(),
+      ts: Date.now(),
+      content: [
+        {
+          type: "tool-result",
+          toolCallId,
+          toolName: "loadSkill",
+          result: stringifyToolResultForStorage(result),
+        },
+      ],
+    },
+  ]);
 }
 
 /**
@@ -515,13 +633,24 @@ async function resolvePendingAction(
   pendingAction: AIAgentPendingAction,
   emit: AgentEmit,
   confirmed: boolean,
+  rejection?: string,
 ): Promise<void> {
   const toolCallId = randomUUID();
+  // Strip `confirm` from the body the model sees so it doesn't copy it into
+  // follow-up calls and bypass the cost confirmation gate.
+  const sanitizedBody =
+    pendingAction.body && typeof pendingAction.body === "object"
+      ? Object.fromEntries(
+          Object.entries(pendingAction.body as Record<string, unknown>).filter(
+            ([k]) => k !== "confirm",
+          ),
+        )
+      : pendingAction.body;
   const args: Record<string, unknown> = {
     method: pendingAction.method,
     path: pendingAction.path,
     ...(pendingAction.query ? { query: pendingAction.query } : {}),
-    ...(pendingAction.body !== undefined ? { body: pendingAction.body } : {}),
+    ...(sanitizedBody !== undefined ? { body: sanitizedBody } : {}),
   };
 
   emit("tool-call-input", {
@@ -543,13 +672,14 @@ async function resolvePendingAction(
     result = dispatched;
     isError = !(dispatched.status >= 200 && dispatched.status < 300);
   } else {
-    // Not a tool error — a deliberate user decision. Phrased so the model
-    // treats it as a stop signal rather than something to retry.
+    // Not a tool error — a deliberate user decision, or a guard that no longer
+    // holds. Phrased so the model treats it as a stop signal, not a retry.
     result = {
       status: "rejected",
       message:
+        rejection ??
         "The user reviewed this change and chose not to run it. Do not retry " +
-        "it; acknowledge and wait for their next instruction.",
+          "it; acknowledge and wait for their next instruction.",
     };
   }
 

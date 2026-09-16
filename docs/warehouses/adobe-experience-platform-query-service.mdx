@@ -1,0 +1,61 @@
+---
+title: Adobe Experience Platform Query Service
+description: Connect Adobe Experience Platform Query Service to GrowthBook with a non-expiring OAuth credential and Postgres wire protocol.
+sidebarTitle: Adobe Experience Platform
+slug: /warehouses/adobe-experience-platform-query-service
+---
+
+GrowthBook connects to Adobe Experience Platform Query Service, which speaks the PostgreSQL wire protocol. GrowthBook runs read-only queries against your XDM datasets to build experiment results.
+
+## 1. Generate a non-expiring Query Service credential
+
+GrowthBook authenticates with a non-expiring OAuth Server-to-Server credential generated in Adobe Experience Platform. Before anyone generates the first credential, a System Admin must configure the required sandbox and Query Service permissions in Adobe Admin Console.
+
+1. In Adobe Experience Platform, select **Queries** in the left navigation and open the **Credentials** tab.
+2. In the **Non-expiring Credentials** section, select **Generate credentials**.
+3. Enter a name, the user to assign the credential to, and the other requested details.
+4. Generate the credential and store the downloaded configuration JSON securely. Adobe does not keep a copy of the generated credential.
+
+See Adobe's [Query Service credentials guide](https://experienceleague.adobe.com/en/docs/experience-platform/query/ui/credentials) for the required Admin Console setup and credential-generation steps.
+
+Keep the Credentials tab and downloaded configuration JSON available. You will map their values to GrowthBook in step 3.
+
+## 2. Add the Data Source in GrowthBook
+
+Navigate to _Metrics and Data → Data Sources_ and add a new Data Source. You can pick your event tracker under "Guided Setup" or choose "Manual Set Up". Query Service has no built-in tracker schema, so most setups use the manual path and define the queries by hand.
+
+Select "Adobe Experience Platform Query Service" as the warehouse type.
+
+## 3. Enter your connection details
+
+Map each field to a value from Adobe.
+
+- **Host** — the Host value in the **Expiring Credentials** section of Adobe's Credentials tab, for example `acme.platform.adobe.io`. Adobe uses the same host for non-expiring credentials.
+- **Port** — the Port value from Adobe. Port `80` is recommended, and port `5432` is also supported.
+- **Database** — the Database value from Adobe, for example `prod:all`.
+- **Username** — the Username value from Adobe, including the `@AdobeOrg` suffix.
+- **Technical account ID** — the `technicalAccountId` value in the downloaded configuration JSON.
+- **Credential** — the `credential` value in the downloaded configuration JSON.
+
+When you save the Data Source, GrowthBook tests the connection works.
+
+## 4. Guardrails and limits
+
+Query Service enforces limits that shape how GrowthBook queries it.
+
+- **10-minute interactive query timeout.** Interactive queries that run longer than 10 minutes are cancelled and return SQLSTATE `53400`. Keep experiment queries within this window.
+- **50,000-row client result cap.** A single interactive query returns at most 50,000 rows to the client. Experiment-results queries return aggregated rows, so they stay well under this in normal use.
+- **100,000 `LIMIT` ceiling.** Query Service rejects a `LIMIT` above 100,000.
+- **Per-license session and concurrency limits.** Your Adobe license caps how many sessions and concurrent queries you can run. GrowthBook defaults `maxConcurrentQueries` to 1, which matches the standard Query Service entitlement. Raise it in the connection Advanced Settings if your Adobe license allows more concurrent queries.
+
+## 5. Current limitations
+
+A few Query Service capabilities are off at this moment. Please reach out to support if any of these are a blocker for you and your team.
+
+- **Schema browsing.** The schema browser that suggests tables and columns while you write queries is disabled.
+- **Funnels.** Funnel metrics and funnel explorations are not available at the moment.
+- **Pipeline (incremental refresh) mode.** Incremental updates are not available at the moment.
+
+## 6. Set up your experiment assignment queries and metrics
+
+You can now create your [Experiment Assignment Queries](/app/datasources#experiment-assignment-queries) and [Fact Tables](/app/metrics) to define your metrics against your XDM datasets.

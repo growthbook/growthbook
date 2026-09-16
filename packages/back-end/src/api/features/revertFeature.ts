@@ -1,6 +1,8 @@
 import {
   metadataTouchesPayload,
   holdsMoveDestination,
+  assertTargetingDestination,
+  withStagedTargeting,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
@@ -17,6 +19,7 @@ import {
 } from "shared/util";
 import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import type { ApiReqContext } from "back-end/types/api";
@@ -40,7 +43,6 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { NotFoundError, SoftWarningError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -61,7 +63,6 @@ export async function revertFeatureCore(
   const allEnvironments = getEnvironments(context.org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
-  const allEnvironmentIds = getEnvironmentIdsFromOrg(organization);
 
   // Prevent metadata-only reverts from bypassing the project-scoped check.
   if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
@@ -206,6 +207,13 @@ export async function revertFeatureCore(
       metadataChanges.targetingProjects = m.targetingProjects;
       hasMetaChange = true;
     }
+    // Restoring a wider targeting set delivers into those projects again.
+    assertTargetingDestination({
+      permissions: context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, metadataChanges),
+      optedOut: await context.getTargetingOptOutProjectIds(),
+    });
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags)) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;
@@ -326,7 +334,7 @@ export async function revertFeatureCore(
     feature,
     baseRevision: liveRevision,
     revision: { ...liveRevision, ...changes } as typeof liveRevision,
-    allEnvironments: allEnvironmentIds,
+    orgEnvironments: getEnvironments(organization),
     settings: organization.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
@@ -353,6 +361,7 @@ export async function revertFeatureCore(
         ]
       : [];
 
+  await assertFeatureMoveDependentsGuard(context, feature, changes.metadata);
   const { revision: newRevision, updatedFeature } =
     await createAndPublishRevision({
       context,

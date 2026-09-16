@@ -14,6 +14,9 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentMapForFeature: jest.fn(),
 }));
 
+jest.mock("back-end/src/services/moveDependentsGuard", () => ({
+  assertFeatureMoveDependentsGuard: jest.fn(),
+}));
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
   getSavedGroupMap: jest.fn(),
@@ -50,6 +53,7 @@ jest.mock("back-end/src/util/features", () => ({
 }));
 
 jest.mock("back-end/src/util/organization.util", () => ({
+  ...jest.requireActual("back-end/src/util/organization.util"),
   getEnvironmentIdsFromOrg: jest.fn(() => ["production", "dev"]),
 }));
 
@@ -85,6 +89,7 @@ const ctx = {
     }),
   },
   hasPremiumFeature: jest.fn(() => true),
+  getTargetingOptOutProjectIds: jest.fn().mockResolvedValue([]),
   models: {
     safeRollout: {
       getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),

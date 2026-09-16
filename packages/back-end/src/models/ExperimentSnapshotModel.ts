@@ -6,7 +6,11 @@ import {
   blockHasFieldOfType,
   DashboardInterface,
 } from "shared/enterprise";
-import { isString } from "shared/util";
+import {
+  findAnalysisComputeFailure,
+  getSnapshotAnalysis,
+  isString,
+} from "shared/util";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -163,6 +167,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
         of: [experimentSnapshotTrafficObject],
       },
       error: String,
+      multipleExposures: Number,
     },
     power: {
       _id: false,
@@ -240,6 +245,11 @@ experimentSnapshotSchema.index({
 experimentSnapshotSchema.index({
   organization: 1,
   experiment: 1,
+  status: 1,
+  dateCreated: -1,
+});
+// Backs the cross-org stalled-snapshot reaper scan, which runs every minute.
+experimentSnapshotSchema.index({
   status: 1,
   dateCreated: -1,
 });
@@ -530,7 +540,9 @@ export async function updateSnapshot({
 
     const shouldUpdateExperimentAnalysisSummary =
       experimentSnapshot.type === "standard" &&
-      experimentSnapshot.status === "success";
+      experimentSnapshot.status === "success" &&
+      findAnalysisComputeFailure(getSnapshotAnalysis(experimentSnapshot)) ===
+        null;
 
     shouldRunEagerDimensionAnalyses =
       shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
@@ -1021,6 +1033,7 @@ export async function errorSnapshotIfStillRunning(
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
+  excludeIds: string[] = [],
 ) {
   // Only look back 24 hours to keep the scan bounded
   const earliestDate = new Date();
@@ -1029,7 +1042,10 @@ export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   const docs = await ExperimentSnapshotModel.find({
     status: "running",
     dateCreated: { $gt: earliestDate, $lt: stalledBefore },
-  }).limit(limit);
+    ...(excludeIds.length ? { id: { $nin: excludeIds } } : {}),
+  })
+    .sort({ dateCreated: 1 })
+    .limit(limit);
 
   return docs.map((doc) => toInterface(doc));
 }
@@ -1038,18 +1054,17 @@ export async function findLatestRunningSnapshotByReportId(
   context: Context,
   report: string,
 ) {
-  // Only look for match in the past 24 hours to make the query more efficient
-  // Older snapshots should not still be running anyway
-  const earliestDate = new Date();
-  earliestDate.setDate(earliestDate.getDate() - 1);
-
-  const doc = await ExperimentSnapshotModel.findOne({
-    organization: context.org.id,
-    report,
-    status: "running",
-    dateCreated: { $gt: earliestDate },
-    queries: { $elemMatch: { status: "running" } },
-  });
+  // Scoped to one report + org; do not date-bound — jobs can still be in flight after 24h.
+  const doc = await ExperimentSnapshotModel.findOne(
+    {
+      organization: context.org.id,
+      report,
+      status: "running",
+      queries: { $elemMatch: { status: { $in: ["running", "queued"] } } },
+    },
+    null,
+    { sort: { dateCreated: -1 } },
+  );
 
   return doc ? toInterface(doc) : null;
 }

@@ -1,6 +1,15 @@
-import { validateRuleAttributes } from "back-end/src/api/features/validations";
+import {
+  assertValidRuleEnvironments,
+  normalizeInlineRampSchedule,
+  validateRuleAttributes,
+  validateRulesReferences,
+} from "back-end/src/api/features/validations";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
+
+jest.mock("back-end/src/models/FeatureModel", () => ({
+  getAllFeaturesWithoutEditorFields: jest.fn(),
+}));
 
 // `validateRuleAttributes` is the V2-side gate for the opt-in
 // `requireRegisteredAttributes` org setting. Most of the underlying
@@ -150,5 +159,116 @@ describe("validateRuleAttributes (V2 helper)", () => {
     expect(() =>
       validateRuleAttributes({ hashAttribute: "userID" }, ctx, "proj_two"),
     ).toThrow(BadRequestError);
+  });
+});
+
+// Reject/accept outcomes are pinned end-to-end in ruleReferenceIntegrity.test.ts;
+// this covers what that harness cannot observe.
+describe("validateRulesReferences", () => {
+  const getAll = jest.fn();
+  const ctx = {
+    org: { settings: { attributeSchema: [] } },
+    models: { savedGroups: { getAll } },
+  } as unknown as ApiReqContext;
+
+  beforeEach(() => {
+    getAll.mockReset();
+    getAll.mockResolvedValue([
+      { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
+    ]);
+  });
+
+  it("accepts rules whose conditions parse and whose groups exist, loading saved groups once", async () => {
+    await expect(
+      validateRulesReferences(
+        [
+          { condition: '{"country": "US"}' },
+          { savedGroups: [{ match: "all", ids: ["grp_known"] }] },
+          { condition: '{"id": {"$inGroup": "grp_known"}}' },
+          {},
+        ],
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+    expect(getAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not load saved groups for an empty rules list", async () => {
+    await validateRulesReferences([], ctx);
+    expect(getAll).not.toHaveBeenCalled();
+  });
+});
+
+// v2 rule / feature write paths: a rule's `environments` list may only name
+// environments the organization has (v1 checks its single `environment` the
+// same way).
+describe("assertValidRuleEnvironments", () => {
+  const ctx = {
+    org: {
+      settings: {
+        environments: [{ id: "production" }, { id: "qa" }],
+      },
+    },
+  } as unknown as ApiReqContext;
+
+  it("accepts rules that list known environments or none", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { environments: ["production", "qa"] },
+        { environments: [] },
+        {},
+      ]),
+    ).not.toThrow();
+  });
+
+  it("rejects a rule that lists an environment the organization does not have", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { environments: ["production"] },
+        { environments: ["prodution"] },
+      ]),
+    ).toThrow(BadRequestError);
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [{ environments: ["prodution"] }]),
+    ).toThrow('Invalid environment: "prodution"');
+  });
+
+  it("ignores the list on a rule scoped to all environments", () => {
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { allEnvironments: true, environments: ["prodution"] },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      assertValidRuleEnvironments(ctx, [
+        { allEnvironments: false, environments: ["prodution"] },
+      ]),
+    ).toThrow(BadRequestError);
+  });
+});
+
+describe("normalizeInlineRampSchedule", () => {
+  it("omits startActions and endActions when the input does not provide them", () => {
+    const action = normalizeInlineRampSchedule({ steps: [] }, "r1");
+    expect("startActions" in action).toBe(false);
+    expect("endActions" in action).toBe(false);
+    expect(action).toMatchObject({ mode: "create", ruleId: "r1", steps: [] });
+  });
+
+  it("normalizes provided startActions and endActions into feature-rule actions", () => {
+    const action = normalizeInlineRampSchedule(
+      {
+        steps: [],
+        startActions: [{ patch: { coverage: 0 } }],
+        endActions: [{ targetId: "t1", patch: { coverage: 1 } }],
+      },
+      "r1",
+    );
+    expect(action.startActions).toEqual([
+      { targetType: "feature-rule", targetId: "", patch: { coverage: 0 } },
+    ]);
+    expect(action.endActions).toEqual([
+      { targetType: "feature-rule", targetId: "t1", patch: { coverage: 1 } },
+    ]);
   });
 });

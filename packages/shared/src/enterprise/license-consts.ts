@@ -16,6 +16,9 @@ export type CommercialFeature =
   | "scim"
   | "sso"
   | "advanced-permissions"
+  | "role-management"
+  | "unlimited-projects"
+  | "custom-environments"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
   | "events-forwarder"
@@ -107,6 +110,7 @@ export type SubscriptionInfo = {
   cancelationDate: string;
   pendingCancelation: boolean;
   isVercelIntegration: boolean;
+  stripeCustomerId?: string;
 };
 
 export interface LicenseInterface {
@@ -131,6 +135,7 @@ export interface LicenseInterface {
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
   vercelInstallationId?: string;
+  stripeCustomerId?: string;
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -208,6 +213,7 @@ export type LicenseData = {
 
 const commercialFeaturesPro: CommercialFeature[] = [
   "advanced-permissions",
+  "role-management",
   "encrypt-features-endpoint",
   "schedule-feature-flag",
   "events-forwarder",
@@ -249,6 +255,8 @@ const commercialFeaturesProSso: CommercialFeature[] = [
 
 const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "ai-suggestions",
+  "unlimited-projects",
+  "custom-environments",
   "ai-byok",
   "scim",
   "audit-logging",

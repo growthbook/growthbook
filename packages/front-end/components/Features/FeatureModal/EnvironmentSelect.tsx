@@ -172,7 +172,7 @@ const EnvironmentSelect: FC<{
               <Checkbox
                 disabled={!mayEnable(env.id)}
                 disabledMessage="You don't have permission to enable this environment."
-                value={environmentSettings[env.id].enabled}
+                value={environmentSettings[env.id]?.enabled ?? false}
                 setValue={(enabled) => setValue(env, enabled === true)}
                 label={env.id}
                 key={env.id}

@@ -2,6 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import {
   getFactMetricColumnRefs,
+  getFactMetricPrimaryFactTableId,
   sqlReferencesColumn,
 } from "shared/experiments";
 import { explorationConfigReferencesColumn } from "shared/enterprise";
@@ -13,6 +14,7 @@ import {
   CreateFactTableProps,
   ColumnRef,
   FactFilterInterface,
+  FactMetricInterface,
   FactTableDefinition,
   FactTableInterface,
   UpdateFactFilterProps,
@@ -25,7 +27,6 @@ import {
   ApiFactTableColumn,
   ApiFactTableFilter,
 } from "shared/validators";
-import { isEventForwarderEventsFactTable } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -41,6 +42,7 @@ import {
   normalizeJSONFieldsInput,
   normalizePersistedColumn,
 } from "back-end/src/util/factTable";
+import { logger } from "back-end/src/util/logger";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -63,8 +65,11 @@ const factTableSchema = new mongoose.Schema({
   tags: [String],
   datasource: String,
   userIdTypes: [String],
+  userIdColumns: {},
   sql: String,
+  timestampColumn: String,
   eventName: String,
+  tableType: String,
   columns: [
     {
       _id: false,
@@ -156,7 +161,7 @@ export function buildColumnInterface(
   return normalizePersistedColumn(columnInterface);
 }
 
-function createPropsToInterface(
+export function createPropsToInterface(
   context: ReqContext | ApiReqContext,
   rawProps: CreateFactTableProps,
 ): FactTableInterface {
@@ -188,8 +193,11 @@ function createPropsToInterface(
     projects: props.projects,
     tags: props.tags,
     sql: props.sql,
+    timestampColumn: props.timestampColumn,
     userIdTypes: props.userIdTypes,
+    userIdColumns: props.userIdColumns,
     eventName: props.eventName,
+    tableType: props.tableType,
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
@@ -374,10 +382,7 @@ export async function updateFactTable(
   // Allow changing columns even for API-managed fact tables. Also allow
   // system/background contexts (which have no audit user) through, e.g. the
   // event forwarder sync.
-  // The Event Forwarder Events fact table is `managedBy: "api"` but is
-  // intentionally user-editable for now.
   if (
-    !isEventForwarderEventsFactTable(factTable, factTable.datasource) &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&
     context.auditUser !== null &&
@@ -401,22 +406,6 @@ export async function updateFactTable(
   );
   if (!changed) return;
 
-  // Clean up auto slices from metrics if columns were deleted or modified
-  if (changes.columns) {
-    const removedColumns = detectRemovedColumns(
-      factTable.columns || [],
-      changes.columns,
-    );
-
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
-  }
-
   await FactTableModel.updateOne(
     {
       id: factTable.id,
@@ -439,6 +428,17 @@ export async function updateFactTable(
       changes.projects ?? factTable.projects,
     ),
   );
+
+  if (changes.columns) {
+    await cleanupMetricAutoSlices({
+      context,
+      factTableId: factTable.id,
+      removedColumns: detectRemovedColumns(
+        factTable.columns || [],
+        changes.columns,
+      ),
+    });
+  }
 }
 
 const ALLOWED_COLUMN_UPDATE_FIELDS = [
@@ -524,20 +524,6 @@ export async function dangerouslySyncManagedWarehouseFactTable(
     return;
   }
 
-  if (changes.columns) {
-    const removedColumns = detectRemovedColumns(
-      factTable.columns || [],
-      changes.columns,
-    );
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
-  }
-
   await FactTableModel.updateOne(
     {
       id: factTable.id,
@@ -554,6 +540,17 @@ export async function dangerouslySyncManagedWarehouseFactTable(
     factTable.organization,
     definitionsScope(factTable.projects),
   );
+
+  if (changes.columns) {
+    await cleanupMetricAutoSlices({
+      context,
+      factTableId: factTable.id,
+      removedColumns: detectRemovedColumns(
+        factTable.columns || [],
+        changes.columns,
+      ),
+    });
+  }
 }
 
 // Detect columns that were removed or had auto slice disabled
@@ -592,7 +589,10 @@ export function detectRemovedColumns(
   return [...deletedColumns, ...disabledAutoSliceColumns];
 }
 
-// Clean up auto slices from fact metrics when columns are "deleted" or dropped
+// Cascade from a fact-table column change: drop metric auto slices that
+// reference removed or disabled columns. The fact table is the source of truth
+// and every reader intersects against it, so this is best-effort — it spans
+// metrics the caller can't read and never fails the fact-table write.
 export async function cleanupMetricAutoSlices({
   context,
   factTableId,
@@ -602,26 +602,34 @@ export async function cleanupMetricAutoSlices({
   factTableId: string;
   removedColumns: string[];
 }) {
-  // Get all fact metrics that use this fact table
-  const allFactMetrics = await context.models.factMetrics.getAll();
-  const affectedMetrics = allFactMetrics.filter(
-    (metric) => metric.numerator?.factTableId === factTableId,
-  );
+  if (!removedColumns.length) return;
 
-  // For each affected metric, remove auto slices that reference removed columns
-  for (const metric of affectedMetrics) {
-    if (!metric.metricAutoSlices?.length) continue;
-
-    const originalAutoSlices = [...metric.metricAutoSlices];
-    const cleanedAutoSlices = metric.metricAutoSlices.filter(
-      (sliceColumn) => !removedColumns.includes(sliceColumn),
+  let allFactMetrics: FactMetricInterface[];
+  try {
+    allFactMetrics =
+      await context.models.factMetrics.dangerousGetAllForDependencyScan();
+  } catch (e) {
+    logger.error(
+      e,
+      `Failed to scan fact metrics for auto-slice cleanup of ${factTableId}`,
     );
-
-    // Only update if there were changes
-    if (cleanedAutoSlices.length !== originalAutoSlices.length) {
-      await context.models.factMetrics.update(metric, {
-        metricAutoSlices: cleanedAutoSlices,
-      });
+    return;
+  }
+  for (const metric of allFactMetrics) {
+    if (getFactMetricPrimaryFactTableId(metric) !== factTableId) continue;
+    if (!metric.metricAutoSlices?.some((c) => removedColumns.includes(c))) {
+      continue;
+    }
+    try {
+      await context.models.factMetrics.removeAutoSlices(
+        metric.id,
+        removedColumns,
+      );
+    } catch (e) {
+      logger.error(
+        e,
+        `Failed to remove auto slices from fact metric ${metric.id}`,
+      );
     }
   }
 }
@@ -859,9 +867,10 @@ export async function deleteColumn(
 
   // Block deletion if anything still references this column — otherwise
   // generated SQL falls back to a bare, now-undefined identifier and fails
-  // at query time. Scanned on demand (other virtual columns, saved filters,
-  // Fact Metrics, saved explorations, and dashboard blocks); no dependency
-  // state is persisted.
+  // at query time. Scanned on demand; no dependency state is persisted.
+  const dependentIdentifierTypes = Object.entries(factTable.userIdColumns ?? {})
+    .filter(([, mappedColumn]) => mappedColumn.split(".")[0] === columnName)
+    .map(([idType]) => idType);
   const dependentVirtualColumns = factTable.columns.filter(
     (c) =>
       c.isVirtual &&
@@ -912,6 +921,9 @@ export async function deleteColumn(
   );
 
   const lines: string[] = [
+    ...dependentIdentifierTypes.map(
+      (idType) => `\n - Identifier mapping: ${idType}`,
+    ),
     ...dependentVirtualColumns.map(
       (c) => `\n - Virtual column: ${c.name || c.column}`,
     ),
@@ -1176,7 +1188,6 @@ export async function deleteFactTable(
 ) {
   if (
     !bypassManagedByCheck &&
-    !isEventForwarderEventsFactTable(factTable, factTable.datasource) &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {
@@ -1286,9 +1297,11 @@ export function toFactTableApiInterface(
       tags: factTable.tags,
       datasource: factTable.datasource,
       userIdTypes: factTable.userIdTypes,
+      userIdColumns: factTable.userIdColumns,
       aggregatedFactTableSettings:
         factTable.aggregatedFactTableSettings ?? undefined,
       sql: factTable.sql,
+      timestampColumn: factTable.timestampColumn,
       eventName: factTable.eventName,
       columns: factTable.columns.map(toFactTableColumnApiInterface),
       columnsError: factTable.columnsError,
