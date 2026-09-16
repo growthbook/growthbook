@@ -6,8 +6,8 @@ export const MEMBER_COLUMN_WIDTHS = {
   emailNoName: "26%",
   date: "10%",
   dateOnly: "18%",
-  role: "22%",
-  projectRoles: "15%",
+  role: "18%",
+  projectRoles: "18%",
   teams: "10%",
   actions: "50px",
 } as const;

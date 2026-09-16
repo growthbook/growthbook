@@ -5,10 +5,13 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { date, datetime } from "shared/dates";
 import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
+import {
+  CollapsedRuleRows,
+  projectRuleRows,
+  ruleRows,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
-import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
@@ -166,28 +169,17 @@ const InviteList: FC<{
                   {date(dateCreated)}
                 </TableCell>
                 <TableCell>
-                  <RoleRuleLines scope={roleInfo} organization={organization} />
+                  <CollapsedRuleRows rows={ruleRows(roleInfo, organization)} />
                 </TableCell>
                 {!project && (
                   <TableCell>
-                    {member.projectRoles?.map((pr) => {
-                      const p = projects.find((p) => p.id === pr.project);
-                      if (p?.name) {
-                        return (
-                          <div key={`project-tags-${p.id}`}>
-                            <ProjectBadges
-                              resourceType="member"
-                              projectIds={[p.id]}
-                            />
-                            <RoleRuleLines
-                              scope={pr}
-                              organization={organization}
-                            />
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
+                    <CollapsedRuleRows
+                      rows={projectRuleRows(
+                        member.projectRoles ?? [],
+                        (id) => projects.find((p) => p.id === id)?.name,
+                        organization,
+                      )}
+                    />
                   </TableCell>
                 )}
                 <TableCell />

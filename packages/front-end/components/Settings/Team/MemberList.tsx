@@ -16,9 +16,11 @@ import {
 } from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import ProjectBadges from "@/components/ProjectBadges";
 import Link from "@/ui/Link";
-import RoleRuleLabel from "@/components/Settings/Team/RoleRuleLabel";
+import RoleRuleLabel, {
+  CollapsedRuleRows,
+  RuleRow,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
@@ -75,30 +77,24 @@ function rulesWithSources(roles: EffectiveRoleSource[]) {
   return out;
 }
 
-function RuleLines({
-  roles,
-  organization,
-}: {
-  roles: EffectiveRoleSource[];
-  organization: Parameters<typeof RoleRuleLabel>[0]["organization"];
-}) {
-  return (
-    <>
-      {rulesWithSources(roles).map((e) => (
-        <div key={e.key}>
-          <RoleRuleLabel
-            {...e}
-            organization={organization}
-            sources={
-              e.sources.some((src) => src !== "Direct")
-                ? e.sources.join(", ")
-                : undefined
-            }
-          />
-        </div>
-      ))}
-    </>
-  );
+function effectiveRuleRows(
+  roles: EffectiveRoleSource[],
+  organization: Parameters<typeof RoleRuleLabel>[0]["organization"],
+): RuleRow[] {
+  return rulesWithSources(roles).map((e) => ({
+    key: e.key,
+    node: (
+      <RoleRuleLabel
+        {...e}
+        organization={organization}
+        sources={
+          e.sources.some((src) => src !== "Direct")
+            ? e.sources.join(", ")
+            : undefined
+        }
+      />
+    ),
+  }));
 }
 
 const MemberList: FC<{
@@ -458,35 +454,45 @@ const MemberList: FC<{
                         sources="Project restricted access"
                       />
                     ) : (
-                      <RuleLines
-                        roles={effectiveRoles}
-                        organization={organization}
+                      <CollapsedRuleRows
+                        rows={effectiveRuleRows(effectiveRoles, organization)}
                       />
                     )}
                   </TableCell>
                   {!project && (
                     <TableCell>
-                      {scopedProjectIds(member).map((projectId) => {
-                        const p = projects.find((p) => p.id === projectId);
-                        if (!p?.name) return null;
-                        const roles = getEffectiveRolesForProject(
-                          member,
-                          projectId,
-                          teams,
-                        );
-                        return (
-                          <div key={`project-tags-${p.id}`}>
-                            <ProjectBadges
-                              resourceType="member"
-                              projectIds={[p.id]}
-                            />
-                            <RuleLines
-                              roles={roles}
-                              organization={organization}
-                            />
-                          </div>
-                        );
-                      })}
+                      <CollapsedRuleRows
+                        rows={scopedProjectIds(member).flatMap((projectId) => {
+                          const p = projects.find((p) => p.id === projectId);
+                          if (!p?.name) return [];
+                          return [
+                            {
+                              key: p.id,
+                              heading: true,
+                              node: (
+                                <Text
+                                  as="div"
+                                  weight="medium"
+                                  color="text-high"
+                                >
+                                  {p.name}
+                                </Text>
+                              ),
+                            },
+                            ...effectiveRuleRows(
+                              getEffectiveRolesForProject(
+                                member,
+                                projectId,
+                                teams,
+                              ),
+                              organization,
+                            ).map((row) => ({
+                              ...row,
+                              key: `${p.id}-${row.key}`,
+                            })),
+                          ];
+                        })}
+                      />
                     </TableCell>
                   )}
 

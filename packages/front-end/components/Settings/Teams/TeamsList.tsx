@@ -7,9 +7,12 @@ import { Box, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import { Team, useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
 import { useAuth } from "@/services/auth";
-import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
+import {
+  CollapsedRuleRows,
+  projectRuleRows,
+  ruleRows,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -105,25 +108,16 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                   </TableCell>
                   <TableCell>{date(t.dateUpdated)}</TableCell>
                   <TableCell>
-                    <RoleRuleLines scope={t} organization={organization} />
+                    <CollapsedRuleRows rows={ruleRows(t, organization)} />
                   </TableCell>
                   <TableCell>
-                    {t.projectRoles?.map((pr) => {
-                      const p = projects.find((p) => p.id === pr.project);
-                      if (!p?.name) return null;
-                      return (
-                        <div key={`project-tags-${p.id}`}>
-                          <ProjectBadges
-                            resourceType="team"
-                            projectIds={[p.id]}
-                          />{" "}
-                          <RoleRuleLines
-                            scope={pr}
-                            organization={organization}
-                          />
-                        </div>
-                      );
-                    })}
+                    <CollapsedRuleRows
+                      rows={projectRuleRows(
+                        t.projectRoles ?? [],
+                        (id) => projects.find((p) => p.id === id)?.name,
+                        organization,
+                      )}
+                    />
                   </TableCell>
                   <TableCell>{t.members?.length ?? 0}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
