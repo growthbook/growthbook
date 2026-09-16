@@ -5,8 +5,9 @@ import {
   RegisterOptions,
   UseFormReturn,
 } from "react-hook-form";
-import { Flex, Tooltip } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
+import Tooltip from "@/ui/Tooltip";
 import { GBInfo } from "@/components/Icons";
 
 export function getConfidenceLevelHighlight(percent: number | undefined): {
