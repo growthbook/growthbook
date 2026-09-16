@@ -7,14 +7,17 @@ import type {
 import { attributeDataTypes } from "../constants";
 import {
   resolveBigQueryEventForwarderTableNames,
+  resolveDatabricksEventForwarderTableNames,
   resolveSnowflakeEventForwarderTableNames,
 } from "./event-forwarder-destination";
 import {
   buildBigQueryEventForwarderTableReference,
+  buildDatabricksEventForwarderTableReference,
   buildEventForwarderNestedAttributeValueSql,
   buildEventForwarderPropertyValueSql,
   buildSnowflakeEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
+  EventForwarderQuerySinkType,
   quoteBigQueryIdentifier,
 } from "./event-forwarder-fact-table";
 import {
@@ -42,6 +45,12 @@ export type BuildEventForwarderExperimentViewedTableRefParams =
       database: string;
       schema: string;
       tablePrefix: string;
+    }
+  | {
+      sinkType: "databricks";
+      catalog: string;
+      schema: string;
+      tablePrefix: string;
     };
 
 export type BuildEventForwarderFeatureUsageTableRefParams =
@@ -58,6 +67,17 @@ function buildEventForwarderSinkTableReference(
     return buildBigQueryEventForwarderTableReference(
       params.projectId,
       params.dataset,
+      tableNames[table],
+    );
+  }
+
+  if (params.sinkType === "databricks") {
+    const tableNames = resolveDatabricksEventForwarderTableNames(
+      params.tablePrefix,
+    );
+    return buildDatabricksEventForwarderTableReference(
+      params.catalog,
+      params.schema,
       tableNames[table],
     );
   }
@@ -101,7 +121,7 @@ export function buildEventForwarderAttributeValueSql({
   userIdType,
   attributeDatatype,
 }: {
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderQuerySinkType;
   userIdType: string;
   attributeDatatype?: SDKAttributeType;
 }): string {
@@ -127,7 +147,7 @@ export function buildEventForwarderExposureQuerySql({
   sourceAttribute,
   attributeDatatype,
 }: {
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderQuerySinkType;
   tableRef: string;
   userIdType: string;
   sourceAttribute?: string;
@@ -140,7 +160,7 @@ export function buildEventForwarderExposureQuerySql({
     attributeDatatype,
   });
 
-  if (sinkType === "bigquery") {
+  if (sinkType === "bigquery" || sinkType === "databricks") {
     const quotedId = quoteBigQueryIdentifier(userIdType);
     return `SELECT
   ${attributeValueSql} AS ${quotedId},
@@ -176,7 +196,7 @@ function isGeneratedExposureQuerySql({
   sourceAttribute,
 }: {
   query: ExposureQuery;
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderQuerySinkType;
   tableRef: string;
   sourceAttribute: string;
 }): boolean {
@@ -299,7 +319,7 @@ export function buildEventForwarderFeatureUsageQuerySql({
   sinkType,
   tableRef,
 }: {
-  sinkType: "bigquery" | "snowflake";
+  sinkType: EventForwarderQuerySinkType;
   tableRef: string;
 }): string {
   if (sinkType === "bigquery") {

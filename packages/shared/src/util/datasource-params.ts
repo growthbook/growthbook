@@ -171,6 +171,7 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
     token: "secret",
     oauthClientId: "public",
     oauthClientSecret: "secret",
+    azureTenantId: "public",
     host: "public",
     port: "public",
     path: "public",
