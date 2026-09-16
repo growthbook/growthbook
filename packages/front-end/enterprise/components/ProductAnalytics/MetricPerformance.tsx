@@ -18,6 +18,7 @@ import {
 } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Text from "@/ui/Text";
+import { draftMetricNeedsPopulation } from "@/components/FactTables/MetricEditor/draftMetricPreview";
 import Button from "@/ui/Button";
 import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
@@ -118,12 +119,7 @@ export default function MetricPerformance({
       </Text>
     );
   }
-  if (
-    draft &&
-    (metric.metricType === "proportion" ||
-      metric.metricType === "retention" ||
-      metric.metricType === "dailyParticipation")
-  ) {
+  if (draft && draftMetricNeedsPopulation(metric.metricType)) {
     return (
       <Text color="text-mid">
         Calculating this rate requires an eligible user population. A source
