@@ -269,7 +269,8 @@ describe("whole-member role writes under manageProjects", () => {
     ).toBe(true);
   });
 
-  it("ignores undefined keys a REST body adds to untouched rules", () => {
+  it("ignores empty and undefined fields a REST body spells out", () => {
+    // Stored rules omit optional keys; the body adds them as undefined.
     const resent = member.projectRoles!.map((r) => ({
       ...r,
       additionalRoles: undefined,
@@ -283,9 +284,7 @@ describe("whole-member role writes under manageProjects", () => {
         ] as ProjectMemberRole[],
       }),
     ).toBe(true);
-  });
-
-  it("treats absent and empty global fields as equal", () => {
+    // Stored members omit an empty additionalRoles; the body sends [].
     const sparse = {
       role: "engineer",
       limitAccessByEnvironment: false,
