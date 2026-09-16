@@ -381,7 +381,13 @@ const MemberList: FC<{
               >
                 Last Login
               </SortableTableColumnHeader>
-              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.role}>
+              <TableColumnHeader
+                width={
+                  project
+                    ? MEMBER_COLUMN_WIDTHS.roleOnProject
+                    : MEMBER_COLUMN_WIDTHS.role
+                }
+              >
                 <Tooltip body="The role(s) that actually apply after combining this member's own role with any teams they're on. Hover a value to see each source.">
                   {project ? "Project Role" : "Role"}
                 </Tooltip>
@@ -394,10 +400,8 @@ const MemberList: FC<{
               <SortableTableColumnHeader
                 field="numTeams"
                 style={{
-                  // The project page drops the Project Roles column; let Teams
-                  // take that room instead of wrapping names.
                   width: project
-                    ? MEMBER_COLUMN_WIDTHS.role
+                    ? MEMBER_COLUMN_WIDTHS.teamsOnProject
                     : MEMBER_COLUMN_WIDTHS.teams,
                 }}
               >

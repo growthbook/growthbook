@@ -64,9 +64,15 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
         <Table variant="surface" layout="fixed">
           <TableHeader>
             <TableRow>
-              <TableColumnHeader>Team Name</TableColumnHeader>
-              <TableColumnHeader>Description</TableColumnHeader>
-              <TableColumnHeader>Date Updated</TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teamName}>
+                Team Name
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teamDescription}>
+                Description
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teamDate}>
+                Date Updated
+              </TableColumnHeader>
               <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.role}>
                 Role
               </TableColumnHeader>

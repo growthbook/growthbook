@@ -307,10 +307,10 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
           <TableRow>
             <TableColumnHeader width="30%">Team</TableColumnHeader>
             <TableColumnHeader width="20%">Global role</TableColumnHeader>
-            <TableColumnHeader width="30%">
+            <TableColumnHeader width="32%">
               Role on this Project
             </TableColumnHeader>
-            <TableColumnHeader width="10%">Members</TableColumnHeader>
+            <TableColumnHeader width="14%">Members</TableColumnHeader>
             <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
           </TableRow>
         </TableHeader>
