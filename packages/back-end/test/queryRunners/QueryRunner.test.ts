@@ -153,6 +153,16 @@ describe("getQueryFailureCause", () => {
       ),
     ).toBe("cancelled");
   });
+  it("recognizes a cancellation that names who cancelled", () => {
+    expect(
+      getQueryFailureCause(
+        makeFailedQueryMap([
+          "root",
+          { id: "q1", error: "Query cancelled by user (user@example.com)" },
+        ]),
+      ),
+    ).toBe("cancelled");
+  });
   it("does not classify a warehouse error containing cancellation text as a user cancellation", () => {
     expect(
       getQueryFailureCause(

@@ -29,6 +29,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
+  notifyExperimentCreated,
   notifyExperimentStatusTransition,
   notifyExperimentBanditWeightsTransition,
 } from "back-end/src/services/experimentNotifications";
@@ -1035,6 +1036,8 @@ export async function* dangerousGetExperimentsForLifecycleReminders(): AsyncGene
   const cursor = getCollection(COLLECTION)
     .find({
       archived: { $ne: true },
+      // Holdouts have their own lifecycle notifications.
+      type: { $ne: "holdout" },
       $or: [
         { status: "running" },
         { pastNotifications: { $in: ["ending-soon", "stale"] } },
@@ -2298,6 +2301,11 @@ const onExperimentCreate = async ({
   experiment: ExperimentInterface;
 }) => {
   await logExperimentCreated(context, experiment);
+
+  await notifyExperimentCreated({ context, experiment }).catch(
+    (error: unknown) =>
+      logger.error(error, "Failed to notify experiment creation"),
+  );
 
   if (context.org.isVercelIntegration)
     await createVercelExperimentationItemFromExperiment({

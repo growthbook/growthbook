@@ -648,10 +648,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
-    await errorSnapshotIfStillRunning(this.context, this.model.id, {
-      queries: this.model.queries,
-      error,
-    });
+    // Reached from the runner's own failure paths, where neither the queries
+    // nor the analysis is known to be at fault.
+    await errorSnapshotIfStillRunning(
+      this.context,
+      this.model.id,
+      { queries: this.model.queries, error },
+      "unknown",
+    );
   }
 
   async updateModel({

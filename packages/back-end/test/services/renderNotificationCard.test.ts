@@ -190,7 +190,6 @@ describe("renderNotificationCard", () => {
             variationName: "Control",
             users: 10000,
             value: 0.05,
-            formattedValue: "5.00%",
           },
           variations: [
             {
@@ -199,11 +198,11 @@ describe("renderNotificationCard", () => {
               variationIndex: 1,
               users: 10000,
               value: 0.055,
-              formattedValue: "5.50%",
               uplift: 0.1,
               upliftStddev: 0.02,
               ci: [0.06, 0.14],
               chanceToWin: 0.98,
+              significant: true,
             },
           ],
         },
@@ -226,8 +225,6 @@ describe("renderNotificationCard", () => {
           expect.objectContaining({
             v: "Treatment",
             i: 1,
-            ctrl: "5.00%",
-            vr: "5.50%",
             ctw: "98.0%",
             sig: true,
             chg: "+10%",
@@ -283,7 +280,6 @@ describe("renderNotificationCard", () => {
             variationId: "v0",
             variationName: "Control",
             value: 0.05,
-            formattedValue: "5.00%",
           },
           variations: [
             {
@@ -291,10 +287,10 @@ describe("renderNotificationCard", () => {
               variationName: "Treatment",
               variationIndex: 1,
               value: 0.046,
-              formattedValue: "4.60%",
               uplift: -0.08,
               ci: [-0.12, -0.04],
               pValue: 0.0004,
+              significant: true,
             },
           ],
         },
@@ -317,6 +313,70 @@ describe("renderNotificationCard", () => {
         ],
       }),
       "detailed",
+    );
+  });
+
+  it("shows a dash instead of a fabricated lift when the payload has no estimate", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "inconclusive",
+        enableTemporaryRollout: false,
+        goalMetric: {
+          metricId: "m1",
+          metricName: "Conversion",
+          snapshotId: "snp-1",
+          statsEngine: "bayesian",
+          differenceType: "relative",
+          control: { variationId: "v0", variationName: "Control", value: 0.05 },
+          variations: [
+            {
+              variationId: "v1",
+              variationName: "Treatment",
+              variationIndex: 1,
+              value: 0.05,
+              chanceToWin: 0.5,
+            },
+          ],
+        },
+      }),
+      "detailed",
+    );
+    const [card] = jest.mocked(renderCard).mock.calls[0];
+    expect("rows" in card ? card.rows : []).toEqual([
+      { v: "Treatment", i: 1, cn: undefined, vn: undefined, ctw: "50.0%" },
+    ]);
+  });
+
+  it("keeps markdown characters in variation names literal", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "won",
+        enableTemporaryRollout: true,
+        releasedVariationName: "2*_fast_*",
+        winningVariationName: "2*_fast_*",
+        winningVariationIndex: 1,
+        reason: "*Ship it*",
+      }),
+      "compact",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fields: [
+          { label: "Result", value: "Won" },
+          {
+            label: "Temporary rollout",
+            value: "Variation *2\\*\\_fast\\_\\**",
+          },
+          { label: "Reason", value: "\\*Ship it\\*" },
+        ],
+      }),
+      "compact",
     );
   });
 

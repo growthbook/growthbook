@@ -3050,7 +3050,7 @@ Triggered when a warning condition is detected on an experiment, such as a sampl
             type: "update-failed";
             experimentId: string;
             experimentName: string;
-            cause: "query" | "analysis" | "no-queries";
+            cause: "query" | "analysis" | "no-queries" | "unknown";
         } | {
             type: "multiple-exposures";
             experimentName: string;
@@ -3198,7 +3198,6 @@ Triggered when an experiment stops, including its result and any temporary rollo
                     variationName: string;
                     users?: number | undefined;
                     value: number;
-                    formattedValue: string;
                 };
                 variations: {
                     variationId: string;
@@ -3206,7 +3205,6 @@ Triggered when an experiment stops, including its result and any temporary rollo
                     variationIndex: number;
                     users?: number | undefined;
                     value: number;
-                    formattedValue: string;
                     uplift?: number | undefined;
                     upliftStddev?: number | undefined;
                     ci?: [
@@ -3215,6 +3213,7 @@ Triggered when an experiment stops, including its result and any temporary rollo
                     ] | undefined;
                     chanceToWin?: number | undefined;
                     pValue?: number | undefined;
+                    significant?: boolean | undefined;
                 }[];
             } | undefined;
         };

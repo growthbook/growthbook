@@ -1,4 +1,8 @@
 import type { ExperimentStartedNotificationPayload } from "shared/validators";
+import {
+  escapeInlineMarkdown,
+  markdownToPlainText,
+} from "back-end/src/services/notificationCards/markdown";
 
 export const EXPERIMENT_STARTED_LABEL = "Experiment Started";
 
@@ -27,13 +31,16 @@ export function getExperimentStartedLinkedChanges(
   return details.length ? details.join(", ") : undefined;
 }
 
-// Up to three goal metric names with a "(+N more)" tail.
+// Up to three goal metric names with a "(+N more)" tail, as card markdown.
 export function getExperimentStartedGoalMetrics(
   data: ExperimentStartedNotificationPayload,
 ): { label: string; value: string } | undefined {
   const names = data.goalMetricNames ?? [];
   if (!names.length) return undefined;
-  const shown = names.slice(0, MAX_GOAL_METRIC_NAMES).join(", ");
+  const shown = names
+    .slice(0, MAX_GOAL_METRIC_NAMES)
+    .map(escapeInlineMarkdown)
+    .join(", ");
   const extra = names.length - MAX_GOAL_METRIC_NAMES;
   return {
     label: names.length === 1 ? "Goal metric" : "Goal metrics",
@@ -42,7 +49,7 @@ export function getExperimentStartedGoalMetrics(
 }
 
 // Label/value pairs shared by the card body and the Slack text, in the same
-// order on both.
+// order on both. Values are card markdown; text channels flatten them.
 export function getExperimentStartedFields(
   data: ExperimentStartedNotificationPayload,
 ): { label: string; value: string }[] {
@@ -63,6 +70,8 @@ export function getExperimentStartedText(
 ): string {
   return [
     `${EXPERIMENT_STARTED_LABEL}.`,
-    ...getExperimentStartedFields(data).map((f) => `${f.label}: ${f.value}.`),
+    ...getExperimentStartedFields(data).map(
+      (f) => `${f.label}: ${markdownToPlainText(f.value)}.`,
+    ),
   ].join(" ");
 }

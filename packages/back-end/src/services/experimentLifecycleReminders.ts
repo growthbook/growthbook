@@ -28,7 +28,9 @@ export async function checkExperimentLifecycleReminders(
         context = await getContextForAgendaJobByOrgId(candidate.organization);
       }
       const experiment = await getExperimentById(context, candidate.id);
-      if (!experiment || experiment.archived) continue;
+      // Re-check what the candidate scan filtered on; both can change in between.
+      if (!experiment || experiment.archived || experiment.type === "holdout")
+        continue;
       await notifyExperimentEndingSoon({ context, experiment });
       await notifyExperimentStale({ context, experiment });
     } catch (error) {

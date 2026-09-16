@@ -1,5 +1,9 @@
 import type { ExperimentStoppedNotificationPayload } from "shared/validators";
 import { pValueFormatter } from "shared/util";
+import {
+  escapeInlineMarkdown,
+  markdownToPlainText,
+} from "back-end/src/services/notificationCards/markdown";
 
 type Results = NonNullable<ExperimentStoppedNotificationPayload["results"]>;
 type GoalMetric = NonNullable<
@@ -66,6 +70,11 @@ export function getExperimentStoppedOutcome(
   return variations.length === 1 ? variations[0] : undefined;
 }
 
+// "Variation *X*" - the name in italics, with any markdown characters in the
+// name kept literal.
+export const variationMarkdown = (name: string): string =>
+  `Variation *${escapeInlineMarkdown(name)}*`;
+
 // Markdown conclusion: "Variation *X* won. <reason> Temporary rollout:
 // Variation *X*." Undefined when there is nothing to say.
 export function getExperimentStoppedConclusion(
@@ -73,21 +82,17 @@ export function getExperimentStoppedConclusion(
 ): string | undefined {
   const text = [
     data.results === "won" && data.winningVariationName
-      ? `Variation *${data.winningVariationName}* won.`
+      ? `${variationMarkdown(data.winningVariationName)} won.`
       : undefined,
-    data.reason,
+    data.reason ? escapeInlineMarkdown(data.reason) : undefined,
     data.enableTemporaryRollout && data.releasedVariationName
-      ? `Temporary rollout: Variation *${data.releasedVariationName}*.`
+      ? `Temporary rollout: ${variationMarkdown(data.releasedVariationName)}.`
       : undefined,
   ]
     .filter(Boolean)
     .join(" ");
   return text || undefined;
 }
-
-// Strip the inline markdown the card renders, for plain-text channels.
-export const stripInlineMarkdown = (s: string): string =>
-  s.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
 
 // "Experiment Stopped - Winner. Variation X won. <reason> Temporary rollout:
 // Variation X. Checkout conversion: +6.1% (Chance to win: 99.1%)."
@@ -107,7 +112,7 @@ export function getExperimentStoppedText(
       : undefined;
   return [
     `${getExperimentStoppedLabel(data)}.`,
-    conclusion ? stripInlineMarkdown(conclusion) : undefined,
+    conclusion ? markdownToPlainText(conclusion) : undefined,
     lift,
   ]
     .filter(Boolean)

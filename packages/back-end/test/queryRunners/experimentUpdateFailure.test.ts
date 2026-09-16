@@ -37,6 +37,7 @@ describe.each([
     "analysis",
     "no-queries",
     "cancelled",
+    "unknown",
   ] satisfies QueryRunnerFailureCause[])(
     "passes %s to the shared snapshot failure handler",
     async (failureCause) => {

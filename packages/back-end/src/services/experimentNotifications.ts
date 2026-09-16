@@ -209,6 +209,19 @@ export const notifyExperimentStopped = async ({
   });
 };
 
+// An experiment created already running (the REST API allows it) never
+// passes through a status transition, so announce its start on creation.
+export const notifyExperimentCreated = async ({
+  context,
+  experiment,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+}) => {
+  if (experiment.type === "holdout" || experiment.status !== "running") return;
+  await notifyExperimentStarted({ context, experiment });
+};
+
 export const notifyExperimentStatusTransition = async ({
   context,
   previous,

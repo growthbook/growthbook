@@ -15,6 +15,9 @@ export const queryRunnerFailureCause = z.enum([
   "analysis",
   "no-queries",
   "cancelled",
+  // The runner itself failed (database, dependency, or refresh error) before
+  // the queries or analysis could be blamed.
+  "unknown",
 ]);
 
 export const queryPointerValidator = z

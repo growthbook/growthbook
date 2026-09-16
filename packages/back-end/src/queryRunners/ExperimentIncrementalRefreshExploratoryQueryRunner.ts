@@ -515,13 +515,13 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   protected override async writeErrorIfStillActive(
     error: string,
   ): Promise<void> {
+    // Reached from the runner's own failure paths, where neither the queries
+    // nor the analysis is known to be at fault.
     const wrote = await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
-      {
-        queries: this.model.queries,
-        error,
-      },
+      { queries: this.model.queries, error },
+      "unknown",
     );
     if (wrote) {
       await this.context.models.incrementalRefresh

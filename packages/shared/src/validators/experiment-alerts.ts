@@ -24,13 +24,16 @@ export const experimentStoppedVariationResult = z
     variationName: z.string(),
     variationIndex: z.number().int().nonnegative(),
     users: z.number().optional(),
+    // Metric mean for the variation, unformatted.
     value: z.number(),
-    formattedValue: z.string(),
     uplift: z.number().optional(),
     upliftStddev: z.number().optional(),
     ci: z.tuple([z.number(), z.number()]).optional(),
     chanceToWin: z.number().optional(),
     pValue: z.number().optional(),
+    // Whether the result cleared the organization's significance settings
+    // (chance-to-win bounds or p-value threshold) at the time of the stop.
+    significant: z.boolean().optional(),
   })
   .strict();
 
@@ -47,7 +50,6 @@ export const experimentStoppedGoalMetric = z
         variationName: z.string(),
         users: z.number().optional(),
         value: z.number(),
-        formattedValue: z.string(),
       })
       .strict(),
     variations: z.array(experimentStoppedVariationResult),

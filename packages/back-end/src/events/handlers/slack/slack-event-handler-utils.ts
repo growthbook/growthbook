@@ -1841,6 +1841,7 @@ const buildSlackMessageForExperimentWarningEvent = (
         query: "database queries failed",
         analysis: "analysis failed",
         "no-queries": "no queries were generated",
+        unknown: "an unexpected error occurred",
       }[data.cause];
       detail = `Results failed to update because ${cause}.`;
       break;

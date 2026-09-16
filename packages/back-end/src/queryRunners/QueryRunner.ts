@@ -116,13 +116,18 @@ export function getQueryFailureError(queryMap: QueryMap): string {
   return (rootCause ?? failed[0])?.error || GENERIC_QUERY_FAILURE_ERROR;
 }
 
+// Error recorded on a query a user cancelled; the controller appends who did
+// it, so cancellation is detected by prefix.
+export const QUERY_CANCELLED_BY_USER_ERROR = "Query cancelled by user";
+
 export function getQueryFailureCause(
   queryMap: QueryMap,
 ): QueryRunnerFailureCause {
   // A separate runner can observe cancellation before the snapshot is marked terminal.
   return Array.from(queryMap.values()).some(
     (query) =>
-      query.status === "failed" && query.error === "Query cancelled by user",
+      query.status === "failed" &&
+      !!query.error?.startsWith(QUERY_CANCELLED_BY_USER_ERROR),
   )
     ? "cancelled"
     : "query";
@@ -944,7 +949,7 @@ export abstract class QueryRunner<
       const affected = await markPendingQueriesAsFailed(
         this.context,
         pendingIds,
-        "Query cancelled by user",
+        QUERY_CANCELLED_BY_USER_ERROR,
       );
       logger.debug(
         { modelId: this.model.id, affected, attempted: pendingIds.length },

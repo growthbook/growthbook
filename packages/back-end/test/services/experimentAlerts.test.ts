@@ -91,6 +91,7 @@ describe("experiment alert messages", () => {
     ["query", "database queries failed"],
     ["analysis", "analysis failed"],
     ["no-queries", "no queries were generated"],
+    ["unknown", "an unexpected error occurred"],
   ])(
     "describes an update failure caused by %s without raw warehouse errors",
     async (cause, detail) => {

@@ -1034,7 +1034,7 @@ export async function errorSnapshotIfStillRunning(
   context: Context,
   id: string,
   updates: Partial<ExperimentSnapshotInterface>,
-  failureCause: QueryRunnerFailureCause = "analysis",
+  failureCause: QueryRunnerFailureCause,
 ): Promise<boolean> {
   const updated = await ExperimentSnapshotModel.findOneAndUpdate(
     {

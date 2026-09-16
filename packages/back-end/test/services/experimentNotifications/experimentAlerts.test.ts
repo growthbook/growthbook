@@ -5,6 +5,7 @@ import type { Context } from "back-end/src/models/BaseModel";
 import { createEvent } from "back-end/src/models/EventModel";
 import { setExperimentNotificationState } from "back-end/src/models/ExperimentModel";
 import {
+  notifyExperimentCreated,
   notifyExperimentStarted,
   notifyExperimentStopped,
   notifyExperimentStatusTransition,
@@ -99,6 +100,27 @@ describe("experiment alert producers", () => {
       experiment: { ...experiment, type: "holdout", status: "stopped" },
     });
     expect(createEvent).not.toHaveBeenCalled();
+  });
+
+  it("announces an experiment created already running, but not drafts or holdouts", async () => {
+    const running = {
+      ...experiment,
+      hasVisualChangesets: false,
+      hasURLRedirects: false,
+    };
+    await notifyExperimentCreated({
+      context,
+      experiment: { ...running, status: "draft" },
+    });
+    await notifyExperimentCreated({
+      context,
+      experiment: { ...running, type: "holdout" },
+    });
+    expect(createEvent).not.toHaveBeenCalled();
+    await notifyExperimentCreated({ context, experiment: running });
+    expect(createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "status.started" }),
+    );
   });
 
   it("captures linked implementation counts at start", async () => {

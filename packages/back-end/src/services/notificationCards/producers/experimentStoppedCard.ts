@@ -9,7 +9,9 @@ import {
   formatLift,
   getExperimentStoppedConclusion,
   getExperimentStoppedLabel,
+  variationMarkdown,
 } from "back-end/src/services/experimentChanges/experimentStoppedSummary";
+import { escapeInlineMarkdown } from "back-end/src/services/notificationCards/markdown";
 import type {
   CardData,
   CardField,
@@ -30,11 +32,6 @@ const compact = (n: number | undefined): string | undefined =>
 const toPct = (fraction: number): number =>
   Math.round(fraction * 100000) / 1000;
 
-// Significance thresholds for coloring the stat cell. The payload does not
-// carry the org's configured thresholds, so these are the GrowthBook defaults.
-const P_VALUE_THRESHOLD = 0.05;
-const CHANCE_TO_WIN_THRESHOLD = 0.95;
-
 // Labeled fields for a stop with no snapshot evidence to chart.
 function getExperimentStoppedFields(
   data: ExperimentStoppedNotificationPayload,
@@ -47,11 +44,13 @@ function getExperimentStoppedFields(
       ? [
           {
             label: "Temporary rollout",
-            value: `Variation *${data.releasedVariationName}*`,
+            value: variationMarkdown(data.releasedVariationName),
           },
         ]
       : []),
-    ...(data.reason ? [{ label: "Reason", value: data.reason }] : []),
+    ...(data.reason
+      ? [{ label: "Reason", value: escapeInlineMarkdown(data.reason) }]
+      : []),
   ];
   return fields.length
     ? fields
@@ -60,39 +59,40 @@ function getExperimentStoppedFields(
 
 // Goal-metric rows for the results renderer, straight from the immutable
 // payload. Relative numbers arrive as fractions and the card wants percents.
-// The stat column holds chance to win (Bayesian) or the p-value (frequentist).
+// The stat column holds chance to win (Bayesian) or the p-value (frequentist),
+// colored by the significance the payload recorded. A variation with no lift
+// estimate renders as a dash rather than a fabricated 0%.
 function goalRows(
   goalMetric: NonNullable<ExperimentStoppedNotificationPayload["goalMetric"]>,
 ): CardGoalRow[] {
-  const frequentist = goalMetric.statsEngine === "frequentist";
   return goalMetric.variations.map((v) => {
-    const upliftPct = toPct(v.uplift ?? 0);
-    const ci = v.ci ? { lo: toPct(v.ci[0]), hi: toPct(v.ci[1]) } : undefined;
     const confidence = formatConfidence(goalMetric.statsEngine, v);
     const stat = confidence
       ? {
           // The cell shows just the number; the header carries the label.
           ctw: confidence.replace(/^[^:]+: /, ""),
-          sig: frequentist
-            ? (v.pValue ?? 1) < P_VALUE_THRESHOLD
-            : (v.chanceToWin ?? 0.5) >= CHANCE_TO_WIN_THRESHOLD ||
-              (v.chanceToWin ?? 0.5) <= 1 - CHANCE_TO_WIN_THRESHOLD,
+          ...(v.significant !== undefined ? { sig: v.significant } : {}),
         }
       : {};
-    return {
+    const base: CardGoalRow = {
       v: v.variationName,
       i: v.variationIndex,
-      ctrl: goalMetric.control.formattedValue,
-      vr: v.formattedValue,
       cn: compact(goalMetric.control.users),
       vn: compact(v.users),
       ...stat,
-      chg: formatLift(v.uplift ?? 0),
+    };
+    if (v.uplift === undefined) return base;
+    const upliftPct = toPct(v.uplift);
+    return {
+      ...base,
+      chg: formatLift(v.uplift),
       dir: upliftPct >= 0 ? "up" : "down",
       ...(v.upliftStddev !== undefined
         ? { vio: { c: upliftPct, s: Math.max(0.3, v.upliftStddev * 100) } }
         : {}),
-      ...(ci ? { ci: { ...ci, pt: upliftPct } } : {}),
+      ...(v.ci
+        ? { ci: { lo: toPct(v.ci[0]), hi: toPct(v.ci[1]), pt: upliftPct } }
+        : {}),
     };
   });
 }

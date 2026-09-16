@@ -1,48 +1,13 @@
 import { getSnapshotAnalysis } from "shared/util";
-import {
-  type ExperimentMetricInterface,
-  expandMetricGroups,
-  isMetricGroupId,
-} from "shared/experiments";
+import { expandMetricGroups, isMetricGroupId } from "shared/experiments";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import type { ExperimentStoppedGoalMetric } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricsByIds } from "back-end/src/services/experiments";
+import { getSignificanceSettingsForProject } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-
-// Best-effort value formatting from the metric type. Covers the common
-// proportion / currency / count cases; the front-end formatter is richer but
-// not available on the server.
-export function formatMetricValue(
-  metric: ExperimentMetricInterface | null,
-  value: number,
-): string {
-  if (!Number.isFinite(value)) return "—";
-  const legacyType = (metric as { type?: string } | null)?.type;
-  const factType = (metric as { metricType?: string } | null)?.metricType;
-  const isProportion =
-    legacyType === "binomial" ||
-    factType === "proportion" ||
-    factType === "retention";
-  if (isProportion) {
-    return new Intl.NumberFormat("en-US", {
-      style: "percent",
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-  if (legacyType === "revenue") {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(
-    value,
-  );
-}
 
 const metricMean = (m: SnapshotMetric): number =>
   Number.isFinite(m.cr) ? m.cr : m.value / (m.users || 1);
@@ -100,9 +65,28 @@ export async function getStoppedGoalMetricResults(
     if (!snapshot || !analysis || !dim) return undefined;
     const controlStats = dim.variations[0]?.metrics?.[goalId];
     if (!controlStats) return undefined;
-    const [metric] = await getExperimentMetricsByIds(context, [goalId]);
+    const [[metric], significance] = await Promise.all([
+      getExperimentMetricsByIds(context, [goalId]),
+      getSignificanceSettingsForProject(context, experiment.project),
+    ]);
     const control = experiment.variations[0];
     if (!control) return undefined;
+
+    // Same rule the results table colors by: chance to win outside the
+    // configured bounds, or a p-value under the threshold the analysis ran with.
+    const frequentist = analysis.settings.statsEngine === "frequentist";
+    const pValueThreshold =
+      analysis.settings.pValueThreshold ?? significance.pValueThreshold;
+    const isSignificant = (stats: SnapshotMetric): boolean | undefined => {
+      if (frequentist) {
+        const pValue = stats.pValueAdjusted ?? stats.pValue;
+        return pValue === undefined ? undefined : pValue < pValueThreshold;
+      }
+      return stats.chanceToWin === undefined
+        ? undefined
+        : stats.chanceToWin >= significance.ciUpper ||
+            stats.chanceToWin <= significance.ciLower;
+    };
 
     const variations: ExperimentStoppedGoalMetric["variations"] = [];
     for (let i = 1; i < experiment.variations.length; i++) {
@@ -111,13 +95,13 @@ export async function getStoppedGoalMetricResults(
       if (!variation || !stats) continue;
       const ci = stats.ciAdjusted ?? stats.ci;
       const pValue = stats.pValueAdjusted ?? stats.pValue;
+      const significant = isSignificant(stats);
       variations.push({
         variationId: variation.id,
         variationName: variation.name,
         variationIndex: i,
         users: stats.users,
         value: metricMean(stats),
-        formattedValue: formatMetricValue(metric ?? null, metricMean(stats)),
         ...(stats.expected !== undefined ? { uplift: stats.expected } : {}),
         ...(stats.uplift?.stddev !== undefined
           ? { upliftStddev: stats.uplift.stddev }
@@ -127,6 +111,7 @@ export async function getStoppedGoalMetricResults(
           ? { chanceToWin: stats.chanceToWin }
           : {}),
         ...(pValue !== undefined ? { pValue } : {}),
+        ...(significant !== undefined ? { significant } : {}),
       });
     }
     if (!variations.length) return undefined;
@@ -149,10 +134,6 @@ export async function getStoppedGoalMetricResults(
           variationName: control.name,
           users: controlStats.users,
           value: metricMean(controlStats),
-          formattedValue: formatMetricValue(
-            metric ?? null,
-            metricMean(controlStats),
-          ),
         },
         variations,
       },

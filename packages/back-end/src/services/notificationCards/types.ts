@@ -29,8 +29,8 @@ export type CompactEvent = "started" | "won" | "lost" | "stopped" | "warning";
 export interface CardGoalRow {
   v: string; // variation name
   i: number; // variation index (number circle)
-  ctrl: string;
-  vr: string;
+  ctrl?: string; // control mean, formatted
+  vr?: string; // variation mean, formatted
   cn?: string;
   vn?: string;
   ctw?: string; // "99.1%"

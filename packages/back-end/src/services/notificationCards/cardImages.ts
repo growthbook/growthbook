@@ -3,6 +3,10 @@ import path from "path";
 import satori from "satori";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import { logger } from "back-end/src/util/logger";
+import {
+  type MdRun,
+  parseInlineMarkdown,
+} from "back-end/src/services/notificationCards/markdown";
 import type {
   CardState,
   CardGoalRow,
@@ -300,43 +304,22 @@ function svgImg(svg: string, width: number, height: number): El {
 // fields come from GrowthBook's markdown editor, so a raw string would show
 // literal `**`, `-`, `[label](url)` etc. Satori has no HTML/markdown support and
 // only the vendored font weights (Inter 400/500/600, no bold-700 / italic), so
-// we parse a safe subset into styled runs: bold -> weight 600, inline code ->
-// mono, links -> their label, bullet lists -> real bullets, italic -> the
-// vendored Inter italic faces. Not a full parser — just the marks that show up
-// in short experiment write-ups.
+// the inline runs from the shared parser render as: bold -> weight 600, inline
+// code -> mono, links -> their label, italic -> the vendored Inter italic
+// faces; bullet lists become real bullets here.
 // ---------------------------------------------------------------------------
 
-type MdRun = { text: string; bold?: boolean; code?: boolean; italic?: boolean };
 type MdBlock = { type: "p" | "li"; runs: MdRun[] };
-
-function parseInlineMd(input: string): MdRun[] {
-  // Links first: keep the label, drop the URL (not clickable in an image).
-  const s = input.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
-  const runs: MdRun[] = [];
-  // Bold (**x** / __x__), `code`, then italic (*x* / _x_). The italic branch is
-  // boundary-guarded so it doesn't fire inside snake_case identifiers or the
-  // like.
-  const re =
-    /(\*\*|__)(.+?)\1|`([^`]+)`|(?<![\w*])([*_])(?=\S)(.+?)(?<=\S)\4(?![\w*])/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(s))) {
-    if (m.index > last) runs.push({ text: s.slice(last, m.index) });
-    if (m[2] !== undefined) runs.push({ text: m[2], bold: true });
-    else if (m[3] !== undefined) runs.push({ text: m[3], code: true });
-    else if (m[5] !== undefined) runs.push({ text: m[5], italic: true });
-    last = re.lastIndex;
-  }
-  if (last < s.length) runs.push({ text: s.slice(last) });
-  return runs.filter((r) => r.text.length > 0);
-}
 
 function parseMarkdownBlocks(md: string): MdBlock[] {
   const blocks: MdBlock[] = [];
   let paragraph: string[] = [];
   const flush = () => {
     if (paragraph.length) {
-      blocks.push({ type: "p", runs: parseInlineMd(paragraph.join(" ")) });
+      blocks.push({
+        type: "p",
+        runs: parseInlineMarkdown(paragraph.join(" ")),
+      });
       paragraph = [];
     }
   };
@@ -350,7 +333,7 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
     const heading = line.match(/^#{1,6}\s+(.*)$/);
     if (bullet) {
       flush();
-      blocks.push({ type: "li", runs: parseInlineMd(bullet[1]!) });
+      blocks.push({ type: "li", runs: parseInlineMarkdown(bullet[1]!) });
     } else if (heading) {
       flush();
       // Render a heading as a bold paragraph (no distinct heading sizes here).
@@ -1498,7 +1481,7 @@ function cardShell(column: El[]): El {
 
 // Markdown -> plain text, collapsed and clamped to one line for compact prose.
 function plainClamp(md: string, max: number): string {
-  const plain = parseInlineMd(md)
+  const plain = parseInlineMarkdown(md)
     .map((r) => r.text)
     .join("")
     .replace(/\s+/g, " ")

@@ -129,6 +129,12 @@ it("does not send if an experiment is archived after the candidate scan", async 
   expect(createEvent).not.toHaveBeenCalled();
 });
 
+it("leaves holdout backing experiments to the holdout lifecycle", async () => {
+  experiments[0].type = "holdout";
+  await checkExperimentLifecycleReminders(renewLease);
+  expect(createEvent).not.toHaveBeenCalled();
+});
+
 function applyReminderChange(changes: Partial<ExperimentInterface>) {
   const previous = experiments[0];
   const updated = { ...previous, ...changes };
