@@ -44,8 +44,11 @@ function normalizeRevisionRampCreateAction(
     targetId: a.targetId ?? "",
     patch: a.patch as FeatureRulePatch,
   });
+  // Omitted startActions/endActions stay omitted: an `undefined` value would be
+  // persisted as `null` (rampActions is a Mixed array).
+  const { startActions, endActions, ...rest } = input;
   return {
-    ...input,
+    ...rest,
     steps: (input.steps ?? []).map((s) => ({
       interval: s.interval,
       actions: (s.actions ?? []).map(normalizeAction),
@@ -53,8 +56,12 @@ function normalizeRevisionRampCreateAction(
       monitored: !!s.monitored,
       holdConditions: s.holdConditions ?? undefined,
     })),
-    startActions: input.startActions?.map(normalizeAction),
-    endActions: input.endActions?.map(normalizeAction),
+    ...(startActions !== undefined
+      ? { startActions: startActions.map(normalizeAction) }
+      : {}),
+    ...(endActions !== undefined
+      ? { endActions: endActions.map(normalizeAction) }
+      : {}),
   };
 }
 

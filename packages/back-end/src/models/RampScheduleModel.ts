@@ -5,6 +5,7 @@ import {
   ApiRampScheduleInterface,
   RampScheduleInterface,
   RampStepAction,
+  RampTarget,
   StepHoldConditions,
   isAwaitingStartApproval,
   isReadyForApproval,
@@ -15,6 +16,7 @@ import {
   RULE_ID_ENV_SUFFIX_DELIMITER,
   stemRuleId,
   isRampScheduleServing,
+  unanchoredRampTargets,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
@@ -381,7 +383,38 @@ export function normalizeApiStepShapes(
   });
 }
 
+// A write may not leave an active target without a rollback anchor. Targets
+// already unanchored before the write (legacy docs, healed lazily by
+// ensureRampStartActions) are tolerated so housekeeping writes keep working.
+function assertTargetsAnchored(
+  doc: RampScheduleInterface,
+  previouslyUnanchored: RampTarget[],
+) {
+  const tolerated = new Set(previouslyUnanchored.map((t) => t.id));
+  const missing = unanchoredRampTargets(doc).filter(
+    (t) => !tolerated.has(t.id),
+  );
+  if (!missing.length) return;
+  const refs = missing.map((t) => t.ruleId ?? t.id).join(", ");
+  throw new BadRequestError(
+    `Ramp schedule target(s) ${refs} have no startActions. Every active target needs a rollback anchor; omit startActions to derive it from the rule.`,
+  );
+}
+
 export class RampScheduleModel extends BaseClass {
+  protected async beforeCreate(doc: RampScheduleInterface) {
+    assertTargetsAnchored(doc, []);
+  }
+  protected async beforeUpdate(
+    existing: RampScheduleInterface,
+    updates: UpdateProps<RampScheduleInterface>,
+  ) {
+    assertTargetsAnchored(
+      { ...existing, ...updates },
+      unanchoredRampTargets(existing),
+    );
+  }
+
   private getProject(doc: RampScheduleInterface): string | undefined {
     const { feature } = this.getForeignRefs(doc, false);
     return feature?.project;

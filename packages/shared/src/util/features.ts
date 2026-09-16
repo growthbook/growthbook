@@ -37,7 +37,7 @@ import { GroupMap } from "shared/types/saved-group";
 // Direct file import (not the `shared/validators` barrel) to avoid a runtime
 // import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
 import { assertValidExtendsEntries } from "../validators/constant";
-import { RampScheduleInterface } from "../validators/ramp-schedule";
+import { RampScheduleInterface, RampTarget } from "../validators/ramp-schedule";
 import {
   hasAttributeCondition,
   hasTargetingConfigured,
@@ -3429,6 +3429,23 @@ export function isRampScheduleServing(
   schedule: Pick<RampScheduleInterface, "status">,
 ): boolean {
   return schedule.status === "running" || schedule.status === "paused";
+}
+
+/**
+ * Active rule targets with no start action to roll back to. Full rollback and
+ * restart apply `startActions` to return the rule to its pre-ramp state, so an
+ * unanchored target silently keeps whatever step it was on. Targets without a
+ * `ruleId` are inert to the engine and need no anchor.
+ */
+export function unanchoredRampTargets(
+  schedule: Pick<RampScheduleInterface, "targets" | "startActions">,
+): RampTarget[] {
+  const anchored = new Set(
+    (schedule.startActions ?? []).map((a) => a.targetId),
+  );
+  return schedule.targets.filter(
+    (t) => t.status === "active" && !!t.ruleId && !anchored.has(t.id),
+  );
 }
 
 /**
