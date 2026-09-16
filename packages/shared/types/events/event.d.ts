@@ -10,9 +10,9 @@ import {
 } from "./notification-events";
 
 export interface NotificationResourceRelationships {
-  experiments?: string[];
-  features?: string[];
-  metrics?: string[];
+  experimentIds?: string[];
+  featureIds?: string[];
+  metricIds?: string[];
 }
 
 export interface BaseEventInterface<T, V> {

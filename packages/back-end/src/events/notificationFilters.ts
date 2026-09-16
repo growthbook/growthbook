@@ -1,4 +1,5 @@
 import type { NotificationFilters } from "shared/validators";
+import type { EventWebHookInterface } from "shared/types/event-webhook";
 import type {
   EventInterface,
   NotificationResourceRelationships,
@@ -14,12 +15,15 @@ const intersects = (wanted: string[] = [], actual: string[]) =>
   !wanted.length || wanted.some((id) => actual.includes(id));
 
 export const matchesNotificationResourceFilters = (
-  filters: Pick<NotificationFilters, "experiments" | "features" | "metrics">,
+  filters: Pick<
+    NotificationFilters,
+    "experimentIds" | "featureIds" | "metricIds"
+  >,
   related: Required<NotificationResourceRelationships>,
 ) =>
-  intersects(filters.experiments, related.experiments) &&
-  intersects(filters.features, related.features) &&
-  intersects(filters.metrics?.map(baseMetricId), related.metrics);
+  intersects(filters.experimentIds, related.experimentIds) &&
+  intersects(filters.featureIds, related.featureIds) &&
+  intersects(filters.metricIds?.map(baseMetricId), related.metricIds);
 
 // Event names and project/tag/environment scope are matched before enqueueing.
 // Resolve relationships within each delivery job so failures affect one subscription.
@@ -27,8 +31,8 @@ export async function matchesNotificationFilters(
   context: ReqContext,
   event: EventInterface,
   subscription: Pick<
-    NotificationFilters,
-    "experiments" | "features" | "metrics" | "excludeBookkeepingUpdates"
+    EventWebHookInterface,
+    "experimentIds" | "featureIds" | "metricIds" | "excludeBookkeepingUpdates"
   >,
 ): Promise<boolean> {
   if (
@@ -37,9 +41,9 @@ export async function matchesNotificationFilters(
   )
     return false;
   if (
-    !subscription.experiments?.length &&
-    !subscription.features?.length &&
-    !subscription.metrics?.length
+    !subscription.experimentIds?.length &&
+    !subscription.featureIds?.length &&
+    !subscription.metricIds?.length
   )
     return true;
   return matchesNotificationResourceFilters(

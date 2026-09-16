@@ -19,10 +19,9 @@ export function getSlackChannelFormValues(
     projects: channel?.projects ?? [],
     environments: channel?.environments ?? [],
     tags: channel?.tags ?? [],
-    experiments: channel?.experiments,
-    features: channel?.features,
-    metrics: channel?.metrics,
-    excludeBookkeepingUpdates: channel?.excludeBookkeepingUpdates,
+    experimentIds: channel?.experimentIds,
+    featureIds: channel?.featureIds,
+    metricIds: channel?.metricIds,
     notificationSettings:
       channel?.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS,
   };

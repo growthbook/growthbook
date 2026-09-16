@@ -65,10 +65,9 @@ export const notificationFiltersSchema = z
     projects: z.array(z.string()),
     tags: z.array(z.string()),
     environments: z.array(z.string()),
-    experiments: z.array(z.string()).optional(),
-    metrics: z.array(z.string()).optional(),
-    features: z.array(z.string()).optional(),
-    excludeBookkeepingUpdates: z.boolean().optional(),
+    experimentIds: z.array(z.string()).optional(),
+    metricIds: z.array(z.string()).optional(),
+    featureIds: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -96,6 +95,7 @@ export const eventWebHookInterface = notificationFiltersSchema
     dateUpdated: z.date(),
     name: z.string().trim().min(2),
     enabled: z.boolean(),
+    excludeBookkeepingUpdates: z.boolean().optional(),
     signingKey: z.string().min(2),
     lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),

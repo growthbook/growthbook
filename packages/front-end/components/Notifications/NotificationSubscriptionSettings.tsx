@@ -46,9 +46,9 @@ export default function NotificationSubscriptionSettings({
     projects: filterProjects,
     environments: filterEnvironments,
     tags: filterTags,
-    experiments: filterExperiments = [],
-    metrics: filterMetrics = [],
-    features: filterFeatures = [],
+    experimentIds: filterExperiments = [],
+    metricIds: filterMetrics = [],
+    featureIds: filterFeatures = [],
   } = value;
   const setEvents = (events: string[]) => onChange({ ...value, events });
   const setFilterProjects = (projects: string[]) =>
@@ -56,12 +56,12 @@ export default function NotificationSubscriptionSettings({
   const setFilterEnvironments = (environments: string[]) =>
     onChange({ ...value, environments });
   const setFilterTags = (tags: string[]) => onChange({ ...value, tags });
-  const setFilterExperiments = (experiments: string[]) =>
-    onChange({ ...value, experiments });
-  const setFilterMetrics = (metrics: string[]) =>
-    onChange({ ...value, metrics });
-  const setFilterFeatures = (features: string[]) =>
-    onChange({ ...value, features });
+  const setFilterExperiments = (experimentIds: string[]) =>
+    onChange({ ...value, experimentIds });
+  const setFilterMetrics = (metricIds: string[]) =>
+    onChange({ ...value, metricIds });
+  const setFilterFeatures = (featureIds: string[]) =>
+    onChange({ ...value, featureIds });
   const [presetLevels, setPresetLevels] = useState<
     Partial<
       Record<NotificationEventCategory, Exclude<NotificationLevel, "custom">>
@@ -229,9 +229,9 @@ export default function NotificationSubscriptionSettings({
                 onChange({
                   ...value,
                   tags: [],
-                  experiments: [],
-                  metrics: [],
-                  features: [],
+                  experimentIds: [],
+                  metricIds: [],
+                  featureIds: [],
                 });
                 setShowMoreFilters(false);
               }}
@@ -353,12 +353,7 @@ export default function NotificationSubscriptionSettings({
                           ]);
                           return;
                         }
-                        if (
-                          value !== "important" &&
-                          value !== "default" &&
-                          value !== "full"
-                        )
-                          return;
+                        if (value !== "default" && value !== "all") return;
                         setPresetLevels({
                           ...presetLevels,
                           [category]: value,
@@ -371,9 +366,8 @@ export default function NotificationSubscriptionSettings({
                         );
                       }}
                     >
-                      <SelectItem value="important">Only important</SelectItem>
                       <SelectItem value="default">Default</SelectItem>
-                      <SelectItem value="full">Full</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
                       <SelectItem value="custom">Custom</SelectItem>
                     </Select>
                   </Box>

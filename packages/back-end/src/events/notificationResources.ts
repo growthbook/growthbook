@@ -101,32 +101,35 @@ export const baseMetricId = (id: string) => parseSliceMetricId(id).baseMetricId;
 export async function getNotificationResources(
   context: ReqContext,
   event: EventInterface,
-  filters: Pick<NotificationFilters, "experiments" | "features" | "metrics">,
+  filters: Pick<
+    NotificationFilters,
+    "experimentIds" | "featureIds" | "metricIds"
+  >,
 ): Promise<Required<NotificationResourceRelationships>> {
   const payload = notificationPayload(event);
   const related: Required<NotificationResourceRelationships> = {
-    experiments: [],
-    features: [],
-    metrics: [],
+    experimentIds: [],
+    featureIds: [],
+    metricIds: [],
   };
   if (!payload) return related;
   if (payload.object === "experiment") {
     const object = payload.data.object;
     const id =
       event.objectId ?? ("id" in object ? object.id : object.experimentId);
-    if (id) related.experiments = [id];
-    if ("metricId" in object) related.metrics.push(object.metricId);
+    if (id) related.experimentIds = [id];
+    if ("metricId" in object) related.metricIds.push(object.metricId);
     if ("settings" in object)
-      related.metrics.push(...apiExperimentMetricIds(object.settings));
-    if (id && (filters.features?.length || filters.metrics?.length)) {
+      related.metricIds.push(...apiExperimentMetricIds(object.settings));
+    if (id && (filters.featureIds?.length || filters.metricIds?.length)) {
       const experiments = await getExperimentsByIds(context, [id]);
-      related.features = experiments.length
+      related.featureIds = experiments.length
         ? experiments.flatMap((experiment) => experiment.linkedFeatures || [])
         : "linkedFeatures" in object
           ? object.linkedFeatures || []
           : [];
-      if (filters.metrics?.length)
-        related.metrics.push(...experiments.flatMap(experimentMetricIds));
+      if (filters.metricIds?.length)
+        related.metricIds.push(...experiments.flatMap(experimentMetricIds));
     }
   } else if (payload.object === "feature") {
     const object = payload.data.object;
@@ -137,8 +140,8 @@ export async function getNotificationResources(
         : "id" in object
           ? object.id
           : null);
-    if (id) related.features = [id];
-    if (id && (filters.experiments?.length || filters.metrics?.length)) {
+    if (id) related.featureIds = [id];
+    if (id && (filters.experimentIds?.length || filters.metricIds?.length)) {
       const feature = await getFeature(context, id);
       const rules = feature
         ? feature.rules
@@ -149,20 +152,20 @@ export async function getNotificationResources(
                 webhookEnvironments.parse(object.environments),
               ).flatMap((env) => env.rules || [])
             : [];
-      related.experiments =
+      related.experimentIds =
         feature?.linkedExperiments ??
-        event.relatedResources?.experiments ??
+        event.relatedResources?.experimentIds ??
         rules.flatMap((rule) =>
           rule.type === "experiment-ref" && rule.experimentId
             ? [rule.experimentId]
             : [],
         );
-      if (filters.metrics?.length) {
+      if (filters.metricIds?.length) {
         const [rollouts, experiments] = await Promise.all([
           context.models.safeRollout.getAllByFeatureId(id),
-          getExperimentsByIds(context, related.experiments),
+          getExperimentsByIds(context, related.experimentIds),
         ]);
-        related.metrics.push(
+        related.metricIds.push(
           ...(feature
             ? feature.rules.flatMap(ruleMetricIds)
             : rules.flatMap(experimentMetricIds)),
@@ -172,15 +175,15 @@ export async function getNotificationResources(
       }
     }
   }
-  if (filters.metrics?.length) {
-    const groups = related.metrics.some((id) => id.startsWith("mg_"))
+  if (filters.metricIds?.length) {
+    const groups = related.metricIds.some((id) => id.startsWith("mg_"))
       ? await context.models.metricGroups.getAll()
       : [];
-    related.metrics = [
+    related.metricIds = [
       ...new Set(
         [
-          ...related.metrics,
-          ...expandMetricGroups(related.metrics, groups),
+          ...related.metricIds,
+          ...expandMetricGroups(related.metricIds, groups),
         ].map(baseMetricId),
       ),
     ];

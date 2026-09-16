@@ -33,11 +33,11 @@ const event = (
     version: 1,
     data: { event: `${resource}.${kind}`, object: resource, data: { object } },
   }) as EventInterface;
-const metricFilter = { metrics: ["fact__revenue"] };
+const metricFilter = { metricIds: ["fact__revenue"] };
 const related = {
-  experiments: ["exp_a"],
-  features: ["flag-a"],
-  metrics: ["fact__revenue"],
+  experimentIds: ["exp_a"],
+  featureIds: ["flag-a"],
+  metricIds: ["fact__revenue"],
 };
 
 beforeEach(() => {
@@ -66,13 +66,13 @@ test("resource filters combine across dimensions and intersect within them", () 
   expect(matchesNotificationResourceFilters({}, related)).toBe(true);
   expect(
     matchesNotificationResourceFilters(
-      { experiments: ["exp_a", "exp_b"], ...metricFilter },
+      { experimentIds: ["exp_a", "exp_b"], ...metricFilter },
       related,
     ),
   ).toBe(true);
   expect(
     matchesNotificationResourceFilters(
-      { experiments: ["missing"], ...metricFilter },
+      { experimentIds: ["missing"], ...metricFilter },
       related,
     ),
   ).toBe(false);
@@ -90,7 +90,7 @@ test("snapshot metrics include activation metrics without matching arbitrary str
     }),
     metricFilter,
   );
-  expect(resources.metrics).toEqual(["fact__revenue", "fact__activation"]);
+  expect(resources.metricIds).toEqual(["fact__revenue", "fact__activation"]);
 });
 test.each(["fact__revenue", "mg_goals", "fact__revenue?country=US"])(
   "matches an experiment using %s",
@@ -124,7 +124,7 @@ test.each(["goals", "secondaryMetrics", "guardrails"])(
           },
           "deleted",
         ),
-        { ...metricFilter, features: ["flag-a"] },
+        { ...metricFilter, featureIds: ["flag-a"] },
       ),
     ).toBe(true);
   },
@@ -139,18 +139,18 @@ test("live canonical links override stale experiment snapshot links", async () =
     await matchesNotificationFilters(
       context,
       event("experiment", { id: "exp_a", linkedFeatures: ["flag-a"] }),
-      { features: ["flag-a"] },
+      { featureIds: ["flag-a"] },
     ),
   ).toBe(false);
 });
 test("deleted features retain canonical links even when no current rule references them", async () => {
   const deleted = {
     ...event("feature", { id: "flag-a" }, "deleted"),
-    relatedResources: { experiments: ["exp_a"] },
+    relatedResources: { experimentIds: ["exp_a"] },
   };
   expect(
     await matchesNotificationFilters(context, deleted, {
-      experiments: ["exp_a"],
+      experimentIds: ["exp_a"],
     }),
   ).toBe(true);
 });
@@ -169,7 +169,7 @@ test("older deleted feature events recover experiment references from API rules"
   );
   expect(
     await matchesNotificationFilters(context, deleted, {
-      experiments: ["exp_a"],
+      experimentIds: ["exp_a"],
     }),
   ).toBe(true);
 });
@@ -190,7 +190,7 @@ test("feature metrics include inline rules, linked experiments and safe rollouts
     event("feature", { id: "flag-a" }),
     metricFilter,
   );
-  expect(resources.metrics).toEqual(
+  expect(resources.metricIds).toEqual(
     expect.arrayContaining(["fact__inline", "fact__rollout", "fact__revenue"]),
   );
 });
@@ -242,7 +242,7 @@ test("lookup failures remain visible to the delivery job", async () => {
   jest.mocked(getFeature).mockRejectedValue(new Error("DB unavailable"));
   await expect(
     matchesNotificationFilters(context, event("feature", { id: "flag-a" }), {
-      experiments: ["exp_a"],
+      experimentIds: ["exp_a"],
     }),
   ).rejects.toThrow("DB unavailable");
 });
@@ -254,7 +254,7 @@ test("persisted resource IDs take precedence over IDs within a revision payload"
   };
   expect(
     await matchesNotificationFilters(context, revision, {
-      features: ["flag-a"],
+      featureIds: ["flag-a"],
     }),
   ).toBe(true);
   expect(getFeature).not.toHaveBeenCalled();
@@ -276,7 +276,7 @@ test("malformed historical feature rules fail visibly instead of dropping relati
         },
         "deleted",
       ),
-      { experiments: ["exp_a"] },
+      { experimentIds: ["exp_a"] },
     ),
   ).rejects.toThrow();
 });
@@ -298,7 +298,7 @@ test.each([
           ),
           objectId: "flag-a",
         },
-        { metrics: ["fact__inline"] },
+        { metricIds: ["fact__inline"] },
       ),
     ).toBe(true);
   },

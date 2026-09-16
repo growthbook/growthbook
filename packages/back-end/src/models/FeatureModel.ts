@@ -1111,7 +1111,7 @@ export const createFeatureEvent = async <
         ...(eventData.event === "deleted"
           ? {
               relatedResources: {
-                experiments: eventData.data.object.linkedExperiments || [],
+                experimentIds: eventData.data.object.linkedExperiments || [],
               },
             }
           : {}),

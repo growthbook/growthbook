@@ -192,7 +192,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
     const webhook = await getEventWebHookById("webhook-1", "org-1");
     jest
       .mocked(getEventWebHookById)
-      .mockResolvedValue({ ...webhook, experiments: ["exp-1"] });
+      .mockResolvedValue({ ...webhook, experimentIds: ["exp-1"] });
     jest.mocked(getEvent).mockResolvedValue({
       id: "event-1",
       organizationId: "org-1",

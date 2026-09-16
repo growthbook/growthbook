@@ -27,9 +27,9 @@ describe("Slack channel saved baseline", () => {
       "feature.*",
       "experiment.decision.ship",
     ]);
-    expect(
-      result.current.getValues("excludeBookkeepingUpdates"),
-    ).toBeUndefined();
+    expect(result.current.getValues()).not.toHaveProperty(
+      "excludeBookkeepingUpdates",
+    );
   });
 
   it("retains edits made during a save and compares them with the submitted snapshot", () => {

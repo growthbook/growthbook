@@ -6,6 +6,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import { buildSlackAppManifest } from "./slackSetupUtils";
@@ -32,15 +33,6 @@ function SlackManifestModal({
       header="Set Up the GrowthBook Slack App"
       close={onClose}
       closeCta="Done"
-      secondaryAction={
-        <Button
-          variant="outline"
-          icon={<FaSlack />}
-          onClick={() => window.open(SLACK_CREATE_APP_URL, "_blank")}
-        >
-          Open Slack app dashboard
-        </Button>
-      }
     >
       <Text as="p" color="text-mid" mb="3">
         Self-hosted GrowthBook connects through your own Slack app. This
@@ -51,8 +43,10 @@ function SlackManifestModal({
         <li>
           <Text>
             In Slack, open{" "}
-            <strong>Your Apps → Create New App → From a manifest</strong> and
-            pick your workspace.
+            <Link href={SLACK_CREATE_APP_URL} external={true}>
+              Your Apps → Create New App
+            </Link>
+            , choose <strong>From a manifest</strong>, and pick your workspace.
           </Text>
         </li>
         <li>

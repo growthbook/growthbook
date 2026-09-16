@@ -52,10 +52,8 @@ export class EventNotifier implements Notifier {
 
     const context = await getContextForAgendaJobByOrgId(event.organizationId);
 
-    await Promise.all([
-      webHooksEventHandler(event, context),
-      slackEventHandler(event, context),
-    ]);
+    webHooksEventHandler(event, context);
+    slackEventHandler(event, context);
   }
 
   async perform() {

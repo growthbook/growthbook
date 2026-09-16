@@ -15,10 +15,9 @@ const subscription = {
   projects: [],
   tags: [],
   environments: [],
-  experiments: ["exp_1"],
-  metrics: ["fact__revenue"],
-  features: ["checkout"],
-  excludeBookkeepingUpdates: true,
+  experimentIds: ["exp_1"],
+  metricIds: ["fact__revenue"],
+  featureIds: ["checkout"],
 };
 it("validates subscription criteria independently of delivery settings", () => {
   expect(notificationFiltersSchema.parse(subscription)).toEqual(subscription);
@@ -32,14 +31,14 @@ it("validates subscription criteria independently of delivery settings", () => {
 it.each([
   { events: [] },
   { events: ["experiment.notARealEvent"] },
-  { metrics: "fact__revenue" },
+  { metricIds: "fact__revenue" },
 ])("rejects invalid criteria %j", (invalid) => {
   expect(
     notificationFiltersSchema.safeParse({ ...subscription, ...invalid })
       .success,
   ).toBe(false);
 });
-it("keeps the new policy optional for existing subscriptions", () => {
+it("keeps resource filters optional for existing subscriptions", () => {
   const existing = {
     events: ["feature.*"],
     projects: [],
@@ -58,6 +57,7 @@ it("composes filtering and delivery into a flat stored configuration", () => {
     dateUpdated: new Date(),
     name: "Notifications",
     enabled: true,
+    excludeBookkeepingUpdates: true,
     signingKey: "secret",
     lastRunAt: null,
     lastState: "none",
@@ -70,6 +70,9 @@ it("composes filtering and delivery into a flat stored configuration", () => {
     notificationSettings: { type: "image", cardFormat: "compact" },
   };
   expect(eventWebHookInterface.parse(webhook)).toEqual(webhook);
+  const { excludeBookkeepingUpdates, ...existingWebhook } = webhook;
+  expect(excludeBookkeepingUpdates).toBe(true);
+  expect(eventWebHookInterface.parse(existingWebhook)).toEqual(existingWebhook);
   expect(
     notificationDeliverySchema.parse({
       url: webhook.url,
@@ -120,3 +123,29 @@ it("keeps webhook requests restricted to their existing editable fields", () => 
     }).success,
   ).toBe(false);
 });
+
+it.each([true, false])(
+  "rejects client-supplied bookkeeping policy %s for webhook and Slack settings",
+  (excludeBookkeepingUpdates) => {
+    const filters = { ...subscription, excludeBookkeepingUpdates };
+    expect(notificationFiltersSchema.safeParse(filters).success).toBe(false);
+    expect(
+      eventWebHookRequestBodySchema.safeParse({
+        ...filters,
+        name: "Notifications",
+        enabled: true,
+        url: "https://example.com/webhook",
+        payloadType: "json",
+        method: "POST",
+        headers: {},
+      }).success,
+    ).toBe(false);
+    expect(
+      slackNotificationSettingsBodySchema.safeParse({
+        ...filters,
+        enabled: true,
+        notificationSettings: { type: "text" },
+      }).success,
+    ).toBe(false);
+  },
+);
