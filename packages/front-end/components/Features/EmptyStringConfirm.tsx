@@ -1,13 +1,6 @@
 import { FeatureValueType } from "shared/types/feature";
 import Checkbox from "@/ui/Checkbox";
 
-function isEmptyStringCandidate(
-  valueType: FeatureValueType | undefined,
-  value: string,
-): boolean {
-  return valueType === "string" && value === "";
-}
-
 export function isUnsetFeatureValue({
   valueType,
   value,
@@ -23,24 +16,28 @@ export function isUnsetFeatureValue({
   return value.trim() === "";
 }
 
+export function unsetFeatureValueMessage(
+  valueType: FeatureValueType | undefined,
+): string {
+  return valueType === "string"
+    ? "Set a value, or confirm you want an empty string"
+    : "Set a value for this variation";
+}
+
 export default function EmptyStringConfirm({
   id,
   valueType,
   value,
-  setValue,
   checked,
   setChecked,
-  error,
 }: {
   id?: string;
   valueType: FeatureValueType | undefined;
   value: string;
-  setValue: (value: string) => void;
   checked: boolean;
   setChecked: (checked: boolean) => void;
-  error?: string;
 }) {
-  if (!isEmptyStringCandidate(valueType, value)) return null;
+  if (valueType !== "string" || value !== "") return null;
 
   return (
     <Checkbox
@@ -51,11 +48,7 @@ export default function EmptyStringConfirm({
       weight="regular"
       label="Confirm an empty string"
       value={checked}
-      setValue={(next) => {
-        setChecked(next);
-        if (next) setValue("");
-      }}
-      error={error}
+      setValue={setChecked}
     />
   );
 }

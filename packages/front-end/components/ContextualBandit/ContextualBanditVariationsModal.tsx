@@ -11,7 +11,10 @@ import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import { isUnsetFeatureValue } from "@/components/Features/EmptyStringConfirm";
+import {
+  isUnsetFeatureValue,
+  unsetFeatureValueMessage,
+} from "@/components/Features/EmptyStringConfirm";
 
 type EditableVariation = {
   id: string;
@@ -22,7 +25,6 @@ type EditableVariation = {
 
 type FormValues = {
   variations: EditableVariation[];
-  variationWeights: number[];
 };
 
 type NewVariationValues = Record<string, Record<string, string>>;
@@ -44,7 +46,6 @@ export default function ContextualBanditVariationsModal({
   const originalIds = new Set(cb.variations.map((v) => v.id));
   const originalById = new Map(cb.variations.map((v) => [v.id, v]));
 
-  const initialVariationCount = cb.variations.length;
   const form = useForm<FormValues>({
     defaultValues: {
       variations: cb.variations.map((v) => ({
@@ -53,11 +54,6 @@ export default function ContextualBanditVariationsModal({
         name: v.name,
         description: v.description ?? "",
       })),
-      variationWeights: cb.variations.map(
-        (v) =>
-          cb.variationWeights?.find((w) => w.variationId === v.id)?.weight ??
-          1 / (initialVariationCount || 2),
-      ),
     },
   });
 
@@ -205,19 +201,16 @@ export default function ContextualBanditVariationsModal({
           hideCoverage
           showDescriptions
           showPreview={false}
-          setWeight={(i, weight) => {
-            form.setValue(`variationWeights.${i}`, weight);
-          }}
-          variations={
-            watchedVariations.map((v, i) => ({
-              value: v.key || "",
-              name: v.name,
-              description: v.description,
-              screenshots: [],
-              weight: form.watch(`variationWeights.${i}`),
-              id: v.id,
-            })) ?? []
-          }
+          // Splits are hidden and weights are reconciled server-side, so the
+          // weight is a placeholder the input requires but never shows.
+          variations={watchedVariations.map((v) => ({
+            value: v.key || "",
+            name: v.name,
+            description: v.description,
+            screenshots: [],
+            weight: 0,
+            id: v.id,
+          }))}
           setVariations={(v) => {
             form.setValue(
               "variations",
@@ -227,10 +220,6 @@ export default function ContextualBanditVariationsModal({
                 name: data.name ?? "",
                 description: data.description ?? "",
               })),
-            );
-            form.setValue(
-              "variationWeights",
-              v.map((data) => data.weight),
             );
           }}
         />
@@ -256,9 +245,7 @@ export default function ContextualBanditVariationsModal({
                   <Box key={`${lf.feature.id}:${v.id}`} mb="2">
                     {showValueErrors && isMissingValue(lf, v.id) && (
                       <HelperText status="error">
-                        {lf.feature.valueType === "string"
-                          ? "Set a value, or confirm you want an empty string"
-                          : "Set a value for this variation"}
+                        {unsetFeatureValueMessage(lf.feature.valueType)}
                       </HelperText>
                     )}
                     <FeatureValueField

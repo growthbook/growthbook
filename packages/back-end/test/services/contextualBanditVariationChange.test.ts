@@ -1052,11 +1052,6 @@ describe("executeContextualBanditVariationChange", () => {
     getRefLinkedFeatureInfoMock.mockResolvedValue([
       linkedInfo(feature, {
         state: "live",
-        stagedDraft: {
-          version: 7,
-          status: "draft",
-          values: (stagedRules[0] as ContextualBanditRefRule).variations,
-        },
         stagedDrafts: [
           {
             version: 7,
@@ -1109,15 +1104,17 @@ describe("executeContextualBanditVariationChange", () => {
     getRefLinkedFeatureInfoMock.mockResolvedValue([
       linkedInfo(feature, {
         state: "live",
-        stagedDraft: {
-          version: 7,
-          status: "draft",
-          values: [
-            { variationId: "v0", value: "control" },
-            { variationId: "v1", value: "treatment" },
-          ],
-          hasUnrelatedDraftChanges: true,
-        },
+        stagedDrafts: [
+          {
+            version: 7,
+            status: "draft",
+            values: [
+              { variationId: "v0", value: "control" },
+              { variationId: "v1", value: "treatment" },
+            ],
+            hasUnrelatedDraftChanges: true,
+          },
+        ],
       }),
     ]);
     const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });

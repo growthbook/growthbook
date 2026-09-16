@@ -123,7 +123,6 @@ describe("getRefLinkedFeatureInfo staged drafts", () => {
     expect(info.state).toBe("live");
     expect(info.values).toEqual(liveVariations);
     expect(info.stagedDrafts?.map((d) => d.version)).toEqual([7, 5]);
-    expect(info.stagedDraft?.version).toBe(7);
     expect(info.stagedDrafts?.[1].values).toContainEqual({
       variationId: "v2",
       value: "extra",
@@ -144,8 +143,8 @@ describe("getRefLinkedFeatureInfo staged drafts", () => {
       matchRule,
     });
 
-    expect(info.stagedDraft?.version).toBe(5);
-    expect(info.stagedDraft?.hasUnrelatedDraftChanges).toBe(true);
+    expect(info.stagedDrafts?.[0].version).toBe(5);
+    expect(info.stagedDrafts?.[0].hasUnrelatedDraftChanges).toBe(true);
   });
 
   it("leaves stagedDrafts unset when no draft changes the rule", async () => {
@@ -162,6 +161,5 @@ describe("getRefLinkedFeatureInfo staged drafts", () => {
 
     expect(info.state).toBe("live");
     expect(info.stagedDrafts).toBeUndefined();
-    expect(info.stagedDraft).toBeUndefined();
   });
 });

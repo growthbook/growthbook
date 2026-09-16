@@ -4241,21 +4241,14 @@ export async function revisionRequiresReview(
   });
 }
 
+// Throws if the draft requires approval and the caller cannot bypass.
 export async function assertCanAutoPublish(
   context: ReqContext,
   feature: FeatureInterface,
   draft: FeatureRevisionInterface,
 ): Promise<void> {
-  const requireReviews = context.org.settings?.requireReviews;
-  const reviewsConfigured =
-    context.hasPremiumFeature("require-approvals") &&
-    (requireReviews === true ||
-      (Array.isArray(requireReviews) &&
-        requireReviews.some((r) => r?.requireReviewOn)));
+  const requiresReview = await revisionRequiresReview(context, feature, draft);
 
-  const requiresReview = await revisionRequiresReview(context, feature, draft, {
-    treatUnresolvedBaseAsReview: reviewsConfigured,
-  });
   if (
     requiresReview &&
     !context.permissions.canBypassFlagApprovalChecks(feature, "feature")

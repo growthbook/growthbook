@@ -7,7 +7,6 @@ import {
   isActiveVariation,
   isDeactivatedVariation,
   isPendingVariation,
-  MIN_CONTEXTUAL_BANDIT_VARIATIONS,
   nextContextualBanditVariationKey,
   reconcileVariationWeights,
 } from "../src/experiments/contextual-bandit-variation-changes";
@@ -18,23 +17,20 @@ const sum = (pairs: { weight: number }[]) =>
   pairs.reduce((s, p) => s + p.weight, 0);
 
 describe("diffVariations", () => {
-  it("detects added, removed, and kept variations by id", () => {
+  it("detects added and removed variations by id", () => {
     const diff = diffVariations(ids(["a", "b", "c"]), ids(["b", "c", "d"]));
     expect(diff.addedIds).toEqual(["d"]);
     expect(diff.removedIds).toEqual(["a"]);
-    expect(diff.keptIds).toEqual(["b", "c"]);
   });
 
   it("returns empty diffs when the set is unchanged", () => {
     const diff = diffVariations(ids(["a", "b"]), ids(["a", "b"]));
     expect(diff.addedIds).toEqual([]);
     expect(diff.removedIds).toEqual([]);
-    expect(diff.keptIds).toEqual(["a", "b"]);
   });
 
-  it("orders added/kept by the new set and removed by the previous set", () => {
+  it("orders added by the new set and removed by the previous set", () => {
     const diff = diffVariations(ids(["x", "a", "b"]), ids(["b", "c", "a"]));
-    expect(diff.keptIds).toEqual(["b", "a"]);
     expect(diff.addedIds).toEqual(["c"]);
     expect(diff.removedIds).toEqual(["x"]);
   });
@@ -71,10 +67,6 @@ describe("assertAtLeastTwoVariations", () => {
     expect(() =>
       assertAtLeastTwoVariations(ids(["a", "b", "c"])),
     ).not.toThrow();
-  });
-
-  it("uses the shared minimum constant", () => {
-    expect(MIN_CONTEXTUAL_BANDIT_VARIATIONS).toBe(2);
   });
 });
 

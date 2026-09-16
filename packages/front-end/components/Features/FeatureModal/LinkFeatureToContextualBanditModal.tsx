@@ -37,7 +37,10 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import { isUnsetFeatureValue } from "@/components/Features/EmptyStringConfirm";
+import {
+  isUnsetFeatureValue,
+  unsetFeatureValueMessage,
+} from "@/components/Features/EmptyStringConfirm";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -510,9 +513,7 @@ export default function LinkFeatureToContextualBanditModal({
               </Box>
               {showValueErrors && isMissing && (
                 <HelperText status="error">
-                  {valueType === "string"
-                    ? "Set a value, or confirm you want an empty string"
-                    : "Set a value for this variation"}
+                  {unsetFeatureValueMessage(valueType)}
                 </HelperText>
               )}
               <FeatureValueField

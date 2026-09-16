@@ -29,7 +29,10 @@ import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
-import { isUnsetFeatureValue } from "@/components/Features/EmptyStringConfirm";
+import {
+  isUnsetFeatureValue,
+  unsetFeatureValueMessage,
+} from "@/components/Features/EmptyStringConfirm";
 
 export interface Props {
   feature: FeatureInterface;
@@ -136,7 +139,7 @@ export default function EditContextualBanditFeatureValuesModal({
     return (
       openDraft?.version ??
       linkedFeatureInfo.draftRevisionVersion ??
-      linkedFeatureInfo.stagedDraft?.version ??
+      linkedFeatureInfo.stagedDrafts?.[0]?.version ??
       feature.version
     );
   }, [
@@ -145,7 +148,7 @@ export default function EditContextualBanditFeatureValuesModal({
     feature.version,
     cbRuleIn,
     linkedFeatureInfo.draftRevisionVersion,
-    linkedFeatureInfo.stagedDraft,
+    linkedFeatureInfo.stagedDrafts,
   ]);
 
   const existingRule = useMemo<ContextualBanditRefRule | undefined>(() => {
@@ -159,10 +162,7 @@ export default function EditContextualBanditFeatureValuesModal({
     () =>
       cb.variations.map((v) => {
         // Staged values win — they are what the targeted revision holds.
-        const stagedEntry = (
-          linkedFeatureInfo.stagedDrafts ??
-          (linkedFeatureInfo.stagedDraft ? [linkedFeatureInfo.stagedDraft] : [])
-        )
+        const stagedEntry = (linkedFeatureInfo.stagedDrafts ?? [])
           .map((d) => d.values.find((x) => x.variationId === v.id))
           .find((x) => x !== undefined);
         const entry =
@@ -188,7 +188,6 @@ export default function EditContextualBanditFeatureValuesModal({
       cb.variations,
       existingRule,
       linkedFeatureInfo.values,
-      linkedFeatureInfo.stagedDraft,
       linkedFeatureInfo.stagedDrafts,
       isConfigBacked,
       defaultConfigKey,
@@ -335,9 +334,7 @@ export default function EditContextualBanditFeatureValuesModal({
               </Box>
               {showValueErrors && isUnsetAt(i) && (
                 <HelperText status="error">
-                  {feature.valueType === "string"
-                    ? "Set a value, or confirm you want an empty string"
-                    : "Set a value for this variation"}
+                  {unsetFeatureValueMessage(feature.valueType)}
                 </HelperText>
               )}
               <FeatureValueField

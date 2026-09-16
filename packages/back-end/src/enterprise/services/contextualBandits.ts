@@ -918,7 +918,6 @@ async function getLiveArmIdsByLinkedFeature(
     for (const rule of feature.rules ?? []) {
       if (!isRuleForContextualBandit(rule, cb.id)) continue;
       const cbRule = rule as ContextualBanditRefRule;
-      // A disabled rule serves nothing, so it cannot serve `null` either.
       if (cbRule.enabled === false) continue;
       ruleArmSets.push(
         new Set((cbRule.variations ?? []).map((v) => v.variationId)),
@@ -931,17 +930,6 @@ async function getLiveArmIdsByLinkedFeature(
     out.push({ featureId, liveArmIds });
   }
   return out;
-}
-
-// Ids not live on every linked feature (none pending if no linked features).
-function computePendingVariationIds(
-  candidateIds: string[],
-  liveArmInfo: { liveArmIds: Set<string> }[],
-): string[] {
-  if (!liveArmInfo.length) return [];
-  return candidateIds.filter(
-    (id) => !liveArmInfo.every((i) => i.liveArmIds.has(id)),
-  );
 }
 
 function contextualBanditWeightMode(
@@ -960,15 +948,13 @@ type ReconciledArmStatePlan = {
 async function writeReconciledArmStateGuarded(
   context: ReqContext | ApiReqContext,
   seed: ContextualBanditInterface,
-  planFromBase: (
-    base: ContextualBanditInterface,
-  ) => ReconciledArmStatePlan | Promise<ReconciledArmStatePlan>,
+  planFromBase: (base: ContextualBanditInterface) => ReconciledArmStatePlan,
   opts?: { bypassPermissionChecks?: boolean },
 ): Promise<ContextualBanditInterface> {
   const maxAttempts = 3;
   let base = seed;
   for (let attempt = 1; ; attempt++) {
-    const plan = await planFromBase(base);
+    const plan = planFromBase(base);
     const leafWeights: LeafWeight[] =
       plan.mode === "uniform"
         ? []
@@ -1020,11 +1006,13 @@ export async function activatePendingContextualBanditVariations(
   const pendingIds = cb.variations.filter(isPendingVariation).map((v) => v.id);
   if (!pendingIds.length) return { activatedIds: [], updated: cb };
 
+  // An arm activates once it is live on every linked feature. With no linked
+  // features nothing can activate.
   const liveArmInfo = await getLiveArmIdsByLinkedFeature(context, cb);
-  const stillPending = new Set(
-    computePendingVariationIds(pendingIds, liveArmInfo),
+  if (!liveArmInfo.length) return { activatedIds: [], updated: cb };
+  const activatedIds = pendingIds.filter((id) =>
+    liveArmInfo.every((i) => i.liveArmIds.has(id)),
   );
-  const activatedIds = pendingIds.filter((id) => !stillPending.has(id));
   if (!activatedIds.length) return { activatedIds: [], updated: cb };
 
   const activatedSet = new Set(activatedIds);
@@ -1149,23 +1137,17 @@ export async function executeContextualBanditVariationChange(
     updateMap.set(u.id, patch);
   }
 
-  let nextKeyCounter: number | null = null;
-  const nextKey = () => {
-    if (nextKeyCounter === null) {
-      nextKeyCounter = parseInt(
-        nextContextualBanditVariationKey(cb.variations.map((x) => x.key)),
-        10,
-      );
-    }
-    return String(nextKeyCounter++);
-  };
+  let nextKeyCounter = parseInt(
+    nextContextualBanditVariationKey(cb.variations.map((x) => x.key)),
+    10,
+  );
+  const nextKey = () => String(nextKeyCounter++);
 
   const newVariationValues: Record<string, Record<string, string>> = {};
   const normalizedAdds: ContextualBanditVariation[] = addVariationsIn.map(
     (v) => {
       const id = v.id || generateVariationId();
-      const keyIsAutoFilled = !v.key || v.key === v.id;
-      const key = keyIsAutoFilled || !v.key ? nextKey() : v.key;
+      const key = !v.key || v.key === v.id ? nextKey() : v.key;
       if (v.values) {
         for (const [featureId, value] of Object.entries(v.values)) {
           newVariationValues[featureId] = newVariationValues[featureId] ?? {};
@@ -1399,7 +1381,7 @@ export async function reconcileLinkedFeatureVariations(
   for (const info of infos) {
     if (info.state !== "live" && info.state !== "draft") continue;
     const feature = info.feature;
-    const stagedDraft = info.stagedDraft;
+    const stagedDraft = info.stagedDrafts?.[0];
     const reusableStagedVersion =
       stagedDraft &&
       !stagedDraft.hasUnrelatedDraftChanges &&

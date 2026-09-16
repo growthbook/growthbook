@@ -89,8 +89,7 @@ export default function ContextualBanditLinkedFeatureFlag({
     return match?.weight ?? fallback;
   };
 
-  const stagedDrafts =
-    info.stagedDrafts ?? (info.stagedDraft ? [info.stagedDraft] : []);
+  const stagedDrafts = info.stagedDrafts ?? [];
   const variationValueStates = cb.variations.map((v) => {
     const liveValue = info.values.find((v2) => v2.variationId === v.id)?.value;
     const staged = stagedDrafts
@@ -108,14 +107,12 @@ export default function ContextualBanditLinkedFeatureFlag({
     };
   });
 
-  const stagedChangeVersions = [
-    ...new Set(
-      variationValueStates
-        .filter((s) => s.hasStagedChange && s.stagedVersion != null)
-        .map((s) => s.stagedVersion as number),
-    ),
-  ].sort((a, b) => b - a);
-  const stagedChangeVersion = stagedChangeVersions[0];
+  const stagedVersions = variationValueStates.flatMap((s) =>
+    s.stagedVersion != null ? [s.stagedVersion] : [],
+  );
+  const stagedChangeVersion = stagedVersions.length
+    ? Math.max(...stagedVersions)
+    : undefined;
 
   const environmentStates = Object.entries(info.environmentStates || {}).map(
     ([env, state]) => ({

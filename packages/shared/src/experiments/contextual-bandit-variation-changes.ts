@@ -39,7 +39,6 @@ export function getActiveVariations<T extends VariationWithStatus>(
 type VariationDiff = {
   addedIds: string[];
   removedIds: string[];
-  keptIds: string[];
 };
 
 export function diffVariations(
@@ -53,7 +52,6 @@ export function diffVariations(
   return {
     addedIds: nextIds.filter((id) => !prevSet.has(id)),
     removedIds: prevIds.filter((id) => !nextSet.has(id)),
-    keptIds: nextIds.filter((id) => prevSet.has(id)),
   };
 }
 

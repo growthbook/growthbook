@@ -820,7 +820,6 @@ export default function FeatureValueField({
       id={`${id}-empty-string`}
       valueType={valueType}
       value={value}
-      setValue={setValue}
       checked={emptyStringConfirmed}
       setChecked={(checked) => setEmptyStringConfirmed?.(checked)}
     />

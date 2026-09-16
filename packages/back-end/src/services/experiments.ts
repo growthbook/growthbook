@@ -5474,10 +5474,7 @@ export async function getRefLinkedFeatureInfo({
           }),
         // `state` is "live" whenever the live revision has the rule, even if a
         // draft is changing it, so report that draft separately.
-        ...(stagedDrafts.length > 0 && {
-          stagedDraft: stagedDrafts[0],
-          stagedDrafts,
-        }),
+        ...(stagedDrafts.length > 0 && { stagedDrafts }),
         ...(hasMergeConflict !== undefined && { hasMergeConflict }),
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,
