@@ -1,8 +1,10 @@
 export {
+  DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
   EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
   EVENT_FORWARDER_NAME_COLLISION_PREFIX,
   EVENT_FORWARDER_SUPPORTED_DATASOURCE_TYPES,
   attributeMatchesDatasourceProjects,
+  databricksParamsSupportEventForwarder,
   findCollidingUserIdTypeName,
   findEventForwarderManagedViolation,
   findNewDuplicateUserIdTypeName,

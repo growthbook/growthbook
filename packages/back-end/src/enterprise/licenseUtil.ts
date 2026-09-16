@@ -1173,7 +1173,14 @@ export type EventForwarderLicenseProvisionParams =
         role?: string;
         warehouse?: string;
       };
-    });
+    })
+  // Zerobus sink: no Confluent resources, creds stay in the encrypted config doc.
+  | {
+      sinkType: "databricks";
+      organizationId: string;
+      datasourceId: string;
+      region: "us-east-1" | "eu-west-1";
+    };
 
 export async function postProvisionEventForwarderToLicenseServer(
   params: EventForwarderLicenseProvisionParams,
@@ -1243,7 +1250,8 @@ export type EventForwarderLicenseConnectorPhase =
   | "paused";
 
 export type EventForwarderLicenseConnectorStatus = {
-  confluentState: string;
+  /** Absent for databricks, which has no Confluent connector. */
+  confluentState?: string;
   phase: EventForwarderLicenseConnectorPhase;
   message?: string;
   taskErrors?: { id: number; state: string; trace?: string }[];
@@ -1308,6 +1316,12 @@ export type EventForwarderLicenseUpdateCredentialsParams =
         role?: string;
         warehouse?: string;
       };
+    }
+  | {
+      organizationId: string;
+      datasourceId: string;
+      connectorName: string;
+      sinkType: "databricks";
     };
 
 export async function postUpdateEventForwarderCredentialsToLicenseServer(

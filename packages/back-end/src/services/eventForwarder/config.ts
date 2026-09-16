@@ -2,10 +2,13 @@ import { AES, enc } from "crypto-js";
 import isEqual from "lodash/isEqual";
 import { DataSourceInterface } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
   BigQueryEventForwarderConfigDraft,
   BigQueryEventForwarderStoredConfig,
+  DatabricksEventForwarderConfigDraft,
+  DatabricksEventForwarderStoredConfig,
   EventForwarderConfigDraft,
   EventForwarderConfigWithMetadata,
   SnowflakeEventForwarderConfigDraft,
@@ -13,19 +16,29 @@ import {
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
+  DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE,
+  databricksParamsSupportEventForwarder,
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   EventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   normalizeBigQueryTablePrefixForEventForwarder,
+  normalizeDatabricksEventForwarderZerobusEndpoint,
+  normalizeDatabricksTablePrefixForEventForwarder,
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
+  parseDatabricksEventForwarderTablePrefix,
+  resolveDatabricksEventForwarderTables,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 
 type SinkConfig =
   | BigQueryEventForwarderStoredConfig
-  | SnowflakeEventForwarderStoredConfig;
+  | SnowflakeEventForwarderStoredConfig
+  | DatabricksEventForwarderStoredConfig;
+
+/** Shared topic consumed by the GrowthBook-owned Databricks event forwarder. */
+export const EVENT_FORWARDER_DATABRICKS_TOPIC = "event_forwarder_databricks";
 
 function sanitizeKafkaName(value: string): string {
   return value
@@ -72,6 +85,12 @@ export function getSnowflakeEventForwarderTablePrefix(
   config: SnowflakeEventForwarderStoredConfig,
 ): string {
   return normalizeSnowflakeTablePrefixForEventForwarder(config.tablePrefix);
+}
+
+export function getDatabricksEventForwarderTablePrefix(
+  config: DatabricksEventForwarderStoredConfig,
+): string {
+  return normalizeDatabricksTablePrefixForEventForwarder(config.tablePrefix);
 }
 
 export async function getEventForwarderForDatasource(
@@ -248,6 +267,57 @@ function buildSnowflakeStoredConfigFromDraft(
   };
 }
 
+function buildDatabricksStoredConfigFromDraft(
+  draft: DatabricksEventForwarderConfigDraft,
+  datasourceParams: DatabricksConnectionParams | undefined,
+  existingModel: EventForwarderConfigInterface | null,
+): DatabricksEventForwarderStoredConfig {
+  const existingStored =
+    existingModel?.sinkType === "databricks"
+      ? decryptSinkConfig<DatabricksEventForwarderStoredConfig>(
+          existingModel.config,
+        )
+      : null;
+
+  if (!databricksParamsSupportEventForwarder(datasourceParams)) {
+    throw new Error(DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE);
+  }
+
+  const catalog =
+    draft.catalog?.trim() ||
+    existingStored?.catalog?.trim() ||
+    datasourceParams?.catalog?.trim() ||
+    "";
+  const schema = draft.schema?.trim() || existingStored?.schema?.trim() || "";
+  // Re-parse so catalog/schema identifiers are validated the same way as the UI input.
+  const destination = parseDatabricksEventForwarderTablePrefix(
+    `${catalog}.${schema}.${draft.tablePrefix ?? DEFAULT_EVENT_FORWARDER_TABLE_PREFIX}`,
+  );
+
+  let zerobusEndpoint = existingStored?.zerobusEndpoint?.trim() || "";
+  if (draft.zerobusEndpoint?.trim()) {
+    zerobusEndpoint = normalizeDatabricksEventForwarderZerobusEndpoint(
+      draft.zerobusEndpoint,
+    );
+  }
+
+  return {
+    ...destination,
+    zerobusEndpoint,
+    tables: resolveDatabricksEventForwarderTables(destination),
+    host: datasourceParams?.host?.trim() || existingStored?.host?.trim() || "",
+    path: datasourceParams?.path?.trim() || existingStored?.path?.trim() || "",
+    oauthClientId:
+      datasourceParams?.oauthClientId?.trim() ||
+      existingStored?.oauthClientId?.trim() ||
+      "",
+    oauthClientSecret:
+      datasourceParams?.oauthClientSecret?.trim() ||
+      existingStored?.oauthClientSecret?.trim() ||
+      "",
+  };
+}
+
 function buildNormalizedSinkPayload(
   draft: EventForwarderConfigDraft,
   datasourceParams: EventForwarderDatasourceParams,
@@ -267,6 +337,11 @@ function buildNormalizedSinkPayload(
         existingModel,
       );
     case "databricks":
+      return buildDatabricksStoredConfigFromDraft(
+        draft.config,
+        datasourceParams as DatabricksConnectionParams | undefined,
+        existingModel,
+      );
     default:
       throw new Error(
         `Unsupported event forwarder sink type: ${String((draft as EventForwarderConfigDraft).sinkType)}`,
@@ -310,6 +385,25 @@ function validateNormalizedSinkPayload(
     ) {
       throw new Error(
         "Snowflake event forwarder requires account, username, destination table prefix (DATABASE.SCHEMA.PREFIX), Snowflake URL, private key credentials, and Snowflake role (required for Snowpipe Streaming schematization)",
+      );
+    }
+  }
+
+  if (draft.sinkType === "databricks") {
+    const databricks =
+      normalizedPayload as DatabricksEventForwarderStoredConfig;
+    if (
+      !databricks.catalog ||
+      !databricks.schema ||
+      !getDatabricksEventForwarderTablePrefix(databricks) ||
+      !databricks.zerobusEndpoint ||
+      !databricks.host ||
+      !databricks.path ||
+      !databricks.oauthClientId ||
+      !databricks.oauthClientSecret
+    ) {
+      throw new Error(
+        "Databricks event forwarder requires destination (catalog.schema.prefix), Zerobus endpoint, and a Databricks OAuth connection (host, HTTP path, client ID, secret)",
       );
     }
   }
@@ -369,7 +463,21 @@ export function toEventForwarderConfigDraft(
         },
       };
     }
-    case "databricks":
+    case "databricks": {
+      const decrypted = decryptSinkConfig<DatabricksEventForwarderStoredConfig>(
+        config.config,
+      );
+      return {
+        sinkType: "databricks",
+        region: config.region,
+        config: {
+          catalog: decrypted.catalog || "",
+          schema: decrypted.schema || "",
+          tablePrefix: getDatabricksEventForwarderTablePrefix(decrypted),
+          zerobusEndpoint: decrypted.zerobusEndpoint || "",
+        },
+      };
+    }
     default:
       throw new Error(
         `Unsupported event forwarder sink type: ${String(config.sinkType)}`,
@@ -506,7 +614,11 @@ export async function syncEventForwarderConfigFromDatasource({
     return await context.models.eventForwarderConfigs.create({
       datasourceId: datasource.id,
       projects,
-      topic: getEventForwarderTopicName(datasource.organization, datasource.id),
+      // Databricks rides the shared consumer topic; Confluent sinks get a per-datasource topic.
+      topic:
+        draft.sinkType === "databricks"
+          ? EVENT_FORWARDER_DATABRICKS_TOPIC
+          : getEventForwarderTopicName(datasource.organization, datasource.id),
       // Provisioning resolves the current registry schema id after the topic exists.
       schemaId: 0,
       sinkType: draft.sinkType,
