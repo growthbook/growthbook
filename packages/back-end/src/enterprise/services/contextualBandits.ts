@@ -280,6 +280,10 @@ async function publishContextualBanditRevision({
     ),
   });
 
+  await context.models.contextualBandits.activatePendingVariationsForFeature(
+    updatedFeature,
+  );
+
   await audit({
     event: "feature.publish",
     entity: { object: "feature", id: feature.id },
