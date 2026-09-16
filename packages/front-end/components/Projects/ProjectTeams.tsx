@@ -343,7 +343,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
           {teams.length > rows.length && (
             <Tooltip
               enabled={!addCandidates.length}
-              content="The remaining teams carry a global role, so adding them here needs Team Management."
+              content="The remaining teams carry a global role or are managed externally, so adding them here needs Team Management."
             >
               <Button
                 variant="outline"
