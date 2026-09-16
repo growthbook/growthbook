@@ -25,7 +25,9 @@ export default function BayesianTab({
           defaultValue={defaultConfidencePct}
           disabled={hasFileConfig()}
           helpTextAppend={
-            <span className="ml-2">Default is {defaultConfidencePct}%.</span>
+            <span className="ml-2">
+              Default for new organizations is {defaultConfidencePct}%.
+            </span>
           }
           rules={{ valueAsNumber: true }}
         />
