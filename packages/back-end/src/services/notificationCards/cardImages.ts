@@ -859,7 +859,6 @@ function tagBadges(tags: string[]): El[] {
 // Condensed single-row header, no background tint (status is carried by the
 // badge): name · key · badge on the left, tags + logo right.
 function headerEl(exp: CardIdentity): El {
-  const logoH = 15;
   return el(
     "div",
     {
@@ -900,55 +899,60 @@ function headerEl(exp: CardIdentity): El {
           alignItems: "center",
           gap: 14,
         },
-        [
-          ...(exp.tags?.length ? tagBadges(exp.tags) : []),
-          {
-            type: "img",
-            props: {
-              src: getLogoDataUri(),
-              width: Math.round(logoH * LOGO_ASPECT),
-              height: logoH,
-              style: { display: "flex" },
-            },
-          } as El,
-        ],
+        exp.tags?.length ? tagBadges(exp.tags) : [],
       ),
     ],
   );
 }
 
-// Plain-text metadata footer, items joined by a middot separator (not chips).
-function footerEl(items: (string | undefined)[]): El | null {
-  const fitems = items.filter((x): x is string => !!x);
-  if (!fitems.length) return null;
+const unitsFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
+
+// "{units} units - {days} days", with whichever parts the card knows.
+function footerText(card: CardIdentity): string {
+  return [
+    card.units !== undefined
+      ? `${unitsFormatter.format(card.units)} units`
+      : undefined,
+    card.durationDays !== undefined
+      ? `${card.durationDays} day${card.durationDays === 1 ? "" : "s"}`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(" - ");
+}
+
+// Every card ends the same way: units and duration on the left, the
+// GrowthBook logo on the right. Rendered even when nothing is known so the
+// logo always sits in the same place.
+function standardFooterEl(card: CardIdentity, size: "lg" | "sm"): El {
+  const lg = size === "lg";
+  const logoH = lg ? 20 : 16;
   return el(
     "div",
     {
       display: "flex",
       flexDirection: "row",
-      flexWrap: "wrap",
+      justifyContent: "space-between",
       alignItems: "center",
-      padding: "11px 24px",
+      gap: 16,
+      padding: lg ? "14px 28px" : "11px 22px",
       borderTop: `1px solid ${P.border}`,
       marginTop: "auto",
     },
-    fitems.map((t, i) =>
-      el(
-        "div",
-        { display: "flex", flexDirection: "row", alignItems: "center" },
-        [
-          i > 0
-            ? txt("·", {
-                fontSize: 11.5,
-                color: P.subtle,
-                margin: "0 9px",
-                opacity: 0.55,
-              })
-            : null,
-          txt(t, { fontSize: 11.5, color: P.subtle }),
-        ].filter(Boolean) as El[],
-      ),
-    ),
+    [
+      txt(footerText(card), { fontSize: lg ? 14 : 11.5, color: P.subtle }),
+      {
+        type: "img",
+        props: {
+          src: getLogoDataUri(),
+          width: Math.round(logoH * LOGO_ASPECT),
+          height: logoH,
+          style: { display: "flex", flexShrink: 0 },
+        },
+      } as El,
+    ],
   );
 }
 
@@ -1367,67 +1371,45 @@ function eventBannerEl(card: CardIdentity, hue: Hue): El {
     {
       display: "flex",
       flexDirection: "row",
+      justifyContent: "space-between",
       alignItems: "center",
       gap: 12,
       padding: "16px 28px",
       backgroundColor: SOLID[hue],
     },
     [
-      svgImg(eventIconSvg(COMPACT_EVENT[event].icon, color), 24, 24),
       txt(card.banner ?? "", {
         fontSize: 22,
         fontWeight: 600,
         letterSpacing: "-0.01em",
         color,
       }),
+      svgImg(eventIconSvg(COMPACT_EVENT[event].icon, color), 26, 26),
     ],
   );
 }
 
-// Header for banner cards: the banner already carries the state, so this is
-// just a large name on the left and the logo on the right.
+// Header for banner cards: the banner carries the state and the footer the
+// logo, so this is just the large experiment name (plus tags).
 function eventHeaderEl(card: CardIdentity): El {
-  const logoH = 22;
   return el(
     "div",
     {
       display: "flex",
       flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap: 24,
+      alignItems: "baseline",
+      gap: 14,
+      flexWrap: "wrap",
       padding: "22px 28px 0",
     },
     [
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "baseline",
-          gap: 14,
-          flexWrap: "wrap",
-          minWidth: 0,
-        },
-        [
-          txt(card.name, {
-            fontSize: 28,
-            fontWeight: 600,
-            color: P.text,
-            letterSpacing: "-0.01em",
-          }),
-          ...(card.tags?.length ? tagBadges(card.tags) : []),
-        ],
-      ),
-      {
-        type: "img",
-        props: {
-          src: getLogoDataUri(),
-          width: Math.round(logoH * LOGO_ASPECT),
-          height: logoH,
-          style: { display: "flex", flexShrink: 0 },
-        },
-      } as El,
+      txt(card.name, {
+        fontSize: 28,
+        fontWeight: 600,
+        color: P.text,
+        letterSpacing: "-0.01em",
+      }),
+      ...(card.tags?.length ? tagBadges(card.tags) : []),
     ],
   );
 }
@@ -1440,40 +1422,17 @@ function buildCard(card: CardData): El {
         card.banner ? eventBannerEl(card, hue) : null,
         card.banner ? eventHeaderEl(card) : headerEl(card),
         eventSummaryBody(card, "lg"),
-        footerEl([card.dates]),
+        standardFooterEl(card, "lg"),
       ].filter(Boolean) as El[],
     );
   }
   const exp = card;
-  let body: El;
-  let footerItems: (string | undefined)[];
-
-  if (exp.state === "started") {
-    body = startedBody(exp);
-    footerItems = [exp.variants.join(" · "), exp.dates, exp.ds];
-  } else if (exp.state === "warning") {
-    body = warningBody(exp);
-    footerItems = [
-      exp.days,
-      exp.users ? `${exp.users} users` : undefined,
-      exp.dates,
-      exp.ds,
-    ];
-  } else {
-    body = standardBody(exp);
-    footerItems = [
-      exp.days,
-      exp.users ? `${exp.users} users` : undefined,
-      exp.dates,
-      exp.ds,
-      // Only claim a health status when the card actually carries one.
-      exp.health
-        ? exp.health.status === "unhealthy"
-          ? "Health: needs attention"
-          : "Health: healthy"
-        : undefined,
-    ];
-  }
+  const body =
+    exp.state === "started"
+      ? startedBody(exp)
+      : exp.state === "warning"
+        ? warningBody(exp)
+        : standardBody(exp);
 
   const column = [
     exp.banner ? eventBannerEl(exp, hue) : null,
@@ -1482,7 +1441,7 @@ function buildCard(card: CardData): El {
     hypothesisEl(exp),
     conclusionEl(exp),
     body,
-    footerEl(footerItems),
+    standardFooterEl(exp, "lg"),
   ].filter(Boolean) as El[];
 
   return cardShell(column);
@@ -1660,9 +1619,12 @@ function capLabel(
 // Full-width solid event banner: a rounded icon chip + the event label in white
 // on the event color, with a translucent-white status pill on the right.
 // Carries the status color for the compact card.
+// Label on the left, event icon on the right (matching the detailed banner).
+// Cards without a banner headline also get the status pill.
 function compactBannerEl(
   ev: (typeof COMPACT_EVENT)[CompactEvent],
   hue: Hue,
+  showStatus: boolean,
 ): El {
   return el(
     "div",
@@ -1676,6 +1638,12 @@ function compactBannerEl(
       backgroundColor: SOLID[hue],
     },
     [
+      txt(ev.label, {
+        fontSize: 15,
+        fontWeight: 700,
+        letterSpacing: "0.01em",
+        color: "#ffffff",
+      }),
       el(
         "div",
         {
@@ -1685,6 +1653,7 @@ function compactBannerEl(
           gap: 10,
         },
         [
+          showStatus ? statusPillEl(ev.status) : null,
           el(
             "div",
             {
@@ -1698,15 +1667,8 @@ function compactBannerEl(
             },
             svgImg(eventIconSvg(ev.icon, "#ffffff"), 15, 15),
           ),
-          txt(ev.label, {
-            fontSize: 15,
-            fontWeight: 700,
-            letterSpacing: "0.01em",
-            color: "#ffffff",
-          }),
-        ],
+        ].filter(Boolean) as El[],
       ),
-      statusPillEl(ev.status),
     ],
   );
 }
@@ -1912,23 +1874,6 @@ function compactHero(
   );
 }
 
-function compactFooterItems(
-  exp: ExperimentCardData,
-  event: CompactEvent,
-): (string | undefined)[] {
-  // Running-state events (no end date) omit the date range from the footer.
-  if (event === "started") return [exp.variants.join(" · "), exp.dates, exp.ds];
-  if (event === "warning") {
-    return [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds];
-  }
-  return [
-    exp.days,
-    exp.users ? `${exp.users} users` : undefined,
-    exp.dates,
-    exp.ds,
-  ];
-}
-
 function buildCompactCard(card: CardData): El {
   const event = compactEventFor(card);
   const ev = COMPACT_EVENT[event];
@@ -1939,9 +1884,9 @@ function buildCompactCard(card: CardData): El {
     hue = "red";
   }
 
-  const [hero, footerItems] = isResultsCard(card)
-    ? [compactHero(card, event, hue), compactFooterItems(card, event)]
-    : [eventSummaryBody(card, "sm"), [card.dates]];
+  const hero = isResultsCard(card)
+    ? compactHero(card, event, hue)
+    : eventSummaryBody(card, "sm");
   const bannerCard = !!card.banner;
   const banner = card.banner ? { ...ev, label: card.banner } : ev;
 
@@ -1961,7 +1906,7 @@ function buildCompactCard(card: CardData): El {
       overflow: "hidden",
     },
     [
-      compactBannerEl(banner, hue),
+      compactBannerEl(banner, hue, !bannerCard),
       compactNameRowEl(card, !bannerCard),
       el(
         "div",
@@ -1975,70 +1920,7 @@ function buildCompactCard(card: CardData): El {
         },
         [hero],
       ),
-      compactFooterEl(footerItems),
-    ],
-  );
-}
-
-// Compact-card footer: metadata on the left, GrowthBook logo bottom-right.
-function compactFooterEl(items: (string | undefined)[]): El {
-  const fitems = items.filter((x): x is string => !!x);
-  const logoH = 16;
-  const logoW = Math.round(logoH * LOGO_ASPECT);
-  const gap = 12;
-  // Fixed metadata width so a long row wraps instead of pushing the logo off the
-  // right edge (Satori doesn't wrap flexGrow text — fixed widths do).
-  const metaW = COMPACT_WIDTH - 44 - gap - logoW;
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap,
-      padding: "11px 22px",
-      borderTop: `1px solid ${P.border}`,
-      marginTop: "auto",
-    },
-    [
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "row",
-          flexWrap: "wrap",
-          alignItems: "center",
-          width: metaW,
-        },
-        fitems.map((t, i) =>
-          el(
-            "div",
-            { display: "flex", flexDirection: "row", alignItems: "center" },
-            [
-              i > 0
-                ? txt("·", {
-                    fontSize: 11.5,
-                    color: P.subtle,
-                    margin: "0 9px",
-                    opacity: 0.55,
-                  })
-                : null,
-              txt(t, { fontSize: 11.5, color: P.subtle }),
-            ].filter(Boolean) as El[],
-          ),
-        ),
-      ),
-      {
-        type: "img",
-        props: {
-          src: getLogoDataUri(),
-          width: logoW,
-          height: logoH,
-          // flexShrink:0 so a long metadata row can't squeeze/clip the logo.
-          style: { display: "flex", flexShrink: 0 },
-        },
-      } as El,
+      standardFooterEl(card, "sm"),
     ],
   );
 }
@@ -2192,8 +2074,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         goal: "Checkout completion rate",
         variants: ["Control", "Treatment A"],
         tags: ["revenue", "checkout"],
-        dates: "Jun 28, 2026",
-        ds: "Snowflake · Prod",
         hypothesis:
           "A streamlined one-page checkout reduces friction and lifts completion rate without lowering average order value.",
         metrics: {
@@ -2211,10 +2091,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         goal: "Sessions per user",
         variants: ["Control", "Bottom tabs"],
         tags: ["engagement", "mobile"],
-        users: "31,200",
-        days: "Day 21",
-        dates: "Started Jun 9, 2026",
-        ds: "Snowflake · Prod",
         health: {
           status: "unhealthy",
           issues: [
@@ -2251,10 +2127,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         goal: "Signup conversion",
         variants: ["Control", "Start free"],
         tags: ["acquisition", "copy"],
-        users: "22,100",
-        days: "Day 14 · stopped",
-        dates: "May 20 – Jun 3, 2026",
-        ds: "Snowflake · Prod",
         rows: [
           {
             v: "Start free",
@@ -2281,10 +2153,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         goal: "Purchase rate",
         variants: ["Control", "Layout B"],
         tags: ["pricing"],
-        users: "88,900",
-        days: "Day 30 · stopped",
-        dates: "May 1 – May 31, 2026",
-        ds: "BigQuery · Prod",
         hypothesis:
           "Regrouping plans by use case on the pricing page will reduce decision friction and increase purchases.",
         conclusion: {
@@ -2316,10 +2184,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         goal: "Activation rate",
         variants: ["Control", "Shorter", "Video-first"],
         tags: ["activation"],
-        users: "9,880",
-        days: "Day 5",
-        dates: "Started Jun 25, 2026",
-        ds: "Mixpanel export",
         // Note: the bundled Inter subset is latin-only (no Greek), so we avoid
         // glyphs like "χ²" here — real SRM p-values are formatted on our side.
         srm: "Expected 33 / 33 / 33 · Observed 38 / 34 / 28",
@@ -2359,10 +2223,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         goal: "Signup conversion",
         variants: ["Control", "Hero B", "Hero C"],
         tags: ["acquisition"],
-        users: "162,400",
-        days: "Day 26 · stopped",
-        dates: "May 12 – Jun 7, 2026",
-        ds: "Snowflake · Prod",
         hypothesis:
           "A benefit-led hero that leads with the core value proposition will reduce confusion and drive more visitors to sign up.",
         conclusion: {

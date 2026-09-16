@@ -69,7 +69,9 @@ export interface CardIdentity {
   name: string;
   key: string;
   tags?: string[];
-  dates?: string;
+  // Standard footer: "{units} units - {days} days", whichever parts are known.
+  units?: number;
+  durationDays?: number;
   badgeLabel?: string; // overrides the state badge text, e.g. a stopped card with no outcome
   // Headline for a full-width banner in the card's state color. When set, the
   // detailed card drops the state badge and the compact banner reuses the text.
@@ -87,9 +89,6 @@ export interface EventCardData extends CardIdentity {
 export interface ExperimentCardData extends CardIdentity {
   goal: string;
   variants: string[];
-  users?: string;
-  days?: string;
-  ds?: string;
   note?: string;
   rows: CardGoalRow[];
   secondary?: CardCiMetric[];

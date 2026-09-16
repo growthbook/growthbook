@@ -414,6 +414,7 @@ export const notifySrm = async ({
 
       const pValue = getExperimentSRMValue(snapshot);
       const variations = getSrmVariationBalance(experiment, snapshot);
+      const durationDays = getExperimentDurationDays(experiment);
       await dispatchEvent({
         context,
         experiment,
@@ -426,6 +427,7 @@ export const notifySrm = async ({
             threshold: healthSettings.srmThreshold,
             ...(pValue !== undefined ? { pValue } : {}),
             ...(variations ? { variations } : {}),
+            ...(durationDays !== undefined ? { durationDays } : {}),
           },
         },
       });

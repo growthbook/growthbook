@@ -72,8 +72,9 @@ describe("renderNotificationCard", () => {
             ["Control", "6,200", "62%", "50%"],
             ["Treatment", "3,800", "38%", "50%"],
           ],
-          note: "10,000 total units · p-value = <0.001",
+          note: "p-value = <0.001",
         },
+        units: 10000,
       }),
       "compact",
     );
@@ -211,8 +212,8 @@ describe("renderNotificationCard", () => {
         banner: "Experiment Stopped - Winner",
         goal: "Conversion",
         variants: ["Control", "Treatment"],
-        users: "20K",
-        days: "21 days",
+        units: 20000,
+        durationDays: 21,
         winningVariation: "Treatment",
         winningVariationIndex: 1,
         rows: [

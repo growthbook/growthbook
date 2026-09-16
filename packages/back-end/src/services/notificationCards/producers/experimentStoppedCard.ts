@@ -105,6 +105,10 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
     name: data.experimentName,
     key: data.experimentId,
     banner,
+    ...(data.totalUsers !== undefined ? { units: data.totalUsers } : {}),
+    ...(data.durationDays !== undefined
+      ? { durationDays: data.durationDays }
+      : {}),
   };
   if (!data.goalMetric) {
     return { ...identity, state: "stopped", event: "stopped", summary };
@@ -133,12 +137,6 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
       ...data.goalMetric.variations.map((v) => v.variationName),
     ],
     rows: goalRows(data.goalMetric),
-    ...(data.durationDays !== undefined
-      ? {
-          days: `${data.durationDays} day${data.durationDays === 1 ? "" : "s"}`,
-        }
-      : {}),
-    users: compact(data.totalUsers),
     ...(data.winningVariationName
       ? { winningVariation: data.winningVariationName }
       : {}),

@@ -173,6 +173,7 @@ export const notificationCardSamples: {
           type: "srm",
           threshold: 0.001,
           pValue: 0.00042,
+          durationDays: 12,
           variations: [
             { name: "Control", users: 6213, weight: 0.5 },
             { name: "One-page checkout", users: 3787, weight: 0.5 },

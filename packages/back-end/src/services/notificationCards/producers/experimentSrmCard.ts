@@ -42,14 +42,17 @@ export function buildSrmBalanceTable(data: SrmPayload): CardTable | null {
       pct(v.users, totalUsers),
       pct(v.weight, totalWeight),
     ]),
-    note: [
-      `${numberFormatter.format(totalUsers)} total units`,
-      pValue !== undefined ? `p-value = ${pValueFormatter(pValue)}` : undefined,
-    ]
-      .filter(Boolean)
-      .join(" · "),
+    // Units live in the standard footer; the note carries the test result.
+    ...(pValue !== undefined
+      ? { note: `p-value = ${pValueFormatter(pValue)}` }
+      : {}),
   };
 }
+
+const totalUnits = (data: SrmPayload): number | undefined =>
+  data.variations?.length
+    ? data.variations.reduce((sum, v) => sum + v.users, 0)
+    : undefined;
 
 // Only the SRM subtype of experiment.warning has a card; other warnings stay
 // as accurate text notifications.
@@ -61,6 +64,7 @@ export const buildExperimentSrmCard: NotificationCardProducer = (
   if (!parsed.success) return null;
   const { experimentId, experimentName } = parsed.data;
   const table = buildSrmBalanceTable(parsed.data);
+  const units = totalUnits(parsed.data);
   return {
     data: {
       state: "warning",
@@ -68,6 +72,10 @@ export const buildExperimentSrmCard: NotificationCardProducer = (
       name: experimentName,
       key: experimentId,
       banner: BANNER,
+      ...(units !== undefined ? { units } : {}),
+      ...(parsed.data.durationDays !== undefined
+        ? { durationDays: parsed.data.durationDays }
+        : {}),
       ...(table ? { table } : {}),
     },
     altText: `${experimentName} - ${LABEL}`,

@@ -39,6 +39,8 @@ export const srm = z
     // these fields existed.
     pValue: z.number().optional(),
     variations: z.array(srmVariationBalance).optional(),
+    // Whole days the current phase had been running when the alert fired.
+    durationDays: z.number().int().nonnegative().optional(),
   })
   .strict();
 
