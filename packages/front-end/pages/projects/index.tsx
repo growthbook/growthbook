@@ -6,7 +6,6 @@ import { ago } from "shared/dates";
 import { Box } from "@radix-ui/themes";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import ProjectModal from "@/components/Projects/ProjectModal";
-import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgLimits from "@/hooks/useOrgLimits";
@@ -25,7 +24,6 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import ProjectRowMenu from "@/components/Projects/ProjectRowMenu";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 const MONO = { fontFamily: "var(--font-mono, monospace)" };
@@ -33,7 +31,6 @@ const MONO = { fontFamily: "var(--font-mono, monospace)" };
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
 
-  const { apiCall } = useAuth();
   const { organization } = useUser();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
@@ -55,9 +52,6 @@ const ProjectsPage: FC = () => {
   ).length;
   const atProjectLimit =
     maxProjects !== null && nonDemoProjectCount >= maxProjects;
-
-  const [deleteProjectResources, setDeleteProjectResources] =
-    useState<boolean>(true);
 
   // Enhance projects with computed publicId for sorting
   const projectsWithComputedPublicId = projects.map((p) => ({
@@ -171,20 +165,11 @@ const ProjectsPage: FC = () => {
                   >
                     Date Updated
                   </SortableTableColumnHeader>
-                  <TableColumnHeader width="50px" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((p) => {
                   const canEdit = permissionsUtil.canUpdateProject(p.id);
-                  const canDelete =
-                    // If the project has the `managedBy` property, we block deletion.
-                    permissionsUtil.canDeleteProject(p.id) &&
-                    !p.managedBy?.type;
-                  const isDemoProject = isDemoDatasourceProject({
-                    projectId: p.id,
-                    organizationId: organization?.id,
-                  });
                   return (
                     <TableRow key={p.id} style={{ verticalAlign: "middle" }}>
                       <TableCell>
@@ -242,45 +227,12 @@ const ProjectsPage: FC = () => {
                       </TableCell>
                       <TableCell>{ago(p.dateCreated)}</TableCell>
                       <TableCell>{ago(p.dateUpdated)}</TableCell>
-                      <TableCell>
-                        <ProjectRowMenu
-                          project={p}
-                          canEdit={canEdit}
-                          canDelete={canDelete}
-                          onEdit={() => setModalOpen(p)}
-                          onDelete={async () => {
-                            if (isDemoProject) {
-                              // The Sample Data project has a dedicated
-                              // endpoint that also removes legacy sample
-                              // resources; deleting it like a normal project
-                              // can leave sample data behind in a state
-                              // that's hard to clean up.
-                              await apiCall(`/demo-datasource-project`, {
-                                method: "DELETE",
-                              });
-                            } else {
-                              await apiCall(
-                                `/projects/${p.id}?deleteResources=${deleteProjectResources ? "true" : "false"}`,
-                                {
-                                  method: "DELETE",
-                                },
-                              );
-                            }
-                            mutateDefinitions();
-                          }}
-                          deleteProjectResources={
-                            // Sample data is always deleted with its project
-                            isDemoProject ? null : deleteProjectResources
-                          }
-                          setDeleteProjectResources={setDeleteProjectResources}
-                        />
-                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {!items.length && isFiltered && (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={5} align="center">
                       No matching projects
                     </TableCell>
                   </TableRow>

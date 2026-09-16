@@ -18,6 +18,7 @@ import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import ProjectApprovalSettings from "@/components/Projects/ProjectApprovalSettings";
 import ProjectAccessSettings from "@/components/Projects/ProjectAccessSettings";
+import DeleteProjectModal from "@/components/Projects/DeleteProjectModal";
 import ProjectTeams from "@/components/Projects/ProjectTeams";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
@@ -77,10 +78,14 @@ const ProjectPage: FC = () => {
     null,
   );
   const [saveMsg, setSaveMsg] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [originalValue, setOriginalValue] = useState<ProjectSettings>({});
 
   const permissionsUtil = usePermissionsUtil();
   const canEditSettings = permissionsUtil.canUpdateProject(pid);
+  // Externally managed projects are deleted from their manager, not here.
+  const canDelete =
+    permissionsUtil.canDeleteProject(pid) && !p?.managedBy?.type;
 
   const form = useForm<ProjectSettings>({ mode: "onChange" });
 
@@ -162,6 +167,16 @@ const ProjectPage: FC = () => {
           onSuccess={() => mutateDefinitions()}
         />
       )}
+      {deleteOpen && (
+        <DeleteProjectModal
+          project={p}
+          close={() => setDeleteOpen(false)}
+          onDeleted={async () => {
+            await mutateDefinitions();
+            router.push("/projects");
+          }}
+        />
+      )}
       {editChecklistOpen && (
         <ExperimentCheckListModal
           close={() => setEditChecklistOpen(false)}
@@ -230,6 +245,14 @@ const ProjectPage: FC = () => {
               <DropdownMenuItem onClick={() => setModalOpen(p)}>
                 Edit project settings
               </DropdownMenuItem>
+              {canDelete && (
+                <DropdownMenuItem
+                  color="red"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  Delete project
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
           </DropdownMenu>
         </Flex>
