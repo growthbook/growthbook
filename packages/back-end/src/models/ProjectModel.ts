@@ -119,7 +119,7 @@ export class ProjectModel extends BaseClass {
       await updateOrganization(this.context.org.id, { settings: pruned });
     }
     // Project roles naming it are dead grants; drop them wherever they live.
-    await removeProjectRolesForProject(this.context.org.id, doc.id);
+    await removeProjectRolesForProject(this.context.org, doc.id);
     await getCollection<TeamInterface>("teams").updateMany(
       { organization: this.context.org.id, "projectRoles.project": doc.id },
       { $pull: { projectRoles: { project: doc.id } } },

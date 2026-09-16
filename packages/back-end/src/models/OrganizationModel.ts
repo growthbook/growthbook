@@ -320,23 +320,31 @@ type DeletableKeys = Extract<
   "restrictLoginMethod"
 >;
 
-// Targeted pull, so concurrent edits to other members, invites, or pending
-// members are untouched.
+// One positional pull per record that carries the rule, so concurrent edits
+// to other members, invites, or pending members are untouched. The single
+// positional operator is the one every supported Mongo-compatible backend has.
 export async function removeProjectRolesForProject(
-  organizationId: string,
+  org: OrganizationInterface,
   projectId: string,
 ) {
-  const rule = { project: projectId };
-  await OrganizationModel.updateOne(
-    { id: organizationId },
-    {
-      $pull: {
-        "members.$[].projectRoles": rule,
-        "invites.$[].projectRoles": rule,
-        "pendingMembers.$[].projectRoles": rule,
-      },
-    },
-  );
+  const hasRule = (record: { projectRoles?: { project: string }[] }) =>
+    !!record.projectRoles?.some((rule) => rule.project === projectId);
+  const pull = (field: string, match: Record<string, string>) =>
+    OrganizationModel.updateOne(
+      { id: org.id, ...match },
+      { $pull: { [`${field}.$.projectRoles`]: { project: projectId } } },
+    );
+  await Promise.all([
+    ...org.members
+      .filter(hasRule)
+      .map((m) => pull("members", { "members.id": m.id })),
+    ...org.invites
+      .filter(hasRule)
+      .map((i) => pull("invites", { "invites.key": i.key })),
+    ...(org.pendingMembers ?? [])
+      .filter(hasRule)
+      .map((p) => pull("pendingMembers", { "pendingMembers.id": p.id })),
+  ]);
 }
 
 export async function updateOrganization(
