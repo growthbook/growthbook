@@ -4,6 +4,7 @@ import { getReviewSetting } from "shared/util";
 import { getApprovalFlowRules } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -25,6 +26,7 @@ export default function ProjectApprovalSettings({
 }) {
   const { settings, hasCommercialFeature } = useUser();
   const { projects } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
 
   if (!hasCommercialFeature("require-approvals")) return null;
 
@@ -56,9 +58,11 @@ export default function ProjectApprovalSettings({
         status="info"
         my="2"
         action={
-          <Link href={`/settings?approvalProject=${project}#approval-flow`}>
-            Edit in organization settings
-          </Link>
+          permissionsUtil.canManageOrgSettings() ? (
+            <Link href={`/settings?approvalProject=${project}#approval-flow`}>
+              Edit in organization settings
+            </Link>
+          ) : undefined
         }
       >
         {!naming.length ? (
