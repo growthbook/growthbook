@@ -868,8 +868,7 @@ export function calculateCutpoint(
   marginalVarianceTauHat: number,
 ): number {
   // One-sided critical value to match the stats-engine chance-to-win decision
-  // rule (win when CTW > ciUpper, loss when CTW < ciLower), i.e. an alpha-level
-  // cutoff on each tail rather than a two-sided alpha/2 split.
+  // rule, i.e. an alpha-level cutoff on each tail rather than a two-sided alpha/2 split.
   const zStar = normal.quantile(1.0 - alpha, 0, 1);
   const upperSign = upper ? 1 : -1;
   const properInt = proper ? 1 : 0;
