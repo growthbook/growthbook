@@ -89,6 +89,7 @@ const ctx = {
     }),
   },
   hasPremiumFeature: jest.fn(() => true),
+  getTargetingOptOutProjectIds: jest.fn().mockResolvedValue([]),
   models: {
     safeRollout: {
       getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),

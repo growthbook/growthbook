@@ -27,6 +27,7 @@ import {
   rampRuleEnvKey,
   rampTargetFootprint,
   rampTargetRuleIds,
+  unanchoredRampTargets,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -47,6 +48,7 @@ import {
 import { isCurrentStepReadyForApproval } from "back-end/src/services/rampScheduleEvaluator";
 import {
   createRevision,
+  getRevision,
   registerRevisionPublishedHook,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -1317,6 +1319,47 @@ export async function advanceStep(
   return updated;
 }
 
+// Restores missing rollback anchors from the revision that activated each
+// target. Its rules are the pre-step-0 state — the same input publish derives
+// the anchor from — because every step publishes its own revision on top.
+export async function ensureRampStartActions(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  const unanchored = unanchoredRampTargets(schedule);
+  if (!unanchored.length) return schedule;
+
+  const feature = await getFeature(ctx, schedule.entityId);
+  if (!feature) return schedule;
+
+  const restored: RampStepAction[] = [];
+  for (const target of unanchored) {
+    const version = target.activatingRevisionVersion ?? null;
+    if (version === null) continue;
+    const revision = await getRevision({
+      context: ctx,
+      organization: ctx.org.id,
+      featureId: feature.id,
+      feature,
+      version,
+    });
+    if (!revision?.rules) continue;
+    restored.push(
+      ...getStartActionsFromRules({
+        rules: revision.rules,
+        targetId: target.id,
+        ruleId: target.ruleId ?? "",
+        environment: target.environment,
+      }),
+    );
+  }
+
+  if (!restored.length) return schedule;
+  return ctx.models.rampSchedules.updateById(schedule.id, {
+    startActions: [...(schedule.startActions ?? []), ...restored],
+  });
+}
+
 export async function rollbackToStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -1328,7 +1371,15 @@ export async function rollbackToStep(
     syncSafeRollout?: boolean;
   } = {},
 ): Promise<RampScheduleInterface> {
+  schedule = await ensureRampStartActions(ctx, schedule);
   const isFullRollback = targetStepIndex === -1;
+  const unanchored = isFullRollback ? unanchoredRampTargets(schedule) : [];
+  if (unanchored.length) {
+    logger.warn(
+      { rampScheduleId: schedule.id, targetIds: unanchored.map((t) => t.id) },
+      "Full rollback has no start actions for some targets; their rules keep the last applied step",
+    );
+  }
   // An approval-gated schedule returns to the pre-start hold on a full
   // rollback (manual or auto) instead of terminating: it lands back at step -1
   // awaiting a fresh approval. The -1 → 0 edge is always re-gated.

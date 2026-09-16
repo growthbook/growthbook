@@ -422,6 +422,19 @@ export class ContextualBanditModel extends BaseClass {
     existing: ContextualBanditInterface,
     updated?: Partial<ContextualBanditInterface>,
   ): boolean {
+    // A status change turns the bandit's published rule on or off in SDK
+    // payloads, so it needs the same run permission the start/stop endpoints
+    // check; other edits only need the update permission.
+    if (
+      updated?.status !== undefined &&
+      updated.status !== existing.status &&
+      !this.context.permissions.canRunContextualBandit(
+        existing,
+        this.context.org.settings?.environments?.map((e) => e.id) ?? [],
+      )
+    ) {
+      return false;
+    }
     return this.context.permissions.canUpdateContextualBandit(
       existing,
       updated ?? existing,
