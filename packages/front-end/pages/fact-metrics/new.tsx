@@ -12,7 +12,6 @@ import Button from "@/ui/Button";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import Badge from "@/ui/Badge";
-import Text from "@/ui/Text";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -196,7 +195,6 @@ export default function NewFactMetricPage() {
             New Fact Metric
           </Heading>
           <Badge label="Draft" color="pink" variant="solid" radius="full" />
-          <Text color="text-mid">Not yet saved</Text>
         </Flex>
         <div ref={setActionsContainer} style={{ minHeight: 40 }} />
       </Flex>
