@@ -7,6 +7,7 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import { Popover } from "@/ui/Popover";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function RoleRuleLabel({
@@ -148,8 +149,11 @@ export function CollapsedRuleRows({ rows }: { rows: RuleRow[] }) {
       ))}
       {hidden.length > 0 && (
         <Box mt="1">
-          <Tooltip
-            body={
+          <Popover
+            openOnHover
+            side="bottom"
+            align="start"
+            content={
               <Flex direction="column" gap="1" align="start">
                 {hidden.map((row, i) => (
                   <Box
@@ -161,13 +165,14 @@ export function CollapsedRuleRows({ rows }: { rows: RuleRow[] }) {
                 ))}
               </Flex>
             }
-          >
-            <Badge
-              color="gray"
-              variant="soft"
-              label={`+${hiddenRules} more rule${hiddenRules === 1 ? "" : "s"}`}
-            />
-          </Tooltip>
+            trigger={
+              <Badge
+                color="gray"
+                variant="soft"
+                label={`+${hiddenRules} more rule${hiddenRules === 1 ? "" : "s"}`}
+              />
+            }
+          />
         </Box>
       )}
     </>
