@@ -295,11 +295,15 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         </Box>
         {canCreate && (
           <SplitButton
+            variant="outline"
             menu={
               teams.length > rows.length ? (
                 <DropdownMenu
                   trigger={
-                    <Button aria-label="More ways to add a team">
+                    <Button
+                      variant="outline"
+                      aria-label="More ways to add a team"
+                    >
                       <PiCaretDownFill />
                     </Button>
                   }
@@ -312,7 +316,9 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
               ) : undefined
             }
           >
-            <Button onClick={() => setRuleModal("create")}>Create team</Button>
+            <Button variant="outline" onClick={() => setRuleModal("create")}>
+              Create team
+            </Button>
           </SplitButton>
         )}
       </Flex>
