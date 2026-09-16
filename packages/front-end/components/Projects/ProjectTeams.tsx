@@ -290,7 +290,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
     canManageTeam || memberId !== userId;
 
   return (
-    <Box mt="5" mb="4">
+    <Box mb="4">
       {ruleModal && (
         <ProjectTeamRuleModal
           project={project}

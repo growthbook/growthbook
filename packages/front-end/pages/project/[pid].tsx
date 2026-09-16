@@ -456,6 +456,7 @@ const ProjectPage: FC = () => {
               </TabsContent>
               <TabsContent value="members">
                 <ProjectAccessSettings project={p} />
+                <ProjectTeams project={pid} />
                 <MemberList
                   mutate={refreshOrganization}
                   project={pid}
@@ -465,7 +466,6 @@ const ProjectPage: FC = () => {
                   canDeleteMembers={false}
                   canInviteMembers={false}
                 />
-                <ProjectTeams project={pid} />
               </TabsContent>
             </Box>
           </Tabs>
