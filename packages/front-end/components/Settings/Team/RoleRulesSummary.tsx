@@ -1,11 +1,14 @@
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { MemberRoleWithProjects } from "shared/types/organization";
-import { getRoleDisplayName } from "shared/permissions";
 import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import RoleRuleLabel, { scopeRules } from "./RoleRuleLabel";
+
+const MAX_RULES_SHOWN = 3;
 
 export function RoleRulesSummary({
   value,
@@ -15,27 +18,43 @@ export function RoleRulesSummary({
   size?: "sm" | "md";
 }) {
   const { organization } = useUser();
+  const { getProjectById } = useDefinitions();
 
-  const extraRules =
-    (value.additionalRoles?.length || 0) + (value.projectRoles?.length || 0);
-
-  const environments = !value.limitAccessByEnvironment
-    ? "All Environments"
-    : value.environments?.length
-      ? value.environments.join(", ")
-      : "No environments";
+  // Global rules first, then one line per project rule.
+  const rules = [
+    ...scopeRules(value).map((rule) => ({ ...rule, project: "" })),
+    ...(value.projectRoles ?? []).flatMap((projectRule) =>
+      scopeRules(projectRule).map((rule) => ({
+        ...rule,
+        project:
+          getProjectById(projectRule.project)?.name ?? projectRule.project,
+      })),
+    ),
+  ];
+  const shown = rules.slice(0, MAX_RULES_SHOWN);
+  const hidden = rules.length - shown.length;
 
   return (
-    <Flex align="center" gap="2" wrap="wrap">
-      <Text size={size} weight="medium">
-        {getRoleDisplayName(value.role, organization)} in {environments}
-      </Text>
-      {extraRules > 0 && (
-        <Badge
-          color="gray"
-          variant="soft"
-          label={`+${extraRules} more rule${extraRules > 1 ? "s" : ""}`}
-        />
+    <Flex direction="column" gap="1">
+      {shown.map(({ project, ...rule }, i) => (
+        <Text key={i} as="div" size={size}>
+          <RoleRuleLabel {...rule} organization={organization} />
+          {project && (
+            <Text as="span" color="text-low">
+              {" · "}
+              {project}
+            </Text>
+          )}
+        </Text>
+      ))}
+      {hidden > 0 && (
+        <Box>
+          <Badge
+            color="gray"
+            variant="soft"
+            label={`+${hidden} more rule${hidden > 1 ? "s" : ""}`}
+          />
+        </Box>
       )}
     </Flex>
   );
@@ -55,9 +74,11 @@ export default function RoleRulesSummaryRow({
 }) {
   return (
     <Frame px="3" py="2" mb="4">
-      <Flex align="center" justify="between" gap="3">
-        <Flex align="center" gap="2" wrap="wrap">
-          <Text color="text-low">{label}</Text>
+      <Flex align="start" justify="between" gap="3">
+        <Flex direction="column" gap="1">
+          <Text weight="medium" color="text-high">
+            {label}
+          </Text>
           <RoleRulesSummary value={value} size="md" />
         </Flex>
         <Button variant="ghost" disabled={disabled} onClick={onEdit}>
