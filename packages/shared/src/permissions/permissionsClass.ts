@@ -1205,11 +1205,7 @@ export class Permissions {
   // project-scoped team, and only on projects they administer: the same
   // authority manageProjects already carries for a member's project roles.
   public canCreateTeam = (team: TeamAuthority): boolean => {
-    return (
-      this.canManageTeam() ||
-      (isProjectScopedTeam(team) &&
-        this.canManageProjectRoles(teamProjects(team)))
-    );
+    return this.canAdministerProjectScopedTeam(team);
   };
 
   public canUpdateTeam = (
@@ -1235,16 +1231,12 @@ export class Permissions {
   };
 
   public canDeleteTeam = (team: TeamAuthority): boolean => {
-    return (
-      this.canManageTeam() ||
-      (isProjectScopedTeam(team) &&
-        this.canManageProjectRoles(teamProjects(team)))
-    );
+    return this.canAdministerProjectScopedTeam(team);
   };
 
   // Membership grants the whole team's authority, so it is gated like the team.
   public canManageTeamMembership = (team: TeamAuthority): boolean => {
-    return this.canDeleteTeam(team);
+    return this.canAdministerProjectScopedTeam(team);
   };
 
   // A whole-member write without manageTeam must leave the global role alone
@@ -1265,6 +1257,16 @@ export class Permissions {
       changedProjectRoleProjects(existing.projectRoles, updated.projectRoles),
     );
   };
+
+  // Whole-team authority: manageTeam, or manageProjects on every project a
+  // project-scoped team covers.
+  private canAdministerProjectScopedTeam(team: TeamAuthority): boolean {
+    return (
+      this.canManageTeam() ||
+      (isProjectScopedTeam(team) &&
+        this.canManageProjectRoles(teamProjects(team)))
+    );
+  }
 
   // An empty list resolves to the global grant, as every project filter does.
   private canManageProjectRoles(projects: string[]): boolean {

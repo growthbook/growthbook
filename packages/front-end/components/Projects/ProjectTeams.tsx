@@ -6,7 +6,7 @@ import {
   MemberRoleWithProjects,
   ProjectMemberRole,
 } from "shared/types/organization";
-import { isProjectScopedTeam, roleSupportsEnvLimit } from "shared/permissions";
+import { isProjectScopedTeam } from "shared/permissions";
 import { Team, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -14,8 +14,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
-import EnvironmentCell from "@/components/Settings/Team/EnvironmentCell";
-import useRoleOptions from "@/components/Settings/Team/useRoleOptions";
+import ProjectRuleFields from "@/components/Settings/Team/ProjectRuleFields";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -36,7 +35,9 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 // The team's role fields, as PUT /teams/:id expects them.
 const teamRoleInfo = (team: Team): MemberRoleWithProjects => ({
@@ -64,61 +65,8 @@ const noGlobalRole = {
   additionalRoles: [],
 };
 
-const ProjectRuleFields: FC<{
-  rule: ProjectMemberRole;
-  setRule: (rule: ProjectMemberRole) => void;
-}> = ({ rule, setRule }) => {
-  const { organization } = useUser();
-  const roleOptions = useRoleOptions({ includeProjectAdminRole: true });
-
-  const setRole = (role: string) => {
-    // The server rejects env restrictions on roles with nothing env-scoped
-    setRule(
-      roleSupportsEnvLimit(role, organization)
-        ? { ...rule, role }
-        : { ...rule, role, limitAccessByEnvironment: false, environments: [] },
-    );
-  };
-
-  return (
-    <Table variant="surface" layout="fixed">
-      <TableHeader>
-        <TableRow>
-          <TableColumnHeader width="40%">
-            Role on this project
-          </TableColumnHeader>
-          <TableColumnHeader width="60%">Environments</TableColumnHeader>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <TableRow style={{ verticalAlign: "middle" }}>
-          <TableCell width="40%">
-            <Box width="220px">
-              <SelectField
-                value={rule.role}
-                options={roleOptions}
-                onChange={setRole}
-                sort={false}
-                containerClassName="mb-0"
-              />
-            </Box>
-          </TableCell>
-          <TableCell width="60%">
-            <EnvironmentCell
-              role={rule.role}
-              environments={rule.environments}
-              limitAccessByEnvironment={rule.limitAccessByEnvironment}
-              onChange={(next) => setRule({ ...rule, ...next })}
-            />
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
-  );
-};
-
 // One modal for both ways a team gains a role here: a brand-new project-scoped
-// team, or an existing team that doesn't have a rule on this project yet.
+// team, or an existing team that doesn't have a rule on this Project yet.
 const ProjectTeamRuleModal: FC<{
   project: string;
   mode: "create" | "add";
@@ -245,40 +193,21 @@ const TeamMembersModal: FC<{
               <TableCell>{member.email}</TableCell>
               <TableCell>
                 {canRemove(member.id) && (
-                  <DropdownMenu
-                    trigger={
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="2"
-                        highContrast
-                      >
-                        <BsThreeDotsVertical size={18} />
-                      </IconButton>
-                    }
-                    menuPlacement="end"
-                    variant="soft"
-                  >
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        color="red"
-                        confirmation={{
-                          submit: async () => {
-                            await apiCall(
-                              `/teams/${team.id}/member/${member.id}`,
-                              { method: "DELETE" },
-                            );
-                            onChange();
-                          },
-                          confirmationTitle: `Remove ${member.email}?`,
-                          cta: "Remove",
-                        }}
-                      >
-                        Remove from team
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </DropdownMenu>
+                  <DeleteButton
+                    displayName="member"
+                    text="Remove"
+                    cta="Remove"
+                    title={`Remove ${member.email} from ${team.name}`}
+                    link
+                    useIcon={false}
+                    deleteMessage={`${member.email} will lose this team's roles.`}
+                    onClick={async () => {
+                      await apiCall(`/teams/${team.id}/member/${member.id}`, {
+                        method: "DELETE",
+                      });
+                      onChange();
+                    }}
+                  />
                 )}
               </TableCell>
             </TableRow>
@@ -406,13 +335,22 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
           Teams ({rows.length})
         </Heading>
         <Flex align="center" gap="3">
-          <Button
-            variant="outline"
-            disabled={!addCandidates.length}
-            onClick={() => setRuleModal("add")}
+          <Tooltip
+            shouldDisplay={!addCandidates.length}
+            body={
+              teams.length === rows.length
+                ? "Every team already has a role on this Project."
+                : "The remaining teams carry a global role, so adding them here needs Team Management."
+            }
           >
-            Add existing team
-          </Button>
+            <Button
+              variant="outline"
+              disabled={!addCandidates.length}
+              onClick={() => setRuleModal("add")}
+            >
+              Add existing team
+            </Button>
+          </Tooltip>
           <PremiumTooltip commercialFeature="teams">
             <Button
               disabled={!canCreate || !hasCommercialFeature("teams")}
@@ -424,7 +362,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         </Flex>
       </Flex>
       <Text as="p" size="sm" color="text-low" mb="2">
-        Every member of a team gets the team&apos;s role on this project, which
+        Every member of a team gets the team&apos;s role on this Project, which
         replaces their global role here.
       </Text>
       <Table variant="surface" layout="fixed">
@@ -433,7 +371,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
             <TableColumnHeader width="30%">Team</TableColumnHeader>
             <TableColumnHeader width="20%">Global role</TableColumnHeader>
             <TableColumnHeader width="30%">
-              Role on this project
+              Role on this Project
             </TableColumnHeader>
             <TableColumnHeader width="10%">Members</TableColumnHeader>
             <TableColumnHeader width="50px" />
@@ -456,8 +394,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
               permissionsUtil.canManageTeamMembership(team);
             const canDelete =
               !externallyManaged && permissionsUtil.canDeleteTeam(team);
-            const showMenu =
-              canEditRule || canManageMembers || canDelete || canManageTeam;
 
             return (
               <TableRow key={team.id}>
@@ -472,8 +408,8 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                       <Tooltip
                         body={
                           canManageMembers
-                            ? "Members of this team also get its role on these projects."
-                            : "Managing this team's members or deleting it needs Project Admin on every project it covers."
+                            ? "Members of this team also get its role on these Projects."
+                            : "Managing this team's members or deleting it needs Project Admin on every Project it covers."
                         }
                       >
                         <Text size="sm" color="text-low">
@@ -500,7 +436,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                 </TableCell>
                 <TableCell>{team.members?.length ?? 0}</TableCell>
                 <TableCell>
-                  {showMenu && (
+                  {canEditRule && (
                     <DropdownMenu
                       trigger={
                         <IconButton
@@ -509,6 +445,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                           radius="full"
                           size="2"
                           highContrast
+                          aria-label="Team actions"
                         >
                           <BsThreeDotsVertical size={18} />
                         </IconButton>
@@ -517,13 +454,11 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                       variant="soft"
                     >
                       <DropdownMenuGroup>
-                        {canEditRule && (
-                          <DropdownMenuItem
-                            onClick={() => setRoleTeamId(team.id)}
-                          >
-                            Change role on this project
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem
+                          onClick={() => setRoleTeamId(team.id)}
+                        >
+                          Change role on this Project
+                        </DropdownMenuItem>
                         {canManageMembers && (
                           <>
                             <DropdownMenuItem
@@ -547,25 +482,24 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                             Team settings
                           </DropdownMenuItem>
                         )}
-                        {canEditRule && (
-                          <DropdownMenuItem
-                            color="red"
-                            confirmation={{
-                              submit: async () => {
-                                await saveRules(
-                                  team,
-                                  rulesWithoutProject(team, project),
-                                );
-                              },
-                              confirmationTitle: "Remove team from project",
-                              cta: "Remove",
-                              getConfirmationContent: async () =>
-                                `Members of "${team.name}" will lose the team's role on this project. The team itself is kept.`,
-                            }}
-                          >
-                            Remove from this project
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          color="red"
+                          confirmation={{
+                            submit: async () => {
+                              await saveRules(
+                                team,
+                                rulesWithoutProject(team, project),
+                              );
+                            },
+                            confirmationTitle: "Remove team from Project",
+                            cta: "Remove",
+                            getConfirmationContent: async () =>
+                              `Members of "${team.name}" will lose the team's role on this Project. The team itself is kept.`,
+                          }}
+                        >
+                          Remove from this Project
+                        </DropdownMenuItem>
                         {canDelete && (
                           <DropdownMenuItem
                             color="red"
@@ -598,7 +532,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
             <TableRow>
               <TableCell colSpan={5} style={{ textAlign: "center" }}>
                 <Text color="text-mid">
-                  No teams have a role on this project yet.
+                  No teams have a role on this Project yet.
                 </Text>
               </TableCell>
             </TableRow>
