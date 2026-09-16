@@ -271,14 +271,14 @@ const SessionReplaySearchFilters: FC<
       {/* "More" dropdown for typed-input filters */}
       <DropdownMenu
         trigger={FilterHeading({
-          heading: "more",
-          open: dropdownFilterOpen === "more",
+          heading: "More",
+          open: dropdownFilterOpen === "More",
         })}
-        open={dropdownFilterOpen === "more"}
+        open={dropdownFilterOpen === "More"}
         menuPlacement="end"
         variant="soft"
         onOpenChange={(o) => {
-          setDropdownFilterOpen(o ? "more" : "");
+          setDropdownFilterOpen(o ? "More" : "");
         }}
       >
         <DropdownMenuLabel>Filter by</DropdownMenuLabel>

@@ -173,11 +173,13 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
   const commitToUrl = useCallback((searchString: string) => {
     const { syntaxFilters: parsed } = transformQuery(searchString, FILTER_KEYS);
     const newParams = syntaxFiltersToQueryParams(parsed);
+    const r = routerRef.current;
+    const currentParams = routerQueryToParams(r.query);
+    if (JSON.stringify(newParams) === JSON.stringify(currentParams)) return;
     const query: Record<string, string> = { page: "1" };
     for (const [k, v] of Object.entries(newParams)) {
       if (v) query[k] = v;
     }
-    const r = routerRef.current;
     const sessionId = r.query.sessionId;
     if (typeof sessionId === "string" && sessionId) {
       query.sessionId = sessionId;

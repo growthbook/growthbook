@@ -7,6 +7,8 @@ import dynamic from "next/dynamic";
 import {
   PiCaretDoubleLeft,
   PiCaretDoubleRight,
+  PiCaretLeft,
+  PiCaretRight,
   PiCopy,
   PiCursorClick,
   PiDesktop,
@@ -25,7 +27,7 @@ import VariationNumber from "@/ui/VariationNumber";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import Field from "@/components/Forms/Field";
+import TextField from "@/ui/TextField";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -565,7 +567,7 @@ export default function SessionReplayPage() {
 
           {/* Search bar + filter dropdowns */}
           <Box mt="2">
-            <Field
+            <TextField
               placeholder="Search filters (e.g. user:alice duration:>30)"
               type="search"
               {...searchInputProps}
@@ -770,16 +772,20 @@ export default function SessionReplayPage() {
                 variant="outline"
                 disabled={page <= 1}
                 onClick={() => goToPage(page - 1)}
+                aria-label="Previous page"
               >
-                ‹
+                <PiCaretLeft aria-hidden />
               </Button>
-              <Button variant="ghost">{page}</Button>
+              <Text size="sm" weight="medium" aria-current="page">
+                {page}
+              </Text>
               <Button
                 variant="outline"
                 disabled={!hasNextPage}
                 onClick={() => goToPage(page + 1)}
+                aria-label="Next page"
               >
-                ›
+                <PiCaretRight aria-hidden />
               </Button>
             </Flex>
           </Flex>
