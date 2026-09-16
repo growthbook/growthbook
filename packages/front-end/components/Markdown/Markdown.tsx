@@ -1,10 +1,10 @@
 import { DetailedHTMLProps, FC, HTMLAttributes, useMemo } from "react";
-import Link from "next/link";
 import clsx from "clsx";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import MarkdownCodeBlock from "@/components/SyntaxHighlighting/MarkdownCodeBlock";
+import Link from "@/ui/Link";
 import styles from "./Markdown.module.scss";
 
 const imageCache = {};
