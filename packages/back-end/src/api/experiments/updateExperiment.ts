@@ -27,6 +27,7 @@ import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
+import { validatePhaseTargetingReferences } from "back-end/src/api/features/validations";
 import {
   startExperiment,
   validateExperimentChange,
@@ -371,6 +372,11 @@ export const updateExperiment = createApiRequestHandler(
       req.context,
       phasePrerequisites(changes.phases.slice(0, -1)),
       phasePrerequisites(experiment.phases),
+    );
+    await validatePhaseTargetingReferences(
+      changes.phases,
+      req.context,
+      experiment.phases,
     );
   }
 

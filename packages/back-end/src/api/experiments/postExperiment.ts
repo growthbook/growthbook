@@ -32,6 +32,7 @@ import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
+import { validatePhaseTargetingReferences } from "back-end/src/api/features/validations";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -342,6 +343,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.context,
       phasePrerequisites(newExperiment.phases),
     );
+    await validatePhaseTargetingReferences(newExperiment.phases, req.context);
 
     const experiment = await createExperiment({
       data: newExperiment,

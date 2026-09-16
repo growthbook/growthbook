@@ -106,6 +106,13 @@ describe("experiments API", () => {
           getAll: jest.fn().mockResolvedValue([]),
           getByIds: jest.fn().mockResolvedValue([]),
         },
+        savedGroups: {
+          getAll: jest
+            .fn()
+            .mockResolvedValue([
+              { id: "grp_beta", type: "list", attributeKey: "id", values: [] },
+            ]),
+        },
       },
       permissions: {
         canViewExperiment: () => true,
@@ -856,6 +863,50 @@ describe("experiments API", () => {
       expect(createExperiment).not.toHaveBeenCalled();
     });
 
+    it("rejects phase targeting that names a saved group that does not exist", async () => {
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+        },
+      });
+      const send = (ids: string[]) =>
+        request(app)
+          .post("/api/v1/experiments")
+          .send({
+            trackingKey: "exp_sg",
+            name: "Targeted",
+            datasourceId: "ds_123",
+            assignmentQueryId: "user_id",
+            variations: [
+              { key: "0", name: "Control", description: "", screenshots: [] },
+              { key: "1", name: "Treatment", description: "", screenshots: [] },
+            ],
+            phases: [
+              {
+                name: "Main",
+                dateStarted: "2026-01-01T00:00:00.000Z",
+                savedGroups: [{ match: "all", ids }],
+              },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+
+      const bad = await send(["grp_typo"]);
+      expect(bad.body.message).toMatch(
+        /Phase 1: Saved group "grp_typo" not found/,
+      );
+      expect(bad.status).toBe(404);
+      expect(createExperiment).not.toHaveBeenCalled();
+
+      (createExperiment as jest.Mock).mockResolvedValue(experiment);
+      const good = await send(["grp_beta"]);
+      expect(good.status).toBe(200);
+      expect(createExperiment).toHaveBeenCalled();
+    });
+
     it("preserves id and variationId values when creating an experiment", async () => {
       (getDataSourceById as jest.Mock).mockResolvedValue({
         id: "ds_123",
@@ -1336,6 +1387,140 @@ describe("experiments API", () => {
           .set("Authorization", "Bearer foo");
 
         expect(res.status).toBe(403);
+      });
+    });
+
+    describe("phase saved-group references", () => {
+      const phase = {
+        name: "Main",
+        dateStarted: new Date("2026-01-01"),
+        coverage: 1,
+        reason: "",
+        variationWeights: [1],
+        condition: "{}",
+        savedGroups: [],
+        prerequisites: [],
+        namespace: { enabled: false, name: "", range: [0, 1] },
+      };
+      const withPhase = (savedGroups: { match: "all"; ids: string[] }[]) => ({
+        ...experiment,
+        phases: [{ ...phase, savedGroups }],
+      });
+      beforeEach(() => {
+        (updateExperiment as jest.Mock).mockImplementation(
+          ({ experiment: exp, changes }) => ({ ...exp, ...changes }),
+        );
+      });
+      const sendPhases = (savedGroups: unknown, extra = {}) =>
+        request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            ...extra,
+            phases: [
+              {
+                name: "Main",
+                dateStarted: "2026-01-01T00:00:00.000Z",
+                savedGroups,
+              },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+
+      it("rejects an unknown saved group on the served phase", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue(withPhase([]));
+        const res = await sendPhases([{ match: "all", ids: ["grp_typo"] }]);
+        expect(res.body.message).toMatch(
+          /Phase 1: Saved group "grp_typo" not found/,
+        );
+        expect(res.status).toBe(404);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("accepts a saved group that exists", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue(withPhase([]));
+        const res = await sendPhases([{ match: "all", ids: ["grp_beta"] }]);
+        expect(res.status).toBe(200);
+        expect(updateExperiment).toHaveBeenCalledWith(
+          expect.objectContaining({
+            changes: expect.objectContaining({
+              phases: [
+                expect.objectContaining({
+                  savedGroups: [{ match: "all", ids: ["grp_beta"] }],
+                }),
+              ],
+            }),
+          }),
+        );
+      });
+
+      it("rejects a phase condition whose $inGroup names a saved group that does not exist", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue(withPhase([]));
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            phases: [
+              {
+                name: "Main",
+                dateStarted: "2026-01-01T00:00:00.000Z",
+                condition: JSON.stringify({ id: { $inGroup: "grp_typo" } }),
+              },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+        expect(res.body.message).toMatch(
+          /^Phase 1: Invalid condition.*grp_typo/,
+        );
+        expect(res.status).toBe(400);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("checks a stale group rolled forward from an older stored phase onto a new served phase", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...experiment,
+          phases: [
+            {
+              ...phase,
+              name: "Old",
+              savedGroups: [{ match: "all", ids: ["grp_gone"] }],
+            },
+            { ...phase, savedGroups: [] },
+          ],
+        });
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            phases: [
+              {
+                name: "Old",
+                dateStarted: "2026-01-01T00:00:00.000Z",
+                savedGroups: [{ match: "all", ids: ["grp_gone"] }],
+              },
+              { name: "Main", dateStarted: "2026-01-01T00:00:00.000Z" },
+              {
+                name: "New",
+                dateStarted: "2026-02-01T00:00:00.000Z",
+                savedGroups: [{ match: "all", ids: ["grp_gone"] }],
+              },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+        expect(res.body.message).toMatch(
+          /Phase 3: Saved group "grp_gone" not found/,
+        );
+        expect(res.status).toBe(404);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("leaves an already-stored stale reference alone when it is echoed back", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue(
+          withPhase([{ match: "all", ids: ["grp_deleted_since"] }]),
+        );
+        const res = await sendPhases(
+          [{ match: "all", ids: ["grp_deleted_since"] }],
+          { name: "Renamed" },
+        );
+        expect(res.status).toBe(200);
+        expect(updateExperiment).toHaveBeenCalled();
       });
     });
 

@@ -1,10 +1,11 @@
 import {
   assertValidRuleEnvironments,
   normalizeInlineRampSchedule,
+  validatePhaseTargetingReferences,
   validateRuleAttributes,
   validateRulesReferences,
 } from "back-end/src/api/features/validations";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
@@ -195,6 +196,143 @@ describe("validateRulesReferences", () => {
 
   it("does not load saved groups for an empty rules list", async () => {
     await validateRulesReferences([], ctx);
+    expect(getAll).not.toHaveBeenCalled();
+  });
+});
+
+// Experiment phases reuse the rule reference check; only targeting that
+// differs from the stored phases is looked at.
+describe("validatePhaseTargetingReferences", () => {
+  const getAll = jest.fn();
+  const ctx = {
+    org: { settings: { attributeSchema: [] } },
+    models: { savedGroups: { getAll } },
+  } as unknown as ApiReqContext;
+  const known = [{ match: "all" as const, ids: ["grp_known"] }];
+  const missing = [{ match: "all" as const, ids: ["grp_missing"] }];
+
+  beforeEach(() => {
+    getAll.mockReset();
+    getAll.mockResolvedValue([
+      { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
+    ]);
+  });
+
+  it("accepts phases whose groups exist and whose conditions parse", async () => {
+    await expect(
+      validatePhaseTargetingReferences(
+        [
+          { condition: '{"country": "US"}', savedGroups: known },
+          { condition: '{"id": {"$inGroup": "grp_known"}}' },
+        ],
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+    expect(getAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a saved group that does not exist, naming the phase", async () => {
+    await expect(
+      validatePhaseTargetingReferences(
+        [{ condition: "{}", savedGroups: missing }],
+        ctx,
+      ),
+    ).rejects.toThrow(
+      new NotFoundError('Phase 1: Saved group "grp_missing" not found'),
+    );
+  });
+
+  it("rejects an unknown $inGroup id and an unparseable condition", async () => {
+    await expect(
+      validatePhaseTargetingReferences(
+        [{ condition: '{"id": {"$inGroup": "grp_missing"}}' }],
+        ctx,
+      ),
+    ).rejects.toThrow(BadRequestError);
+    await expect(
+      validatePhaseTargetingReferences([{ condition: "{not json" }], ctx),
+    ).rejects.toThrow(/^Phase 1: Invalid condition/);
+  });
+
+  it("skips a phase that echoes stored targeting, even if the stored group is gone", async () => {
+    await expect(
+      validatePhaseTargetingReferences(
+        [{ condition: "{}", savedGroups: missing }],
+        ctx,
+        [{ condition: "", savedGroups: missing }],
+      ),
+    ).resolves.toBeUndefined();
+    expect(getAll).not.toHaveBeenCalled();
+  });
+
+  it("on the latest phase checks only the part that changed from the stored latest", async () => {
+    // Condition changed, stale saved groups untouched: only the condition is checked.
+    await expect(
+      validatePhaseTargetingReferences(
+        [
+          { condition: "{}", savedGroups: [] },
+          { condition: '{"country": "CA"}', savedGroups: missing },
+        ],
+        ctx,
+        [
+          { condition: "{}", savedGroups: [] },
+          { condition: '{"country": "US"}', savedGroups: missing },
+        ],
+      ),
+    ).resolves.toBeUndefined();
+    // Saved groups changed to an unknown id: rejected as phase 2.
+    await expect(
+      validatePhaseTargetingReferences(
+        [
+          { condition: "{}", savedGroups: [] },
+          { condition: '{"country": "US"}', savedGroups: missing },
+        ],
+        ctx,
+        [
+          { condition: "{}", savedGroups: [] },
+          { condition: '{"country": "US"}', savedGroups: known },
+        ],
+      ),
+    ).rejects.toThrow(/^Phase 2: Saved group "grp_missing" not found/);
+  });
+
+  it("treats an appended phase that copies the stored latest targeting as unchanged", async () => {
+    await expect(
+      validatePhaseTargetingReferences(
+        [
+          { condition: "{}", savedGroups: missing },
+          { condition: "{}", savedGroups: missing },
+        ],
+        ctx,
+        [{ condition: "{}", savedGroups: missing }],
+      ),
+    ).resolves.toBeUndefined();
+    expect(getAll).not.toHaveBeenCalled();
+  });
+
+  it("checks a new latest phase that copies an OLDER stored phase's stale group", async () => {
+    await expect(
+      validatePhaseTargetingReferences(
+        [
+          { condition: "{}", savedGroups: missing },
+          { condition: "{}", savedGroups: known },
+          { condition: "{}", savedGroups: missing },
+        ],
+        ctx,
+        [
+          { condition: "{}", savedGroups: missing },
+          { condition: "{}", savedGroups: known },
+        ],
+      ),
+    ).rejects.toThrow(/^Phase 3: Saved group "grp_missing" not found/);
+  });
+
+  it("does not load saved groups when no phase carries targeting", async () => {
+    await validatePhaseTargetingReferences([], ctx);
+    await validatePhaseTargetingReferences(
+      [{ condition: "", savedGroups: [] }, { condition: "{}" }],
+      ctx,
+    );
     expect(getAll).not.toHaveBeenCalled();
   });
 });

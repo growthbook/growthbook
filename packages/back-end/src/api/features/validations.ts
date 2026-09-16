@@ -14,6 +14,7 @@ import { z } from "zod";
 import { findStoredRuleCounterpart, validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ExperimentPhase } from "shared/types/experiment";
 import { getSavedGroupMap } from "back-end/src/services/features";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
@@ -277,6 +278,65 @@ export async function validateChangedRuleReferences(
     }),
     context,
   );
+}
+
+type PhaseTargeting = Pick<ExperimentPhase, "condition" | "savedGroups">;
+
+// An experiment phase carries the same condition / saved-group targeting as a
+// feature rule, and the SDK payload drops an unknown group (or an unparseable
+// condition) the same way, so the REST experiment writes get the rule check.
+// The latest (served) phase is diffed field by field against the stored
+// latest phase only, so a stale group rolled forward from an older phase onto
+// the served one is checked. Earlier inbound phases are history: one whose
+// condition and saved groups match any stored phase is skipped, otherwise it
+// is diffed against the stored phase in the same position. A phase with no
+// targeting has nothing to check. Saved groups are loaded once, and only when
+// something needs checking.
+export async function validatePhaseTargetingReferences(
+  phases: PhaseTargeting[],
+  context: ApiReqContext,
+  storedPhases: PhaseTargeting[] = [],
+): Promise<void> {
+  const norm = (p: PhaseTargeting) => ({
+    condition: p.condition || "{}",
+    savedGroups: p.savedGroups ?? [],
+  });
+  const stored = storedPhases.map(norm);
+  const toCheck = phases.flatMap((phase, i) => {
+    const inbound = norm(phase);
+    if (inbound.condition === "{}" && !inbound.savedGroups.length) return [];
+    const isLatest = i === phases.length - 1;
+    if (!isLatest && stored.some((s) => isEqual(s, inbound))) return [];
+    const prior = isLatest ? stored[stored.length - 1] : stored[i];
+    const conditionChanged = !prior || prior.condition !== inbound.condition;
+    const savedGroupsChanged =
+      !prior || !isEqual(prior.savedGroups, inbound.savedGroups);
+    if (!conditionChanged && !savedGroupsChanged) return [];
+    return [
+      {
+        label: `Phase ${i + 1}`,
+        condition: conditionChanged ? inbound.condition : undefined,
+        savedGroups: savedGroupsChanged ? inbound.savedGroups : [],
+      },
+    ];
+  });
+  if (!toCheck.length) return;
+  const groupMap = await getSavedGroupMap(context);
+  for (const { label, ...targeting } of toCheck) {
+    try {
+      validateRuleReferencesWithGroups(targeting, groupMap);
+    } catch (e) {
+      if (e instanceof NotFoundError) {
+        throw new NotFoundError(`${label}: ${e.message}`);
+      }
+      if (e instanceof BadRequestError) {
+        throw new BadRequestError(
+          `${label}: ${e.message.replace(/^Invalid rule condition/, "Invalid condition")}`,
+        );
+      }
+      throw e;
+    }
+  }
 }
 
 function validateRuleReferencesWithGroups(
