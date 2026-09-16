@@ -25,21 +25,9 @@ describe("mapColumnTypeToExplorationType", () => {
     expect(mapColumnTypeToExplorationType(input)).toBe(expected);
   });
 
-  it("covers every FactTableColumnType so a new warehouse type cannot skip the mapper", () => {
-    for (const datatype of factTableColumnTypes) {
-      expect(() =>
-        mapColumnTypeToExplorationType(datatype as FactTableColumnType),
-      ).not.toThrow();
-    }
-  });
-
-  it("produces columnTypes a SQL exploration config can round-trip", () => {
+  it("maps every FactTableColumnType to a value the exploration column-type validator accepts", () => {
     const warehouseTypes: Array<FactTableColumnType | undefined> = [
-      "date",
-      "string",
-      "json",
-      "binary",
-      "",
+      ...(factTableColumnTypes as FactTableColumnType[]),
       undefined,
     ];
     const columnTypes = Object.fromEntries(
