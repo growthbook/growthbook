@@ -1,5 +1,83 @@
 import { QueryMetadata } from "shared/types/query";
-import { sanitizeQueryMetadataForBigQueryLabels } from "back-end/src/services/bigquery";
+import {
+  normalizeBigQueryApiEndpoint,
+  sanitizeQueryMetadataForBigQueryLabels,
+} from "back-end/src/services/bigquery";
+
+describe("normalizeBigQueryApiEndpoint", () => {
+  it.each([undefined, "", "   "])(
+    "uses the SDK default for an empty endpoint: %p",
+    (value) => {
+      expect(normalizeBigQueryApiEndpoint(value)).toBeUndefined();
+    },
+  );
+
+  it.each([
+    ["https://proxy.example.com", "https://proxy.example.com"],
+    [" https://proxy.example.com/ ", "https://proxy.example.com"],
+    ["https://proxy.example.com:8443", "https://proxy.example.com:8443"],
+    ["http://proxy.example.com:8080", "http://proxy.example.com:8080"],
+    ["proxy.example.com:8443/tenant", "https://proxy.example.com:8443/tenant"],
+    [
+      "HTTPS://PROXY.EXAMPLE.COM:443/tenant",
+      "https://proxy.example.com/tenant",
+    ],
+    ["http://[::1]:8080", "http://[::1]:8080"],
+    ["https://proxy.example.com/bigquery/v2", "https://proxy.example.com"],
+    [" https://proxy.example.com/bigquery/v2/ ", "https://proxy.example.com"],
+    [
+      "mycompany.internal.proxy/bigquery/v2",
+      "https://mycompany.internal.proxy",
+    ],
+    [
+      "https://proxy.example.com/tenant/bigquery/v2",
+      "https://proxy.example.com/tenant",
+    ],
+    [
+      "https://proxy.example.com/bigquery/v2/custom",
+      "https://proxy.example.com/bigquery/v2/custom",
+    ],
+  ])("normalizes %s for the SDK", (value, expected) => {
+    expect(normalizeBigQueryApiEndpoint(value)).toBe(expected);
+  });
+
+  it.each([
+    null,
+    123,
+    true,
+    {},
+    [],
+    "https://",
+    "https://bad host",
+    "https://proxy.example.com:99999",
+    "//proxy.example.com",
+    "https:/proxy.example.com",
+    "file:/tmp/test",
+    "ftp://proxy.example.com",
+    "file:///tmp/test",
+    "javascript:alert(1)",
+    "https://proxy.example.com/path?",
+    "https://proxy.example.com/path#",
+    "https://proxy.example.com/?token=secret",
+    "https://proxy.example.com/#path",
+    "https://proxy.example.com\\other",
+    "https://proxy.exa\nmple.com",
+  ])("rejects invalid endpoint %p", (value) => {
+    expect(() => normalizeBigQueryApiEndpoint(value)).toThrow(
+      "BigQuery API endpoint",
+    );
+  });
+
+  it.each([
+    "https://user:private-password@proxy.example.com",
+    "https://:private-password@proxy.example.com",
+    "https://private-password@proxy.example.com",
+  ])("does not echo embedded credentials in errors", (value) => {
+    expect(() => normalizeBigQueryApiEndpoint(value)).toThrow(
+      "BigQuery API endpoint cannot contain embedded credentials.",
+    );
+  });
+});
 
 // BigQuery label rules (see https://cloud.google.com/bigquery/docs/labels-intro):
 // - Each resource can have up to 64 labels.

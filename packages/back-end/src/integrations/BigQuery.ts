@@ -25,6 +25,7 @@ import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
+  normalizeBigQueryApiEndpoint,
   getFactTableTypeFromBigQueryType,
   sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";
@@ -46,12 +47,14 @@ export default class BigQuery extends SqlIntegration {
   }
 
   private getClient() {
+    const apiEndpoint = normalizeBigQueryApiEndpoint(this.params.apiEndpoint);
     // If pull credentials from env or the metadata server
     if (!IS_CLOUD && this.params.authType === "auto") {
-      return new bq.BigQuery();
+      return new bq.BigQuery({ apiEndpoint });
     }
 
     return new bq.BigQuery({
+      apiEndpoint,
       projectId: this.params.projectId,
       credentials: {
         client_email: this.params.clientEmail,

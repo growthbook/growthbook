@@ -1646,11 +1646,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Settings/SharedConnectionSettings.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Settings/SubscriptionInfo.tsx": {
     "no-restricted-imports": {
       "count": 2

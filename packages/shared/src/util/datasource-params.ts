@@ -117,6 +117,7 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
 
   bigquery: {
     authType: "public",
+    apiEndpoint: "public",
     projectId: "public",
     clientEmail: "public",
     privateKey: "secret",
