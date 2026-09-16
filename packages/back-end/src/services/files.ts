@@ -302,6 +302,45 @@ export async function uploadFile(
   return fileURL;
 }
 
+export function getUploadUrlPrefix(localOrigin: string): string {
+  const cfg = getDestinationConfig("private");
+  const baseUrl =
+    UPLOAD_METHOD === "s3"
+      ? cfg.s3Domain
+      : UPLOAD_METHOD === "google-cloud"
+        ? cfg.gcsDomain
+        : `${localOrigin.replace(/\/+$/, "")}/upload/`;
+
+  return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+}
+
+export async function deleteFile(
+  filePath: string,
+  destination: UploadDestination = "private",
+): Promise<void> {
+  if (filePath.indexOf("\0") !== -1) {
+    throw new Error("Error: Filename must not contain null bytes");
+  }
+
+  const cfg = getDestinationConfig(destination);
+
+  if (UPLOAD_METHOD === "s3") {
+    await getS3Client(cfg.s3Region).send(
+      new DeleteObjectCommand({
+        Bucket: cfg.s3Bucket,
+        Key: filePath,
+      }),
+    );
+  } else if (UPLOAD_METHOD === "google-cloud") {
+    await new Storage()
+      .bucket(cfg.gcsBucket)
+      .file(filePath)
+      .delete({ ignoreNotFound: true });
+  } else {
+    await fs.promises.rm(resolveUploadPath(filePath), { force: true });
+  }
+}
+
 export function getImageData(filePath: string) {
   // Watch out for poison null bytes
   if (filePath.indexOf("\0") !== -1) {
