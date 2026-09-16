@@ -604,8 +604,13 @@ function vnumCircle(i: number, size = 18): El {
   );
 }
 
-function pctCell(chg: string, dir: "up" | "down", size = 13): El {
-  const col = dir === "up" ? P.st.green : P.st.red;
+function pctCell(
+  chg: string,
+  dir: "up" | "down",
+  size = 13,
+  color?: string,
+): El {
+  const col = color ?? (dir === "up" ? P.st.green : P.st.red);
   return el("div", { display: "flex", alignItems: "center", gap: 5 }, [
     arrowImg(dir, col, Math.round(size * 0.62)),
     txt(chg, { fontSize: size, fontWeight: 600, color: col }, true),
@@ -792,8 +797,9 @@ function goalRowEl(r: CardGoalRow): El {
         true,
       ),
       intervalCell,
+      // Same significance rule as the stat cell: muted unless significant.
       r.chg && r.dir
-        ? pctCell(r.chg, r.dir, layout.chg)
+        ? pctCell(r.chg, r.dir, layout.chg, statColor(r))
         : txt("—", { fontSize: layout.chg, color: P.subtle }, true),
     ],
     { borderBottom: `1px solid ${P.borderSub}`, opacity: r.muted ? 0.55 : 1 },
@@ -838,7 +844,7 @@ function sectionLabel(t: string): El {
 }
 
 const statLabelFor = (exp: ExperimentCardData): string =>
-  exp.statsEngine === "frequentist" ? "P-value" : "Chance";
+  exp.statsEngine === "frequentist" ? "P-value" : "Chance to Win";
 
 // ---------------------------------------------------------------------------
 // Card sections.
@@ -1369,7 +1375,7 @@ function eventSummaryBody(card: EventCardData, size: EventBodySize): El {
       display: "flex",
       flexDirection: "column",
       gap: lg ? 22 : 14,
-      padding: lg ? "18px 28px 26px" : 0,
+      padding: lg ? "0 28px 26px" : 0,
     },
     [
       ...(card.fields ?? []).map((field) => fieldEl(field, size)),
@@ -1418,7 +1424,7 @@ function eventHeaderEl(card: CardIdentity): El {
       alignItems: "baseline",
       gap: 14,
       flexWrap: "wrap",
-      padding: "22px 28px 0",
+      padding: "22px 28px 18px",
     },
     [
       txt(card.name, {
