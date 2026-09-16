@@ -61,12 +61,7 @@ function RatioPart({
     const agg = aggregationForShape(shape);
     return (
       <Frame p="4" mb="0">
-        <Badge
-          label={label.toUpperCase()}
-          color="violet"
-          radius="small"
-          mb="4"
-        />
+        <Badge label={label} color="violet" radius="small" mb="4" />
         <DataList
           columns={2}
           mb="4"
