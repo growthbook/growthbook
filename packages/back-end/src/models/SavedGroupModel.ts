@@ -10,6 +10,7 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
 import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
@@ -31,6 +32,7 @@ import { MakeModelClass } from "./BaseModel";
 // or archived from the org schema. Normal create/update paths leave it unset.
 type WriteOptions = {
   skipAttributeValidation?: boolean;
+  isCompensation?: boolean;
 };
 
 const BaseClass = MakeModelClass({
@@ -144,6 +146,9 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     previousDoc?: SavedGroupInterface,
     writeOptions?: WriteOptions,
   ) {
+    if (!this.context.bulkPublishApplying && !writeOptions?.isCompensation) {
+      await assertSavedGroupProjectScope(this.context, doc, previousDoc);
+    }
     if (writeOptions?.skipAttributeValidation) return;
     if (doc.type === "condition" && doc.condition) {
       assertRegisteredAttributes(

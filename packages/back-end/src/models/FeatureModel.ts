@@ -47,6 +47,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
@@ -937,6 +938,8 @@ export async function createFeature(
     linkedExperiments,
   });
 
+  await assertFeatureSavedGroupScope(context, data);
+
   if (Array.isArray(featureToCreate.rules)) {
     const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
       featureToCreate.rules as FeatureRule[],
@@ -1365,6 +1368,9 @@ export async function updateFeature(
     // set-then-fetch, so its `dateUpdated` may already be a rival's, and
     // reading ownership from it says "still ours" at the moment it isn't.
     onStamped?: (stamp: Date) => void;
+    // Internal failed-write recovery only; a user-requested revert must still
+    // satisfy the current Saved Group scope.
+    isCompensation?: boolean;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
@@ -1403,6 +1409,9 @@ export async function updateFeature(
   // `bulkPublishApplying` (not the correlation token) so genuine post-commit
   // writes — ramp activation etc., NOT covered by the plan gates — still run.
   if (!context.bulkPublishApplying) {
+    if (!options?.isCompensation) {
+      await assertFeatureSavedGroupScope(context, projected, feature);
+    }
     await runValidateFeatureHooks({
       context,
       feature: projected,
@@ -3624,6 +3633,7 @@ export async function prevalidatePublishRevision({
 }) {
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(context, feature, revision, result);
+  await assertFeatureSavedGroupScope(context, proposedFeature);
   if (skipValidation) return;
   // Re-validate config-backed values going live: save-time validation can be
   // stale (a config's schema/invariants may tighten between draft and publish),
@@ -3723,6 +3733,7 @@ async function restorePublishedFeatureDoc(
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
         onStamped,
+        isCompensation: true,
       });
       return;
     } catch (e) {

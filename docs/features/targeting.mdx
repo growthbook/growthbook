@@ -296,6 +296,18 @@ GrowthBook uses MongoDB query syntax because it is easy to read, write, and well
 
 Saved Groups let you target the same group of users across multiple features and experiments. Define a group once and reuse it everywhere — for example, beta testers or high-value customers.
 
+### Project Scope
+
+By default, a Saved Group's Projects help filter the pickers. Cross-project references remain allowed by the server, including nested Condition Groups.
+
+To enforce scope on Feature Flags, enable **Enforce Saved Group Project scope** under **Settings → General → Saved Group Settings**. Every referenced group must then be unscoped or shared with every Project where the referencing rule can run. This includes the Feature Flag's primary Project and `targetingProjects` (or All Projects), narrowed by the rule's own Project scope. A rule delivered to All Projects requires unscoped groups.
+
+Validation follows the entire nested Saved Group graph, including `$savedGroups`, `$inGroup`, `$notInGroup`, and references in prerequisites. Nested groups do not need to cover their parent group's scope: each is checked against the consuming Feature Flag's evaluation scope. For example, a group shared with Projects A and B can reference a group shared only with B when the consuming rule runs only in B.
+
+When enforcement is enabled, the server checks rule writes and publication, including Project moves and restored revisions. Changing a Saved Group's Projects or nested references is blocked if it introduces a scope violation for a consuming Feature Flag or active Feature Flag draft, including archived Feature Flags. Saved Group drafts are checked against their consumers when published. Update the references or share the groups with the required Projects first.
+
+Enabling enforcement does not rewrite existing targeting or remove groups from SDK payloads. Existing violations must be repaired before publishing an affected Feature Flag again. This setting applies to Feature Flag targeting; standalone experiment targeting is unchanged.
+
 <Frame>
   <img src="/static/images/features/saved-groups-overview.png" alt="Saved groups overview" width="800" />
 </Frame>

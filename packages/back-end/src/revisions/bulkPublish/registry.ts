@@ -11,6 +11,7 @@ import {
 import { collectConfigLockGate } from "back-end/src/services/configLock";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
 import type { ReqContext } from "back-end/types/request";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
@@ -79,6 +80,11 @@ async function savedGroupExtraGates(args: {
   // reverts, mirroring the write path's skipAttributeValidation. Only the
   // changed condition is checked (existingParts), matching customValidation.
   const savedGroup = args.entity as unknown as SavedGroupInterface;
+  await assertSavedGroupProjectScope(
+    args.overlayContext,
+    { ...savedGroup, ...args.desiredState },
+    savedGroup,
+  );
   const proposedCondition =
     (args.desiredState.condition as string | undefined) ?? savedGroup.condition;
   if (

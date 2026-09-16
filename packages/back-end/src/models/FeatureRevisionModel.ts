@@ -41,6 +41,10 @@ import {
   RevisionReview,
   reviewerKeyForEventUser,
 } from "shared/validators";
+import {
+  assertFeatureSavedGroupScope,
+  featureForSavedGroupValidation,
+} from "back-end/src/services/savedGroupProjectScope";
 import { ConflictError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -1163,6 +1167,12 @@ export async function createRevision({
   const { revision, baseRevision } = prepared;
   baseVersion = prepared.baseVersion;
 
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, revision),
+    feature,
+  );
+
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision,
@@ -1454,6 +1464,11 @@ export async function prevalidateRevisionUpdate(
     revision,
     changes,
   );
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, proposedRevision),
+    featureForSavedGroupValidation(feature, revision),
+  );
   await runValidateFeatureRevisionHooks({
     context,
     feature,
@@ -1508,6 +1523,12 @@ export async function updateRevision(
     clearRevertedFrom,
     staleReviews,
   } = computeRevisionUpdate(context, feature, revision, changes, { rebase });
+
+  await assertFeatureSavedGroupScope(
+    context,
+    featureForSavedGroupValidation(feature, proposedRevision),
+    featureForSavedGroupValidation(feature, revision),
+  );
 
   await runValidateFeatureRevisionHooks({
     context,
