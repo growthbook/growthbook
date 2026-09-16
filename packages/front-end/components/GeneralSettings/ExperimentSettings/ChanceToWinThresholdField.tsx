@@ -5,7 +5,9 @@ import {
   RegisterOptions,
   UseFormReturn,
 } from "react-hook-form";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
+import { GBInfo } from "@/components/Icons";
 
 export function getConfidenceLevelHighlight(percent: number | undefined): {
   highlightColor: string;
@@ -90,7 +92,20 @@ export default function ChanceToWinThresholdField<
   return (
     <Field
       size="legacy"
-      label={label}
+      label={
+        <>
+          {label}
+          <Tooltip content="A variation is called a winner when its chance to win rises above this threshold, and a loser when its chance to win falls below (100% minus this threshold). At 95%, a result is significant when chance to win is above 95% or below 5% -- a one-sided 5% cutoff on each side (z about 1.645 under a flat prior). Use 97.5% to match a two-sided 95% credible interval (z about 1.96).">
+            <Flex
+              ml="2"
+              display="inline-flex"
+              style={{ verticalAlign: "middle" }}
+            >
+              <GBInfo />
+            </Flex>
+          </Tooltip>
+        </>
+      }
       type="number"
       step="any"
       min="70"
