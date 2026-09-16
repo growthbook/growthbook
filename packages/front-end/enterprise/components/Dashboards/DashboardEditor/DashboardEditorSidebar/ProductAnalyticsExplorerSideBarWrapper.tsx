@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo } from "react";
 import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
@@ -22,8 +22,6 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   setBlock,
   dashboardGlobalControls,
   invalidateStaleResults = true,
-  saveAndCloseTrigger,
-  onSaveAndClose,
   hideDataSourceSelector = false,
   sqlExploreConfigOnly = false,
   dashboardHeaderLeadingContent,
@@ -46,8 +44,6 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   invalidateStaleResults?: boolean;
-  saveAndCloseTrigger?: number;
-  onSaveAndClose?: () => void;
   hideDataSourceSelector?: boolean;
   sqlExploreConfigOnly?: boolean;
   dashboardHeaderLeadingContent?: ReactNode;
@@ -58,21 +54,11 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     draftExploreState,
     setDraftExploreState,
     handleSubmit,
-    loading,
     comparisonMode,
     linkedFunnelMetricId,
   } = useExplorerContext();
-  const pendingCloseRef = useRef(false);
-  const onSaveAndCloseRef = useRef(onSaveAndClose);
-  onSaveAndCloseRef.current = onSaveAndClose;
-
   const explorerAnalysisId =
     "explorerAnalysisId" in block ? block.explorerAnalysisId : undefined;
-  const comparisonExplorerAnalysisId =
-    "comparisonExplorerAnalysisId" in block
-      ? block.comparisonExplorerAnalysisId
-      : undefined;
-  const compareEnabled = draftExploreState.previousTimeFrame != null;
   const dateControlledBlock = blockUsesDashboardDateControl(block)
     ? block
     : null;
@@ -173,33 +159,6 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     explorerAnalysisId,
     linkedMetricChanged,
     linkedFunnelMetricId,
-  ]);
-
-  // When Save & Close is requested and the block is stale, run the analysis first.
-  useEffect(() => {
-    if (!saveAndCloseTrigger) return;
-    pendingCloseRef.current = true;
-    handleSubmit({ force: true, config: getEffectiveDraftConfig() });
-  }, [saveAndCloseTrigger, handleSubmit, getEffectiveDraftConfig]);
-
-  // Once onRunComplete writes the required analysis ids, complete the save.
-  useEffect(() => {
-    if (
-      pendingCloseRef.current &&
-      explorerAnalysisId &&
-      (!compareEnabled ||
-        comparisonExplorerAnalysisId ||
-        (!loading && !needsFetch))
-    ) {
-      pendingCloseRef.current = false;
-      onSaveAndCloseRef.current?.();
-    }
-  }, [
-    compareEnabled,
-    comparisonExplorerAnalysisId,
-    explorerAnalysisId,
-    loading,
-    needsFetch,
   ]);
 
   return (
