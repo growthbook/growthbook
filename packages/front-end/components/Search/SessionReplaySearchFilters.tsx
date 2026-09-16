@@ -52,15 +52,18 @@ const TextInputRow: FC<{
   const rowRef = useRef<HTMLDivElement>(null);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
+  const [active, setActive] = useState(false);
+
   const existingFilter = syntaxFilters.find(
     (f) => f.field === field && f.operator === operator,
   );
 
-  const active = existingFilter !== undefined;
   const [localValue, setLocalValue] = useState(existingFilter?.values[0] ?? "");
 
   useEffect(() => {
-    setLocalValue(existingFilter?.values[0] ?? "");
+    if (existingFilter) {
+      setLocalValue(existingFilter.values[0] ?? "");
+    }
   }, [existingFilter]);
 
   useEffect(() => {
@@ -79,6 +82,7 @@ const TextInputRow: FC<{
           );
           setSearchValue(newValue.trim());
         }
+        setActive(false);
         return;
       }
       const newFilter: SyntaxFilter = {
@@ -99,11 +103,12 @@ const TextInputRow: FC<{
           (searchValue.length > 0 ? searchValue + " " + token : token).trim(),
         );
       }
+      setActive(false);
     },
     [field, operator, existingFilter, searchValue, setSearchValue],
   );
 
-  if (active) {
+  if (active || existingFilter) {
     return (
       <Flex
         ref={rowRef}
@@ -148,19 +153,10 @@ const TextInputRow: FC<{
     <DropdownMenuItem
       onClick={(e) => {
         e.preventDefault();
-        const newFilter: SyntaxFilter = {
-          field,
-          operator,
-          values: [""],
-          negated: false,
-        };
-        const token = filterToString(newFilter);
-        setSearchValue(
-          (searchValue.length > 0 ? searchValue + " " + token : token).trim(),
-        );
+        setActive(true);
       }}
     >
-      <FilterItem item={label} exists={false} />
+      <FilterItem item={label} exists={!!existingFilter} />
     </DropdownMenuItem>
   );
 };

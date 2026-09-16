@@ -128,7 +128,7 @@ describe("listSessionReplays", () => {
     expect(query).toContain("has(feature_keys, 'flag\\'one')");
     expect(query).toContain("has(experiment_keys, 'exp_one')");
     expect(query).toContain("started_at >= '2026-07-01'");
-    expect(query).toContain("started_at <= '2026-07-21 23:59:59'");
+    expect(query).toContain("started_at < '2026-07-22'");
     expect(query).toContain("LIMIT 50");
     expect(query).toContain("OFFSET 100");
   });
