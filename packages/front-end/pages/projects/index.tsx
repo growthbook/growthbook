@@ -194,7 +194,7 @@ const ProjectsPage: FC = () => {
                           <Box
                             style={{ color: "var(--gray-9)", opacity: 0.85 }}
                           >
-                            <Text as="p" size="sm" mono mb="0">
+                            <Text as="div" size="sm" mono>
                               {p.publicId}
                             </Text>
                           </Box>
