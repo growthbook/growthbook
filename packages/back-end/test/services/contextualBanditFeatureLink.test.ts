@@ -114,6 +114,7 @@ const cbModel = {
   applyLinkageDelta: jest.fn(),
   setLinkageState: jest.fn(),
   removePendingFeatureDraft: jest.fn(),
+  activatePendingVariationsForFeature: jest.fn(),
 };
 
 /** No linkage write may originate here, whichever method it would have used. */
@@ -138,6 +139,7 @@ function makeContext(): ReqContext {
         throw new Error("Permission denied");
       }),
     },
+    hasPremiumFeature: jest.fn().mockReturnValue(false),
     models: { contextualBandits: cbModel },
     logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
   } as unknown as ReqContext;

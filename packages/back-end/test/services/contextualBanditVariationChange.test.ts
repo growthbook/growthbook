@@ -292,6 +292,7 @@ function makeContext(cb: ContextualBanditInterface) {
     logger: { warn: jest.fn() },
     auditUser: { type: "dashboard" },
     auditLog: jest.fn(),
+    hasPremiumFeature: jest.fn().mockReturnValue(false),
     permissions: {
       canPublishFeature,
       canUpdateFeature: jest.fn().mockReturnValue(true),
@@ -305,6 +306,7 @@ function makeContext(cb: ContextualBanditInterface) {
         applyWeightEpochUpdate: applyWeightEpochUpdateMock,
         getById: getByIdMock,
         dangerousUpdateBypassPermission: dangerousUpdateBypassPermissionMock,
+        activatePendingVariationsForFeature: jest.fn(),
       },
     },
   } as unknown as ApiReqContext;

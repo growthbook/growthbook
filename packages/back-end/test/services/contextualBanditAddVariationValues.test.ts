@@ -153,6 +153,7 @@ function makeContext() {
     auditUser: { type: "dashboard", id: "u1", email: "u@x.co", name: "U" },
     auditLog: jest.fn(),
     logger: { warn },
+    hasPremiumFeature: jest.fn().mockReturnValue(false),
     permissions: {
       canUpdateFeature: jest.fn().mockReturnValue(true),
       canEditFeatureDrafts: jest.fn().mockReturnValue(true),
@@ -162,7 +163,9 @@ function makeContext() {
         throw new Error("permission error");
       }),
     },
-    models: { contextualBandits: {} },
+    models: {
+      contextualBandits: { activatePendingVariationsForFeature: jest.fn() },
+    },
   } as unknown as ApiReqContext;
   return { context, warn };
 }
