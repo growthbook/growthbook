@@ -55,11 +55,16 @@ function onClose() {
     // Cleanup GrowthBook client
     destroyGrowthBookClient();
 
-    // Gracefully close Agenda
-    await Promise.all([
+    // allSettled: one failing unlock must not strand the other queue's locks or block exit.
+    const stopped = await Promise.allSettled([
       getAgendaInstance().stop(),
       getEventAgendaInstance().stop(),
     ]);
+    stopped.forEach((result) => {
+      if (result.status === "rejected") {
+        logger.error(result.reason, "Error closing Agenda");
+      }
+    });
     logger.info("Agenda closed");
     process.exit(0);
   });

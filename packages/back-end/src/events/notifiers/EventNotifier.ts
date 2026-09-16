@@ -57,8 +57,11 @@ export class EventNotifier implements Notifier {
 
     const context = await getContextForAgendaJobByOrgId(event.organizationId);
 
-    webHooksEventHandler(event, context);
-    slackEventHandler(event, context);
+    // Awaited so the job only succeeds once the fan-out is persisted.
+    await Promise.all([
+      webHooksEventHandler(event, context),
+      slackEventHandler(event, context),
+    ]);
   }
 
   async perform() {
