@@ -363,10 +363,17 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         />
       )}
 
-      <Flex align="center" justify="between" gap="3" mb="2">
-        <Heading as="h5" size="sm" mb="0">
-          Teams ({rows.length})
-        </Heading>
+      <Flex align="end" justify="between" gap="3" mb="2">
+        <Box>
+          <Heading as="h5" size="sm" mb="1">
+            Teams ({rows.length})
+          </Heading>
+          <Text as="p" size="sm" color="text-low" mb="0">
+            A team&apos;s role here applies to every member of the team. Roles
+            on this Project add together, and take the place of a member&apos;s
+            global role for this Project.
+          </Text>
+        </Box>
         {canCreate && (
           <SplitButton
             menu={
@@ -390,11 +397,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
           </SplitButton>
         )}
       </Flex>
-      <Text as="p" size="sm" color="text-low" mb="2">
-        A team&apos;s role here applies to every member of the team. Roles on
-        this Project add together, and take the place of a member&apos;s global
-        role for this Project.
-      </Text>
       <Table variant="surface" layout="fixed">
         <TableHeader>
           <TableRow>
