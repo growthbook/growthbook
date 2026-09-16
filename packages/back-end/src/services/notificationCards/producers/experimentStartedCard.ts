@@ -23,7 +23,6 @@ export const buildExperimentStartedCard: NotificationCardProducer = (
   return {
     data: {
       state: "started",
-      event: "started",
       name: data.experimentName,
       key: data.experimentId,
       banner: EXPERIMENT_STARTED_LABEL,

@@ -1,8 +1,5 @@
 import { buildNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
-import type {
-  CardState,
-  CompactEvent,
-} from "back-end/src/services/notificationCards/types";
+import type { CardState } from "back-end/src/services/notificationCards/types";
 import { sampleCard } from "back-end/src/services/notificationCards/cardImages";
 import { renderCard } from "back-end/src/services/notificationCards/cardStyles";
 import { notificationCardSamples } from "./notificationCard.fixtures";
@@ -19,14 +16,6 @@ const STATES: CardState[] = [
   "warning",
 ];
 
-const COMPACT_EVENTS: { event: CompactEvent; state: CardState }[] = [
-  { event: "started", state: "started" },
-  { event: "won", state: "winner" },
-  { event: "lost", state: "loser" },
-  { event: "stopped", state: "stopped" },
-  { event: "warning", state: "warning" },
-];
-
 describe("renderCard", () => {
   it.each(STATES)(
     "renders a detailed PNG for the %s state",
@@ -39,12 +28,10 @@ describe("renderCard", () => {
     30000,
   );
 
-  it.each(COMPACT_EVENTS)(
-    "renders a compact PNG for the $event event",
-    async ({ event, state }) => {
-      const card = sampleCard(state);
-      card.event = event;
-      const png = await renderCard(card, "compact");
+  it.each(STATES)(
+    "renders a compact PNG for the %s state",
+    async (state) => {
+      const png = await renderCard(sampleCard(state), "compact");
       expect(isPng(png)).toBe(true);
       expect(png.length).toBeGreaterThan(2000);
       expect(png.readUInt32BE(16)).toBe(1120);

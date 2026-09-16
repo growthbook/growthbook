@@ -19,7 +19,7 @@ import {
   notifyExperimentBanditWeightsTransition,
 } from "back-end/src/services/experimentNotifications";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
-import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
+import { countVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { getSlackMessageForNotificationEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 
 jest.mock("back-end/src/services/experiments", () => ({
@@ -30,7 +30,7 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   getLatestSuccessfulSnapshot: jest.fn().mockResolvedValue(null),
 }));
 jest.mock("back-end/src/models/VisualChangesetModel", () => ({
-  findVisualChangesetsByExperiment: jest.fn(),
+  countVisualChangesetsByExperiment: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/EventModel", () => ({ createEvent: jest.fn() }));
@@ -124,18 +124,12 @@ describe("experiment alert producers", () => {
   });
 
   it("captures linked implementation counts at start", async () => {
-    jest
-      .mocked(findVisualChangesetsByExperiment)
-      .mockResolvedValue([{ id: "visual1" }] as Awaited<
-        ReturnType<typeof findVisualChangesetsByExperiment>
-      >);
-    const findByExperiment = jest
-      .fn()
-      .mockResolvedValue([{ id: "url1" }, { id: "url2" }]);
+    jest.mocked(countVisualChangesetsByExperiment).mockResolvedValue(1);
+    const countByExperiment = jest.fn().mockResolvedValue(2);
     await notifyExperimentStarted({
       context: {
         ...context,
-        models: { urlRedirects: { findByExperiment } },
+        models: { urlRedirects: { countByExperiment } },
       } as unknown as Context,
       experiment: {
         ...experiment,
@@ -156,8 +150,8 @@ describe("experiment alert producers", () => {
         },
       }),
     );
-    expect(findByExperiment).toHaveBeenCalledWith(experiment.id);
-    expect(findVisualChangesetsByExperiment).toHaveBeenCalledWith(
+    expect(countByExperiment).toHaveBeenCalledWith(experiment.id);
+    expect(countVisualChangesetsByExperiment).toHaveBeenCalledWith(
       experiment.id,
       context.org.id,
     );

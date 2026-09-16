@@ -22,8 +22,8 @@ export type CardState =
   | "warning";
 
 // A compact notification announces an EVENT (distinct from the experiment's
-// status). started fires while Running; won/lost/stopped once
-// Stopped; warning is a health alert.
+// status), derived from the card state: started fires while Running;
+// won/lost/stopped once Stopped; warning is a health alert.
 export type CompactEvent = "started" | "won" | "lost" | "stopped" | "warning";
 
 export interface CardGoalRow {
@@ -35,11 +35,14 @@ export interface CardGoalRow {
   vn?: string;
   ctw?: string; // "99.1%"
   chg?: string; // "+6.1%"
-  dir?: "up" | "down";
+  dir?: "up" | "down"; // arrow: the sign of the change
+  // Whether the change is in the metric's desired direction (a drop in an
+  // inverse metric is good). Colors the stat and lift; defaults to `dir`.
+  good?: boolean;
   vio?: { c: number; s: number }; // violin center (lift %) + spread
   ci?: { lo: number; hi: number; pt: number };
   // Significance of the stat in `ctw` (chance to win, or p-value for
-  // frequentist tests). Drives the stat color together with `dir`.
+  // frequentist tests). Drives the stat color together with `good`.
   sig?: boolean;
   muted?: boolean;
 }
@@ -63,16 +66,12 @@ export interface CardTable {
 // Header/footer fields shared by every card.
 export interface CardIdentity {
   state: CardState;
-  // The notification *event* the card announces (distinct from `state`/status).
-  // When unset, the compact card derives it from state.
-  event?: CompactEvent;
   name: string;
   key: string;
   tags?: string[];
   // Standard footer: "{units} units - {days} days", whichever parts are known.
   units?: number;
   durationDays?: number;
-  badgeLabel?: string; // overrides the state badge text, e.g. a stopped card with no outcome
   // Headline for a full-width banner in the card's state color. When set, the
   // detailed card drops the state badge and the compact banner reuses the text.
   banner?: string;
@@ -112,9 +111,8 @@ export interface ExperimentCardData extends CardIdentity {
   // warning-only
   srm?: string;
   p?: string;
-  winningVariation?: string;
   winningVariationIndex?: number;
-  // Labels the stat column: "Chance" for bayesian, "P-value" for frequentist.
+  // Picks the stat column label: chance to win, or p-value for frequentist.
   statsEngine?: "bayesian" | "frequentist";
   compactLine?: string; // one-line conclusion fallback for outcome events
 }

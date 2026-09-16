@@ -7,6 +7,7 @@ import {
   type MdRun,
   parseInlineMarkdown,
 } from "back-end/src/services/notificationCards/markdown";
+import { confidenceLabel } from "back-end/src/services/notificationCards/statLabel";
 import type {
   CardState,
   CardGoalRow,
@@ -541,7 +542,8 @@ function arrowImg(dir: "up" | "down", color: string, size = 9): El {
 // Shared cells / primitives.
 // ---------------------------------------------------------------------------
 
-function badge(state: CardState, label = BADGE[state]): El {
+function badge(state: CardState): El {
+  const label = BADGE[state];
   const hue = HUE[state];
   return el(
     "div",
@@ -705,13 +707,19 @@ function colHeader(statLabel: string): El {
   );
 }
 
+// Green for a change in the metric's desired direction, red otherwise. Rows
+// from a payload say so via `good` (which accounts for inverse metrics);
+// samples fall back to the arrow.
+const outcomeColor = (r: Pick<CardGoalRow, "dir" | "good">): string =>
+  (r.good ?? r.dir !== "down") ? P.st.green : P.st.red;
+
 // Color for the stat cell. Rows that know their significance (frequentist
 // p-values, or bayesian rows the producer already judged) color by outcome
 // direction; otherwise fall back to the chance-to-win thresholds.
 function statColor(r: CardGoalRow): string {
   if (r.sig === undefined) return ctwColor(r.ctw);
   if (!r.sig) return P.muted;
-  return r.dir === "down" ? P.st.red : P.st.green;
+  return outcomeColor(r);
 }
 
 // One variation's result. Means are intentionally omitted: the row is the
@@ -827,7 +835,7 @@ function sectionLabel(t: string): El {
 }
 
 const statLabelFor = (exp: ExperimentCardData): string =>
-  exp.statsEngine === "frequentist" ? "P-value" : "Chance to Win";
+  confidenceLabel(exp.statsEngine ?? "bayesian");
 
 // ---------------------------------------------------------------------------
 // Card sections.
@@ -880,7 +888,7 @@ function headerEl(exp: CardIdentity): El {
             letterSpacing: "-0.01em",
           }),
           txt(exp.key, { fontSize: 12, color: P.subtle }, true),
-          badge(exp.state, exp.badgeLabel),
+          badge(exp.state),
         ],
       ),
       el(
@@ -1589,9 +1597,8 @@ function statusPillEl(status: "running" | "stopped"): El {
   );
 }
 
-// Derive the event when the caller didn't set one (samples / assistant path).
+// The event a card announces follows from its state.
 function compactEventFor(exp: CardIdentity): CompactEvent {
-  if (exp.event) return exp.event;
   switch (exp.state) {
     case "started":
     case "running":
@@ -1846,9 +1853,9 @@ function compactHero(exp: ExperimentCardData, event: CompactEvent): El {
     );
   }
   if (outcomeRow) {
-    const liftColor = outcomeRow.dir === "down" ? P.st.red : P.st.green;
+    const liftColor = outcomeColor(outcomeRow);
     const confidence = outcomeRow.ctw
-      ? `${exp.statsEngine === "frequentist" ? "p-value" : "Chance to win"}: ${outcomeRow.ctw}`
+      ? `${statLabelFor(exp)}: ${outcomeRow.ctw}`
       : undefined;
     children.push(
       el(

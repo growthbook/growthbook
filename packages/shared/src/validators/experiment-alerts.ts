@@ -41,6 +41,8 @@ export const experimentStoppedGoalMetric = z
   .object({
     metricId: z.string(),
     metricName: z.string(),
+    // True when a decrease is the desired direction for this metric.
+    inverse: z.boolean().optional(),
     snapshotId: z.string(),
     statsEngine: z.string(),
     differenceType: z.string(),

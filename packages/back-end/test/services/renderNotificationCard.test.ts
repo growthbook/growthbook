@@ -40,7 +40,6 @@ describe("renderNotificationCard", () => {
     });
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
-        event: "warning",
         state: "warning",
         key: "exp-1",
         banner: "Health Alert - SRM Detected",
@@ -126,7 +125,6 @@ describe("renderNotificationCard", () => {
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
         state: "started",
-        event: "started",
         banner: "Experiment Started",
         fields: [
           {
@@ -153,7 +151,6 @@ describe("renderNotificationCard", () => {
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
         state: "stopped",
-        event: "stopped",
         banner: "Experiment Stopped",
         fields: [
           { label: "Result", value: "Stopped without a recorded outcome" },
@@ -212,13 +209,11 @@ describe("renderNotificationCard", () => {
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
         state: "winner",
-        event: "won",
         banner: "Experiment Stopped - Winner",
         goal: "Conversion",
         variants: ["Control", "Treatment"],
         units: 20000,
         durationDays: 21,
-        winningVariation: "Treatment",
         winningVariationIndex: 1,
         conclusion: { text: "Variation *Treatment* won." },
         rows: [
@@ -229,6 +224,7 @@ describe("renderNotificationCard", () => {
             sig: true,
             chg: "+10%",
             dir: "up",
+            good: true,
             vio: { c: 10, s: 2 },
             ci: { lo: 6, hi: 14, pt: 10 },
           }),
@@ -300,7 +296,6 @@ describe("renderNotificationCard", () => {
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
         state: "loser",
-        event: "lost",
         banner: "Experiment Stopped - Lost",
         statsEngine: "frequentist",
         rows: [
@@ -309,8 +304,50 @@ describe("renderNotificationCard", () => {
             sig: true,
             chg: "-8%",
             dir: "down",
+            good: false,
           }),
         ],
+      }),
+      "detailed",
+    );
+  });
+
+  it("treats a drop in an inverse metric as the good direction", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "won",
+        enableTemporaryRollout: false,
+        winningVariationName: "Treatment",
+        winningVariationIndex: 1,
+        goalMetric: {
+          metricId: "m1",
+          metricName: "Bounce rate",
+          inverse: true,
+          snapshotId: "snp-1",
+          statsEngine: "bayesian",
+          differenceType: "relative",
+          control: { variationId: "v0", variationName: "Control", value: 0.4 },
+          variations: [
+            {
+              variationId: "v1",
+              variationName: "Treatment",
+              variationIndex: 1,
+              value: 0.368,
+              uplift: -0.08,
+              chanceToWin: 0.99,
+              significant: true,
+            },
+          ],
+        },
+      }),
+      "detailed",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rows: [expect.objectContaining({ dir: "down", good: true })],
       }),
       "detailed",
     );
@@ -405,6 +442,18 @@ describe("renderNotificationCard", () => {
       ),
     ).resolves.toBeNull();
     expect(renderCard).not.toHaveBeenCalled();
+  });
+
+  it("renders each stored event once per format across deliveries", async () => {
+    const options = { eventId: "event_cache_1" };
+    const first = await renderNotificationCard(srmWarning, "compact", options);
+    const second = await renderNotificationCard(srmWarning, "compact", options);
+    await renderNotificationCard(srmWarning, "detailed", options);
+    await renderNotificationCard(srmWarning, "compact", {
+      eventId: "event_cache_2",
+    });
+    expect(second).toBe(first);
+    expect(renderCard).toHaveBeenCalledTimes(3);
   });
 
   it("falls back to text when rendering fails", async () => {

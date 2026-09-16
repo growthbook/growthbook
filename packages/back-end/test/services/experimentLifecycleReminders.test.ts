@@ -1,7 +1,7 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import {
-  getExperimentById,
+  getExperimentsByIds,
   dangerousGetExperimentsForLifecycleReminders,
   setExperimentNotificationState,
 } from "back-end/src/models/ExperimentModel";
@@ -10,7 +10,7 @@ import { createEvent } from "back-end/src/models/EventModel";
 import { checkExperimentLifecycleReminders } from "back-end/src/services/experimentLifecycleReminders";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentById: jest.fn(),
+  getExperimentsByIds: jest.fn(),
   dangerousGetExperimentsForLifecycleReminders: jest.fn(),
   setExperimentNotificationState: jest.fn(),
 }));
@@ -57,14 +57,20 @@ beforeEach(() => {
         yield { id: experiment.id, organization: experiment.organization };
     });
   jest
-    .mocked(getExperimentById)
-    .mockImplementation(
-      async (context, id) =>
-        experiments.find((experiment) => experiment.id === id) || null,
+    .mocked(getExperimentsByIds)
+    .mockImplementation(async (context, ids) =>
+      experiments.filter(
+        (experiment) =>
+          ids.includes(experiment.id) &&
+          experiment.organization === context.org.id,
+      ),
     );
-  jest.mocked(getContextForAgendaJobByOrgId).mockResolvedValue({
-    org: { id: "org", settings: { updateSchedule: { type: "never" } } },
-  } as Awaited<ReturnType<typeof getContextForAgendaJobByOrgId>>);
+  jest.mocked(getContextForAgendaJobByOrgId).mockImplementation(
+    async (id) =>
+      ({
+        org: { id, settings: { updateSchedule: { type: "never" } } },
+      }) as Awaited<ReturnType<typeof getContextForAgendaJobByOrgId>>,
+  );
   jest
     .mocked(setExperimentNotificationState)
     .mockImplementation(async ({ experiment, type, triggered }) => {
@@ -106,14 +112,25 @@ it("resets ending-soon state when the schedule is extended", async () => {
   expect(experiments[0].pastNotifications).toEqual(["stale"]);
   expect(createEvent).not.toHaveBeenCalled();
 });
-it("continues checking other experiments after one lookup fails", async () => {
-  experiments.push(fixture("other"));
+it("continues with the next organization after one batch fails", async () => {
+  experiments.push({ ...fixture("other"), organization: "org2" });
   jest
-    .mocked(getExperimentById)
+    .mocked(getExperimentsByIds)
     .mockRejectedValueOnce(new Error("Failed lookup"));
   await checkExperimentLifecycleReminders(renewLease);
   expect(createEvent).toHaveBeenCalledTimes(2);
-  expect(getContextForAgendaJobByOrgId).toHaveBeenCalledTimes(1);
+  expect(getContextForAgendaJobByOrgId).toHaveBeenCalledTimes(2);
+});
+
+it("loads each organization's candidates in one batch", async () => {
+  experiments.push(fixture("other"));
+  await checkExperimentLifecycleReminders(renewLease);
+  expect(getExperimentsByIds).toHaveBeenCalledTimes(1);
+  expect(getExperimentsByIds).toHaveBeenCalledWith(expect.anything(), [
+    "manual",
+    "other",
+  ]);
+  expect(createEvent).toHaveBeenCalledTimes(4);
 });
 it("stops when the scheduler lease cannot be renewed", async () => {
   renewLease.mockRejectedValueOnce(new Error("Lease lost"));

@@ -97,7 +97,6 @@ import {
   isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
-import type { DeferredHoldoutNotifications } from "back-end/src/models/HoldoutModel";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -2337,14 +2336,10 @@ export async function applyHoldoutSideEffects(
     // Stamped with the entry this call wrote, so compensation removes the entry it
     // added rather than whatever it later finds in that slot.
     onFeatureLinked,
-    // Publish paths collect the linkage event here and send it once the
-    // revision is committed.
-    deferNotifications,
   }: {
     isRevert?: boolean;
     skipGuard?: boolean;
     onFeatureLinked?: (entry: { id: string; dateAdded: Date } | null) => void;
-    deferNotifications?: DeferredHoldoutNotifications;
   } = {},
 ) {
   const prevHoldoutId = feature.holdout?.id;
@@ -2381,7 +2376,6 @@ export async function applyHoldoutSideEffects(
       await context.models.holdout.addFeatureToHoldout(
         newHoldoutId,
         feature.id,
-        { deferNotifications },
       ),
     );
   }
@@ -2579,8 +2573,6 @@ export async function applyHoldoutExperimentLinkage(
   // leave writes it, and the guard would reject our own earlier step on every
   // retry. Chaining makes each plan expect what the last left.
   chain?: Record<string, string>,
-  // See applyHoldoutSideEffects.
-  deferNotifications?: DeferredHoldoutNotifications,
 ) {
   // The SCALAR first, then membership for the experiments it actually claimed —
   // the same order the rewind uses. Membership written before a scalar that
@@ -2597,7 +2589,6 @@ export async function applyHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => applied.has(id)),
-    { deferNotifications },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
@@ -2671,10 +2662,16 @@ export async function reverseHoldoutExperimentLinkage(
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toUnlink.filter((id) => reverted.has(id)),
+    { notifyNewLinkage: false },
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
     plan.toLink.filter((id) => reverted.has(id)),
+  );
+  // The forward pass's linkage event is owned by this holdout; with its
+  // linkage put back, the landing must not announce it.
+  context.bulkPublishRestoredEntities?.add(
+    entityKey("holdout", plan.holdoutId),
   );
 }
 
@@ -2744,6 +2741,10 @@ export async function rewindHoldoutLinkage(
       featureId: pre.featureId,
       expectFeatureEntry: pre.addedFeatureEntry,
     });
+    // Same as the experiment rewind: the join event is owned by the holdout.
+    context.bulkPublishRestoredEntities?.add(
+      entityKey("holdout", pre.newHoldoutId),
+    );
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
@@ -3912,9 +3913,6 @@ async function publishRevisionInner({
   };
 
   const rewinds: Rewind[] = [];
-  // Linkage events wait here until the revision is committed, so a rewound
-  // publish never announces linkage it took back.
-  const deferredHoldoutNotifications: DeferredHoldoutNotifications = [];
   let revisionStatusRewind: Rewind | null = null;
   // Held aside rather than pushed, like `revisionStatusRewind`: the unwind is
   // LIFO, so pushing this first would run the CRITICAL doc restore last —
@@ -4096,7 +4094,6 @@ async function publishRevisionInner({
         onFeatureLinked: (entry) => {
           if (holdoutPreImage) holdoutPreImage.addedFeatureEntry = entry;
         },
-        deferNotifications: deferredHoldoutNotifications,
       });
     }
 
@@ -4108,12 +4105,7 @@ async function publishRevisionInner({
         what: `holdout experiment linkage (${plan.holdoutId})`,
         undo: () => reverseHoldoutExperimentLinkage(context, plan),
       });
-      await applyHoldoutExperimentLinkage(
-        context,
-        plan,
-        linkageChain,
-        deferredHoldoutNotifications,
-      );
+      await applyHoldoutExperimentLinkage(context, plan, linkageChain);
     }
 
     if (contextualBanditLinkagePlan) {
@@ -4247,10 +4239,6 @@ async function publishRevisionInner({
     }
     throw err;
   }
-
-  // Committed: the held-back linkage events can go out. Each one logs and
-  // swallows its own failure.
-  for (const notify of deferredHoldoutNotifications) await notify();
 
   // The publish is committed once the revision is marked published, so this
   // sweep must not be able to unwind it.

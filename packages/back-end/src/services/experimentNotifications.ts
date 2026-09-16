@@ -34,7 +34,7 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { setExperimentNotificationState } from "back-end/src/models/ExperimentModel";
-import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
+import { countVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { logger } from "back-end/src/util/logger";
 import {
   getGoalMetricNames,
@@ -50,6 +50,11 @@ import {
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 
+// Holdout backing experiments announce themselves through the holdout.*
+// events, so every experiment alert skips them here.
+const isNotifiableExperiment = (experiment: ExperimentInterface): boolean =>
+  experiment.type !== "holdout";
+
 // This ensures that the two types remain equal.
 const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
   context,
@@ -64,6 +69,7 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
   data: CreateEventData<"experiment", T>;
   notify?: boolean;
 }) => {
+  if (!isNotifiableExperiment(experiment)) return;
   const changedEnvs = includeExperimentInPayload(experiment)
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
@@ -95,6 +101,7 @@ export const memoizeNotification = async ({
   triggered: boolean;
   dispatch: () => Promise<void>;
 }) => {
+  if (!isNotifiableExperiment(experiment)) return;
   if (triggered && experiment.pastNotifications?.includes(type)) return;
   if (!triggered && !experiment.pastNotifications?.includes(type)) return;
 
@@ -115,15 +122,16 @@ export const notifyExperimentStarted = async ({
   context: Context;
   experiment: ExperimentInterface;
 }) => {
-  const [visualChangesets, urlRedirects, goalMetricNames] = await Promise.all([
-    experiment.hasVisualChangesets
-      ? findVisualChangesetsByExperiment(experiment.id, context.org.id)
-      : [],
-    experiment.hasURLRedirects
-      ? context.models.urlRedirects.findByExperiment(experiment.id)
-      : [],
-    getGoalMetricNames(context, experiment),
-  ]);
+  const [visualChangesetCount, urlRedirectCount, goalMetricNames] =
+    await Promise.all([
+      experiment.hasVisualChangesets
+        ? countVisualChangesetsByExperiment(experiment.id, context.org.id)
+        : 0,
+      experiment.hasURLRedirects
+        ? context.models.urlRedirects.countByExperiment(experiment.id)
+        : 0,
+      getGoalMetricNames(context, experiment),
+    ]);
   const latestPhase = experiment.phases[experiment.phases.length - 1];
 
   await dispatchEvent({
@@ -138,8 +146,8 @@ export const notifyExperimentStarted = async ({
         phaseName: latestPhase?.name,
         ...(goalMetricNames.length ? { goalMetricNames } : {}),
         linkedFeatureCount: new Set(experiment.linkedFeatures || []).size,
-        visualChangesetCount: visualChangesets.length,
-        urlRedirectCount: urlRedirects.length,
+        visualChangesetCount,
+        urlRedirectCount,
       },
     },
   });
@@ -218,7 +226,7 @@ export const notifyExperimentCreated = async ({
   context: Context;
   experiment: ExperimentInterface;
 }) => {
-  if (experiment.type === "holdout" || experiment.status !== "running") return;
+  if (experiment.status !== "running") return;
   await notifyExperimentStarted({ context, experiment });
 };
 
@@ -231,22 +239,24 @@ export const notifyExperimentStatusTransition = async ({
   previous: ExperimentInterface;
   experiment: ExperimentInterface;
 }) => {
-  if (experiment.type === "holdout" || previous.status === experiment.status)
-    return;
+  if (previous.status === experiment.status) return;
   if (experiment.status === "running") {
     await notifyExperimentStarted({ context, experiment });
   } else if (experiment.status === "stopped") {
-    const releasedVariation =
-      experiment.variations.find(
-        (variation) => variation.id === experiment.releasedVariationId,
-      ) ?? experiment.variations[experiment.winner ?? -1];
+    // Only a rollout releases a variation; the winner is reported separately.
+    const enableTemporaryRollout =
+      !experiment.excludeFromPayload && !!experiment.releasedVariationId;
+    const releasedVariation = enableTemporaryRollout
+      ? experiment.variations.find(
+          (variation) => variation.id === experiment.releasedVariationId,
+        )
+      : undefined;
     await notifyExperimentStopped({
       context,
       experiment,
       type: "stopped",
       results: experiment.results,
-      enableTemporaryRollout:
-        !experiment.excludeFromPayload && !!experiment.releasedVariationId,
+      enableTemporaryRollout,
       releasedVariationName: releasedVariation?.name,
       reason: experiment.phases[experiment.phases.length - 1]?.reason,
     });
@@ -305,8 +315,10 @@ export const notifyExperimentStale = async ({
   experiment: ExperimentInterface;
   staleAfterDays?: number;
 }) => {
-  const firstPhase = experiment.phases[0];
-  const startedAt = getSafeDate(firstPhase?.dateStarted);
+  // The current phase, like the duration in the stop payload: a restarted
+  // experiment is not stale on day one.
+  const phase = experiment.phases[experiment.phases.length - 1];
+  const startedAt = getSafeDate(phase?.dateStarted);
   const daysRunning = startedAt
     ? Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 86400000))
     : 0;

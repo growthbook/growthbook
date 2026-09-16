@@ -24,7 +24,6 @@ export const buildExperimentSrmCard: NotificationCardProducer = (
   return {
     data: {
       state: "warning",
-      event: "warning",
       name: experimentName,
       key: experimentId,
       banner: SRM_LABEL,

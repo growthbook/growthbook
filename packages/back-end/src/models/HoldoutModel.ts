@@ -22,11 +22,11 @@ import {
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
 import { notifyHoldoutNewLinkage } from "back-end/src/services/holdoutNotifications";
-
-// Linkage notifications a publish holds back until its revision is committed,
-// so a publish that is rewound never announces linkage it took back. Each entry
-// sends one `config.newLinkage` event.
-export type DeferredHoldoutNotifications = Array<() => Promise<void>>;
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
 import {
   holdoutApiSpec,
   holdoutStartAnalysisEndpoint,
@@ -628,9 +628,6 @@ export class HoldoutModel extends BaseClass {
   public async addFeatureToHoldout(
     holdoutId: string,
     featureId: string,
-    {
-      deferNotifications,
-    }: { deferNotifications?: DeferredHoldoutNotifications } = {},
   ): Promise<{ id: string; dateAdded: Date } | null> {
     const entry = { id: featureId, dateAdded: new Date() };
     // Set on every attempt, so the value that survives is the one computed from
@@ -645,7 +642,7 @@ export class HoldoutModel extends BaseClass {
         added = linkedFeatures[featureId] ? null : entry;
         return { linkedFeatures: { [featureId]: entry, ...linkedFeatures } };
       },
-      { required: true, deferNotifications },
+      { required: true },
     );
     return added;
   }
@@ -657,9 +654,8 @@ export class HoldoutModel extends BaseClass {
   public async addExperimentsToHoldout(
     holdoutId: string,
     experimentIds: string[],
-    {
-      deferNotifications,
-    }: { deferNotifications?: DeferredHoldoutNotifications } = {},
+    // Rewinds pass false: putting linkage back is not new linkage.
+    { notifyNewLinkage = true }: { notifyNewLinkage?: boolean } = {},
   ) {
     if (!experimentIds.length) return;
     const added = Object.fromEntries(
@@ -671,7 +667,7 @@ export class HoldoutModel extends BaseClass {
         // Existing entries win, so re-linking keeps the original `dateAdded`.
         linkedExperiments: { ...added, ...linkedExperiments },
       }),
-      { required: true, deferNotifications },
+      { required: true, notifyNewLinkage },
     );
   }
 
@@ -813,13 +809,12 @@ export class HoldoutModel extends BaseClass {
     {
       required = false,
       notifyNewLinkage = true,
-      deferNotifications,
-    }: {
-      required?: boolean;
-      notifyNewLinkage?: boolean;
-      deferNotifications?: DeferredHoldoutNotifications;
-    } = {},
+    }: { required?: boolean; notifyNewLinkage?: boolean } = {},
   ) {
+    // Captured before the first await: a publish landing opens a buffer that
+    // holds events until it commits, and the next landing may already have
+    // replaced it by the time the write returns.
+    const buffer = captureEventBuffer(this.context);
     let previous: HoldoutInterface | null = null;
     const updated = await this.updateWithCas(
       holdoutId,
@@ -840,14 +835,18 @@ export class HoldoutModel extends BaseClass {
     }
     if (updated && previous && notifyNewLinkage) {
       const before: HoldoutInterface = previous;
-      const notify = () =>
-        notifyHoldoutNewLinkage({
-          context: this.context,
-          previous: before,
-          holdout: updated,
-        });
-      if (deferNotifications) deferNotifications.push(notify);
-      else await notify();
+      // Owned by the holdout: a publish rewind that restores this holdout's
+      // linkage reports it restored, and the landing drops the event.
+      await emitOrDeferBulkPublishEvent(
+        () =>
+          notifyHoldoutNewLinkage({
+            context: this.context,
+            previous: before,
+            holdout: updated,
+          }),
+        entityKey("holdout", holdoutId),
+        buffer,
+      );
     }
     return updated;
   }

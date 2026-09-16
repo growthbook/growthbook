@@ -415,6 +415,10 @@ experimentSchema.index(
   { "nextScheduledStatusUpdate.date": 1 },
   { sparse: true },
 );
+// The lifecycle reminders scan runs across organizations on each arm of its
+// $or (running, or carrying a reminder marker).
+experimentSchema.index({ status: 1 });
+experimentSchema.index({ pastNotifications: 1 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
@@ -2302,9 +2306,10 @@ const onExperimentCreate = async ({
 }) => {
   await logExperimentCreated(context, experiment);
 
-  await notifyExperimentCreated({ context, experiment }).catch(
-    (error: unknown) =>
-      logger.error(error, "Failed to notify experiment creation"),
+  // Off the request path: the alert reads snapshots and metrics and writes an
+  // event, none of which the caller waits on.
+  notifyExperimentCreated({ context, experiment }).catch((error: unknown) =>
+    logger.error(error, "Failed to notify experiment creation"),
   );
 
   if (context.org.isVercelIntegration)
@@ -2331,21 +2336,24 @@ const onExperimentUpdate = async ({
     previous: oldExperiment,
   });
 
-  await notifyExperimentStatusTransition({
-    context,
-    previous: oldExperiment,
-    experiment: newExperiment,
-  }).catch((error: unknown) =>
-    logger.error(error, "Failed to notify experiment status transition"),
-  );
-
-  await notifyExperimentBanditWeightsTransition({
-    context,
-    previous: oldExperiment,
-    experiment: newExperiment,
-  }).catch((error: unknown) =>
-    logger.error(error, "Failed to notify bandit allocation change"),
-  );
+  // Alerts run off the request path, after the SDK payload refresh below is
+  // queued: a stop or start must reach SDKs before Slack hears about it.
+  const notifyAlerts = () => {
+    notifyExperimentStatusTransition({
+      context,
+      previous: oldExperiment,
+      experiment: newExperiment,
+    }).catch((error: unknown) =>
+      logger.error(error, "Failed to notify experiment status transition"),
+    );
+    notifyExperimentBanditWeightsTransition({
+      context,
+      previous: oldExperiment,
+      experiment: newExperiment,
+    }).catch((error: unknown) =>
+      logger.error(error, "Failed to notify bandit allocation change"),
+    );
+  };
 
   if (
     !bypassWebhooks &&
@@ -2386,6 +2394,8 @@ const onExperimentUpdate = async ({
       },
     });
   }
+
+  notifyAlerts();
 
   if (context.org.isVercelIntegration)
     await updateVercelExperimentationItemFromExperiment({

@@ -61,6 +61,7 @@ export async function deliverSlackNotification({
       ? await renderNotificationCard(
           event.data,
           notificationSettings.cardFormat,
+          { eventId: event.id },
         )
       : null;
   if (card) {

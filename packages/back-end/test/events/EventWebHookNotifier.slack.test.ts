@@ -398,7 +398,11 @@ describe("Slack EventWebHook delivery compatibility", () => {
 
     await runAgendaJob();
 
-    expect(renderNotificationCard).toHaveBeenCalledWith({}, "detailed");
+    expect(renderNotificationCard).toHaveBeenCalledWith(
+      {},
+      "detailed",
+      expect.any(Object),
+    );
     expect(getSlackMessageForNotificationEvent).not.toHaveBeenCalled();
     expect(uploadSlackImageFile).toHaveBeenCalledWith({
       token: "xoxb-token",

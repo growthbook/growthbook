@@ -9,7 +9,6 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
 import { canPublishFeatureRevisionChange } from "back-end/src/revisions/featureDraftAuthority";
 import { logger } from "back-end/src/util/logger";
-import type { DeferredHoldoutNotifications } from "back-end/src/models/HoldoutModel";
 import {
   applyHoldoutExperimentLinkage,
   type HoldoutExperimentLinkagePlan,
@@ -124,8 +123,6 @@ type FeatureDesiredState = {
   holdoutExperimentLinkage?: HoldoutExperimentLinkagePlan[];
   /** Same contract as `holdoutExperimentLinkage`: captured pre-mutation, null when there is nothing to write. */
   contextualBanditLinkage?: ContextualBanditLinkagePlan | null;
-  /** Linkage events the apply held back; `emitPublished` sends them post-commit. */
-  deferredHoldoutNotifications?: DeferredHoldoutNotifications;
 };
 
 function toRef(revision: FeatureRevisionInterface): BulkRevisionRef {
@@ -494,8 +491,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     // Satellite writes span collections and cannot be transactional. Guard each
     // write, then re-fence the feature; holdout membership cannot encode ownership.
-    // Linkage events wait for emitPublished, after the release commits.
-    desired.deferredHoldoutNotifications = [];
     try {
       if (mergeResult.holdout !== undefined) {
         // Guard already ran above, before any mutation.
@@ -508,19 +503,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
               desired.holdoutLinkage.addedFeatureEntry = entry;
             }
           },
-          deferNotifications: desired.deferredHoldoutNotifications,
         });
       }
 
       // One chain across the sequence — see applyHoldoutExperimentLinkage.
       const linkageChain: Record<string, string> = {};
       for (const plan of desired.holdoutExperimentLinkage ?? []) {
-        await applyHoldoutExperimentLinkage(
-          context,
-          plan,
-          linkageChain,
-          desired.deferredHoldoutNotifications,
-        );
+        await applyHoldoutExperimentLinkage(context, plan, linkageChain);
       }
 
       if (desired.contextualBanditLinkage) {
@@ -824,10 +813,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           desired.mergeResult,
         ),
       );
-    }
-
-    for (const notify of desired.deferredHoldoutNotifications ?? []) {
-      await bestEffort("holdout linkage notification", notify);
     }
   },
 

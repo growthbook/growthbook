@@ -4,6 +4,7 @@ import {
   escapeInlineMarkdown,
   markdownToPlainText,
 } from "back-end/src/services/notificationCards/markdown";
+import { confidenceLabel } from "back-end/src/services/notificationCards/statLabel";
 
 type Results = NonNullable<ExperimentStoppedNotificationPayload["results"]>;
 type GoalMetric = NonNullable<
@@ -39,20 +40,31 @@ export function formatLift(fraction: number): string {
   return `${pct > 0 ? "+" : ""}${pct}%`;
 }
 
-// Chance to win for Bayesian tests, p-value for frequentist; one phrasing
-// everywhere.
-export function formatConfidence(
+// The stat beside the lift: "99.1%" chance to win for Bayesian tests, the
+// p-value for frequentist ones. Undefined when the payload lacks it.
+export function formatConfidenceValue(
   statsEngine: string,
   result: Pick<VariationResult, "chanceToWin" | "pValue">,
 ): string | undefined {
   if (statsEngine === "frequentist") {
     return result.pValue !== undefined
-      ? `p-value: ${pValueFormatter(result.pValue)}`
+      ? pValueFormatter(result.pValue)
       : undefined;
   }
   return result.chanceToWin !== undefined
-    ? `Chance to win: ${(result.chanceToWin * 100).toFixed(1)}%`
+    ? `${(result.chanceToWin * 100).toFixed(1)}%`
     : undefined;
+}
+
+// "Chance to win: 99.1%" / "p-value: 0.03" for prose.
+export function formatConfidence(
+  statsEngine: string,
+  result: Pick<VariationResult, "chanceToWin" | "pValue">,
+): string | undefined {
+  const value = formatConfidenceValue(statsEngine, result);
+  return value === undefined
+    ? undefined
+    : `${confidenceLabel(statsEngine)}: ${value}`;
 }
 
 // The variation whose lift is worth calling out: the winner on a win, or the

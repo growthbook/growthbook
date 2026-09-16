@@ -5,7 +5,7 @@ import {
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import {
   RESULT_LABEL,
-  formatConfidence,
+  formatConfidenceValue,
   formatLift,
   getExperimentStoppedConclusion,
   getExperimentStoppedLabel,
@@ -60,19 +60,16 @@ function getExperimentStoppedFields(
 // Goal-metric rows for the results renderer, straight from the immutable
 // payload. Relative numbers arrive as fractions and the card wants percents.
 // The stat column holds chance to win (Bayesian) or the p-value (frequentist),
-// colored by the significance the payload recorded. A variation with no lift
-// estimate renders as a dash rather than a fabricated 0%.
+// colored by the significance the payload recorded and the metric's desired
+// direction. A variation with no lift estimate renders as a dash rather than
+// a fabricated 0%.
 function goalRows(
   goalMetric: NonNullable<ExperimentStoppedNotificationPayload["goalMetric"]>,
 ): CardGoalRow[] {
   return goalMetric.variations.map((v) => {
-    const confidence = formatConfidence(goalMetric.statsEngine, v);
-    const stat = confidence
-      ? {
-          // The cell shows just the number; the header carries the label.
-          ctw: confidence.replace(/^[^:]+: /, ""),
-          ...(v.significant !== undefined ? { sig: v.significant } : {}),
-        }
+    const ctw = formatConfidenceValue(goalMetric.statsEngine, v);
+    const stat = ctw
+      ? { ctw, ...(v.significant !== undefined ? { sig: v.significant } : {}) }
       : {};
     const base: CardGoalRow = {
       v: v.variationName,
@@ -83,10 +80,12 @@ function goalRows(
     };
     if (v.uplift === undefined) return base;
     const upliftPct = toPct(v.uplift);
+    const up = upliftPct >= 0;
     return {
       ...base,
       chg: formatLift(v.uplift),
-      dir: upliftPct >= 0 ? "up" : "down",
+      dir: up ? "up" : "down",
+      good: goalMetric.inverse ? !up : up,
       ...(v.upliftStddev !== undefined
         ? { vio: { c: upliftPct, s: Math.max(0.3, v.upliftStddev * 100) } }
         : {}),
@@ -112,7 +111,6 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
     return {
       ...identity,
       state: "stopped",
-      event: "stopped",
       fields: getExperimentStoppedFields(data),
     };
   }
@@ -126,7 +124,6 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
   return {
     ...identity,
     state,
-    event: state === "winner" ? "won" : state === "loser" ? "lost" : "stopped",
     goal: data.goalMetric.metricName,
     statsEngine:
       data.goalMetric.statsEngine === "frequentist"
@@ -137,9 +134,6 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
       ...data.goalMetric.variations.map((v) => v.variationName),
     ],
     rows: goalRows(data.goalMetric),
-    ...(data.winningVariationName
-      ? { winningVariation: data.winningVariationName }
-      : {}),
     ...(data.winningVariationIndex !== undefined
       ? { winningVariationIndex: data.winningVariationIndex }
       : {}),

@@ -1100,6 +1100,7 @@ export async function getLatestSuccessfulSnapshot({
   dimension,
   beforeSnapshot,
   type,
+  metricIds,
 }: {
   context: Context;
   experiment: string;
@@ -1107,6 +1108,8 @@ export async function getLatestSuccessfulSnapshot({
   dimension?: string;
   beforeSnapshot?: Pick<ExperimentSnapshotInterface, "dateCreated">;
   type?: SnapshotType;
+  // Load only these metrics' analysis chunks; omit for the full snapshot.
+  metricIds?: string[];
 }): Promise<ExperimentSnapshotInterface | null> {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,
@@ -1140,7 +1143,11 @@ export async function getLatestSuccessfulSnapshot({
   if (all[0]) {
     const mostRecentSnapshot = all[0];
 
-    return populateSnapshotAnalyses(context, toInterface(mostRecentSnapshot));
+    return populateSnapshotAnalyses(
+      context,
+      toInterface(mostRecentSnapshot),
+      metricIds,
+    );
   }
 
   // Otherwise, try getting old snapshot records
@@ -1151,7 +1158,9 @@ export async function getLatestSuccessfulSnapshot({
     limit: 1,
   }).exec();
 
-  return all[0] ? populateSnapshotAnalyses(context, toInterface(all[0])) : null;
+  return all[0]
+    ? populateSnapshotAnalyses(context, toInterface(all[0]), metricIds)
+    : null;
 }
 
 // Mongo projection limited to fields needed for SnapshotStatusSummary.

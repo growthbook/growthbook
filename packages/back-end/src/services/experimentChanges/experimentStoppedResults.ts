@@ -1,12 +1,23 @@
 import { getSnapshotAnalysis } from "shared/util";
-import { expandMetricGroups, isMetricGroupId } from "shared/experiments";
+import {
+  expandMetricGroups,
+  getLatestPhaseVariations,
+  getMetricResultStatus,
+  isMetricGroupId,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
+} from "shared/experiments";
+import cloneDeep from "lodash/cloneDeep";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import type { ExperimentStoppedGoalMetric } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricsByIds } from "back-end/src/services/experiments";
-import { getSignificanceSettingsForProject } from "back-end/src/services/organizations";
+import {
+  getMetricDefaultsForOrg,
+  getSignificanceSettingsForProject,
+} from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 
 const metricMean = (m: SnapshotMetric): number =>
@@ -52,54 +63,74 @@ export async function getStoppedGoalMetricResults(
   | undefined
 > {
   try {
-    const [goalId] = await getExpandedGoalMetricIds(context, experiment);
+    const goalIds = await getExpandedGoalMetricIds(context, experiment);
+    const [goalId] = goalIds;
     if (!goalId) return undefined;
-    const snapshot = await getLatestSuccessfulSnapshot({
-      context,
-      experiment: experiment.id,
-      phase: experiment.phases.length - 1,
-      type: "standard",
-    });
-    const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
-    const dim = analysis?.results?.[0];
-    if (!snapshot || !analysis || !dim) return undefined;
-    const controlStats = dim.variations[0]?.metrics?.[goalId];
-    if (!controlStats) return undefined;
-    const [[metric], significance] = await Promise.all([
+    const [snapshot, [metric], significance] = await Promise.all([
+      getLatestSuccessfulSnapshot({
+        context,
+        experiment: experiment.id,
+        phase: experiment.phases.length - 1,
+        type: "standard",
+        // The p-value correction spans every goal metric, so load them all
+        // (but not secondaries or guardrails).
+        metricIds: goalIds,
+      }),
       getExperimentMetricsByIds(context, [goalId]),
       getSignificanceSettingsForProject(context, experiment.project),
     ]);
-    const control = experiment.variations[0];
-    if (!control) return undefined;
+    const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
+    if (!snapshot || !analysis?.results?.length) return undefined;
 
-    // Same rule the results table colors by: chance to win outside the
-    // configured bounds, or a p-value under the threshold the analysis ran with.
-    const frequentist = analysis.settings.statsEngine === "frequentist";
+    // Judge significance the way the results table does: correct the
+    // p-values across the goal metrics and widen the CIs before comparing.
+    const results = cloneDeep(analysis.results);
     const pValueThreshold =
       analysis.settings.pValueThreshold ?? significance.pValueThreshold;
-    const isSignificant = (stats: SnapshotMetric): boolean | undefined => {
-      if (frequentist) {
-        const pValue = stats.pValueAdjusted ?? stats.pValue;
-        return pValue === undefined ? undefined : pValue < pValueThreshold;
-      }
-      return stats.chanceToWin === undefined
-        ? undefined
-        : stats.chanceToWin >= significance.ciUpper ||
-            stats.chanceToWin <= significance.ciLower;
-    };
+    setAdjustedPValuesOnResults(
+      results,
+      goalIds,
+      significance.pValueCorrection,
+    );
+    setAdjustedCIs(results, pValueThreshold);
+    const dim = results[0];
 
-    const variations: ExperimentStoppedGoalMetric["variations"] = [];
-    for (let i = 1; i < experiment.variations.length; i++) {
-      const variation = experiment.variations[i];
-      const stats = dim.variations[i]?.metrics?.[goalId];
+    // Results are indexed by the latest phase's variation list, which can be a
+    // subset or reordering of experiment.variations.
+    const variations = getLatestPhaseVariations(experiment);
+    const control = variations[0];
+    const controlStats = dim?.variations[0]?.metrics?.[goalId];
+    if (!dim || !control || !controlStats) return undefined;
+
+    const metricDefaults = getMetricDefaultsForOrg(context);
+    const isSignificant = (stats: SnapshotMetric): boolean | undefined =>
+      metric
+        ? getMetricResultStatus({
+            metric,
+            metricDefaults,
+            baseline: controlStats,
+            stats,
+            ciLower: significance.ciLower,
+            ciUpper: significance.ciUpper,
+            pValueThreshold,
+            statsEngine: analysis.settings.statsEngine,
+            differenceType: analysis.settings.differenceType,
+          }).significant
+        : undefined;
+
+    const captured: ExperimentStoppedGoalMetric["variations"] = [];
+    for (let j = 1; j < variations.length; j++) {
+      const variation = variations[j];
+      const stats = dim.variations[j]?.metrics?.[goalId];
       if (!variation || !stats) continue;
       const ci = stats.ciAdjusted ?? stats.ci;
       const pValue = stats.pValueAdjusted ?? stats.pValue;
       const significant = isSignificant(stats);
-      variations.push({
+      captured.push({
         variationId: variation.id,
         variationName: variation.name,
-        variationIndex: i,
+        // Position in experiment.variations, matching experiment.winner.
+        variationIndex: variation.index,
         users: stats.users,
         value: metricMean(stats),
         ...(stats.expected !== undefined ? { uplift: stats.expected } : {}),
@@ -114,7 +145,7 @@ export async function getStoppedGoalMetricResults(
         ...(significant !== undefined ? { significant } : {}),
       });
     }
-    if (!variations.length) return undefined;
+    if (!captured.length) return undefined;
 
     const traffic = snapshot.health?.traffic?.overall?.variationUnits;
     const totalUsers = traffic?.length
@@ -126,6 +157,7 @@ export async function getStoppedGoalMetricResults(
       goalMetric: {
         metricId: goalId,
         metricName: metric?.name ?? goalId,
+        ...(metric?.inverse ? { inverse: true } : {}),
         snapshotId: snapshot.id,
         statsEngine: analysis.settings.statsEngine,
         differenceType: analysis.settings.differenceType,
@@ -135,7 +167,7 @@ export async function getStoppedGoalMetricResults(
           users: controlStats.users,
           value: metricMean(controlStats),
         },
-        variations,
+        variations: captured,
       },
     };
   } catch (error) {
