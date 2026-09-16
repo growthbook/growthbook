@@ -18,6 +18,7 @@ import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import ProjectApprovalSettings from "@/components/Projects/ProjectApprovalSettings";
 import ProjectAccessSettings from "@/components/Projects/ProjectAccessSettings";
+import ProjectTeams from "@/components/Projects/ProjectTeams";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
@@ -464,6 +465,7 @@ const ProjectPage: FC = () => {
                   canDeleteMembers={false}
                   canInviteMembers={false}
                 />
+                <ProjectTeams project={pid} />
               </TabsContent>
             </Box>
           </Tabs>
