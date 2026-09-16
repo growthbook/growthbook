@@ -21,10 +21,6 @@ const normalizeExtraRules = (
 export const updateMemberRole = createApiRequestHandler(
   updateMemberRoleValidator,
 )(async (req) => {
-  if (!req.context.permissions.canManageTeam()) {
-    req.context.permissions.throwPermissionError();
-  }
-
   const orgUser = req.context.org.members.find(
     (member) => member.id === req.params.id,
   );
@@ -45,7 +41,9 @@ export const updateMemberRole = createApiRequestHandler(
     ...orgUser,
     role: member.role || orgUser.role,
     environments: member.environments || orgUser.environments,
-    limitAccessByEnvironment: !!member.environments?.length,
+    limitAccessByEnvironment: member.environments
+      ? !!member.environments.length
+      : orgUser.limitAccessByEnvironment,
     additionalRoles:
       normalizeExtraRules(member.additionalRoles) ?? orgUser.additionalRoles,
   };
@@ -64,6 +62,16 @@ export const updateMemberRole = createApiRequestHandler(
   // if an empty projectRoles array was passed in, the org is removing all projectRoles for this user
   if ("projectRoles" in member && !member.projectRoles?.length) {
     updatedMember.projectRoles = [];
+  }
+
+  if (!req.context.permissions.canUpdateMemberRole(orgUser, updatedMember)) {
+    req.context.permissions.throwPermissionError();
+  }
+  if (
+    !req.context.permissions.canManageTeam() &&
+    req.params.id === req.context.userId
+  ) {
+    throw new Error("Cannot change your own role");
   }
 
   // Only gate a role change so existing assignments keep working
