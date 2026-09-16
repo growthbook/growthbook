@@ -53,12 +53,6 @@ const ProjectsPage: FC = () => {
   const atProjectLimit =
     maxProjects !== null && nonDemoProjectCount >= maxProjects;
 
-  // Enhance projects with computed publicId for sorting
-  const projectsWithComputedPublicId = projects.map((p) => ({
-    ...p,
-    computedPublicId: p.publicId || p.id,
-  }));
-
   const {
     items,
     searchInputProps,
@@ -66,11 +60,11 @@ const ProjectsPage: FC = () => {
     SortableTableColumnHeader,
     pagination,
   } = useSearch({
-    items: projectsWithComputedPublicId,
+    items: projects,
     localStorageKey: "projects",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
-    searchFields: ["name^3", "description^2", "computedPublicId"],
+    searchFields: ["name^3", "description^2", "publicId", "id"],
     pageSize: 50,
     updateSearchQueryOnChange: true,
   });
