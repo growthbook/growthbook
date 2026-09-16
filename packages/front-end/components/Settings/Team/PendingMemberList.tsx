@@ -16,6 +16,7 @@ import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Table, {
   TableHeader,
   TableBody,
@@ -38,12 +39,14 @@ const PendingMemberList: FC<{
   const [roleModalUser, setRoleModalUser] = useState<PendingMember | null>(
     null,
   );
-  const { projects } = useDefinitions();
+  const { getProjectById } = useDefinitions();
   const { organization } = useUser();
 
   return (
     <Box my="4">
-      <h5>Pending Members{` (${pendingMembers.length})`}</h5>
+      <Heading as="h5" size="sm" mb="1">
+        Pending Members{` (${pendingMembers.length})`}
+      </Heading>
       <Text as="p" color="text-mid" mb="2">
         Members who have requested to join this organization. They must be
         manually approved.
@@ -119,7 +122,7 @@ const PendingMemberList: FC<{
                     <CollapsedRuleRows
                       rows={projectRuleRows(
                         member.projectRoles ?? [],
-                        (id) => projects.find((p) => p.id === id)?.name,
+                        getProjectById,
                         organization,
                       )}
                     />

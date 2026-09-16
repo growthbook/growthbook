@@ -19,6 +19,7 @@ import { useUser } from "@/services/UserContext";
 import Link from "@/ui/Link";
 import RoleRuleLabel, {
   CollapsedRuleRows,
+  projectRuleGroup,
   RuleRow,
 } from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";
@@ -121,7 +122,7 @@ const MemberList: FC<{
   const [projectRoleModal, setProjectRoleModal] = useState<string>("");
   const [passwordResetModal, setPasswordResetModal] =
     useState<ExpandedMember | null>(null);
-  const { projects } = useDefinitions();
+  const { getProjectById } = useDefinitions();
 
   const openInviteModal = !!router.query["just-subscribed"];
 
@@ -202,8 +203,7 @@ const MemberList: FC<{
 
   // Resolve through the real permission pipeline so the table shows
   // restricted-access denials (and their exemptions) exactly as the server does.
-  const restrictAccess = !!projects.find((p) => p.id === project)
-    ?.restrictAccess;
+  const restrictAccess = !!getProjectById(project)?.restrictAccess;
   const deniedByRestrictedAccess = (member: ExpandedMember): boolean => {
     if (!project || !restrictAccess) return false;
     const resolved = new Permissions(
@@ -467,34 +467,19 @@ const MemberList: FC<{
                     <TableCell>
                       <CollapsedRuleRows
                         rows={scopedProjectIds(member).flatMap((projectId) => {
-                          const p = projects.find((p) => p.id === projectId);
-                          if (!p?.name) return [];
-                          return [
-                            {
-                              key: p.id,
-                              heading: true,
-                              node: (
-                                <Text
-                                  as="div"
-                                  weight="medium"
-                                  color="text-high"
-                                >
-                                  {p.name}
-                                </Text>
-                              ),
-                            },
-                            ...effectiveRuleRows(
+                          const project = getProjectById(projectId);
+                          if (!project) return [];
+                          return projectRuleGroup(
+                            project,
+                            effectiveRuleRows(
                               getEffectiveRolesForProject(
                                 member,
                                 projectId,
                                 teams,
                               ),
                               organization,
-                            ).map((row) => ({
-                              ...row,
-                              key: `${p.id}-${row.key}`,
-                            })),
-                          ];
+                            ),
+                          );
                         })}
                       />
                     </TableCell>

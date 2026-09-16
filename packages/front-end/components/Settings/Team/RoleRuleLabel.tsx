@@ -87,35 +87,42 @@ export type RuleRow = { key: string; node: ReactNode; heading?: boolean };
 export function ruleRows(
   scope: Rule & { additionalRoles?: Rule[] },
   organization: Partial<OrganizationInterface>,
-  keyPrefix = "",
 ): RuleRow[] {
   return scopeRules(scope).map((rule, i) => ({
-    key: `${keyPrefix}${i}`,
+    key: `${i}`,
     node: <RoleRuleLabel {...rule} organization={organization} />,
   }));
 }
 
 /** A project's rules under its name, for a Project Roles table cell. */
+export function projectRuleGroup(
+  project: { id: string; name: string },
+  rules: RuleRow[],
+): RuleRow[] {
+  return [
+    {
+      key: project.id,
+      heading: true,
+      node: (
+        <Text as="div" weight="medium" color="text-high">
+          {project.name}
+        </Text>
+      ),
+    },
+    ...rules.map((row) => ({ ...row, key: `${project.id}-${row.key}` })),
+  ];
+}
+
 export function projectRuleRows(
   projectRoles: (Rule & { project: string; additionalRoles?: Rule[] })[],
-  getProjectName: (id: string) => string | undefined,
+  getProjectById: (id: string) => { id: string; name: string } | null,
   organization: Partial<OrganizationInterface>,
 ): RuleRow[] {
   return projectRoles.flatMap((scope) => {
-    const name = getProjectName(scope.project);
-    if (!name) return [];
-    return [
-      {
-        key: scope.project,
-        heading: true,
-        node: (
-          <Text as="div" weight="medium" color="text-high">
-            {name}
-          </Text>
-        ),
-      },
-      ...ruleRows(scope, organization, `${scope.project}-`),
-    ];
+    const project = getProjectById(scope.project);
+    return project
+      ? projectRuleGroup(project, ruleRows(scope, organization))
+      : [];
   });
 }
 

@@ -16,6 +16,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Table, {
   TableHeader,
   TableBody,
@@ -49,7 +50,7 @@ const InviteList: FC<{
 
   const { organization } = useUser();
 
-  const { projects } = useDefinitions();
+  const { getProjectById } = useDefinitions();
 
   const onResend = async (key: string, email: string) => {
     if (resending) return;
@@ -113,7 +114,9 @@ const InviteList: FC<{
 
   return (
     <Box>
-      <h5>Pending Invites{` (${invites.length})`}</h5>
+      <Heading as="h5" size="sm" mb="1">
+        Pending Invites{` (${invites.length})`}
+      </Heading>
       <Text as="p" color="text-mid" mb="2">
         Invites that have been sent but have not yet been accepted.{" "}
         <strong>Invited users count towards plan seat limits.</strong>
@@ -176,7 +179,7 @@ const InviteList: FC<{
                     <CollapsedRuleRows
                       rows={projectRuleRows(
                         member.projectRoles ?? [],
-                        (id) => projects.find((p) => p.id === id)?.name,
+                        getProjectById,
                         organization,
                       )}
                     />

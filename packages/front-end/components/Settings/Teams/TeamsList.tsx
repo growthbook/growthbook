@@ -39,7 +39,7 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
   const [permissionsTeamId, setPermissionsTeamId] = useState<string | null>(
     null,
   );
-  const { projects } = useDefinitions();
+  const { getProjectById } = useDefinitions();
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -120,7 +120,7 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                     <CollapsedRuleRows
                       rows={projectRuleRows(
                         t.projectRoles ?? [],
-                        (id) => projects.find((p) => p.id === id)?.name,
+                        getProjectById,
                         organization,
                       )}
                     />
