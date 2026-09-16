@@ -157,7 +157,31 @@ const MemberList: FC<{
     ]),
   ];
 
-  const [scopedRolesOnly, setScopedRolesOnly] = useState(false);
+  // On a Project, lead with the people someone deliberately granted a role here.
+  const [scopedRolesOnly, setScopedRolesOnly] = useState(
+    () =>
+      !!project &&
+      members.some(([, member]) => scopedProjectIds(member).includes(project)),
+  );
+  // Searching looks across the whole organization, so a query session starts
+  // with the filter off. Swapping the filter mid-query sticks for that query;
+  // clearing the box returns to the mode chosen before searching.
+  const [searchValue, setSearchValue] = useState("");
+  const [searchScopedOnly, setSearchScopedOnly] = useState<boolean | null>(
+    null,
+  );
+  const searching = !!project && searchValue.trim().length > 0;
+  const effectiveScopedOnly = searching
+    ? (searchScopedOnly ?? false)
+    : scopedRolesOnly;
+  const setFilterMode = searching ? setSearchScopedOnly : setScopedRolesOnly;
+  const onSearchChange = (next: string) => {
+    if (!searchValue.trim() && next.trim()) setSearchScopedOnly(false);
+    if (!next.trim()) setSearchScopedOnly(null);
+    setSearchValue(next);
+  };
+  const hasRuleHere = (member: ExpandedMember) =>
+    !!project && scopedProjectIds(member).includes(project);
   const [roleFilterOpen, setRoleFilterOpen] = useState(false);
 
   const membersList: ExpandedMember[] = members
@@ -166,10 +190,7 @@ const MemberList: FC<{
       numTeams: member.teams?.length || 0,
     }))
     .filter(
-      (member) =>
-        !project ||
-        !scopedRolesOnly ||
-        scopedProjectIds(member).includes(project),
+      (member) => !project || !effectiveScopedOnly || hasRuleHere(member),
     );
 
   // Resolve through the real permission pipeline so the table shows
@@ -197,6 +218,14 @@ const MemberList: FC<{
     localStorageKey: "members",
     defaultSortField: "name",
     searchFields: ["name", "email"],
+    controlledSearchValue: project ? searchValue : undefined,
+    // While searching, people who already hold a role here come first.
+    filterResults: searching
+      ? (results) => [
+          ...results.filter(hasRuleHere),
+          ...results.filter((member) => !hasRuleHere(member)),
+        ]
+      : undefined,
     pageSize: 20,
     defaultMappings: {
       lastLoginDate: new Date(0).toISOString(),
@@ -263,7 +292,7 @@ const MemberList: FC<{
         <Flex align="center" justify="between" gap="3" mt="4" mb="2">
           <Flex align="center" gap="3">
             <Heading as="h5" size="sm" mb="0">
-              {project ? "Organization Members" : "Active Members"}
+              {project ? "Members" : "Active Members"}
               {` (${membersList.length})`}
             </Heading>
             <Box width="250px" flexShrink="0">
@@ -272,12 +301,17 @@ const MemberList: FC<{
                 type="search"
                 containerClassName="mb-0"
                 {...searchInputProps}
+                onChange={
+                  project
+                    ? (e) => onSearchChange(e.target.value)
+                    : searchInputProps.onChange
+                }
               />
             </Box>
             {project ? (
               <DropdownMenu
                 trigger={FilterHeading({
-                  heading: scopedRolesOnly
+                  heading: effectiveScopedOnly
                     ? "Project-scoped roles"
                     : "All members",
                   open: roleFilterOpen,
@@ -287,13 +321,16 @@ const MemberList: FC<{
                 onOpenChange={setRoleFilterOpen}
               >
                 <DropdownMenuLabel>Show</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setScopedRolesOnly(false)}>
-                  <FilterItem item="All members" exists={!scopedRolesOnly} />
+                <DropdownMenuItem onClick={() => setFilterMode(false)}>
+                  <FilterItem
+                    item="All members"
+                    exists={!effectiveScopedOnly}
+                  />
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setScopedRolesOnly(true)}>
+                <DropdownMenuItem onClick={() => setFilterMode(true)}>
                   <FilterItem
                     item="Project-scoped roles"
-                    exists={scopedRolesOnly}
+                    exists={effectiveScopedOnly}
                   />
                 </DropdownMenuItem>
               </DropdownMenu>
