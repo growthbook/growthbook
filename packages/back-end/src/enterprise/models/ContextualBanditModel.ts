@@ -29,6 +29,7 @@ import {
   stopContextualBanditEndpoint,
 } from "back-end/src/api/specs/contextual-bandit.spec";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { validateRulesReferences } from "back-end/src/api/features/validations";
 import {
   executeContextualBanditStart,
   executeContextualBanditStop,
@@ -293,6 +294,34 @@ export class ContextualBanditModel extends BaseClass {
       assertContextualAttributesValid(
         this.context.org.settings?.attributeSchema,
         doc,
+      );
+    }
+
+    // The bandit's condition is parsed onto its rule in SDK payloads and
+    // silently omitted when it does not parse (the rule then applies to
+    // everyone); an unknown group in $inGroup / $notInGroup becomes an empty
+    // $in / $nin. savedGroups and prerequisites are checked so stored
+    // references stay resolvable, as on feature rules. Only the fields this
+    // write changes are re-checked.
+    const conditionChanged =
+      !previousDoc ||
+      (previousDoc.condition || "{}") !== (doc.condition || "{}");
+    const savedGroupsChanged =
+      !previousDoc ||
+      !isEqual(previousDoc.savedGroups ?? [], doc.savedGroups ?? []);
+    const prerequisitesChanged =
+      !previousDoc ||
+      !isEqual(previousDoc.prerequisites ?? [], doc.prerequisites ?? []);
+    if (conditionChanged || savedGroupsChanged || prerequisitesChanged) {
+      await validateRulesReferences(
+        [
+          {
+            condition: conditionChanged ? doc.condition : undefined,
+            savedGroups: savedGroupsChanged ? doc.savedGroups : [],
+            prerequisites: prerequisitesChanged ? doc.prerequisites : undefined,
+          },
+        ],
+        this.context,
       );
     }
   }
