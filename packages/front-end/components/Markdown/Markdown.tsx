@@ -1,4 +1,5 @@
 import { DetailedHTMLProps, FC, HTMLAttributes, useMemo } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -14,14 +15,9 @@ interface MarkdownProps
   shareUid?: string;
   shareType?: "experiment" | "report";
   /**
-   * When provided, relative (same-origin) links are handled by this callback
-   * instead of opening in a new tab — e.g. to navigate in-app via the router.
-   * External links (with a protocol) still open in a new tab.
-   */
-  onInternalLinkClick?: (href: string) => void;
-  /**
-   * Optionally recognizes and rewrites additional hrefs as internal links.
-   * Return a root-relative href to route internally, or null to leave external.
+   * Recognizes and rewrites hrefs for SPA navigation.
+   * Return a root-relative href to render with Next.js Link, or null to leave
+   * the link external.
    */
   resolveInternalHref?: (href: string) => string | null;
   // Opt-in: syntax-highlight fenced code blocks (lazy-loaded Prism). Enabled
@@ -30,18 +26,12 @@ interface MarkdownProps
   highlightCode?: boolean;
 }
 
-/** A relative, same-origin path like `/features/foo` — not protocol-relative. */
-function isInternalHref(href: string): boolean {
-  return href.startsWith("/") && !href.startsWith("//");
-}
-
 const Markdown: FC<MarkdownProps> = ({
   children,
   className,
   isPublic = false,
   shareUid,
   shareType = "experiment",
-  onInternalLinkClick,
   resolveInternalHref,
   highlightCode = false,
   ...props
@@ -57,26 +47,11 @@ const Markdown: FC<MarkdownProps> = ({
 
   const components = useMemo(
     () => ({
-      // Internal (relative) links navigate in-app when a handler is given;
-      // everything else opens in a new tab.
       a: ({ ...props }) => {
         const href = props.href ?? "";
-        const internalHref =
-          resolveInternalHref?.(href) ?? (isInternalHref(href) ? href : null);
-        if (onInternalLinkClick && internalHref !== null) {
-          return (
-            <a
-              href={internalHref}
-              onClick={(e) => {
-                // Let modifier-clicks (cmd/ctrl/middle) open a new tab as usual.
-                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                e.preventDefault();
-                onInternalLinkClick(internalHref);
-              }}
-            >
-              {props.children}
-            </a>
-          );
+        const internalHref = resolveInternalHref?.(href) ?? null;
+        if (internalHref !== null) {
+          return <Link href={internalHref}>{props.children}</Link>;
         }
         return (
           <a href={href} target="_blank" rel="noreferrer">
@@ -101,14 +76,7 @@ const Markdown: FC<MarkdownProps> = ({
           }
         : {}),
     }),
-    [
-      isPublic,
-      shareUid,
-      shareType,
-      onInternalLinkClick,
-      resolveInternalHref,
-      highlightCode,
-    ],
+    [isPublic, shareUid, shareType, resolveInternalHref, highlightCode],
   );
 
   return (

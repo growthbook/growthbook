@@ -227,12 +227,6 @@ export default function AgentPanel({
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  // Relative links in agent replies navigate the underlying page in-app
-  // (the panel stays open) instead of opening a new tab.
-  const navigateInApp = useCallback((href: string) => {
-    void routerRef.current?.push(href);
-  }, []);
-
   const { mutate } = useSWRConfig();
   const { orgId } = useAuth();
 
@@ -581,7 +575,6 @@ export default function AgentPanel({
             <PersistedTurn
               key={idx}
               turn={turn}
-              onInternalLinkClick={navigateInApp}
               toolDetailsOpenRef={toolDetailsOpenRef}
               feedbackMap={feedbackMap}
               onFeedbackSubmit={handleFeedbackSubmit}
@@ -603,7 +596,6 @@ export default function AgentPanel({
               <ActiveTurnItemRow
                 item={item}
                 displayedTextMap={displayedTextMap}
-                onInternalLinkClick={navigateInApp}
                 toolDetailsOpenRef={toolDetailsOpenRef}
               />
             );
@@ -709,12 +701,10 @@ function activeItemsToSteps(
 function ActiveTurnItemRow({
   item,
   displayedTextMap,
-  onInternalLinkClick,
   toolDetailsOpenRef,
 }: {
   item: ActiveTurnItem;
   displayedTextMap: Map<string, string>;
-  onInternalLinkClick?: (href: string) => void;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
 }) {
   if (item.kind === "tool-status") {
@@ -755,10 +745,7 @@ function ActiveTurnItemRow({
     if (!displayed) return null;
     return (
       <AssistantBubble>
-        <Markdown
-          onInternalLinkClick={onInternalLinkClick}
-          resolveInternalHref={resolveAgentPanelInternalHref}
-        >
+        <Markdown resolveInternalHref={resolveAgentPanelInternalHref}>
           {displayed}
         </Markdown>
       </AssistantBubble>
@@ -777,14 +764,12 @@ function ActiveTurnItemRow({
  */
 function PersistedTurn({
   turn,
-  onInternalLinkClick,
   toolDetailsOpenRef,
   feedbackMap,
   onFeedbackSubmit,
   feedbackTrackingEventName,
 }: {
   turn: MessageTurn;
-  onInternalLinkClick?: (href: string) => void;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
   feedbackMap: Record<string, FeedbackState>;
   onFeedbackSubmit: (
@@ -854,10 +839,7 @@ function PersistedTurn({
 
       {hasReply && (
         <AssistantBubble>
-          <Markdown
-            onInternalLinkClick={onInternalLinkClick}
-            resolveInternalHref={resolveAgentPanelInternalHref}
-          >
+          <Markdown resolveInternalHref={resolveAgentPanelInternalHref}>
             {replyContent}
           </Markdown>
         </AssistantBubble>
