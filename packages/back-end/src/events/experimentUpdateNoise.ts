@@ -8,8 +8,8 @@ const updateSchema = z.object({
   previous_attributes: recordSchema.optional(),
   changes: z
     .object({
-      added: recordSchema,
-      removed: recordSchema,
+      added: recordSchema.optional(),
+      removed: recordSchema.optional(),
       modified: z.array(
         z
           .object({
@@ -52,16 +52,11 @@ export function isBookkeepingExperimentUpdate(event: EventInterface): boolean {
   if (!parsed.success) return false;
   const {
     object: current,
-    previous_attributes: previousAttributes,
+    previous_attributes: previousAttributes = {},
     changes,
   } = parsed.data;
-  const { added, removed, modified } = changes;
-  if (
-    current &&
-    previousAttributes &&
-    typeof current.id === "string" &&
-    current.id
-  ) {
+  const { added = {}, removed = {}, modified } = changes;
+  if (current && typeof current.id === "string" && current.id) {
     if (
       Object.keys(added).some((key) => !(key in current)) ||
       Object.keys(removed).some((key) => key in current) ||

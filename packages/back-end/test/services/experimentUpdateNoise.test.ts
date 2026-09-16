@@ -2,6 +2,7 @@ import type { EventInterface } from "shared/types/events/event";
 import isEqual from "lodash/isEqual";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { isBookkeepingExperimentUpdate } from "back-end/src/events/experimentUpdateNoise";
+import { EventModel } from "back-end/src/models/EventModel";
 
 const base = {
   id: "exp_1",
@@ -46,6 +47,42 @@ test("suppresses refresh bookkeeping without mutating snapshots", () => {
   expect(isBookkeepingExperimentUpdate(update(base, current))).toBe(true);
   expect(current.dateUpdated).toBe("today");
 });
+test.each([
+  {
+    description: "bookkeeping with a string version",
+    version: "1",
+    current: { ...base, lastSnapshotAttempt: "today" },
+    expected: true,
+  },
+  {
+    description: "bookkeeping with a numeric version",
+    version: 1,
+    current: { ...base, lastSnapshotAttempt: "today" },
+    expected: true,
+  },
+  {
+    description: "a meaningful edit with a string version",
+    version: "1",
+    current: { ...base, name: "Renamed experiment" },
+    expected: false,
+  },
+  {
+    description: "a meaningful addition with a string version",
+    version: "1",
+    current: { ...base, newSetting: true },
+    expected: false,
+  },
+])(
+  "classifies persisted $description as bookkeeping=$expected",
+  ({ version, current, expected }) => {
+    const persisted = EventModel.hydrate({
+      ...update(base, current),
+      version,
+    }).toJSON<EventInterface>({ flattenMaps: true });
+    expect(persisted.version).toBe(1);
+    expect(isBookkeepingExperimentUpdate(persisted)).toBe(expected);
+  },
+);
 test("suppresses internal bandit history but retains allocation and seed changes", () => {
   expect(
     isBookkeepingExperimentUpdate(
@@ -168,4 +205,8 @@ test("keeps legacy updates deliverable without a persisted diff", () => {
     },
   } as EventInterface;
   expect(isBookkeepingExperimentUpdate(legacy)).toBe(false);
+  const persisted = EventModel.hydrate(legacy).toJSON<EventInterface>({
+    flattenMaps: true,
+  });
+  expect(isBookkeepingExperimentUpdate(persisted)).toBe(false);
 });
