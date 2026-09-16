@@ -61,7 +61,6 @@ import {
   removeMember,
   revokeInvite,
   setLicenseKey,
-  assertProjectRulesReferenceProjects,
 } from "back-end/src/services/organizations";
 import { updatePassword } from "back-end/src/services/users";
 import {
@@ -468,11 +467,6 @@ export async function putMemberRole(
       additionalRoles,
       projectRoles,
     });
-    await assertProjectRulesReferenceProjects(
-      context,
-      org.members.find((m) => m.id === id)?.projectRoles,
-      projectRoles,
-    );
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -568,11 +562,6 @@ export async function putMemberProjectRole(
   try {
     // The whole rule, additional roles included — nothing rides in unchecked.
     assertMemberRoleInfoValid(org, projectRole);
-    await assertProjectRulesReferenceProjects(
-      context,
-      org.members.find((m) => m.id === id)?.projectRoles,
-      [projectRole],
-    );
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -843,11 +832,6 @@ export async function putInviteRole(
       additionalRoles,
       projectRoles,
     });
-    await assertProjectRulesReferenceProjects(
-      context,
-      org.invites.find((invite) => invite.key === key)?.projectRoles,
-      projectRoles,
-    );
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -1471,7 +1455,6 @@ export async function postInvite(
       additionalRoles,
       projectRoles,
     });
-    await assertProjectRulesReferenceProjects(context, undefined, projectRoles);
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -2377,7 +2360,7 @@ export async function addOrphanedUser(
     );
   }
 
-  const { org } = context;
+  const { org } = getContextFromReq(req);
 
   const { id } = req.params;
   const { role, environments, limitAccessByEnvironment, projectRoles } =
@@ -2409,7 +2392,6 @@ export async function addOrphanedUser(
       environments,
       projectRoles,
     });
-    await assertProjectRulesReferenceProjects(context, undefined, projectRoles);
   } catch (e) {
     return res.status(400).json({
       status: 400,

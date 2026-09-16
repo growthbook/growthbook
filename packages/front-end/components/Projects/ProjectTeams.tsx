@@ -196,10 +196,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         }),
     )
     .sort(byName);
-  const canCreate = permissionsUtil.canCreateTeam({
-    ...noGlobalRole,
-    projectRoles: [newRule(project)],
-  });
 
   const roleTeam = teams.find((t) => t.id === roleTeamId);
 
@@ -279,34 +275,32 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
             global role for this Project.
           </Text>
         </Box>
-        {canCreate && (
-          <SplitButton
-            variant="outline"
-            menu={
-              addCandidates.length > 0 ? (
-                <DropdownMenu
-                  trigger={
-                    <Button
-                      variant="outline"
-                      aria-label="More ways to add a team"
-                    >
-                      <PiCaretDownFill />
-                    </Button>
-                  }
-                  variant="soft"
-                >
-                  <DropdownMenuItem onClick={() => setRuleModal("add")}>
-                    Add existing team
-                  </DropdownMenuItem>
-                </DropdownMenu>
-              ) : undefined
-            }
-          >
-            <Button variant="outline" onClick={() => setRuleModal("create")}>
-              Create team
-            </Button>
-          </SplitButton>
-        )}
+        <SplitButton
+          variant="outline"
+          menu={
+            addCandidates.length > 0 ? (
+              <DropdownMenu
+                trigger={
+                  <Button
+                    variant="outline"
+                    aria-label="More ways to add a team"
+                  >
+                    <PiCaretDownFill />
+                  </Button>
+                }
+                variant="soft"
+              >
+                <DropdownMenuItem onClick={() => setRuleModal("add")}>
+                  Add existing team
+                </DropdownMenuItem>
+              </DropdownMenu>
+            ) : undefined
+          }
+        >
+          <Button variant="outline" onClick={() => setRuleModal("create")}>
+            Create team
+          </Button>
+        </SplitButton>
       </Flex>
       <Table variant="surface" layout="fixed">
         <TableHeader>
