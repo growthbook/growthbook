@@ -684,7 +684,7 @@ function metricNameEl(name: string, size: "lg" | "sm"): El {
 function colHeader(statLabel: string): El {
   const layout = RESULT_LAYOUT;
   // The number-circle and interval cells are intentionally label-less.
-  const labels = ["", "", statLabel, "", "Change"];
+  const labels = ["", "", statLabel, "", "Lift"];
   return el(
     "div",
     {
