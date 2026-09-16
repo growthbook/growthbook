@@ -1,5 +1,6 @@
 import {
   canEnableEnvironmentOnCreate,
+  targetingRefusal,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import { useForm, FormProvider } from "react-hook-form";
@@ -166,6 +167,8 @@ const genFormDefaultValues = ({
       };
 };
 
+const NOTHING_TARGETED_YET = { allProjects: false, targetingProjects: [] };
+
 export default function FeatureModal({
   close,
   onSuccess,
@@ -174,7 +177,12 @@ export default function FeatureModal({
   secondaryCTA,
   featureToDuplicate,
 }: Props) {
-  const { project, refreshTags, configs } = useDefinitions();
+  const {
+    project,
+    refreshTags,
+    configs,
+    targetingOptOutProjectIds: targetingOptOut,
+  } = useDefinitions();
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
@@ -303,6 +311,26 @@ export default function FeatureModal({
       !selectedProject && projectOptions.length > 0
         ? "Select a project to continue."
         : "You don't have permission to create Feature Flags.";
+  } else {
+    // A new flag's whole targeting set is an addition, duplicated or not.
+    const proposedTargeting = {
+      project: form.watch("project") ?? selectedProject,
+      targetingAllProjects: form.watch("targetingAllProjects"),
+      targetingProjects: form.watch("targetingProjects"),
+    };
+    const refusal = targetingRefusal({
+      permissions: permissionsUtil,
+      existing: {},
+      proposed: proposedTargeting,
+      optedOut: targetingOptOut,
+    });
+    if (refusal) {
+      ctaEnabled = false;
+      disabledMessage =
+        refusal.cause === "opted-out"
+          ? "One or more of the selected Projects don't allow targeting from other Projects' Feature Flags."
+          : "You don't have permission to target one or more of the selected Projects.";
+    }
   }
 
   return (
@@ -427,6 +455,7 @@ export default function FeatureModal({
         <TargetingProjectsField
           mb="5"
           primaryProject={selectedProject}
+          baseline={NOTHING_TARGETED_YET}
           allProjects={!!form.watch("targetingAllProjects")}
           setAllProjects={(v) => form.setValue("targetingAllProjects", v)}
           targetingProjects={form.watch("targetingProjects") ?? []}

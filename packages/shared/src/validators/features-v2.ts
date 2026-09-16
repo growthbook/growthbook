@@ -471,7 +471,7 @@ const v2RuleScopeInput = z
       .array(z.string())
       .optional()
       .describe(
-        "Specific environment IDs this rule applies to. Required when allEnvironments is false.",
+        "Environment IDs the rule applies to. Ignored when allEnvironments is true; with allEnvironments false, an omitted or empty list scopes the rule to no environment.",
       ),
     allProjects: z
       .boolean()
@@ -483,7 +483,7 @@ const v2RuleScopeInput = z
       .array(z.string())
       .optional()
       .describe(
-        "Specific project IDs this rule applies to. Used when allProjects is false. An empty array scopes the rule to no project.",
+        "Specific project IDs this rule applies to. Used when allProjects is false. An empty array scopes the rule to no project. When the organization requires registered attributes with project scoping, the rule's attributes are validated against these projects rather than the whole feature's.",
       ),
   })
   .strict();
@@ -686,13 +686,13 @@ export const postFeatureBodyV2 = z
     targetingAllProjects: z
       .boolean()
       .describe(
-        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Requires the `targetFeatures` permission (FlagsTarget policy) unscoped to any project. Governance stays with `project`.",
       )
       .optional(),
     targetingProjects: z
       .array(z.string())
       .describe(
-        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project. Governance stays with `project`.",
       )
       .optional(),
     valueType: z
@@ -746,13 +746,13 @@ export const updateFeatureBodyV2 = z
     targetingAllProjects: z
       .boolean()
       .describe(
-        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Make this feature discoverable in — and served to — every project, beyond its primary `project`. Requires the `targetFeatures` permission (FlagsTarget policy) unscoped to any project. Governance stays with `project`.",
       )
       .optional(),
     targetingProjects: z
       .array(z.string())
       .describe(
-        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Governance/approvals stay with `project`.",
+        "Secondary project IDs this feature is targeted in and served to, beyond its primary `project`. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project. Governance stays with `project`.",
       )
       .optional(),
     owner: ownerInputField.optional(),

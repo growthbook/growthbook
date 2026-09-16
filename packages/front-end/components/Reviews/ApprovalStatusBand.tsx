@@ -7,6 +7,9 @@ import NoticeBanner from "@/components/Reviews/NoticeBanner";
 type ApproverTeam = { id: string; name: string };
 // One entry per rule; any of its teams satisfies that rule.
 type UnmetTeams = ApproverTeam[][];
+// Targeting projects still owed an approval from one of their own reviewers.
+// `name` is null when the viewer cannot read the project.
+type UnmetProjects = { id: string; name: string | null }[];
 type ReviewFootprint = { scope: string; environments?: readonly string[] };
 
 // "Finance or Dream Team"
@@ -26,18 +29,38 @@ function describeUnmet(unmet: UnmetTeams) {
     .join(" and ");
 }
 
+// "a reviewer in the Platform Project and a reviewer in the Config Server Project"
+function describeProjects(projects: UnmetProjects) {
+  const named = projects.filter((p) => p.name);
+  const hidden = projects.length - named.length;
+  return [
+    ...named.map((p) => `a reviewer in the ${p.name} Project`),
+    ...(hidden === 1
+      ? ["a reviewer in a Project you don't have access to"]
+      : hidden > 1
+        ? [`reviewers in ${hidden} Projects you don't have access to`]
+        : []),
+  ].join(" and ");
+}
+
 // What a publish will take: what the draft reaches, and who must sign off.
 // Both halves are voiced whenever they apply.
 function RequirementLine({
   footprint,
   unmet,
+  unmetProjects = [],
 }: {
   footprint?: ReviewFootprint;
   unmet: UnmetTeams;
+  unmetProjects?: UnmetProjects;
 }) {
   const envs =
     footprint?.scope === "environments" ? (footprint.environments ?? []) : null;
-  const teams = unmet.length > 0 ? describeUnmet(unmet) : null;
+  const who = [
+    unmet.length > 0 ? describeUnmet(unmet) : null,
+    unmetProjects.length > 0 ? describeProjects(unmetProjects) : null,
+  ].filter((part): part is string => !!part);
+  const teams = who.length > 0 ? who.join(" and ") : null;
   // Only "everywhere" (a global value change) truly lands in every
   // environment. "unbound" is metadata-only and "any" sanctions nothing, so
   // neither claims reach.
@@ -68,6 +91,7 @@ export default function ApprovalStatusBand({
   phase,
   footprint,
   unmet,
+  unmetProjects,
   showSelfApprovalNote,
   canRecallReview,
   recallDisabled,
@@ -79,6 +103,7 @@ export default function ApprovalStatusBand({
   phase: "draft" | "waiting" | "gated";
   footprint?: ReviewFootprint;
   unmet: UnmetTeams;
+  unmetProjects?: UnmetProjects;
   // Only for a contributor who didn't create the draft: the org's
   // self-approval setting blocks them, which isn't self-evident. A sole
   // author already knows they can't approve their own draft.
@@ -105,7 +130,11 @@ export default function ApprovalStatusBand({
         title="Review required to publish"
         body={
           <>
-            <RequirementLine footprint={footprint} unmet={unmet} />
+            <RequirementLine
+              footprint={footprint}
+              unmet={unmet}
+              unmetProjects={unmetProjects}
+            />
             {coverageNote}
             {selfApprovalNote}
           </>
@@ -122,7 +151,11 @@ export default function ApprovalStatusBand({
         title="Publishing is blocked"
         body={
           <>
-            <RequirementLine footprint={footprint} unmet={unmet} />
+            <RequirementLine
+              footprint={footprint}
+              unmet={unmet}
+              unmetProjects={unmetProjects}
+            />
             {coverageNote}
           </>
         }
@@ -139,7 +172,11 @@ export default function ApprovalStatusBand({
         title="Waiting for a reviewer"
         body={
           <>
-            <RequirementLine footprint={footprint} unmet={unmet} />
+            <RequirementLine
+              footprint={footprint}
+              unmet={unmet}
+              unmetProjects={unmetProjects}
+            />
             {coverageNote}
             {selfApprovalNote}
           </>

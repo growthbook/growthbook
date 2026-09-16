@@ -4,7 +4,24 @@ import {
   parseIntWithDefault,
   parseIntWithDefaultCapped,
   parseOptionalInt,
+  pValueFormatter,
 } from "../../src/util/numbers";
+
+describe("pValueFormatter", () => {
+  it("collapses values below the display precision", () => {
+    expect(pValueFormatter(0.0004)).toBe("<0.001");
+    expect(pValueFormatter(0.0004, 4)).toBe("0.0004");
+  });
+
+  it("rounds to the requested precision", () => {
+    expect(pValueFormatter(0.042)).toBe("0.042");
+    expect(pValueFormatter(0.04249, 3)).toBe("0.042");
+  });
+
+  it("returns an empty string for non-numbers", () => {
+    expect(pValueFormatter(undefined as unknown as number)).toBe("");
+  });
+});
 
 describe("formatNumericLikeForDisplay", () => {
   it("formats finite numbers like Number#toLocaleString", () => {
