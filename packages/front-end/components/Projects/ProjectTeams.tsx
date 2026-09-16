@@ -1,6 +1,7 @@
 import { FC, useState } from "react";
 import { useRouter } from "next/router";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiCaretDownFill } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   MemberRoleWithProjects,
@@ -18,6 +19,8 @@ import ProjectRuleFields from "@/components/Settings/Team/ProjectRuleFields";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Button from "@/ui/Button";
+import SplitButton from "@/ui/SplitButton";
+import Callout from "@/ui/Callout";
 import TextField from "@/ui/TextField";
 import Field from "@/components/Forms/Field";
 import { Select, SelectItem } from "@/ui/Select";
@@ -106,6 +109,7 @@ const ProjectTeamRuleModal: FC<{
         )
       }
       ctaEnabled={mode === "create" ? !!name.trim() : !!team}
+      cta={mode === "create" ? "Create" : "Add"}
       submit={async () => {
         if (mode === "create") {
           await apiCall("/teams", {
@@ -151,6 +155,11 @@ const ProjectTeamRuleModal: FC<{
             onChange={(e) => setDescription(e.target.value)}
           />
         </>
+      ) : candidates.length === 0 ? (
+        <Callout status="info">
+          The remaining teams carry a global role or are managed externally, so
+          adding them here needs Team Management.
+        </Callout>
       ) : (
         <Box mb="3">
           <Select label="Team" value={teamId} setValue={setTeamId}>
@@ -162,7 +171,9 @@ const ProjectTeamRuleModal: FC<{
           </Select>
         </Box>
       )}
-      <ProjectRuleFields rule={rule} setRule={setRule} />
+      {(mode === "create" || candidates.length > 0) && (
+        <ProjectRuleFields rule={rule} setRule={setRule} />
+      )}
     </ModalStandard>
   );
 };
@@ -356,25 +367,28 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         <Heading as="h5" size="sm" mb="0">
           Teams ({rows.length})
         </Heading>
-        <Flex align="center" gap="3">
-          {teams.length > rows.length && (
-            <Tooltip
-              enabled={!addCandidates.length}
-              content="The remaining teams carry a global role or are managed externally, so adding them here needs Team Management."
-            >
-              <Button
-                variant="outline"
-                disabled={!addCandidates.length}
-                onClick={() => setRuleModal("add")}
-              >
-                Add existing team
-              </Button>
-            </Tooltip>
-          )}
-          {canCreate && (
+        {canCreate && (
+          <SplitButton
+            menu={
+              teams.length > rows.length ? (
+                <DropdownMenu
+                  trigger={
+                    <Button aria-label="More ways to add a team">
+                      <PiCaretDownFill />
+                    </Button>
+                  }
+                  variant="soft"
+                >
+                  <DropdownMenuItem onClick={() => setRuleModal("add")}>
+                    Add existing team
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              ) : undefined
+            }
+          >
             <Button onClick={() => setRuleModal("create")}>Create team</Button>
-          )}
-        </Flex>
+          </SplitButton>
+        )}
       </Flex>
       <Text as="p" size="sm" color="text-low" mb="2">
         A team&apos;s role here applies to every member of the team. Roles on
