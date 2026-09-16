@@ -42,6 +42,7 @@ import {
   reviewerKeyForEventUser,
 } from "shared/validators";
 import { ConflictError } from "back-end/src/util/errors";
+import { normalizeFeatureJSONValues } from "back-end/src/util/featureValues";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -1126,7 +1127,14 @@ export async function prepareFeatureRevision({
     ...(revertedFrom !== undefined ? { revertedFrom } : {}),
   } as FeatureRevisionInterface;
 
-  return { revision, baseRevision, baseVersion };
+  return {
+    revision: normalizeFeatureJSONValues(
+      { valueType: metadata.valueType ?? feature.valueType },
+      revision,
+    ),
+    baseRevision,
+    baseVersion,
+  };
 }
 
 export async function createRevision({
@@ -1380,7 +1388,9 @@ export function computeRevisionUpdate(
 
   // Persistence chokepoint: rules go through `normalizeRulesInputToV2`
   // (also dedups ids and logs collisions). No-op on already-v2 arrays.
-  const normalizedChanges: RevisionChanges =
+  const currentValueType = revision.metadata?.valueType ?? feature.valueType;
+  const valueType = changes.metadata?.valueType ?? currentValueType;
+  const normalizedRules =
     "rules" in changes && changes.rules !== undefined
       ? {
           ...changes,
@@ -1390,6 +1400,15 @@ export function computeRevisionUpdate(
           }),
         }
       : changes;
+  const normalizedChanges: RevisionChanges = normalizeFeatureJSONValues(
+    { valueType },
+    {
+      ...(valueType !== currentValueType
+        ? { defaultValue: revision.defaultValue, rules: revision.rules }
+        : {}),
+      ...normalizedRules,
+    },
+  );
 
   // An approval was given for the draft as it stood. Derived here from the
   // edit itself, so no caller can add a gated change under a standing approval.
