@@ -1276,6 +1276,19 @@ describe("experiments API", () => {
       expect(res.body.experiment.name).toBe("Updated Experiment Name");
     });
 
+    it("rejects a fractional or negative bucket version before writing", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+
+      for (const body of [{ bucketVersion: 1.5 }, { minBucketVersion: -1 }]) {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send(body)
+          .set("Authorization", "Bearer foo");
+        expect(res.status).toBe(400);
+      }
+      expect(updateExperiment).not.toHaveBeenCalled();
+    });
+
     describe("run-experiments permission for payload-affecting fields", () => {
       // An experiment that reaches every environment (visual changesets are
       // not scoped to linked-feature environments), and a caller who may
