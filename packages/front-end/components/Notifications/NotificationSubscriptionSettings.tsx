@@ -1,7 +1,19 @@
 import { useMemo, useState } from "react";
-import { NotificationSubscription } from "shared/validators";
+import { NotificationFilters } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiImage } from "react-icons/pi";
+import {
+  notificationEventOptions,
+  notificationCategories,
+  getNotificationLevel,
+  applyNotificationLevel,
+  NotificationLevel,
+  NotificationEventCategory,
+  notificationEventSelection,
+  toggleNotificationEvents,
+  matchesNotificationEvent,
+  hasNotificationWildcard,
+} from "shared/notifications";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -15,27 +27,15 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import { Select, SelectItem } from "@/ui/Select";
-import {
-  notificationEventOptions,
-  notificationCategories,
-  getNotificationLevel,
-  applyNotificationLevel,
-  NotificationLevel,
-  NotificationEventCategory,
-  notificationEventSelection,
-  toggleNotificationEvents,
-  matchesNotificationEvent,
-  hasNotificationWildcard,
-} from "./notificationEventOptions";
 
 export default function NotificationSubscriptionSettings({
   value,
   onChange,
   cardEvents = [],
 }: {
-  value: NotificationSubscription;
-  onChange: (value: NotificationSubscription) => void;
-  cardEvents?: string[];
+  value: NotificationFilters;
+  onChange: (value: NotificationFilters) => void;
+  cardEvents?: readonly string[];
 }) {
   const { projects, tags, metrics, factMetrics } = useDefinitions();
   const { experiments } = useExperiments();
@@ -531,17 +531,6 @@ export default function NotificationSubscriptionSettings({
           );
         },
       )}
-
-      <Frame mb="0">
-        <Checkbox
-          label="Skip automatic experiment refresh updates"
-          description="Keep notifications about changes to experiment settings."
-          value={value.excludeEmptyUpdates ?? false}
-          setValue={(excludeEmptyUpdates) =>
-            onChange({ ...value, excludeEmptyUpdates })
-          }
-        />
-      </Frame>
     </>
   );
 }

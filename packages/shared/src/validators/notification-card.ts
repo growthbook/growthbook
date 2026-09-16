@@ -26,8 +26,3 @@ export const DEFAULT_NOTIFICATION_SETTINGS = {
   type: "image",
   cardFormat: "compact",
 } satisfies NotificationSettings;
-
-export const notificationFormats = [
-  "none",
-  ...notificationCardFormats,
-] as const;

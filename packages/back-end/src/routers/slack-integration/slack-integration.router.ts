@@ -1,8 +1,7 @@
 import {
-  notificationFormats as supportedCardFormats,
-  notificationSubscriptionSchema,
+  slackNotificationPreviewBodySchema,
+  slackNotificationSettingsBodySchema,
   zodNotificationEventNamesEnum,
-  notificationSettingsSchema,
 } from "shared/validators";
 import express from "express";
 import { z } from "zod";
@@ -16,23 +15,16 @@ const slackIntegrationController = wrapController(
   rawSlackIntegrationController,
 );
 
-const previewBody = z
-  .object({
-    eventName: z.enum(zodNotificationEventNamesEnum),
-    format: z.enum(supportedCardFormats),
-  })
-  .strict();
-router.get("/preview-events", slackIntegrationController.getSlackPreviewEvents);
 router.post(
   "/preview",
-  validateRequestMiddleware({ body: previewBody }),
+  validateRequestMiddleware({ body: slackNotificationPreviewBodySchema }),
   slackIntegrationController.postSlackPreview,
 );
 router.post(
   "/:id/test",
   validateRequestMiddleware({
     params: z.object({ id: z.string().min(1) }).strict(),
-    body: previewBody,
+    body: slackNotificationPreviewBodySchema,
   }),
   slackIntegrationController.postSlackTest,
 );
@@ -53,13 +45,7 @@ router.put(
   "/oauth/:id",
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
-    body: z
-      .object({
-        ...notificationSubscriptionSchema.shape,
-        enabled: z.boolean(),
-        notificationSettings: notificationSettingsSchema.optional(),
-      })
-      .strict(),
+    body: slackNotificationSettingsBodySchema,
   }),
   slackIntegrationController.putSlackOAuthConnection,
 );

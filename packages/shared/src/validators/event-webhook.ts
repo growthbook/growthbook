@@ -59,51 +59,83 @@ const eventNameOrWildcard = z
     },
   );
 
-export const notificationResourceFiltersSchema = z
+export const notificationFiltersSchema = z
   .object({
-    experiments: z.array(z.string()).optional(),
-    metrics: z.array(z.string()).optional(),
-    features: z.array(z.string()).optional(),
-  })
-  .strict();
-
-export type NotificationResourceFilters = z.infer<
-  typeof notificationResourceFiltersSchema
->;
-
-export const notificationSubscriptionSchema =
-  notificationResourceFiltersSchema.extend({
     events: z.array(eventNameOrWildcard).min(1),
     projects: z.array(z.string()),
     tags: z.array(z.string()),
     environments: z.array(z.string()),
-    excludeEmptyUpdates: z.boolean().optional(),
-  });
+    experiments: z.array(z.string()).optional(),
+    metrics: z.array(z.string()).optional(),
+    features: z.array(z.string()).optional(),
+    excludeBookkeepingUpdates: z.boolean().optional(),
+  })
+  .strict();
 
-export type NotificationSubscription = z.infer<
-  typeof notificationSubscriptionSchema
->;
+export type NotificationFilters = z.infer<typeof notificationFiltersSchema>;
 
-export const eventWebHookInterface = z
+export const notificationDeliverySchema = z
   .object({
-    ...notificationSubscriptionSchema.shape,
-    id: z.string(),
-    organizationId: z.string(),
-    dateCreated: z.date(),
-    dateUpdated: z.date(),
     url: z.string().url(),
-    name: z.string().trim().min(2),
-    enabled: z.boolean(),
     payloadType: z.enum(eventWebHookPayloadTypes),
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
     slack: slackEventWebHookMetadata.optional(),
     notificationSettings: notificationSettingsSchema.optional(),
+  })
+  .strict();
+
+export type NotificationDelivery = z.infer<typeof notificationDeliverySchema>;
+
+export const eventWebHookInterface = notificationFiltersSchema
+  .extend(notificationDeliverySchema.shape)
+  .extend({
+    id: z.string(),
+    organizationId: z.string(),
+    dateCreated: z.date(),
+    dateUpdated: z.date(),
+    name: z.string().trim().min(2),
+    enabled: z.boolean(),
     signingKey: z.string().min(2),
     lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),
     lastResponseBody: z.union([z.string(), z.null()]),
+  });
+
+export type EventWebHookInterface = z.infer<typeof eventWebHookInterface>;
+
+export const eventWebHookRequestBodySchema = notificationFiltersSchema.extend(
+  eventWebHookInterface.pick({
+    url: true,
+    name: true,
+    enabled: true,
+    payloadType: true,
+    method: true,
+    headers: true,
+  }).shape,
+);
+
+export type EventWebHookRequestBody = z.infer<
+  typeof eventWebHookRequestBodySchema
+>;
+
+export const slackNotificationSettingsBodySchema =
+  notificationFiltersSchema.extend(
+    eventWebHookInterface.pick({ enabled: true, notificationSettings: true })
+      .shape,
+  );
+
+export type SlackNotificationSettingsBody = z.infer<
+  typeof slackNotificationSettingsBodySchema
+>;
+
+export const slackNotificationPreviewBodySchema = z
+  .object({
+    eventName: z.enum(zodNotificationEventNamesEnum),
+    notificationSettings: notificationSettingsSchema,
   })
   .strict();
 
-export type EventWebHookInterface = z.infer<typeof eventWebHookInterface>;
+export type SlackNotificationPreviewBody = z.infer<
+  typeof slackNotificationPreviewBodySchema
+>;

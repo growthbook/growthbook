@@ -194,27 +194,24 @@ test("feature metrics include inline rules, linked experiments and safe rollouts
     expect.arrayContaining(["fact__inline", "fact__rollout", "fact__revenue"]),
   );
 });
-test.each(["fact__revenue", { metricId: "fact__revenue" }])(
-  "legacy snapshots have the same resource matching semantics for %j",
-  async (metric) => {
-    const legacy = {
-      organizationId: "org_a",
+test("legacy API snapshots retain resource matching", async () => {
+  const legacy = {
+    organizationId: "org_a",
+    data: {
+      event: "experiment.deleted",
+      object: "experiment",
       data: {
-        event: "experiment.deleted",
-        object: "experiment",
-        data: {
-          previous: {
-            id: "exp_a",
-            settings: { goals: [metric] },
-          },
+        previous: {
+          id: "exp_a",
+          settings: { goals: [{ metricId: "fact__revenue" }] },
         },
       },
-    } as EventInterface;
-    expect(
-      await matchesNotificationFilters(context, legacy, metricFilter),
-    ).toBe(true);
-  },
-);
+    },
+  } as EventInterface;
+  expect(await matchesNotificationFilters(context, legacy, metricFilter)).toBe(
+    true,
+  );
+});
 test("bookkeeping policy is explicit and independent of delivery format", async () => {
   const update = {
     ...event("experiment", { id: "exp_a" }),
@@ -228,14 +225,14 @@ test("bookkeeping policy is explicit and independent of delivery format", async 
     },
   } as EventInterface;
   for (const payloadType of ["slack", "discord", "json", "raw"]) {
-    const subscription = { payloadType, excludeEmptyUpdates: true };
+    const subscription = { payloadType, excludeBookkeepingUpdates: true };
     expect(
       await matchesNotificationFilters(context, update, subscription),
     ).toBe(false);
     expect(
       await matchesNotificationFilters(context, update, {
         ...subscription,
-        excludeEmptyUpdates: false,
+        excludeBookkeepingUpdates: false,
       }),
     ).toBe(true);
   }

@@ -1,12 +1,11 @@
 import type { Response } from "express";
 import {
-  NotificationSubscription,
+  EventWebHookRequestBody,
   CreateWebhookSecretProps,
   UpdateWebhookSecretProps,
 } from "shared/validators";
 import {
   EventWebHookInterface,
-  EventWebHookPayloadType,
   EventWebHookMethod,
 } from "shared/types/event-webhook";
 import {
@@ -20,7 +19,6 @@ import {
   getEventWebHookById,
   updateEventWebHook,
   sendEventWebhookTestEvent,
-  UpdateEventWebHookAttributes,
 } from "back-end/src/models/EventWebhookModel";
 import * as EventWebHookLog from "back-end/src/models/EventWebHookLogModel";
 
@@ -91,16 +89,7 @@ export const getEventWebHook = async (
 
 // region POST /event-webhooks
 
-type PostEventWebHooksRequest = AuthRequest & {
-  body: NotificationSubscription & {
-    url: string;
-    name: string;
-    enabled: boolean;
-    payloadType: EventWebHookPayloadType;
-    method: EventWebHookMethod;
-    headers: Record<string, string>;
-  };
-};
+type PostEventWebHooksRequest = AuthRequest<EventWebHookRequestBody>;
 
 type PostEventWebHooksResponse = {
   eventWebHook: EventWebHookInterface;
@@ -123,7 +112,7 @@ export const createEventWebHook = async (
     experiments,
     metrics,
     features,
-    excludeEmptyUpdates,
+    excludeBookkeepingUpdates,
     tags = [],
     projects = [],
     environments = [],
@@ -144,7 +133,7 @@ export const createEventWebHook = async (
     experiments,
     metrics,
     features,
-    excludeEmptyUpdates,
+    excludeBookkeepingUpdates,
     payloadType,
     method,
     headers,
@@ -225,7 +214,7 @@ export const deleteEventWebHook = async (
 // region PUT /event-webhooks/:eventWebHookId
 
 type UpdateEventWebHookRequest = AuthRequest<
-  Required<UpdateEventWebHookAttributes>,
+  EventWebHookRequestBody,
   { eventWebHookId: string }
 >;
 

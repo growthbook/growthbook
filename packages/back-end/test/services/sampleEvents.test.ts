@@ -1,4 +1,9 @@
+import {
+  cardNotificationEventNames,
+  previewNotificationEventNames,
+} from "shared/notifications";
 import { notificationEvents } from "shared/validators";
+import { notificationCardEventNames } from "back-end/src/services/notificationCards/renderNotificationCard";
 import {
   getSampleEventPayload,
   sampleNotificationEventNames,
@@ -18,7 +23,7 @@ const context = {
   userName: "Test User",
 };
 
-test.each(sampleNotificationEventNames)(
+test.each(previewNotificationEventNames)(
   "%s sample satisfies its canonical payload schema",
   (eventName) => {
     const schema = eventSchemas.find(({ name }) => name === eventName)?.schema;
@@ -37,3 +42,15 @@ test.each(sampleNotificationEventNames)(
     });
   },
 );
+
+test("shared preview metadata exactly matches server sample factories", () => {
+  expect([...sampleNotificationEventNames].sort()).toEqual(
+    [...previewNotificationEventNames].sort(),
+  );
+});
+
+test("shared card metadata exactly matches server producers", () => {
+  expect([...notificationCardEventNames].sort()).toEqual(
+    [...cardNotificationEventNames].sort(),
+  );
+});

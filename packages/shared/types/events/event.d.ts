@@ -1,4 +1,3 @@
-import type { NotificationResourceFilters } from "../../src/validators/event-webhook";
 import {
   NotificationEventPayload,
   NotificationEventName,
@@ -10,6 +9,12 @@ import {
   LegacyNotificationEvent,
 } from "./notification-events";
 
+export interface NotificationResourceRelationships {
+  experiments?: string[];
+  features?: string[];
+  metrics?: string[];
+}
+
 export interface BaseEventInterface<T, V> {
   id: string;
   version: V;
@@ -19,7 +24,7 @@ export interface BaseEventInterface<T, V> {
   organizationId: string;
   objectId?: string;
   // Preserve relationships missing from a deleted resource's public payload.
-  relatedResources?: NotificationResourceFilters;
+  relatedResources?: NotificationResourceRelationships;
 }
 
 export type EventInterface =

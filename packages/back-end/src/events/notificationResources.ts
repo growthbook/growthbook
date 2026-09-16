@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
-  parseFunnelStepMetricId,
   parseSliceMetricId,
 } from "shared/experiments";
 import {
@@ -10,9 +9,12 @@ import {
   ApiExperimentMetric,
   experimentAnalysisSettings,
   FeatureRule,
-  NotificationResourceFilters,
+  NotificationFilters,
 } from "shared/validators";
-import type { EventInterface } from "shared/types/events/event";
+import type {
+  EventInterface,
+  NotificationResourceRelationships,
+} from "shared/types/events/event";
 import type { ReqContext } from "back-end/types/request";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
@@ -21,9 +23,8 @@ const experimentMetricIds = (
   config: Parameters<typeof getAllMetricIdsFromExperiment>[0],
 ) => getAllMetricIdsFromExperiment(config, true, []);
 
-// Older API snapshots store metric IDs directly instead of metric objects.
-const apiMetricId = (metric: Pick<ApiExperimentMetric, "metricId"> | string) =>
-  typeof metric === "string" ? metric : metric.metricId;
+const apiMetricId = (metric: Pick<ApiExperimentMetric, "metricId">) =>
+  metric.metricId;
 
 function apiExperimentMetricIds(settings: ApiExperiment["settings"]) {
   return experimentMetricIds({
@@ -95,16 +96,15 @@ function notificationPayload(event: EventInterface) {
   }
 }
 
-export const baseMetricId = (id: string) =>
-  parseSliceMetricId(parseFunnelStepMetricId(id).baseMetricId).baseMetricId;
+export const baseMetricId = (id: string) => parseSliceMetricId(id).baseMetricId;
 
 export async function getNotificationResources(
   context: ReqContext,
   event: EventInterface,
-  filters: NotificationResourceFilters,
-): Promise<Required<NotificationResourceFilters>> {
+  filters: Pick<NotificationFilters, "experiments" | "features" | "metrics">,
+): Promise<Required<NotificationResourceRelationships>> {
   const payload = notificationPayload(event);
-  const related: Required<NotificationResourceFilters> = {
+  const related: Required<NotificationResourceRelationships> = {
     experiments: [],
     features: [],
     metrics: [],

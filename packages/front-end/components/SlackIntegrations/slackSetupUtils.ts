@@ -2,7 +2,7 @@ import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
   notificationEventOptions,
   matchesNotificationEvent,
-} from "@/components/Notifications/notificationEventOptions";
+} from "shared/notifications";
 
 // Notifications-only manifest pre-filled with this instance's app URL.
 export function buildSlackAppManifest({

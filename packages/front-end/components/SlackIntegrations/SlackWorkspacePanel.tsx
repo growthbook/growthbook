@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
 import { PiPlus } from "react-icons/pi";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
+import { useAuth } from "@/services/auth";
+import HelperText from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -17,6 +20,11 @@ import SlackChannelSettings, {
 } from "./SlackChannelSettings";
 import { getSlackChannelSummary } from "./slackSetupUtils";
 import styles from "./SlackWorkspacePanel.module.scss";
+import {
+  SlackChannelFormValues,
+  getSlackChannelFormValues,
+  acknowledgeSlackChannelSave,
+} from "./slackChannelForm";
 
 export default function SlackWorkspacePanel({
   workspace,
@@ -39,215 +47,326 @@ export default function SlackWorkspacePanel({
   onDisconnect: () => void;
   onAddChannel: () => void;
   onSelectChannel: (id: string | null) => Promise<void>;
-  onSaved: () => Promise<void>;
+  onSaved: (channel?: SlackOAuthIntegrationInterface) => Promise<void>;
 }) {
   const { projects } = useDefinitions();
-  const [localChannelId, setLocalChannelId] = useState<string | null>(null);
-  const [saveBarHost, setSaveBarHost] = useState<HTMLDivElement | null>(null);
-  const [draftEnabled, setDraftEnabled] = useState<boolean | null>(null);
-  const [channelDirty, setChannelDirty] = useState(false);
-  const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
-  useEffect(() => {
-    if (
-      selectedChannelId &&
-      channels.some((channel) => channel.id === selectedChannelId)
-    ) {
-      setLocalChannelId(selectedChannelId);
-    }
-  }, [selectedChannelId, channels]);
+  const { apiCall } = useAuth();
+  const [localChannelId, setLocalChannelId] = useState<string | null>(
+    () =>
+      channels.find((channel) => channel.id === selectedChannelId)?.id ??
+      channels[0]?.id ??
+      null,
+  );
   const selected =
-    channels.find((channel) => channel.id === localChannelId) || channels[0];
-  useEffect(() => setDraftEnabled(null), [selected?.id]);
+    channels.find((channel) => channel.id === localChannelId) ??
+    channels[0] ??
+    null;
+  const form = useForm<SlackChannelFormValues>({
+    defaultValues: getSlackChannelFormValues(selected),
+  });
+  const {
+    reset,
+    formState: { isDirty, isSubmitting, isSubmitSuccessful },
+  } = form;
+  const values = form.watch();
+  const formChannelId = useRef(selected?.id ?? null);
+  const lastRequestedChannelId = useRef(selectedChannelId ?? null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [pendingSelection, setPendingSelection] = useState<{
+    channelId: string;
+    urlChannelId: string | null;
+    previousUrlChannelId: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (formChannelId.current === (selected?.id ?? null)) return;
+    formChannelId.current = selected?.id ?? null;
+    reset(getSlackChannelFormValues(selected));
+    setSaveError(null);
+  }, [selected, reset]);
+
+  useEffect(() => {
+    const requestedChannelId = selectedChannelId ?? null;
+    if (isSubmitting || lastRequestedChannelId.current === requestedChannelId)
+      return;
+    const previousUrlChannelId = lastRequestedChannelId.current;
+    lastRequestedChannelId.current = requestedChannelId;
+    const requested = requestedChannelId
+      ? channels.find((channel) => channel.id === requestedChannelId)
+      : channels[0];
+    if (requested && requested.id !== selected?.id) {
+      if (isDirty) {
+        setPendingSelection({
+          channelId: requested.id,
+          urlChannelId: requestedChannelId,
+          previousUrlChannelId,
+        });
+      } else setLocalChannelId(requested.id);
+    }
+  }, [selectedChannelId, selected?.id, channels, isDirty, isSubmitting]);
+
+  const save = form.handleSubmit(async (values) => {
+    if (!selected) return;
+    if (!values.events.length) throw new Error("Select at least one event.");
+    const submitted = structuredClone(values);
+    await apiCall(`/integrations/slack/oauth/${selected.id}`, {
+      method: "PUT",
+      body: JSON.stringify(submitted),
+    });
+    acknowledgeSlackChannelSave(form, submitted);
+    // Persistence succeeded even if refreshing the list fails.
+    void onSaved({ ...selected, ...submitted }).catch(() => undefined);
+  });
   const name = workspace.teamName || workspace.teamId || "Unknown workspace";
   return (
-    <Frame px="0" py="0" mb="0" style={{ overflow: "clip" }}>
-      <Box p="4" style={{ borderBottom: "1px solid var(--gray-a6)" }}>
-        <Flex justify="between" align="start" gap="4" wrap="wrap">
-          <Flex align="center" gap="3">
-            <Flex
-              align="center"
-              justify="center"
-              style={{
-                width: 32,
-                height: 32,
-                flexShrink: 0,
-                borderRadius: "var(--radius-2)",
-                background: "var(--gray-a3)",
-                border: "1px solid var(--gray-a6)",
-              }}
-            >
-              <FaSlack aria-hidden />
-            </Flex>
-            <Box>
-              <Flex align="center" gap="2" wrap="wrap">
-                <Heading as="h2" size="md" mb="0">
-                  {name}
-                </Heading>
-                <Badge
-                  label={needsReconnect ? "Reconnect needed" : "Connected"}
-                  color={needsReconnect ? "amber" : "green"}
-                  variant="soft"
-                />
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (isSubmitting || !isDirty) return;
+        setSaveError(null);
+        void save().catch((error: unknown) => {
+          setSaveError(
+            error instanceof Error ? error.message : "Failed to save settings.",
+          );
+        });
+      }}
+    >
+      <Frame px="0" py="0" mb="0" style={{ overflow: "clip" }}>
+        <Box p="4" style={{ borderBottom: "1px solid var(--gray-a6)" }}>
+          <Flex justify="between" align="start" gap="4" wrap="wrap">
+            <Flex align="center" gap="3">
+              <Flex
+                align="center"
+                justify="center"
+                style={{
+                  width: 32,
+                  height: 32,
+                  flexShrink: 0,
+                  borderRadius: "var(--radius-2)",
+                  background: "var(--gray-a3)",
+                  border: "1px solid var(--gray-a6)",
+                }}
+              >
+                <FaSlack aria-hidden />
               </Flex>
-            </Box>
-          </Flex>
-          <Flex gap="2">
-            <Button
-              variant="outline"
-              color="gray"
-              size="sm"
-              onClick={onReconnect}
-              loading={connecting}
-            >
-              Reconnect
-            </Button>
-            <Button
-              variant="outline"
-              color="red"
-              size="sm"
-              onClick={onDisconnect}
-            >
-              Disconnect
-            </Button>
-          </Flex>
-        </Flex>
-      </Box>
-      <div className={styles.content}>
-        <Box p="3" className={styles.rail}>
-          <Flex justify="between" align="center" gap="2" mb="3">
-            <Text size="sm" color="text-mid" weight="semibold">
-              Channels
-            </Text>
-            <Button
-              variant="ghost"
-              color="gray"
-              size="sm"
-              aria-label={`Add channel to ${name}`}
-              onClick={onAddChannel}
-            >
-              <PiPlus />
-            </Button>
-          </Flex>
-          <Flex direction="column" gap="1">
-            {channels.map((channel) => {
-              const active = selected?.id === channel.id;
-              const enabled = active
-                ? (draftEnabled ?? channel.enabled)
-                : channel.enabled;
-              return (
-                <Link
-                  key={channel.id}
-                  href={`/integrations/slack?channel=${encodeURIComponent(channel.id)}`}
-                  shallow
-                  underline="none"
-                  color="dark"
-                  aria-current={active ? "page" : undefined}
-                  onClick={(event) => {
-                    if (active) return;
-                    if (channelDirty) {
-                      event.preventDefault();
-                      setPendingChannelId(channel.id);
-                      return;
-                    }
-                    setLocalChannelId(channel.id);
-                  }}
-                  style={{
-                    display: "block",
-                    padding: "var(--space-2) var(--space-3)",
-                    borderRadius: "var(--radius-2)",
-                    background: active ? "var(--violet-a3)" : undefined,
-                    opacity: enabled ? 1 : 0.6,
-                  }}
-                >
-                  <Flex gap="2" align="center">
-                    <Text weight={active ? "semibold" : "medium"} truncate>
-                      {getSlackChannelLabel(channel)}
-                    </Text>
-                    {!enabled && (
-                      <Badge label="Disabled" color="gray" variant="soft" />
-                    )}
-                  </Flex>
-                  <span
-                    className="text-muted"
-                    style={{
-                      display: "block",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    <Text size="sm">
-                      {getSlackChannelSummary(channel, projects)}
-                    </Text>
-                  </span>
-                </Link>
-              );
-            })}
-            <Button
-              variant="outline"
-              color="gray"
-              size="sm"
-              mt="3"
-              icon={<PiPlus />}
-              onClick={onAddChannel}
-              style={{
-                width: "100%",
-              }}
-            >
-              Add channel
-            </Button>
+              <Box>
+                <Flex align="center" gap="2" wrap="wrap">
+                  <Heading as="h2" size="md" mb="0">
+                    {name}
+                  </Heading>
+                  <Badge
+                    label={needsReconnect ? "Reconnect needed" : "Connected"}
+                    color={needsReconnect ? "amber" : "green"}
+                    variant="soft"
+                  />
+                </Flex>
+              </Box>
+            </Flex>
+            <Flex gap="2">
+              <Button
+                variant="outline"
+                color="gray"
+                size="sm"
+                onClick={onReconnect}
+                loading={connecting}
+              >
+                Reconnect
+              </Button>
+              <Button
+                variant="outline"
+                color="red"
+                size="sm"
+                onClick={onDisconnect}
+              >
+                Disconnect
+              </Button>
+            </Flex>
           </Flex>
         </Box>
-        <Box p={{ initial: "3", sm: "5" }} style={{ minWidth: 0 }}>
-          {selected ? (
-            <SlackChannelSettings
-              key={selected.id}
-              integration={selected}
-              workspace={workspace}
-              saveBarHost={saveBarHost}
-              onDraftEnabledChange={setDraftEnabled}
-              onDirtyChange={setChannelDirty}
-              onSaved={onSaved}
-              onDeleted={async () => {
-                await onSelectChannel(null);
-                await onSaved();
-              }}
-            />
-          ) : (
-            <Flex direction="column" align="start" gap="3">
-              <Heading as="h2" size="sm">
-                Add a Channel
-              </Heading>
-              <Text color="text-mid">
-                Add a channel to start receiving notifications from this
-                workspace.
+        <div className={styles.content}>
+          <Box p="3" className={styles.rail}>
+            <Flex justify="between" align="center" gap="2" mb="3">
+              <Text size="sm" color="text-mid" weight="semibold">
+                Channels
               </Text>
-              <Button icon={<PiPlus />} onClick={onAddChannel}>
+              <Button
+                variant="ghost"
+                color="gray"
+                size="sm"
+                aria-label={`Add channel to ${name}`}
+                onClick={onAddChannel}
+              >
+                <PiPlus />
+              </Button>
+            </Flex>
+            <Flex direction="column" gap="1">
+              {channels.map((channel) => {
+                const active = selected?.id === channel.id;
+                const enabled = active ? values.enabled : channel.enabled;
+                return (
+                  <Link
+                    key={channel.id}
+                    href={`/integrations/slack?channel=${encodeURIComponent(channel.id)}`}
+                    shallow
+                    underline="none"
+                    color="dark"
+                    aria-current={active ? "page" : undefined}
+                    aria-disabled={isSubmitting && !active}
+                    onClick={(event) => {
+                      if (active || isSubmitting) {
+                        event.preventDefault();
+                        return;
+                      }
+                      if (isDirty) {
+                        event.preventDefault();
+                        setPendingSelection({
+                          channelId: channel.id,
+                          urlChannelId: channel.id,
+                          previousUrlChannelId: selectedChannelId ?? null,
+                        });
+                        return;
+                      }
+                      setLocalChannelId(channel.id);
+                    }}
+                    style={{
+                      display: "block",
+                      padding: "var(--space-2) var(--space-3)",
+                      borderRadius: "var(--radius-2)",
+                      background: active ? "var(--violet-a3)" : undefined,
+                      opacity: enabled ? 1 : 0.6,
+                    }}
+                  >
+                    <Flex gap="2" align="center">
+                      <Text weight={active ? "semibold" : "medium"} truncate>
+                        {getSlackChannelLabel(channel)}
+                      </Text>
+                      {!enabled && (
+                        <Badge label="Disabled" color="gray" variant="soft" />
+                      )}
+                    </Flex>
+                    <span
+                      style={{
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <Text size="sm">
+                        {getSlackChannelSummary(
+                          active ? values : channel,
+                          projects,
+                        )}
+                      </Text>
+                    </span>
+                  </Link>
+                );
+              })}
+              <Button
+                variant="outline"
+                color="gray"
+                size="sm"
+                mt="3"
+                icon={<PiPlus />}
+                onClick={onAddChannel}
+                style={{
+                  width: "100%",
+                }}
+              >
                 Add channel
               </Button>
             </Flex>
-          )}
-        </Box>
-      </div>
-      <Box
-        ref={setSaveBarHost}
-        style={{ position: "sticky", bottom: 0, zIndex: 1 }}
-      />
-      {pendingChannelId && (
-        <ConfirmDialog
-          title="Discard unsaved changes?"
-          content="This channel has unsaved changes. Switching channels discards them."
-          yesText="Discard changes"
-          noText="Keep editing"
-          onCancel={() => setPendingChannelId(null)}
-          onConfirm={async () => {
-            const channelId = pendingChannelId;
-            setPendingChannelId(null);
-            setLocalChannelId(channelId);
-            await onSelectChannel(channelId);
-          }}
-        />
-      )}
-    </Frame>
+          </Box>
+          <Box p={{ initial: "3", sm: "5" }} style={{ minWidth: 0 }}>
+            {selected ? (
+              <SlackChannelSettings
+                key={selected.id}
+                integration={selected}
+                workspace={workspace}
+                form={form}
+                onDeleted={async () => {
+                  await onSelectChannel(null);
+                  await onSaved();
+                }}
+              />
+            ) : (
+              <Flex direction="column" align="start" gap="3">
+                <Heading as="h2" size="sm">
+                  Add a Channel
+                </Heading>
+                <Text color="text-mid">
+                  Add a channel to start receiving notifications from this
+                  workspace.
+                </Text>
+                <Button icon={<PiPlus />} onClick={onAddChannel}>
+                  Add channel
+                </Button>
+              </Flex>
+            )}
+          </Box>
+        </div>
+        {selected && (
+          <Flex
+            align="center"
+            justify="between"
+            gap="3"
+            px={{ initial: "3", sm: "5" }}
+            py="3"
+            style={{
+              position: "sticky",
+              bottom: 0,
+              background: "var(--color-panel-solid)",
+              borderTop: "1px solid var(--gray-a4)",
+              zIndex: 1,
+            }}
+          >
+            <Box aria-live="polite">
+              {saveError ? (
+                <HelperText status="error">{saveError}</HelperText>
+              ) : isDirty ? (
+                <HelperText status="warning">Unsaved changes</HelperText>
+              ) : isSubmitSuccessful ? (
+                <HelperText status="success">Saved.</HelperText>
+              ) : null}
+            </Box>
+            <Button
+              type="submit"
+              onClick={() => save()}
+              loading={isSubmitting}
+              setError={setSaveError}
+              disabled={!isDirty || !values.events.length}
+            >
+              Save settings
+            </Button>
+          </Flex>
+        )}
+        {pendingSelection && (
+          <ConfirmDialog
+            title="Discard unsaved changes?"
+            content="This channel has unsaved changes. Switching channels discards them."
+            yesText="Discard changes"
+            noText="Keep editing"
+            onCancel={() => {
+              setPendingSelection(null);
+              if (
+                (selectedChannelId ?? null) !==
+                pendingSelection.previousUrlChannelId
+              ) {
+                void onSelectChannel(pendingSelection.previousUrlChannelId);
+              }
+            }}
+            onConfirm={async () => {
+              setPendingSelection(null);
+              setLocalChannelId(pendingSelection.channelId);
+              if (
+                (selectedChannelId ?? null) !== pendingSelection.urlChannelId
+              ) {
+                await onSelectChannel(pendingSelection.urlChannelId);
+              }
+            }}
+          />
+        )}
+      </Frame>
+    </form>
   );
 }

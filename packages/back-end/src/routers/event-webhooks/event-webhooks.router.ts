@@ -2,8 +2,7 @@ import express from "express";
 import { z } from "zod";
 import {
   eventWebHookMethods,
-  eventWebHookPayloadTypes,
-  notificationSubscriptionSchema,
+  eventWebHookRequestBodySchema,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -26,17 +25,7 @@ router.get("/event-webhooks", eventWebHooksController.getEventWebHooks);
 router.post(
   "/event-webhooks",
   validateRequestMiddleware({
-    body: z
-      .object({
-        url: z.string().url(),
-        name: z.string().trim().min(2),
-        ...notificationSubscriptionSchema.shape,
-        enabled: z.boolean(),
-        payloadType: z.enum(eventWebHookPayloadTypes),
-        method: z.enum(eventWebHookMethods),
-        headers: z.object({}).catchall(z.string()),
-      })
-      .strict(),
+    body: eventWebHookRequestBodySchema,
   }),
   eventWebHooksController.createEventWebHook,
 );
@@ -101,17 +90,7 @@ router.put(
         eventWebHookId: z.string(),
       })
       .strict(),
-    body: z
-      .object({
-        url: z.string().url(),
-        name: z.string().trim().min(2),
-        ...notificationSubscriptionSchema.shape,
-        enabled: z.boolean(),
-        payloadType: z.enum(eventWebHookPayloadTypes),
-        method: z.enum(eventWebHookMethods),
-        headers: z.object({}).catchall(z.string()),
-      })
-      .strict(),
+    body: eventWebHookRequestBodySchema,
   }),
   eventWebHooksController.putEventWebHook,
 );

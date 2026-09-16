@@ -1,4 +1,4 @@
-import { notificationFormats as supportedCardFormats } from "shared/validators";
+import { SlackNotificationPreviewBody } from "shared/validators";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
@@ -19,11 +19,8 @@ type Preview = {
 };
 export default function SlackEventPreview({
   eventName,
-  format,
-}: {
-  eventName: string;
-  format: (typeof supportedCardFormats)[number];
-}) {
+  notificationSettings,
+}: SlackNotificationPreviewBody) {
   const { apiCall } = useAuth();
   const [attempt, setAttempt] = useState(0);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -34,7 +31,7 @@ export default function SlackEventPreview({
     setError(null);
     apiCall<Preview>("/integrations/slack/preview", {
       method: "POST",
-      body: JSON.stringify({ eventName, format }),
+      body: JSON.stringify({ eventName, notificationSettings }),
     })
       .then((result) => {
         if (!cancelled) setPreview(result);
@@ -48,7 +45,7 @@ export default function SlackEventPreview({
     return () => {
       cancelled = true;
     };
-  }, [eventName, format, apiCall, attempt]);
+  }, [eventName, notificationSettings, apiCall, attempt]);
   if (error)
     return (
       <>

@@ -1,7 +1,6 @@
 import {
-  notificationFormats as supportedCardFormats,
-  NotificationSettings,
-  NotificationSubscription,
+  SlackNotificationPreviewBody,
+  SlackNotificationSettingsBody,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import type { Response } from "express";
@@ -10,11 +9,9 @@ import {
   SlackOAuthIntegrationInterface,
 } from "shared/types/slack-integration";
 import { NotificationEventName } from "shared/types/events/base-types";
-import { notificationCardEventNames } from "back-end/src/services/notificationCards/renderNotificationCard";
 import {
   buildSlackSettingsPreview,
   sendSlackSettingsTest,
-  slackPreviewEventNames,
 } from "back-end/src/services/slack/slackSettingsPreview";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -127,10 +124,7 @@ export const getSlackOAuthConnection = async (
 };
 
 type PutSlackOAuthConnectionRequest = AuthRequest<
-  NotificationSubscription & {
-    enabled: boolean;
-    notificationSettings?: NotificationSettings;
-  },
+  SlackNotificationSettingsBody,
   { id: string }
 >;
 
@@ -574,29 +568,14 @@ export const deleteSlackIntegration = async (
 
 // endregion DELETE /integrations/slack/:id
 
-export const getSlackPreviewEvents = async (
-  req: AuthRequest,
-  res: Response,
-) => {
-  const context = getContextFromReq(req);
-  if (!context.permissions.canManageIntegrations())
-    context.permissions.throwPermissionError();
-  res.json({
-    events: slackPreviewEventNames,
-    cardEvents: notificationCardEventNames,
-  });
-};
 export const postSlackPreview = async (
-  req: AuthRequest<{
-    eventName: string;
-    format: (typeof supportedCardFormats)[number];
-  }>,
+  req: AuthRequest<SlackNotificationPreviewBody>,
   res: Response,
 ) => {
   const { message, card } = await buildSlackSettingsPreview(
     getContextFromReq(req),
     req.body.eventName,
-    req.body.format,
+    req.body.notificationSettings,
   );
   res.setHeader("Cache-Control", "no-store");
   res.json({
@@ -605,17 +584,14 @@ export const postSlackPreview = async (
   });
 };
 export const postSlackTest = async (
-  req: AuthRequest<
-    { eventName: string; format: (typeof supportedCardFormats)[number] },
-    { id: string }
-  >,
+  req: AuthRequest<SlackNotificationPreviewBody, { id: string }>,
   res: Response,
 ) => {
   const result = await sendSlackSettingsTest(
     getContextFromReq(req),
     req.params.id,
     req.body.eventName,
-    req.body.format,
+    req.body.notificationSettings,
   );
   res.json(result);
 };

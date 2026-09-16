@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
-import isEqual from "lodash/isEqual";
+import { useMemo, useState } from "react";
+import { UseFormReturn } from "react-hook-form";
 import { ago } from "shared/dates";
-import { createPortal } from "react-dom";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import {
-  notificationFormats,
-  NotificationSubscription,
-  DEFAULT_NOTIFICATION_SETTINGS,
+  notificationCardFormats,
+  NotificationCardFormat,
+  notificationFiltersSchema,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiTrash, PiPaperPlaneTilt, PiX } from "react-icons/pi";
+import {
+  notificationEventOptions,
+  notificationCategories,
+  notificationEventMetadata,
+  previewNotificationEventNames,
+  PreviewNotificationEventName,
+  cardNotificationEventNames,
+} from "shared/notifications";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -24,11 +30,8 @@ import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import { Select, SelectItem, SelectGroup, SelectLabel } from "@/ui/Select";
 import NotificationSubscriptionSettings from "@/components/Notifications/NotificationSubscriptionSettings";
-import {
-  notificationEventOptions,
-  notificationCategories,
-} from "@/components/Notifications/notificationEventOptions";
 import SlackEventPreview from "./SlackEventPreview";
+import { SlackChannelFormValues } from "./slackChannelForm";
 
 const REQUIRED_SCOPES = [
   "chat:write",
@@ -45,13 +48,9 @@ const REQUIRED_SCOPES = [
 ];
 
 const CARD_FORMAT_LABELS: Record<
-  (typeof notificationFormats)[number],
+  NotificationCardFormat,
   { label: string; description: string }
 > = {
-  none: {
-    label: "No card — text only",
-    description: "Send a text message only.",
-  },
   compact: {
     label: "Compact card",
     description: "A short image highlighting the event.",
@@ -89,47 +88,37 @@ const getSlackWorkspaceLabel = (
 export default function SlackChannelSettings({
   integration,
   workspace,
-  onSaved,
+  form,
   onDeleted,
-  saveBarHost,
-  onDraftEnabledChange,
-  onDirtyChange,
 }: {
   integration: SlackOAuthIntegrationInterface;
   workspace: SlackWorkspaceConnectionFrontEndInterface;
-  onSaved: () => Promise<void>;
+  form: UseFormReturn<SlackChannelFormValues>;
   onDeleted: () => Promise<void>;
-  saveBarHost?: HTMLDivElement | null;
-  onDraftEnabledChange?: (enabled: boolean) => void;
-  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { apiCall } = useAuth();
-  const { data: previewEvents, error: previewEventsError } = useApi<{
-    events: string[];
-    cardEvents: string[];
-  }>("/integrations/slack/preview-events");
-  const [previewEvent, setPreviewEvent] = useState("experiment.warning");
-  const [testEvent, setTestEvent] = useState("experiment.warning");
+  const [sampleEvent, setSampleEvent] =
+    useState<PreviewNotificationEventName>("experiment.warning");
   const [showSendTest, setShowSendTest] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
-  const eventChoices = notificationEventOptions.flatMap((option) => {
-    const event = option.events.find((event) =>
-      previewEvents?.events.includes(event),
+  const eventChoices = previewNotificationEventNames.map((event) => {
+    const option = notificationEventOptions.find((option) =>
+      option.events.some((name) => name === event),
     );
-    return event
-      ? [
-          {
-            event,
-            label:
-              option.label +
-              (previewEvents?.cardEvents.includes(event)
-                ? " (card)"
-                : " (text)"),
-            group: `${notificationCategories[option.category]} · ${option.group}`,
-          },
-        ]
-      : [];
+    return {
+      event,
+      label: `${notificationEventMetadata[event].label} (${cardNotificationEventNames.some((name) => name === event) ? "card" : "text"})`,
+      group: option
+        ? `${notificationCategories[option.category]} · ${option.group}`
+        : "Other events",
+    };
   });
+  const selectSampleEvent = (value: string) => {
+    const event = previewNotificationEventNames.find(
+      (event) => event === value,
+    );
+    if (event) setSampleEvent(event);
+  };
   const previewChoiceItems = [
     ...new Set(eventChoices.map((option) => option.group)),
   ].map((group) => (
@@ -144,36 +133,8 @@ export default function SlackChannelSettings({
         ))}
     </SelectGroup>
   ));
-  const [enabled, setEnabled] = useState(integration.enabled);
-  const [subscription, setSubscription] = useState<NotificationSubscription>({
-    events: integration.events,
-    projects: integration.projects,
-    tags: integration.tags,
-    environments: integration.environments,
-    experiments: integration.experiments,
-    metrics: integration.metrics,
-    features: integration.features,
-    excludeEmptyUpdates: integration.excludeEmptyUpdates,
-  });
-  const { events } = subscription;
-  const notificationSettings =
-    integration.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
-  const [cardFormat, setCardFormat] = useState<
-    (typeof notificationFormats)[number]
-  >(
-    notificationSettings.type === "text"
-      ? "none"
-      : notificationSettings.cardFormat,
-  );
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const draft = { enabled, subscription, cardFormat };
-  const [savedDraft, setSavedDraft] = useState(draft);
-  const dirty = !isEqual(draft, savedDraft);
-  useEffect(() => {
-    onDirtyChange?.(dirty);
-  }, [dirty, onDirtyChange]);
+  const { enabled, notificationSettings, ...filters } = form.watch();
+  const { events } = filters;
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectError, setReconnectError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -191,41 +152,6 @@ export default function SlackChannelSettings({
   const needsReconnect = REQUIRED_SCOPES.some(
     (scope) => !grantedScopes.has(scope),
   );
-
-  const save = async () => {
-    if (events.length === 0) {
-      setSaveError("Select at least one event.");
-      return;
-    }
-    const submittedDraft = draft;
-    setSaving(true);
-    setSaveError(null);
-    setSaved(false);
-    try {
-      await apiCall(`/integrations/slack/oauth/${integration.id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          enabled: submittedDraft.enabled,
-          ...submittedDraft.subscription,
-          notificationSettings:
-            submittedDraft.cardFormat === "none"
-              ? { type: "text" }
-              : { type: "image", cardFormat: submittedDraft.cardFormat },
-        }),
-      });
-      setSavedDraft(submittedDraft);
-      setSaved(true);
-    } catch (error) {
-      setSaveError(
-        error instanceof Error ? error.message : "Failed to save settings.",
-      );
-      return;
-    } finally {
-      setSaving(false);
-    }
-    // Refreshing the cached list is not part of the save; SWR keeps the last data if it fails.
-    await onSaved().catch(() => undefined);
-  };
 
   const reconnect = async () => {
     setReconnecting(true);
@@ -254,33 +180,6 @@ export default function SlackChannelSettings({
     await onDeleted();
   };
 
-  const saveBar = (
-    <Flex
-      align="center"
-      gap="3"
-      py="3"
-      style={{
-        position: saveBarHost ? "static" : "sticky",
-        paddingLeft: saveBarHost ? "var(--space-5)" : 0,
-        bottom: 0,
-        background: "var(--color-panel-solid)",
-        borderTop: "1px solid var(--gray-a4)",
-        zIndex: 1,
-      }}
-    >
-      <Button
-        onClick={save}
-        loading={saving}
-        disabled={!dirty || events.length === 0}
-      >
-        Save settings
-      </Button>
-      {dirty && <HelperText status="warning">Unsaved changes</HelperText>}
-      {saved && !dirty && <HelperText status="success">Saved.</HelperText>}
-      {saveError && <HelperText status="error">{saveError}</HelperText>}
-    </Flex>
-  );
-
   return (
     <>
       {showSendTest && (
@@ -291,18 +190,18 @@ export default function SlackChannelSettings({
           cta={`Send to ${getSlackChannelLabel(integration)}`}
           close={() => setShowSendTest(false)}
           submit={async () => {
-            const result = await apiCall<{ delivery: "card" | "text" }>(
+            const result = await apiCall<{ deliveredAs: "card" | "text" }>(
               `/integrations/slack/${integration.id}/test`,
               {
                 method: "POST",
                 body: JSON.stringify({
-                  eventName: testEvent,
-                  format: cardFormat,
+                  eventName: sampleEvent,
+                  notificationSettings,
                 }),
               },
             );
             setTestResult(
-              `Test ${result.delivery === "card" ? "card" : "message"} sent to ${getSlackChannelLabel(integration)}.`,
+              `Test ${result.deliveredAs === "card" ? "card" : "message"} sent to ${getSlackChannelLabel(integration)}.`,
             );
           }}
         >
@@ -314,13 +213,16 @@ export default function SlackChannelSettings({
           <Box mb="4">
             <Select
               label="Message type"
-              value={testEvent}
-              setValue={setTestEvent}
+              value={sampleEvent}
+              setValue={selectSampleEvent}
             >
               {previewChoiceItems}
             </Select>
           </Box>
-          <SlackEventPreview eventName={testEvent} format={cardFormat} />
+          <SlackEventPreview
+            eventName={sampleEvent}
+            notificationSettings={notificationSettings}
+          />
         </ModalStandard>
       )}
       {confirmingDelete && (
@@ -352,10 +254,9 @@ export default function SlackChannelSettings({
             <Checkbox
               label="Enabled"
               value={enabled}
-              setValue={(value) => {
-                setEnabled(value);
-                onDraftEnabledChange?.(value);
-              }}
+              setValue={(value) =>
+                form.setValue("enabled", value, { shouldDirty: true })
+              }
               weight="medium"
             />
             <Box
@@ -369,11 +270,7 @@ export default function SlackChannelSettings({
               color="gray"
               size="sm"
               icon={<PiPaperPlaneTilt />}
-              disabled={!previewEvents?.events.length}
-              onClick={() => {
-                setTestEvent(previewEvent);
-                setShowSendTest(true);
-              }}
+              onClick={() => setShowSendTest(true)}
             >
               Send test
             </Button>
@@ -390,25 +287,23 @@ export default function SlackChannelSettings({
           </Flex>
         </Flex>
 
-        {previewEventsError && (
-          <HelperText status="error">
-            Could not load test events. Refresh to try again.
-          </HelperText>
-        )}
         {testResult && (
-          <Callout status="success">
-            <Flex align="center" justify="between" gap="3">
-              <span>{testResult}</span>
+          <Callout
+            status="success"
+            action={
               <Button
                 aria-label="Dismiss"
                 variant="ghost"
                 color="gray"
                 size="sm"
+                icon={<PiX />}
                 onClick={() => setTestResult(null)}
               >
-                <PiX />
+                {null}
               </Button>
-            </Flex>
+            }
+          >
+            {testResult}
           </Callout>
         )}
         {needsReconnect && (
@@ -431,9 +326,13 @@ export default function SlackChannelSettings({
         )}
 
         <NotificationSubscriptionSettings
-          value={subscription}
-          cardEvents={previewEvents?.cardEvents}
-          onChange={setSubscription}
+          value={filters}
+          cardEvents={cardNotificationEventNames}
+          onChange={(filters) => {
+            for (const name of notificationFiltersSchema.keyof().options) {
+              form.setValue(name, filters[name], { shouldDirty: true });
+            }
+          }}
         />
 
         {events.length === 0 && (
@@ -456,17 +355,34 @@ export default function SlackChannelSettings({
               <Box style={{ maxWidth: 420 }}>
                 <Select
                   label="Card style"
-                  value={cardFormat}
+                  value={
+                    notificationSettings.type === "text"
+                      ? "text"
+                      : notificationSettings.cardFormat
+                  }
                   setValue={(value) => {
-                    const format = notificationFormats.find(
+                    if (value === "text") {
+                      form.setValue(
+                        "notificationSettings",
+                        { type: "text" },
+                        { shouldDirty: true },
+                      );
+                      return;
+                    }
+                    const format = notificationCardFormats.find(
                       (format) => format === value,
                     );
                     if (format) {
-                      setCardFormat(format);
+                      form.setValue(
+                        "notificationSettings",
+                        { type: "image", cardFormat: format },
+                        { shouldDirty: true },
+                      );
                     }
                   }}
                 >
-                  {notificationFormats.map((format) => (
+                  <SelectItem value="text">Text only</SelectItem>
+                  {notificationCardFormats.map((format) => (
                     <SelectItem key={format} value={format}>
                       {CARD_FORMAT_LABELS[format].label}
                     </SelectItem>
@@ -478,12 +394,15 @@ export default function SlackChannelSettings({
               <Text as="div" size="sm" weight="medium" color="text-mid" mb="2">
                 PREVIEW
               </Text>
-              <SlackEventPreview eventName={previewEvent} format={cardFormat} />
+              <SlackEventPreview
+                eventName={sampleEvent}
+                notificationSettings={notificationSettings}
+              />
               <Box mt="3">
                 <Select
                   label="Preview event"
-                  value={previewEvent}
-                  setValue={setPreviewEvent}
+                  value={sampleEvent}
+                  setValue={selectSampleEvent}
                 >
                   {previewChoiceItems}
                 </Select>
@@ -494,8 +413,6 @@ export default function SlackChannelSettings({
             </Box>
           </Flex>
         </Frame>
-
-        {saveBarHost ? createPortal(saveBar, saveBarHost) : saveBar}
       </Flex>
     </>
   );

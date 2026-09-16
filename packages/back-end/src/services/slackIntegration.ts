@@ -4,9 +4,10 @@ import {
   randomBytes,
   timingSafeEqual,
 } from "node:crypto";
+import { defaultSlackNotificationEvents } from "shared/notifications";
 import {
-  defaultSlackNotificationEvents,
   DEFAULT_NOTIFICATION_SETTINGS,
+  SlackNotificationSettingsBody,
   SlackWorkspaceConnectionFrontEndInterface,
   SlackWorkspaceConnectionInterface,
 } from "shared/validators";
@@ -397,7 +398,7 @@ export const slackEventWebhookToIntegration = (
   projects: eventWebHook.projects,
   environments: eventWebHook.environments,
   tags: eventWebHook.tags,
-  excludeEmptyUpdates: eventWebHook.excludeEmptyUpdates,
+  excludeBookkeepingUpdates: eventWebHook.excludeBookkeepingUpdates,
   experiments: eventWebHook.experiments || [],
   metrics: eventWebHook.metrics || [],
   features: eventWebHook.features || [],
@@ -495,19 +496,7 @@ export const updateSlackOAuthIntegration = async ({
 }: {
   context: ReqContext;
   id: string;
-  updates: Pick<
-    EventWebHookInterface,
-    | "enabled"
-    | "events"
-    | "projects"
-    | "environments"
-    | "tags"
-    | "notificationSettings"
-    | "excludeEmptyUpdates"
-    | "experiments"
-    | "metrics"
-    | "features"
-  >;
+  updates: SlackNotificationSettingsBody;
 }): Promise<SlackOAuthIntegrationInterface | null> => {
   const eventWebHook = await getEventWebHookById(id, context.org.id);
   if (
@@ -611,7 +600,7 @@ const attachSlackOAuthCode = async ({
       organizationId: context.org.id,
       enabled: true,
       events: defaultSlackNotificationEvents,
-      excludeEmptyUpdates: true,
+      excludeBookkeepingUpdates: true,
       projects: [],
       tags: [],
       environments: [],
@@ -886,7 +875,7 @@ export const addSlackChannelToWorkspace = async ({
       organizationId: context.org.id,
       enabled: true,
       events: defaultSlackNotificationEvents,
-      excludeEmptyUpdates: true,
+      excludeBookkeepingUpdates: true,
       projects: [],
       tags: [],
       environments: [],

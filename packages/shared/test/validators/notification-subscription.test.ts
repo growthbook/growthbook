@@ -1,4 +1,10 @@
-import { notificationSubscriptionSchema } from "../../src/validators/event-webhook";
+import {
+  notificationFiltersSchema,
+  notificationDeliverySchema,
+  eventWebHookInterface,
+  eventWebHookRequestBodySchema,
+  slackNotificationSettingsBodySchema,
+} from "../../src/validators/event-webhook";
 
 const subscription = {
   events: [
@@ -12,14 +18,12 @@ const subscription = {
   experiments: ["exp_1"],
   metrics: ["fact__revenue"],
   features: ["checkout"],
-  excludeEmptyUpdates: true,
+  excludeBookkeepingUpdates: true,
 };
 it("validates subscription criteria independently of delivery settings", () => {
-  expect(notificationSubscriptionSchema.parse(subscription)).toEqual(
-    subscription,
-  );
+  expect(notificationFiltersSchema.parse(subscription)).toEqual(subscription);
   expect(
-    notificationSubscriptionSchema.safeParse({
+    notificationFiltersSchema.safeParse({
       ...subscription,
       payloadType: "slack",
     }).success,
@@ -31,7 +35,7 @@ it.each([
   { metrics: "fact__revenue" },
 ])("rejects invalid criteria %j", (invalid) => {
   expect(
-    notificationSubscriptionSchema.safeParse({ ...subscription, ...invalid })
+    notificationFiltersSchema.safeParse({ ...subscription, ...invalid })
       .success,
   ).toBe(false);
 });
@@ -42,5 +46,77 @@ it("keeps the new policy optional for existing subscriptions", () => {
     tags: [],
     environments: [],
   };
-  expect(notificationSubscriptionSchema.parse(existing)).toEqual(existing);
+  expect(notificationFiltersSchema.parse(existing)).toEqual(existing);
+});
+
+it("composes filtering and delivery into a flat stored configuration", () => {
+  const webhook = {
+    ...subscription,
+    id: "ewh_1",
+    organizationId: "org_1",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    name: "Notifications",
+    enabled: true,
+    signingKey: "secret",
+    lastRunAt: null,
+    lastState: "none",
+    lastResponseBody: null,
+    url: "https://slack.com",
+    payloadType: "slack",
+    method: "POST",
+    headers: {},
+    slack: { teamId: "T1", channelId: "C1" },
+    notificationSettings: { type: "image", cardFormat: "compact" },
+  };
+  expect(eventWebHookInterface.parse(webhook)).toEqual(webhook);
+  expect(
+    notificationDeliverySchema.parse({
+      url: webhook.url,
+      payloadType: webhook.payloadType,
+      method: webhook.method,
+      headers: webhook.headers,
+    }),
+  ).not.toHaveProperty("excludeBookkeepingUpdates");
+});
+
+it("keeps webhook requests restricted to their existing editable fields", () => {
+  const request = {
+    ...subscription,
+    name: "Notifications",
+    enabled: true,
+    url: "https://example.com/webhook",
+    payloadType: "json",
+    method: "POST",
+    headers: {},
+  };
+  expect(eventWebHookRequestBodySchema.parse(request)).toEqual(request);
+  for (const restricted of [
+    { signingKey: "secret" },
+    { slack: {} },
+    { notificationSettings: { type: "text" } },
+  ]) {
+    expect(
+      eventWebHookRequestBodySchema.safeParse({ ...request, ...restricted })
+        .success,
+    ).toBe(false);
+  }
+  expect(
+    slackNotificationSettingsBodySchema.parse({
+      ...subscription,
+      enabled: true,
+      notificationSettings: { type: "text" },
+    }),
+  ).toEqual({
+    ...subscription,
+    enabled: true,
+    notificationSettings: { type: "text" },
+  });
+  expect(
+    slackNotificationSettingsBodySchema.safeParse({
+      ...subscription,
+      enabled: true,
+      url: request.url,
+    }).success,
+  ).toBe(false);
 });

@@ -32,7 +32,7 @@ export async function deliverSlackNotification({
 }): Promise<{
   result: EventWebHookResult;
   payload: Record<string, unknown>;
-  delivery: "card" | "text";
+  deliveredAs: "card" | "text";
 } | null> {
   const getTextPayload = () =>
     !event.version
@@ -70,7 +70,7 @@ export async function deliverSlackMessage({
 }): Promise<{
   result: EventWebHookResult;
   payload: Record<string, unknown>;
-  delivery: "card" | "text";
+  deliveredAs: "card" | "text";
 } | null> {
   if (!isSlackWorkspacePlaceholderUrl(eventWebHook.url)) {
     const payload = await getTextPayload();
@@ -85,7 +85,7 @@ export async function deliverSlackMessage({
       method: eventWebHook.method || "POST",
       applySecrets,
     });
-    return { result, payload, delivery: "text" };
+    return { result, payload, deliveredAs: "text" };
   }
   const teamId = eventWebHook.slack?.teamId;
   const connection = teamId
@@ -107,7 +107,7 @@ export async function deliverSlackMessage({
           "Slack delivery failed: no bot token or channel for this connection (reconnect the Slack workspace)",
       },
       payload,
-      delivery: "text",
+      deliveredAs: "text",
     };
   }
 
@@ -135,7 +135,7 @@ export async function deliverSlackMessage({
           responseBody: fileId,
         },
         payload: { text: caption },
-        delivery: "card",
+        deliveredAs: "card",
       };
     }
   }
@@ -163,6 +163,6 @@ export async function deliverSlackMessage({
           error: `Slack delivery failed: ${result.error}`,
         },
     payload,
-    delivery: "text",
+    deliveredAs: "text",
   };
 }

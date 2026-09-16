@@ -16,9 +16,12 @@ import {
   zodNotificationEventNamesEnum,
   zodNotificationEventResources,
   eventData,
-  NotificationResourceFilters,
 } from "shared/validators";
-import { EventInterface, BaseEventInterface } from "shared/types/events/event";
+import {
+  EventInterface,
+  BaseEventInterface,
+  NotificationResourceRelationships,
+} from "shared/types/events/event";
 import { DiffResult } from "shared/types/events/diff";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
@@ -123,7 +126,7 @@ export const createEventWithPayload = async <
   >;
   organizationId: string;
   objectId?: string;
-  relatedResources?: NotificationResourceFilters;
+  relatedResources?: NotificationResourceRelationships;
   // Save event history even when webhook and legacy Slack dispatch is skipped.
   notify?: boolean;
 }) => {
@@ -233,7 +236,7 @@ export type CreateEventParams<
   context: ReqContext;
   object: Resource;
   objectId?: string;
-  relatedResources?: NotificationResourceFilters;
+  relatedResources?: NotificationResourceRelationships;
   event: Event;
   data: CreateEventData<Resource, Event, Payload>;
   containsSecrets: boolean;

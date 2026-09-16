@@ -1,4 +1,5 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
+import type { CardNotificationEventName } from "shared/notifications";
 import type { NotificationEventName } from "shared/types/events/base-types";
 import type { NotificationCardFormat } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
@@ -13,7 +14,7 @@ const PRODUCERS: Partial<
   Record<NotificationEventName, NotificationCardProducer>
 > = {
   "experiment.warning": buildExperimentSrmCard,
-};
+} satisfies Record<CardNotificationEventName, NotificationCardProducer>;
 
 export const notificationCardEventNames = Object.keys(PRODUCERS);
 

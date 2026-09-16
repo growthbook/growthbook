@@ -1,4 +1,5 @@
-import { notificationFormats, notificationEventNames } from "shared/validators";
+import { NotificationSettings } from "shared/validators";
+import { previewNotificationEventNames } from "shared/notifications";
 import { ReqContext } from "back-end/types/request";
 import {
   getSlackMessageForNotificationEvent,
@@ -9,28 +10,17 @@ import {
   RenderedNotificationCard,
 } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getEventWebHookById } from "back-end/src/models/EventWebhookModel";
-import {
-  getSampleEventPayload,
-  sampleNotificationEventNames,
-} from "back-end/src/services/notifications/sampleEvents";
+import { getSampleEventPayload } from "back-end/src/services/notifications/sampleEvents";
 import { deliverSlackMessage } from "./deliverSlackNotification";
-
-export const slackPreviewEventNames = sampleNotificationEventNames.filter(
-  (name) => notificationEventNames.some((event) => event === name),
-);
 
 export async function buildSlackSettingsPreview(
   context: ReqContext,
   eventName: string,
-  format: (typeof notificationFormats)[number],
+  notificationSettings: NotificationSettings,
 ): Promise<{ message: SlackMessage; card: RenderedNotificationCard | null }> {
   if (!context.permissions.canManageIntegrations())
     context.permissions.throwPermissionError();
-  const name = sampleNotificationEventNames.find(
-    (name) =>
-      name === eventName &&
-      notificationEventNames.some((event) => event === name),
-  );
+  const name = previewNotificationEventNames.find((name) => name === eventName);
   if (!name) throw new Error("Unsupported test event");
   const event = getSampleEventPayload({ context, eventName: name });
   const message = await getSlackMessageForNotificationEvent(
@@ -39,7 +29,9 @@ export async function buildSlackSettingsPreview(
   );
   if (!message) throw new Error("This event does not have a Slack preview");
   const card =
-    format === "none" ? null : await renderNotificationCard(event, format);
+    notificationSettings.type === "text"
+      ? null
+      : await renderNotificationCard(event, notificationSettings.cardFormat);
   return { message, card };
 }
 
@@ -47,7 +39,7 @@ export async function sendSlackSettingsTest(
   context: ReqContext,
   id: string,
   eventName: string,
-  format: (typeof notificationFormats)[number],
+  notificationSettings: NotificationSettings,
 ) {
   if (!context.permissions.canManageIntegrations())
     context.permissions.throwPermissionError();
@@ -57,7 +49,7 @@ export async function sendSlackSettingsTest(
   const { message, card } = await buildSlackSettingsPreview(
     context,
     eventName,
-    format,
+    notificationSettings,
   );
   const messagePrefix = "Test notification — sample data";
   const delivery = await deliverSlackMessage({
@@ -80,5 +72,5 @@ export async function sendSlackSettingsTest(
     throw new Error(
       "Slack could not deliver the test notification. Check the channel connection and retry.",
     );
-  return { delivery: delivery.delivery };
+  return { deliveredAs: delivery.deliveredAs };
 }

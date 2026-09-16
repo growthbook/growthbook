@@ -2487,9 +2487,11 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
     let projects: string[] = [];
     let environments: string[] = [];
     let tags: string[] = [];
-    let featureId: string | undefined;
-    if ("targets" in schedule && schedule.entityType === "feature") {
-      featureId = schedule.entityId;
+    const featureId =
+      "targets" in schedule && schedule.entityType === "feature"
+        ? schedule.entityId
+        : undefined;
+    if ("targets" in schedule && featureId) {
       const feature = await getFeature(ctx, featureId);
       if (feature) {
         projects = feature.project ? [feature.project] : [];

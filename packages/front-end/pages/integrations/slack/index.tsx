@@ -637,7 +637,22 @@ const SlackWorkspacePage: NextPage = () => {
                 onDisconnect={() => setDisconnectTeamId(group.teamId)}
                 onAddChannel={() => setAddChannelTeamId(group.teamId)}
                 onSelectChannel={selectChannel}
-                onSaved={async () => {
+                onSaved={async (savedChannel) => {
+                  if (savedChannel) {
+                    await mutate(
+                      (current) =>
+                        current && {
+                          ...current,
+                          slackIntegrations: current.slackIntegrations.map(
+                            (channel) =>
+                              channel.id === savedChannel.id
+                                ? savedChannel
+                                : channel,
+                          ),
+                        },
+                      { revalidate: false },
+                    );
+                  }
                   await mutate();
                 }}
               />

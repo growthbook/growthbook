@@ -1,15 +1,25 @@
+import { z } from "zod";
+import {
+  notificationEventNames,
+  zodNotificationEventNamesEnum,
+} from "../src/validators/events";
 import {
   defaultSlackNotificationEvents,
-  notificationEventNames,
-} from "shared/validators";
-import {
+  notificationEventMetadata,
+  publicNotificationEventNames,
+  previewNotificationEventNames,
+  cardNotificationEventNames,
+  initiallyEnabledNotificationCategories,
+  notificationCategories,
+  NotificationEventCategory,
+  hasNotificationWildcard,
   notificationEventOptions,
   getNotificationLevel,
   notificationEventsForLevel,
   applyNotificationLevel,
   notificationEventSelection,
   toggleNotificationEvents,
-} from "@/components/Notifications/notificationEventOptions";
+} from "../src/notifications";
 
 describe("Notification event subscriptions", () => {
   it("only offers events supported by the notification registry", () => {
@@ -156,11 +166,13 @@ describe("Wildcard subscriptions and levels", () => {
       getNotificationLevel(["feature.*", "experiment.warning"], "experiment"),
     ).toBe("custom");
   });
-  it("keeps the resource wildcard when full is chosen", () => {
+  it("writes current explicit events when Full is deliberately applied", () => {
     const events = ["experiment.*", "feature.*"];
-    expect(applyNotificationLevel(events, "experiment", "full")).toEqual(
-      events,
-    );
+    expect(applyNotificationLevel(events, "experiment", "full")).toEqual([
+      "feature.*",
+      ...notificationEventsForLevel("experiment", "full"),
+    ]);
+    expect(events).toEqual(["experiment.*", "feature.*"]);
   });
   it("replaces the resource wildcard with the fixed list for narrower levels", () => {
     const next = applyNotificationLevel(
@@ -207,3 +219,99 @@ it.each(["config", "constant", "savedGroup"] as const)(
     expect(edited).toContain(`${category}.revision.created`);
   },
 );
+
+it("keeps the current Important and Default memberships explicit", () => {
+  expect(notificationEventsForLevel("experiment", "important")).toEqual([
+    "experiment.info.significance",
+    "experiment.decision.ship",
+    "experiment.decision.rollback",
+    "experiment.decision.review",
+    "experiment.warning",
+  ]);
+  expect(notificationEventsForLevel("experiment", "default")).toEqual([
+    "experiment.decision.ship",
+    "experiment.decision.rollback",
+    "experiment.decision.review",
+    "experiment.warning",
+  ]);
+  expect(notificationEventsForLevel("feature", "important")).toEqual([
+    "feature.revision.published",
+    "feature.saferollout.ship",
+    "feature.saferollout.rollback",
+    "feature.saferollout.unhealthy",
+  ]);
+  expect(notificationEventsForLevel("feature", "default")).toEqual([
+    "feature.revision.published",
+    "feature.revision.reverted",
+    "feature.saferollout.ship",
+    "feature.saferollout.rollback",
+    "feature.saferollout.unhealthy",
+    "feature.revision.reviewRequested",
+    "feature.revision.changesRequested",
+  ]);
+  for (const category of ["config", "constant", "savedGroup"] as const) {
+    expect(notificationEventsForLevel(category, "important")).toEqual([
+      `${category}.revision.published`,
+    ]);
+    expect(notificationEventsForLevel(category, "default")).toEqual([
+      `${category}.revision.published`,
+    ]);
+  }
+  expect(initiallyEnabledNotificationCategories).toEqual([
+    "experiment",
+    "feature",
+  ]);
+});
+
+it("describes every valid event and hides only internal events from public lists", () => {
+  expect(Object.keys(notificationEventMetadata).sort()).toEqual(
+    [...notificationEventNames].sort(),
+  );
+  expect(publicNotificationEventNames).toEqual(
+    notificationEventNames.filter((name) => name !== "webhook.test"),
+  );
+  expect(publicNotificationEventNames).toContain("user.login");
+  expect(notificationEventMetadata["webhook.test"].visibility).toBe("internal");
+  expect(z.enum(zodNotificationEventNamesEnum).parse("webhook.test")).toBe(
+    "webhook.test",
+  );
+  expect(previewNotificationEventNames).not.toContain("webhook.test");
+  expect(cardNotificationEventNames).toEqual(["experiment.warning"]);
+});
+
+it.each(Object.keys(notificationCategories) as NotificationEventCategory[])(
+  "%s groups and Full preset cover all public events in that category exactly once",
+  (category) => {
+    const expected = publicNotificationEventNames.filter((name) =>
+      name.startsWith(`${category}.`),
+    );
+    const offered = notificationEventOptions
+      .filter((option) => option.category === category)
+      .flatMap((option) => option.events);
+    expect([...offered].sort()).toEqual([...expected].sort());
+    expect(notificationEventsForLevel(category, "full").sort()).toEqual(
+      [...expected].sort(),
+    );
+  },
+);
+
+it("reading partial selections and wildcards leaves saved subscriptions untouched", () => {
+  const events = [
+    "experiment.decision.ship",
+    "feature.revision.*",
+    "savedGroup.*",
+    "future.event",
+  ];
+  const saved = [...events];
+  expect(getNotificationLevel(events, "experiment")).toBe("custom");
+  expect(getNotificationLevel(events, "feature")).toBe("custom");
+  expect(getNotificationLevel(events, "savedGroup")).toBe("full");
+  expect(hasNotificationWildcard(events, "feature")).toBe(true);
+  expect(
+    notificationEventSelection(events, [
+      "experiment.decision.ship",
+      "experiment.decision.review",
+    ]),
+  ).toBe("indeterminate");
+  expect(events).toEqual(saved);
+});

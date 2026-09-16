@@ -1,3 +1,4 @@
+import type { EventInterface } from "shared/types/events/event";
 import isEqual from "lodash/isEqual";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { isBookkeepingExperimentUpdate } from "back-end/src/events/experimentUpdateNoise";
@@ -9,7 +10,11 @@ const base = {
   autoRefresh: true,
   phases: [{ seed: "a", trafficSplit: [0.5, 0.5] }],
 };
-const event = (data: unknown) => ({ event: "experiment.updated", data });
+const event = (data: unknown) =>
+  ({
+    version: 1,
+    data: { event: "experiment.updated", data },
+  }) as EventInterface;
 const empty = { added: {}, removed: {}, modified: [] };
 const update = (
   previous: Record<string, unknown>,
@@ -113,8 +118,54 @@ test.each([
 test("does not suppress other events", () => {
   expect(
     isBookkeepingExperimentUpdate({
-      event: "experiment.started",
-      data: { changes: empty },
-    }),
+      ...event({ changes: empty }),
+      data: { ...event({ changes: empty }).data, event: "experiment.started" },
+    } as EventInterface),
   ).toBe(false);
+});
+
+test.each([
+  { ...empty, modified: [{}] },
+  { ...empty, modified: { name: "Changed" } },
+  {
+    ...empty,
+    modified: [{ key: "name", oldValue: "Old", newValue: "Changed" }],
+  },
+  {
+    ...empty,
+    modified: [
+      {
+        key: "dateUpdated",
+        oldValue: "yesterday",
+        newValue: "today",
+        unknown: true,
+      },
+    ],
+  },
+  { ...empty, added: { newField: true } },
+  { ...empty, removed: { name: "Checkout" } },
+])(
+  "retains inconsistent persisted changes even with snapshots: %j",
+  (changes) => {
+    expect(
+      isBookkeepingExperimentUpdate(
+        event({
+          object: { ...base, dateUpdated: "today" },
+          previous_attributes: { dateUpdated: "yesterday" },
+          changes,
+        }),
+      ),
+    ).toBe(false);
+  },
+);
+
+test("keeps legacy updates deliverable without a persisted diff", () => {
+  const legacy = {
+    version: undefined,
+    data: {
+      event: "experiment.updated",
+      data: { current: base, previous: base },
+    },
+  } as EventInterface;
+  expect(isBookkeepingExperimentUpdate(legacy)).toBe(false);
 });

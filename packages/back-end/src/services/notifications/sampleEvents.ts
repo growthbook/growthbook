@@ -1,4 +1,5 @@
 // Synthetic notification events for previews and test sends.
+import type { PreviewNotificationEventName } from "shared/notifications";
 import { DiffResult } from "shared/types/events/diff";
 import { NotificationEvent } from "shared/types/events/notification-events";
 import {
@@ -6,7 +7,6 @@ import {
   EventUser,
   FeatureRevisionWebhookPayload,
   FeatureWebhookPayload,
-  notificationEventNames,
   RampScheduleStartedPayload,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
@@ -536,25 +536,21 @@ const sampleEvents = {
       },
     },
   }),
-} satisfies Partial<{
-  [Name in NotificationEvent["event"]]: () => Pick<
+} satisfies {
+  [Name in PreviewNotificationEventName]: () => Pick<
     Extract<NotificationEvent, { event: Name }>,
     "event" | "object" | "data"
   >;
-}>;
+};
 
-export type SampleNotificationEventName = keyof typeof sampleEvents;
-
-export const sampleNotificationEventNames = notificationEventNames.filter(
-  (name): name is SampleNotificationEventName => name in sampleEvents,
-);
+export const sampleNotificationEventNames = Object.keys(sampleEvents);
 
 export const getSampleEventPayload = ({
   context,
   eventName,
 }: {
   context: SampleContext;
-  eventName: SampleNotificationEventName;
+  eventName: PreviewNotificationEventName;
 }): NotificationEvent => ({
   ...sampleEvents[eventName](),
   api_version: API_VERSION,

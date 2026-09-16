@@ -1,8 +1,8 @@
+import type { NotificationFilters } from "shared/validators";
 import type {
-  NotificationResourceFilters,
-  NotificationSubscription,
-} from "shared/validators";
-import type { EventInterface } from "shared/types/events/event";
+  EventInterface,
+  NotificationResourceRelationships,
+} from "shared/types/events/event";
 import type { ReqContext } from "back-end/types/request";
 import { isBookkeepingExperimentUpdate } from "./experimentUpdateNoise";
 import {
@@ -14,8 +14,8 @@ const intersects = (wanted: string[] = [], actual: string[]) =>
   !wanted.length || wanted.some((id) => actual.includes(id));
 
 export const matchesNotificationResourceFilters = (
-  filters: NotificationResourceFilters,
-  related: Required<NotificationResourceFilters>,
+  filters: Pick<NotificationFilters, "experiments" | "features" | "metrics">,
+  related: Required<NotificationResourceRelationships>,
 ) =>
   intersects(filters.experiments, related.experiments) &&
   intersects(filters.features, related.features) &&
@@ -26,12 +26,14 @@ export const matchesNotificationResourceFilters = (
 export async function matchesNotificationFilters(
   context: ReqContext,
   event: EventInterface,
-  subscription: NotificationResourceFilters &
-    Pick<NotificationSubscription, "excludeEmptyUpdates">,
+  subscription: Pick<
+    NotificationFilters,
+    "experiments" | "features" | "metrics" | "excludeBookkeepingUpdates"
+  >,
 ): Promise<boolean> {
   if (
-    subscription.excludeEmptyUpdates &&
-    isBookkeepingExperimentUpdate(event.data)
+    subscription.excludeBookkeepingUpdates &&
+    isBookkeepingExperimentUpdate(event)
   )
     return false;
   if (
