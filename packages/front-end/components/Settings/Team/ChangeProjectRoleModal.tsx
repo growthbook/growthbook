@@ -22,10 +22,10 @@ const ChangeProjectRoleModal: FC<{
     <ModalStandard
       trackingEventModalType=""
       close={close}
-      header="Change Project Role"
+      header="Edit Project Role"
       subheader={
         <>
-          Change project role for <strong>{memberName}</strong>.
+          Edit the Project role for <strong>{memberName}</strong>.
         </>
       }
       open={true}

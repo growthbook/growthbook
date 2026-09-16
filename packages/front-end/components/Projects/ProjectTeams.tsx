@@ -412,7 +412,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                         <DropdownMenuItem
                           onClick={() => setRoleTeamId(team.id)}
                         >
-                          Change role on this Project
+                          Edit Project role
                         </DropdownMenuItem>
                         {canManageMembers && (
                           <DropdownMenuItem
@@ -440,13 +440,13 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                                 rulesWithoutProject(team, project),
                               );
                             },
-                            confirmationTitle: "Remove team from Project",
+                            confirmationTitle: "Remove Project role",
                             cta: "Remove",
                             getConfirmationContent: async () =>
                               `Members of "${team.name}" will lose the team's role on this Project. The team itself is kept.`,
                           }}
                         >
-                          Remove from this Project
+                          Remove Project role
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
                     </DropdownMenu>
