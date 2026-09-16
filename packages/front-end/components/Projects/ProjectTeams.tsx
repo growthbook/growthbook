@@ -15,7 +15,7 @@ import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRole
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
 import ProjectRuleFields from "@/components/Settings/Team/ProjectRuleFields";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Button from "@/ui/Button";
 import TextField from "@/ui/TextField";
 import Field from "@/components/Forms/Field";
@@ -289,6 +289,22 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
   const canTouchMember = (memberId: string) =>
     canManageTeam || memberId !== userId;
 
+  if (!hasCommercialFeature("teams")) {
+    return (
+      <Box mb="4">
+        <Heading as="h5" size="sm" mb="2">
+          Teams
+        </Heading>
+        <PremiumEmptyState
+          title="Teams"
+          description="Give a group of users a role on this Project in one step, and manage the group here."
+          commercialFeature="teams"
+          learnMoreLink="https://docs.growthbook.io/account/user-permissions#project-scoped-teams"
+        />
+      </Box>
+    );
+  }
+
   return (
     <Box mb="4">
       {ruleModal && (
@@ -355,14 +371,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
             </Tooltip>
           )}
           {canCreate && (
-            <PremiumTooltip commercialFeature="teams">
-              <Button
-                disabled={!hasCommercialFeature("teams")}
-                onClick={() => setRuleModal("create")}
-              >
-                Create team
-              </Button>
-            </PremiumTooltip>
+            <Button onClick={() => setRuleModal("create")}>Create team</Button>
           )}
         </Flex>
       </Flex>
