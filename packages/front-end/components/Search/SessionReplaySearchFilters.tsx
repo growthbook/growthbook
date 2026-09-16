@@ -1,5 +1,6 @@
-import { FC, useCallback, useMemo, useRef, useState } from "react";
-import { Box, Flex, TextField } from "@radix-ui/themes";
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { TextField } from "@/ui/TextField";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -10,9 +11,11 @@ import {
   FilterDropdown,
   FilterHeading,
   FilterItem,
+  filterToString,
+  filterTokenRegex,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
-import type { SyntaxFilter } from "@/services/search";
+import type { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 
 interface SessionForFilters {
   featureKeys: string[];
@@ -29,7 +32,7 @@ interface SessionForFilters {
 const TextInputRow: FC<{
   label: string;
   field: string;
-  operator?: string;
+  operator?: SearchTermFilterOperator;
   placeholder: string;
   inputType?: "text" | "number" | "date" | "search";
   syntaxFilters: SyntaxFilter[];
@@ -45,8 +48,6 @@ const TextInputRow: FC<{
   searchValue,
   setSearchValue,
 }) => {
-  const [active, setActive] = useState(false);
-  const [localValue, setLocalValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -55,20 +56,42 @@ const TextInputRow: FC<{
     (f) => f.field === field && f.operator === operator,
   );
 
+  const active = existingFilter !== undefined;
+  const [localValue, setLocalValue] = useState(existingFilter?.values[0] ?? "");
+
+  useEffect(() => {
+    setLocalValue(existingFilter?.values[0] ?? "");
+  }, [existingFilter]);
+
+  useEffect(() => {
+    if (active) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [active]);
+
   const commit = useCallback(
     (val: string) => {
       if (!val.trim()) {
-        setActive(false);
+        if (existingFilter) {
+          const newValue = searchValue.replace(
+            filterTokenRegex(existingFilter),
+            "",
+          );
+          setSearchValue(newValue.trim());
+        }
         return;
       }
-      const escaped = val.includes(" ") ? `"${val}"` : val;
-      const token = `${field}:${operator}${escaped}`;
+      const newFilter: SyntaxFilter = {
+        field,
+        operator,
+        values: [val],
+        negated: false,
+      };
+      const token = filterToString(newFilter);
       if (existingFilter) {
-        // Replace existing filter for this field+operator
-        const prefix = `${field}:${operator}`;
         const newValue = searchValue.replace(
-          new RegExp(`${prefix}(?:"[^"]*"|[^\\s])*`, "g"),
-          () => token,
+          filterTokenRegex(existingFilter),
+          token,
         );
         setSearchValue(newValue.trim());
       } else {
@@ -76,8 +99,6 @@ const TextInputRow: FC<{
           (searchValue.length > 0 ? searchValue + " " + token : token).trim(),
         );
       }
-      setActive(false);
-      setLocalValue("");
     },
     [field, operator, existingFilter, searchValue, setSearchValue],
   );
@@ -96,9 +117,9 @@ const TextInputRow: FC<{
         onMouseLeave={() => rowRef.current?.removeAttribute("data-highlighted")}
       >
         <Box>{label}</Box>
-        <TextField.Root
+        <TextField
           ref={inputRef}
-          size="1"
+          size="sm"
           variant="surface"
           type={inputType}
           placeholder={placeholder}
@@ -127,11 +148,19 @@ const TextInputRow: FC<{
     <DropdownMenuItem
       onClick={(e) => {
         e.preventDefault();
-        setActive(true);
-        requestAnimationFrame(() => inputRef.current?.focus());
+        const newFilter: SyntaxFilter = {
+          field,
+          operator,
+          values: [""],
+          negated: false,
+        };
+        const token = filterToString(newFilter);
+        setSearchValue(
+          (searchValue.length > 0 ? searchValue + " " + token : token).trim(),
+        );
       }}
     >
-      <FilterItem item={label} exists={!!existingFilter} />
+      <FilterItem item={label} exists={false} />
     </DropdownMenuItem>
   );
 };
@@ -215,7 +244,7 @@ const SessionReplaySearchFilters: FC<
       {featureKeys.length > 0 && (
         <FilterDropdown
           filter="flag"
-          heading="Flag"
+          heading="Feature Flag"
           syntaxFilters={syntaxFilters}
           open={dropdownFilterOpen}
           setOpen={setDropdownFilterOpen}

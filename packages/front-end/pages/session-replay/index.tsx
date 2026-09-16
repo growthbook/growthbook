@@ -8,16 +8,20 @@ import {
   PiCaretDoubleLeft,
   PiCaretDoubleRight,
   PiCopy,
+  PiCursorClick,
   PiDesktop,
   PiDeviceMobile,
   PiGlobeSimple,
   PiListBullets,
   PiMapPin,
+  PiRecord,
+  PiTimer,
   PiX,
 } from "react-icons/pi";
 import { AppFeatures } from "shared/types/app-features";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
+import VariationNumber from "@/ui/VariationNumber";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
@@ -30,6 +34,7 @@ import SessionReplaySearchFilters from "@/components/Search/SessionReplaySearchF
 import { useSessionReplayFilters } from "@/hooks/useSessionReplayFilters";
 import type { RrwebPlayerHandle } from "@/components/SessionReplay/player";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import Custom404 from "@/pages/404";
 
 // rrweb-player accesses `document` at the module level, so it must be
@@ -137,6 +142,7 @@ type EvaluationEntry = {
   kind: "flag" | "exp" | "event";
   label: string;
   formattedMessage: string;
+  variationId?: number;
 };
 
 function formatDuration(ms: number): string {
@@ -228,6 +234,7 @@ function buildEvaluationsFromMetadata(
       kind: "exp",
       label: item.key,
       formattedMessage: `${item.key} → variation ${variationId ?? "?"}`,
+      variationId: typeof variationId === "number" ? variationId : undefined,
     });
   }
 
@@ -252,6 +259,13 @@ export default function SessionReplayPage() {
   const router = useRouter();
   const { apiCall } = useAuth();
   const { project } = useDefinitions();
+
+  // Re-evaluate isSessionLive every 60s so Recording badges expire
+  const [, liveTick] = useIncrementer();
+  useEffect(() => {
+    const id = setInterval(liveTick, 60_000);
+    return () => clearInterval(id);
+  }, [liveTick]);
 
   // ---- UI panel state ------------------------------------------------------
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -655,12 +669,18 @@ export default function SessionReplayPage() {
                       </Text>
                     )}
                     <Flex gap="2" mt="1" align="center" wrap="wrap">
-                      <Text color="text-low" size="sm">
-                        ⌁ {session.keyEventCount.toLocaleString()} key events
-                      </Text>
-                      <Text color="text-low" size="sm">
-                        ⏱ {formatDuration(session.durationMs)}
-                      </Text>
+                      <Flex align="center" gap="1" asChild>
+                        <Text color="text-low" size="sm">
+                          <PiCursorClick aria-hidden />
+                          {session.keyEventCount.toLocaleString()} key events
+                        </Text>
+                      </Flex>
+                      <Flex align="center" gap="1" asChild>
+                        <Text color="text-low" size="sm">
+                          <PiTimer aria-hidden />
+                          {formatDuration(session.durationMs)}
+                        </Text>
+                      </Flex>
                       {session.errorCount > 0 && (
                         <Badge
                           label={`${session.errorCount} error${
@@ -674,7 +694,11 @@ export default function SessionReplayPage() {
                       )}
                       {isSessionLive(session.ingestedAt) && (
                         <Badge
-                          label="● Recording"
+                          label={
+                            <Flex align="center" gap="1">
+                              <PiRecord aria-hidden /> Recording
+                            </Flex>
+                          }
                           size="xs"
                           variant="soft"
                           color="red"
@@ -863,7 +887,11 @@ export default function SessionReplayPage() {
               )}
               {isSessionLive(metadata?.ingestedAt) && (
                 <Badge
-                  label="● Recording"
+                  label={
+                    <Flex align="center" gap="1">
+                      <PiRecord aria-hidden /> Recording
+                    </Flex>
+                  }
                   size="sm"
                   variant="soft"
                   color="red"
@@ -1062,15 +1090,21 @@ export default function SessionReplayPage() {
                     }}
                   >
                     <Box style={{ flex: 1, minWidth: 0 }}>
-                      <Text
-                        as="div"
-                        size="md"
-                        weight="semibold"
-                        color="text-high"
-                        truncate={true}
-                      >
-                        {evt.formattedMessage}
-                      </Text>
+                      <Flex align="center" gap="1">
+                        <Text
+                          as="div"
+                          size="md"
+                          weight="semibold"
+                          color="text-high"
+                          truncate={true}
+                        >
+                          {evt.formattedMessage}
+                        </Text>
+                        {evt.kind === "exp" &&
+                          typeof evt.variationId === "number" && (
+                            <VariationNumber number={evt.variationId} />
+                          )}
+                      </Flex>
                       <Text
                         as="div"
                         size="sm"

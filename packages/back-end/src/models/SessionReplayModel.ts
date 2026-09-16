@@ -38,7 +38,15 @@ export class SessionReplayModel {
   private async getPermittedClientKeys(): Promise<Map<string, string[]>> {
     if (this._permittedKeys) return this._permittedKeys;
     const connections = await findSDKConnectionsByOrganization(this.context);
-    this._permittedKeys = new Map(connections.map((c) => [c.key, c.projects]));
+    this._permittedKeys = new Map(
+      connections
+        .filter((c) =>
+          this.context.permissions.canViewSessionReplay({
+            projects: c.projects,
+          }),
+        )
+        .map((c) => [c.key, c.projects]),
+    );
     return this._permittedKeys;
   }
 

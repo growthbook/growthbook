@@ -138,10 +138,26 @@ export async function listSessionReplays(
     );
   }
   if (options?.country) {
-    conditions.push(`country = '${escapeClickhouseString(options.country)}'`);
+    const vals = options.country.split(",").filter(Boolean);
+    if (vals.length === 1) {
+      conditions.push(`country = '${escapeClickhouseString(vals[0])}'`);
+    } else if (vals.length > 1) {
+      const escaped = vals
+        .map((v) => `'${escapeClickhouseString(v)}'`)
+        .join(", ");
+      conditions.push(`country IN (${escaped})`);
+    }
   }
   if (options?.device) {
-    conditions.push(`device = '${escapeClickhouseString(options.device)}'`);
+    const vals = options.device.split(",").filter(Boolean);
+    if (vals.length === 1) {
+      conditions.push(`device = '${escapeClickhouseString(vals[0])}'`);
+    } else if (vals.length > 1) {
+      const escaped = vals
+        .map((v) => `'${escapeClickhouseString(v)}'`)
+        .join(", ");
+      conditions.push(`device IN (${escaped})`);
+    }
   }
   if (options?.minDurationSecs !== undefined) {
     conditions.push(
@@ -173,9 +189,10 @@ export async function listSessionReplays(
     );
   }
   if (options?.dateBefore) {
-    conditions.push(
-      `started_at <= '${escapeClickhouseString(options.dateBefore)} 23:59:59'`,
-    );
+    const d = new Date(options.dateBefore + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 1);
+    const nextDay = d.toISOString().slice(0, 10);
+    conditions.push(`started_at < '${escapeClickhouseString(nextDay)}'`);
   }
 
   const limit = Math.max(1, Math.min(100, Math.floor(options?.limit ?? 100)));

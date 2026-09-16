@@ -58,6 +58,7 @@ function syntaxFiltersToQueryParams(
 ): Record<string, string> {
   const params: Record<string, string> = {};
   for (const f of filters) {
+    if (!f.values.length) continue;
     const val = f.values[0];
     if (!val) continue;
 
@@ -72,10 +73,10 @@ function syntaxFiltersToQueryParams(
         params.url = val;
         break;
       case "country":
-        params.country = val;
+        params.country = f.values.join(",");
         break;
       case "device":
-        params.device = val;
+        params.device = f.values.join(",");
         break;
       case "duration":
         if (f.operator === ">") params.durationMinSecs = val;
@@ -127,8 +128,9 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
     [syntaxFilters],
   );
 
-  // Push filter changes to the URL (debounced)
-  const prevParamsRef = useRef<string>("");
+  // Push filter changes to the URL (debounced); seed with initial value
+  // so the first render doesn't push page=1 over the current URL.
+  const prevParamsRef = useRef<string>(JSON.stringify(queryParams));
   useEffect(() => {
     const serialized = JSON.stringify(queryParams);
     if (serialized === prevParamsRef.current) return;
