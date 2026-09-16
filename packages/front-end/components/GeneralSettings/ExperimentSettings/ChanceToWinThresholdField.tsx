@@ -95,7 +95,7 @@ export default function ChanceToWinThresholdField<
       label={
         <>
           {label}
-          <Tooltip content="A variation is called a winner when its chance to win rises above this threshold, and a loser when its chance to win falls below (100% minus this threshold). At 95%, a result is significant when chance to win is above 95% or below 5% -- a one-sided 5% cutoff on each side (z about 1.645 under a flat prior). Use 97.5% to match a two-sided 95% credible interval (z about 1.96).">
+          <Tooltip content="A variation is called a winner when its chance to win is above this threshold. Under a flat prior, use 97.5% to match the frequentist engine's default P-value threshold of 0.05.">
             <Flex
               ml="2"
               display="inline-flex"
