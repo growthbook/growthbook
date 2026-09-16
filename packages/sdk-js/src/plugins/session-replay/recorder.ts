@@ -318,6 +318,8 @@ export function createReplayRecorder({
     flushInFlight = true;
 
     const sessionReplayIdBeingSent = sessionReplayId;
+    const sessionStartedAtBeingSent = sessionStartedAt;
+    let nextChunkIndex = chunkIndex;
     const totalBufferedBytes = bufferedBytes;
     const eventsBeingSent = [...replayEvents];
     const featureEvalsBeingSent = featureEvals.splice(0);
@@ -377,19 +379,22 @@ export function createReplayRecorder({
       const batches = partitionEvents(
         allEvents,
         FLUSH_BYTE_SIZE,
-        chunkIndex === 0 && totalBufferedBytes > FLUSH_BYTE_SIZE,
+        nextChunkIndex === 0 && totalBufferedBytes > FLUSH_BYTE_SIZE,
       );
 
       for (let i = 0; i < batches.length; i++) {
-        const batchChunkIndex = chunkIndex;
+        // Session rotated mid-flush — stop sending stale batches
+        if (sessionReplayId !== sessionReplayIdBeingSent) break;
+
+        const batchChunkIndex = nextChunkIndex;
         const isFirstBatch = i === 0;
 
         const payload = JSON.stringify({
           clientKey,
-          session_replay_id: sessionReplayId,
+          session_replay_id: sessionReplayIdBeingSent,
           ...(sessionId && { gb_session_id: sessionId }),
           chunkIndex: batchChunkIndex,
-          sessionStartedAt,
+          sessionStartedAt: sessionStartedAtBeingSent,
           viewport: { width: viewportWidth, height: viewportHeight },
           events: batches[i],
           context,
@@ -406,30 +411,34 @@ export function createReplayRecorder({
 
         try {
           await sendWithRetry(payload);
-          // Commit the advance only if the session didn't rotate mid-flight
-          if (sessionReplayId === sessionReplayIdBeingSent) {
-            chunkIndex = batchChunkIndex + 1;
-            writePersistedReplayState({
-              sessionReplayId,
-              sessionStartedAt,
-              lastChunkIndex: batchChunkIndex,
-              lastChunkAt: Date.now(),
-            });
-          }
+          nextChunkIndex = batchChunkIndex + 1;
+          // Session rotated mid-flight — don't touch live state
+          if (sessionReplayId !== sessionReplayIdBeingSent) break;
+          chunkIndex = nextChunkIndex;
+          writePersistedReplayState({
+            sessionReplayId: sessionReplayIdBeingSent,
+            sessionStartedAt: sessionStartedAtBeingSent,
+            lastChunkIndex: batchChunkIndex,
+            lastChunkAt: Date.now(),
+          });
         } catch (e) {
           if (e instanceof RetryCancelledError) {
             // stopRecording cancelled a pending retry — restore unsent
-            // batches for the final keepalive flush
-            const remaining = batches.slice(i).flat();
-            replayEvents.unshift(...remaining);
-            bufferedBytes += remaining.reduce(
-              (sum, ev) => sum + JSON.stringify(ev).length,
-              0,
-            );
-            if (isFirstBatch) {
-              featureEvals.unshift(...featureEvalsBeingSent);
-              experimentEvals.unshift(...experimentEvalsBeingSent);
-              sessionEvents.unshift(...sessionEventsBeingSent);
+            // batches for the final keepalive flush, but only if the
+            // session hasn't rotated (old events must not leak into the
+            // new session's buffer)
+            if (sessionReplayId === sessionReplayIdBeingSent) {
+              const remaining = batches.slice(i).flat();
+              replayEvents.unshift(...remaining);
+              bufferedBytes += remaining.reduce(
+                (sum, ev) => sum + JSON.stringify(ev).length,
+                0,
+              );
+              if (isFirstBatch) {
+                featureEvals.unshift(...featureEvalsBeingSent);
+                experimentEvals.unshift(...experimentEvalsBeingSent);
+                sessionEvents.unshift(...sessionEventsBeingSent);
+              }
             }
             return;
           }
@@ -444,11 +453,11 @@ export function createReplayRecorder({
           }
 
           if (e instanceof RetryExhaustedError) {
-            // Skip this batch and continue with the next
-            chunkIndex = batchChunkIndex + 1;
+            nextChunkIndex = batchChunkIndex + 1;
+            chunkIndex = nextChunkIndex;
             writePersistedReplayState({
-              sessionReplayId,
-              sessionStartedAt,
+              sessionReplayId: sessionReplayIdBeingSent,
+              sessionStartedAt: sessionStartedAtBeingSent,
               lastChunkIndex: batchChunkIndex,
               lastChunkAt: Date.now(),
             });
@@ -476,10 +485,11 @@ export function createReplayRecorder({
             return;
           }
           // Other 4XX: skip and continue
-          chunkIndex = batchChunkIndex + 1;
+          nextChunkIndex = batchChunkIndex + 1;
+          chunkIndex = nextChunkIndex;
           writePersistedReplayState({
-            sessionReplayId,
-            sessionStartedAt,
+            sessionReplayId: sessionReplayIdBeingSent,
+            sessionStartedAt: sessionStartedAtBeingSent,
             lastChunkIndex: batchChunkIndex,
             lastChunkAt: Date.now(),
           });
