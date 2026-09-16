@@ -37,7 +37,8 @@ type GetTokenUsageResponse = {
   status: 200;
   tokenUsage: {
     numTokensUsed: number;
-    dailyLimit: number;
+    // null when the org has no cap
+    dailyLimit: number | null;
     nextResetAt: number;
   };
 };
@@ -47,10 +48,13 @@ export async function getTokenUsage(
   res: Response<GetTokenUsageResponse>,
 ) {
   const { org } = getContextFromReq(req);
-  const tokenUsage = await getTokensUsedByOrganization(org);
+  const { dailyLimit, ...tokenUsage } = await getTokensUsedByOrganization(org);
   return res.status(200).json({
     status: 200,
-    tokenUsage,
+    tokenUsage: {
+      ...tokenUsage,
+      dailyLimit: Number.isFinite(dailyLimit) ? dailyLimit : null,
+    },
   });
 }
 
