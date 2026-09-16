@@ -19,7 +19,7 @@ describe("experiment alert messages", () => {
     expect(buildExperimentAlertMessage(event).blocks[0]).toMatchObject({
       text: {
         type: "plain_text",
-        text: "<!channel>: Started.",
+        text: "<!channel>: Experiment Started.",
       },
     });
   });
@@ -39,7 +39,10 @@ describe("experiment alert messages", () => {
     expect(linkedChanges).toBe(
       "2 Feature Flags, 1 Visual Editor change, 1 URL redirect",
     );
-    expect(message?.text).toContain(`Started with ${linkedChanges}.`);
+    expect(message?.text).toBe(
+      "Checkout redesign: Experiment Started. Goal metrics: Checkout conversion, Revenue per visitor, Add to cart rate (+2 more). Linked changes: 2 Feature Flags, 1 Visual Editor change, 1 URL redirect.",
+    );
+    expect(message?.text).toContain(`Linked changes: ${linkedChanges}.`);
   });
   it.each([
     [
@@ -108,9 +111,41 @@ describe("experiment alert messages", () => {
         "event_test",
       );
       expect(message?.text).toBe(
-        `Results for experiment Checkout failed to update because ${detail}.`,
+        `Checkout: Results failed to update because ${detail}.`,
       );
       expect(message?.text).not.toContain("secret SQL");
+      expect(message?.blocks[0]).toMatchObject({
+        text: { type: "plain_text" },
+      });
     },
   );
+  it("tells the same stop story as the card, in plain text", async () => {
+    const sample = notificationCardSamples.find(
+      (s) => s.name === "stopped-winner",
+    );
+    if (!sample) throw new Error("Missing stopped-winner sample");
+    const message = await getSlackMessageForNotificationEvent(
+      sample.event,
+      "event_test",
+    );
+    expect(message?.text).toBe(
+      "Checkout redesign: Experiment Stopped - Winner. Variation One-page checkout won. One-page checkout lifted conversion with no revenue regression. Shipping to 100%. Temporary rollout: Variation One-page checkout. Checkout conversion: +6.1% (Chance to win: 99.1%).",
+    );
+    expect(message?.blocks[0]).toMatchObject({ text: { type: "plain_text" } });
+  });
+  it("describes an SRM alert from its evidence with the shared shape", async () => {
+    const sample = notificationCardSamples.find((s) => s.name === "srm");
+    if (!sample) throw new Error("Missing srm sample");
+    const message = await getSlackMessageForNotificationEvent(
+      sample.event,
+      "event_test",
+    );
+    expect(message?.text).toBe(
+      "Checkout redesign: Health Alert - SRM Detected. Traffic isn't splitting as configured (p-value: <0.001, threshold 0.001). Control: 6,213 units (62.1%, expected 50%); One-page checkout: 3,787 units (37.9%, expected 50%).",
+    );
+    expect(message?.blocks[0]).toMatchObject({ text: { type: "plain_text" } });
+    expect(message?.blocks[1]).toMatchObject({
+      elements: [{ url: expect.stringContaining("/experiment/exp-checkout") }],
+    });
+  });
 });

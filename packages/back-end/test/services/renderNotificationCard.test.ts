@@ -33,10 +33,10 @@ describe("renderNotificationCard", () => {
       renderNotificationCard(srmWarning, "compact"),
     ).resolves.toEqual({
       png: Buffer.from("png"),
-      altText: "Checkout - Health issue",
+      altText: "Checkout - Health Alert - SRM Detected",
       objectUrl: expect.stringMatching(/^https?:\/\/.+\/experiment\/exp-1$/),
       objectName: "Checkout",
-      eventLabel: "Health issue",
+      eventLabel: "Health Alert - SRM Detected",
     });
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -72,7 +72,7 @@ describe("renderNotificationCard", () => {
             ["Control", "6,200", "62%", "50%"],
             ["Treatment", "3,800", "38%", "50%"],
           ],
-          note: "p-value = <0.001",
+          note: "p-value: <0.001",
         },
         units: 10000,
       }),
@@ -119,8 +119,8 @@ describe("renderNotificationCard", () => {
         "detailed",
       ),
     ).resolves.toMatchObject({
-      altText: "Checkout - Experiment started",
-      eventLabel: "Experiment started",
+      altText: "Checkout - Experiment Started",
+      eventLabel: "Experiment Started",
       objectName: "Checkout",
     });
     expect(renderCard).toHaveBeenCalledWith(

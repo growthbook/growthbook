@@ -2,8 +2,14 @@ import {
   type ExperimentStoppedNotificationPayload,
   experimentStoppedNotificationPayload,
 } from "shared/validators";
-import { pValueFormatter } from "shared/util";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import {
+  RESULT_LABEL,
+  formatConfidence,
+  formatLift,
+  getExperimentStoppedConclusion,
+  getExperimentStoppedLabel,
+} from "back-end/src/services/experimentChanges/experimentStoppedSummary";
 import type {
   CardData,
   CardField,
@@ -12,23 +18,6 @@ import type {
   NotificationCardProducer,
 } from "back-end/src/services/notificationCards/types";
 
-const LABEL = "Experiment stopped";
-
-const RESULT_BANNER: Record<
-  NonNullable<ExperimentStoppedNotificationPayload["results"]>,
-  string
-> = {
-  won: "Experiment Stopped - Winner",
-  lost: "Experiment Stopped - Lost",
-  inconclusive: "Experiment Stopped - Inconclusive",
-  dnf: "Experiment Stopped - Did Not Finish",
-};
-
-const pct = (v: number): string =>
-  (v > 0 ? "+" : "") + Math.round(v * 10) / 10 + "%";
-// Fraction -> percent without binary float noise (0.14 * 100 = 14.000000000000002).
-const toPct = (fraction: number): number =>
-  Math.round(fraction * 100000) / 1000;
 const compact = (n: number | undefined): string | undefined =>
   n === undefined || !Number.isFinite(n)
     ? undefined
@@ -37,15 +26,14 @@ const compact = (n: number | undefined): string | undefined =>
         maximumFractionDigits: 1,
       }).format(n);
 
-const RESULT_LABEL: Record<
-  NonNullable<ExperimentStoppedNotificationPayload["results"]>,
-  string
-> = {
-  won: "Won",
-  lost: "Lost",
-  inconclusive: "Inconclusive",
-  dnf: "Did not finish",
-};
+// Fraction -> percent without binary float noise (0.14 * 100 = 14.000000000000002).
+const toPct = (fraction: number): number =>
+  Math.round(fraction * 100000) / 1000;
+
+// Significance thresholds for coloring the stat cell. The payload does not
+// carry the org's configured thresholds, so these are the GrowthBook defaults.
+const P_VALUE_THRESHOLD = 0.05;
+const CHANCE_TO_WIN_THRESHOLD = 0.95;
 
 // Labeled fields for a stop with no snapshot evidence to chart.
 function getExperimentStoppedFields(
@@ -70,15 +58,9 @@ function getExperimentStoppedFields(
     : [{ label: "Result", value: "Stopped without a recorded outcome" }];
 }
 
-// Significance thresholds for coloring the stat cell. The payload does not
-// carry the org's configured thresholds, so these are the GrowthBook defaults.
-const P_VALUE_THRESHOLD = 0.05;
-const CHANCE_TO_WIN_THRESHOLD = 0.95;
-
 // Goal-metric rows for the results renderer, straight from the immutable
 // payload. Relative numbers arrive as fractions and the card wants percents.
-// Frequentist tests show the p-value in the stat column; bayesian tests show
-// chance to win.
+// The stat column holds chance to win (Bayesian) or the p-value (frequentist).
 function goalRows(
   goalMetric: NonNullable<ExperimentStoppedNotificationPayload["goalMetric"]>,
 ): CardGoalRow[] {
@@ -86,18 +68,17 @@ function goalRows(
   return goalMetric.variations.map((v) => {
     const upliftPct = toPct(v.uplift ?? 0);
     const ci = v.ci ? { lo: toPct(v.ci[0]), hi: toPct(v.ci[1]) } : undefined;
-    const stat = frequentist
-      ? v.pValue !== undefined
-        ? { ctw: pValueFormatter(v.pValue), sig: v.pValue < P_VALUE_THRESHOLD }
-        : {}
-      : v.chanceToWin !== undefined
-        ? {
-            ctw: `${(v.chanceToWin * 100).toFixed(1)}%`,
-            sig:
-              v.chanceToWin >= CHANCE_TO_WIN_THRESHOLD ||
-              v.chanceToWin <= 1 - CHANCE_TO_WIN_THRESHOLD,
-          }
-        : {};
+    const confidence = formatConfidence(goalMetric.statsEngine, v);
+    const stat = confidence
+      ? {
+          // The cell shows just the number; the header carries the label.
+          ctw: confidence.replace(/^[^:]+: /, ""),
+          sig: frequentist
+            ? (v.pValue ?? 1) < P_VALUE_THRESHOLD
+            : (v.chanceToWin ?? 0.5) >= CHANCE_TO_WIN_THRESHOLD ||
+              (v.chanceToWin ?? 0.5) <= 1 - CHANCE_TO_WIN_THRESHOLD,
+        }
+      : {};
     return {
       v: v.variationName,
       i: v.variationIndex,
@@ -106,7 +87,7 @@ function goalRows(
       cn: compact(goalMetric.control.users),
       vn: compact(v.users),
       ...stat,
-      chg: pct(upliftPct),
+      chg: formatLift(v.uplift ?? 0),
       dir: upliftPct >= 0 ? "up" : "down",
       ...(v.upliftStddev !== undefined
         ? { vio: { c: upliftPct, s: Math.max(0.3, v.upliftStddev * 100) } }
@@ -117,9 +98,7 @@ function goalRows(
 }
 
 function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
-  const banner = data.results
-    ? RESULT_BANNER[data.results]
-    : "Experiment Stopped";
+  const banner = getExperimentStoppedLabel(data);
   const identity = {
     name: data.experimentName,
     key: data.experimentId,
@@ -143,19 +122,7 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
       : data.results === "lost"
         ? "loser"
         : "stopped";
-  // The conclusion names the decided variation ("Variation *X* won.") so the
-  // lift block does not have to; the stop reason and rollout follow it.
-  const conclusion = [
-    data.results === "won" && data.winningVariationName
-      ? `Variation *${data.winningVariationName}* won.`
-      : undefined,
-    data.reason,
-    data.enableTemporaryRollout && data.releasedVariationName
-      ? `Temporary rollout: Variation *${data.releasedVariationName}*.`
-      : undefined,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const conclusion = getExperimentStoppedConclusion(data);
   return {
     ...identity,
     state,
@@ -192,11 +159,12 @@ export const buildExperimentStoppedCard: NotificationCardProducer = (
   );
   if (!parsed.success) return null;
   const data = parsed.data;
+  const label = getExperimentStoppedLabel(data);
   return {
     data: buildCardData(data),
-    altText: `${data.experimentName} - ${LABEL}`,
+    altText: `${data.experimentName} - ${label}`,
     objectUrl: `${APP_ORIGIN}/experiment/${data.experimentId}`,
     objectName: data.experimentName,
-    eventLabel: LABEL,
+    eventLabel: label,
   };
 };

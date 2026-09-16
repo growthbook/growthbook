@@ -1,5 +1,6 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { buildAlertMessage } from "./alertMessage";
 import type { SlackMessage } from "./slack-event-handler-utils";
 
 type HoldoutAlert = Extract<
@@ -35,24 +36,9 @@ export function buildHoldoutAlertMessage(event: HoldoutAlert): SlackMessage {
       break;
     }
   }
-  const text = `${object.holdoutName}: ${detail}`;
-  return {
-    text,
-    blocks: [
-      {
-        type: "section",
-        text: { type: "plain_text", text: text.slice(0, 3000), emoji: false },
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "View in GrowthBook" },
-            url: `${APP_ORIGIN}/holdout/${encodeURIComponent(object.holdoutId)}`,
-          },
-        ],
-      },
-    ],
-  };
+  return buildAlertMessage({
+    name: object.holdoutName,
+    detail,
+    url: `${APP_ORIGIN}/holdout/${encodeURIComponent(object.holdoutId)}`,
+  });
 }

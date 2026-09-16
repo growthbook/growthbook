@@ -34,6 +34,8 @@ import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { getEvent } from "back-end/src/models/EventModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
+import { getSrmText } from "back-end/src/services/experimentChanges/experimentSrmSummary";
+import { buildAlertMessage } from "./alertMessage";
 import { buildHoldoutAlertMessage } from "./holdoutAlerts";
 import { buildExperimentAlertMessage } from "./experimentAlerts";
 
@@ -1794,116 +1796,35 @@ const buildSlackMessageForExperimentWarningEvent = (
   data: ExperimentWarningNotificationPayload,
 ): SlackMessage => {
   let invalidData: never;
+  let detail: string;
 
   switch (data.type) {
-    case "auto-update": {
-      const makeText = (name: string) =>
-        `Automatic snapshot creation for ${name} ${
-          data.success ? "succeeded" : "failed"
-        }!`;
-
-      return {
-        text: makeText(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                makeText(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
-            },
-          },
-        ],
-      };
-    }
+    case "auto-update":
+      detail = `Automatic snapshot creation ${data.success ? "succeeded" : "failed"}.`;
+      break;
 
     case "multiple-exposures": {
       const numberFormatter = (v: number) => formatNumber("#,##0.", v);
       const percentFormatter = (v: number) => formatNumber("#0.%", v * 100);
-
-      const text = (experimentName: string) =>
-        `Multiple Exposures Warning for experiment ${experimentName}: ${numberFormatter(
-          data.usersCount,
-        )} users (${percentFormatter(
-          data.percent,
-        )}) saw multiple variations and were automatically removed from results.`;
-
-      return {
-        text: text(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                text(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
-            },
-          },
-        ],
-      };
+      detail = `${numberFormatter(data.usersCount)} users (${percentFormatter(
+        data.percent,
+      )}) saw multiple variations and were automatically removed from results.`;
+      break;
     }
 
-    case "srm": {
-      const text = (experimentName: string) =>
-        `Traffic imbalance detected for experiment detected for experiment ${experimentName} : Sample Ratio Mismatch (SRM) p-value below ${data.threshold}.`;
+    case "srm":
+      detail = getSrmText(data);
+      break;
 
-      return {
-        text: text(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                text(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
-            },
-          },
-        ],
-      };
-    }
+    case "no-data":
+      detail =
+        "No data yet. The most recent update ran successfully but returned no results. Make sure your experiment is tracking properly.";
+      break;
 
-    case "no-data": {
-      const text = (experimentName: string) =>
-        `No data yet for experiment ${experimentName}. The most recent update ran successfully but returned no results. Make sure your experiment is tracking properly.`;
-
-      return {
-        text: text(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                text(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
-            },
-          },
-        ],
-      };
-    }
-
-    case "underpowered": {
-      const text = (experimentName: string) =>
-        `Experiment ${experimentName} is underpowered. Statistical power is below the configured threshold. Consider increasing traffic, using a more sensitive metric, or accepting a larger minimum detectable effect.`;
-
-      return {
-        text: text(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                text(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
-            },
-          },
-        ],
-      };
-    }
+    case "underpowered":
+      detail =
+        "Underpowered. Statistical power is below the configured threshold. Consider increasing traffic, using a more sensitive metric, or accepting a larger minimum detectable effect.";
+      break;
 
     case "scheduled-status-update-failed": {
       const action =
@@ -1911,23 +1832,8 @@ const buildSlackMessageForExperimentWarningEvent = (
       const tail = data.willRetry
         ? `Will retry (attempt ${data.attempts} of ${data.maxAttempts}).`
         : `Giving up after ${data.attempts} attempts; the schedule has been cleared and the experiment will not ${action} automatically.`;
-      const text = (experimentName: string) =>
-        `Scheduled ${action} for experiment ${experimentName} failed: ${data.reason}. ${tail}`;
-
-      return {
-        text: text(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                text(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
-            },
-          },
-        ],
-      };
+      detail = `Scheduled ${action} failed: ${data.reason}. ${tail}`;
+      break;
     }
 
     case "update-failed": {
@@ -1936,29 +1842,20 @@ const buildSlackMessageForExperimentWarningEvent = (
         analysis: "analysis failed",
         "no-queries": "no queries were generated",
       }[data.cause];
-      const text = (experimentName: string) =>
-        `Results for experiment ${experimentName} failed to update because ${cause}.`;
-
-      return {
-        text: text(data.experimentName),
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text:
-                text(`*${data.experimentName}*`) +
-                getExperimentUrlFormatted(data.experimentId),
-            },
-          },
-        ],
-      };
+      detail = `Results failed to update because ${cause}.`;
+      break;
     }
 
     default:
       invalidData = data;
       throw `Invalid data: ${invalidData}`;
   }
+
+  return buildAlertMessage({
+    name: data.experimentName,
+    detail,
+    url: `${APP_ORIGIN}/experiment/${encodeURIComponent(data.experimentId)}`,
+  });
 };
 
 const buildSlackMessageForExperimentShipEvent = (

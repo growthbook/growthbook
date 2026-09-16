@@ -1,10 +1,8 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
-import { pValueFormatter } from "shared/util";
-import {
-  getExperimentStartedGoalMetricsLine,
-  getExperimentStartedSummary,
-} from "back-end/src/services/experimentChanges/experimentStartedSummary";
+import { getExperimentStartedText } from "back-end/src/services/experimentChanges/experimentStartedSummary";
+import { getExperimentStoppedText } from "back-end/src/services/experimentChanges/experimentStoppedSummary";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { buildAlertMessage } from "./alertMessage";
 import type { SlackMessage } from "./slack-event-handler-utils";
 
 type AlertName =
@@ -21,40 +19,12 @@ export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
   const object = event.data.object;
   let detail: string;
   switch (event.event) {
-    case "experiment.status.started": {
-      const goalMetrics = getExperimentStartedGoalMetricsLine(
-        event.data.object,
-      );
-      detail = getExperimentStartedSummary(event.data.object);
-      if (goalMetrics) detail += ` ${goalMetrics}.`;
+    case "experiment.status.started":
+      detail = getExperimentStartedText(event.data.object);
       break;
-    }
-    case "experiment.status.stopped": {
-      const data = event.data.object;
-      detail = data.results ? `Stopped. Result: ${data.results}.` : "Stopped.";
-      if (data.enableTemporaryRollout && data.releasedVariationName) {
-        detail += ` Temporary rollout: ${data.releasedVariationName}.`;
-      }
-      if (data.reason) detail += ` ${data.reason}`;
-      const goal = data.goalMetric;
-      const top =
-        goal?.variations.find(
-          (v) => v.variationIndex === data.winningVariationIndex,
-        ) ?? goal?.variations[0];
-      if (goal && top && top.uplift !== undefined) {
-        const change = `${top.uplift > 0 ? "+" : ""}${(top.uplift * 100).toFixed(1)}%`;
-        const confidence =
-          goal.statsEngine === "frequentist"
-            ? top.pValue !== undefined
-              ? ` (p-value ${pValueFormatter(top.pValue)})`
-              : ""
-            : top.chanceToWin !== undefined
-              ? ` (${(top.chanceToWin * 100).toFixed(1)}% chance to beat control)`
-              : "";
-        detail += ` ${goal.metricName}: ${top.variationName} ${change}${confidence}.`;
-      }
+    case "experiment.status.stopped":
+      detail = getExperimentStoppedText(event.data.object);
       break;
-    }
     case "experiment.status.endingSoon":
       detail = `Scheduled to end soon at ${event.data.object.endsAt}.`;
       break;
@@ -68,24 +38,9 @@ export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
       detail = `Bandit allocation changed from ${event.data.object.currentWeights.map((w) => `${(w * 100).toFixed(1)}%`).join(" / ")} to ${event.data.object.updatedWeights.map((w) => `${(w * 100).toFixed(1)}%`).join(" / ")}.`;
       break;
   }
-  const text = `${object.experimentName}: ${detail}`;
-  return {
-    text,
-    blocks: [
-      {
-        type: "section",
-        text: { type: "plain_text", text: text.slice(0, 3000), emoji: false },
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "View in GrowthBook" },
-            url: `${APP_ORIGIN}/experiment/${encodeURIComponent(object.experimentId)}`,
-          },
-        ],
-      },
-    ],
-  };
+  return buildAlertMessage({
+    name: object.experimentName,
+    detail,
+    url: `${APP_ORIGIN}/experiment/${encodeURIComponent(object.experimentId)}`,
+  });
 }

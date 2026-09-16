@@ -1865,9 +1865,7 @@ function compactHero(exp: ExperimentCardData, event: CompactEvent): El {
   if (outcomeRow) {
     const liftColor = outcomeRow.dir === "down" ? P.st.red : P.st.green;
     const confidence = outcomeRow.ctw
-      ? exp.statsEngine === "frequentist"
-        ? `p-value: ${outcomeRow.ctw}`
-        : `Chance to win: ${outcomeRow.ctw}`
+      ? `${exp.statsEngine === "frequentist" ? "p-value" : "Chance to win"}: ${outcomeRow.ctw}`
       : undefined;
     children.push(
       el(
@@ -1910,7 +1908,7 @@ function compactHero(exp: ExperimentCardData, event: CompactEvent): El {
                   outcomeRow.dir
                     ? arrowImg(outcomeRow.dir, liftColor, 18)
                     : null,
-                  txt((outcomeRow.chg ?? "—").replace(/^[+-]/, ""), {
+                  txt(outcomeRow.chg ?? "—", {
                     fontSize: 34,
                     fontWeight: 700,
                     color: liftColor,

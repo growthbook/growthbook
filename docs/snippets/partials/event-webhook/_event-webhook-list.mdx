@@ -3068,6 +3068,7 @@ Triggered when a warning condition is detected on an experiment, such as a sampl
                 users: number;
                 weight: number;
             }[] | undefined;
+            durationDays?: number | undefined;
         } | {
             type: "no-data";
             experimentName: string;
@@ -3130,7 +3131,6 @@ Triggered when an experiment starts or resumes running.
             experimentId: string;
             experimentName: string;
             phaseName?: string | undefined;
-            variationCount?: number | undefined;
             goalMetricNames?: string[] | undefined;
             linkedFeatureCount?: number | undefined;
             visualChangesetCount?: number | undefined;
@@ -3186,6 +3186,7 @@ Triggered when an experiment stops, including its result and any temporary rollo
             winningVariationName?: string | undefined;
             winningVariationIndex?: number | undefined;
             totalUsers?: number | undefined;
+            durationDays?: number | undefined;
             goalMetric?: {
                 metricId: string;
                 metricName: string;

@@ -1,5 +1,7 @@
 import type { ExperimentStartedNotificationPayload } from "shared/validators";
 
+export const EXPERIMENT_STARTED_LABEL = "Experiment Started";
+
 const MAX_GOAL_METRIC_NAMES = 3;
 
 // "2 Feature Flags, 1 Visual Editor change, 1 URL redirect" — undefined when
@@ -39,7 +41,8 @@ export function getExperimentStartedGoalMetrics(
   };
 }
 
-// Label/value pairs for the started card body.
+// Label/value pairs shared by the card body and the Slack text, in the same
+// order on both.
 export function getExperimentStartedFields(
   data: ExperimentStartedNotificationPayload,
 ): { label: string; value: string }[] {
@@ -53,18 +56,13 @@ export function getExperimentStartedFields(
   ];
 }
 
-// Sentence form for text channels (Slack, email).
-export function getExperimentStartedSummary(
+// Sentence form for text channels: "Experiment Started. Goal metrics: A, B.
+// Linked changes: 2 Feature Flags."
+export function getExperimentStartedText(
   data: ExperimentStartedNotificationPayload,
 ): string {
-  const linkedChanges = getExperimentStartedLinkedChanges(data);
-  return linkedChanges ? `Started with ${linkedChanges}.` : "Started.";
-}
-
-// "Goal metrics: A, B, C (+2 more)" for text channels.
-export function getExperimentStartedGoalMetricsLine(
-  data: ExperimentStartedNotificationPayload,
-): string | undefined {
-  const goalMetrics = getExperimentStartedGoalMetrics(data);
-  return goalMetrics ? `${goalMetrics.label}: ${goalMetrics.value}` : undefined;
+  return [
+    `${EXPERIMENT_STARTED_LABEL}.`,
+    ...getExperimentStartedFields(data).map((f) => `${f.label}: ${f.value}.`),
+  ].join(" ");
 }
