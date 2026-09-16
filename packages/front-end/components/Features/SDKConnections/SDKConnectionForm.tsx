@@ -1211,9 +1211,9 @@ export default function SDKConnectionForm({
                             meaningfully increase the size of your payload.
                           </p>
                           <p>
-                            This SDK version covers ID Lists only. Saved Groups
-                            that use a condition keep shipping inline until you
-                            upgrade the SDK.
+                            This SDK version covers ID Lists only. Condition
+                            Groups are still sent with every rule that uses them
+                            until you upgrade the SDK.
                           </p>
                         </>
                       )}

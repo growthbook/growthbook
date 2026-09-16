@@ -11478,6 +11478,63 @@
         }
       ],
       [
+        "$notInGroup cannot resolve a typed entry, and fails closed rather than passing everyone",
+        {
+          "id": {
+            "$notInGroup": "grp_list"
+          }
+        },
+        {
+          "id": "u_1"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          }
+        }
+      ],
+      [
+        "$notInGroup fails closed for a typed entry even when the user is not a member",
+        {
+          "id": {
+            "$notInGroup": "grp_list"
+          }
+        },
+        {
+          "id": "u_9"
+        },
+        false,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          }
+        }
+      ],
+      [
+        "$notInGroup still passes for an id that is not in the payload",
+        {
+          "id": {
+            "$notInGroup": "grp_missing"
+          }
+        },
+        {
+          "id": "u_1"
+        },
+        true,
+        {
+          "grp_list": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["u_1", "u_2"]
+          }
+        }
+      ],
+      [
         "the authoring operator $savedGroups is not understood",
         {
           "$savedGroups": ["grp_list"]

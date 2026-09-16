@@ -235,6 +235,14 @@ function isIn(
 // $inGroup can only resolve a legacy value-array entry. A savedGroupReferencesV2
 // payload holds objects instead, and indexing one as an array throws, so treat
 // anything that isn't an array as matching nothing.
+// True for a savedGroupReferencesV2 entry, which `$inGroup`/`$notInGroup`
+// cannot resolve. Absent ids are not typed entries and keep their own handling.
+function isTypedSavedGroupEntry(
+  entry: SavedGroupsPayload[string] | undefined,
+): boolean {
+  return !!entry && !Array.isArray(entry) && typeof entry === "object";
+}
+
 function asLegacyValuesArray(
   entry: SavedGroupsPayload[string] | undefined,
 ): Array<string | number> {
@@ -315,6 +323,10 @@ function evalOperatorCondition(
     case "$inGroup":
       return isIn(actual, asLegacyValuesArray(savedGroups[expected]));
     case "$notInGroup":
+      // A typed entry cannot be read by this operator. Treating it as an empty
+      // list would make every user pass an exclusion rule, so fail closed.
+      // An absent id still passes, which is the documented behaviour.
+      if (isTypedSavedGroupEntry(savedGroups[expected])) return false;
       return !isIn(actual, asLegacyValuesArray(savedGroups[expected]));
     case "$nin":
       if (!Array.isArray(expected)) return false;

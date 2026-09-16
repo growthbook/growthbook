@@ -59,6 +59,13 @@ export default function SavedGroupTargetingField({
 
   const largeSavedGroupSupport = useLargeSavedGroupSupport(project);
 
+  // The picker below lists both kinds of Saved Group, so warn about whichever
+  // this rule actually targets. A Condition Group needs a newer SDK than an
+  // ID List does.
+  const targetsConditionGroup = value.some((v) =>
+    v.ids.some((id) => getSavedGroupById(id)?.type === "condition"),
+  );
+
   const savedGroupsLabel =
     label &&
     (slimMode ? (
@@ -196,7 +203,10 @@ export default function SavedGroupTargetingField({
         savedGroupsLabel && (
           <Box mb="1">
             {savedGroupsLabel}
-            <LargeSavedGroupPerformanceWarning {...largeSavedGroupSupport} />
+            <LargeSavedGroupPerformanceWarning
+              {...largeSavedGroupSupport}
+              type={targetsConditionGroup ? "condition" : "list"}
+            />
           </Box>
         )
       )}

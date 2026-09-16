@@ -93,6 +93,23 @@ export default function LargeSavedGroupPerformanceWarning({
 
   if (incompatibleConnections.length === 0) return null;
 
+  // Two different causes land in the same list, and they need different advice.
+  // A Connection with the setting off needs it turned on; one that has it on
+  // and only lacks the capability needs an SDK upgrade.
+  const needsSettingOn = incompatibleConnections.some(
+    (conn) => !conn.savedGroupReferencesEnabled,
+  );
+  const needsUpgrade = incompatibleConnections.some(
+    (conn) => conn.savedGroupReferencesEnabled,
+  );
+
+  const action =
+    needsSettingOn && needsUpgrade
+      ? 'Enable "Pass Saved Groups by reference" on your SDK Connections, and upgrade the SDK versions that do not support it yet, to improve performance.'
+      : needsUpgrade
+        ? "Upgrade your SDK versions to improve performance."
+        : 'Enable "Pass Saved Groups by reference" on your SDK Connections to improve performance.';
+
   return (
     <Callout
       status="warning"
@@ -107,9 +124,10 @@ export default function LargeSavedGroupPerformanceWarning({
     >
       <Box as="span">
         <Text mr="2">
+          {action}
           {isCondition
-            ? 'Enable "Pass Saved Groups by reference" on your SDK Connections to improve performance. Condition Groups need a newer SDK version than ID Lists do.'
-            : 'Enable "Pass Saved Groups by reference" on your SDK Connections to improve performance.'}
+            ? " Condition Groups need a newer SDK version than ID Lists do."
+            : ""}
         </Text>
         <IncompatibleSDKsPopover
           connections={connections}

@@ -1398,12 +1398,11 @@ export default function EditSavedGroupPage() {
               onReviewPublish={() => setTabAndScroll("review")}
               onEditDescription={() => setEditDescriptionModal(true)}
             />
-            {savedGroup.type === "list" && (
-              <LargeSavedGroupPerformanceWarning
-                {...largeSavedGroupSupport}
-                openUpgradeModal={() => setUpgradeModal(true)}
-              />
-            )}
+            <LargeSavedGroupPerformanceWarning
+              {...largeSavedGroupSupport}
+              type={savedGroup.type === "condition" ? "condition" : "list"}
+              openUpgradeModal={() => setUpgradeModal(true)}
+            />
             {savedGroup.type === "condition" ? (
               <>
                 <Heading size="md" as="h2" mb="3">
