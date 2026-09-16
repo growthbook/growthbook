@@ -206,25 +206,25 @@ export default function FunnelStepsInput({
   datasource,
   project,
   initialFactTable,
+  allowChangingDatasource = false,
 }: {
   value: FunnelSettings;
   setValue: (v: FunnelSettings) => void;
   datasource: string;
   project?: string;
   initialFactTable?: string;
+  allowChangingDatasource?: boolean;
 }) {
   const { factTables, getFactTableById, getDatasourceById } = useDefinitions();
 
-  // The funnel's own steps decide which datasource governs it, once any step
-  // already has a real fact table - not the caller's guessed default, which
-  // may have no fact tables of its own (locking every step's selector to an
-  // empty list) or simply not be the datasource the user actually wants.
-  // Falls back to the caller's datasource only while nothing has committed.
+  // Only callers that synchronize datasource from steps can choose across sources.
   const committedFactTable = value.steps
     .map((s) => getFactTableById(s.factTableId))
     .find((ft) => !!ft);
   const hasCommitted = !!committedFactTable;
-  const effectiveDatasource = committedFactTable?.datasource ?? datasource;
+  const effectiveDatasource = allowChangingDatasource
+    ? (committedFactTable?.datasource ?? datasource)
+    : datasource;
 
   // Clear steps whose fact table no longer belongs to the metric's data source.
   useEffect(() => {
@@ -244,7 +244,11 @@ export default function FunnelStepsInput({
   }, [effectiveDatasource, hasCommitted, getFactTableById, setValue, value]);
 
   const factTableOptions = factTables
-    .filter((t) => !hasCommitted || t.datasource === effectiveDatasource)
+    .filter(
+      (t) =>
+        (allowChangingDatasource && !hasCommitted) ||
+        t.datasource === effectiveDatasource,
+    )
     .filter((t) => isProjectListValidForProject(t.projects, project))
     .map((t) => ({
       label: `${t.name} (${getDatasourceById(t.datasource)?.name || t.datasource})`,
