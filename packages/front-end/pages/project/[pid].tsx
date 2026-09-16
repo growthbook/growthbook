@@ -252,7 +252,7 @@ const ProjectPage: FC = () => {
         )}
 
         <Box mt="4">
-          <Tabs defaultValue="members">
+          <Tabs defaultValue="members" persistInURL>
             <TabsList>
               <TabsTrigger value="members">Roles & Permissions</TabsTrigger>
               <TabsTrigger value="approvals">Approvals</TabsTrigger>

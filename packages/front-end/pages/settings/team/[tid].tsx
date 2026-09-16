@@ -222,6 +222,10 @@ const TeamPage: FC = () => {
                 <Heading as="h2" size="md" mb="0">
                   Required Approver
                 </Heading>
+                <Text size="sm" color="text-low">
+                  Approval rules that need this team&apos;s sign-off. Each link
+                  opens where the rule is managed.
+                </Text>
                 {approvalScopes.map((scope) => (
                   <Flex
                     key={scope.project ?? "all"}
@@ -230,15 +234,15 @@ const TeamPage: FC = () => {
                     wrap="wrap"
                   >
                     {scope.project ? (
-                      <Link href={`/project/${scope.project}`}>
+                      <Link href={`/project/${scope.project}#approvals`}>
                         {getProjectById(scope.project)?.name || scope.project}
                       </Link>
                     ) : (
-                      <Text>
+                      <Link href="/settings#approval-flow">
                         {approvalScopes.length > 1
                           ? "All other Projects"
                           : "All Projects"}
-                      </Text>
+                      </Link>
                     )}
                     {scope.environments.length > 0 && (
                       <Text color="text-low">
