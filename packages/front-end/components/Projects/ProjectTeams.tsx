@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import { useRouter } from "next/router";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   MemberRoleWithProjects,
   ProjectMemberRole,
@@ -18,6 +18,7 @@ import ProjectRuleFields from "@/components/Settings/Team/ProjectRuleFields";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Button from "@/ui/Button";
 import TextField from "@/ui/TextField";
+import Field from "@/components/Forms/Field";
 import { Select, SelectItem } from "@/ui/Select";
 import Tooltip from "@/ui/Tooltip";
 import Heading from "@/ui/Heading";
@@ -139,12 +140,14 @@ const ProjectTeamRuleModal: FC<{
             onChange={(e) => setName(e.target.value)}
             containerClassName="mb-3"
           />
-          <TextField
+          <Field
             label="Description"
             maxLength={100}
+            minRows={1}
+            maxRows={4}
+            textarea={true}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            containerClassName="mb-3"
           />
         </>
       ) : (
@@ -439,16 +442,13 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                   {canEditRule && (
                     <DropdownMenu
                       trigger={
-                        <IconButton
+                        <Button
                           variant="ghost"
                           color="gray"
-                          radius="full"
-                          size="2"
-                          highContrast
                           aria-label="Team actions"
                         >
                           <BsThreeDotsVertical size={18} />
-                        </IconButton>
+                        </Button>
                       }
                       menuPlacement="end"
                       variant="soft"
