@@ -233,7 +233,7 @@ function buildEvaluationsFromMetadata(
       timestamp: toMs(item.timestamp),
       kind: "exp",
       label: item.key,
-      formattedMessage: `${item.key} → variation ${variationId ?? "?"}`,
+      formattedMessage: item.key,
       variationId: typeof variationId === "number" ? variationId : undefined,
     });
   }
@@ -1120,9 +1120,9 @@ export default function SessionReplayPage() {
                     <Badge
                       label={
                         evt.kind === "flag"
-                          ? "Flag"
+                          ? "Feature Flag"
                           : evt.kind === "exp"
-                            ? "Exp"
+                            ? "Experiment"
                             : "Event"
                       }
                       size="xs"

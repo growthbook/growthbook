@@ -1,6 +1,6 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { TextField } from "@/ui/TextField";
+import TextField from "@/ui/TextField";
 import {
   DropdownMenu,
   DropdownMenuItem,

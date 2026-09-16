@@ -46,7 +46,7 @@ function queryParamsToSearchString(
   for (const [param, prefix] of Object.entries(PARAM_TO_SYNTAX)) {
     const val = query[param];
     if (typeof val === "string" && val) {
-      const escaped = val.includes(" ") ? `"${val}"` : val;
+      const escaped = val.includes(" ") || val.includes(",") ? `"${val}"` : val;
       parts.push(`${prefix}${escaped}`);
     }
   }
@@ -110,6 +110,9 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   // Distinguishes user edits (should push page=1) from URL-driven syncs
   const changeSourceRef = useRef<"user" | "url">("url");
+  // Tracks the last URL string this hook pushed, so the sync effect can
+  // skip self-generated navigations and avoid overwriting the local input.
+  const lastPushedUrlRef = useRef<string>("");
 
   // Sync searchValue from URL on back/forward navigation
   const urlSearchString = useMemo(
@@ -120,6 +123,8 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
   useEffect(() => {
     if (urlSearchString === prevUrlRef.current) return;
     prevUrlRef.current = urlSearchString;
+    // Skip if this URL change came from our own push
+    if (urlSearchString === lastPushedUrlRef.current) return;
     changeSourceRef.current = "url";
     setSearchValue(urlSearchString);
   }, [urlSearchString]);
@@ -154,6 +159,7 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
       if (typeof sessionId === "string" && sessionId) {
         query.sessionId = sessionId;
       }
+      lastPushedUrlRef.current = queryParamsToSearchString(query);
       void router.push({ pathname: "/session-replay", query }, undefined, {
         shallow: true,
       });
