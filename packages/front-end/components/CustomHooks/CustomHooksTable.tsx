@@ -60,6 +60,7 @@ export default function CustomHooksTable({
   showIncremental = false,
   canManage,
   canRevert = canManage,
+  canToggle = canManage,
   onEdit,
   mutate,
 }: {
@@ -67,9 +68,11 @@ export default function CustomHooksTable({
   /** Context column between Type and the actions menu: scope, projects, or owning entity. */
   column?: CustomHooksTableColumn;
   showIncremental?: boolean;
-  /** Rows that can be toggled and deleted here (and edited, when onEdit is set). Other rows only offer history. */
+  /** Rows that can be deleted here (and edited, when onEdit is set). Other rows only offer history. */
   canManage: (hook: CustomHookInterface) => boolean;
   canRevert?: (hook: CustomHookInterface) => boolean;
+  /** Rows that can be enabled/disabled here. Defaults to canManage. */
+  canToggle?: (hook: CustomHookInterface) => boolean;
   onEdit?: (hook: CustomHookInterface) => void;
   mutate: () => void;
 }) {
@@ -171,7 +174,7 @@ export default function CustomHooksTable({
                     <DropdownMenuItem onClick={() => setHistoryHook(hook)}>
                       History &amp; revert
                     </DropdownMenuItem>
-                    {manageable && (
+                    {canToggle(hook) && (
                       <DropdownMenuItem
                         onClick={async () => {
                           setToggleError(null);

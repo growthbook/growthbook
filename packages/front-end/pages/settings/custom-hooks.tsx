@@ -183,6 +183,10 @@ export default function CustomHooksPage() {
                   ),
                 }}
                 canManage={() => true}
+                // TODO: experiment-scoped hooks are cleanup-only until they
+                // are managed from the experiment page again; restore
+                // Enable/Disable (and Edit via onEdit) here when that lands.
+                canToggle={() => false}
                 mutate={mutate}
               />
             </div>
