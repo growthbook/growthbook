@@ -93,16 +93,6 @@ it("retains deduplication across scheduler passes", async () => {
   await checkExperimentLifecycleReminders(renewLease);
   expect(createEvent).toHaveBeenCalledTimes(2);
 });
-it("clears old markers after stopping and notifies again after restarting", async () => {
-  experiments[0].pastNotifications = ["ending-soon", "stale"];
-  experiments[0].status = "stopped";
-  await checkExperimentLifecycleReminders(renewLease);
-  expect(createEvent).not.toHaveBeenCalled();
-  expect(experiments[0].pastNotifications).toEqual([]);
-  experiments[0].status = "running";
-  await checkExperimentLifecycleReminders(renewLease);
-  expect(createEvent).toHaveBeenCalledTimes(2);
-});
 it("resets ending-soon state when the schedule is extended", async () => {
   experiments[0].pastNotifications = ["ending-soon", "stale"];
   experiments[0].statusUpdateSchedule = {
@@ -140,8 +130,9 @@ it("stops when the scheduler lease cannot be renewed", async () => {
   expect(createEvent).not.toHaveBeenCalled();
 });
 
-it("does not send if an experiment is archived after the candidate scan", async () => {
+it("does not send if an experiment is archived or stopped after the candidate scan", async () => {
   experiments[0].archived = true;
+  experiments.push({ ...fixture("stopped"), status: "stopped" });
   await checkExperimentLifecycleReminders(renewLease);
   expect(createEvent).not.toHaveBeenCalled();
 });

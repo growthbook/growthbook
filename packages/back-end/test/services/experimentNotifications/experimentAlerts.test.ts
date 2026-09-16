@@ -533,6 +533,37 @@ describe("experiment alert producers", () => {
     expect(createEvent).not.toHaveBeenCalled();
   });
 
+  it("ignores weight changes that are not a live reallocation", async () => {
+    const running = {
+      ...experiment,
+      type: "multi-armed-bandit" as const,
+      phases: [{ ...experiment.phases[0], variationWeights: [0.5, 0.5] }],
+    };
+    const reweighted = {
+      ...running,
+      phases: [{ ...running.phases[0], variationWeights: [0.7, 0.3] }],
+    };
+    // Draft edit.
+    await notifyExperimentBanditWeightsTransition({
+      context,
+      previous: { ...running, status: "draft" },
+      experiment: { ...reweighted, status: "draft" },
+    });
+    // Restart into a new phase with reset weights.
+    await notifyExperimentBanditWeightsTransition({
+      context,
+      previous: { ...reweighted, status: "stopped" },
+      experiment: {
+        ...running,
+        phases: [
+          ...reweighted.phases,
+          { ...running.phases[0], dateStarted: now },
+        ],
+      },
+    });
+    expect(createEvent).not.toHaveBeenCalled();
+  });
+
   it("ignores insignificant or invalid bandit allocations", async () => {
     for (const updatedWeights of [[0.51, 0.49], [NaN, 0.5], [0.6]]) {
       await notifyBanditWeightsChanged({

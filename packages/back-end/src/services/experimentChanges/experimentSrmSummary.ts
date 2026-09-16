@@ -1,5 +1,5 @@
 import type { ExperimentWarningNotificationPayload } from "shared/validators";
-import { pValueFormatter } from "shared/util";
+import { formatInteger, pValueFormatter } from "shared/util";
 import type { CardTable } from "back-end/src/services/notificationCards/types";
 
 export type SrmPayload = Extract<
@@ -9,9 +9,6 @@ export type SrmPayload = Extract<
 
 export const SRM_LABEL = "Health Alert - SRM Detected";
 
-const numberFormatter = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 0,
-});
 const percentFormatter = new Intl.NumberFormat("en-US", {
   style: "percent",
   maximumFractionDigits: 1,
@@ -32,7 +29,7 @@ function balanceRows(data: SrmPayload) {
     d > 0 ? percentFormatter.format(n / d) : "-";
   return variations.map((v) => ({
     name: v.name,
-    units: numberFormatter.format(v.users),
+    units: formatInteger(v.users),
     actual: pct(v.users, totalUsers),
     expected: pct(v.weight, totalWeight),
   }));

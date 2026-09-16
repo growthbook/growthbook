@@ -23,10 +23,30 @@ import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
 import { notifyHoldoutNewLinkage } from "back-end/src/services/holdoutNotifications";
 import {
+  type DeferredEventBuffer,
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
+
+// Owner key for a linkage write's deferred `config.newLinkage` event. Keyed by
+// the WRITE (holdout + the item whose publish caused it), not the holdout: a
+// release can link several items to one holdout, and rewinding one must not
+// silence the others' events.
+export const holdoutLinkageOwner = (
+  holdoutId: string,
+  itemKey?: string,
+): string =>
+  entityKey("holdout", itemKey ? `${holdoutId}:${itemKey}` : holdoutId);
+
+// One deferred linkage event per owner within a landing: a publish that joins a
+// holdout writes the feature entry and the experiment entries separately, and
+// subscribers should hear about both in one event.
+type PendingLinkage = { previous: HoldoutInterface; holdout: HoldoutInterface };
+const pendingLinkageEvents = new WeakMap<
+  DeferredEventBuffer,
+  Map<string, PendingLinkage>
+>();
 import {
   holdoutApiSpec,
   holdoutStartAnalysisEndpoint,
@@ -642,7 +662,13 @@ export class HoldoutModel extends BaseClass {
         added = linkedFeatures[featureId] ? null : entry;
         return { linkedFeatures: { [featureId]: entry, ...linkedFeatures } };
       },
-      { required: true },
+      {
+        required: true,
+        eventOwner: holdoutLinkageOwner(
+          holdoutId,
+          entityKey("feature", featureId),
+        ),
+      },
     );
     return added;
   }
@@ -654,8 +680,12 @@ export class HoldoutModel extends BaseClass {
   public async addExperimentsToHoldout(
     holdoutId: string,
     experimentIds: string[],
-    // Rewinds pass false: putting linkage back is not new linkage.
-    { notifyNewLinkage = true }: { notifyNewLinkage?: boolean } = {},
+    {
+      // Rewinds pass false: putting linkage back is not new linkage.
+      notifyNewLinkage = true,
+      // Publish paths pass the owning item's key; see holdoutLinkageOwner.
+      eventOwner,
+    }: { notifyNewLinkage?: boolean; eventOwner?: string } = {},
   ) {
     if (!experimentIds.length) return;
     const added = Object.fromEntries(
@@ -667,7 +697,7 @@ export class HoldoutModel extends BaseClass {
         // Existing entries win, so re-linking keeps the original `dateAdded`.
         linkedExperiments: { ...added, ...linkedExperiments },
       }),
-      { required: true, notifyNewLinkage },
+      { required: true, notifyNewLinkage, eventOwner },
     );
   }
 
@@ -691,7 +721,8 @@ export class HoldoutModel extends BaseClass {
   // Publish-rewind counterpart to `addFeatureToHoldout`: drops only the entries a
   // failed publish added, in one write, leaving entries other features
   // contributed alone. No-ops when the maps are already at the target state, so
-  // rewinding a forward pass that never landed writes nothing.
+  // rewinding a forward pass that never landed writes nothing. Returns whether
+  // it wrote.
   public async removeLinkageFromHoldout(
     holdoutId: string,
     {
@@ -709,9 +740,9 @@ export class HoldoutModel extends BaseClass {
       experimentIds?: string[];
       expectFeatureEntry?: { dateAdded: Date } | null;
     },
-  ) {
+  ): Promise<boolean> {
     const drop = new Set(experimentIds ?? []);
-    await this.mutateLinkage(holdoutId, (holdout) => {
+    const updated = await this.mutateLinkage(holdoutId, (holdout) => {
       const linkedExperiments = Object.fromEntries(
         Object.entries(holdout.linkedExperiments).filter(
           ([id]) => !drop.has(id),
@@ -744,6 +775,7 @@ export class HoldoutModel extends BaseClass {
       }
       return { linkedFeatures, linkedExperiments };
     });
+    return !!updated;
   }
 
   // Puts a feature back under the holdout it was unlinked from, with its original
@@ -809,7 +841,12 @@ export class HoldoutModel extends BaseClass {
     {
       required = false,
       notifyNewLinkage = true,
-    }: { required?: boolean; notifyNewLinkage?: boolean } = {},
+      eventOwner = holdoutLinkageOwner(holdoutId),
+    }: {
+      required?: boolean;
+      notifyNewLinkage?: boolean;
+      eventOwner?: string;
+    } = {},
   ) {
     // Captured before the first await: a publish landing opens a buffer that
     // holds events until it commits, and the next landing may already have
@@ -834,20 +871,42 @@ export class HoldoutModel extends BaseClass {
       if (!stillThere) throw new NotFoundError("Holdout not found");
     }
     if (updated && previous && notifyNewLinkage) {
-      const before: HoldoutInterface = previous;
-      // Owned by the holdout: a publish rewind that restores this holdout's
-      // linkage reports it restored, and the landing drops the event.
-      await emitOrDeferBulkPublishEvent(
-        () =>
-          notifyHoldoutNewLinkage({
-            context: this.context,
-            previous: before,
-            holdout: updated,
-          }),
-        entityKey("holdout", holdoutId),
-        buffer,
-      );
+      await this.notifyLinkage(previous, updated, eventOwner, buffer);
     }
     return updated;
+  }
+
+  // Emits `config.newLinkage`, or defers it until the landing commits. A second
+  // write for the same owner in one landing extends the pending event rather
+  // than adding another, so the diff runs from the first pre-image to the last
+  // result.
+  private async notifyLinkage(
+    previous: HoldoutInterface,
+    holdout: HoldoutInterface,
+    eventOwner: string,
+    buffer: DeferredEventBuffer | null,
+  ) {
+    let forBuffer: Map<string, PendingLinkage> | null = null;
+    if (buffer && !buffer.closed) {
+      forBuffer = pendingLinkageEvents.get(buffer) ?? new Map();
+      pendingLinkageEvents.set(buffer, forBuffer);
+    }
+    const earlier = forBuffer?.get(eventOwner);
+    if (earlier) {
+      earlier.holdout = holdout;
+      return;
+    }
+    const state: PendingLinkage = { previous, holdout };
+    await emitOrDeferBulkPublishEvent(
+      () =>
+        notifyHoldoutNewLinkage({
+          context: this.context,
+          previous: state.previous,
+          holdout: state.holdout,
+        }),
+      eventOwner,
+      buffer,
+    );
+    forBuffer?.set(eventOwner, state);
   }
 }

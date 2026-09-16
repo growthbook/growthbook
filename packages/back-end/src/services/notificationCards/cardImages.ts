@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import satori from "satori";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
+import { formatInteger, formatPercentChange } from "shared/util";
 import { logger } from "back-end/src/util/logger";
 import {
   type MdRun,
@@ -444,9 +445,8 @@ function renderMarkdown(md: string, base: MdStyle): El {
   );
 }
 
-function fmtPct(v: number): string {
-  return (v > 0 ? "+" : "") + Math.round(v * 10) / 10 + "%";
-}
+// Rows carry percents; the shared formatter takes fractions.
+const fmtPct = (percent: number): string => formatPercentChange(percent / 100);
 
 // ---------------------------------------------------------------------------
 // Charts — pure-shape SVG strings (no <text>; labels are drawn in Satori).
@@ -707,11 +707,23 @@ function colHeader(statLabel: string): El {
   );
 }
 
-// Green for a change in the metric's desired direction, red otherwise. Rows
-// from a payload say so via `good` (which accounts for inverse metrics);
-// samples fall back to the arrow.
+// Whether a row's change is in the metric's desired direction. Rows from a
+// payload say so via `good` (which accounts for inverse metrics); samples fall
+// back to the arrow.
+const isGoodOutcome = (r: Pick<CardGoalRow, "dir" | "good">): boolean =>
+  r.good ?? r.dir !== "down";
+
 const outcomeColor = (r: Pick<CardGoalRow, "dir" | "good">): string =>
-  (r.good ?? r.dir !== "down") ? P.st.green : P.st.red;
+  isGoodOutcome(r) ? P.st.green : P.st.red;
+
+// The row a stop card singles out: the winner on a win, else the sole
+// treatment of a two-armed test.
+const outcomeRowFor = (exp: ExperimentCardData): CardGoalRow | undefined =>
+  (exp.winningVariationIndex ?? null) !== null
+    ? exp.rows.find((row) => row.i === exp.winningVariationIndex)
+    : exp.rows.length === 1
+      ? exp.rows[0]
+      : undefined;
 
 // Color for the stat cell. Rows that know their significance (frequentist
 // p-values, or bayesian rows the producer already judged) color by outcome
@@ -905,16 +917,10 @@ function headerEl(exp: CardIdentity): El {
   );
 }
 
-const unitsFormatter = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 0,
-});
-
 // "{units} units - {days} days", with whichever parts the card knows.
 function footerText(card: CardIdentity): string {
   return [
-    card.units !== undefined
-      ? `${unitsFormatter.format(card.units)} units`
-      : undefined,
+    card.units !== undefined ? `${formatInteger(card.units)} units` : undefined,
     card.durationDays !== undefined
       ? `${card.durationDays} day${card.durationDays === 1 ? "" : "s"}`
       : undefined,
@@ -1833,8 +1839,8 @@ function compactHero(exp: ExperimentCardData, event: CompactEvent): El {
   // when there is a single treatment. The variation itself is named in the
   // conclusion text, not here.
   const outcomeRow =
-    event === "won" && (exp.winningVariationIndex ?? null) !== null
-      ? exp.rows.find((row) => row.i === exp.winningVariationIndex)
+    event === "won"
+      ? outcomeRowFor(exp)
       : exp.rows.length === 1
         ? r
         : undefined;
@@ -1930,11 +1936,12 @@ function compactHero(exp: ExperimentCardData, event: CompactEvent): El {
 function buildCompactCard(card: CardData): El {
   const event = compactEventFor(card);
   const ev = COMPACT_EVENT[event];
-  // Event hue drives the rail + eyebrow; win/ship tint by
-  // direction (a "ship recommended" with a down metric goes red).
+  // Event hue drives the rail + eyebrow; a win whose decided variation moved
+  // the metric the wrong way goes red.
   let hue = ev.hue;
-  if (isResultsCard(card) && event === "won" && card.rows[0]?.dir === "down") {
-    hue = "red";
+  if (isResultsCard(card) && event === "won") {
+    const outcome = outcomeRowFor(card);
+    if (outcome && !isGoodOutcome(outcome)) hue = "red";
   }
 
   const hero = isResultsCard(card)
@@ -2160,8 +2167,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
             i: 1,
             ctrl: "4.62",
             vr: "4.72",
-            cn: "15.4k",
-            vn: "15.8k",
             ctw: "78.4%",
             chg: "+2.1%",
             dir: "up",
@@ -2186,8 +2191,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
             i: 1,
             ctrl: "5.10%",
             vr: "5.04%",
-            cn: "11.0k",
-            vn: "11.1k",
             ctw: "14.0%",
             chg: "-1.2%",
             dir: "down",
@@ -2217,8 +2220,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
             i: 1,
             ctrl: "2.30%",
             vr: "2.32%",
-            cn: "44.5k",
-            vn: "44.4k",
             ctw: "63.0%",
             chg: "+0.9%",
             dir: "up",
@@ -2287,8 +2288,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
             i: 1,
             ctrl: "5.10%",
             vr: "5.41%",
-            cn: "54.1k",
-            vn: "54.3k",
             ctw: "99.1%",
             chg: "+6.1%",
             dir: "up",
@@ -2300,8 +2299,6 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
             i: 2,
             ctrl: "5.10%",
             vr: "5.29%",
-            cn: "54.1k",
-            vn: "54.0k",
             ctw: "91.0%",
             chg: "+3.8%",
             dir: "up",

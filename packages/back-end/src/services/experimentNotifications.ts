@@ -1,4 +1,5 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
+import { daysBetween } from "shared/dates";
 import {
   expandMetricGroups,
   getMetricResultStatus,
@@ -88,24 +89,29 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
   });
 };
 
+// Sends an alert once per streak: `dispatch` runs when the condition first
+// becomes true, `onReset` when it clears, and the marker in pastNotifications
+// remembers which. Returns whether `dispatch` ran.
 export const memoizeNotification = async ({
   context,
   experiment,
   type,
   triggered,
   dispatch,
+  onReset,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   type: ExperimentNotification;
   triggered: boolean;
   dispatch: () => Promise<void>;
-}) => {
-  if (!isNotifiableExperiment(experiment)) return;
-  if (triggered && experiment.pastNotifications?.includes(type)) return;
-  if (!triggered && !experiment.pastNotifications?.includes(type)) return;
+  onReset?: () => Promise<void>;
+}): Promise<boolean> => {
+  const alreadySent = experiment.pastNotifications?.includes(type) ?? false;
+  if (triggered === alreadySent) return false;
 
-  await dispatch();
+  if (triggered) await dispatch();
+  else await onReset?.();
 
   await setExperimentNotificationState({
     context,
@@ -113,6 +119,7 @@ export const memoizeNotification = async ({
     type,
     triggered,
   });
+  return triggered;
 };
 
 export const notifyExperimentStarted = async ({
@@ -153,6 +160,8 @@ export const notifyExperimentStarted = async ({
   });
 };
 
+const DAY_MS = 86400000;
+
 // Whole days the latest phase ran, from its start to its end (or now when the
 // stop has not stamped an end date yet).
 const getExperimentDurationDays = (
@@ -161,8 +170,10 @@ const getExperimentDurationDays = (
   const phase = experiment.phases[experiment.phases.length - 1];
   const start = getSafeDate(phase?.dateStarted);
   if (!start) return undefined;
-  const end = getSafeDate(phase?.dateEnded) ?? new Date();
-  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86400000));
+  return Math.max(
+    0,
+    daysBetween(start, getSafeDate(phase?.dateEnded) ?? new Date()),
+  );
 };
 
 export const notifyExperimentStopped = async ({
@@ -273,13 +284,14 @@ export const notifyExperimentEndingSoon = async ({
   windowDays?: number;
 }) => {
   const endsAt = getSafeDate(experiment.statusUpdateSchedule?.stopAt);
-  const now = new Date();
-  const daysRemaining = endsAt ? daysBetweenDates(now, endsAt) : 0;
+  const msRemaining = endsAt ? endsAt.getTime() - Date.now() : -1;
+  // Rounded up: an experiment ending in 2.5 days has 3 days left, and the
+  // window is exactly `windowDays` from now.
+  const daysRemaining = Math.max(0, Math.ceil(msRemaining / DAY_MS));
   const triggered =
     experiment.status === "running" &&
-    !!endsAt &&
-    endsAt.getTime() >= now.getTime() &&
-    daysRemaining <= windowDays;
+    msRemaining >= 0 &&
+    msRemaining <= windowDays * DAY_MS;
 
   await memoizeNotification({
     context,
@@ -287,7 +299,7 @@ export const notifyExperimentEndingSoon = async ({
     type: "ending-soon",
     triggered,
     dispatch: async () => {
-      if (!triggered || !endsAt) return;
+      if (!endsAt) return;
       await dispatchEvent({
         context,
         experiment,
@@ -320,7 +332,7 @@ export const notifyExperimentStale = async ({
   const phase = experiment.phases[experiment.phases.length - 1];
   const startedAt = getSafeDate(phase?.dateStarted);
   const daysRunning = startedAt
-    ? Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 86400000))
+    ? Math.max(0, daysBetween(startedAt, new Date()))
     : 0;
   const triggered =
     experiment.status === "running" &&
@@ -333,7 +345,6 @@ export const notifyExperimentStale = async ({
     type: "stale",
     triggered,
     dispatch: async () => {
-      if (!triggered) return;
       await dispatchEvent({
         context,
         experiment,
@@ -359,9 +370,6 @@ const getSafeDate = (value: Date | string | undefined): Date | null => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-const daysBetweenDates = (start: Date, end: Date): number =>
-  Math.max(0, Math.ceil((end.getTime() - start.getTime()) / 86400000));
-
 export const notifyExperimentUpdateFailed = async ({
   context,
   experiment,
@@ -379,7 +387,7 @@ export const notifyExperimentUpdateFailed = async ({
     type: "query-failed",
     triggered,
     dispatch: async () => {
-      if (!triggered || cause === null) return;
+      if (cause === null) return;
       await dispatchEvent({
         context,
         experiment,
@@ -428,14 +436,12 @@ export const notifySrm = async ({
   const triggered =
     currentStatus.status === "unhealthy" && !!currentStatus.unhealthyData.srm;
 
-  await memoizeNotification({
+  return memoizeNotification({
     context,
     experiment,
     type: "srm",
     triggered,
     dispatch: async () => {
-      if (!triggered) return;
-
       const pValue = getExperimentSRMValue(snapshot);
       const variations = getSrmVariationBalance(experiment, snapshot);
       const durationDays = getExperimentDurationDays(experiment);
@@ -457,8 +463,6 @@ export const notifySrm = async ({
       });
     },
   });
-
-  return triggered && !experiment.pastNotifications?.includes("srm");
 };
 
 export const notifyMultipleExposures = async ({
@@ -475,14 +479,13 @@ export const notifyMultipleExposures = async ({
     currentStatus.unhealthyData.multipleExposures;
   const triggered = !!multipleExposureData;
 
-  await memoizeNotification({
+  return memoizeNotification({
     context,
     experiment,
     type: "multiple-exposures",
     triggered,
     dispatch: async () => {
-      if (!triggered) return;
-
+      if (!multipleExposureData) return;
       await dispatchEvent({
         context,
         experiment,
@@ -499,10 +502,6 @@ export const notifyMultipleExposures = async ({
       });
     },
   });
-
-  return (
-    triggered && !experiment.pastNotifications?.includes("multiple-exposures")
-  );
 };
 
 const getFailedGuardrailMetrics = async ({
@@ -558,14 +557,12 @@ export const notifyGuardrailFailed = async ({
   });
   const triggered = experiment.status === "running" && failedMetrics.length > 0;
 
-  await memoizeNotification({
+  return memoizeNotification({
     context,
     experiment,
     type: "guardrail-failed",
     triggered,
     dispatch: async () => {
-      if (!triggered) return;
-
       await dispatchEvent({
         context,
         experiment,
@@ -581,10 +578,6 @@ export const notifyGuardrailFailed = async ({
       });
     },
   });
-
-  return (
-    triggered && !experiment.pastNotifications?.includes("guardrail-failed")
-  );
 };
 
 export const notifyAutoUpdate = ({
@@ -601,20 +594,32 @@ export const notifyAutoUpdate = ({
     experiment,
     type: "auto-update",
     triggered: !success,
-    dispatch: () =>
-      dispatchEvent({
-        context,
-        experiment,
-        event: "warning",
-        data: {
-          object: {
-            type: "auto-update",
-            success,
-            experimentId: experiment.id,
-            experimentName: experiment.name,
-          },
-        },
-      }),
+    dispatch: () => notifyAutoUpdateOutcome({ context, experiment, success }),
+    // Recovery is announced too, so the channel sees the streak end.
+    onReset: () => notifyAutoUpdateOutcome({ context, experiment, success }),
+  });
+
+const notifyAutoUpdateOutcome = ({
+  context,
+  experiment,
+  success,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  success: boolean;
+}) =>
+  dispatchEvent({
+    context,
+    experiment,
+    event: "warning",
+    data: {
+      object: {
+        type: "auto-update",
+        success,
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+      },
+    },
   });
 
 // Fires on every failed attempt of the scheduled-status-update job (not
@@ -669,14 +674,12 @@ export const notifyUnderpowered = async ({
     currentStatus.status === "unhealthy" &&
     !!currentStatus.unhealthyData.lowPowered;
 
-  await memoizeNotification({
+  return memoizeNotification({
     context,
     experiment,
     type: "underpowered",
     triggered,
     dispatch: async () => {
-      if (!triggered) return;
-
       await dispatchEvent({
         context,
         experiment,
@@ -691,8 +694,6 @@ export const notifyUnderpowered = async ({
       });
     },
   });
-
-  return triggered && !experiment.pastNotifications?.includes("underpowered");
 };
 
 export const notifyNoData = async ({
@@ -711,14 +712,12 @@ export const notifyNoData = async ({
     snapshot.status === "success" &&
     (analysis?.results?.[0]?.variations?.length ?? 0) === 0;
 
-  await memoizeNotification({
+  return memoizeNotification({
     context,
     experiment,
     type: "no-data",
     triggered,
     dispatch: async () => {
-      if (!triggered) return;
-
       await dispatchEvent({
         context,
         experiment,
@@ -733,8 +732,6 @@ export const notifyNoData = async ({
       });
     },
   });
-
-  return triggered && !experiment.pastNotifications?.includes("no-data");
 };
 
 // Emitted when the scheduled-status-update job applies a start/stop. Not
@@ -1053,14 +1050,26 @@ export async function notifyExperimentBanditWeightsTransition({
   previous: ExperimentInterface;
   experiment: ExperimentInterface;
 }) {
-  if (experiment.type !== "multi-armed-bandit") return;
+  // Only a live reallocation of the phase that is running: draft edits,
+  // resets, and new phases change weights without moving traffic.
+  const before = previous.phases[previous.phases.length - 1];
+  const after = experiment.phases[experiment.phases.length - 1];
+  if (
+    experiment.type !== "multi-armed-bandit" ||
+    experiment.status !== "running" ||
+    previous.status !== "running" ||
+    previous.phases.length !== experiment.phases.length ||
+    !before ||
+    !after ||
+    getSafeDate(before.dateStarted)?.getTime() !==
+      getSafeDate(after.dateStarted)?.getTime()
+  )
+    return;
   await notifyBanditWeightsChanged({
     context,
     experiment,
-    currentWeights:
-      previous.phases[previous.phases.length - 1]?.variationWeights ?? [],
-    updatedWeights:
-      experiment.phases[experiment.phases.length - 1]?.variationWeights ?? [],
+    currentWeights: before.variationWeights ?? [],
+    updatedWeights: after.variationWeights ?? [],
   });
 }
 

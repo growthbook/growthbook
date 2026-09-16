@@ -2,7 +2,6 @@ import {
   type ExperimentStoppedNotificationPayload,
   experimentStoppedNotificationPayload,
 } from "shared/validators";
-import { APP_ORIGIN } from "back-end/src/util/secrets";
 import {
   RESULT_LABEL,
   formatConfidenceValue,
@@ -16,17 +15,8 @@ import type {
   CardData,
   CardField,
   CardGoalRow,
-  NotificationCard,
   NotificationCardProducer,
 } from "back-end/src/services/notificationCards/types";
-
-const compact = (n: number | undefined): string | undefined =>
-  n === undefined || !Number.isFinite(n)
-    ? undefined
-    : new Intl.NumberFormat("en-US", {
-        notation: "compact",
-        maximumFractionDigits: 1,
-      }).format(n);
 
 // Fraction -> percent without binary float noise (0.14 * 100 = 14.000000000000002).
 const toPct = (fraction: number): number =>
@@ -74,8 +64,6 @@ function goalRows(
     const base: CardGoalRow = {
       v: v.variationName,
       i: v.variationIndex,
-      cn: compact(goalMetric.control.users),
-      vn: compact(v.users),
       ...stat,
     };
     if (v.uplift === undefined) return base;
@@ -96,12 +84,13 @@ function goalRows(
   });
 }
 
-function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
-  const banner = getExperimentStoppedLabel(data);
+function buildCardData(
+  data: ExperimentStoppedNotificationPayload,
+): CardData & { banner: string } {
   const identity = {
     name: data.experimentName,
     key: data.experimentId,
-    banner,
+    banner: getExperimentStoppedLabel(data),
     ...(data.totalUsers !== undefined ? { units: data.totalUsers } : {}),
     ...(data.durationDays !== undefined
       ? { durationDays: data.durationDays }
@@ -125,10 +114,7 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
     ...identity,
     state,
     goal: data.goalMetric.metricName,
-    statsEngine:
-      data.goalMetric.statsEngine === "frequentist"
-        ? "frequentist"
-        : "bayesian",
+    statsEngine: data.goalMetric.statsEngine,
     variants: [
       data.goalMetric.control.variationName,
       ...data.goalMetric.variations.map((v) => v.variationName),
@@ -144,21 +130,9 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
 // Built from the immutable stop payload. Reports the recorded result and any
 // temporary rollout without claiming an undeployed variation shipped, and
 // shows the top goal metric's results when the payload captured them.
-export const buildExperimentStoppedCard: NotificationCardProducer = (
-  event,
-): NotificationCard | null => {
-  if (event.event !== "experiment.status.stopped") return null;
+export const buildExperimentStoppedCard: NotificationCardProducer = (event) => {
   const parsed = experimentStoppedNotificationPayload.safeParse(
     event.data.object,
   );
-  if (!parsed.success) return null;
-  const data = parsed.data;
-  const label = getExperimentStoppedLabel(data);
-  return {
-    data: buildCardData(data),
-    altText: `${data.experimentName} - ${label}`,
-    objectUrl: `${APP_ORIGIN}/experiment/${data.experimentId}`,
-    objectName: data.experimentName,
-    eventLabel: label,
-  };
+  return parsed.success ? buildCardData(parsed.data) : null;
 };

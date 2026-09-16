@@ -415,10 +415,8 @@ experimentSchema.index(
   { "nextScheduledStatusUpdate.date": 1 },
   { sparse: true },
 );
-// The lifecycle reminders scan runs across organizations on each arm of its
-// $or (running, or carrying a reminder marker).
+// The lifecycle reminders scan runs across organizations by status.
 experimentSchema.index({ status: 1 });
-experimentSchema.index({ pastNotifications: 1 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
@@ -1031,28 +1029,25 @@ export async function getExperimentsToUpdateLegacy(
   }));
 }
 
-// Lifecycle reminders must include experiments without automatic result refreshes.
-// Also revisit previously notified experiments to clear their marker after stopping
-// or extending their schedule, so a later lifecycle can notify again.
+// Lifecycle reminders must include experiments without automatic result
+// refreshes. Reminder markers are cleared by updateExperiment when the status
+// or schedule changes (see experimentReminderState), so only running
+// experiments need a look. Unordered: the caller groups by organization.
 export async function* dangerousGetExperimentsForLifecycleReminders(): AsyncGenerator<
   Pick<ExperimentInterface, "id" | "organization">
 > {
   const cursor = getCollection(COLLECTION)
     .find({
+      status: "running",
       archived: { $ne: true },
       // Holdouts have their own lifecycle notifications.
       type: { $ne: "holdout" },
-      $or: [
-        { status: "running" },
-        { pastNotifications: { $in: ["ending-soon", "stale"] } },
-      ],
     })
     .project<Pick<ExperimentInterface, "id" | "organization">>({
       id: 1,
       organization: 1,
       _id: 0,
     })
-    .sort({ organization: 1, id: 1 })
     .batchSize(100);
   try {
     for await (const experiment of cursor) yield experiment;

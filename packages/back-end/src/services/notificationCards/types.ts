@@ -1,5 +1,8 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
+import type { StatsEngine } from "shared/types/stats";
 
+// A card plus the plain-text metadata deliveries need, all derived from the
+// card data in buildNotificationCard.
 export interface NotificationCard {
   data: CardData;
   // Plain text: file title / alt text.
@@ -9,9 +12,10 @@ export interface NotificationCard {
   eventLabel: string;
 }
 
+// Producers turn an immutable event payload into card data with a banner.
 export type NotificationCardProducer = (
   event: NotificationEvent,
-) => NotificationCard | null;
+) => (CardData & { banner: string }) | null;
 
 export type CardState =
   | "started"
@@ -31,8 +35,6 @@ export interface CardGoalRow {
   i: number; // variation index (number circle)
   ctrl?: string; // control mean, formatted
   vr?: string; // variation mean, formatted
-  cn?: string;
-  vn?: string;
   ctw?: string; // "99.1%"
   chg?: string; // "+6.1%"
   dir?: "up" | "down"; // arrow: the sign of the change
@@ -113,7 +115,7 @@ export interface ExperimentCardData extends CardIdentity {
   p?: string;
   winningVariationIndex?: number;
   // Picks the stat column label: chance to win, or p-value for frequentist.
-  statsEngine?: "bayesian" | "frequentist";
+  statsEngine?: StatsEngine;
   compactLine?: string; // one-line conclusion fallback for outcome events
 }
 

@@ -1,5 +1,6 @@
 import type { ExperimentStoppedNotificationPayload } from "shared/validators";
-import { pValueFormatter } from "shared/util";
+import type { StatsEngine } from "shared/types/stats";
+import { formatPercentChange, pValueFormatter } from "shared/util";
 import {
   escapeInlineMarkdown,
   markdownToPlainText,
@@ -19,31 +20,21 @@ export const RESULT_LABEL: Record<Results, string> = {
   dnf: "Did not finish",
 };
 
-const RESULT_BANNER: Record<Results, string> = {
-  won: "Experiment Stopped - Winner",
-  lost: "Experiment Stopped - Lost",
-  inconclusive: "Experiment Stopped - Inconclusive",
-  dnf: "Experiment Stopped - Did Not Finish",
-};
-
 // Headline for the banner, image caption, and text: the event plus the result.
 export function getExperimentStoppedLabel(
   data: ExperimentStoppedNotificationPayload,
 ): string {
-  return data.results ? RESULT_BANNER[data.results] : "Experiment Stopped";
+  if (!data.results) return "Experiment Stopped";
+  const result = data.results === "won" ? "Winner" : RESULT_LABEL[data.results];
+  return `Experiment Stopped - ${result}`;
 }
 
-// Relative lift as a signed percent with one decimal, trailing zero dropped:
-// 0.061 -> "+6.1%", -0.08 -> "-8%".
-export function formatLift(fraction: number): string {
-  const pct = Math.round(fraction * 1000) / 10;
-  return `${pct > 0 ? "+" : ""}${pct}%`;
-}
+export const formatLift = formatPercentChange;
 
 // The stat beside the lift: "99.1%" chance to win for Bayesian tests, the
 // p-value for frequentist ones. Undefined when the payload lacks it.
 export function formatConfidenceValue(
-  statsEngine: string,
+  statsEngine: StatsEngine,
   result: Pick<VariationResult, "chanceToWin" | "pValue">,
 ): string | undefined {
   if (statsEngine === "frequentist") {
@@ -58,7 +49,7 @@ export function formatConfidenceValue(
 
 // "Chance to win: 99.1%" / "p-value: 0.03" for prose.
 export function formatConfidence(
-  statsEngine: string,
+  statsEngine: StatsEngine,
   result: Pick<VariationResult, "chanceToWin" | "pValue">,
 ): string | undefined {
   const value = formatConfidenceValue(statsEngine, result);

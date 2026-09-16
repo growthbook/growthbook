@@ -3192,7 +3192,7 @@ Triggered when an experiment stops, including its result and any temporary rollo
                 metricName: string;
                 inverse?: boolean | undefined;
                 snapshotId: string;
-                statsEngine: string;
+                statsEngine: "bayesian" | "frequentist";
                 differenceType: string;
                 control: {
                     variationId: string;

@@ -1,7 +1,7 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { getExperimentStartedText } from "back-end/src/services/experimentChanges/experimentStartedSummary";
 import { getExperimentStoppedText } from "back-end/src/services/experimentChanges/experimentStoppedSummary";
-import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { getExperimentUrl } from "back-end/src/util/appUrls";
 import { buildAlertMessage } from "./alertMessage";
 import type { SlackMessage } from "./slack-event-handler-utils";
 
@@ -41,6 +41,6 @@ export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
   return buildAlertMessage({
     name: object.experimentName,
     detail,
-    url: `${APP_ORIGIN}/experiment/${encodeURIComponent(object.experimentId)}`,
+    url: getExperimentUrl(object.experimentId),
   });
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { statsEngines } from "shared/constants";
 import { experimentResultsType } from "./experiments";
 
 export const experimentStartedNotificationPayload = z
@@ -44,7 +45,7 @@ export const experimentStoppedGoalMetric = z
     // True when a decrease is the desired direction for this metric.
     inverse: z.boolean().optional(),
     snapshotId: z.string(),
-    statsEngine: z.string(),
+    statsEngine: z.enum(statsEngines),
     differenceType: z.string(),
     control: z
       .object({

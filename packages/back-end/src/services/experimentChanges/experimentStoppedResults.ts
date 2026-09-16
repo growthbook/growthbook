@@ -3,10 +3,13 @@ import {
   expandMetricGroups,
   getLatestPhaseVariations,
   getMetricResultStatus,
+  isFactMetric,
   isMetricGroupId,
+  resolveSnapshotMetricIds,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
+import { getExperimentVariationUnitsFromHealth } from "shared/health";
 import cloneDeep from "lodash/cloneDeep";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
@@ -64,23 +67,43 @@ export async function getStoppedGoalMetricResults(
 > {
   try {
     const goalIds = await getExpandedGoalMetricIds(context, experiment);
-    const [goalId] = goalIds;
-    if (!goalId) return undefined;
-    const [snapshot, [metric], significance] = await Promise.all([
-      getLatestSuccessfulSnapshot({
-        context,
-        experiment: experiment.id,
-        phase: experiment.phases.length - 1,
-        type: "standard",
-        // The p-value correction spans every goal metric, so load them all
-        // (but not secondaries or guardrails).
-        metricIds: goalIds,
-      }),
-      getExperimentMetricsByIds(context, [goalId]),
+    if (!goalIds.length) return undefined;
+    const [goalMetrics, significance] = await Promise.all([
+      getExperimentMetricsByIds(context, goalIds),
       getSignificanceSettingsForProject(context, experiment.project),
     ]);
+    const metricsById = new Map(goalMetrics.map((m) => [m.id, m]));
+    const getMetric = (id: string) => metricsById.get(id) ?? null;
+    // A snapshot from before a goal metric was swapped for its replacement
+    // still holds results under the old id, so load those chunks too.
+    const replacedIds = goalMetrics.flatMap((m) =>
+      isFactMetric(m) ? (m.replaces ?? []) : [],
+    );
+    const snapshot = await getLatestSuccessfulSnapshot({
+      context,
+      experiment: experiment.id,
+      phase: experiment.phases.length - 1,
+      type: "standard",
+      // The p-value correction spans every goal metric, so load them all
+      // (but not secondaries or guardrails).
+      metricIds: [...goalIds, ...replacedIds],
+    });
     const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
     if (!snapshot || !analysis?.results?.length) return undefined;
+
+    // The same substitution the results table makes for replaced metrics.
+    const resolvedGoalIds = resolveSnapshotMetricIds({
+      metricIds: goalIds,
+      getExperimentMetricById: getMetric,
+      results: analysis.results,
+    });
+    const [goalId] = goalIds;
+    const [resultId] = resolveSnapshotMetricIds({
+      metricIds: [goalId],
+      getExperimentMetricById: getMetric,
+      results: analysis.results,
+    });
+    const metric = getMetric(goalId);
 
     // Judge significance the way the results table does: correct the
     // p-values across the goal metrics and widen the CIs before comparing.
@@ -89,7 +112,7 @@ export async function getStoppedGoalMetricResults(
       analysis.settings.pValueThreshold ?? significance.pValueThreshold;
     setAdjustedPValuesOnResults(
       results,
-      goalIds,
+      resolvedGoalIds,
       significance.pValueCorrection,
     );
     setAdjustedCIs(results, pValueThreshold);
@@ -99,7 +122,7 @@ export async function getStoppedGoalMetricResults(
     // subset or reordering of experiment.variations.
     const variations = getLatestPhaseVariations(experiment);
     const control = variations[0];
-    const controlStats = dim?.variations[0]?.metrics?.[goalId];
+    const controlStats = dim?.variations[0]?.metrics?.[resultId];
     if (!dim || !control || !controlStats) return undefined;
 
     const metricDefaults = getMetricDefaultsForOrg(context);
@@ -121,7 +144,7 @@ export async function getStoppedGoalMetricResults(
     const captured: ExperimentStoppedGoalMetric["variations"] = [];
     for (let j = 1; j < variations.length; j++) {
       const variation = variations[j];
-      const stats = dim.variations[j]?.metrics?.[goalId];
+      const stats = dim.variations[j]?.metrics?.[resultId];
       if (!variation || !stats) continue;
       const ci = stats.ciAdjusted ?? stats.ci;
       const pValue = stats.pValueAdjusted ?? stats.pValue;
@@ -147,10 +170,10 @@ export async function getStoppedGoalMetricResults(
     }
     if (!captured.length) return undefined;
 
-    const traffic = snapshot.health?.traffic?.overall?.variationUnits;
-    const totalUsers = traffic?.length
-      ? traffic.reduce((sum, n) => sum + n, 0)
-      : dim.variations.reduce((sum, v) => sum + (v.users || 0), 0) || undefined;
+    const units = getExperimentVariationUnitsFromHealth(snapshot);
+    const totalUsers = units?.length
+      ? units.reduce((sum, n) => sum + n, 0)
+      : undefined;
 
     return {
       totalUsers,
