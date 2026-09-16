@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateSQL } from "@/services/datasources";
+import { getInitialSettings, validateSQL } from "@/services/datasources";
 
 describe("validateSQL", () => {
   describe("empty SQL", () => {
@@ -145,5 +145,104 @@ describe("validateSQL", () => {
         ),
       ).not.toThrow();
     });
+  });
+});
+
+describe("getInitialSettings", () => {
+  const clickhouseParams = {
+    url: "http://localhost:8123",
+    database: "default",
+  };
+  const postgresParams = {
+    host: "localhost",
+    database: "phoenix",
+    defaultSchema: "public",
+  };
+
+  it("keeps the existing exposure query names for segment", () => {
+    // @ts-expect-error minimal params for the test
+    const settings = getInitialSettings("segment", postgresParams);
+    expect(settings.queries.exposure.map((q) => q.name)).toEqual([
+      "Anonymous Visitors",
+      "Logged-in Users",
+    ]);
+  });
+
+  it("builds langfuse exposure queries for user, session, and trace ids", () => {
+    // @ts-expect-error minimal params for the test
+    const settings = getInitialSettings("langfuse", clickhouseParams, {
+      projectId: "proj_1",
+    });
+    expect(settings.queries.exposure.map((q) => q.id)).toEqual([
+      "user_id",
+      "session_id",
+      "trace_id",
+    ]);
+    expect(settings.queries.exposure.map((q) => q.name)).toEqual([
+      "Logged-in Users",
+      "Sessions",
+      "Traces",
+    ]);
+    for (const q of settings.queries.exposure) {
+      expect(() =>
+        validateSQL(q.query, [
+          q.userIdType,
+          "timestamp",
+          "experiment_id",
+          "variation_id",
+          ...q.dimensions,
+        ]),
+      ).not.toThrow();
+      expect(q.query).toContain("ARRAY JOIN");
+      expect(q.query).toContain("startsWith(tag, 'gb:')");
+      expect(q.query).toContain("project_id = 'proj_1'");
+    }
+    expect(settings.queries.identityJoins).toHaveLength(1);
+    expect(settings.queries.identityJoins[0].ids).toEqual([
+      "user_id",
+      "session_id",
+    ]);
+    for (const t of settings.userIdTypes) {
+      expect(t.description).not.toEqual("");
+    }
+  });
+
+  it("builds phoenix exposure queries against the root span", () => {
+    // @ts-expect-error minimal params for the test
+    const settings = getInitialSettings("phoenix", postgresParams, {
+      projectName: "default",
+    });
+    expect(settings.queries.exposure.map((q) => q.id)).toEqual([
+      "user_id",
+      "session_id",
+      "trace_id",
+    ]);
+    for (const q of settings.queries.exposure) {
+      expect(() =>
+        validateSQL(q.query, [
+          q.userIdType,
+          "timestamp",
+          "experiment_id",
+          "variation_id",
+          ...q.dimensions,
+        ]),
+      ).not.toThrow();
+      expect(q.query).toContain("jsonb_array_elements_text");
+      expect(q.query).toContain("split_part(gb_tags.tag, ':', 2)");
+      expect(q.query).toContain("public.traces");
+      expect(q.query).toContain("root.parent_id IS NULL");
+      expect(q.query).toContain("p.name = 'default'");
+    }
+    expect(settings.queries.identityJoins).toHaveLength(1);
+  });
+
+  it("omits the project filter when the option is blank", () => {
+    // @ts-expect-error minimal params for the test
+    const settings = getInitialSettings("langfuse", clickhouseParams, {
+      projectId: "",
+    });
+    for (const q of settings.queries.exposure) {
+      expect(q.query).not.toContain("project_id = '");
+    }
   });
 });

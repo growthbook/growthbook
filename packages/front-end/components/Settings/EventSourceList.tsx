@@ -6,6 +6,7 @@ import { eventSchema, eventSchemas } from "@/services/eventSchema";
 import DataSourceLogo from "@/components/DataSources/DataSourceLogo";
 import RadioCards from "@/ui/RadioCards";
 import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
 
 export interface Props {
   selected?: SchemaFormat;
@@ -23,7 +24,20 @@ export default function EventSourceList({
     .map((s) => {
       return {
         value: s.value,
-        label: s.label,
+        label: s.beta ? (
+          <>
+            {s.label}
+            <Badge
+              color="indigo"
+              label="Beta"
+              variant="solid"
+              size="xs"
+              ml="1"
+            />
+          </>
+        ) : (
+          s.label
+        ),
         avatar:
           s.value === "mixpanel" ? (
             <SiMixpanel style={{ fontSize: "20px", marginRight: 8 }} />
