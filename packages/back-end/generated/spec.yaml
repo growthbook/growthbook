@@ -19860,6 +19860,15 @@ paths:
                   type: array
                   items:
                     type: string
+                customFields:
+                  description: >-
+                    Values for the organization's attribute custom fields, keyed
+                    by field id
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
               required:
                 - property
                 - datatype
@@ -19942,6 +19951,15 @@ paths:
                 tags:
                   type: array
                   items:
+                    type: string
+                customFields:
+                  description: >-
+                    Values for the organization's attribute custom fields, keyed
+                    by field id
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
                     type: string
               additionalProperties: false
       responses:
@@ -47830,13 +47848,14 @@ paths:
                 sections:
                   description: >-
                     What types of objects this custom field is applicable to
-                    (feature, experiment)
+                    (feature, experiment, attribute)
                   type: array
                   items:
                     type: string
                     enum:
                       - feature
                       - experiment
+                      - attribute
               required:
                 - id
                 - name
@@ -48022,13 +48041,14 @@ paths:
                 sections:
                   description: >-
                     What types of objects this custom field is applicable to
-                    (feature, experiment)
+                    (feature, experiment, attribute)
                   type: array
                   items:
                     type: string
                     enum:
                       - feature
                       - experiment
+                      - attribute
                 active:
                   type: boolean
               additionalProperties: false
@@ -62355,6 +62375,12 @@ components:
           type: array
           items:
             type: string
+        customFields:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
       required:
         - property
         - datatype
@@ -71381,6 +71407,7 @@ components:
             enum:
               - feature
               - experiment
+              - attribute
         active:
           type: boolean
       required:
