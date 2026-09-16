@@ -1,10 +1,11 @@
 import React, { useState, FC } from "react";
 import { PiDetective } from "react-icons/pi";
 import { ProjectInterface } from "shared/types/project";
-import Link from "next/link";
 import { ago } from "shared/dates";
 import { Box } from "@radix-ui/themes";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -25,8 +26,6 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-
-const MONO = { fontFamily: "var(--font-mono, monospace)" };
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -168,12 +167,7 @@ const ProjectsPage: FC = () => {
                     <TableRow key={p.id} style={{ verticalAlign: "middle" }}>
                       <TableCell>
                         {canEdit ? (
-                          <Link
-                            className="link-purple"
-                            href={`/project/${p.id}`}
-                          >
-                            {p.name}
-                          </Link>
+                          <Link href={`/project/${p.id}`}>{p.name}</Link>
                         ) : (
                           <span>{p.name}</span>
                         )}
@@ -197,22 +191,19 @@ const ProjectsPage: FC = () => {
                           </div>
                         ) : null}
                         {p.publicId && (
-                          <div
-                            className="small"
-                            style={{
-                              ...MONO,
-                              color: "var(--gray-9)",
-                              opacity: 0.85,
-                            }}
+                          <Box
+                            style={{ color: "var(--gray-9)", opacity: 0.85 }}
                           >
-                            {p.publicId}
-                          </div>
+                            <Text as="p" size="sm" mono mb="0">
+                              {p.publicId}
+                            </Text>
+                          </Box>
                         )}
                       </TableCell>
                       <TableCell>
-                        <span className="small" style={MONO}>
+                        <Text size="sm" mono>
                           {p.id}
-                        </span>
+                        </Text>
                       </TableCell>
                       <TableCell>
                         {p.description && p.description.length > 80

@@ -122,17 +122,20 @@ export class ProjectModel extends BaseClass {
     // Project roles naming it are dead grants; drop them wherever they live.
     // The project is already gone, so a cleanup failure is logged rather than
     // turned into an error that would also skip the caller's remaining cleanup.
-    try {
-      await removeProjectRolesForProject(this.context.org, doc.id);
-      await getCollection<TeamInterface>("teams").updateMany(
+    const cleanups = await Promise.allSettled([
+      removeProjectRolesForProject(this.context.org, doc.id),
+      getCollection<TeamInterface>("teams").updateMany(
         { organization: this.context.org.id, "projectRoles.project": doc.id },
         { $pull: { projectRoles: { project: doc.id } } },
-      );
-    } catch (e) {
-      logger.error(
-        e,
-        `Failed to remove project roles for deleted project ${doc.id}`,
-      );
+      ),
+    ]);
+    for (const result of cleanups) {
+      if (result.status === "rejected") {
+        logger.error(
+          result.reason,
+          `Failed to remove project roles for deleted project ${doc.id}`,
+        );
+      }
     }
   }
 

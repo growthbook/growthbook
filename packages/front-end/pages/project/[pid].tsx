@@ -2,7 +2,6 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiDetective } from "react-icons/pi";
 import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
-import NextLink from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
@@ -27,6 +26,7 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -262,15 +262,7 @@ const ProjectPage: FC = () => {
           </Box>
         ) : (
           <Box>
-            <NextLink
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(p);
-              }}
-            >
-              Add a description
-            </NextLink>
+            <Link onClick={() => setModalOpen(p)}>Add a description</Link>
           </Box>
         )}
 
