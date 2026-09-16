@@ -126,87 +126,104 @@ function routerQueryToParams(
 }
 
 export function useSessionReplayFilters(router: NextRouter, project: string) {
-  const [searchValue, setSearchValue] = useState(() =>
-    queryParamsToSearchString(router.query),
-  );
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-
-  // queryParams for the API comes directly from the URL — single source of truth.
   const queryParams = useMemo(
     () => routerQueryToParams(router.query),
     [router.query],
   );
 
-  // syntaxFilters for the filter dropdowns come from the search input
-  const { syntaxFilters } = useMemo(
-    () => transformQuery(searchValue, FILTER_KEYS),
-    [searchValue],
-  );
-
-  // Sync searchValue from URL on back/forward, but only when there's
-  // no pending user edit (active debounce means the user is still typing).
-  const urlSearchString = useMemo(
+  // Canonical search string derived from URL — used to reset the input
+  // when the URL changes externally (back/forward, dropdown commit).
+  const committedSearchString = useMemo(
     () => queryParamsToSearchString(router.query),
     [router.query],
   );
-  const prevUrlRef = useRef(urlSearchString);
-  useEffect(() => {
-    if (urlSearchString === prevUrlRef.current) return;
-    prevUrlRef.current = urlSearchString;
-    if (debounceRef.current) return;
-    setSearchValue(urlSearchString);
-  }, [urlSearchString]);
 
-  // Push search input changes to the URL (debounced).
-  const parsedParams = useMemo(
-    () => syntaxFiltersToQueryParams(syntaxFilters),
-    [syntaxFilters],
-  );
-  const prevParsedRef = useRef<string>(JSON.stringify(parsedParams));
-  useEffect(() => {
-    const serialized = JSON.stringify(parsedParams);
-    if (serialized === prevParsedRef.current) return;
-    prevParsedRef.current = serialized;
+  // === LOCAL INPUT STATE ===
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+  const [inputValue, setInputValue] = useState(committedSearchString);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // When URL changes externally (back/forward nav, or after our own push
+  // completes), reset the input to match. prevCommittedRef is pre-updated
+  // in commitToUrl so our own pushes don't trigger a redundant reset.
+  const prevCommittedRef = useRef(committedSearchString);
+  useEffect(() => {
+    if (committedSearchString === prevCommittedRef.current) return;
+    prevCommittedRef.current = committedSearchString;
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
       debounceRef.current = undefined;
-      const query: Record<string, string> = { page: "1" };
-      for (const [k, v] of Object.entries(parsedParams)) {
-        if (v) query[k] = v;
-      }
-      const sessionId = router.query.sessionId;
-      if (typeof sessionId === "string" && sessionId) {
-        query.sessionId = sessionId;
-      }
-      prevUrlRef.current = queryParamsToSearchString(query);
-      void router.push({ pathname: "/session-replay", query }, undefined, {
-        shallow: true,
-      });
-    }, 400);
+    }
+    setInputValue(committedSearchString);
+  }, [committedSearchString]);
 
+  // syntaxFilters derived from inputValue so dropdowns always see filters
+  // matching the text in the search box. No cycle — nothing watches
+  // syntaxFilters to push back to the URL.
+  const { syntaxFilters } = useMemo(
+    () => transformQuery(inputValue, FILTER_KEYS),
+    [inputValue],
+  );
+
+  // === COMMIT: parse input and push to URL ===
+
+  const routerRef = useRef(router);
+  routerRef.current = router;
+
+  const commitToUrl = useCallback((searchString: string) => {
+    const { syntaxFilters: parsed } = transformQuery(searchString, FILTER_KEYS);
+    const newParams = syntaxFiltersToQueryParams(parsed);
+    const query: Record<string, string> = { page: "1" };
+    for (const [k, v] of Object.entries(newParams)) {
+      if (v) query[k] = v;
+    }
+    const r = routerRef.current;
+    const sessionId = r.query.sessionId;
+    if (typeof sessionId === "string" && sessionId) {
+      query.sessionId = sessionId;
+    }
+    prevCommittedRef.current = queryParamsToSearchString(query);
+    void r.push({ pathname: "/session-replay", query }, undefined, {
+      shallow: true,
+    });
+  }, []);
+
+  useEffect(() => {
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  // === PUBLIC API ===
+
+  const searchInputProps = useMemo(
+    () => ({
+      value: inputValue,
+      onChange: (e: ChangeEvent<HTMLInputElement>) => {
+        const newValue = e.target.value;
+        setInputValue(newValue);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+          debounceRef.current = undefined;
+          commitToUrl(newValue);
+        }, 400);
+      },
+    }),
+    [inputValue, commitToUrl],
+  );
+
+  // Called by dropdown actions — commits immediately (discrete action).
+  const setSearchValueAndNavigate = useCallback(
+    (value: string) => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         debounceRef.current = undefined;
       }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsedParams]);
-
-  const searchInputProps = useMemo(
-    () => ({
-      value: searchValue,
-      onChange: (e: ChangeEvent<HTMLInputElement>) => {
-        setSearchValue(e.target.value);
-      },
-    }),
-    [searchValue],
+      setInputValue(value);
+      commitToUrl(value);
+    },
+    [commitToUrl],
   );
-
-  const setSearchValueAndNavigate = useCallback((value: string) => {
-    setSearchValue(value);
-  }, []);
 
   return {
     searchInputProps,
