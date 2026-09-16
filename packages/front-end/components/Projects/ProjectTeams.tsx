@@ -15,11 +15,11 @@ import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRole
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
 import ProjectRuleFields from "@/components/Settings/Team/ProjectRuleFields";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
+import TextField from "@/ui/TextField";
+import { Select, SelectItem } from "@/ui/Select";
+import Tooltip from "@/ui/Tooltip";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -131,30 +131,32 @@ const ProjectTeamRuleModal: FC<{
     >
       {mode === "create" ? (
         <>
-          <Field
+          <TextField
             label="Name"
             maxLength={30}
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
+            containerClassName="mb-3"
           />
-          <Field
+          <TextField
             label="Description"
             maxLength={100}
-            minRows={1}
-            maxRows={4}
-            textarea={true}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            containerClassName="mb-3"
           />
         </>
       ) : (
-        <SelectField
-          label="Team"
-          value={teamId}
-          onChange={setTeamId}
-          options={candidates.map((t) => ({ value: t.id, label: t.name }))}
-        />
+        <Box mb="3">
+          <Select label="Team" value={teamId} setValue={setTeamId}>
+            {candidates.map((t) => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.name}
+              </SelectItem>
+            ))}
+          </Select>
+        </Box>
       )}
       <ProjectRuleFields rule={rule} setRule={setRule} />
     </ModalStandard>
@@ -335,22 +337,20 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
           Teams ({rows.length})
         </Heading>
         <Flex align="center" gap="3">
-          <Tooltip
-            shouldDisplay={!addCandidates.length}
-            body={
-              teams.length === rows.length
-                ? "Every team already has a role on this Project."
-                : "The remaining teams carry a global role, so adding them here needs Team Management."
-            }
-          >
-            <Button
-              variant="outline"
-              disabled={!addCandidates.length}
-              onClick={() => setRuleModal("add")}
+          {teams.length > rows.length && (
+            <Tooltip
+              enabled={!addCandidates.length}
+              content="The remaining teams carry a global role, so adding them here needs Team Management."
             >
-              Add existing team
-            </Button>
-          </Tooltip>
+              <Button
+                variant="outline"
+                disabled={!addCandidates.length}
+                onClick={() => setRuleModal("add")}
+              >
+                Add existing team
+              </Button>
+            </Tooltip>
+          )}
           <PremiumTooltip commercialFeature="teams">
             <Button
               disabled={!canCreate || !hasCommercialFeature("teams")}
@@ -406,7 +406,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                   {otherProjects.length > 0 && (
                     <div>
                       <Tooltip
-                        body={
+                        content={
                           canManageMembers
                             ? "Members of this team also get its role on these Projects."
                             : "Managing this team's members or deleting it needs Project Admin on every Project it covers."
