@@ -28,6 +28,8 @@ import Table, {
 import ProjectRowMenu from "@/components/Projects/ProjectRowMenu";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
+const MONO = { fontFamily: "var(--font-mono, monospace)" };
+
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
 
@@ -184,7 +186,7 @@ const ProjectsPage: FC = () => {
                     organizationId: organization?.id,
                   });
                   return (
-                    <TableRow key={p.id}>
+                    <TableRow key={p.id} style={{ verticalAlign: "middle" }}>
                       <TableCell>
                         {canEdit ? (
                           <Link
@@ -216,15 +218,18 @@ const ProjectsPage: FC = () => {
                           </div>
                         ) : null}
                         {p.publicId && (
-                          <div>
-                            <code className="small text-muted">
-                              {p.publicId}
-                            </code>
+                          <div
+                            className="small"
+                            style={{ ...MONO, color: "var(--gray-9)" }}
+                          >
+                            {p.publicId}
                           </div>
                         )}
                       </TableCell>
                       <TableCell>
-                        <code className="small">{p.id}</code>
+                        <span className="small" style={MONO}>
+                          {p.id}
+                        </span>
                       </TableCell>
                       <TableCell>
                         {p.description && p.description.length > 80
