@@ -22,7 +22,7 @@ export default function SavedGroupSettings() {
                 <Checkbox
                   id="enforceSavedGroupProjectScope"
                   label="Enforce Saved Group Project scope"
-                  description="Require every Saved Group, including nested groups, to be shared with all Projects where a Feature Flag rule runs. Blocks group changes that would invalidate existing Feature Flag references. Off by default; existing targeting is checked on edits and publication."
+                  description="Validate new Saved Group references and additional targeting Projects, including nested groups. Existing references keep working through edits and publication. Blocks group changes that introduce scope violations. Off by default."
                   disabled={hasFileConfig()}
                   value={watch("enforceSavedGroupProjectScope") ?? false}
                   setValue={(value) =>

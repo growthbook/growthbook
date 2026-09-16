@@ -46,7 +46,10 @@ import {
 } from "back-end/src/services/archiveDependentsGuard";
 import { collectFeatureMoveDependentsGate } from "back-end/src/services/moveDependentsGuard";
 import { MergeConflictError } from "back-end/src/util/errors";
-import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import {
+  assertFeatureSavedGroupScope,
+  featureForSavedGroupValidation,
+} from "back-end/src/services/savedGroupProjectScope";
 import {
   PublishGate,
   hookResultsToGates,
@@ -488,7 +491,10 @@ export async function collectFeaturePublishGates({
   // config is dropped). Not a demotable schema error — always throws; no
   // override clears it.
   assertConfigBackedDefaultHasNoOverrides(proposedFeature, defaultToCheck);
-  await assertFeatureSavedGroupScope(context, proposedFeature);
+  await assertFeatureSavedGroupScope(context, proposedFeature, [
+    feature,
+    featureForSavedGroupValidation(feature, revision),
+  ]);
 
   // Schema-family failures: the feature's own JSON-schema value errors (checked
   // against the full merged values) plus the config-backed schema/invariant net

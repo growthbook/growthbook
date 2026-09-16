@@ -47,7 +47,10 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import {
+  assertFeatureSavedGroupScope,
+  featureForSavedGroupValidation,
+} from "back-end/src/services/savedGroupProjectScope";
 import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
@@ -1371,6 +1374,8 @@ export async function updateFeature(
     // Internal failed-write recovery only; a user-requested revert must still
     // satisfy the current Saved Group scope.
     isCompensation?: boolean;
+    // Preserve references already accepted in the draft being landed.
+    savedGroupScopeRevision?: FeatureRevisionInterface;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
@@ -1410,7 +1415,19 @@ export async function updateFeature(
   // writes — ramp activation etc., NOT covered by the plan gates — still run.
   if (!context.bulkPublishApplying) {
     if (!options?.isCompensation) {
-      await assertFeatureSavedGroupScope(context, projected, feature);
+      await assertFeatureSavedGroupScope(
+        context,
+        projected,
+        options?.savedGroupScopeRevision
+          ? [
+              feature,
+              featureForSavedGroupValidation(
+                feature,
+                options.savedGroupScopeRevision,
+              ),
+            ]
+          : feature,
+      );
     }
     await runValidateFeatureHooks({
       context,
@@ -2156,7 +2173,11 @@ export async function applyRevisionChanges(
   // Every branch below is a landing, so its FIRST write is guarded on the
   // pre-image `feature` — same rule as the generic entities' guarded landings:
   // two publishes computed from the same read must not both apply.
-  const guard = { casOnDateUpdated: feature.dateUpdated, onStamped };
+  const guard = {
+    casOnDateUpdated: feature.dateUpdated,
+    onStamped,
+    savedGroupScopeRevision: revision,
+  };
 
   if (!hasChanges) {
     return await updateFeature(context, feature, changes, guard);
@@ -3633,7 +3654,10 @@ export async function prevalidatePublishRevision({
 }) {
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(context, feature, revision, result);
-  await assertFeatureSavedGroupScope(context, proposedFeature);
+  await assertFeatureSavedGroupScope(context, proposedFeature, [
+    feature,
+    featureForSavedGroupValidation(feature, revision),
+  ]);
   if (skipValidation) return;
   // Re-validate config-backed values going live: save-time validation can be
   // stale (a config's schema/invariants may tighten between draft and publish),

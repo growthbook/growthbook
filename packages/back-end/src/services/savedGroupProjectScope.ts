@@ -1,5 +1,6 @@
 import { isEqual } from "lodash";
 import {
+  findStoredRuleCounterpart,
   getTargetingProjectIds,
   isSavedGroupAvailableForProjects,
   ruleProjectScope,
@@ -30,6 +31,12 @@ type Feature = Pick<
   | "environmentSettings"
 >;
 type ProjectScope = string[] | null;
+type ScopedTargeting = {
+  key: string;
+  targeting: Targeting;
+  projects: ProjectScope;
+  rule?: Feature["rules"][number];
+};
 
 // Parse operators, not substrings: IDs may also appear as ordinary targeting
 // values. Covers nested logical operators and both positive/negative membership.
@@ -88,14 +95,22 @@ export function assertSavedGroupReferencesInScope(
   for (const id of savedGroupIdsInTargeting(targeting)) visit(id);
 }
 
-function featureTargeting(feature: Feature): [Targeting, ProjectScope][] {
+function featureTargeting(feature: Feature): ScopedTargeting[] {
   const projects = getTargetingProjectIds(feature);
   return [
-    [{ prerequisites: feature.prerequisites }, projects],
-    ...Object.values(feature.environmentSettings ?? {})
-      .filter((env) => env.enabled)
-      .map((env): [Targeting, ProjectScope] => [env, projects]),
-    ...(feature.rules ?? []).map((rule): [Targeting, ProjectScope] => {
+    {
+      key: "feature",
+      targeting: { prerequisites: feature.prerequisites },
+      projects,
+    },
+    ...Object.entries(feature.environmentSettings ?? {})
+      .filter(([, env]) => env.enabled)
+      .map(([id, env]) => ({
+        key: `environment:${id}`,
+        targeting: env,
+        projects,
+      })),
+    ...(feature.rules ?? []).map((rule): ScopedTargeting => {
       const ruleProjects = ruleProjectScope(rule);
       // Match SDK delivery: intersect the rule's scope with the Feature Flag's
       // primary/targeting Projects. Group-to-group scopes do not constrain it.
@@ -105,7 +120,12 @@ function featureTargeting(feature: Feature): [Targeting, ProjectScope][] {
           : projects === null
             ? ruleProjects
             : ruleProjects.filter((p) => projects.includes(p));
-      return [rule, delivery];
+      return {
+        key: `rule:${rule.id}`,
+        targeting: rule,
+        projects: delivery,
+        rule,
+      };
     }),
   ];
 }
@@ -113,12 +133,48 @@ function featureTargeting(feature: Feature): [Targeting, ProjectScope][] {
 export async function assertFeatureSavedGroupScope(
   context: Context,
   feature: Feature,
-  previous?: Feature,
+  previous?: Feature | Feature[],
 ): Promise<void> {
   if (context.org.settings?.enforceSavedGroupProjectScope !== true) return;
   const targeting = featureTargeting(feature);
-  if (previous && isEqual(targeting, featureTargeting(previous))) return;
-  if (!targeting.some(([t]) => savedGroupIdsInTargeting(t).size)) return;
+  const baselines = (
+    Array.isArray(previous) ? previous : previous ? [previous] : []
+  ).map((state) => ({ state, targeting: featureTargeting(state) }));
+  if (baselines.some((baseline) => isEqual(targeting, baseline.targeting)))
+    return;
+
+  const toValidate: [Targeting, ProjectScope][] = [];
+  for (const current of targeting) {
+    const prior = baselines.flatMap((baseline) => {
+      const counterpart = current.rule
+        ? findStoredRuleCounterpart(baseline.state.rules ?? [], current.rule)
+        : undefined;
+      // No stored counterpart means no exemption from the validation below.
+      if (current.rule && !counterpart) return [];
+      const key = current.rule ? `rule:${counterpart?.id}` : current.key;
+      return baseline.targeting.filter((t) => t.key === key);
+    });
+    for (const id of savedGroupIdsInTargeting(current.targeting)) {
+      let projects = current.projects;
+      // Grandfather the same reference where it was already stored. New rule
+      // references and additional delivery Projects still require full DAG validation.
+      for (const existing of prior) {
+        if (!savedGroupIdsInTargeting(existing.targeting).has(id)) continue;
+        if (existing.projects === null) {
+          projects = [];
+          break;
+        }
+        const existingProjects = existing.projects;
+        if (projects !== null) {
+          projects = projects.filter((p) => !existingProjects.includes(p));
+        }
+      }
+      if (projects?.length === 0) continue;
+      toValidate.push([{ savedGroups: [{ ids: [id] }] }, projects]);
+    }
+  }
+  if (!toValidate.length) return;
+
   // Scope is independent of the editor's read access: descendants can cross
   // Project boundaries. Existing route validators still enforce direct reads.
   // Errors deliberately do not reveal IDs from the org-wide graph.
@@ -129,7 +185,7 @@ export async function assertFeatureSavedGroupScope(
   const groups = new Map(
     (await scan.models.savedGroups.getAll()).map((g) => [g.id, g]),
   );
-  for (const [t, projects] of targeting) {
+  for (const [t, projects] of toValidate) {
     assertSavedGroupReferencesInScope(t, projects, groups);
   }
 }
@@ -138,7 +194,7 @@ export function featureForSavedGroupValidation(
   feature: Feature,
   revision: Pick<
     FeatureRevisionInterface,
-    "metadata" | "rules" | "prerequisites"
+    "metadata" | "rules" | "prerequisites" | "environmentsEnabled"
   >,
 ): Feature {
   return {
@@ -146,6 +202,12 @@ export function featureForSavedGroupValidation(
     ...revision.metadata,
     rules: revision.rules,
     prerequisites: revision.prerequisites,
+    environmentSettings: Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {}).map(([id, env]) => [
+        id,
+        { ...env, enabled: revision.environmentsEnabled?.[id] ?? env.enabled },
+      ]),
+    ),
   };
 }
 
@@ -242,7 +304,11 @@ export async function assertSavedGroupProjectScope(
     featuresByFeatureId: byId,
   });
   for (const feature of features) {
-    if (featureTargeting(feature).some(([t, projects]) => breaks(t, projects)))
+    if (
+      featureTargeting(feature).some(({ targeting, projects }) =>
+        breaks(targeting, projects),
+      )
+    )
       refuse();
   }
   for (const draft of drafts) {
@@ -252,7 +318,7 @@ export async function assertSavedGroupProjectScope(
     if (
       feature &&
       featureTargeting(featureForSavedGroupValidation(feature, draft)).some(
-        ([t, projects]) => breaks(t, projects),
+        ({ targeting, projects }) => breaks(targeting, projects),
       )
     )
       refuse();

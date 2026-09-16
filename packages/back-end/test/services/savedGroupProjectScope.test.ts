@@ -337,17 +337,223 @@ describe("feature writes and publish validation", () => {
     ).rejects.toThrow("not available");
   });
 
-  it("allows opening a repair draft and removing legacy invalid references", async () => {
-    const invalid = feature({ project: "b" });
+  it("preserves legacy references when opening drafts, editing values, and publishing", async () => {
+    const existing = feature({ project: "b" });
+    const edited = {
+      ...existing,
+      rules: [{ ...existing.rules[0], value: "false" }],
+    };
+    for (const proposed of [existing, edited, { ...existing, rules: [] }]) {
+      await expect(
+        assertFeatureSavedGroupScope(context, proposed, existing),
+      ).resolves.toBeUndefined();
+    }
+    expect(getAll).not.toHaveBeenCalled();
+    // A new Feature Flag receives no baseline and must satisfy strict scope.
     await expect(
-      assertFeatureSavedGroupScope(context, invalid, invalid),
+      assertFeatureSavedGroupScope(context, existing),
+    ).rejects.toThrow("not available");
+  });
+
+  it("validates a newly added rule even if another rule already references the same group", async () => {
+    const existing = feature({ project: "b" });
+    const proposed = {
+      ...existing,
+      rules: [...existing.rules, { ...existing.rules[0], id: "new-rule" }],
+    };
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, existing),
+    ).rejects.toThrow("not available");
+  });
+
+  it("checks only new references when editing a rule with a legacy reference", async () => {
+    getAll.mockResolvedValue([
+      group("group", ["a"]),
+      group("allowed", ["b"]),
+      group("foreign", ["a"]),
+    ]);
+    const existing = feature({ project: "b" });
+    const proposed = {
+      ...existing,
+      rules: [
+        {
+          ...existing.rules[0],
+          savedGroups: [{ match: "all" as const, ids: ["group", "allowed"] }],
+        },
+      ],
+    };
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, existing),
+    ).resolves.toBeUndefined();
+    proposed.rules[0].savedGroups[0].ids.push("foreign");
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, existing),
+    ).rejects.toThrow("not available");
+  });
+
+  it("does not grandfather a new rule using a legacy rule without an ID", async () => {
+    const existing = feature({ project: "b" });
+    Reflect.deleteProperty(existing.rules[0], "id");
+    const proposed = {
+      ...existing,
+      rules: [{ ...existing.rules[0], id: "new-rule" }],
+    };
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, existing),
+    ).rejects.toThrow("not available");
+  });
+
+  it("rejects new Project exposure even when the existing Project is already out of scope", async () => {
+    const existing = feature({ project: "b" });
+    for (const proposed of [
+      { ...existing, targetingProjects: ["c"] },
+      { ...existing, targetingAllProjects: true },
+      { ...existing, project: "c" },
+    ]) {
+      await expect(
+        assertFeatureSavedGroupScope(context, proposed, existing),
+      ).rejects.toThrow("not available");
+    }
+    // Expanding into a Project the group covers remains allowed.
+    await expect(
+      assertFeatureSavedGroupScope(
+        context,
+        { ...existing, targetingProjects: ["a"] },
+        existing,
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("allows narrowing an existing All Projects reference", async () => {
+    const existing = feature({ targetingAllProjects: true });
+    const proposed = { ...existing, project: "b", targetingAllProjects: false };
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, existing),
+    ).resolves.toBeUndefined();
+    expect(getAll).not.toHaveBeenCalled();
+  });
+
+  it("checks the full graph for a new root even if its descendant is already referenced", async () => {
+    getAll.mockResolvedValue([
+      group("group", ["a"]),
+      group("new-root", ["b"], '{"$savedGroups":"group"}'),
+    ]);
+    const existing = feature({ project: "b" });
+    const proposed = {
+      ...existing,
+      rules: [
+        {
+          ...existing.rules[0],
+          savedGroups: [{ match: "all" as const, ids: ["new-root"] }],
+        },
+      ],
+    };
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, existing),
+    ).rejects.toThrow("not available");
+  });
+
+  it("preserves stored prerequisite references while rejecting new ones", async () => {
+    const existing = feature({
+      project: "b",
+      rules: [],
+      prerequisites: [{ id: "other", ...targeting }],
+      environmentSettings: {
+        production: {
+          enabled: true,
+          prerequisites: [{ id: "other", ...targeting }],
+        },
+      },
+    });
+    const edited = {
+      ...existing,
+      prerequisites: [
+        {
+          id: "other",
+          condition: '{"$and":[{"id":{"$inGroup":"group"}},{"country":"US"}]}',
+        },
+      ],
+    };
+    await expect(
+      assertFeatureSavedGroupScope(context, edited, existing),
     ).resolves.toBeUndefined();
     await expect(
-      assertFeatureSavedGroupScope(context, { ...invalid, rules: [] }, invalid),
-    ).resolves.toBeUndefined();
-    // Publication passes no previous state: unchanged drafts are rechecked.
+      assertFeatureSavedGroupScope(
+        context,
+        { ...edited, rules: feature().rules },
+        existing,
+      ),
+    ).rejects.toThrow("not available");
+  });
+
+  it("preserves existing rule references across legacy rule ID normalization", async () => {
+    const existing = feature({ project: "b" });
+    existing.rules[0] = {
+      ...existing.rules[0],
+      id: "rule__production",
+      environments: ["production"],
+    };
+    const proposed = {
+      ...existing,
+      rules: [{ ...existing.rules[0], id: "rule", value: "false" }],
+    };
     await expect(
-      assertFeatureSavedGroupScope(context, invalid),
+      assertFeatureSavedGroupScope(context, proposed, existing),
+    ).resolves.toBeUndefined();
+    expect(getAll).not.toHaveBeenCalled();
+  });
+
+  it("preserves references already stored in a draft when it is edited and published", async () => {
+    const live = feature({ rules: [] });
+    const storedDraft = featureForSavedGroupValidation(live, {
+      metadata: { project: "b" },
+      rules: feature().rules,
+      prerequisites: [],
+    } as FeatureRevisionInterface);
+    const edited = {
+      ...storedDraft,
+      rules: [{ ...storedDraft.rules[0], value: "false" }],
+    };
+    await expect(
+      assertFeatureSavedGroupScope(context, edited, storedDraft),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertFeatureSavedGroupScope(context, edited, [live, storedDraft]),
+    ).resolves.toBeUndefined();
+    expect(getAll).not.toHaveBeenCalled();
+  });
+
+  it("rejects a merge that combines a stored draft reference with new live targeting Projects", async () => {
+    const live = feature({ project: "b", targetingProjects: ["c"], rules: [] });
+    const storedDraft = featureForSavedGroupValidation(live, {
+      metadata: { project: "b", targetingProjects: [] },
+      rules: feature().rules,
+      prerequisites: [],
+    } as FeatureRevisionInterface);
+    const merged = { ...live, rules: storedDraft.rules };
+    await expect(
+      assertFeatureSavedGroupScope(context, merged, [live, storedDraft]),
+    ).rejects.toThrow("not available");
+  });
+
+  it("uses the draft's environment toggle when checking new exposure", async () => {
+    const live = feature({
+      project: "b",
+      rules: [],
+      environmentSettings: {
+        production: {
+          enabled: false,
+          prerequisites: [{ id: "other", ...targeting }],
+        },
+      },
+    });
+    const proposed = featureForSavedGroupValidation(live, {
+      rules: [],
+      prerequisites: [],
+      environmentsEnabled: { production: true },
+    } as FeatureRevisionInterface);
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, live),
     ).rejects.toThrow("not available");
   });
 });
