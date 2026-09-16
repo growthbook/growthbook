@@ -150,6 +150,26 @@ describe("team writes under manageProjects", () => {
     ).toBe(true);
   });
 
+  it("ignores spelled-out empty fields and allows a no-op", () => {
+    // Stored teams may lack the key; request bodies send [].
+    const stored = { role: "noaccess", projectRoles: [rule("prj_a")] };
+    expect(
+      projectAdminOfA.canUpdateTeam(stored, {
+        additionalRoles: [],
+        environments: [],
+        projectRoles: [rule("prj_a", "engineer")],
+      }),
+    ).toBe(true);
+    expect(
+      projectAdminOfA.canUpdateTeam(stored, { projectRoles: [rule("prj_a")] }),
+    ).toBe(true);
+    expect(
+      projectAdminOfA.canUpdateTeam(stored, {
+        additionalRoles: [{ role: "engineer" }],
+      }),
+    ).toBe(false);
+  });
+
   it("project-limited manageProjects is confined to its projects", () => {
     expect(projectAdminOfA.canCreateTeam(teamOnA)).toBe(true);
     expect(projectAdminOfA.canCreateTeam(teamOnAB)).toBe(false);
@@ -246,6 +266,22 @@ describe("whole-member role writes under manageProjects", () => {
     ).toBe(false);
     expect(
       teamAdmin.canUpdateMemberRole(member, { ...member, role: "admin" }),
+    ).toBe(true);
+  });
+
+  it("ignores undefined keys a REST body adds to untouched rules", () => {
+    const resent = member.projectRoles!.map((r) => ({
+      ...r,
+      additionalRoles: undefined,
+    }));
+    expect(
+      projectAdminOfA.canUpdateMemberRole(member, {
+        ...member,
+        projectRoles: [
+          { ...resent[0], role: "engineer" },
+          resent[1],
+        ] as ProjectMemberRole[],
+      }),
     ).toBe(true);
   });
 

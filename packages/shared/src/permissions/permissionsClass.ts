@@ -1,5 +1,4 @@
 import { DashboardInterface } from "shared/enterprise";
-import { isEqual } from "lodash";
 import { FeatureInterface } from "shared/types/feature";
 import { MetricInterface } from "shared/types/metric";
 import {
@@ -50,6 +49,7 @@ import {
   envsAllowedBy,
   hasUnrestrictedEnvAuthority,
   isProjectScopedTeam,
+  sameRoleValue,
   TeamAuthority,
   teamProjects,
 } from "./permissions.utils";
@@ -1216,11 +1216,12 @@ export class Permissions {
     if (!isProjectScopedTeam(existing)) return false;
     const changedKeys = Object.keys(updates).filter(
       (key) =>
-        !isEqual(
+        !sameRoleValue(
           (existing as Record<string, unknown>)[key],
           (updates as Record<string, unknown>)[key],
         ),
     );
+    if (!changedKeys.length) return true;
     if (changedKeys.some((key) => key !== "projectRoles")) return false;
     return this.canManageProjectRoles(
       changedProjectRoleProjects(
@@ -1249,10 +1250,10 @@ export class Permissions {
     const globalRole = (info: MemberRoleWithProjects) => ({
       role: info.role,
       limitAccessByEnvironment: !!info.limitAccessByEnvironment,
-      environments: info.environments ?? [],
-      additionalRoles: info.additionalRoles ?? [],
+      environments: info.environments,
+      additionalRoles: info.additionalRoles,
     });
-    if (!isEqual(globalRole(existing), globalRole(updated))) return false;
+    if (!sameRoleValue(globalRole(existing), globalRole(updated))) return false;
     return this.canManageProjectRoles(
       changedProjectRoleProjects(existing.projectRoles, updated.projectRoles),
     );
