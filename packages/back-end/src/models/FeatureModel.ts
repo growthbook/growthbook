@@ -3594,7 +3594,7 @@ export function computeProposedFeatureForValidation(
   const proposedFeature: FeatureInterface = {
     ...base,
     ...normalizeFeatureJSONValues(
-      { valueType: changes.valueType ?? feature.valueType },
+      { valueType: changes.valueType ?? base.valueType },
       changes,
     ),
     dateUpdated: new Date(),

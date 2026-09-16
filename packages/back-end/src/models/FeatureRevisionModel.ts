@@ -1129,6 +1129,7 @@ export async function prepareFeatureRevision({
 
   return {
     revision: normalizeFeatureJSONValues(
+      // Like the values above, metadata inherits live plus changes; baseRevision is only the merge baseline.
       { valueType: metadata.valueType ?? feature.valueType },
       revision,
     ),
