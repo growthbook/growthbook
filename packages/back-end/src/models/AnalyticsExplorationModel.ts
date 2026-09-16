@@ -228,8 +228,11 @@ export class AnalyticsExplorationModel extends BaseClass {
           dataset.type === "funnel"
             ? (dataset.concurrencyWindowSeconds ?? 0)
             : null,
-        journeyFamily:
-          dataset.type === "journey" ? journeyFamilyIdentity(dataset) : null,
+        // Omitted (not null) for other types so pre-existing cache hashes
+        // stay valid.
+        ...(dataset.type === "journey"
+          ? { journeyFamily: journeyFamilyIdentity(dataset) }
+          : {}),
       }),
     );
 

@@ -239,7 +239,7 @@ function computeFrontierFromPathRows(
   >();
   for (const r of pathRows) {
     const v = r.levels[0];
-    if (v === JOURNEY_NONE || v == null) continue;
+    if (v === undefined || v === JOURNEY_NONE) continue;
     let na = nodeAgg.get(v);
     if (!na) {
       na = { value: 0, dims: new Map() };
@@ -273,7 +273,7 @@ function reduceJourneyHistory({
       levels[stepIndex] = level;
     }
   }
-  if (levels[dataset.path.length] == null) {
+  if (levels[dataset.path.length] === null) {
     levels[dataset.path.length] = computeFrontierFromPathRows(
       pathRows,
       hasDimension,

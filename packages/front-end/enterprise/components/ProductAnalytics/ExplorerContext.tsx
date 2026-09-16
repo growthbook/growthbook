@@ -571,6 +571,7 @@ export function ExplorerProvider({
         }
         setExplorerState((prev) => {
           const keepPrevious =
+            submittedConfig.dataset.type === "journey" &&
             failedWithoutRows &&
             (prev.exploration?.result?.rows?.length ?? 0) > 0;
           return {

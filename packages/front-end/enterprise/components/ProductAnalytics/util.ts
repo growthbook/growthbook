@@ -1373,11 +1373,10 @@ export function toFetchKey(
   }
   if (base.dataset.type === "journey") {
     // heightScale only affects how columns are drawn.
-    const { heightScale: _heightScale, ...journeyFetchDataset } = base.dataset;
     return {
       ...rest,
       chartType: getChartCategory(base.chartType),
-      dataset: journeyFetchDataset,
+      dataset: omit(base.dataset, "heightScale"),
     };
   }
   return {

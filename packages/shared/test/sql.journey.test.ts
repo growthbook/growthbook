@@ -256,6 +256,14 @@ describe("buildJourneySql", () => {
     expect(sql).toContain(" / ");
   });
 
+  it("tests top-N membership with a join flag, not a NULL check", () => {
+    // ClickHouse join_use_nulls=0 makes `t.value IS NOT NULL` always true.
+    const { sql } = buildJourneySql(baseJourneyConfig(), factTableMap, helpers);
+    expect(sql).toContain("1 AS matched");
+    expect(sql).toContain("WHEN t.matched = 1 THEN");
+    expect(sql).not.toContain("t.value IS NOT NULL");
+  });
+
   it("emits committed prefix rows as trailing-null step columns", () => {
     const config = baseJourneyConfig();
     if (config.dataset.type !== "journey") throw new Error("expected journey");

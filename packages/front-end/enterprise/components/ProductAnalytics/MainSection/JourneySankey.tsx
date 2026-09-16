@@ -669,7 +669,7 @@ function SankeySvg({
               !e.leak &&
               targetCol.committed &&
               !targetCol.anchor &&
-              targetCol.commitIndex != null
+              targetCol.commitIndex !== undefined
                 ? targetCol.commitIndex
                 : null;
             const frontierKey = targetCol === B ? e.tgtKey : e.srcKey;
@@ -677,7 +677,7 @@ function SankeySvg({
             const expandsOther =
               targetCol.frontier &&
               frontierKey === JOURNEY_OTHER &&
-              optionsLevel != null &&
+              optionsLevel !== undefined &&
               canViewMore(optionsLevel) &&
               !viewMoreLoading(optionsLevel);
             const commitKeys =
@@ -689,7 +689,7 @@ function SankeySvg({
               JOURNEY_TERMINALS.has(frontierKey)
                 ? null
                 : [frontierKey];
-            const clickable = expandsOther || !!commitKeys || popIndex != null;
+            const clickable = expandsOther || !!commitKeys || popIndex !== null;
             return (
               <g
                 key={ei}
@@ -700,26 +700,26 @@ function SankeySvg({
                     ? "Show more paths"
                     : commitKeys
                       ? `Drill into ${frontierKey}`
-                      : popIndex != null
+                      : popIndex !== null
                         ? `Return to ${targetCol.label}`
                         : undefined
                 }
                 style={{ cursor: clickable ? "pointer" : "default" }}
                 onPointerLeave={hideTooltip}
                 onClick={() => {
-                  if (expandsOther && optionsLevel != null) {
+                  if (expandsOther && optionsLevel !== undefined) {
                     onViewMore(optionsLevel);
                   } else if (commitKeys) onCommit(commitKeys);
-                  else if (popIndex != null) onPop(popIndex);
+                  else if (popIndex !== null) onPop(popIndex);
                 }}
                 onKeyDown={(ev) => {
                   if (!clickable) return;
                   if (ev.key !== "Enter" && ev.key !== " ") return;
                   ev.preventDefault();
-                  if (expandsOther && optionsLevel != null) {
+                  if (expandsOther && optionsLevel !== undefined) {
                     onViewMore(optionsLevel);
                   } else if (commitKeys) onCommit(commitKeys);
-                  else if (popIndex != null) onPop(popIndex);
+                  else if (popIndex !== null) onPop(popIndex);
                 }}
               >
                 {parts.map((p, pi) => (
@@ -773,11 +773,11 @@ function SankeySvg({
               const lx = lastCol ? c.x - 18 : c.x + NODE_W + 18;
               const anch = lastCol ? "end" : "start";
               const moreLoading =
-                c.optionsLevel != null && viewMoreLoading(c.optionsLevel);
+                c.optionsLevel !== undefined && viewMoreLoading(c.optionsLevel);
               const canExpandOther =
                 n.key === JOURNEY_OTHER &&
                 !!c.frontier &&
-                c.optionsLevel != null &&
+                c.optionsLevel !== undefined &&
                 canViewMore(c.optionsLevel) &&
                 !moreLoading;
               const canCommit =
@@ -790,7 +790,7 @@ function SankeySvg({
                 n.chain === true &&
                 c.committed &&
                 !c.anchor &&
-                c.commitIndex != null;
+                c.commitIndex !== undefined;
               const clickable = canCommit || canExpandOther || canPop;
               return (
                 <g key={`${c.offset}-${n.key}`}>
@@ -869,22 +869,22 @@ function SankeySvg({
                     }}
                     onPointerLeave={hideTooltip}
                     onClick={() => {
-                      if (canExpandOther && c.optionsLevel != null) {
+                      if (canExpandOther && c.optionsLevel !== undefined) {
                         onViewMore(c.optionsLevel);
                       } else if (canCommit) {
                         onCommit([n.key]);
-                      } else if (canPop && c.commitIndex != null) {
+                      } else if (canPop && c.commitIndex !== undefined) {
                         onPop(c.commitIndex);
                       }
                     }}
                     onKeyDown={(ev) => {
                       if (ev.key !== "Enter" && ev.key !== " ") return;
                       ev.preventDefault();
-                      if (canExpandOther && c.optionsLevel != null) {
+                      if (canExpandOther && c.optionsLevel !== undefined) {
                         onViewMore(c.optionsLevel);
                       } else if (canCommit) {
                         onCommit([n.key]);
-                      } else if (canPop && c.commitIndex != null) {
+                      } else if (canPop && c.commitIndex !== undefined) {
                         onPop(c.commitIndex);
                       }
                     }}

@@ -227,10 +227,13 @@ function bucketChain(
     const prevLvl = `lvl_${fi}`;
     const topSelect = prefix.length ? `${pAliases}, value` : "value";
 
+    // `matched` is the join hit test. Testing `t.value IS NOT NULL` breaks on
+    // ClickHouse, where join_use_nulls=0 fills unmatched right-side columns
+    // with '' instead of NULL and every value would count as top-N.
     ctes.push({
       name: topName,
       sql: `
-        SELECT ${topSelect} FROM (
+        SELECT ${topSelect}, 1 AS matched FROM (
           SELECT ${topSelect},
             ROW_NUMBER() OVER (${prefix.length ? `PARTITION BY ${pAliases} ` : ""}ORDER BY c DESC, value) AS rn
           FROM (
@@ -248,7 +251,7 @@ function bucketChain(
       sql: `
         SELECT b.*,
           CASE ${prefix.length ? `WHEN b.${prevLvl} IN (${termLit}, ${none}) THEN ${none}\n               ` : ""}WHEN b.${col} IS NULL THEN ${termLit}
-               WHEN t.value IS NOT NULL THEN b.${col}
+               WHEN t.matched = 1 THEN b.${col}
                ELSE ${other} END AS ${lvl}
         FROM ${prev} b
         LEFT JOIN ${topName} t
@@ -424,6 +427,10 @@ export function buildJourneySql(
   // Without this, every event missing the unit id collapses into one synthetic
   // unit-day journey and inflates whatever paths those events happen to form.
   filterParts.push(`${unitExpr} IS NOT NULL`);
+  // A NULL step would break dedupe collapse and read as the terminal in
+  // LEAD/LAG. Multi-column steps COALESCE to '', so this keeps single-column
+  // steps consistent with them.
+  filterParts.push(`${stepExpr} IS NOT NULL`);
   if (dimension?.dimensionType === "static" && dimension.values.length > 0) {
     const dimCol = columnExpr(dimension.column, factTable, dialect);
     filterParts.push(
