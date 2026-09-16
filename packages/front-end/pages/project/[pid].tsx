@@ -423,7 +423,11 @@ const ProjectPage: FC = () => {
                   </Flex>
                 </Frame>
                 <div className="w-100 py-3" style={{ bottom: 0, height: 70 }}>
-                  <div className="container-fluid pagecontents d-flex">
+                  <div
+                    className="container-fluid pagecontents d-flex"
+                    // Keep the Save button clear of the help widget
+                    style={{ paddingRight: "80px" }}
+                  >
                     <div className="flex-grow-1 mr-4">
                       {saveMsg && (
                         <TempMessage
