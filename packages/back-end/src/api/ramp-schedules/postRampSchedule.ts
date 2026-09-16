@@ -11,6 +11,7 @@ import {
   isAwaitingStartApproval,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureRule } from "shared/validators";
 import {
   assertCanControlRampSchedule,
   dispatchRampEvent,
@@ -22,6 +23,11 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { assertRampPlanChangeAllowed } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
+  collectRampPlanPatches,
+  rampPatchEntries,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -185,6 +191,7 @@ export const postRampSchedule = createApiRequestHandler(
 
   let targetId: string | undefined;
   let feature: FeatureInterface | null = null;
+  let targetRule: FeatureRule | undefined;
 
   if (body.featureId) {
     feature = await getFeature(req.context, body.featureId);
@@ -209,6 +216,7 @@ export const postRampSchedule = createApiRequestHandler(
       feature!.rules ?? [],
     );
     const rule = matches[0];
+    targetRule = rule;
     if (!rule) {
       throw new NotFoundError(
         `Rule '${body.ruleId}' not found${envSuffix}. ` +
@@ -253,6 +261,13 @@ export const postRampSchedule = createApiRequestHandler(
 
     targetId = uuidv4();
   }
+
+  // Body-supplied patches only; template steps and the start actions derived
+  // from the rule below are not re-checked here.
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(collectRampPlanPatches(body), feature, targetRule),
+  );
 
   let template: RampScheduleTemplateInterface | undefined;
   if (body.templateId) {

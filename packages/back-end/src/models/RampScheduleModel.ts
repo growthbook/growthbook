@@ -4,6 +4,7 @@ import { UpdateProps } from "shared/types/base-model";
 import {
   ApiRampScheduleInterface,
   RampScheduleInterface,
+  RampStep,
   RampStepAction,
   RampTarget,
   StepHoldConditions,
@@ -25,6 +26,8 @@ import {
   toApiRampStep,
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { validateRampPlanPatches } from "back-end/src/api/features/validations";
+import type { ApiReqContext } from "back-end/types/api";
 import {
   appendRampEvent,
   assertCanEditRampScheduleConfig,
@@ -43,7 +46,10 @@ import {
   ConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
-import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
+import {
+  rampTargetsEquivalent,
+  resolveRampTarget,
+} from "back-end/src/util/flattenRules";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { MakeModelClass } from "./BaseModel";
 
@@ -621,6 +627,50 @@ export class RampScheduleModel extends BaseClass {
     );
   }
 
+  private async validateApiPlanPatches(
+    context: ApiReqContext,
+    schedule: RampScheduleInterface,
+    updates: Record<string, unknown>,
+  ) {
+    const actions = [
+      ...((updates.startActions as RampStepAction[] | undefined) ?? []),
+      ...((updates.steps as RampStep[] | undefined) ?? []).flatMap(
+        (s) => s.actions ?? [],
+      ),
+      ...((updates.endActions as RampStepAction[] | undefined) ?? []),
+    ].filter((a) => !!a.patch && typeof a.patch === "object");
+    if (!actions.length) return;
+    const targetsById = new Map(schedule.targets.map((t) => [t.id, t]));
+    const featureIds = [
+      ...new Set(
+        actions
+          .map((a) => targetsById.get(a.targetId)?.entityId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    await context.populateForeignRefs({ feature: featureIds });
+    await validateRampPlanPatches(
+      context,
+      actions.map((a) => {
+        const target = targetsById.get(a.targetId);
+        const feature =
+          (target && context.foreignRefs.feature.get(target.entityId)) || null;
+        // The executor applies a patch by its own `ruleId`, falling back to
+        // the target's.
+        const ruleId = a.patch.ruleId ?? target?.ruleId;
+        const rule =
+          feature && ruleId
+            ? resolveRampTarget(
+                { ruleId, environment: target?.environment ?? null },
+                feature.rules ?? [],
+              )
+            : null;
+        return { patch: a.patch, feature, rule };
+      }),
+      { stored: [schedule] },
+    );
+  }
+
   private async applyApiUpdateLocked(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
     schedule: RampScheduleInterface,
@@ -774,6 +824,12 @@ export class RampScheduleModel extends BaseClass {
     // Same publish-class gate as the dashboard PUT; canUpdate() alone passes
     // with draft access, which is right for name/monitoring edits only.
     await assertCanEditRampScheduleConfig(this.context, schedule, updates);
+    // Caller-supplied patches are checked like a rule write on the flag each
+    // action's target belongs to (a schedule can span several flags); a patch
+    // that echoes the stored plan unchanged is not. Kept inside the lock, after
+    // the permission gate, because targets are resolved against the in-lock
+    // document.
+    await this.validateApiPlanPatches(req.context, schedule, updates);
 
     const editedFields = Object.keys(updates).filter(
       (k) => k !== "nextProcessAt" && k !== "eventHistory",

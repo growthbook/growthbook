@@ -1,5 +1,6 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import {
+  FeatureRule,
   RevisionRampUpdateAction,
   RampStartState,
   putFeatureRevisionRuleRampScheduleValidator,
@@ -23,10 +24,13 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   assertValidEnvironment,
+  collectRampPlanPatches,
   discardIfJustCreated,
   isDraftStatus,
   normalizeInlineRampSchedule,
+  rampPatchEntries,
   resolveOrCreateRevision,
+  validateRampPlanPatches,
 } from "./validations";
 
 export async function setRuleRampSchedule(
@@ -52,6 +56,33 @@ export async function setRuleRampSchedule(
   const { environment, revisionTitle, revisionComment, ...scheduleInput } =
     body;
   if (environment) assertValidEnvironment(context, environment);
+
+  // Patches the caller supplies are checked like a rule write; a patch that
+  // echoes the live schedule or the draft's pending action unchanged is not.
+  // For `version: "new"` this runs before the draft is created, so a refusal
+  // can't orphan one; for an existing draft it runs below, once the draft's
+  // copy of the rule and its pending action are known.
+  const checkPatches = (rule: FeatureRule | undefined, stored: unknown[]) =>
+    validateRampPlanPatches(
+      context,
+      rampPatchEntries(collectRampPlanPatches(scheduleInput), feature, rule),
+      { stored },
+    );
+  if (params.version === "new") {
+    const liveRule = resolveRampTarget(
+      { ruleId, environment: environment ?? null },
+      feature.rules ?? [],
+    );
+    await checkPatches(
+      liveRule,
+      liveRule
+        ? await context.models.rampSchedules.findByTargetRule(
+            liveRule.id,
+            environment ?? undefined,
+          )
+        : [],
+    );
+  }
 
   const { revision, created } = await resolveOrCreateRevision(
     context,
@@ -100,6 +131,16 @@ export async function setRuleRampSchedule(
       environment ?? undefined,
     );
     const existingLiveSchedule = liveSchedules[0];
+    if (params.version !== "new") {
+      await checkPatches(match, [
+        existingLiveSchedule,
+        ...(revision.rampActions ?? []).filter(
+          (a) =>
+            "ruleId" in a &&
+            (a.ruleId === canonicalRuleId || a.ruleId === ruleId),
+        ),
+      ]);
+    }
 
     // Resolve the rollback anchor. An explicit `startState` is converted to
     // startActions (merged onto the rule's current state); when omitted, the

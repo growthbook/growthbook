@@ -1,10 +1,15 @@
+import type { FeatureInterface } from "shared/types/feature";
 import {
   assertValidRuleEnvironments,
+  collectRampPlanPatches,
   normalizeInlineRampSchedule,
+  rampPatchEntries,
+  validateRampPlanPatches,
   validateRuleAttributes,
   validateRulesReferences,
 } from "back-end/src/api/features/validations";
-import { BadRequestError } from "back-end/src/util/errors";
+import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
@@ -244,6 +249,294 @@ describe("assertValidRuleEnvironments", () => {
         { allEnvironments: false, environments: ["prodution"] },
       ]),
     ).toThrow(BadRequestError);
+  });
+});
+
+// Ramp schedule patches carry the same targeting fields as a rule and are
+// written onto the live rule when a step fires, so a plan is checked with the
+// rule endpoints' helpers when it is written.
+describe("collectRampPlanPatches", () => {
+  it("gathers step, start, end and startState patches and skips malformed entries", () => {
+    expect(
+      collectRampPlanPatches({
+        steps: [
+          { actions: [{ patch: { coverage: 0.1 } }, { patch: null }] },
+          { actions: null },
+          {},
+        ],
+        startActions: [{ patch: { condition: "{}" } }],
+        endActions: [{ patch: { enabled: false } }, {}],
+        startState: { coverage: 0 },
+      }),
+    ).toEqual([
+      { coverage: 0.1 },
+      { condition: "{}" },
+      { enabled: false },
+      { coverage: 0 },
+    ]);
+    expect(collectRampPlanPatches(undefined)).toEqual([]);
+    expect(collectRampPlanPatches({})).toEqual([]);
+  });
+});
+
+describe("validateRampPlanPatches", () => {
+  const getAll = jest.fn();
+  const ctx = {
+    org: {
+      id: "org_1",
+      settings: {
+        attributeSchema: [],
+        environments: [{ id: "production" }, { id: "qa" }],
+      },
+    },
+    models: { savedGroups: { getAll } },
+  } as unknown as ApiReqContext;
+  (ctx as { scanContextOverride?: ApiReqContext }).scanContextOverride = ctx;
+  const envSettings = {
+    production: { enabled: true, rules: [] },
+    qa: { enabled: true, rules: [] },
+  };
+  const feature = {
+    id: "checkout_flag",
+    organization: "org_1",
+    valueType: "boolean",
+    defaultValue: "false",
+    environmentSettings: envSettings,
+    rules: [],
+    prerequisites: [],
+  } as unknown as FeatureInterface;
+  const parent = (extra: Partial<FeatureInterface> = {}) =>
+    ({
+      id: "parent_flag",
+      organization: "org_1",
+      valueType: "boolean",
+      archived: false,
+      environmentSettings: envSettings,
+      rules: [],
+      prerequisites: [],
+      ...extra,
+    }) as FeatureInterface;
+  const loadFeatures = getAllFeaturesWithoutEditorFields as jest.Mock;
+  const run = (
+    patches: Parameters<typeof rampPatchEntries>[0],
+    target: FeatureInterface | null = feature,
+    rule?: Parameters<typeof rampPatchEntries>[2],
+    stored?: unknown[],
+  ) =>
+    validateRampPlanPatches(ctx, rampPatchEntries(patches, target, rule), {
+      stored,
+    });
+  const prereqOnParent = {
+    prerequisites: [{ id: "parent_flag", condition: '{"value": true}' }],
+  };
+
+  beforeEach(() => {
+    getAll.mockReset();
+    getAll.mockResolvedValue([
+      { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
+    ]);
+    loadFeatures.mockReset();
+    loadFeatures.mockResolvedValue([parent()]);
+  });
+
+  it("does no lookups for patches without targeting fields", async () => {
+    await expect(
+      run([
+        {},
+        { allEnvironments: true },
+        { condition: null, savedGroups: null },
+      ]),
+    ).resolves.toBeUndefined();
+    expect(getAll).not.toHaveBeenCalled();
+    expect(loadFeatures).not.toHaveBeenCalled();
+  });
+
+  it("accepts a plan whose conditions parse and whose references exist", async () => {
+    await expect(
+      run([
+        { condition: '{"country": "US"}' },
+        { savedGroups: [{ match: "all", ids: ["grp_known"] }] },
+        { environments: ["qa"] },
+        prereqOnParent,
+      ]),
+    ).resolves.toBeUndefined();
+    expect(getAll).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [
+      "a condition that does not parse",
+      { condition: '{"country": ' },
+      BadRequestError,
+      /^Invalid ramp schedule patch: Invalid rule condition/,
+    ],
+    [
+      "a saved group that does not exist",
+      { savedGroups: [{ match: "any" as const, ids: ["grp_missing"] }] },
+      NotFoundError,
+      /^Invalid ramp schedule patch: Saved group "grp_missing" not found/,
+    ],
+    [
+      "$inGroup naming an unknown group",
+      { condition: '{"id": {"$inGroup": "grp_missing"}}' },
+      BadRequestError,
+      /grp_missing/,
+    ],
+    [
+      "an environment the organization does not have",
+      { environments: ["prodution"] },
+      BadRequestError,
+      /^Invalid ramp schedule patch: Invalid environment: "prodution"/,
+    ],
+    [
+      "a prerequisite whose condition does not parse",
+      { prerequisites: [{ id: "parent_flag", condition: "{" }] },
+      BadRequestError,
+      /prerequisite/i,
+    ],
+  ])("rejects %s", async (_label, patch, type, message) => {
+    const result = run([patch]);
+    await expect(result).rejects.toThrow(type);
+    await expect(result).rejects.toThrow(message);
+  });
+
+  it("ignores the environments list on a patch scoped to all environments", async () => {
+    await expect(
+      run([{ allEnvironments: true, environments: ["prodution"] }]),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects a prerequisite on a missing or archived feature", async () => {
+    loadFeatures.mockResolvedValue([]);
+    await expect(run([prereqOnParent])).rejects.toThrow(
+      /Prerequisite feature "parent_flag" not found/,
+    );
+    loadFeatures.mockResolvedValue([parent({ archived: true })]);
+    await expect(run([prereqOnParent])).rejects.toThrow(
+      /Prerequisite feature "parent_flag" is archived/,
+    );
+  });
+
+  it("rejects a prerequisite that would make the flag depend on itself", async () => {
+    await expect(
+      run([{ prerequisites: [{ id: "checkout_flag", condition: "{}" }] }]),
+    ).rejects.toThrow(/cannot be its own prerequisite/);
+  });
+
+  // The parent already gates on this flag in production only. Cycles are per
+  // environment, so the reverse edge closes a cycle only where both meet.
+  describe("with a parent that depends on the flag in production", () => {
+    const productionOnlyParent = () =>
+      parent({
+        rules: [
+          {
+            type: "force",
+            id: "fr_parent",
+            description: "",
+            value: "true",
+            enabled: true,
+            allEnvironments: false,
+            environments: ["production"],
+            prerequisites: [{ id: "checkout_flag", condition: "{}" }],
+          },
+        ],
+      });
+    beforeEach(() => {
+      loadFeatures.mockImplementation(async (_ctx, { ids }) =>
+        [productionOnlyParent(), feature].filter((f) => ids.includes(f.id)),
+      );
+    });
+
+    it("accepts the prerequisite on a rule scoped to another environment", async () => {
+      await expect(
+        run([prereqOnParent], feature, {
+          allEnvironments: false,
+          environments: ["qa"],
+        }),
+      ).resolves.toBeUndefined();
+      // The patch's own scope wins over the target rule's.
+      await expect(
+        run([{ ...prereqOnParent, environments: ["qa"] }], feature, {
+          allEnvironments: true,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("rejects it where the rule and the parent's gate share an environment", async () => {
+      await expect(
+        run([prereqOnParent], feature, {
+          allEnvironments: false,
+          environments: ["production"],
+        }),
+      ).rejects.toThrow(/circular dependency/);
+      await expect(
+        run([{ ...prereqOnParent, environments: ["production"] }], feature, {
+          allEnvironments: false,
+          environments: ["qa"],
+        }),
+      ).rejects.toThrow(/circular dependency/);
+      // Rule scope unknown: judged in every environment.
+      await expect(run([prereqOnParent], feature, null)).rejects.toThrow(
+        /circular dependency/,
+      );
+      // `allEnvironments: false` with no environments list applies everywhere
+      // (ruleAppliesToEnv), on the target rule and on the patch alike.
+      await expect(
+        run([prereqOnParent], feature, { allEnvironments: false }),
+      ).rejects.toThrow(/circular dependency/);
+      await expect(
+        run([{ ...prereqOnParent, environments: null }], feature, {
+          allEnvironments: false,
+          environments: ["qa"],
+        }),
+      ).rejects.toThrow(/circular dependency/);
+    });
+  });
+
+  it("checks only existence for a plan with no target feature", async () => {
+    await expect(run([prereqOnParent], null)).resolves.toBeUndefined();
+    loadFeatures.mockResolvedValue([]);
+    await expect(run([prereqOnParent], null)).rejects.toThrow(
+      /Prerequisite feature "parent_flag" not found/,
+    );
+  });
+
+  it("re-checks only the fields that differ from the stored patch for that rule", async () => {
+    const stale = {
+      ruleId: "fr_1",
+      condition: '{"country": "US"}',
+      savedGroups: [{ match: "all" as const, ids: ["grp_gone"] }],
+    };
+    const stored = [{ steps: [{ actions: [{ patch: stale }] }] }];
+    // A pure echo, and an edit of another field, leave the stale group alone.
+    await expect(run([stale], feature, null, stored)).resolves.toBeUndefined();
+    expect(getAll).not.toHaveBeenCalled();
+    await expect(
+      run(
+        [{ ...stale, condition: '{"country": "DE"}' }],
+        feature,
+        null,
+        stored,
+      ),
+    ).resolves.toBeUndefined();
+    // Touching the field itself re-checks it, as does the same patch aimed at
+    // another rule.
+    await expect(
+      run(
+        [
+          {
+            ...stale,
+            savedGroups: [{ match: "all", ids: ["grp_gone", "grp_known"] }],
+          },
+        ],
+        feature,
+        null,
+        stored,
+      ),
+    ).rejects.toThrow(/grp_gone/);
+    await expect(
+      run([{ ...stale, ruleId: "fr_2" }], feature, null, stored),
+    ).rejects.toThrow(/grp_gone/);
   });
 });
 
