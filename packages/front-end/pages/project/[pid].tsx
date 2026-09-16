@@ -202,11 +202,11 @@ const ProjectPage: FC = () => {
             </Flex>
             <Flex gap="6" mb="4">
               <Metadata
-                label="Public ID"
+                label="Public ID (SDK payloads)"
                 value={<code>{p.publicId || p.id}</code>}
               />
               <Metadata
-                label="ID"
+                label="ID (API)"
                 value={<code className="text-muted">{p.id}</code>}
               />
             </Flex>

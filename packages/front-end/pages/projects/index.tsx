@@ -151,10 +151,10 @@ const ProjectsPage: FC = () => {
                     Project Name
                   </SortableTableColumnHeader>
                   <SortableTableColumnHeader
-                    field="computedPublicId"
+                    field="id"
                     style={{ width: "20%" }}
                   >
-                    Public ID
+                    ID
                   </SortableTableColumnHeader>
                   <TableColumnHeader width="30%">Description</TableColumnHeader>
                   <SortableTableColumnHeader
@@ -215,9 +215,16 @@ const ProjectsPage: FC = () => {
                             />
                           </div>
                         ) : null}
+                        {p.publicId && (
+                          <div>
+                            <code className="small text-muted">
+                              {p.publicId}
+                            </code>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <code className="small">{p.publicId || p.id}</code>
+                        <code className="small">{p.id}</code>
                       </TableCell>
                       <TableCell>
                         {p.description && p.description.length > 80
