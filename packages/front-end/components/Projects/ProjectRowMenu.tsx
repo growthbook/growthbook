@@ -34,6 +34,8 @@ export default function ProjectRowMenu({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  if (!canEdit && !canDelete) return null;
+
   return (
     <>
       <DropdownMenu
