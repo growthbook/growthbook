@@ -95,14 +95,14 @@ function getFonts(): LoadedFont[] {
 }
 
 let logoDataUri: string | null = null;
-export function getLogoDataUri(): string {
+function getLogoDataUri(): string {
   if (!logoDataUri) {
     const svg = fs.readFileSync(resolveAssetPath("gb-logo-color.svg"));
     logoDataUri = `data:image/svg+xml;base64,${svg.toString("base64")}`;
   }
   return logoDataUri;
 }
-export const LOGO_ASPECT = 1749 / 321; // from the asset's viewBox
+const LOGO_ASPECT = 1749 / 321; // from the asset's viewBox
 
 let wasmReady: Promise<void> | null = null;
 function ensureWasmInitialized(): Promise<void> {
@@ -126,7 +126,7 @@ function ensureWasmInitialized(): Promise<void> {
 // prototype's PAL/SOLID/SOFT maps.
 // ---------------------------------------------------------------------------
 
-export const P = {
+const P = {
   panel: "#FFFFFF",
   bg: "#FAF8FF",
   text: "#1F2D5C",
@@ -153,7 +153,7 @@ export const P = {
   ci: { track: "#EDEEF0", neutral: "#C1C4CD", dot: "#1F2D5C" },
 };
 
-export const SOLID: Record<Hue, string> = {
+const SOLID: Record<Hue, string> = {
   violet: "#6E56CF",
   blue: "#3E63DD",
   green: "#30A46C",
@@ -161,7 +161,7 @@ export const SOLID: Record<Hue, string> = {
   amber: "#FFB224",
   slate: "#8B8D98",
 };
-export const SOFT: Record<Hue, string> = {
+const SOFT: Record<Hue, string> = {
   violet: "rgba(110,86,207,.10)",
   blue: "rgba(62,99,221,.10)",
   green: "rgba(48,164,108,.12)",
@@ -177,9 +177,9 @@ const TAG_COLORS: { bg: string; fg: string }[] = [
   { bg: "#FCEEE6", fg: "#944100" }, // orange
 ];
 
-export type Hue = "violet" | "blue" | "green" | "red" | "amber" | "slate";
+type Hue = "violet" | "blue" | "green" | "red" | "amber" | "slate";
 
-export const HUE: Record<CardState, Hue> = {
+const HUE: Record<CardState, Hue> = {
   started: "violet",
   running: "blue",
   winner: "green",
@@ -198,7 +198,7 @@ const BADGE: Record<CardState, string> = {
 // Variation number-circle palette (index 0 = control).
 const VC = ["#3E63DD", "#12A594", "#F76808", "#E93D82"];
 
-export const CARD_WIDTH = 1000;
+const CARD_WIDTH = 1000;
 const COMPACT_WIDTH = 560;
 const COMPACT_MIN_HEIGHT = 240;
 const RAIL = 6;
@@ -218,7 +218,7 @@ const isResultsCard = (card: CardData): card is ExperimentCardData =>
 // Element helpers (Satori "without JSX" object form).
 // ---------------------------------------------------------------------------
 
-export type El = {
+type El = {
   type: string;
   props: {
     style?: Record<string, unknown>;
@@ -229,7 +229,7 @@ export type El = {
   };
 };
 
-export function el(
+function el(
   type: string,
   style: Record<string, unknown>,
   children?: El["props"]["children"],
@@ -242,11 +242,7 @@ export function el(
 
 // A text node. Satori renders a div/span with a string child; we always pass a
 // font family + weight so glyphs resolve to the vendored fonts.
-export function txt(
-  s: string,
-  style: Record<string, unknown>,
-  mono = false,
-): El {
+function txt(s: string, style: Record<string, unknown>, mono = false): El {
   return el(
     "div",
     {
@@ -258,7 +254,7 @@ export function txt(
   );
 }
 
-export function svgImg(svg: string, width: number, height: number): El {
+function svgImg(svg: string, width: number, height: number): El {
   return {
     type: "img",
     props: {
@@ -520,7 +516,7 @@ function ciPillSvg(
   ].join("")}</svg>`;
 }
 
-export function arrowImg(dir: "up" | "down", color: string, size = 9): El {
+function arrowImg(dir: "up" | "down", color: string, size = 9): El {
   const d =
     dir === "up"
       ? `M${size / 2} 0 L${size} ${size} L0 ${size} Z`
@@ -1086,7 +1082,7 @@ function warningBody(exp: ExperimentCardData): El {
   ]);
 }
 
-export function triAlertSvg(color: string, size = 18): string {
+function triAlertSvg(color: string, size = 18): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24"><path d="M12 3 L22 20 H2 Z" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="9.5" x2="12" y2="14.5" stroke="${color}" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.2" fill="${color}"/></svg>`;
 }
 
@@ -1962,7 +1958,7 @@ function compactFooterEl(items: (string | undefined)[]): El {
   );
 }
 
-export async function rasterize(root: El, width = CARD_WIDTH): Promise<Buffer> {
+async function rasterize(root: El, width = CARD_WIDTH): Promise<Buffer> {
   await ensureWasmInitialized();
   const svg = await satori(root as unknown as Parameters<typeof satori>[0], {
     width,

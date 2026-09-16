@@ -18,10 +18,7 @@ const slackIntegrationController = wrapController(
 
 const previewBody = z
   .object({
-    eventName: z.union([
-      z.enum(zodNotificationEventNamesEnum),
-      z.enum(["digest:scorecard", "digest:feature"]),
-    ]),
+    eventName: z.enum(zodNotificationEventNamesEnum),
     format: z.enum(supportedCardFormats),
   })
   .strict();

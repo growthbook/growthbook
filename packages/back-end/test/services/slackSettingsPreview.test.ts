@@ -64,7 +64,7 @@ const context = {
   },
 } as unknown as ReqContext;
 beforeEach(() => jest.clearAllMocks());
-it.each(slackPreviewEventNames.filter((name) => !name.startsWith("digest:")))(
+it.each(slackPreviewEventNames)(
   "renders a real Slack message for sample %s",
   async (event) => {
     const preview = await buildSlackSettingsPreview(context, event, "none");
@@ -141,13 +141,12 @@ it("falls back to the same text sample if the image upload fails", async () => {
 });
 
 it.each(["digest:scorecard", "digest:feature"])(
-  "renders an image for %s independently of individual card format",
+  "rejects the removed digest preview %s",
   async (name) => {
-    const preview = await buildSlackSettingsPreview(context, name, "none");
-    expect(preview.card?.png?.subarray(0, 8).toString("hex")).toBe(
-      "89504e470d0a1a0a",
-    );
-    expect(preview.message.text).toContain("sample data");
+    expect(slackPreviewEventNames).not.toContain(name);
+    await expect(
+      buildSlackSettingsPreview(context, name, "none"),
+    ).rejects.toThrow("Unsupported test event");
   },
 );
 

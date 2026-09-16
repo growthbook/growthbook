@@ -130,20 +130,6 @@ export default function SlackChannelSettings({
         ]
       : [];
   });
-  eventChoices.push(
-    ...[
-      {
-        event: "digest:scorecard",
-        label: "Experiment scorecard (image)",
-        group: "Digests",
-      },
-      {
-        event: "digest:feature",
-        label: "Feature Flag digest (image)",
-        group: "Digests",
-      },
-    ].filter((option) => previewEvents?.events.includes(option.event)),
-  );
   const previewChoiceItems = [
     ...new Set(eventChoices.map((option) => option.group)),
   ].map((group) => (
@@ -436,8 +422,7 @@ export default function SlackChannelSettings({
               }
             >
               Reconnect this workspace to grant the Slack permissions needed for
-              channel management, notifications, and posting experiment card
-              images.
+              channel management and notifications.
             </Callout>
             {reconnectError && (
               <HelperText status="error">{reconnectError}</HelperText>

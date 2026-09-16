@@ -5,30 +5,19 @@ import {
   SlackMessage,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
-  sampleScorecard,
-  sampleFeatureDigest,
-} from "back-end/src/services/notifications/sampleDigests";
-import { renderWeeklyScorecard } from "back-end/src/services/notificationCards/digests/scorecard";
-import { renderFeatureDigest } from "back-end/src/services/notificationCards/digests/featureDigest";
-import {
   renderNotificationCard,
   RenderedNotificationCard,
 } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { getEventWebHookById } from "back-end/src/models/EventWebhookModel";
-import { APP_ORIGIN } from "back-end/src/util/secrets";
 import {
   getSampleEventPayload,
   sampleNotificationEventNames,
 } from "back-end/src/services/notifications/sampleEvents";
 import { deliverSlackMessage } from "./deliverSlackNotification";
 
-export const slackPreviewEventNames = [
-  ...sampleNotificationEventNames.filter((name) =>
-    notificationEventNames.some((event) => event === name),
-  ),
-  "digest:scorecard",
-  "digest:feature",
-] as const;
+export const slackPreviewEventNames = sampleNotificationEventNames.filter(
+  (name) => notificationEventNames.some((event) => event === name),
+);
 
 export async function buildSlackSettingsPreview(
   context: ReqContext,
@@ -37,29 +26,6 @@ export async function buildSlackSettingsPreview(
 ): Promise<{ message: SlackMessage; card: RenderedNotificationCard | null }> {
   if (!context.permissions.canManageIntegrations())
     context.permissions.throwPermissionError();
-  if (eventName === "digest:scorecard" || eventName === "digest:feature") {
-    const text =
-      eventName === "digest:scorecard"
-        ? "Experiment activity scorecard — sample data"
-        : "Feature flag activity digest — sample data";
-    const png =
-      eventName === "digest:scorecard"
-        ? await renderWeeklyScorecard(sampleScorecard())
-        : await renderFeatureDigest(sampleFeatureDigest());
-    return {
-      message: {
-        text,
-        blocks: [{ type: "section", text: { type: "plain_text", text } }],
-      },
-      card: {
-        png,
-        altText: text,
-        objectName: "GrowthBook",
-        objectUrl: APP_ORIGIN,
-        eventLabel: text,
-      },
-    };
-  }
   const name = sampleNotificationEventNames.find(
     (name) =>
       name === eventName &&
