@@ -50,14 +50,6 @@ export function getExperimentStartedFields(
     ...(linkedChanges
       ? [{ label: "Linked changes", value: linkedChanges }]
       : []),
-    ...(data.variationCount !== undefined
-      ? [
-          {
-            label: "Variations",
-            value: `${data.variationCount} variation${data.variationCount === 1 ? "" : "s"}`,
-          },
-        ]
-      : []),
   ];
 }
 
