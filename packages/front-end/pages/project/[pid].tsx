@@ -223,16 +223,12 @@ const ProjectPage: FC = () => {
             <Flex gap="6" mb="4">
               <Metadata
                 label="Public ID (SDK payloads)"
-                value={
-                  <Text size="sm" mono>
-                    {p.publicId || p.id}
-                  </Text>
-                }
+                value={<Text mono>{p.publicId || p.id}</Text>}
               />
               <Metadata
                 label="ID (API)"
                 value={
-                  <Text size="sm" color="text-low" mono>
+                  <Text color="text-low" mono>
                     {p.id}
                   </Text>
                 }
