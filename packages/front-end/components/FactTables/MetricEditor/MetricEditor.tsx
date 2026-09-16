@@ -291,6 +291,7 @@ export default function MetricEditor({
 
             {isFunnel && (
               <FunnelStepsInput
+                allowChangingDatasource
                 value={funnelSettings ?? { steps: [] }}
                 setValue={(v) => {
                   onFunnelSettingsChange(v);
