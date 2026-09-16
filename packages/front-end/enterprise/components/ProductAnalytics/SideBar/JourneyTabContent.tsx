@@ -5,7 +5,6 @@ import {
   PiCaretDown,
   PiCaretRight,
   PiDotsThreeVertical,
-  PiPlus,
   PiUserFill,
   PiX,
 } from "react-icons/pi";
@@ -24,6 +23,7 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SelectField from "@/components/Forms/SelectField";
+import { factTableToColumnSource } from "@/components/FactTables/rowFilterUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -33,7 +33,6 @@ import {
   getInitialInlineFilters,
   withStepGroupsApplied,
 } from "@/enterprise/components/ProductAnalytics/util";
-import { factTableToColumnSource } from "./ExplorerFilterRow";
 import { ExplorerRowFilterInput } from "./ExplorerRowFilterInput";
 import JourneyStepGroups from "./JourneyStepGroups";
 
@@ -249,68 +248,46 @@ export default function JourneyTabContent() {
           forceUndefinedValueToNull
         />
         {columnSource && (
-          <>
-            <ExplorerRowFilterInput
-              value={dataset.rowFilters}
-              setValue={(rowFilters) =>
-                setDraftExploreState((prev) =>
-                  patchJourney(prev, { rowFilters, path: [] }),
-                )
-              }
-              columnSource={columnSource}
-            />
-            <Flex justify="between" align="center">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  setDraftExploreState((prev) =>
-                    patchJourney(prev, (current) => ({
-                      ...current,
-                      rowFilters: [
-                        ...current.rowFilters,
-                        { column: "", operator: "=", values: [] },
-                      ],
-                      path: [],
-                    })),
-                  )
+          <ExplorerRowFilterInput
+            value={dataset.rowFilters}
+            setValue={(rowFilters) =>
+              setDraftExploreState((prev) =>
+                patchJourney(prev, { rowFilters, path: [] }),
+              )
+            }
+            columnSource={columnSource}
+            showSqlFilter={false}
+          >
+            {unitOptions.length > 0 && (
+              <DropdownMenu
+                open={unitDropdownOpen}
+                onOpenChange={setUnitDropdownOpen}
+                trigger={
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<PiUserFill size={14} />}
+                  >
+                    {dataset.unit ?? unitOptions[0]}
+                  </Button>
                 }
               >
-                <Flex align="center" gap="2">
-                  <PiPlus size={14} />
-                  Add Filter
-                </Flex>
-              </Button>
-              {unitOptions.length > 0 && (
-                <DropdownMenu
-                  open={unitDropdownOpen}
-                  onOpenChange={setUnitDropdownOpen}
-                  trigger={
-                    <Button size="sm" variant="ghost">
-                      <Flex align="center" gap="2">
-                        <PiUserFill size={14} />
-                        {dataset.unit ?? unitOptions[0]}
-                      </Flex>
-                    </Button>
-                  }
-                >
-                  {unitOptions.map((u) => (
-                    <DropdownMenuItem
-                      key={u}
-                      onClick={() => {
-                        setDraftExploreState((prev) =>
-                          patchJourney(prev, { unit: u || null, path: [] }),
-                        );
-                        setUnitDropdownOpen(false);
-                      }}
-                    >
-                      <Text>{u}</Text>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenu>
-              )}
-            </Flex>
-          </>
+                {unitOptions.map((u) => (
+                  <DropdownMenuItem
+                    key={u}
+                    onClick={() => {
+                      setDraftExploreState((prev) =>
+                        patchJourney(prev, { unit: u || null, path: [] }),
+                      );
+                      setUnitDropdownOpen(false);
+                    }}
+                  >
+                    <Text>{u}</Text>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenu>
+            )}
+          </ExplorerRowFilterInput>
         )}
       </Flex>
 

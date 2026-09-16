@@ -18,9 +18,9 @@ import {
   withJourneyOptionsAt,
 } from "shared/journeys";
 import { PiArrowRight, PiX } from "react-icons/pi";
-import { encodeExplorationConfig } from "shared/enterprise";
 import LinkButton from "@/ui/LinkButton";
 import {
+  funnelExploreHref,
   journeyToFunnel,
   selectedJourneySteps,
 } from "@/enterprise/components/ProductAnalytics/journeyFunnel";
@@ -201,15 +201,13 @@ export default function JourneyChart({
             <Box style={{ marginLeft: "auto", flexShrink: 0 }}>
               <LinkButton
                 size="sm"
-                href={`/product-analytics/explore/funnel?config=${encodeURIComponent(
-                  encodeExplorationConfig(
-                    journeyToFunnel(
-                      draftExploreState.type === "journey"
-                        ? draftExploreState
-                        : submittedExploreState,
-                    ),
+                href={funnelExploreHref(
+                  journeyToFunnel(
+                    draftExploreState.type === "journey"
+                      ? draftExploreState
+                      : submittedExploreState,
                   ),
-                )}`}
+                )}
               >
                 Explore this funnel
               </LinkButton>

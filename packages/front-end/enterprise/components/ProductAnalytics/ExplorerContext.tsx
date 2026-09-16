@@ -165,6 +165,8 @@ interface ExplorerProviderProps {
   initialExploration?: ProductAnalyticsExploration | null;
   initialComparisonExploration?: ProductAnalyticsExploration | null;
   initialLinkedFunnelMetricId?: string | null;
+  /** When true, skip the funnel "wait for Analyze Funnel" deferral once. */
+  autoSubmitOnLoad?: boolean;
   hasExistingResults?: boolean;
   onRunComplete?: (
     exploration: ProductAnalyticsExploration,
@@ -182,6 +184,7 @@ export function ExplorerProvider({
   initialExploration = null,
   initialComparisonExploration = null,
   initialLinkedFunnelMetricId = null,
+  autoSubmitOnLoad = false,
   hasExistingResults = false,
   onRunComplete,
   trackingSource,
@@ -260,6 +263,7 @@ export function ExplorerProvider({
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const hasEverFetchedRef = useRef(hasExistingResults);
   const skipNextAutoSubmitRef = useRef(false);
+  const consumeFunnelAutoSubmitRef = useRef(autoSubmitOnLoad);
   const submitRequestIdRef = useRef(0);
   const funnelAnalyzeCollapseRef = useRef<(() => void) | null>(null);
 
@@ -822,6 +826,12 @@ export function ExplorerProvider({
     const draftIsFunnel = cleanedDraftExploreState.dataset.type === "funnel";
     // Funnels on customer warehouses wait for a manual refresh instead of
     // auto-running an expensive query. Managed Warehouse stays auto-run.
+    // `?run=1` opts that first load in (ready-made funnels from a journey).
+    const forceFunnelAutoSubmit = consumeFunnelAutoSubmitRef.current;
+    if (forceFunnelAutoSubmit && needsFetch && draftIsFunnel) {
+      consumeFunnelAutoSubmitRef.current = false;
+      collapseFunnelStepsForAnalyze();
+    }
     const onlyComparisonChanged =
       baselineConfig !== null &&
       isEqual(
@@ -832,7 +842,8 @@ export function ExplorerProvider({
       draftIsFunnel &&
       !isManagedWarehouse &&
       needsFetch &&
-      !onlyComparisonChanged;
+      !onlyComparisonChanged &&
+      !forceFunnelAutoSubmit;
 
     if (needsFetch) {
       if (deferUntilManualRefresh) {
@@ -876,6 +887,7 @@ export function ExplorerProvider({
     isSubmittable,
     managedWarehouseUnavailable,
     isManagedWarehouse,
+    collapseFunnelStepsForAnalyze,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */

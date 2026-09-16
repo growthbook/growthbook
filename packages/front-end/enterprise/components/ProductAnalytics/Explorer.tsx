@@ -47,6 +47,7 @@ import {
   comparisonModeQueryParser,
   stripExplorerDraftFields,
 } from "./util";
+import { EXPLORER_AUTO_RUN_QUERY } from "./journeyFunnel";
 import styles from "./Explorer.module.scss";
 
 const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
@@ -565,6 +566,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         // they came from, so the dirty flag can say whether they were edited.
         initialLinkedFunnelMetricId={
           type === "funnel" ? (funnelMetricId ?? null) : null
+        }
+        autoSubmitOnLoad={
+          type === "funnel" &&
+          getQueryParam(router.query[EXPLORER_AUTO_RUN_QUERY]) === "1"
         }
         trackingSource="manual-explorer"
       >

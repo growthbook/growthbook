@@ -267,8 +267,6 @@ export function getInitialInlineFilters(
   return rowFilters;
 }
 
-/** Returns true if the row filter has enough info to be meaningful in a
- *  preview (would survive cleanRowFilters at submission). */
 /** A stable key for a column-based filter — identifies "the same predicate
  *  shape" across steps (same column + same operator; values may differ).
  *  Returns null for sql_expr / saved_filter, which don't carry an obvious

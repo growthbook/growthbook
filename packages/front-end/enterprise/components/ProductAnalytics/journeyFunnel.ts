@@ -1,6 +1,11 @@
 import type { ExplorationConfig, JourneyDataset } from "shared/validators";
 import type { RowFilter } from "shared/types/fact-table";
+import { encodeExplorationConfig } from "shared/enterprise";
 import { composeStepLabel, stepGroupsForColumn } from "shared/journeys";
+
+/** Opts a funnel into the first auto-submit. Customer-warehouse funnels
+ *  otherwise wait for Analyze Funnel so step edits don't fire queries. */
+export const EXPLORER_AUTO_RUN_QUERY = "run";
 
 export function selectedJourneySteps(dataset: JourneyDataset) {
   if (!dataset.anchorStepValues?.some((value) => value !== "")) return [];
@@ -80,4 +85,11 @@ export function journeyToFunnel(config: ExplorationConfig): ExplorationConfig {
       }),
     },
   };
+}
+
+export function funnelExploreHref(config: ExplorationConfig): string {
+  return `/product-analytics/explore/funnel?${new URLSearchParams({
+    config: encodeExplorationConfig(config),
+    [EXPLORER_AUTO_RUN_QUERY]: "1",
+  })}`;
 }
