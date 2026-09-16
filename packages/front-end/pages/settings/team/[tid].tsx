@@ -2,13 +2,13 @@ import router from "next/router";
 import React, { FC, useState } from "react";
 import { date, datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { reviewScopesRequiringTeam } from "shared/util";
 import { useAuth } from "@/services/auth";
 import TeamModal from "@/components/Teams/TeamModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
-import { RoleRulesSummary } from "@/components/Settings/Team/RoleRulesSummary";
+import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
 import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -47,7 +47,7 @@ const TeamPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const canManageTeam = permissionsUtil.canManageTeam();
 
-  const { teams, refreshOrganization, settings } = useUser();
+  const { teams, refreshOrganization, settings, organization } = useUser();
 
   // Which review rules demand this team's sign-off, described by their scope, so
   // the team page answers "what does this team gate?".
@@ -177,20 +177,36 @@ const TeamPage: FC = () => {
 
         <Frame px="4" py="4" mb="5">
           <Flex align="start" justify="between" gap="3">
-            <Flex direction="column" gap="2">
+            <Flex direction="column" gap="3">
               <Heading as="h2" size="md" mb="0">
                 Permissions
               </Heading>
-              <RoleRulesSummary
-                size="md"
-                value={{
-                  role: team.role,
-                  limitAccessByEnvironment: team.limitAccessByEnvironment,
-                  environments: team.environments,
-                  additionalRoles: team.additionalRoles,
-                  projectRoles: team.projectRoles,
-                }}
-              />
+              <Flex direction="column" gap="2">
+                <Flex align="start" gap="3" wrap="wrap">
+                  <Box style={{ minWidth: 160 }}>
+                    <Text weight="medium">
+                      {team.projectRoles?.length
+                        ? "All other Projects"
+                        : "All Projects"}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <RoleRuleLines scope={team} organization={organization} />
+                  </Box>
+                </Flex>
+                {team.projectRoles?.map((rule) => (
+                  <Flex key={rule.project} align="start" gap="3" wrap="wrap">
+                    <Box style={{ minWidth: 160 }}>
+                      <Link href={`/project/${rule.project}`}>
+                        {getProjectById(rule.project)?.name || rule.project}
+                      </Link>
+                    </Box>
+                    <Box>
+                      <RoleRuleLines scope={rule} organization={organization} />
+                    </Box>
+                  </Flex>
+                ))}
+              </Flex>
             </Flex>
             <Button
               variant="outline"
