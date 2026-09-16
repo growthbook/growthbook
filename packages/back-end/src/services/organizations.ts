@@ -8,6 +8,7 @@ import {
   isRoleValid,
   getDefaultRole,
   roleSupportsEnvLimit,
+  changedProjectRoleProjects,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -67,6 +68,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
+import { TeamInterface } from "shared/types/team";
 import {
   acceptOrganizationInvite,
   addOrganizationInviteIfSeatAvailable,
@@ -681,6 +683,26 @@ function assertRoleRuleValid(
 
 // The whole shape a member-role writer accepts. Every human-payload writer
 // validates through here, so no rule rides in unchecked on just one path.
+// Project rules must name real projects. Only the rules a write adds or
+// changes are checked, so a record pointing at a since-deleted project stays
+// editable.
+export async function assertProjectRulesReferenceProjects(
+  context: ReqContext | ApiReqContext,
+  before: ProjectMemberRole[] | undefined,
+  after: ProjectMemberRole[] | undefined,
+) {
+  const submitted = new Set((after ?? []).map((rule) => rule.project));
+  const changed = changedProjectRoleProjects(before, after).filter((project) =>
+    submitted.has(project),
+  );
+  if (!changed.length) return;
+  const known = new Set(await context.models.projects.getAllIdsForOrg());
+  const unknown = changed.filter((project) => !known.has(project));
+  if (unknown.length) {
+    throw new Error(`Unknown project: ${unknown.join(", ")}`);
+  }
+}
+
 export function assertMemberRoleInfoValid(
   organization: OrganizationInterface,
   roleInfo: RoleRuleInput & {
@@ -847,6 +869,26 @@ export async function addMembersToTeam({
   });
 
   await updateOrganization(organization.id, { members: updatedMembers });
+}
+
+// Membership hands out the team's authority, so it is gated like the team
+// itself. A caller relying on project authority alone also can't change their
+// own membership, mirroring the member project-role rule.
+export function assertCanChangeTeamMembership(
+  context: ReqContext | ApiReqContext,
+  team: TeamInterface,
+  userIds: string[],
+) {
+  if (!context.permissions.canManageTeamMembership(team)) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    !context.permissions.canManageTeam() &&
+    context.userId &&
+    userIds.includes(context.userId)
+  ) {
+    context.throwBadRequestError("Cannot change your own team membership");
+  }
 }
 
 export function getMembersOfTeam(org: OrganizationInterface, teamId: string) {

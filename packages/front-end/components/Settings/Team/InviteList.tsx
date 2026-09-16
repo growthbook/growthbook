@@ -5,14 +5,18 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { date, datetime } from "shared/dates";
 import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
+import {
+  CollapsedRuleRows,
+  projectRuleRows,
+  ruleRows,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
-import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Table, {
   TableHeader,
   TableBody,
@@ -46,7 +50,7 @@ const InviteList: FC<{
 
   const { organization } = useUser();
 
-  const { projects } = useDefinitions();
+  const { getProjectById } = useDefinitions();
 
   const onResend = async (key: string, email: string) => {
     if (resending) return;
@@ -110,7 +114,9 @@ const InviteList: FC<{
 
   return (
     <Box>
-      <h5>Pending Invites{` (${invites.length})`}</h5>
+      <Heading as="h5" size="sm" mb="1">
+        Pending Invites{` (${invites.length})`}
+      </Heading>
       <Text as="p" color="text-mid" mb="2">
         Invites that have been sent but have not yet been accepted.{" "}
         <strong>Invited users count towards plan seat limits.</strong>
@@ -166,28 +172,17 @@ const InviteList: FC<{
                   {date(dateCreated)}
                 </TableCell>
                 <TableCell>
-                  <RoleRuleLines scope={roleInfo} organization={organization} />
+                  <CollapsedRuleRows rows={ruleRows(roleInfo, organization)} />
                 </TableCell>
                 {!project && (
                   <TableCell>
-                    {member.projectRoles?.map((pr) => {
-                      const p = projects.find((p) => p.id === pr.project);
-                      if (p?.name) {
-                        return (
-                          <div key={`project-tags-${p.id}`}>
-                            <ProjectBadges
-                              resourceType="member"
-                              projectIds={[p.id]}
-                            />
-                            <RoleRuleLines
-                              scope={pr}
-                              organization={organization}
-                            />
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
+                    <CollapsedRuleRows
+                      rows={projectRuleRows(
+                        member.projectRoles ?? [],
+                        getProjectById,
+                        organization,
+                      )}
+                    />
                   </TableCell>
                 )}
                 <TableCell />
