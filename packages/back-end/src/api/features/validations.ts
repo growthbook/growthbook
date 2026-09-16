@@ -27,6 +27,7 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
 
 export { inlineRampScheduleInput };
 
@@ -236,7 +237,7 @@ export async function validateRuleReferences(
 // update, v1 and v2): the per-rule checks, with saved groups loaded once.
 export async function validateRulesReferences(
   rules: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">[],
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
 ): Promise<void> {
   if (!rules.length) return;
   const groupMap = await getSavedGroupMap(context);
