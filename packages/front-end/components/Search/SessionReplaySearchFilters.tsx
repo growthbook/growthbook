@@ -68,7 +68,7 @@ const TextInputRow: FC<{
         const prefix = `${field}:${operator}`;
         const newValue = searchValue.replace(
           new RegExp(`${prefix}(?:"[^"]*"|[^\\s])*`, "g"),
-          token,
+          () => token,
         );
         setSearchValue(newValue.trim());
       } else {
