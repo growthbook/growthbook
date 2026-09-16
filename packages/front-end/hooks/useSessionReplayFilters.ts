@@ -104,19 +104,25 @@ function syntaxFiltersToQueryParams(
 }
 
 export function useSessionReplayFilters(router: NextRouter, project: string) {
-  const initializedRef = useRef(false);
-  const [searchValue, setSearchValue] = useState("");
+  const [searchValue, setSearchValue] = useState(() =>
+    queryParamsToSearchString(router.query),
+  );
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  // Distinguishes user edits (should push page=1) from URL-driven syncs
+  const changeSourceRef = useRef<"user" | "url">("url");
 
-  // One-time init: convert URL query params → search string on mount
+  // Sync searchValue from URL on back/forward navigation
+  const urlSearchString = useMemo(
+    () => queryParamsToSearchString(router.query),
+    [router.query],
+  );
+  const prevUrlRef = useRef(urlSearchString);
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-    const initial = queryParamsToSearchString(router.query);
-    if (initial) setSearchValue(initial);
-    // Only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (urlSearchString === prevUrlRef.current) return;
+    prevUrlRef.current = urlSearchString;
+    changeSourceRef.current = "url";
+    setSearchValue(urlSearchString);
+  }, [urlSearchString]);
 
   const { syntaxFilters } = useMemo(
     () => transformQuery(searchValue, FILTER_KEYS),
@@ -128,13 +134,15 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
     [syntaxFilters],
   );
 
-  // Push filter changes to the URL (debounced); seed with initial value
-  // so the first render doesn't push page=1 over the current URL.
+  // Push filter changes to the URL (debounced). Only push when the change
+  // came from user interaction — URL-driven syncs must not push back.
   const prevParamsRef = useRef<string>(JSON.stringify(queryParams));
   useEffect(() => {
     const serialized = JSON.stringify(queryParams);
     if (serialized === prevParamsRef.current) return;
     prevParamsRef.current = serialized;
+
+    if (changeSourceRef.current === "url") return;
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -142,7 +150,6 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
       for (const [k, v] of Object.entries(queryParams)) {
         if (v) query[k] = v;
       }
-      // Preserve sessionId if present
       const sessionId = router.query.sessionId;
       if (typeof sessionId === "string" && sessionId) {
         query.sessionId = sessionId;
@@ -162,6 +169,7 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
     () => ({
       value: searchValue,
       onChange: (e: ChangeEvent<HTMLInputElement>) => {
+        changeSourceRef.current = "user";
         setSearchValue(e.target.value);
       },
     }),
@@ -169,6 +177,7 @@ export function useSessionReplayFilters(router: NextRouter, project: string) {
   );
 
   const setSearchValueAndNavigate = useCallback((value: string) => {
+    changeSourceRef.current = "user";
     setSearchValue(value);
   }, []);
 

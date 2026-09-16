@@ -116,47 +116,40 @@ export async function listSessionReplays(
     context,
     datasource,
   ) as SqlIntegration;
+  const dialect = integration.getSqlDialect();
+  const esc = (v: string) => `'${dialect.escapeStringLiteral(v)}'`;
   const conditions: string[] = [];
 
   if (options?.userId) {
-    conditions.push(`user_id = '${escapeClickhouseString(options.userId)}'`);
+    conditions.push(`user_id = ${esc(options.userId)}`);
   }
   if (options?.clientKeys?.length) {
-    const escaped = options.clientKeys
-      .map((k) => `'${escapeClickhouseString(k)}'`)
-      .join(", ");
-    conditions.push(`client_key IN (${escaped})`);
+    conditions.push(
+      `client_key IN (${options.clientKeys.map(esc).join(", ")})`,
+    );
   }
   if (options?.clientKey) {
-    conditions.push(
-      `client_key = '${escapeClickhouseString(options.clientKey)}'`,
-    );
+    conditions.push(`client_key = ${esc(options.clientKey)}`);
   }
   if (options?.url) {
     conditions.push(
-      `positionCaseInsensitive(url_first, ${toClickhouseStringLiteral(options.url)}) > 0`,
+      `positionCaseInsensitive(url_first, ${esc(options.url)}) > 0`,
     );
   }
   if (options?.country) {
     const vals = options.country.split(",").filter(Boolean);
     if (vals.length === 1) {
-      conditions.push(`country = '${escapeClickhouseString(vals[0])}'`);
+      conditions.push(`country = ${esc(vals[0])}`);
     } else if (vals.length > 1) {
-      const escaped = vals
-        .map((v) => `'${escapeClickhouseString(v)}'`)
-        .join(", ");
-      conditions.push(`country IN (${escaped})`);
+      conditions.push(`country IN (${vals.map(esc).join(", ")})`);
     }
   }
   if (options?.device) {
     const vals = options.device.split(",").filter(Boolean);
     if (vals.length === 1) {
-      conditions.push(`device = '${escapeClickhouseString(vals[0])}'`);
+      conditions.push(`device = ${esc(vals[0])}`);
     } else if (vals.length > 1) {
-      const escaped = vals
-        .map((v) => `'${escapeClickhouseString(v)}'`)
-        .join(", ");
-      conditions.push(`device IN (${escaped})`);
+      conditions.push(`device IN (${vals.map(esc).join(", ")})`);
     }
   }
   if (options?.minDurationSecs !== undefined) {
@@ -176,23 +169,19 @@ export async function listSessionReplays(
     conditions.push(`event_count <= ${Math.round(options.maxEventCount)}`);
   }
   if (options?.featureKey) {
-    const escaped = escapeClickhouseString(options.featureKey);
-    conditions.push(`has(feature_keys, '${escaped}')`);
+    conditions.push(`has(feature_keys, ${esc(options.featureKey)})`);
   }
   if (options?.experimentKey) {
-    const escaped = escapeClickhouseString(options.experimentKey);
-    conditions.push(`has(experiment_keys, '${escaped}')`);
+    conditions.push(`has(experiment_keys, ${esc(options.experimentKey)})`);
   }
   if (options?.dateAfter) {
-    conditions.push(
-      `started_at >= '${escapeClickhouseString(options.dateAfter)}'`,
-    );
+    conditions.push(`started_at >= ${esc(options.dateAfter)}`);
   }
   if (options?.dateBefore) {
     const d = new Date(options.dateBefore + "T00:00:00Z");
     d.setUTCDate(d.getUTCDate() + 1);
     const nextDay = d.toISOString().slice(0, 10);
-    conditions.push(`started_at < '${escapeClickhouseString(nextDay)}'`);
+    conditions.push(`started_at < ${esc(nextDay)}`);
   }
 
   const limit = Math.max(1, Math.min(100, Math.floor(options?.limit ?? 100)));
@@ -218,14 +207,6 @@ export async function listSessionReplays(
   );
 
   return rows as unknown as SessionReplayRow[];
-}
-
-function escapeClickhouseString(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
-
-function toClickhouseStringLiteral(value: string): string {
-  return `'${escapeClickhouseString(value)}'`;
 }
 
 export async function getSessionReplayChunksBySessionId(
