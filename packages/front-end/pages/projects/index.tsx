@@ -220,7 +220,11 @@ const ProjectsPage: FC = () => {
                         {p.publicId && (
                           <div
                             className="small"
-                            style={{ ...MONO, color: "var(--gray-9)" }}
+                            style={{
+                              ...MONO,
+                              color: "var(--gray-9)",
+                              opacity: 0.85,
+                            }}
                           >
                             {p.publicId}
                           </div>
