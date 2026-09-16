@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import { useRouter } from "next/router";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   MemberRoleWithProjects,
   ProjectMemberRole,
@@ -15,6 +15,7 @@ import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRole
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
 import ProjectRuleFields from "@/components/Settings/Team/ProjectRuleFields";
+import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import Button from "@/ui/Button";
 import TextField from "@/ui/TextField";
@@ -388,7 +389,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
               Role on this Project
             </TableColumnHeader>
             <TableColumnHeader width="10%">Members</TableColumnHeader>
-            <TableColumnHeader width="50px" />
+            <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.actions} />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -453,13 +454,16 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                   {canEditRule && (
                     <DropdownMenu
                       trigger={
-                        <Button
+                        <IconButton
                           variant="ghost"
                           color="gray"
+                          radius="full"
+                          size="2"
+                          highContrast
                           aria-label="Team actions"
                         >
                           <BsThreeDotsVertical size={18} />
-                        </Button>
+                        </IconButton>
                       }
                       menuPlacement="end"
                       variant="soft"
