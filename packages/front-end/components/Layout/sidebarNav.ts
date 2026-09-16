@@ -270,7 +270,7 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canViewProjectsPage(),
       },
       {
-        name: "Members and Teams",
+        name: "Members",
         href: "/settings/team",
         path: /^settings\/team/,
         filter: ({ permissionsUtils }) => permissionsUtils.canManageTeam(),
