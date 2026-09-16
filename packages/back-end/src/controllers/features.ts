@@ -57,6 +57,7 @@ import {
 import {
   statusFromStandingVerdicts,
   getHealthSettings,
+  isScheduledPublishPending,
 } from "shared/enterprise";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -1720,6 +1721,10 @@ export async function postFeatureApproveAndPublish(
   ) {
     context.permissions.throwPermissionError();
   }
+  // Same pending-schedule guard as postFeaturePublish, run before the approval
+  // is written (and for the armed branch too) so a refusal leaves the revision
+  // untouched. Approving without publishing keeps the schedule.
+  assertNoPendingScheduleForManualPublish(revision, adminOverride);
   if (!adminOverride) {
     const governance = evaluatePublishGovernance({
       revisionStatus: "approved",
@@ -2172,6 +2177,22 @@ async function repairFeatureDriftIfNeeded(
   }
 }
 
+// A pending dated schedule is a commitment to publish later, and a manual
+// publish would silently pre-empt it, so the schedule has to be canceled first.
+// Mirrors the publish panel: an admin override may publish now over someone
+// else's schedule, but not over one that was itself armed with the admin
+// bypass (that deferral was deliberate).
+function assertNoPendingScheduleForManualPublish(
+  revision: FeatureRevisionInterface,
+  adminOverride: boolean,
+) {
+  if (!isScheduledPublishPending(revision)) return;
+  if (adminOverride && !revision.scheduledPublishBypassApproval) return;
+  throw new Error(
+    "This revision has a scheduled publish pending. Cancel the schedule to publish it now.",
+  );
+}
+
 export async function postFeaturePublish(
   req: AuthRequest<
     {
@@ -2324,6 +2345,7 @@ export async function postFeaturePublish(
   ) {
     context.permissions.throwPermissionError();
   }
+  assertNoPendingScheduleForManualPublish(revision, !!adminOverride);
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
       "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again.",
