@@ -263,6 +263,13 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageOrgSettings(),
       },
       {
+        name: "Projects",
+        href: "/projects",
+        path: /^project/,
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canViewProjectsPage(),
+      },
+      {
         name: "Members",
         href: "/settings/team",
         path: /^settings\/team/,
@@ -275,13 +282,6 @@ export const navlinks: SidebarLinkProps[] = [
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canCreateAndUpdateTag() ||
           permissionsUtils.canDeleteTag(),
-      },
-      {
-        name: "Projects",
-        href: "/projects",
-        path: /^project/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewProjectsPage(),
       },
       {
         name: "Custom Fields",
