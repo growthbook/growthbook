@@ -197,7 +197,7 @@ const TeamMembersModal: FC<{
             <TableRow key={member.id}>
               <TableCell>{member.name}</TableCell>
               <TableCell>{member.email}</TableCell>
-              <TableCell>
+              <TableCell justify="end">
                 {canRemove(member.id) && (
                   <DeleteButton
                     displayName="member"
@@ -448,7 +448,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                   )}
                 </TableCell>
                 <TableCell>{team.members?.length ?? 0}</TableCell>
-                <TableCell>
+                <TableCell justify="end">
                   {canEditRule && (
                     <DropdownMenu
                       trigger={
