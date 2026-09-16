@@ -407,8 +407,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
             const canManageMembers =
               !externallyManaged &&
               permissionsUtil.canManageTeamMembership(team);
-            const canDelete =
-              !externallyManaged && permissionsUtil.canDeleteTeam(team);
 
             return (
               <TableRow key={team.id}>
@@ -424,7 +422,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                         content={
                           canManageMembers
                             ? "Members of this team also get its role on these Projects."
-                            : "Managing this team's members or deleting it needs Project Admin on every Project it covers."
+                            : "Managing this team's members needs Project Admin on every Project it covers."
                         }
                       >
                         <Text size="sm" color="text-low">
@@ -515,27 +513,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                         >
                           Remove from this Project
                         </DropdownMenuItem>
-                        {canDelete && (
-                          <DropdownMenuItem
-                            color="red"
-                            confirmation={{
-                              submit: async () => {
-                                await apiCall(`/teams/${team.id}`, {
-                                  method: "DELETE",
-                                });
-                                refreshOrganization();
-                              },
-                              confirmationTitle: "Delete Team",
-                              cta: "Delete",
-                              getConfirmationContent: async () =>
-                                otherProjects.length
-                                  ? `"${team.name}" also grants roles on ${otherProjects.join(", ")}. Deleting it removes those too.`
-                                  : `Are you sure you want to delete "${team.name}"?`,
-                            }}
-                          >
-                            Delete team
-                          </DropdownMenuItem>
-                        )}
                       </DropdownMenuGroup>
                     </DropdownMenu>
                   )}
