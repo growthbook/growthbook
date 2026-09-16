@@ -45,6 +45,7 @@ import {
 import {
   operatorLabelMap,
   getColumnInfo,
+  isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
 export {
   getMetricMixClass,
@@ -216,16 +217,6 @@ export function getInitialInlineFilters(
 
 /** Returns true if the row filter has enough info to be meaningful in a
  *  preview (would survive cleanRowFilters at submission). */
-function isPreviewableFilter(f: RowFilter): boolean {
-  if (f.operator === "sql_expr" || f.operator === "saved_filter") {
-    return (f.values ?? []).some((v) => v !== "");
-  }
-  if (["is_true", "is_false", "is_null", "not_null"].includes(f.operator)) {
-    return !!f.column;
-  }
-  return !!f.column && (f.values ?? []).some((v) => v !== "");
-}
-
 /** A stable key for a column-based filter — identifies "the same predicate
  *  shape" across steps (same column + same operator; values may differ).
  *  Returns null for sql_expr / saved_filter, which don't carry an obvious
@@ -250,7 +241,7 @@ export function getCommonFunnelFilterKeys(steps: FunnelStep[]): Set<string> {
   for (const step of steps) {
     const stepKeys = new Set<string>();
     for (const f of step.rowFilters) {
-      if (!isPreviewableFilter(f)) continue;
+      if (!isRowFilterComplete(f)) continue;
       const key = filterCommonKey(f);
       if (key) stepKeys.add(key);
     }
@@ -337,7 +328,7 @@ export function getFunnelStepPreview({
   const factTableLabel = showFactTable
     ? (factTable?.name ?? step.factTableId ?? "")
     : "";
-  const complete = step.rowFilters.filter(isPreviewableFilter);
+  const complete = step.rowFilters.filter(isRowFilterComplete);
   const commonKeys = allSteps
     ? getCommonFunnelFilterKeys(allSteps)
     : new Set<string>();
@@ -577,6 +568,8 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
   }
 }
 
+const GROUPABLE_SQL_COLUMN_TYPES = new Set(["number", "date", "boolean"]);
+
 export function getCommonColumns(
   dataset: ExplorationDataset | null,
   getFactTableById: (id: string) => FactTableDefinition | null,
@@ -656,13 +649,24 @@ export function getCommonColumns(
     columns = ft?.columns || [];
   }
 
+  // Warehouse tables are restricted to string columns, where cardinality is at
+  // least predictable. A SQL dataset is the user's own projection — the column
+  // they most often want to group by is a bucket they just computed (e.g.
+  // `toStartOfMonth(...) AS month`) — so offer its other scalar types too.
+  // `other` stays out: it is the catch-all for types we couldn't identify,
+  // which includes arrays and structs, and warehouses reject casting those to
+  // the string every group-by value is compared as.
+  const allowNonStringGroupBy = dataset.type === "sql";
+
   const groupByColumns: Pick<ColumnInterface, "column" | "name">[] = [];
   (columns || [])
     .filter((c) => !c.deleted)
     .filter((c) => !userIdTypes.has(c.column))
     .forEach((c) => {
-      // Top-level string columns
-      if (c.datatype === "string") {
+      if (
+        c.datatype === "string" ||
+        (allowNonStringGroupBy && GROUPABLE_SQL_COLUMN_TYPES.has(c.datatype))
+      ) {
         groupByColumns.push({ column: c.column, name: c.name });
       }
       // Nested JSON fields (use dot-notation, matching getColumnExpression)
@@ -873,28 +877,11 @@ export function fillMissingUnits(
   } as ExplorationConfig;
 }
 
-function hasNonEmptyValues(values: string[] | undefined): boolean {
-  return (values ?? []).some((v) => v !== "");
-}
-
-/** Checks if a filter is complete (has a column and values). */
-function isCompleteFilter(filter: RowFilter): boolean {
-  if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
-    return hasNonEmptyValues(filter.values);
-  }
-  if (
-    ["is_true", "is_false", "is_null", "not_null"].includes(filter.operator)
-  ) {
-    return !!filter.column;
-  }
-  return !!filter.column && hasNonEmptyValues(filter.values);
-}
-
 /** Removes incomplete (partially configured) row filters from a value. */
 function cleanRowFilters<T extends { rowFilters: RowFilter[] }>(value: T): T {
   return {
     ...value,
-    rowFilters: value.rowFilters.filter(isCompleteFilter),
+    rowFilters: value.rowFilters.filter(isRowFilterComplete),
   };
 }
 
@@ -1327,7 +1314,7 @@ export function hasUnsatisfiedInlineFilters(
     if (inlineColumns.size === 0) return false;
     return rowFilters.some(
       (rf) =>
-        !!rf.column && inlineColumns.has(rf.column) && !isCompleteFilter(rf),
+        !!rf.column && inlineColumns.has(rf.column) && !isRowFilterComplete(rf),
     );
   };
 

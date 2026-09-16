@@ -1,14 +1,14 @@
 import {
   assertValidRuleEnvironments,
+  normalizeInlineRampSchedule,
   validateRuleAttributes,
   validateRulesReferences,
 } from "back-end/src/api/features/validations";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
-import { getFeature } from "back-end/src/models/FeatureModel";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
+  getAllFeaturesWithoutEditorFields: jest.fn(),
 }));
 
 // `validateRuleAttributes` is the V2-side gate for the opt-in
@@ -193,25 +193,6 @@ describe("validateRulesReferences", () => {
     expect(getAll).toHaveBeenCalledTimes(1);
   });
 
-  it("accepts a prerequisite whose feature exists", async () => {
-    jest
-      .mocked(getFeature)
-      .mockResolvedValueOnce({ id: "parent_flag" } as never);
-    await expect(
-      validateRulesReferences(
-        [
-          {
-            prerequisites: [
-              { id: "parent_flag", condition: '{"value": true}' },
-            ],
-          },
-        ],
-        ctx,
-      ),
-    ).resolves.toBeUndefined();
-    expect(getFeature).toHaveBeenCalledWith(ctx, "parent_flag");
-  });
-
   it("does not load saved groups for an empty rules list", async () => {
     await validateRulesReferences([], ctx);
     expect(getAll).not.toHaveBeenCalled();
@@ -263,5 +244,31 @@ describe("assertValidRuleEnvironments", () => {
         { allEnvironments: false, environments: ["prodution"] },
       ]),
     ).toThrow(BadRequestError);
+  });
+});
+
+describe("normalizeInlineRampSchedule", () => {
+  it("omits startActions and endActions when the input does not provide them", () => {
+    const action = normalizeInlineRampSchedule({ steps: [] }, "r1");
+    expect("startActions" in action).toBe(false);
+    expect("endActions" in action).toBe(false);
+    expect(action).toMatchObject({ mode: "create", ruleId: "r1", steps: [] });
+  });
+
+  it("normalizes provided startActions and endActions into feature-rule actions", () => {
+    const action = normalizeInlineRampSchedule(
+      {
+        steps: [],
+        startActions: [{ patch: { coverage: 0 } }],
+        endActions: [{ targetId: "t1", patch: { coverage: 1 } }],
+      },
+      "r1",
+    );
+    expect(action.startActions).toEqual([
+      { targetType: "feature-rule", targetId: "", patch: { coverage: 0 } },
+    ]);
+    expect(action.endActions).toEqual([
+      { targetType: "feature-rule", targetId: "t1", patch: { coverage: 1 } },
+    ]);
   });
 });

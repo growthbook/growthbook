@@ -2,10 +2,7 @@ import { randomUUID } from "crypto";
 import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
 import type { AIChatMessage } from "shared/ai-chat";
-import {
-  dashboardIdFromPagePath,
-  parseDashboardApiPath,
-} from "shared/enterprise";
+import { offScreenDashboardWriteRejection } from "shared/enterprise";
 import type { AIAgentPendingAction } from "shared/validators";
 import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
@@ -128,9 +125,10 @@ dashboard", "the dashboard", or an unqualified "add a chart" — take the id fro
 the path and edit that dashboard rather than asking which one or building a
 second one.
 
-**That is the only dashboard you can change.** Updating one is allowed only
-while the user is viewing it, so a request naming a different dashboard is
-refused whatever the title resolves to — including from the dashboard list.
+**That is the only dashboard you can change.** Updating or deleting one is
+allowed only while the user is viewing it, so a request naming a different
+dashboard is refused whatever the title resolves to — including from the
+dashboard list.
 
 Refuse it in your first reply. Name the dashboard they are on, say that is the
 only one you can change, and ask them to open the one they meant and tell you
@@ -337,28 +335,17 @@ function latestPageContext(messages: AIChatMessage[]): string | undefined {
   return undefined;
 }
 
-/** Only the dashboard on screen may be updated: an update replaces its block list outright. */
-function offScreenDashboardUpdate(
+/** Only the dashboard on screen may be written: an update replaces its block list outright. */
+function offScreenDashboardWrite(
   input: DispatchInput,
   messages: AIChatMessage[],
 ): { status: "rejected"; message: string } | undefined {
-  if (input.method !== "PUT") return undefined;
-  const target = parseDashboardApiPath(normalizePath(input.path))?.id;
-  if (!target) return undefined;
-
-  const page = latestPageContext(messages);
-  const onScreen = page ? dashboardIdFromPagePath(page) : null;
-  if (onScreen === target) return undefined;
-
-  return {
-    status: "rejected",
-    message:
-      (onScreen
-        ? `You can only update the dashboard the user is viewing, which is "${onScreen}", not "${target}".`
-        : `You can only update a dashboard while the user is viewing it, and they are not on a dashboard page.`) +
-      " Do not retry this call and do not look for another way to make the change." +
-      " Tell them to open the dashboard they want changed and ask again there.",
-  };
+  const message = offScreenDashboardWriteRejection({
+    method: input.method,
+    path: normalizePath(input.path),
+    currentPage: latestPageContext(messages),
+  });
+  return message ? { status: "rejected", message } : undefined;
 }
 
 /** Models sometimes JSON-encode `body` as a string; parse it back. */
@@ -622,7 +609,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
         };
 
         // Before the card, which only shows a summary the model wrote.
-        const offScreen = offScreenDashboardUpdate(
+        const offScreen = offScreenDashboardWrite(
           dispatchInput,
           buffer.getMessages(),
         );
@@ -762,7 +749,7 @@ export const postGeneralAgentChat = createAgentHandler(generalAgentConfig);
 // Exposed for unit tests — see test/agent/general-agent.test.ts
 export const _buildGeneralAgentSystemPrompt = buildGeneralAgentSystemPrompt;
 export const _coerceBody = coerceBody;
-export const _offScreenDashboardUpdate = offScreenDashboardUpdate;
+export const _offScreenDashboardWrite = offScreenDashboardWrite;
 export const _requiresMutationConfirmation = requiresMutationConfirmation;
 export const _stripConfirmFromSqlBody = stripConfirmFromSqlBody;
 export const _shapeCallApiResult = shapeCallApiResult;

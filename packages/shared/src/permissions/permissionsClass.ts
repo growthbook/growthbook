@@ -84,6 +84,9 @@ function footprintEnvironments(
   return footprint.scope === "any" ? null : [];
 }
 
+export const DEFAULT_PERMISSION_ERROR_MESSAGE =
+  "You do not have permission to perform this action";
+
 export class Permissions {
   private userPermissions: UserPermissions;
   constructor(permissions: UserPermissions) {
@@ -1069,16 +1072,18 @@ export class Permissions {
 
   // Required: there is no safe default for "what does this draft change".
   // Pass `{ scope: "any" }` when not sanctioning a change.
+  //
+  // Eligibility follows the primary project, plus any targeting project whose
+  // own review rule the draft triggered (`approverProjects`): a project that
+  // can demand review also gets to give it. An approval from such a reviewer
+  // satisfies that project's requirement, never the primary's.
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
     footprint: ReviewAuthorityFootprint,
+    approverProjects: string[] = [],
   ): boolean => {
-    // Reviewer eligibility follows the primary project only. Targeting projects
-    // affect whether a review is required, never who may approve.
-    return this.canReviewRevision(
-      "feature",
-      feature.project ? [feature.project] : [],
-      footprint,
+    return [feature.project ?? "", ...approverProjects].some((project) =>
+      this.canReviewRevision("feature", project ? [project] : [], footprint),
     );
   };
 
@@ -1773,9 +1778,7 @@ export class Permissions {
   };
 
   public throwPermissionError(message?: string): void {
-    throw new PermissionError(
-      message ?? "You do not have permission to perform this action",
-    );
+    throw new PermissionError(message ?? DEFAULT_PERMISSION_ERROR_MESSAGE);
   }
 
   public canReadSingleProjectResource = (
@@ -1831,6 +1834,15 @@ export class Permissions {
     // null (all projects) maps to the empty-array "all" convention.
     return this.canReadMultiProjectResource(
       getTargetingProjectIds(entity) ?? [],
+    );
+  };
+
+  // Deliver a Feature Flag into projects beyond its primary. "all" reaches
+  // projects that do not exist yet, so it takes the atom unscoped.
+  public canTargetFeatureProjects = (projects: string[] | "all"): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: projects === "all" ? [] : projects },
+      "targetFeatures",
     );
   };
 

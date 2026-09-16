@@ -1,4 +1,8 @@
 import {
+  assertTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
+import {
   getApplicableEnvIds,
   getRulesForEnvironment,
   normalizeTargetingInUpdates,
@@ -9,6 +13,7 @@ import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import {
@@ -54,6 +59,7 @@ import {
 } from "back-end/src/services/featureRevisionEvents";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
 import {
   validateChangedRuleReferences,
@@ -131,6 +137,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     await assertValidProjectId(project, req.context);
+    assertTargetingDestination({
+      permissions: req.context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, {
+        project,
+        targetingAllProjects,
+        targetingProjects,
+      }),
+      optedOut: await req.context.getTargetingOptOutProjectIds(),
+    });
     await assertValidProjectIds(targetingProjects, req.context);
 
     // check if the custom fields are valid
@@ -166,7 +182,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // ensure default value matches value type
     let defaultValue;
     if (req.body.defaultValue != null) {
-      defaultValue = validateFeatureValue(feature, req.body.defaultValue);
+      defaultValue = validateFeatureValue(
+        feature,
+        req.body.defaultValue,
+        "Default value",
+      );
     }
 
     const environmentSettings =
@@ -530,6 +550,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     updates = updatesAfterMetadata;
 
     // 4. prerequisites
+    await assertValidPrerequisiteParents(
+      req.context,
+      {
+        ...feature,
+        rules: revisedRulesFlat,
+        prerequisites: updates.prerequisites ?? feature.prerequisites,
+      },
+      feature,
+    );
     const newPrerequisites = updates.prerequisites ?? null;
     if (newPrerequisites !== null) {
       delete updates.prerequisites;
@@ -575,6 +604,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       hasHoldoutChange;
 
     if (hasRevisionChanges) {
+      if (hasMetadataChanges) {
+        await assertFeatureMoveDependentsGuard(
+          req.context,
+          feature,
+          metadataChanges,
+        );
+      }
       const revisionChanges: Partial<FeatureRevisionInterface> = {
         ...(hasEnvEnabledChanges
           ? { environmentsEnabled: changedEnvEnabled }

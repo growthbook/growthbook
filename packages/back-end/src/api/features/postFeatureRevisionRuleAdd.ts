@@ -14,7 +14,7 @@ import type {
   SafeRolloutRule,
 } from "shared/validators";
 import {
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
@@ -50,10 +50,14 @@ import {
   buildScheduleRampAction,
   resolveOrCreateRevision,
   validateRuleAttributes,
+  assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
 } from "./validations";
-import { assertCanUseRuleScheduling } from "./v2Shared";
+import {
+  assertRuleVariationsMatchExperiment,
+  assertCanUseRuleScheduling,
+} from "./v2Shared";
 
 const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 
@@ -210,6 +214,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
           value: v.value,
         }));
       }
+      assertRuleVariationsMatchExperiment(ruleInput, experiment);
 
       // Use target revision holdout to check compatibility.
       // Linking writes are deferred until after custom-hook prevalidation below.
@@ -238,7 +243,8 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     validateRuleAttributes(
       rule,
       req.context,
-      getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+      getRuleAttributeScopeProjectIds(feature, revision.metadata, rule) ??
+        undefined,
     );
     await validateRuleReferences(rule, req.context);
 
@@ -310,6 +316,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     const newRules: FeatureRule[] = [...baseRules, stampedRule];
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: baseRules,
+      after: newRules,
+    });
 
     if (resolvedRampAction) {
       const existing = revision.rampActions ?? [];
