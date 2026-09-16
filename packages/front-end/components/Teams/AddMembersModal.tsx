@@ -79,7 +79,6 @@ export const AddMembersModal = ({
           );
         }}
         customClassName="label-overflow-ellipsis"
-        helpText="Assign users to this team."
       />
     </ModalStandard>
   );
