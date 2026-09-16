@@ -49,10 +49,6 @@ The [Event Forwarder](/app/event-forwarder) reaches your warehouse from **two** 
 
 The streaming half runs on Confluent Cloud rather than on our own infrastructure, so it does not come from our NAT address. Allow the full list for your Event Forwarder's Data Region — any address in it can be the one that connects, so a partial list produces intermittent failures that look like the connector working and then breaking.
 
-<Warning>
-Do not build this list from the addresses in your warehouse's error messages. Each rejected connection reveals only the single address that attempted it, so you will always be one failure behind a complete list.
-</Warning>
-
 <AccordionGroup>
 <Accordion title="us-east-1 (27 addresses)">
 ```
@@ -104,6 +100,8 @@ Do not build this list from the addresses in your warehouse's error messages. Ea
 </AccordionGroup>
 
 Unlike our NAT address, this set is Confluent's rather than ours, and Confluent notes that a major upgrade to their platform can change it. Check this page when you next revisit your network policy, and contact [support@growthbook.io](mailto:support@growthbook.io) if the forwarder starts failing to connect.
+
+_Last verified: September 16, 2026._
 
 ## Self-hosted license verification
 
