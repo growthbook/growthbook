@@ -474,6 +474,9 @@ export default function AgentPanel({
     displayedTextMap,
     toolDetailsOpenRef,
   );
+  const persistedTurns = groupMessagesByTurn(messages);
+  const confirmationPending =
+    confirmPrompt !== null && (!confirmPrompt.resolved || loading);
 
   return (
     <Box
@@ -570,7 +573,7 @@ export default function AgentPanel({
             </Text>
           )}
 
-          {groupMessagesByTurn(messages).map((turn, idx) => (
+          {persistedTurns.map((turn, idx) => (
             <PersistedTurn
               key={idx}
               turn={turn}
@@ -579,6 +582,9 @@ export default function AgentPanel({
               feedbackMap={feedbackMap}
               onFeedbackSubmit={handleFeedbackSubmit}
               feedbackTrackingEventName="AI Assistant Feedback"
+              showFeedback={
+                !confirmationPending || idx < persistedTurns.length - 1
+              }
             />
           ))}
 
@@ -772,6 +778,7 @@ function PersistedTurn({
   feedbackMap,
   onFeedbackSubmit,
   feedbackTrackingEventName,
+  showFeedback,
 }: {
   turn: MessageTurn;
   onInternalLinkClick?: (href: string) => void;
@@ -783,6 +790,7 @@ function PersistedTurn({
     comment: string,
   ) => void;
   feedbackTrackingEventName?: string;
+  showFeedback: boolean;
 }) {
   const { preWork, replyContent, replyMessageId } = classifyTurn(turn.rest);
   const steps = preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef);
@@ -850,7 +858,7 @@ function PersistedTurn({
         </AssistantBubble>
       )}
 
-      {hasReply && replyMessageId && (
+      {showFeedback && hasReply && replyMessageId && (
         <AIChatFeedback
           messageId={replyMessageId}
           value={feedbackMap[replyMessageId] ?? { rating: null, comment: "" }}
