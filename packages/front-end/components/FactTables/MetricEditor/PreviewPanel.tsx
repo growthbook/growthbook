@@ -13,7 +13,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { MetricPreviewSql } from "@/components/FactTables/MetricEditor/previewSql";
 import MetricPerformance from "@/enterprise/components/ProductAnalytics/MetricPerformance";
-import { getDraftMetricPreview } from "./draftMetricPreview";
+import {
+  draftMetricNeedsPopulation,
+  getDraftMetricPreview,
+} from "./draftMetricPreview";
 import styles from "./PreviewPanel.module.scss";
 
 export default function PreviewPanel({
@@ -30,6 +33,9 @@ export default function PreviewPanel({
   const [submittedKey, setSubmittedKey] = useState<string | null>(null);
   const draftMetric = draft ? getDraftMetricPreview(draft) : null;
   const isRetention = (draft ?? metric)?.metricType === "retention";
+  const needsPopulation =
+    !!draft && draftMetricNeedsPopulation(draft.metricType);
+  const previewUnavailable = isRetention || needsPopulation;
   const requestKey = JSON.stringify(draftMetric);
   const previewMetric =
     metric ?? (submittedKey === requestKey ? draftMetric : null);
@@ -114,7 +120,7 @@ export default function PreviewPanel({
             className={styles.previewContent}
             style={{ height: "100%" }}
           >
-            {previewMetric && !isRetention ? (
+            {previewMetric && !previewUnavailable ? (
               <MetricPerformance
                 key={JSON.stringify(previewMetric)}
                 metric={previewMetric}
@@ -132,22 +138,27 @@ export default function PreviewPanel({
                   <PiEye />
                 </Avatar>
                 <Text weight="semibold" as="div">
-                  {isRetention
-                    ? "Preview not available for retention metrics"
+                  {previewUnavailable
+                    ? "Preview not available for this metric"
                     : "Preview will appear here"}
                 </Text>
-                {!isRetention && (
+                {needsPopulation ? (
+                  <Text size="sm" color="text-mid" as="div">
+                    Calculating this rate requires an eligible user population.
+                    A source activity count would not represent this metric.
+                  </Text>
+                ) : !isRetention ? (
                   <Text size="sm" color="text-mid" as="div">
                     {draftMetric
                       ? "Run the query to calculate this metric over the last 7 days."
                       : "Complete the metric definition to preview its calculated value."}
                   </Text>
-                )}
+                ) : null}
               </Flex>
             )}
           </TabsContent>
         </Box>
-        {draft && !previewMetric && !isRetention && (
+        {draft && !previewMetric && !previewUnavailable && (
           <Flex
             mt="3"
             flexShrink="0"

@@ -34,3 +34,13 @@ export function getDraftMetricPreview(
     return null;
   }
 }
+
+export function draftMetricNeedsPopulation(
+  metricType: FactMetricInterface["metricType"],
+): boolean {
+  return (
+    metricType === "proportion" ||
+    metricType === "retention" ||
+    metricType === "dailyParticipation"
+  );
+}
