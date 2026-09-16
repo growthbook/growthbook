@@ -14,7 +14,7 @@ import type {
   SafeRolloutRule,
 } from "shared/validators";
 import {
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
@@ -243,7 +243,8 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     validateRuleAttributes(
       rule,
       req.context,
-      getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+      getRuleAttributeScopeProjectIds(feature, revision.metadata, rule) ??
+        undefined,
     );
     await validateRuleReferences(rule, req.context);
 

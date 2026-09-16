@@ -162,6 +162,9 @@
   right: 12px;
   bottom: 12px;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 // --- Buttons -----------------------------------------------------------------
@@ -180,7 +183,8 @@
   line-height: 0;
 }
 
-.sendButton {
+.sendButton,
+.dictateButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -191,11 +195,10 @@
   line-height: 0;
   border: none;
   border-radius: var(--radius-3);
-  background: var(--violet-10);
-  color: #fff;
   cursor: pointer;
   transition:
     background-color 120ms ease,
+    color 120ms ease,
     opacity 120ms ease;
 
   // The icon defaults to inline (baseline) layout, which leaves descender
@@ -205,13 +208,24 @@
     display: block;
   }
 
-  &:hover:not(:disabled) {
-    background: var(--violet-11);
+  // Unclassed buttons, so neither Radix nor Bootstrap supplies a ring.
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 2px;
   }
 
   &:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+}
+
+.sendButton {
+  background: var(--violet-10);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: var(--violet-11);
   }
 }
 
@@ -224,4 +238,69 @@
   &:hover:not(:disabled) {
     background: var(--gray-a6);
   }
+}
+
+// Quiet by default — the send button is the primary action.
+.dictateButton {
+  background: transparent;
+  color: var(--gray-11);
+
+  &:hover:not(:disabled) {
+    background: var(--gray-a3);
+    color: var(--gray-12);
+  }
+}
+
+// Recording. The fill breathes with --mic-level, so a muted mic stays flat.
+.dictateButtonActive {
+  position: relative;
+  background: transparent;
+  color: var(--red-11);
+
+  // Its own box, so the voice can shrink it without touching the glyph or hit target.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--red-a4);
+    transform: scale(calc(1 - var(--mic-level, 0) * 0.18));
+    transition: transform 90ms linear;
+  }
+
+  svg {
+    position: relative;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      transform: none;
+      transition: none;
+    }
+  }
+
+  &:hover:not(:disabled)::before {
+    background: var(--red-a5);
+  }
+}
+
+// An enabled trigger for the tooltip: pointer events never reach a disabled button.
+.dictateTrigger {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+// Positioned like SuggestionList's .popup so it clears the whole composer.
+.dictateError {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  z-index: 2;
+  width: max-content;
+  max-width: 240px;
+  padding: 6px 8px;
+  border-radius: var(--radius-3);
+  background: var(--color-panel-solid);
+  box-shadow: var(--shadow-3);
 }

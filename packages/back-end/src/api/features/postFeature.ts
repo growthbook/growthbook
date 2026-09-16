@@ -109,7 +109,6 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   }
 
   await assertValidProjectId(req.body.project, req.context);
-  await assertValidProjectIds(req.body.targetingProjects, req.context);
 
   await validateCustomFields(
     req.body.customFields,
@@ -189,13 +188,19 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   });
 
   // ensure default value matches value type
-  feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+  feature.defaultValue = validateFeatureValue(
+    feature,
+    feature.defaultValue,
+    "Default value",
+  );
 
-  assertCanCreateFeatureInState({
+  await assertCanCreateFeatureInState({
     context: req.context,
     feature,
     environmentIds: featurePublishEnvironmentIds(req.context.org, feature),
   });
+  // After the gate so an unreadable id cannot be probed for existence.
+  await assertValidProjectIds(req.body.targetingProjects, req.context);
 
   // AFTER every authorization: tags are a persistent org-level side effect, and
   // writing them first meant a request that then 403'd had already mutated tag state.

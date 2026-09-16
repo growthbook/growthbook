@@ -12,6 +12,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 const scanContext = { scan: true } as unknown as ApiReqContext;
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgObject: () => scanContext,
+  getEnvironments: () => [{ id: "production" }, { id: "dev" }],
 }));
 
 const ctx = { org: { id: "org" } } as unknown as ApiReqContext;
@@ -54,6 +55,34 @@ describe("assertValidPrerequisiteParents", () => {
     ).rejects.toThrow(/circular dependency/);
   });
 
+  it("finds cycles per environment, as the SDK evaluates them", async () => {
+    const gated = (id: string, env: string, parent: string) =>
+      ({
+        ...flag(id),
+        environmentSettings: {
+          production: { enabled: true },
+          dev: { enabled: true },
+        },
+        rules: [
+          {
+            type: "force",
+            value: "true",
+            environments: [env],
+            prerequisites: [{ id: parent, condition: "{}" }],
+          },
+        ],
+      }) as unknown as FeatureInterface;
+    // A gates on B in production; B gates on A in dev: never in one payload.
+    stub(() => ({ b: gated("b", "dev", "a") }));
+    await expect(
+      assertValidPrerequisiteParents(ctx, gated("a", "production", "b")),
+    ).resolves.toBeUndefined();
+    stub(() => ({ b: gated("b", "production", "a") }));
+    await expect(
+      assertValidPrerequisiteParents(ctx, gated("a", "production", "b")),
+    ).rejects.toThrow(/circular/);
+  });
+
   it("refuses a chain still open after the depth limit", async () => {
     const byId: Record<string, FeatureInterface> = {};
     for (let i = 0; i < 60; i++) byId[`n${i}`] = flag(`n${i}`, `n${i + 1}`);
@@ -61,6 +90,28 @@ describe("assertValidPrerequisiteParents", () => {
     await expect(
       assertValidPrerequisiteParents(ctx, flag("c", "n0")),
     ).rejects.toThrow(/too deep/);
+  });
+
+  const str = { ...flag("str"), valueType: "string" } as FeatureInterface;
+
+  it("requires a boolean parent only for top-level prerequisites", async () => {
+    stub(() => ({ str }));
+    const child = flag("child");
+    await expect(
+      assertValidPrerequisiteParents(ctx, {
+        ...child,
+        rules: [
+          {
+            type: "force",
+            value: "true",
+            prerequisites: [{ id: "str", condition: "{}" }],
+          },
+        ],
+      } as unknown as FeatureInterface),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertValidPrerequisiteParents(ctx, flag("child", "str")),
+    ).rejects.toThrow(/must be a boolean feature, not string/);
   });
 });
 
@@ -79,6 +130,15 @@ describe("assertValidExperimentPrerequisites", () => {
       ctx,
       expect.objectContaining({ ids: ["ok"] }),
     );
+  });
+
+  it("accepts a parent of any value type", async () => {
+    stub(() => ({ str: { ...flag("str"), valueType: "string" } }));
+    await expect(
+      assertValidExperimentPrerequisites(ctx, [
+        { id: "str", condition: '{"value": "control"}' },
+      ]),
+    ).resolves.toBeUndefined();
   });
 
   it("rejects a missing or archived parent", async () => {

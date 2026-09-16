@@ -55,6 +55,12 @@ jest.mock("../../src/services/prerequisiteParents", () => ({
     phases.flatMap((p) => p.prerequisites ?? []),
 }));
 
+// Not a plain import: "shared/util" loads shared from src, and import/order
+// would put it above ./api.setup. Loading it first leaves shared/experiments
+// half-loaded, which breaks the GET tests in this file.
+const { PermissionError } =
+  jest.requireActual<typeof import("shared/util")>("shared/util");
+
 describe("experiments API", () => {
   const { app, setReqContext, updateReqContext } = setupApp();
   const org = {
@@ -1268,6 +1274,101 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
       expect(res.body.experiment.name).toBe("Updated Experiment Name");
+    });
+
+    describe("run-experiments permission for payload-affecting fields", () => {
+      // An experiment that reaches every environment (visual changesets are
+      // not scoped to linked-feature environments), and a caller who may
+      // update the experiment's analysis but may not run experiments.
+      const liveExperiment = { ...experiment, hasVisualChangesets: true };
+      beforeEach(() => {
+        updateReqContext({
+          org: { ...org, settings: { environments: [{ id: "production" }] } },
+          permissions: {
+            canUpdateExperiment: () => true,
+            canRunExperiment: () => false,
+            throwPermissionError: () => {
+              throw new PermissionError("permission denied");
+            },
+          },
+        });
+        (getExperimentById as jest.Mock).mockResolvedValue(liveExperiment);
+        (updateExperiment as jest.Mock).mockImplementation(
+          ({ experiment: exp, changes }) => ({ ...exp, ...changes }),
+        );
+      });
+
+      it("refuses a phases change without run permission", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            phases: [{ name: "Main", dateStarted: "2026-02-01T00:00:00.000Z" }],
+          })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(403);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("refuses a bucketing change without run permission", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ bucketVersion: 2, hashAttribute: "device_id" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(403);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("allows an analysis-only change without run permission", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ description: "Updated description" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+      });
+
+      it("asks for run permission whenever a payload field is sent, as the dashboard route does", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ name: liveExperiment.name, description: "Updated" })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(403);
+      });
+    });
+
+    it("keeps the stored variation ids when the body omits them", async () => {
+      const stored = {
+        ...experiment,
+        variations: [
+          { id: "var_a", key: "0", name: "Control" },
+          { id: "var_b", key: "1", name: "Variation" },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(stored);
+      (updateExperiment as jest.Mock).mockResolvedValue(stored);
+      // Reordered, renamed, and one id given: the omitted id follows its key.
+      await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          variations: [
+            { id: "var_b", key: "1", name: "Variation" },
+            { key: "0", name: "Control renamed" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(assertLivePayloadChangeAllowed).toHaveBeenCalledWith(
+        expect.anything(),
+        stored,
+        expect.objectContaining({
+          variations: [
+            expect.objectContaining({ id: "var_b", key: "1" }),
+            expect.objectContaining({ id: "var_a", name: "Control renamed" }),
+          ],
+        }),
+      );
     });
 
     it("refuses to change what a running, live experiment serves", async () => {

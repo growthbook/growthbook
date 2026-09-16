@@ -489,6 +489,15 @@ export function ExplorerProvider({
       hasEverFetchedRef.current = true;
       const requestId = ++submitRequestIdRef.current;
 
+      // Supersede any in-flight poll here rather than only on the paths that
+      // reach finalize(): the poll's own id guard makes it return silently, so
+      // anything short of finalize would otherwise strand `polling` at true.
+      if (pollTimerRef.current) {
+        clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      setPolling(false);
+
       setExplorerState((prev) => ({
         ...prev,
         error: null,
@@ -615,12 +624,6 @@ export function ExplorerProvider({
           }
         }
       };
-
-      // Cancel any in-flight poll from a previous submit.
-      if (pollTimerRef.current) {
-        clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
 
       const comparisonResult = comparison?.exploration ?? null;
       const primaryIsRunning =
