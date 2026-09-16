@@ -105,7 +105,7 @@ describe("renderNotificationCard", () => {
     },
   );
 
-  it("renders the started card with a banner and the launch summary", async () => {
+  it("renders the started card with a banner and labeled fields", async () => {
     await expect(
       renderNotificationCard(
         notification("experiment.status.started", {
@@ -128,9 +128,12 @@ describe("renderNotificationCard", () => {
         state: "started",
         event: "started",
         banner: "Experiment Started",
-        summary: [
-          "Started with 1 linked Feature Flag.",
-          "Goal metrics: Conversion, Revenue, Retention (+1 more)",
+        fields: [
+          {
+            label: "Goal metrics",
+            value: "Conversion, Revenue, Retention (+1 more)",
+          },
+          { label: "Linked changes", value: "1 Feature Flag" },
         ],
       }),
       "detailed",
@@ -152,7 +155,9 @@ describe("renderNotificationCard", () => {
         state: "stopped",
         event: "stopped",
         banner: "Experiment Stopped",
-        summary: ["Experiment stopped."],
+        fields: [
+          { label: "Result", value: "Stopped without a recorded outcome" },
+        ],
       }),
       "compact",
     );
@@ -250,9 +255,9 @@ describe("renderNotificationCard", () => {
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
         banner: "Experiment Stopped - Inconclusive",
-        summary: [
-          "Experiment stopped. Result: inconclusive.",
-          "Temporary rollout: Control",
+        fields: [
+          { label: "Result", value: "Inconclusive" },
+          { label: "Temporary rollout", value: "Control" },
         ],
       }),
       "compact",

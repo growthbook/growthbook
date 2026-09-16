@@ -78,9 +78,16 @@ export interface CardIdentity {
   banner?: string;
 }
 
+// A labeled value, rendered as a small caps label with the value beneath it —
+// the same label-over-value treatment the results tables and conclusion use.
+export interface CardField {
+  label: string;
+  value: string;
+}
+
 // Built from an immutable event payload alone; carries no metric results.
 export interface EventCardData extends CardIdentity {
-  summary?: string[];
+  fields?: CardField[];
   table?: CardTable;
 }
 

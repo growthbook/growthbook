@@ -33,11 +33,14 @@ describe("experiment alert messages", () => {
       "event_test",
     );
     const card = buildNotificationCard(event)?.data;
-    const summary = card && "summary" in card ? card.summary?.[0] : undefined;
-    expect(summary).toBe(
-      "Started with 2 linked Feature Flags, 1 Visual Editor change, 1 URL redirect.",
+    const linkedChanges =
+      card && "fields" in card
+        ? card.fields?.find((f) => f.label === "Linked changes")?.value
+        : undefined;
+    expect(linkedChanges).toBe(
+      "2 Feature Flags, 1 Visual Editor change, 1 URL redirect",
     );
-    expect(message?.text).toContain(summary);
+    expect(message?.text).toContain(`Started with ${linkedChanges}.`);
   });
   it.each([
     [

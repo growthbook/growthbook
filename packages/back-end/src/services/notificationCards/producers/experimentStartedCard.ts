@@ -1,9 +1,6 @@
 import { experimentStartedNotificationPayload } from "shared/validators";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
-import {
-  getExperimentStartedGoalMetricsLine,
-  getExperimentStartedSummary,
-} from "back-end/src/services/experimentChanges/experimentStartedSummary";
+import { getExperimentStartedFields } from "back-end/src/services/experimentChanges/experimentStartedSummary";
 import type {
   NotificationCard,
   NotificationCardProducer,
@@ -12,7 +9,8 @@ import type {
 const LABEL = "Experiment started";
 const BANNER = "Experiment Started";
 
-// Built from the immutable start payload: what launched and in which phase.
+// Built from the immutable start payload: goal metrics, linked changes, and
+// variation count as labeled fields.
 export const buildExperimentStartedCard: NotificationCardProducer = (
   event,
 ): NotificationCard | null => {
@@ -22,7 +20,6 @@ export const buildExperimentStartedCard: NotificationCardProducer = (
   );
   if (!parsed.success) return null;
   const data = parsed.data;
-  const goalMetrics = getExperimentStartedGoalMetricsLine(data);
   return {
     data: {
       state: "started",
@@ -30,10 +27,7 @@ export const buildExperimentStartedCard: NotificationCardProducer = (
       name: data.experimentName,
       key: data.experimentId,
       banner: BANNER,
-      summary: [
-        getExperimentStartedSummary(data),
-        ...(goalMetrics ? [goalMetrics] : []),
-      ],
+      fields: getExperimentStartedFields(data),
     },
     altText: `${data.experimentName} - ${LABEL}`,
     objectUrl: `${APP_ORIGIN}/experiment/${data.experimentId}`,

@@ -72,7 +72,7 @@ it.each(STATES)(
   30000,
 );
 
-describe("immutable event summary rendering", () => {
+describe("immutable event card rendering", () => {
   it.each(notificationCardSamples)(
     "renders compact and detailed $name cards from the event payload",
     async ({ event }) => {

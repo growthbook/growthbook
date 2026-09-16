@@ -6,6 +6,7 @@ import { pValueFormatter } from "shared/util";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import type {
   CardData,
+  CardField,
   CardGoalRow,
   NotificationCard,
   NotificationCardProducer,
@@ -36,18 +37,32 @@ const compact = (n: number | undefined): string | undefined =>
         maximumFractionDigits: 1,
       }).format(n);
 
-export function getExperimentStoppedSummary(
+const RESULT_LABEL: Record<
+  NonNullable<ExperimentStoppedNotificationPayload["results"]>,
+  string
+> = {
+  won: "Won",
+  lost: "Lost",
+  inconclusive: "Inconclusive",
+  dnf: "Did not finish",
+};
+
+// Labeled fields for a stop with no snapshot evidence to chart.
+function getExperimentStoppedFields(
   data: ExperimentStoppedNotificationPayload,
-): string[] {
-  return [
-    data.results
-      ? `Experiment stopped. Result: ${data.results}.`
-      : "Experiment stopped.",
-    ...(data.enableTemporaryRollout && data.releasedVariationName
-      ? [`Temporary rollout: ${data.releasedVariationName}`]
+): CardField[] {
+  const fields: CardField[] = [
+    ...(data.results
+      ? [{ label: "Result", value: RESULT_LABEL[data.results] }]
       : []),
-    ...(data.reason ? [data.reason] : []),
+    ...(data.enableTemporaryRollout && data.releasedVariationName
+      ? [{ label: "Temporary rollout", value: data.releasedVariationName }]
+      : []),
+    ...(data.reason ? [{ label: "Reason", value: data.reason }] : []),
   ];
+  return fields.length
+    ? fields
+    : [{ label: "Result", value: "Stopped without a recorded outcome" }];
 }
 
 // Significance thresholds for coloring the stat cell. The payload does not
@@ -100,7 +115,6 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
   const banner = data.results
     ? RESULT_BANNER[data.results]
     : "Experiment Stopped";
-  const summary = getExperimentStoppedSummary(data);
   const identity = {
     name: data.experimentName,
     key: data.experimentId,
@@ -111,7 +125,12 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
       : {}),
   };
   if (!data.goalMetric) {
-    return { ...identity, state: "stopped", event: "stopped", summary };
+    return {
+      ...identity,
+      state: "stopped",
+      event: "stopped",
+      fields: getExperimentStoppedFields(data),
+    };
   }
   const state =
     data.results === "won"

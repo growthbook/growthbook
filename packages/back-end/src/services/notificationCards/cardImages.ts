@@ -7,6 +7,7 @@ import type {
   CardState,
   CardGoalRow,
   CardCiMetric,
+  CardField,
   CardTable,
   CardIdentity,
   EventCardData,
@@ -1337,6 +1338,30 @@ function tableEl(table: CardTable, size: EventBodySize = "sm"): El {
   );
 }
 
+// Label above, value below — matching the column headers and section labels
+// used elsewhere on the cards.
+function fieldEl(field: CardField, size: EventBodySize): El {
+  const lg = size === "lg";
+  return el(
+    "div",
+    { display: "flex", flexDirection: "column", gap: lg ? 6 : 4 },
+    [
+      txt(field.label, {
+        fontSize: lg ? 12 : 9.5,
+        fontWeight: 600,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        color: P.subtle,
+      }),
+      txt(plainClamp(field.value, 240), {
+        fontSize: lg ? 20 : 17,
+        lineHeight: 1.4,
+        color: P.text,
+      }),
+    ],
+  );
+}
+
 function eventSummaryBody(card: EventCardData, size: EventBodySize): El {
   const lg = size === "lg";
   return el(
@@ -1344,17 +1369,11 @@ function eventSummaryBody(card: EventCardData, size: EventBodySize): El {
     {
       display: "flex",
       flexDirection: "column",
-      gap: lg ? 18 : 12,
+      gap: lg ? 22 : 14,
       padding: lg ? "18px 28px 26px" : 0,
     },
     [
-      ...(card.summary ?? []).map((line) =>
-        txt(plainClamp(line, 240), {
-          fontSize: lg ? 20 : 17,
-          lineHeight: 1.4,
-          color: P.text,
-        }),
-      ),
+      ...(card.fields ?? []).map((field) => fieldEl(field, size)),
       ...(card.table ? [tableEl(card.table, size)] : []),
     ],
   );
