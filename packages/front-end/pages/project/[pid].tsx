@@ -221,18 +221,17 @@ const ProjectPage: FC = () => {
               ) : null}
             </Flex>
             <Flex gap="6" mb="4">
-              <Metadata
-                label="Public ID (SDK payloads)"
-                value={<Text mono>{p.publicId || p.id}</Text>}
-              />
-              <Metadata
-                label="ID (API)"
-                value={
-                  <Text color="text-low" mono>
-                    {p.id}
-                  </Text>
-                }
-              />
+              <Metadata label="ID" value={<Text mono>{p.id}</Text>} />
+              {p.publicId && (
+                <Metadata
+                  label="Public ID (SDK payloads)"
+                  value={
+                    <Text color="text-low" mono>
+                      {p.publicId}
+                    </Text>
+                  }
+                />
+              )}
             </Flex>
           </Flex>
           <DropdownMenu
