@@ -14,7 +14,7 @@ export default function FilterSummary({
   return (
     <Flex direction="column" gap="2">
       <Flex align="center" gap="2">
-        <Text weight="semibold">Filters</Text>
+        <Text weight="semibold">Row filter</Text>
         <Badge label={String(rowFilters.length)} color="gray" radius="full" />
       </Flex>
       <Box
