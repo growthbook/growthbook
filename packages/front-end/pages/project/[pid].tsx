@@ -18,6 +18,7 @@ import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import ProjectApprovalSettings from "@/components/Projects/ProjectApprovalSettings";
 import ProjectAccessSettings from "@/components/Projects/ProjectAccessSettings";
+import ProjectTeams from "@/components/Projects/ProjectTeams";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
@@ -422,7 +423,11 @@ const ProjectPage: FC = () => {
                   </Flex>
                 </Frame>
                 <div className="w-100 py-3" style={{ bottom: 0, height: 70 }}>
-                  <div className="container-fluid pagecontents d-flex">
+                  <div
+                    className="container-fluid pagecontents d-flex"
+                    // Keep the Save button clear of the help widget
+                    style={{ paddingRight: "80px" }}
+                  >
                     <div className="flex-grow-1 mr-4">
                       {saveMsg && (
                         <TempMessage
@@ -455,6 +460,7 @@ const ProjectPage: FC = () => {
               </TabsContent>
               <TabsContent value="members">
                 <ProjectAccessSettings project={p} />
+                <ProjectTeams project={pid} />
                 <MemberList
                   mutate={refreshOrganization}
                   project={pid}

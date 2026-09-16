@@ -1,10 +1,12 @@
 import { DashboardInterface } from "shared/enterprise";
+import { isEqual } from "lodash";
 import { FeatureInterface } from "shared/types/feature";
 import { MetricInterface } from "shared/types/metric";
 import {
   EnvScopedPermission,
   Environment,
   GlobalPermission,
+  MemberRoleWithProjects,
   Permission,
   ProjectScopedPermission,
   SDKAttribute,
@@ -44,8 +46,12 @@ import {
 } from "../util/features";
 import type { ReviewAuthorityFootprint } from "../util/features";
 import {
+  changedProjectRoleProjects,
   envsAllowedBy,
   hasUnrestrictedEnvAuthority,
+  isProjectScopedTeam,
+  TeamAuthority,
+  teamProjects,
 } from "./permissions.utils";
 // Type-only: erased at runtime, so no cycle back through the util barrel.
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
@@ -1194,6 +1200,78 @@ export class Permissions {
       "deleteProjects",
     );
   };
+
+  // Teams hand out authority. Without manageTeam a caller may only shape a
+  // project-scoped team, and only on projects they administer: the same
+  // authority manageProjects already carries for a member's project roles.
+  public canCreateTeam = (team: TeamAuthority): boolean => {
+    return this.canAdministerProjectScopedTeam(team);
+  };
+
+  public canUpdateTeam = (
+    existing: TeamAuthority,
+    updates: Partial<TeamAuthority>,
+  ): boolean => {
+    if (this.canManageTeam()) return true;
+    if (!isProjectScopedTeam(existing)) return false;
+    const changedKeys = Object.keys(updates).filter(
+      (key) =>
+        !isEqual(
+          (existing as Record<string, unknown>)[key],
+          (updates as Record<string, unknown>)[key],
+        ),
+    );
+    if (changedKeys.some((key) => key !== "projectRoles")) return false;
+    return this.canManageProjectRoles(
+      changedProjectRoleProjects(
+        existing.projectRoles,
+        updates.projectRoles ?? existing.projectRoles,
+      ),
+    );
+  };
+
+  public canDeleteTeam = (team: TeamAuthority): boolean => {
+    return this.canAdministerProjectScopedTeam(team);
+  };
+
+  // Membership grants the whole team's authority, so it is gated like the team.
+  public canManageTeamMembership = (team: TeamAuthority): boolean => {
+    return this.canAdministerProjectScopedTeam(team);
+  };
+
+  // A whole-member write without manageTeam must leave the global role alone
+  // and only change project rules on projects the caller administers.
+  public canUpdateMemberRole = (
+    existing: MemberRoleWithProjects,
+    updated: MemberRoleWithProjects,
+  ): boolean => {
+    if (this.canManageTeam()) return true;
+    const globalRole = (info: MemberRoleWithProjects) => ({
+      role: info.role,
+      limitAccessByEnvironment: !!info.limitAccessByEnvironment,
+      environments: info.environments ?? [],
+      additionalRoles: info.additionalRoles ?? [],
+    });
+    if (!isEqual(globalRole(existing), globalRole(updated))) return false;
+    return this.canManageProjectRoles(
+      changedProjectRoleProjects(existing.projectRoles, updated.projectRoles),
+    );
+  };
+
+  // Whole-team authority: manageTeam, or manageProjects on every project a
+  // project-scoped team covers.
+  private canAdministerProjectScopedTeam(team: TeamAuthority): boolean {
+    return (
+      this.canManageTeam() ||
+      (isProjectScopedTeam(team) &&
+        this.canManageProjectRoles(teamProjects(team)))
+    );
+  }
+
+  // An empty list resolves to the global grant, as every project filter does.
+  private canManageProjectRoles(projects: string[]): boolean {
+    return this.checkProjectFilterPermission({ projects }, "manageProjects");
+  }
 
   // Frontend helper to gate "Create Data Source" UI.
   // Pass allProjects on list pages where "All Projects" may be selected;

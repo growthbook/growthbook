@@ -71,6 +71,9 @@ const TeamPage: FC = () => {
   }
 
   const memberCount = team.members?.length ?? 0;
+  // Membership follows the team predicate, so a Project Admin who administers
+  // every project a project-scoped team covers can manage its members here.
+  const canManageMembers = permissionsUtil.canManageTeamMembership(team);
 
   return (
     <>
@@ -237,7 +240,7 @@ const TeamPage: FC = () => {
           <Heading as="h2" size="md" mb="0">
             Team Members ({memberCount})
           </Heading>
-          {isEditable && canManageTeam && (
+          {isEditable && canManageMembers && (
             <Button onClick={() => setMemberModalOpen(true)}>
               Add members
             </Button>
@@ -268,7 +271,7 @@ const TeamPage: FC = () => {
                   {member.dateCreated && date(member.dateCreated)}
                 </TableCell>
                 <TableCell>
-                  {canManageTeam && isEditable && (
+                  {canManageMembers && isEditable && (
                     <DropdownMenu
                       trigger={
                         <IconButton

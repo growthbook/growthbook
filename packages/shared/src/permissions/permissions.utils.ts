@@ -1,3 +1,4 @@
+import { isEqual } from "lodash";
 import {
   Permission,
   UserPermissions,
@@ -104,6 +105,46 @@ export function areProjectRolesValid(
     return false;
   }
   return projectRoles.every((p) => isRoleValid(p.role, org));
+}
+
+// The role-bearing fields of a team, as the model and the REST bodies carry them.
+export type TeamAuthority = {
+  role: string;
+  additionalRoles?: unknown[];
+  projectRoles?: ProjectMemberRole[];
+  managedByIdp?: boolean;
+  managedBy?: unknown;
+};
+
+// A team that grants nothing outside its project roles, so every bit of
+// authority on it is authority a Project Admin could already hand out to a
+// member directly.
+export function isProjectScopedTeam(team: TeamAuthority): boolean {
+  return (
+    team.role === "noaccess" &&
+    !team.additionalRoles?.length &&
+    !team.managedByIdp &&
+    !team.managedBy
+  );
+}
+
+export function teamProjects(team: TeamAuthority): string[] {
+  return (team.projectRoles ?? []).map((rule) => rule.project);
+}
+
+// Projects whose rule differs between two project-role lists: added, removed,
+// or changed.
+export function changedProjectRoleProjects(
+  before: ProjectMemberRole[] | undefined,
+  after: ProjectMemberRole[] | undefined,
+): string[] {
+  const byProject = (rules: ProjectMemberRole[] | undefined) =>
+    new Map((rules ?? []).map((rule) => [rule.project, rule]));
+  const previous = byProject(before);
+  const next = byProject(after);
+  return [...new Set([...previous.keys(), ...next.keys()])].filter(
+    (project) => !isEqual(previous.get(project), next.get(project)),
+  );
 }
 
 export function getDefaultRole(
