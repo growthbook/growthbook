@@ -133,9 +133,11 @@
                       "event-trackers/heap",
                       "event-trackers/jitsu",
                       "event-trackers/keenio",
+                      "event-trackers/langfuse",
                       "guide/matomo",
                       "guide/mixpanel",
                       "event-trackers/mparticle",
+                      "event-trackers/phoenix",
                       "guide/rudderstack",
                       "event-trackers/segment",
                       "event-trackers/snowplow",
@@ -305,7 +307,8 @@
                   "tools/cli",
                   "integrations/clarity",
                   "integrations/jira",
-                  "integrations/ai"
+                  "integrations/ai",
+                  "integrations/llm-tracing"
                 ]
               },
               {

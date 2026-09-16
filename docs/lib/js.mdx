@@ -109,6 +109,44 @@ const gb = new GrowthBook({
 });
 ```
 
+### Tracing
+
+The tracing plugin records every experiment assignment as a tag of the form `gb:<experimentKey>:<variationKey>`, ready to be attached to an LLM trace in Langfuse, Arize Phoenix, or any OpenTelemetry-based tool. GrowthBook's Langfuse and Phoenix data source integrations read these tags back out of the trace to compute exposures. See [Experimenting on LLM Features](/integrations/llm-tracing) for the full setup.
+
+This plugin works in both browser and Node.js environments, and with the multi-user [`GrowthBookClient`](/lib/node#tracing). It does not send anything anywhere on its own; it only collects tags for you to hand to your tracing SDK.
+
+Options:
+
+- `onAssignment` - Optional callback fired once per unique experiment assignment with `{ experimentKey, variationKey, hashAttribute, hashValue, tag }` and the user context. Use it to set span attributes or push the tag to your tracer imperatively.
+- `tagPrefix` - Prefix for the generated tags. Defaults to `gb`. The generated exposure SQL expects the default.
+
+The `getTracingTags(gb)` helper returns a sorted array of every tag recorded on that instance so far. Assignments whose experiment or variation key contains `:` are skipped, because the exposure SQL splits the tag on that character.
+
+```js
+import { tracingPlugin, getTracingTags } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: { id: userId },
+  plugins: [
+    tracingPlugin({
+      // Optional: also stamp the active OpenTelemetry span
+      onAssignment: (assignment) => {
+        trace
+          .getActiveSpan()
+          ?.setAttribute("growthbook.experiment." + assignment.experimentKey, assignment.variationKey);
+      },
+    }),
+  ],
+});
+await gb.init();
+
+// Evaluate flags first, then attach the tags at the top of the traced request
+const promptLabel = gb.getFeatureValue("support-prompt", "production");
+const tags = getTracingTags(gb); // e.g. ["gb:support-prompt:prod-b"]
+```
+
 ### Auto-Attributes
 
 The auto-attributes plugin automatically detects and sets common attributes in GrowthBook for the current user. These attributes are available locally for targeting and are not sent to GrowthBook's servers.
