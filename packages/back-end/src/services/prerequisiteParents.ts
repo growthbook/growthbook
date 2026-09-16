@@ -4,7 +4,10 @@ import type { FeaturePrerequisite } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
-import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgObject,
+  getEnvironments,
+} from "back-end/src/services/organizations";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 // A prerequisite may point only at an existing, unarchived flag and, for
@@ -131,7 +134,13 @@ export async function assertValidPrerequisiteParents(
   const parents = await loadValidParents(context, added, addedTopLevel);
   const graph = await loadPrerequisiteAncestors(context, parents);
   graph.set(candidate.id, candidate);
-  if (isFeatureCyclic(candidate, graph)[0]) {
+  // Cycles are per environment, as the SDK evaluates them and as the
+  // dashboard checks them: a production gate and a dev gate pointing at each
+  // other never meet in one payload.
+  const cyclic = getEnvironments(context.org).some(
+    (env) => isFeatureCyclic(candidate, graph, undefined, [env.id])[0],
+  );
+  if (cyclic) {
     const names = added.map((id) => `"${id}"`).join(", ");
     throw new BadRequestError(
       `Prerequisite ${names} would create a circular dependency`,

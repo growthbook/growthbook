@@ -44,8 +44,11 @@ function normalizeRevisionRampCreateAction(
     targetId: a.targetId ?? "",
     patch: a.patch as FeatureRulePatch,
   });
+  // Omitted startActions/endActions stay omitted: an `undefined` value would be
+  // persisted as `null` (rampActions is a Mixed array).
+  const { startActions, endActions, ...rest } = input;
   return {
-    ...input,
+    ...rest,
     steps: (input.steps ?? []).map((s) => ({
       interval: s.interval,
       actions: (s.actions ?? []).map(normalizeAction),
@@ -53,8 +56,12 @@ function normalizeRevisionRampCreateAction(
       monitored: !!s.monitored,
       holdConditions: s.holdConditions ?? undefined,
     })),
-    startActions: input.startActions?.map(normalizeAction),
-    endActions: input.endActions?.map(normalizeAction),
+    ...(startActions !== undefined
+      ? { startActions: startActions.map(normalizeAction) }
+      : {}),
+    ...(endActions !== undefined
+      ? { endActions: endActions.map(normalizeAction) }
+      : {}),
   };
 }
 
@@ -369,23 +376,29 @@ function findInvalidInGroupId(
 // whose hashAttribute, fallbackAttribute, or condition field names aren't
 // declared in the org's attributeSchema. Prevents typo'd attributes from
 // silently shipping dead targeting.
+type RuleAttributeParts = Partial<Pick<FeatureRule, "condition">> & {
+  hashAttribute?: string;
+  fallbackAttribute?: string;
+};
+
+// With `existing`, only attributes the write changes are checked, so a rule
+// that predates a stricter scope does not block unrelated edits.
 export function validateRuleAttributes(
-  rule: Partial<Pick<FeatureRule, "condition">> & {
-    hashAttribute?: string;
-    fallbackAttribute?: string;
-  },
+  rule: RuleAttributeParts,
   context: ApiReqContext,
   project?: string | string[],
+  existing?: RuleAttributeParts,
 ): void {
+  const parts = (r: RuleAttributeParts) => ({
+    hashAttribute: r.hashAttribute,
+    fallbackAttribute: r.fallbackAttribute,
+    condition: r.condition,
+  });
   assertRegisteredAttributes(
     context,
-    {
-      hashAttribute: rule.hashAttribute,
-      fallbackAttribute: rule.fallbackAttribute,
-      condition: rule.condition,
-    },
+    parts(rule),
     "rule",
-    undefined,
+    existing ? parts(existing) : undefined,
     project,
   );
 }

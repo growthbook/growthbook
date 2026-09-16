@@ -23,7 +23,12 @@ import {
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
 import { HoldoutInterfaceStringDates } from "../validators/holdout";
-import { featureHasEnvironment } from "./features";
+import {
+  featureHasEnvironment,
+  getAttributeScopeProjectIds,
+  StagedTargetingScope,
+  TargetingScopedEntity,
+} from "./features";
 
 export * from "./strings";
 export * from "./units-query-settings";
@@ -424,13 +429,32 @@ export function getRulesForEnvironment(
 
 // A rule's own project scope: explicit list, or null = all projects. Empty array
 // means "no project" (leak-safe — never "all"); allProjects/legacy-absent → null.
-export function ruleProjectScope(rule: FeatureRule): string[] | null {
+export function ruleProjectScope(rule: {
+  allProjects?: boolean;
+  projects?: string[];
+}): string[] | null {
   if (rule == null || typeof rule !== "object") return [];
   if (rule.allProjects === true) return null;
   // allProjects === false is explicit scoping — an absent/empty list means no
   // project, never "all". Only the legacy state (no scope fields) falls back to all.
   if (rule.allProjects !== false && rule.projects == null) return null;
   return Array.isArray(rule.projects) ? rule.projects : [];
+}
+
+// Attribute scope for one rule: the feature's scope narrowed to the projects
+// the rule itself targets. A rule scoped outside the delivery set (or to no
+// project) reaches nowhere and so narrows nothing.
+export function getRuleAttributeScopeProjectIds(
+  entity: TargetingScopedEntity,
+  staged: StagedTargetingScope | undefined,
+  rule: { allProjects?: boolean; projects?: string[] },
+): string[] | null {
+  const featureScope = getAttributeScopeProjectIds(entity, staged);
+  const ruleScope = ruleProjectScope(rule);
+  if (ruleScope === null || ruleScope.length === 0) return featureScope;
+  if (featureScope === null) return ruleScope;
+  const narrowed = ruleScope.filter((p) => featureScope.includes(p));
+  return narrowed.length ? narrowed : featureScope;
 }
 
 // Whether a rule is served into an SDK payload: true only where its own scope,
