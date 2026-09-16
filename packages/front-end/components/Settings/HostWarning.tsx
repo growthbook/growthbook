@@ -1,3 +1,4 @@
+import { CLOUD_EGRESS_IP } from "shared/constants";
 import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
 
@@ -53,7 +54,7 @@ export default function HostWarning({
     return (
       <Callout status="info">
         If your database is behind a firewall, add GrowthBook Cloud&apos;s ip (
-        <code>52.70.79.40</code>) to your allowlist.
+        <code>{CLOUD_EGRESS_IP}</code>) to your allowlist.
       </Callout>
     );
   }

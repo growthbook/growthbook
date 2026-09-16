@@ -6,6 +6,7 @@ slug: /app/webhooks/event-webhooks
 ---
 
 import { ExternalLink } from "/snippets/ExternalLink.jsx";
+import CloudEgressIP from '/snippets/partials/_cloud-egress-ip.mdx';
 
 <Badge color="purple">BETA</Badge>
 
@@ -70,7 +71,7 @@ You can view the status of your webhooks in the GrowthBook app under **Settings 
 
 ### VPCs and Firewalls
 
-If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
+<CloudEgressIP />
 
 ## Verify Signatures
 

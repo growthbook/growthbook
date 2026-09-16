@@ -10,6 +10,9 @@ import {
 // and the reference detector (validators/constant) so they can't drift.
 export const CONSTANT_EXTENDS_KEY = "$extends";
 
+// The single NAT gateway address all GrowthBook Cloud egress leaves from; keep in sync with docs/ip-addresses.mdx.
+export const CLOUD_EGRESS_IP = "52.70.79.40";
+
 export const GB_SDK_ID_DEV = "sdk-UmQ03OkUDAu7Aox";
 export const GB_SDK_ID_PROD = "sdk-ueFMOgZ2daLa0M";
 

@@ -143,6 +143,7 @@ describe("features API", () => {
       models: defaultModels(),
       permissions: defaultPermissions(),
       getProjects: async () => [{ id: "project" }],
+      getTargetingOptOutProjectIds: async () => [],
       getUserByEmail: jest.fn().mockResolvedValue(null),
       getUsersByIds: jest.fn().mockResolvedValue([]),
       ...overrides,

@@ -241,6 +241,31 @@ export const secondsUntilAICanBeUsedAgainForEmbeddings = async (
   return secondsUntilAICanBeUsedAgainForProvider(context, provider);
 };
 
+export const secondsUntilAICanBeUsedAgainForSTT = async (
+  context: ReqContext | ApiReqContext,
+): Promise<number> => {
+  if (!IS_CLOUD) return 0;
+  const { sttModel } = await getAISettingsForOrg(context);
+  const provider = getProviderForAIModel("stt", sttModel ?? "") ?? undefined;
+  return secondsUntilAICanBeUsedAgainForProvider(context, provider);
+};
+
+export const recordSTTUsage = async (
+  context: ReqContext | ApiReqContext,
+  audioBytes: number,
+  provider: AIProvider,
+): Promise<void> => {
+  if (!IS_CLOUD) return;
+  const { keySource } = await getAISettingsForOrg(context);
+  // The org pays its own provider directly, so nothing to meter.
+  if (keySource[provider] === "organization") return;
+  // ponytail: audio has no tokens, so charge a KB apiece. Add a minutes counter if dictation spend needs real attribution.
+  await updateTokenUsage({
+    numTokensUsed: Math.ceil(audioBytes / 1024),
+    organization: context.org,
+  });
+};
+
 const constructMessages = (
   prompt: string,
   instructions?: string,

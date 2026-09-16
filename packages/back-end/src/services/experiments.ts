@@ -70,6 +70,7 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
+  isVariationWeightsSumValid,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -2365,6 +2366,33 @@ export function fillEmptyVariationKeys(
   }
 }
 
+const inUnitInterval = (n: number) => n >= 0 && n <= 1;
+
+// Only phases that differ from the stored phase at the same index are checked,
+// so an unrelated edit to an experiment with legacy data is not rejected.
+export function assertValidExperimentPhases(
+  phases: ExperimentPhase[],
+  existing: ExperimentPhase[] = [],
+): void {
+  phases.forEach((phase, i) => {
+    if (isEqual(phase, existing[i])) return;
+    if (!inUnitInterval(phase.coverage)) {
+      throw new BadRequestError(
+        `invalid_coverage: phase ${i} coverage must be between 0 and 1`,
+      );
+    }
+    const weights = phase.variationWeights;
+    if (
+      !weights.every(inUnitInterval) ||
+      !isVariationWeightsSumValid(weights)
+    ) {
+      throw new BadRequestError(
+        `invalid_variation_weights: phase ${i} variation weights must each be between 0 and 1 and sum to 1`,
+      );
+    }
+  });
+}
+
 // Only some experiment fields reach SDK payloads. A change that touches any of
 // them needs run-experiments permission in the environments the experiment
 // affects (on both the current project and, if it moves, the new one); other
@@ -2442,9 +2470,58 @@ export async function assertCanRunExperimentChanges(
   }
 }
 
+type ReleasedVariationFields = Pick<
+  ExperimentInterface,
+  "releasedVariationId" | "variations"
+>;
+
+// A mismatched releasedVariationId silently drops the release from the SDK
+// payload. Only a write that introduces the mismatch is rejected; a
+// pre-existing one is left alone.
+export function assertValidReleasedVariationId(
+  updated: Partial<ReleasedVariationFields>,
+  existing?: ReleasedVariationFields,
+): void {
+  const releasedVariationId = updated.releasedVariationId || "";
+  if (!releasedVariationId) return;
+
+  const variationIds = new Set((updated.variations ?? []).map((v) => v.id));
+  if (variationIds.has(releasedVariationId)) return;
+
+  const previousReleasedVariationId = existing?.releasedVariationId || "";
+  const idChanged = previousReleasedVariationId !== releasedVariationId;
+  const wasValid =
+    !!existing && existing.variations.some((v) => v.id === releasedVariationId);
+
+  if (idChanged || wasValid) {
+    throw new BadRequestError(
+      "invalid_released_variation_id: releasedVariationId must match one of the experiment's variation ids",
+    );
+  }
+}
+
+// Assigns missing ids and keys, then checks both are unique. On an update
+// (`existing`), an omitted id keeps the stored one by key, else by position,
+// so linked feature rules keep pointing at the same variations.
 export function validateVariationIds(
   variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
+  existing?: Pick<Variation, "id" | "key">[],
 ) {
+  if (existing && existing.length === variations.length) {
+    const claimed = new Set(variations.map((v) => v.id || v.variationId));
+    const idByKey = new Map(existing.map((v) => [v.key, v.id]));
+    variations.forEach((v, i) => {
+      if (v.id || v.variationId) return;
+      const stored = [
+        v.key === undefined ? undefined : idByKey.get(v.key),
+        existing[i].id,
+      ].find((id) => id && !claimed.has(id));
+      if (stored) {
+        v.variationId = stored;
+        claimed.add(stored);
+      }
+    });
+  }
   variations.forEach((variation, i) => {
     if (!variation.id) {
       variation.id = variation.variationId || uniqid("var_");
