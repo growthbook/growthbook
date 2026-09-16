@@ -292,6 +292,9 @@ export type MultiSelectFieldProps = Omit<
   formatGroupLabel?: (value: GroupedValue) => ReactNode;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
+  /** Fires as the search text changes, for callers that filter their own options. */
+  onInputChange?: (input: string) => void;
+  noOptionsMessage?: (input: string) => ReactNode;
   noMenu?: boolean;
   showCopyButton?: boolean;
   size?: MultiSelectFieldSize;
@@ -321,6 +324,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   formatGroupLabel,
   onPaste: userOnPaste,
   isOptionDisabled,
+  onInputChange,
+  noOptionsMessage,
   noMenu,
   required,
   pattern,
@@ -531,6 +536,20 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                   ref={ref}
                   formatOptionLabel={formatOptionLabel}
                   formatGroupLabel={formatGroupLabel}
+                  onInputChange={
+                    onInputChange
+                      ? (input, meta) => {
+                          if (meta.action === "input-change")
+                            onInputChange(input);
+                          if (meta.action === "menu-close") onInputChange("");
+                        }
+                      : undefined
+                  }
+                  noOptionsMessage={
+                    noOptionsMessage
+                      ? ({ inputValue }) => noOptionsMessage(inputValue)
+                      : undefined
+                  }
                   isDisabled={disabled || false}
                   options={sorted}
                   isMulti={true}
