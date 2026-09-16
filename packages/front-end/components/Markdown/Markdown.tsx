@@ -19,6 +19,11 @@ interface MarkdownProps
    * External links (with a protocol) still open in a new tab.
    */
   onInternalLinkClick?: (href: string) => void;
+  /**
+   * Optionally recognizes and rewrites additional hrefs as internal links.
+   * Return a root-relative href to route internally, or null to leave external.
+   */
+  resolveInternalHref?: (href: string) => string | null;
   // Opt-in: syntax-highlight fenced code blocks (lazy-loaded Prism). Enabled
   // on the review surfaces (revision descriptions / comments); other markdown
   // surfaces keep plain code blocks.
@@ -37,6 +42,7 @@ const Markdown: FC<MarkdownProps> = ({
   shareUid,
   shareType = "experiment",
   onInternalLinkClick,
+  resolveInternalHref,
   highlightCode = false,
   ...props
 }) => {
@@ -55,15 +61,17 @@ const Markdown: FC<MarkdownProps> = ({
       // everything else opens in a new tab.
       a: ({ ...props }) => {
         const href = props.href ?? "";
-        if (onInternalLinkClick && isInternalHref(href)) {
+        const internalHref =
+          resolveInternalHref?.(href) ?? (isInternalHref(href) ? href : null);
+        if (onInternalLinkClick && internalHref !== null) {
           return (
             <a
-              href={href}
+              href={internalHref}
               onClick={(e) => {
                 // Let modifier-clicks (cmd/ctrl/middle) open a new tab as usual.
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
                 e.preventDefault();
-                onInternalLinkClick(href);
+                onInternalLinkClick(internalHref);
               }}
             >
               {props.children}
@@ -93,7 +101,14 @@ const Markdown: FC<MarkdownProps> = ({
           }
         : {}),
     }),
-    [isPublic, shareUid, shareType, onInternalLinkClick, highlightCode],
+    [
+      isPublic,
+      shareUid,
+      shareType,
+      onInternalLinkClick,
+      resolveInternalHref,
+      highlightCode,
+    ],
   );
 
   return (

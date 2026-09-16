@@ -55,6 +55,7 @@ import {
 import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
+import { resolveAgentInternalHref } from "./agentLinkUtils";
 
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
@@ -62,6 +63,12 @@ const CALL_API_LABEL = "Calling GrowthBook API…";
 const ASK_USER_LABEL = "Asking you a question…";
 const LOAD_SKILL_LABEL = "Loading skill…";
 const WAIT_LABEL = "Waiting…";
+
+function resolveAgentPanelInternalHref(href: string): string | null {
+  const currentOrigin =
+    typeof window === "undefined" ? null : window.location.origin;
+  return resolveAgentInternalHref(href, currentOrigin);
+}
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
@@ -748,7 +755,10 @@ function ActiveTurnItemRow({
     if (!displayed) return null;
     return (
       <AssistantBubble>
-        <Markdown onInternalLinkClick={onInternalLinkClick}>
+        <Markdown
+          onInternalLinkClick={onInternalLinkClick}
+          resolveInternalHref={resolveAgentPanelInternalHref}
+        >
           {displayed}
         </Markdown>
       </AssistantBubble>
@@ -844,7 +854,10 @@ function PersistedTurn({
 
       {hasReply && (
         <AssistantBubble>
-          <Markdown onInternalLinkClick={onInternalLinkClick}>
+          <Markdown
+            onInternalLinkClick={onInternalLinkClick}
+            resolveInternalHref={resolveAgentPanelInternalHref}
+          >
             {replyContent}
           </Markdown>
         </AssistantBubble>
