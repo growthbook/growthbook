@@ -19,6 +19,7 @@ import { GBBandit, GBEdit, GBExperiment } from "@/components/Icons";
 import { useAuth } from "@/services/auth";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
+import { tagLinkProps } from "@/services/search";
 import SortedTags from "@/components/Tags/SortedTags";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspace";
@@ -461,12 +462,11 @@ export default function FactMetricPage() {
 
       {!isEditing && (
         <Flex align="center" gap="2" wrap="wrap" mt="3">
-          <Text size="sm" weight="semibold">
-            Tags:
-          </Text>
+          <Text weight="medium">Tags:</Text>
           {factMetric.tags?.length ? (
             <SortedTags
               tags={factMetric.tags}
+              {...tagLinkProps("metrics")}
               useFlex
               shouldShowEllipsis={false}
             />
@@ -476,8 +476,8 @@ export default function FactMetricPage() {
             </Text>
           )}
           {canEdit && (
-            <Link size="sm" onClick={() => setEditTagsOpen(true)}>
-              +Add
+            <Link aria-label="Edit tags" onClick={() => setEditTagsOpen(true)}>
+              <GBEdit />
             </Link>
           )}
         </Flex>
@@ -487,14 +487,18 @@ export default function FactMetricPage() {
         <TabsList aria-label="Metric navigation" mb="4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="experiments">
-            <GBExperiment className="mr-1" />
-            Experiments
-            <Badge label={String(experimentCount)} color="gray" ml="2" />
+            <Flex align="center" gap="1">
+              <GBExperiment />
+              Experiments
+              <Badge label={String(experimentCount)} color="gray" ml="2" />
+            </Flex>
           </TabsTrigger>
           <TabsTrigger value="bandits">
-            <GBBandit className="mr-1" />
-            Bandits
-            <Badge label={String(banditCount)} color="gray" ml="2" />
+            <Flex align="center" gap="1">
+              <GBBandit />
+              Bandits
+              <Badge label={String(banditCount)} color="gray" ml="2" />
+            </Flex>
           </TabsTrigger>
         </TabsList>
 
