@@ -2,7 +2,10 @@ import {
   getDefaultFactMetricProps,
   toFactMetricFormValues,
 } from "@/services/metrics";
-import { getDraftMetricPreview } from "./draftMetricPreview";
+import {
+  draftMetricNeedsPopulation,
+  getDraftMetricPreview,
+} from "./draftMetricPreview";
 
 const draft = () => ({
   ...toFactMetricFormValues(
@@ -72,4 +75,14 @@ describe("getDraftMetricPreview", () => {
       }),
     ).toBeNull();
   });
+});
+
+it("requires a population for rates but permits standalone value and funnel previews", () => {
+  expect(draftMetricNeedsPopulation("proportion")).toBe(true);
+  expect(draftMetricNeedsPopulation("retention")).toBe(true);
+  expect(draftMetricNeedsPopulation("dailyParticipation")).toBe(true);
+  expect(draftMetricNeedsPopulation("mean")).toBe(false);
+  expect(draftMetricNeedsPopulation("ratio")).toBe(false);
+  expect(draftMetricNeedsPopulation("quantile")).toBe(false);
+  expect(draftMetricNeedsPopulation("funnel")).toBe(false);
 });
