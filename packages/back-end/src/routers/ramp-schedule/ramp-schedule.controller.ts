@@ -18,6 +18,7 @@ import {
   dispatchRampEvent,
   ensureSafeRolloutForMonitoredRamp,
   jumpSchedule,
+  normalizeRampPlanForceValues,
   pauseSchedule,
   rollbackSchedule,
   restartSchedule,
@@ -136,6 +137,21 @@ export const postRampSchedule = async (
       targets: body.targets,
     });
   }
+
+  // Rule values are strings; bring any raw JSON `force` in the plan to that
+  // form and reject a step/end value the feature's type does not accept.
+  // startActions here are the anchor the editor captured from the live rule,
+  // so they are only stringified.
+  const feature =
+    body.entityType === "feature" && body.entityId
+      ? await getFeature(context, body.entityId)
+      : null;
+  Object.assign(
+    body,
+    normalizeRampPlanForceValues(body, feature, {
+      validateStartActions: false,
+    }),
+  );
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
 
@@ -274,6 +290,25 @@ export const putRampSchedule = async (
       // Publish-class gate for execution-field edits on an armable schedule
       // (monitoring carries its own assert above).
       await assertCanEditRampScheduleConfig(context, fresh, updates);
+
+      // Rule values are strings; bring any raw JSON `force` in the new plan to
+      // that form and reject a step/end value the feature's type does not
+      // accept (startActions are the captured anchor: stringified only).
+      const feature =
+        fresh.entityType === "feature"
+          ? await getFeature(context, fresh.entityId)
+          : null;
+      Object.assign(
+        updates,
+        normalizeRampPlanForceValues(
+          updates as Pick<
+            RampScheduleInterface,
+            "steps" | "startActions" | "endActions"
+          >,
+          feature,
+          { validateStartActions: false },
+        ),
+      );
 
       const editedFields = Object.keys(updates).filter(
         (k) => k !== "nextProcessAt" && k !== "eventHistory",

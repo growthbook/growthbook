@@ -1,7 +1,15 @@
 import isEqual from "lodash/isEqual";
-import { orgRequiresAnyReview, PermissionError } from "shared/util";
+import {
+  orgRequiresAnyReview,
+  PermissionError,
+  stringifyFeatureValue,
+} from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
-import type { RampScheduleInterface, RampStep } from "shared/validators";
+import type {
+  RampScheduleInterface,
+  RampStep,
+  RampStepAction,
+} from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -97,6 +105,19 @@ export function toApiRampStep(
   };
 }
 
+// A `force` value compares in the string form it is stored and applied in,
+// so `false` echoed against a stored "false" is not a change.
+function comparableActions(actions: RampStepAction[] | null | undefined) {
+  return (actions ?? []).map((a) =>
+    a.patch && "force" in a.patch && a.patch.force !== undefined
+      ? {
+          ...a,
+          patch: { ...a.patch, force: stringifyFeatureValue(a.patch.force) },
+        }
+      : a,
+  );
+}
+
 // The shape GET emits for each field, so an echoed schedule compares equal to
 // the stored one whatever extra fields the document carries.
 function normalizePlanField(field: PlanField, value: unknown): unknown {
@@ -104,7 +125,13 @@ function normalizePlanField(field: PlanField, value: unknown): unknown {
     return value ? new Date(value as string | Date).toISOString() : null;
   }
   if (field === "steps") {
-    return ((value as RampStep[]) ?? []).map(toApiRampStep);
+    return ((value as RampStep[]) ?? []).map((s) => {
+      const step = toApiRampStep(s);
+      return { ...step, actions: comparableActions(step.actions) };
+    });
+  }
+  if (field === "startActions" || field === "endActions") {
+    return value ? comparableActions(value as RampStepAction[]) : null;
   }
   return value ?? null;
 }

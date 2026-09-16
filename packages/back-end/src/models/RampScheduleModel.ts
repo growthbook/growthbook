@@ -17,6 +17,7 @@ import {
   stemRuleId,
   isRampScheduleServing,
   unanchoredRampTargets,
+  stringifyFeatureValue,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
@@ -34,6 +35,7 @@ import {
   getEffectiveRampAutoUpdateState,
   getRampAutoUpdatePreference,
   getRampMonitoringMode,
+  normalizeRampPlanForceValues,
   runLockedRampScheduleAction,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
@@ -229,6 +231,18 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
   return doc;
 }
 
+function withStringForce(action: RampStepAction): RampStepAction {
+  return "force" in action.patch && action.patch.force !== undefined
+    ? {
+        ...action,
+        patch: {
+          ...action.patch,
+          force: stringifyFeatureValue(action.patch.force),
+        },
+      }
+    : action;
+}
+
 export function rampScheduleToApiInterface(
   doc: RampScheduleInterface,
 ): ApiRampScheduleInterface {
@@ -240,9 +254,14 @@ export function rampScheduleToApiInterface(
     entityType: doc.entityType,
     entityId: doc.entityId,
     targets: doc.targets,
-    startActions: doc.startActions,
-    steps: doc.steps.map(toApiRampStep),
-    endActions: doc.endActions,
+    // Plans written before values were normalized may still hold a raw JSON
+    // `force`; emit the string form the scheduler will apply.
+    startActions: doc.startActions?.map(withStringForce),
+    steps: doc.steps.map((s) => ({
+      ...toApiRampStep(s),
+      actions: (s.actions ?? []).map(withStringForce),
+    })),
+    endActions: doc.endActions?.map(withStringForce),
     startDate: dateToIso(doc.startDate),
     cutoffDate: dateToIso(doc.cutoffDate),
     requiresStartApproval: doc.requiresStartApproval,
@@ -774,6 +793,22 @@ export class RampScheduleModel extends BaseClass {
     // Same publish-class gate as the dashboard PUT; canUpdate() alone passes
     // with draft access, which is right for name/monitoring edits only.
     await assertCanEditRampScheduleConfig(this.context, schedule, updates);
+
+    // Rule values are strings; bring any raw JSON `force` in the new plan to
+    // that form and reject a step/end value the feature's type does not
+    // accept. startActions are the rollback anchor (usually the rule's own
+    // earlier value, echoed back): stringified only, as on the dashboard PUT.
+    Object.assign(
+      updates,
+      normalizeRampPlanForceValues(
+        updates as Pick<
+          RampScheduleInterface,
+          "steps" | "startActions" | "endActions"
+        >,
+        this.getForeignRefs(schedule, false).feature,
+        { validateStartActions: false },
+      ),
+    );
 
     const editedFields = Object.keys(updates).filter(
       (k) => k !== "nextProcessAt" && k !== "eventHistory",

@@ -27,7 +27,9 @@ import {
   rampRuleEnvKey,
   rampTargetFootprint,
   rampTargetRuleIds,
+  stringifyFeatureValue,
   unanchoredRampTargets,
+  validateFeatureValue,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -58,6 +60,7 @@ import {
 } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {
+  BadRequestError,
   ConflictError,
   NotFoundError,
   RampAdvanceLockBusyError,
@@ -423,9 +426,18 @@ export function forceMatchesValueType(
 ): boolean {
   if (value === null || value === undefined) return false;
   const t = typeof value;
+  // A string is the form rule values are stored in; it matches when the
+  // feature's type accepts it ("false" for a boolean flag, "10" for a number).
+  if (t === "string") {
+    try {
+      validateFeatureValue({ valueType }, value as string);
+      return true;
+    } catch {
+      return false;
+    }
+  }
   if (valueType === "boolean") return t === "boolean";
   if (valueType === "number") return t === "number";
-  if (valueType === "string") return t === "string";
   if (valueType === "json") return t === "object";
   return false;
 }
@@ -443,6 +455,9 @@ export function remapTemplateActions(
     if ("force" in patch && !forceMatchesValueType(patch.force, valueType)) {
       const { force: _force, ...rest } = patch;
       return { targetType: "feature-rule" as const, targetId, patch: rest };
+    }
+    if ("force" in patch) {
+      patch.force = stringifyFeatureValue(patch.force);
     }
     return { targetType: "feature-rule" as const, targetId, patch };
   });
@@ -502,6 +517,88 @@ export function computeEffectivePatch(
   return byTarget;
 }
 
+type RampForceFeature = Pick<FeatureInterface, "valueType">;
+
+// Bring the `force` value on every feature-rule action to the string form rule
+// values are stored in (see stringifyFeatureValue) and, when the target
+// feature is given, reject one its value TYPE does not accept ("False" on a
+// boolean flag, "ten" on a number flag) — the same type check a rule write
+// gets, without the JSON-schema part, so a value that predates a schema
+// change is never refused here. Pass no feature to only stringify (used for
+// rollback anchors captured from the live rule, which are not caller input).
+export function normalizeRampActionsForceValues<
+  A extends { targetType?: string; patch: { force?: unknown } },
+>(actions: A[], feature?: RampForceFeature | null, label = "Ramp value"): A[] {
+  return actions.map((action, i) => {
+    if (action.targetType !== undefined && action.targetType !== "feature-rule")
+      return action;
+    const { patch } = action;
+    if (!patch || !("force" in patch) || patch.force === undefined)
+      return action;
+    let force = stringifyFeatureValue(patch.force);
+    if (feature) {
+      try {
+        force = validateFeatureValue(
+          { valueType: feature.valueType },
+          force,
+          `${label} (action ${i + 1})`,
+        );
+      } catch (e) {
+        throw new BadRequestError(e instanceof Error ? e.message : String(e));
+      }
+    }
+    return { ...action, patch: { ...patch, force } };
+  });
+}
+
+// Same, over a whole plan. Absent parts stay absent. `startActions` are the
+// rollback anchor: routes where they are captured from the live rule rather
+// than typed by the caller pass `validateStartActions: false` so an existing
+// rule value is only stringified, never judged.
+export function normalizeRampPlanForceValues<
+  A extends { targetType?: string; patch: { force?: unknown } },
+  P extends {
+    steps?: { actions?: A[] | null }[] | null;
+    startActions?: A[] | null;
+    endActions?: A[] | null;
+  },
+>(
+  plan: P,
+  feature?: RampForceFeature | null,
+  opts: { validateStartActions?: boolean } = {},
+): P {
+  const out = { ...plan };
+  if (plan.steps) {
+    out.steps = plan.steps.map((s, i) =>
+      s.actions
+        ? {
+            ...s,
+            actions: normalizeRampActionsForceValues(
+              s.actions,
+              feature,
+              `Step ${i + 1} value`,
+            ),
+          }
+        : s,
+    ) as P["steps"];
+  }
+  if (plan.startActions) {
+    out.startActions = normalizeRampActionsForceValues(
+      plan.startActions,
+      opts.validateStartActions === false ? undefined : feature,
+      "Start value",
+    ) as P["startActions"];
+  }
+  if (plan.endActions) {
+    out.endActions = normalizeRampActionsForceValues(
+      plan.endActions,
+      feature,
+      "End value",
+    ) as P["endActions"];
+  }
+  return out;
+}
+
 // Apply a patch to a rule. Uses "in" checks so injected undefined values clear the field.
 // null clears most fields, but force allows null (valid JSON feature value).
 export function applyPatchToRule(
@@ -536,7 +633,11 @@ export function applyPatchToRule(
     }
   }
   if ("force" in patch) {
-    (updated as { value?: unknown }).value = patch.force; // null is a valid JSON value
+    // null is a valid JSON value ("null"); undefined clears.
+    (updated as { value?: string }).value =
+      patch.force === undefined
+        ? undefined
+        : stringifyFeatureValue(patch.force);
   }
   if ("enabled" in patch) {
     updated.enabled = patch.enabled ?? undefined;
@@ -676,7 +777,29 @@ export const featureEntityHandler: EntityHandler = {
 
       for (const target of targets) {
         const idx = updatedRules.indexOf(target);
-        updatedRules[idx] = applyPatchToRule(target, patchFields);
+        // applyPatchToRule stores any `force` as the string form rule values
+        // use; that is the whole fire-time contract. A value the feature's
+        // type would not accept is logged, never refused: refusing here would
+        // also block rollbacks and restarts, whose anchor is the rule's own
+        // earlier value.
+        const patched = applyPatchToRule(target, patchFields);
+        if ("force" in patchFields && patchFields.force !== undefined) {
+          const value = (patched as { value?: string }).value ?? "";
+          try {
+            validateFeatureValue({ valueType: feature.valueType }, value);
+          } catch (e) {
+            logger.warn(
+              {
+                featureId: feature.id,
+                ruleId,
+                valueType: feature.valueType,
+                err: e instanceof Error ? e.message : String(e),
+              },
+              "Ramp step applied a value the feature type does not accept",
+            );
+          }
+        }
+        updatedRules[idx] = patched;
       }
     }
 
