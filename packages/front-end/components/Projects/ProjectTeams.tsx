@@ -42,7 +42,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 // The team's role fields, as PUT /teams/:id expects them.
 const teamRoleInfo = (team: Team): MemberRoleWithProjects => ({
@@ -178,70 +177,6 @@ const ProjectTeamRuleModal: FC<{
   );
 };
 
-const TeamMembersModal: FC<{
-  team: Team;
-  canRemove: (memberId: string) => boolean;
-  close: () => void;
-  onChange: () => void;
-}> = ({ team, canRemove, close, onChange }) => {
-  const { apiCall } = useAuth();
-  const members = team.members || [];
-
-  return (
-    <ModalStandard
-      trackingEventModalType=""
-      open={true}
-      close={close}
-      header={`${team.name} Members`}
-      closeCta="Close"
-    >
-      <Table variant="surface">
-        <TableHeader>
-          <TableRow>
-            <TableColumnHeader>Name</TableColumnHeader>
-            <TableColumnHeader>Email</TableColumnHeader>
-            <TableColumnHeader style={{ width: 50 }} />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {members.map((member) => (
-            <TableRow key={member.id}>
-              <TableCell>{member.name}</TableCell>
-              <TableCell>{member.email}</TableCell>
-              <TableCell justify="end">
-                {canRemove(member.id) && (
-                  <DeleteButton
-                    displayName="member"
-                    text="Remove"
-                    cta="Remove"
-                    title={`Remove ${member.email} from ${team.name}`}
-                    link
-                    useIcon={false}
-                    deleteMessage={`${member.email} will lose this team's roles.`}
-                    onClick={async () => {
-                      await apiCall(`/teams/${team.id}/member/${member.id}`, {
-                        method: "DELETE",
-                      });
-                      onChange();
-                    }}
-                  />
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-          {members.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={3} style={{ textAlign: "center" }}>
-                <Text color="text-mid">This team has no members yet.</Text>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </ModalStandard>
-  );
-};
-
 // Teams as seen from one project. The page owns a team's rule for THIS project;
 // whole-team actions (members, deletion) reach every project the team touches
 // and are offered only when the viewer administers all of them; a team's
@@ -250,7 +185,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
   const {
     teams = [],
     organization,
-    userId,
     refreshOrganization,
     hasCommercialFeature,
   } = useUser();
@@ -262,7 +196,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
 
   const [ruleModal, setRuleModal] = useState<"create" | "add" | null>(null);
   const [roleTeamId, setRoleTeamId] = useState<string | null>(null);
-  const [membersTeamId, setMembersTeamId] = useState<string | null>(null);
   const [addMembersTeamId, setAddMembersTeamId] = useState<string | null>(null);
 
   const byName = (a: Team, b: Team) => a.name.localeCompare(b.name);
@@ -284,7 +217,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
   });
 
   const roleTeam = teams.find((t) => t.id === roleTeamId);
-  const membersTeam = teams.find((t) => t.id === membersTeamId);
 
   const saveRules = async (team: Team, projectRoles: ProjectMemberRole[]) => {
     await apiCall(`/teams/${team.id}`, {
@@ -295,11 +227,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
     });
     refreshOrganization();
   };
-
-  // Whole-team actions on the confined path exclude the viewer, mirroring the
-  // rule for members' own project roles.
-  const canTouchMember = (memberId: string) =>
-    canManageTeam || memberId !== userId;
 
   if (!hasCommercialFeature("teams")) {
     return (
@@ -345,14 +272,6 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
               rule,
             ]);
           }}
-        />
-      )}
-      {membersTeam && (
-        <TeamMembersModal
-          team={membersTeam}
-          canRemove={canTouchMember}
-          close={() => setMembersTeamId(null)}
-          onChange={() => refreshOrganization()}
         />
       )}
       {addMembersTeamId && (
@@ -490,18 +409,11 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                           Change role on this Project
                         </DropdownMenuItem>
                         {canManageMembers && (
-                          <>
-                            <DropdownMenuItem
-                              onClick={() => setMembersTeamId(team.id)}
-                            >
-                              View members
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setAddMembersTeamId(team.id)}
-                            >
-                              Add members
-                            </DropdownMenuItem>
-                          </>
+                          <DropdownMenuItem
+                            onClick={() => setAddMembersTeamId(team.id)}
+                          >
+                            Add members
+                          </DropdownMenuItem>
                         )}
                         {canManageTeam && (
                           <DropdownMenuItem
