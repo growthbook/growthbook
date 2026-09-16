@@ -4,10 +4,11 @@ import { FeatureInterface } from "shared/types/feature";
 import {
   bypassApprovalPermission,
   NO_ENVIRONMENT_BINDING,
+  DEFAULT_PERMISSION_ERROR_MESSAGE,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
-import { canPublishFeatureRevisionChange } from "back-end/src/revisions/featureDraftAuthority";
+import { featurePublishRefusal } from "back-end/src/revisions/featureDraftAuthority";
 import { logger } from "back-end/src/util/logger";
 import {
   applyHoldoutExperimentLinkage,
@@ -227,20 +228,21 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // Same blind spot as the single publish: ramp reach is not in any rule diff.
       rampActions: raw.rampActions,
     });
-    if (
-      !(await canPublishFeatureRevisionChange({
-        context: callerContext,
-        feature,
-        revision: raw,
-        environments: envsToCheck,
-        mergeChanges: plan.mergeResult,
-      }))
-    ) {
+    const refusal = await featurePublishRefusal({
+      context: callerContext,
+      feature,
+      revision: raw,
+      environments: envsToCheck,
+      mergeChanges: plan.mergeResult,
+    });
+    if (refusal !== null) {
       gates.push(
         makeBlockingGate({
           type: "permission-denied",
           messages: [
-            "You do not have permission to publish this Feature Flag in the environments this revision changes.",
+            refusal === DEFAULT_PERMISSION_ERROR_MESSAGE
+              ? "You do not have permission to publish this Feature Flag in the environments this revision changes."
+              : refusal,
           ],
         }),
       );

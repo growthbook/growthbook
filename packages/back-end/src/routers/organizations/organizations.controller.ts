@@ -2,6 +2,7 @@ import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
+  assertTargetingRulesDisjoint,
   getNamespaceRanges,
   getRulesForEnvironment,
   normalizeApprovalRuleSettings,
@@ -985,7 +986,7 @@ export async function getOrganization(
 
   // Returned here so every page can gate AI affordances off the org's real key
   // state without a second request. The keys never leave the back end.
-  const { keySource } = await getAISettingsForOrg(context);
+  const { keySource, sttModel } = await getAISettingsForOrg(context);
   const aiKeyProviders = AI_PROVIDERS.filter((p) => keySource[p] !== "none");
 
   // Teams were already loaded (unfiltered) by the auth middleware
@@ -1030,6 +1031,7 @@ export async function getOrganization(
     subscription: license ? getSubscriptionFromLicense(license) : null,
     agreements: agreementsAgreed || [],
     aiKeyProviders,
+    sttModel,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -1788,18 +1790,21 @@ export async function putOrganization(
       orig.externalId = org.externalId;
     }
     if (settings) {
-      updates.settings = {
-        ...org.settings,
-        // Drops rule references to deleted teams/environments, so the settings
-        // UI's "Saving removes it" note is true.
-        ...pruneApprovalRuleReferences(
-          normalizeApprovalRuleSettings(settings),
-          {
-            environments: (org.settings?.environments ?? []).map((e) => e.id),
-            teams: (context.teams ?? []).map((t) => t.id),
-          },
-        ),
-      };
+      // Drops rule references to deleted teams, environments, and projects, so
+      // the settings UI's "Saving removes it" note is true and a stale
+      // round-tripped rule can never block the save.
+      const pruned = pruneApprovalRuleReferences(
+        normalizeApprovalRuleSettings(settings),
+        {
+          environments: (org.settings?.environments ?? []).map((e) => e.id),
+          teams: (context.teams ?? []).map((t) => t.id),
+          projects: await context.getAllProjectIds(),
+        },
+      );
+      if (pruned.targetingReviewMode) {
+        assertTargetingRulesDisjoint(pruned.targetingReviewMode);
+      }
+      updates.settings = { ...org.settings, ...pruned };
       orig.settings = org.settings;
     }
 

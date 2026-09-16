@@ -53,6 +53,12 @@ The Snowflake connection **must use key-pair authentication** — password authe
 
 Key-pair authentication must be configured on the Snowflake datasource connection itself — it is not set in the Event Forwarder UI. Update your datasource's connection settings to use key-pair auth before enabling the Event Forwarder.
 
+## Network Access
+
+If your warehouse restricts access by IP — a Snowflake network policy, a BigQuery VPC Service Control perimeter, a firewall in front of either — it needs to admit **two** different sources. GrowthBook Cloud connects from `52.70.79.40` to create the destination tables and validate write access, and the Confluent connector streams your events from a separate pool of addresses that depends on your Data Region.
+
+Both lists are on the [IP addresses](/ip-addresses#event-forwarder-connections-to-your-warehouse) page. Allow all of them before enabling the forwarder — a partial list shows up as a connector that validates once and then fails later, because any address in the pool can be the one that connects.
+
 ## Get Started
 
 The event forwarder is an advanced Pro/Enterprise feature and must be enabled for your account. Contact your account manager or reach out to [sales@growthbook.io](mailto:sales@growthbook.io) to learn more and get started.

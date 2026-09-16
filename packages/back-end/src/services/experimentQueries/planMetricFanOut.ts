@@ -21,8 +21,8 @@ export interface CrossFtRatioMetric {
 
 // A group of metrics that need a multi-source stats query joining 2+ fact
 // table caches. Cross-FT ratio metrics and multi-FT funnel metrics that share
-// the same (sorted) FT set are merged into a single group so they share one
-// joined stats query.
+// the same (sorted) FT set are merged into a single group; the runner then
+// splits the group by resolved cache tables (see buildMultiSourceSubGroups).
 export interface MultiSourceGroup {
   factTableIds: string[]; // sorted, de-duplicated
   metrics: FactMetricInterface[];
@@ -42,7 +42,7 @@ export interface MetricFanOut {
   }>;
   // One entry per unique sorted set of fact table IDs that needs a multi-source
   // stats query. Groups cross-FT ratio metrics and multi-FT funnel metrics that
-  // share the same FT set so they can share a single joined query.
+  // share the same FT set so they can share joined queries.
   multiSourceGroups: MultiSourceGroup[];
 }
 

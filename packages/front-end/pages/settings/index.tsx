@@ -216,6 +216,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultAIModel:
         settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
+      sttModel: settings.sttModel,
       visualEditorAIModel: settings.visualEditorAIModel,
       visualEditorImageModel: settings.visualEditorImageModel || "",
       visualEditorAIContext: settings.visualEditorAIContext || "",
@@ -287,6 +288,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     aiAskDataEnabled: form.watch("aiAskDataEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
+    sttModel: form.watch("sttModel") || undefined,
     visualEditorAIModel: form.watch("visualEditorAIModel"),
     visualEditorImageModel: form.watch("visualEditorImageModel"),
     visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
