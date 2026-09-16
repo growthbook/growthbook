@@ -163,12 +163,14 @@ const MemberList: FC<{
   // On a Project, lead with the people someone deliberately granted a role
   // here. Members load after mount, so decide once they have arrived.
   const [scopedRolesOnly, setScopedRolesOnly] = useState(false);
-  const scopedDefaultApplied = useRef(false);
+  const scopedDefaultFor = useRef<string | null>(null);
   const anyRuleHere = members.some(([, member]) => hasRuleHere(member));
   const membersLoaded = members.length > 0;
   useEffect(() => {
-    if (scopedDefaultApplied.current || !project || !membersLoaded) return;
-    scopedDefaultApplied.current = true;
+    if (!project || !membersLoaded || scopedDefaultFor.current === project) {
+      return;
+    }
+    scopedDefaultFor.current = project;
     setScopedRolesOnly(anyRuleHere);
   }, [project, membersLoaded, anyRuleHere]);
   // Searching looks across the whole organization, so a query session starts
