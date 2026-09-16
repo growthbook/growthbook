@@ -230,7 +230,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
 
   if (!hasCommercialFeature("teams")) {
     return (
-      <Box mb="4">
+      <Box mt="6" mb="4">
         <Heading as="h5" size="sm" mb="2">
           Teams
         </Heading>
@@ -245,7 +245,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
   }
 
   return (
-    <Box mb="4">
+    <Box mt="6" mb="4">
       {ruleModal && (
         <ProjectTeamRuleModal
           project={project}
