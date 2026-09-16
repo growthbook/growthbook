@@ -76,7 +76,7 @@ export default function RoleRulesSummaryRow({
     <Frame px="3" py="2" mb="4">
       <Flex align="start" justify="between" gap="3">
         <Flex direction="column" gap="1">
-          <Text weight="medium" color="text-high">
+          <Text size="md" weight="medium" color="text-high">
             {label}
           </Text>
           <RoleRulesSummary value={value} size="md" />
