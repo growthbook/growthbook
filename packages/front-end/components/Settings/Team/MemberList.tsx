@@ -397,7 +397,13 @@ const MemberList: FC<{
               )}
               <SortableTableColumnHeader
                 field="numTeams"
-                style={{ width: MEMBER_COLUMN_WIDTHS.teams }}
+                style={{
+                  // The project page drops the Project Roles column; let Teams
+                  // take that room instead of wrapping names.
+                  width: project
+                    ? MEMBER_COLUMN_WIDTHS.role
+                    : MEMBER_COLUMN_WIDTHS.teams,
+                }}
               >
                 Teams
               </SortableTableColumnHeader>
