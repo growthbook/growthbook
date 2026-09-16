@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { Box, Container, Flex, Separator } from "@radix-ui/themes";
 import {
   CreateSDKConnectionParams,
@@ -25,8 +24,6 @@ import {
   languageMapping,
 } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import PageHead from "@/components/Layout/PageHead";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import useFeaturesSettled from "@/hooks/useFeaturesSettled";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
@@ -72,8 +69,6 @@ const NO_WIZARD: ReadonlySet<string> = new Set([
 
 export default function ConnectPage() {
   const router = useRouter();
-  const aiOnboarding = useFeatureIsOn("ai-assisted-onboarding");
-  const flagsSettled = useFeaturesSettled();
   const [step, setStep] = useState<1 | 2>(1);
   const [language, setLanguage] = useState<SDKLanguage>("react");
   const [languageFilter, setLanguageFilter] =
@@ -160,12 +155,6 @@ export default function ConnectPage() {
     mutateDefinitions,
   ]);
 
-  // Off by default: without the flag this page does not exist, and the existing
-  // setup wizard takes over.
-  useEffect(() => {
-    if (flagsSettled && !aiOnboarding) router.replace("/setup");
-  }, [flagsSettled, aiOnboarding, router]);
-
   const apiHost = getApiBaseUrl(connection ?? undefined);
   // Same contract as the setup wizard, so arriving from Features returns there.
   const exitHref =
@@ -177,9 +166,6 @@ export default function ConnectPage() {
     apiHost: isCloud() ? null : getApiHost(),
   });
   const agentLabel = AGENTS.find((a) => a.id === agent)?.label ?? "your agent";
-
-  if (!flagsSettled) return <LoadingOverlay />;
-  if (!aiOnboarding) return null;
 
   const encryptionKey = connection?.encryptPayload
     ? connection.encryptionKey
