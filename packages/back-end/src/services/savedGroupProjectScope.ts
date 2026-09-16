@@ -92,9 +92,9 @@ function featureTargeting(feature: Feature): [Targeting, ProjectScope][] {
   const projects = getTargetingProjectIds(feature);
   return [
     [{ prerequisites: feature.prerequisites }, projects],
-    ...Object.values(feature.environmentSettings ?? {}).map(
-      (env): [Targeting, ProjectScope] => [env, projects],
-    ),
+    ...Object.values(feature.environmentSettings ?? {})
+      .filter((env) => env.enabled)
+      .map((env): [Targeting, ProjectScope] => [env, projects]),
     ...(feature.rules ?? []).map((rule): [Targeting, ProjectScope] => {
       const ruleProjects = ruleProjectScope(rule);
       // Match SDK delivery: intersect the rule's scope with the Feature Flag's

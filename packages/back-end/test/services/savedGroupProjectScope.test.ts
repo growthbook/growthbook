@@ -291,6 +291,52 @@ describe("feature writes and publish validation", () => {
       );
   });
 
+  it("ignores disabled environment prerequisites on writes and publication", async () => {
+    const original = feature({
+      rules: [],
+      environmentSettings: {
+        production: { enabled: true },
+        staging: {
+          enabled: false,
+          prerequisites: [{ id: "other", ...targeting }],
+        },
+      },
+    });
+    const proposed = { ...original, targetingProjects: ["b"] };
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, original),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed),
+    ).resolves.toBeUndefined();
+    expect(getAll).not.toHaveBeenCalled();
+  });
+
+  it("rechecks environment prerequisites when enabling an environment", async () => {
+    const original = feature({
+      rules: [],
+      targetingProjects: ["b"],
+      environmentSettings: {
+        staging: {
+          enabled: false,
+          prerequisites: [{ id: "other", ...targeting }],
+        },
+      },
+    });
+    const proposed = {
+      ...original,
+      environmentSettings: {
+        staging: { ...original.environmentSettings.staging, enabled: true },
+      },
+    };
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, original),
+    ).rejects.toThrow("not available");
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed),
+    ).rejects.toThrow("not available");
+  });
+
   it("allows opening a repair draft and removing legacy invalid references", async () => {
     const invalid = feature({ project: "b" });
     await expect(
@@ -475,6 +521,25 @@ describe("Saved Group re-scoping", () => {
       }),
     ]);
     await expect(narrow()).resolves.toBeUndefined();
+  });
+
+  it("ignores disabled environment prerequisites when re-scoping a group", async () => {
+    const f = feature({
+      rules: [],
+      targetingProjects: ["b"],
+      environmentSettings: {
+        production: { enabled: true },
+        staging: {
+          enabled: false,
+          prerequisites: [{ id: "other", ...targeting }],
+        },
+      },
+    });
+    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([f]);
+    await expect(narrow()).resolves.toBeUndefined();
+
+    f.environmentSettings.staging.enabled = true;
+    await expect(narrow()).rejects.toThrow("existing Feature Flag references");
   });
 
   it("allows narrowing with no invalidated references", async () => {
