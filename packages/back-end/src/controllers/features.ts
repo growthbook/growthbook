@@ -36,6 +36,7 @@ import {
   getDependentExperiments,
   getDependentFeatures,
   getEffectiveRevisionHoldout,
+  getRevertTargetArchived,
   getRevertTargetHoldout,
   featureRuleMergeConfig,
   resolveDraftEdit,
@@ -2787,11 +2788,10 @@ export async function postFeatureRevert(
     mergeChanges.prerequisites = revision.prerequisites;
   }
 
-  // Archived state — sparse: only revert if this revision explicitly changed it
-  if (
-    revision.archived !== undefined &&
-    revision.archived !== (feature.archived ?? false)
-  ) {
+  // Archived state — a revision that predates archived snapshots restores an
+  // active flag rather than leaving a later archive in place.
+  const targetArchived = getRevertTargetArchived(revision);
+  if (targetArchived !== (feature.archived ?? false)) {
     if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
     }
@@ -2800,14 +2800,14 @@ export async function postFeatureRevert(
     // authority covers the restoration, not the elevation.
     if (
       isArchiveTransition({
-        proposed: revision.archived,
+        proposed: targetArchived,
         current: feature.archived,
       }) &&
       !context.permissions.canDeleteFeature(feature, allEnabledEnvs)
     ) {
       context.permissions.throwPermissionError();
     }
-    mergeChanges.archived = revision.archived;
+    mergeChanges.archived = targetArchived;
   }
 
   // Metadata — sparse: revert only the fields this revision explicitly changed
@@ -2971,8 +2971,8 @@ export async function postFeatureRevert(
   if (revision.prerequisites !== undefined) {
     revisionChanges.prerequisites = revision.prerequisites;
   }
-  if (revision.archived !== undefined) {
-    revisionChanges.archived = revision.archived;
+  if (mergeChanges.archived !== undefined) {
+    revisionChanges.archived = mergeChanges.archived;
   }
   if (revision.metadata !== undefined) {
     revisionChanges.metadata = revision.metadata;
@@ -3121,8 +3121,11 @@ export async function postFeatureRevertDraft(
   if (revision.prerequisites !== undefined) {
     changes.prerequisites = revision.prerequisites;
   }
-  if (revision.archived !== undefined) {
-    changes.archived = revision.archived;
+  // A revision that predates archived snapshots restores an active flag rather
+  // than leaving a later archive in place.
+  const targetArchived = getRevertTargetArchived(revision);
+  if (targetArchived !== (feature.archived ?? false)) {
+    changes.archived = targetArchived;
   }
   if (revision.metadata !== undefined) {
     changes.metadata = revision.metadata;

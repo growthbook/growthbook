@@ -12,6 +12,7 @@ import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
   checkIfRevisionNeedsReview,
+  getRevertTargetArchived,
   getRevertTargetHoldout,
   getRulesForEnvironment,
 } from "shared/util";
@@ -173,11 +174,10 @@ export async function revertFeatureRevision(
     changes.prerequisites = targetRevision.prerequisites;
   }
 
-  // Sparse: only revert archived if this revision explicitly changed it.
-  if (
-    targetRevision.archived !== undefined &&
-    targetRevision.archived !== (feature.archived ?? false)
-  ) {
+  // A revision that predates archived snapshots restores an active flag rather
+  // than leaving a later archive in place.
+  const targetArchived = getRevertTargetArchived(targetRevision);
+  if (targetArchived !== (feature.archived ?? false)) {
     if (isPublish) {
       if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
         context.permissions.throwPermissionError();
@@ -187,7 +187,7 @@ export async function revertFeatureRevision(
       // Revert authority covers the restoration, not the elevation.
       if (
         isArchiveTransition({
-          proposed: targetRevision.archived,
+          proposed: targetArchived,
           current: feature.archived,
         }) &&
         !context.permissions.canDeleteFeature(feature, allEnabledEnvs)
@@ -195,7 +195,7 @@ export async function revertFeatureRevision(
         context.permissions.throwPermissionError();
       }
     }
-    changes.archived = targetRevision.archived;
+    changes.archived = targetArchived;
   }
 
   if (targetRevision.metadata) {
@@ -346,8 +346,12 @@ export async function revertFeatureRevision(
   if (targetRevision.prerequisites !== undefined) {
     revisionChanges.prerequisites = targetRevision.prerequisites;
   }
-  if (targetRevision.archived !== undefined) {
-    revisionChanges.archived = targetRevision.archived;
+  // Only when the revert changes it: `createRevision` snapshots the live value
+  // otherwise, and the approval check below reads this against the raw live
+  // revision, where an explicit `false` beside a legacy revision's absent value
+  // would count as an `archived` change.
+  if (changes.archived !== undefined) {
+    revisionChanges.archived = changes.archived;
   }
   if (targetRevision.metadata !== undefined) {
     revisionChanges.metadata = targetRevision.metadata;

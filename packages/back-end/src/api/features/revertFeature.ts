@@ -13,6 +13,7 @@ import {
   MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
+  getRevertTargetArchived,
   getRevertTargetHoldout,
   getRevertValueValidationWarnings,
   getRulesForEnvironment,
@@ -20,8 +21,10 @@ import {
 import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
+import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -149,6 +152,31 @@ export async function revertFeatureCore(
       context.permissions.throwPermissionError();
     }
     changes.prerequisites = revision.prerequisites;
+  }
+
+  // Archived state. Like `holdout`, a revision that predates archived snapshots
+  // restores an active flag rather than leaving a later archive in place.
+  const targetArchived = getRevertTargetArchived(revision);
+  if (targetArchived !== (feature.archived ?? false)) {
+    const enabledEnvs = Array.from(
+      getEnabledEnvironments(feature, environmentIds),
+    );
+    if (!context.permissions.canRevertFeature(feature, enabledEnvs)) {
+      context.permissions.throwPermissionError();
+    }
+    // Restoring an archived state still takes the flag out of service, so it
+    // carries the same delete-class gate as archiving it any other way. Revert
+    // authority covers the restoration, not the elevation.
+    if (
+      isArchiveTransition({
+        proposed: targetArchived,
+        current: feature.archived,
+      }) &&
+      !context.permissions.canDeleteFeature(feature, enabledEnvs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    changes.archived = targetArchived;
   }
 
   if (revision.metadata) {
@@ -362,6 +390,11 @@ export async function revertFeatureCore(
       : [];
 
   await assertFeatureMoveDependentsGuard(context, feature, changes.metadata);
+  // A revert restoring an archived state is the same out-of-service flip the
+  // direct archive endpoint guards.
+  if (changes.archived === true && !feature.archived) {
+    await assertFeatureArchiveDependentsGuard(context, feature);
+  }
   const { revision: newRevision, updatedFeature } =
     await createAndPublishRevision({
       context,
