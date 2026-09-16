@@ -13,7 +13,6 @@ describe("experiment alert messages", () => {
           type: "started",
           experimentId: "exp-1",
           experimentName: "<!channel>",
-          variationCount: 3,
         },
       },
     } as Extract<NotificationEvent, { event: "experiment.status.started" }>;

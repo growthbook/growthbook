@@ -7,7 +7,6 @@ export const experimentStartedNotificationPayload = z
     experimentId: z.string(),
     experimentName: z.string(),
     phaseName: z.string().optional(),
-    variationCount: z.number().optional(),
     // Expanded goal metric names (metric groups resolved), in experiment order.
     goalMetricNames: z.array(z.string()).optional(),
     linkedFeatureCount: z.number().int().nonnegative().optional(),

@@ -136,7 +136,6 @@ export const notifyExperimentStarted = async ({
         experimentId: experiment.id,
         experimentName: experiment.name,
         phaseName: latestPhase?.name,
-        variationCount: experiment.variations.length,
         ...(goalMetricNames.length ? { goalMetricNames } : {}),
         linkedFeatureCount: new Set(experiment.linkedFeatures || []).size,
         visualChangesetCount: visualChangesets.length,

@@ -21,7 +21,6 @@ export const notificationCardSamples: {
           visualChangesetCount: 1,
           urlRedirectCount: 1,
           phaseName: "Main phase",
-          variationCount: 3,
           goalMetricNames: [
             "Checkout conversion",
             "Revenue per visitor",
