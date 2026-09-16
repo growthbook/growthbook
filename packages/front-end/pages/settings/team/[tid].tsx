@@ -52,6 +52,13 @@ const TeamPage: FC = () => {
   // Which review rules demand this team's sign-off, described by their scope, so
   // the team page answers "what does this team gate?".
   const approvalScopes = reviewScopesRequiringTeam(tid, settings);
+  const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
+  const scopeLabel = (project: string | null) =>
+    project
+      ? getProjectById(project)?.name || project
+      : approvalScopes.length > 1
+        ? "All other Projects"
+        : "All Projects";
 
   const team = teams?.find((team) => team.id === tid);
   const isEditable = !team?.managedByIdp;
@@ -223,8 +230,8 @@ const TeamPage: FC = () => {
                   Required Approver
                 </Heading>
                 <Text size="sm" color="text-low">
-                  Approval rules that need this team&apos;s sign-off. Each link
-                  opens where the rule is managed.
+                  Approval rules that need this team&apos;s sign-off, managed in
+                  the organization&apos;s Approval Flows.
                 </Text>
                 {approvalScopes.map((scope) => (
                   <Flex
@@ -233,16 +240,18 @@ const TeamPage: FC = () => {
                     gap="2"
                     wrap="wrap"
                   >
-                    {scope.project ? (
-                      <Link href={`/project/${scope.project}#approvals`}>
-                        {getProjectById(scope.project)?.name || scope.project}
+                    {canManageOrgSettings ? (
+                      <Link
+                        href={
+                          scope.project
+                            ? `/settings?approvalProject=${scope.project}#approval-flow`
+                            : "/settings#approval-flow"
+                        }
+                      >
+                        {scopeLabel(scope.project)}
                       </Link>
                     ) : (
-                      <Link href="/settings#approval-flow">
-                        {approvalScopes.length > 1
-                          ? "All other Projects"
-                          : "All Projects"}
-                      </Link>
+                      <Text>{scopeLabel(scope.project)}</Text>
                     )}
                     {scope.environments.length > 0 && (
                       <Text color="text-low">

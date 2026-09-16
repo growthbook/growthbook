@@ -67,7 +67,10 @@ export default function ProjectApprovalSettings({
         ) : (
           <>{projectName} has its own approval settings.</>
         )}{" "}
-        <NextLink href="/settings#approval-flow" legacyBehavior>
+        <NextLink
+          href={`/settings?approvalProject=${project}#approval-flow`}
+          legacyBehavior
+        >
           <Link>Edit in organization settings</Link>
         </NextLink>
       </Text>
