@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { cloneDeep } from "lodash";
 import { z } from "zod";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
@@ -554,40 +553,6 @@ export async function getOrganizationsWithNorthStars() {
     },
   });
   return withNorthStars.map(toInterface);
-}
-
-export async function removeProjectFromProjectRoles(
-  project: string,
-  org: OrganizationInterface,
-) {
-  if (!org) return;
-
-  const updates: {
-    members?: Member[];
-    invites?: Invite[];
-  } = {};
-
-  const members = cloneDeep(org.members);
-  members.forEach((m) => {
-    if (!m.projectRoles?.length) return;
-    m.projectRoles = m.projectRoles.filter((pr) => pr.project !== project);
-  });
-  if (JSON.stringify(members) !== JSON.stringify(org.members)) {
-    updates["members"] = members;
-  }
-
-  const invites = cloneDeep(org.invites);
-  invites.forEach((inv) => {
-    if (!inv.projectRoles?.length) return;
-    inv.projectRoles = inv.projectRoles.filter((pr) => pr.project !== project);
-  });
-  if (JSON.stringify(invites) !== JSON.stringify(org.invites)) {
-    updates["invites"] = invites;
-  }
-
-  if (Object.keys(updates).length > 0) {
-    await OrganizationModel.updateOne({ id: org.id }, { $set: updates });
-  }
 }
 
 export async function findOrganizationsByDomain(domain: string) {
