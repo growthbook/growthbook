@@ -192,6 +192,30 @@ function assetImgTag(asset: {
   return `<img ${attrs.join(" ")} />`;
 }
 
+// Swap the model's sentinel for the real asset, or return null when the
+// response can't be trusted to place it exactly once in element content:
+// two sentinels would duplicate the image, and one inside a tag or a
+// comment would produce malformed or invisible markup.
+export function composeAssetHtml(
+  rawHtml: string,
+  asset: { url: string; width?: number; height?: number; alt?: string },
+): string | null {
+  const at = rawHtml.indexOf(ASSET_SENTINEL);
+  if (at === -1) return null;
+  if (rawHtml.includes(ASSET_SENTINEL, at + ASSET_SENTINEL.length)) return null;
+
+  const before = rawHtml.slice(0, at);
+  const insideTag = before.lastIndexOf("<") > before.lastIndexOf(">");
+  const insideComment = before.lastIndexOf("<!--") > before.lastIndexOf("-->");
+  if (insideTag || insideComment) return null;
+
+  // Sliced rather than String.replace: a URL containing `$&` would
+  // otherwise be treated as a replacement pattern.
+  return (
+    before + assetImgTag(asset) + rawHtml.slice(at + ASSET_SENTINEL.length)
+  );
+}
+
 const assetInstructions = `You are GrowthBook's Visual Editor asset-placement assistant. The user has supplied an image asset to place on a live page as an A/B test variation. You decide how it is positioned and styled. You do NOT recreate, redraw, or describe the image.
 
 Output a JSON object matching the schema. Build the component as:
@@ -476,16 +500,15 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
   // matter of the model following instructions.
   let composedHtml = rawHtml;
   if (source.kind === "asset") {
-    if (!composedHtml.includes(ASSET_SENTINEL)) {
+    const composed = composeAssetHtml(rawHtml, source.asset);
+    if (!composed) {
       return {
         mutations: [],
         explanation:
           "The assistant didn't place the image. Try describing where it should go.",
       };
     }
-    composedHtml = composedHtml
-      .split(ASSET_SENTINEL)
-      .join(assetImgTag(source.asset));
+    composedHtml = composed;
   }
 
   // Guarantee the injected markup's root carries the scope class so the
