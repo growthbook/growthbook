@@ -1,5 +1,4 @@
 import { Flex } from "@radix-ui/themes";
-import NextLink from "next/link";
 import { RequireReview } from "shared/types/organization";
 import { getReviewSetting } from "shared/util";
 import { getApprovalFlowRules } from "shared/enterprise";
@@ -67,12 +66,9 @@ export default function ProjectApprovalSettings({
         ) : (
           <>{projectName} has its own approval settings.</>
         )}{" "}
-        <NextLink
-          href={`/settings?approvalProject=${project}#approval-flow`}
-          legacyBehavior
-        >
-          <Link>Edit in organization settings</Link>
-        </NextLink>
+        <Link href={`/settings?approvalProject=${project}#approval-flow`}>
+          Edit in organization settings
+        </Link>
       </Text>
 
       <Frame p="4" mb="0">
