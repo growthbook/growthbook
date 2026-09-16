@@ -338,7 +338,7 @@ export async function removeProjectRolesForProject(
     ...org.members
       .filter(hasRule)
       .map((m) => pull("members", { "members.id": m.id })),
-    ...org.invites
+    ...(org.invites ?? [])
       .filter(hasRule)
       .map((i) => pull("invites", { "invites.key": i.key })),
     ...(org.pendingMembers ?? [])
