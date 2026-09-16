@@ -137,6 +137,9 @@ const MemberList: FC<{
     setInviting(true);
   };
 
+  // Never render a menu trigger with nothing behind it.
+  const hasRowActions = canEditRoles || canEditProjectRoles || canDeleteMembers;
+
   const roleModalUser = users.get(roleModal);
   const projectRoleModalUser = users.get(projectRoleModal);
 
@@ -496,7 +499,7 @@ const MemberList: FC<{
                   </TableCell>
 
                   <TableCell justify="end">
-                    {member.id !== userId && (
+                    {member.id !== userId && hasRowActions && (
                       <DropdownMenu
                         trigger={
                           <IconButton
