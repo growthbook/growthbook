@@ -377,8 +377,9 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         </Flex>
       </Flex>
       <Text as="p" size="sm" color="text-low" mb="2">
-        Every member of a team gets the team&apos;s role on this Project, which
-        replaces their global role here.
+        A team&apos;s role here applies to every member of the team. Roles on
+        this Project add together, and take the place of a member&apos;s global
+        role for this Project.
       </Text>
       <Table variant="surface" layout="fixed">
         <TableHeader>
