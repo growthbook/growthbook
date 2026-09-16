@@ -221,6 +221,7 @@ describe("renderNotificationCard", () => {
         durationDays: 21,
         winningVariation: "Treatment",
         winningVariationIndex: 1,
+        conclusion: { text: "Variation *Treatment* won." },
         rows: [
           expect.objectContaining({
             v: "Treatment",
@@ -257,7 +258,7 @@ describe("renderNotificationCard", () => {
         banner: "Experiment Stopped - Inconclusive",
         fields: [
           { label: "Result", value: "Inconclusive" },
-          { label: "Temporary rollout", value: "Control" },
+          { label: "Temporary rollout", value: "Variation *Control*" },
         ],
       }),
       "compact",

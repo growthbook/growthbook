@@ -56,7 +56,12 @@ function getExperimentStoppedFields(
       ? [{ label: "Result", value: RESULT_LABEL[data.results] }]
       : []),
     ...(data.enableTemporaryRollout && data.releasedVariationName
-      ? [{ label: "Temporary rollout", value: data.releasedVariationName }]
+      ? [
+          {
+            label: "Temporary rollout",
+            value: `Variation *${data.releasedVariationName}*`,
+          },
+        ]
       : []),
     ...(data.reason ? [{ label: "Reason", value: data.reason }] : []),
   ];
@@ -138,10 +143,19 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
       : data.results === "lost"
         ? "loser"
         : "stopped";
-  const rollout =
+  // The conclusion names the decided variation ("Variation *X* won.") so the
+  // lift block does not have to; the stop reason and rollout follow it.
+  const conclusion = [
+    data.results === "won" && data.winningVariationName
+      ? `Variation *${data.winningVariationName}* won.`
+      : undefined,
+    data.reason,
     data.enableTemporaryRollout && data.releasedVariationName
-      ? `Temporary rollout: ${data.releasedVariationName}.`
-      : undefined;
+      ? `Temporary rollout: Variation *${data.releasedVariationName}*.`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return {
     ...identity,
     state,
@@ -162,15 +176,7 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
     ...(data.winningVariationIndex !== undefined
       ? { winningVariationIndex: data.winningVariationIndex }
       : {}),
-    // The stop reason is the closest thing to a written conclusion; the
-    // rollout note rides along so the compact hero can show it too.
-    ...(data.reason || rollout
-      ? {
-          conclusion: {
-            text: [data.reason, rollout].filter(Boolean).join(" "),
-          },
-        }
-      : {}),
+    ...(conclusion ? { conclusion: { text: conclusion } } : {}),
   };
 }
 

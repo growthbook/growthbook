@@ -30,7 +30,7 @@ import type {
 // and is emitted as vector paths.
 
 // ---------------------------------------------------------------------------
-// Assets: fonts (Inter + Roboto Mono) and the GrowthBook logo. All vendored in
+// Assets: fonts (Inter upright + italic, Roboto Mono) and the GrowthBook logo. All vendored in
 // ./assets and copied to dist by the notification-card build step; resolve from
 // src when running via ts/tests (same pattern as agent skills).
 // ---------------------------------------------------------------------------
@@ -59,19 +59,36 @@ function resolveAssetPath(file: string): string {
   return found;
 }
 
-type FontSpec = { name: string; weight: 400 | 500 | 600; file: string };
+type FontStyle = "normal" | "italic";
+type FontSpec = {
+  name: string;
+  weight: 400 | 500 | 600;
+  style: FontStyle;
+  file: string;
+};
+const inter = (weight: 400 | 500 | 600, style: FontStyle): FontSpec => ({
+  name: "Inter",
+  weight,
+  style,
+  file: `inter-latin-${weight}-${style}.woff`,
+});
 const FONT_SPECS: FontSpec[] = [
-  { name: "Inter", weight: 400, file: "inter-latin-400-normal.woff" },
-  { name: "Inter", weight: 500, file: "inter-latin-500-normal.woff" },
-  { name: "Inter", weight: 600, file: "inter-latin-600-normal.woff" },
+  inter(400, "normal"),
+  inter(500, "normal"),
+  inter(600, "normal"),
+  inter(400, "italic"),
+  inter(500, "italic"),
+  inter(600, "italic"),
   {
     name: "Roboto Mono",
     weight: 400,
+    style: "normal",
     file: "roboto-mono-latin-400-normal.woff",
   },
   {
     name: "Roboto Mono",
     weight: 500,
+    style: "normal",
     file: "roboto-mono-latin-500-normal.woff",
   },
 ];
@@ -79,7 +96,7 @@ const FONT_SPECS: FontSpec[] = [
 type LoadedFont = {
   name: string;
   weight: 400 | 500 | 600;
-  style: "normal";
+  style: FontStyle;
   data: Buffer;
 };
 let loadedFonts: LoadedFont[] | null = null;
@@ -88,7 +105,7 @@ function getFonts(): LoadedFont[] {
     loadedFonts = FONT_SPECS.map((f) => ({
       name: f.name,
       weight: f.weight,
-      style: "normal" as const,
+      style: f.style,
       data: fs.readFileSync(resolveAssetPath(f.file)),
     }));
   }
@@ -284,21 +301,21 @@ function svgImg(svg: string, width: number, height: number): El {
 // literal `**`, `-`, `[label](url)` etc. Satori has no HTML/markdown support and
 // only the vendored font weights (Inter 400/500/600, no bold-700 / italic), so
 // we parse a safe subset into styled runs: bold -> weight 600, inline code ->
-// mono, links -> their label, bullet lists -> real bullets. Italic markers are
-// unwrapped to plain text (no italic font available). Not a full parser — just
-// the marks that show up in short experiment write-ups.
+// mono, links -> their label, bullet lists -> real bullets, italic -> the
+// vendored Inter italic faces. Not a full parser — just the marks that show up
+// in short experiment write-ups.
 // ---------------------------------------------------------------------------
 
-type MdRun = { text: string; bold?: boolean; code?: boolean };
+type MdRun = { text: string; bold?: boolean; code?: boolean; italic?: boolean };
 type MdBlock = { type: "p" | "li"; runs: MdRun[] };
 
 function parseInlineMd(input: string): MdRun[] {
   // Links first: keep the label, drop the URL (not clickable in an image).
   const s = input.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
   const runs: MdRun[] = [];
-  // Bold (**x** / __x__), `code`, then italic (*x* / _x_) unwrapped to plain.
-  // The italic branch is boundary-guarded so it doesn't fire inside
-  // snake_case identifiers or the like.
+  // Bold (**x** / __x__), `code`, then italic (*x* / _x_). The italic branch is
+  // boundary-guarded so it doesn't fire inside snake_case identifiers or the
+  // like.
   const re =
     /(\*\*|__)(.+?)\1|`([^`]+)`|(?<![\w*])([*_])(?=\S)(.+?)(?<=\S)\4(?![\w*])/g;
   let last = 0;
@@ -307,7 +324,7 @@ function parseInlineMd(input: string): MdRun[] {
     if (m.index > last) runs.push({ text: s.slice(last, m.index) });
     if (m[2] !== undefined) runs.push({ text: m[2], bold: true });
     else if (m[3] !== undefined) runs.push({ text: m[3], code: true });
-    else if (m[5] !== undefined) runs.push({ text: m[5] });
+    else if (m[5] !== undefined) runs.push({ text: m[5], italic: true });
     last = re.lastIndex;
   }
   if (last < s.length) runs.push({ text: s.slice(last) });
@@ -372,6 +389,7 @@ function runSpan(r: MdRun, base: MdStyle): El {
       lineHeight: base.lineHeight,
       color: r.code ? P.st.slate : base.color,
       fontWeight: r.bold ? 600 : base.weight,
+      ...(r.italic ? { fontStyle: "italic" } : {}),
       // Preserve the spaces at run boundaries — Satori trims each flex child's
       // edge whitespace otherwise, gluing adjacent runs together.
       whiteSpace: "pre-wrap",
@@ -404,7 +422,16 @@ function renderMarkdown(md: string, base: MdStyle): El {
           flexWrap: "wrap",
           alignItems: "baseline",
         },
-        b.runs.map((r) => runSpan(r, base)),
+        // One span per word so a styled run wraps within a line instead of
+        // moving to the next line as a block. Code chips stay whole.
+        b.runs.flatMap((r) =>
+          r.code
+            ? [runSpan(r, base)]
+            : r.text
+                .split(/(?<=\s)/)
+                .filter((word) => word.length > 0)
+                .map((word) => runSpan({ ...r, text: word }, base)),
+        ),
       );
       if (b.type === "li") {
         return el(
@@ -1324,10 +1351,11 @@ function fieldEl(field: CardField, size: EventBodySize): El {
         textTransform: "uppercase",
         color: P.subtle,
       }),
-      txt(plainClamp(field.value, 240), {
+      renderMarkdown(field.value, {
         fontSize: lg ? 20 : 17,
         lineHeight: 1.4,
         color: P.text,
+        weight: 400,
       }),
     ],
   );
@@ -1803,14 +1831,11 @@ function compactHero(exp: ExperimentCardData, event: CompactEvent): El {
     );
   }
 
-  // won / lost / stopped — the decided variation's lift with its confidence,
-  // then the conclusion. A win singles out the winning variation; a loss or
-  // inconclusive result only shows a lift when there is a single treatment.
-  const line = exp.conclusion?.text
-    ? plainClamp(exp.conclusion.text, 200)
-    : exp.compactLine
-      ? plainClamp(exp.compactLine, 200)
-      : "";
+  // won / lost / stopped — the conclusion first, then the goal metric with
+  // the decided variation's lift and confidence beside it. A win singles out
+  // the winning variation; a loss or inconclusive result only shows a lift
+  // when there is a single treatment. The variation itself is named in the
+  // conclusion text, not here.
   const outcomeRow =
     event === "won" && (exp.winningVariationIndex ?? null) !== null
       ? exp.rows.find((row) => row.i === exp.winningVariationIndex)
@@ -1818,72 +1843,85 @@ function compactHero(exp: ExperimentCardData, event: CompactEvent): El {
         ? r
         : undefined;
   const children: El[] = [];
+  if (exp.conclusion?.text || exp.compactLine) {
+    children.push(
+      el("div", { display: "flex", flexDirection: "column" }, [
+        capLabel("Conclusion"),
+        renderMarkdown(exp.conclusion?.text ?? exp.compactLine ?? "", {
+          fontSize: 14,
+          lineHeight: 1.5,
+          color: P.text,
+          weight: 400,
+        }),
+      ]),
+    );
+  }
   if (outcomeRow) {
     const liftColor = outcomeRow.dir === "down" ? P.st.red : P.st.green;
     const confidence = outcomeRow.ctw
       ? exp.statsEngine === "frequentist"
-        ? `(p-value: ${outcomeRow.ctw})`
-        : `(Chance to win: ${outcomeRow.ctw})`
+        ? `p-value: ${outcomeRow.ctw}`
+        : `Chance to win: ${outcomeRow.ctw}`
       : undefined;
     children.push(
-      metricNameEl(exp.goal, "sm"),
-      capLabel(outcomeRow.v, 4),
       el(
         "div",
         {
           display: "flex",
           flexDirection: "row",
-          alignItems: "baseline",
-          gap: 10,
-          flexWrap: "wrap",
-        },
-        [
-          el(
-            "div",
-            {
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-            },
-            [
-              outcomeRow.dir ? arrowImg(outcomeRow.dir, liftColor, 18) : null,
-              txt((outcomeRow.chg ?? "—").replace(/^[+-]/, ""), {
-                fontSize: 34,
-                fontWeight: 700,
-                color: liftColor,
-                letterSpacing: "-0.02em",
-                lineHeight: 1,
-              }),
-            ].filter(Boolean) as El[],
-          ),
-          confidence
-            ? txt(confidence, { fontSize: 14, fontWeight: 500, color: P.muted })
-            : null,
-        ].filter(Boolean) as El[],
-      ),
-    );
-  }
-  if (line) {
-    children.push(
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "column",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 16,
           paddingTop: 12,
           ...(children.length
             ? { marginTop: 8, borderTop: `1px solid ${P.borderSub}` }
             : {}),
         },
         [
-          capLabel("Conclusion"),
-          renderMarkdown(line, {
-            fontSize: 14,
-            lineHeight: 1.5,
-            color: P.text,
-            weight: 400,
-          }),
+          el("div", { display: "flex", flexDirection: "column", minWidth: 0 }, [
+            capLabel("Goal metric", 4),
+            txt(exp.goal, { fontSize: 17, fontWeight: 500, color: P.text }),
+          ]),
+          el(
+            "div",
+            {
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 4,
+              flexShrink: 0,
+            },
+            [
+              el(
+                "div",
+                {
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                },
+                [
+                  outcomeRow.dir
+                    ? arrowImg(outcomeRow.dir, liftColor, 18)
+                    : null,
+                  txt((outcomeRow.chg ?? "—").replace(/^[+-]/, ""), {
+                    fontSize: 34,
+                    fontWeight: 700,
+                    color: liftColor,
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1,
+                  }),
+                ].filter(Boolean) as El[],
+              ),
+              confidence
+                ? txt(confidence, {
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: P.muted,
+                  })
+                : null,
+            ].filter(Boolean) as El[],
+          ),
         ],
       ),
     );
