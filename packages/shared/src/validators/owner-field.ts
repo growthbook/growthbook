@@ -24,6 +24,20 @@ export const ownerEmailField = z
  * Zod equivalent of OwnerInputField.yaml — use on API request/input schemas.
  * Chain .optional() if the field is not required.
  */
+
+
+/**
+ * Resolved display name for the owner, populated on API responses.
+ * Optional — undefined when the owner cannot be resolved to a known user,
+ * or when the user hasn't set a display name.
+ */
+export const ownerNameField = z
+  .string()
+  .optional()
+  .describe(
+    "The display name of the owner, when the owner can be resolved to a known user.",
+  );
+
 export const ownerInputField = z
   .string()
   .describe(

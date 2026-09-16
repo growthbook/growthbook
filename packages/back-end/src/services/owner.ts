@@ -61,48 +61,58 @@ export async function resolveOwnerForCreate(
   );
 }
 
-// In-memory userId → email cache. Safe to key by userId alone because
-// UserModel ids are globally unique (users live outside any single org).
-// Stale for up to TTL when a user changes their email — same trade-off
-// as expandedMemberInfoCache in services/organizations.
-const USER_EMAIL_CACHE_TTL_MS = 15 * 60 * 1000;
-const userEmailCache = new Map<string, { email: string; expiresAt: number }>();
+// In-memory userId → { email, name } cache. Safe to key by userId alone
+// because UserModel ids are globally unique (users live outside any single
+// org). Stale for up to TTL when a user changes their email/name — same
+// trade-off as expandedMemberInfoCache in services/organizations.
+const USER_INFO_CACHE_TTL_MS = 15 * 60 * 1000;
+const userInfoCache = new Map<
+  string,
+  { email: string; name?: string; expiresAt: number }
+>();
 
-function getCachedEmail(userId: string, now: number): string | undefined {
-  const entry = userEmailCache.get(userId);
+function getCachedInfo(
+  userId: string,
+  now: number,
+): { email: string; name?: string } | undefined {
+  const entry = userInfoCache.get(userId);
   if (!entry) return undefined;
   if (entry.expiresAt <= now) {
-    userEmailCache.delete(userId);
+    userInfoCache.delete(userId);
     return undefined;
   }
-  return entry.email;
+  return { email: entry.email, name: entry.name };
 }
 
-function setCachedEmail(userId: string, email: string, now: number): void {
+function setCachedInfo(
+  userId: string,
+  info: { email: string; name?: string },
+  now: number,
+): void {
   // Random jitter to avoid synchronized cache expiry across entries.
-  const jitter = Math.floor(Math.random() * USER_EMAIL_CACHE_TTL_MS * 0.1);
-  userEmailCache.set(userId, {
-    email,
-    expiresAt: now + USER_EMAIL_CACHE_TTL_MS + jitter,
+  const jitter = Math.floor(Math.random() * USER_INFO_CACHE_TTL_MS * 0.1);
+  userInfoCache.set(userId, {
+    ...info,
+    expiresAt: now + USER_INFO_CACHE_TTL_MS + jitter,
   });
 }
 
 // Exposed for tests — resets the module-level cache between cases.
 export function clearOwnerEmailCache(): void {
-  userEmailCache.clear();
+  userInfoCache.clear();
 }
 
 /**
- * Batch-resolves an array of owner values to a Map<owner, email>.
+ * Batch-resolves an array of owner values to a Map<owner, {email, name}>.
  * Deduplicates userIds, checks the in-memory cache, and only hits the DB
  * for the remaining cache misses.
  */
-async function buildOwnerEmailMap(
+async function buildOwnerInfoMap(
   ownerValues: (string | undefined)[],
   context: ReqContext,
-): Promise<Map<string, string | undefined>> {
+): Promise<Map<string, { email?: string; name?: string } | undefined>> {
   const now = Date.now();
-  const map = new Map<string, string | undefined>();
+  const map = new Map<string, { email?: string; name?: string } | undefined>();
 
   const userIds = [
     ...new Set(
@@ -110,12 +120,12 @@ async function buildOwnerEmailMap(
     ),
   ];
 
-  const userEmailMap = new Map<string, string>();
+  const userInfoMap = new Map<string, { email?: string; name?: string }>();
   const missingIds: string[] = [];
   for (const id of userIds) {
-    const cached = getCachedEmail(id, now);
+    const cached = getCachedInfo(id, now);
     if (cached !== undefined) {
-      userEmailMap.set(id, cached);
+      userInfoMap.set(id, cached);
     } else {
       missingIds.push(id);
     }
@@ -124,17 +134,17 @@ async function buildOwnerEmailMap(
   if (missingIds.length > 0) {
     const users = await context.getUsersByIds(missingIds);
     for (const u of users) {
-      userEmailMap.set(u.id, u.email);
-      setCachedEmail(u.id, u.email, now);
+      userInfoMap.set(u.id, { email: u.email, name: u.name });
+      setCachedInfo(u.id, { email: u.email, name: u.name }, now);
     }
   }
 
   for (const owner of ownerValues) {
     if (!owner || map.has(owner)) continue;
     if (owner.startsWith("u_")) {
-      map.set(owner, userEmailMap.get(owner));
+      map.set(owner, userInfoMap.get(owner));
     } else if (owner.includes("@")) {
-      map.set(owner, owner);
+      map.set(owner, { email: owner });
     } else {
       map.set(owner, undefined);
     }
@@ -143,24 +153,25 @@ async function buildOwnerEmailMap(
   return map;
 }
 
-function withOwnerEmail<T extends object>(
+function withOwnerInfo<T extends object>(
   apiDoc: T,
-  map: Map<string, string | undefined> | undefined,
+  map: Map<string, { email?: string; name?: string } | undefined> | undefined,
 ): T {
   if (!map) return apiDoc;
   if (!("owner" in apiDoc) || typeof apiDoc.owner !== "string") return apiDoc;
-  const email = map.get(apiDoc.owner);
-  if (email === undefined) return apiDoc;
-  return { ...apiDoc, ownerEmail: email };
+  const info = map.get(apiDoc.owner);
+  if (info === undefined) return apiDoc;
+  return { ...apiDoc, ownerEmail: info.email, ownerName: info.name };
 }
 
 /**
- * Attaches a resolved `ownerEmail` to a single API doc.
+ * Attaches a resolved `ownerEmail` and `ownerName` to a single API doc.
  *
  * - If the doc has no string `owner` field, it is returned unchanged.
- * - If the `owner` cannot be resolved to an email (e.g. a legacy display name
- *   or a userId no longer in the DB), the doc is returned unchanged.
- * - Otherwise a shallow copy of the doc is returned with `ownerEmail` set.
+ * - If the `owner` cannot be resolved (e.g. a legacy display name or a
+ *   userId no longer in the DB), the doc is returned unchanged.
+ * - Otherwise a shallow copy of the doc is returned with `ownerEmail` and
+ *   `ownerName` set.
  *
  * For lists of docs, prefer `resolveOwnerEmails` so the DB lookup is batched.
  */
@@ -169,17 +180,17 @@ export async function resolveOwnerEmail<T extends object>(
   context: ReqContext,
 ): Promise<T> {
   if (!("owner" in apiDoc) || typeof apiDoc.owner !== "string") return apiDoc;
-  const map = await buildOwnerEmailMap([apiDoc.owner], context);
-  return withOwnerEmail(apiDoc, map);
+  const map = await buildOwnerInfoMap([apiDoc.owner], context);
+  return withOwnerInfo(apiDoc, map);
 }
 
 /**
- * Attaches a resolved `ownerEmail` to each API doc in a list.
+ * Attaches a resolved `ownerEmail` and `ownerName` to each API doc in a list.
  *
  * All owners are resolved in a single batched, deduplicated DB lookup with
  * an in-memory cache. Docs without an `owner`, or whose owner cannot be
  * resolved, are returned unchanged. Other docs are shallow-copied with
- * `ownerEmail` set.
+ * `ownerEmail` and `ownerName` set.
  */
 export async function resolveOwnerEmails<T extends object>(
   apiDocs: T[],
@@ -189,6 +200,6 @@ export async function resolveOwnerEmails<T extends object>(
   const ownerValues = apiDocs.map((d) =>
     "owner" in d && typeof d.owner === "string" ? d.owner : undefined,
   );
-  const map = await buildOwnerEmailMap(ownerValues, context);
-  return apiDocs.map((d) => withOwnerEmail(d, map));
+  const map = await buildOwnerInfoMap(ownerValues, context);
+  return apiDocs.map((d) => withOwnerInfo(d, map));
 }
