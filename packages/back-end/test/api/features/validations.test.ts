@@ -2,6 +2,7 @@ import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   assertValidFeatureRules,
   assertValidRuleEnvironments,
+  assertValidRuleWrite,
   collectRampPlanPatches,
   normalizeInlineRampSchedule,
   rampPatchEntries,
@@ -282,21 +283,24 @@ describe("rampPatchEntriesForTargets", () => {
   });
 });
 
-describe("assertValidFeatureRules", () => {
+describe("rule write composites", () => {
   const ctx = {
     org: { id: "org_1", settings: { environments: [{ id: "production" }] } },
     models: { savedGroups: { getAll: jest.fn().mockResolvedValue([]) } },
     getAllProjectIds: async () => [],
     hasPremiumFeature: () => true,
+    canSkipSchemaValidationFor: () => false,
   } as unknown as ApiReqContext;
-  const rule = (environments: string[]) =>
+  const rule = (environments: string[], extra: Partial<FeatureRule> = {}) =>
     ({
       id: "fr_1",
       type: "force",
       value: "true",
       allEnvironments: false,
       environments,
+      ...extra,
     }) as FeatureRule;
+  const feature = { valueType: "boolean" } as FeatureInterface;
 
   it("checks environment ids only where the scope differs from the stored rule", async () => {
     await expect(
@@ -308,6 +312,35 @@ describe("assertValidFeatureRules", () => {
     await expect(
       assertValidFeatureRules(ctx, [rule(["gone"])]),
     ).rejects.toThrow(/Invalid environment: "gone"/);
+  });
+
+  it("checks a schedule's shape only when it differs from the stored rule", async () => {
+    const malformed = {
+      scheduleRules: [{ enabled: true }],
+    } as Partial<FeatureRule>;
+    await expect(
+      assertValidFeatureRules(
+        ctx,
+        [rule(["production"], malformed)],
+        [rule(["production"], malformed)],
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertValidFeatureRules(ctx, [rule(["production"], malformed)]),
+    ).rejects.toThrow(/scheduleRules/);
+  });
+
+  it("checks a rule's values only when the write changes them", async () => {
+    const maybe = rule(["production"], { value: "maybe" });
+    await expect(
+      assertValidRuleWrite(ctx, feature, maybe, maybe),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertValidRuleWrite(ctx, feature, maybe, rule(["production"])),
+    ).rejects.toThrow(/Must be "true" or "false"/);
+    await expect(assertValidRuleWrite(ctx, feature, maybe)).rejects.toThrow(
+      /Must be "true" or "false"/,
+    );
   });
 });
 

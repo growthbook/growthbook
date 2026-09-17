@@ -894,6 +894,7 @@ export const featureEntityHandler: EntityHandler = {
       result: forceResult,
       comment: stepLabel,
       bypassLockdown: true,
+      skipValueSchemaNet: true,
     });
   },
 };

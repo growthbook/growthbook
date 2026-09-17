@@ -2,6 +2,7 @@ import { addContextualBanditLinkedFeatureValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { assertValidRuleWrite } from "back-end/src/api/features/validations";
 import {
   linkFeatureToContextualBandit,
   targetRevisionHasContextualBanditRule,
@@ -63,11 +64,13 @@ export const addContextualBanditLinkedFeature = createApiRequestHandler(
     draftVersion,
   );
 
+  const rule = buildContextualBanditRefRule(contextualBandit, req.body);
+  await assertValidRuleWrite(req.context, feature, rule);
   const result = await linkFeatureToContextualBandit({
     context: req.context,
     contextualBandit,
     feature,
-    rule: buildContextualBanditRefRule(contextualBandit, req.body),
+    rule,
     eventAudit: req.eventAudit,
     audit: req.audit,
     autoPublish,

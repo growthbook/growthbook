@@ -321,6 +321,7 @@ import {
   assertValidRevisionRulePrerequisites,
   assertValidRuleWrite,
   collectRampPlanPatches,
+  withStagedSchema,
   rampPatchEntries,
   validatePrerequisiteConditions,
   validatePrerequisiteReferences,
@@ -3494,8 +3495,15 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  // The scope loader uses read-only getRevision — getDraftRevision would
-  // persist a draft before validation passes.
+  // Read-only: getDraftRevision would persist a draft before validation
+  // passes.
+  const staged = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
   await assertRegisteredAttributesScoped(
     context,
     {
@@ -3506,22 +3514,9 @@ export async function postFeatureRule(
     },
     "rule",
     undefined,
-    async () => {
-      const existingRevision = await getRevision({
-        context,
-        organization: context.org.id,
-        featureId: feature.id,
-        feature,
-        version: parseInt(version),
-      });
-      return (
-        getRuleAttributeScopeProjectIds(
-          feature,
-          existingRevision?.metadata,
-          rule,
-        ) ?? undefined
-      );
-    },
+    async () =>
+      getRuleAttributeScopeProjectIds(feature, staged?.metadata, rule) ??
+      undefined,
   );
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
@@ -3563,7 +3558,11 @@ export async function postFeatureRule(
   if (stampedRule.allProjects === true) {
     delete (stampedRule as { projects?: string[] }).projects;
   }
-  await assertValidRuleWrite(context, feature, stampedRule);
+  await assertValidRuleWrite(
+    context,
+    withStagedSchema(feature, staged),
+    stampedRule,
+  );
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
@@ -3574,15 +3573,14 @@ export async function postFeatureRule(
   // experiment-ref rules (writes deferred until after custom-hook prevalidation)
   if (rule.type === "experiment-ref") {
     const experiment = await getExperimentById(context, rule.experimentId);
-    if (!experiment) {
-      throw new Error(`Could not find experiment "${rule.experimentId}"`);
+    if (experiment) {
+      await resolveHoldoutExperimentToLink({
+        context,
+        feature,
+        experiment,
+        effectiveHoldout,
+      });
     }
-    await resolveHoldoutExperimentToLink({
-      context,
-      feature,
-      experiment,
-      effectiveHoldout,
-    });
   }
 
   let rampActionsUpdate:
@@ -4246,6 +4244,7 @@ export async function postFeatureContextualBanditRefRule(
   if (!contextualBandit) {
     throw new Error("Invalid contextual bandit selected");
   }
+  await assertValidRuleWrite(context, feature, rule);
 
   const { version, published } = await linkFeatureToContextualBandit({
     context,
@@ -4410,7 +4409,16 @@ export async function postFeatureDefaultValue(
     context.permissions.throwPermissionError();
   }
 
-  assertFeatureValuesValid(context, feature, { defaultValue });
+  const staged = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  assertFeatureValuesValid(context, withStagedSchema(feature, staged), {
+    defaultValue,
+  });
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const resolution = resolveDraftEdit<{ defaultValue: string }>({
@@ -5039,14 +5047,18 @@ export async function putFeatureRule(
     return merged;
   });
 
-  // A config-backed rule value (incl. running-experiment / bandit variations
-  // edited from the feature) must satisfy the backing Config's schema +
-  // invariants, the same as a REST publish. Validate only the edited rule so a
-  // pre-existing violation elsewhere can't block this edit. No-op unless the
-  // feature is config-backed JSON.
+  // The rule write checks, then the config-backed value net (running-experiment
+  // / bandit variations edited from the feature must satisfy the backing
+  // Config's schema + invariants, as on a REST publish). Only the edited rule,
+  // so a pre-existing violation elsewhere can't block this edit.
   const ruleToValidate = nextRules.find((r) => r.id === ruleId);
   if (ruleToValidate) {
-    await assertValidRuleWrite(context, feature, ruleToValidate, existingRule);
+    await assertValidRuleWrite(
+      context,
+      withStagedSchema(feature, revision),
+      ruleToValidate,
+      existingRule,
+    );
     await assertConfigBackedFeatureValuesValid(context, feature, {
       rules: [ruleToValidate],
     });

@@ -24,6 +24,7 @@ import {
 } from "back-end/src/services/features";
 import { normalizeRampPlanForceValues } from "back-end/src/services/rampSchedule";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { configCheckedRuleValues } from "back-end/src/services/configValidation";
 import {
   assertValidExperimentPrerequisites,
   assertValidPrerequisiteParents,
@@ -825,7 +826,7 @@ export async function assertValidFeatureRules(
 }
 
 // One rule written through a dashboard route: the checks above plus the
-// feature's own value schema, as the per-rule REST endpoints run them.
+// feature's own value schema, when the write changes the rule's values.
 export async function assertValidRuleWrite(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -833,5 +834,20 @@ export async function assertValidRuleWrite(
   stored?: FeatureRule,
 ): Promise<void> {
   await assertValidFeatureRules(context, [rule], stored ? [stored] : []);
-  assertFeatureValuesValid(context, feature, { rules: [rule] });
+  if (
+    !stored ||
+    !isEqual(configCheckedRuleValues(stored), configCheckedRuleValues(rule))
+  ) {
+    assertFeatureValuesValid(context, feature, { rules: [rule] });
+  }
+}
+
+// The flag as the draft would publish it: a schema staged on the revision
+// replaces the live one when values are judged.
+export function withStagedSchema(
+  feature: FeatureInterface,
+  revision: Pick<FeatureRevisionInterface, "metadata"> | null | undefined,
+): FeatureInterface {
+  const jsonSchema = revision?.metadata?.jsonSchema;
+  return jsonSchema ? { ...feature, jsonSchema } : feature;
 }
