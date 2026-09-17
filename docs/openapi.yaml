@@ -39232,6 +39232,8 @@ paths:
                                                       properties:
                                                         quantile:
                                                           type: number
+                                                          exclusiveMinimum: 0
+                                                          exclusiveMaximum: 1
                                                         type:
                                                           type: string
                                                           enum:
@@ -43010,6 +43012,8 @@ paths:
                                                       properties:
                                                         quantile:
                                                           type: number
+                                                          exclusiveMinimum: 0
+                                                          exclusiveMaximum: 1
                                                         type:
                                                           type: string
                                                           enum:
@@ -46963,6 +46967,8 @@ paths:
                                                   properties:
                                                     quantile:
                                                       type: number
+                                                      exclusiveMinimum: 0
+                                                      exclusiveMaximum: 1
                                                     type:
                                                       type: string
                                                       enum:
@@ -51777,6 +51783,8 @@ paths:
                                     properties:
                                       quantile:
                                         type: number
+                                        exclusiveMinimum: 0
+                                        exclusiveMaximum: 1
                                       type:
                                         type: string
                                         enum:
@@ -52612,6 +52620,8 @@ paths:
                                                   properties:
                                                     quantile:
                                                       type: number
+                                                      exclusiveMinimum: 0
+                                                      exclusiveMaximum: 1
                                                     type:
                                                       type: string
                                                       enum:
@@ -73784,6 +73794,8 @@ components:
                                           properties:
                                             quantile:
                                               type: number
+                                              exclusiveMinimum: 0
+                                              exclusiveMaximum: 1
                                             type:
                                               type: string
                                               enum:
@@ -76998,6 +77010,8 @@ components:
                                     properties:
                                       quantile:
                                         type: number
+                                        exclusiveMinimum: 0
+                                        exclusiveMaximum: 1
                                       type:
                                         type: string
                                         enum:
