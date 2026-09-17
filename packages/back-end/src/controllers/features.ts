@@ -36,10 +36,10 @@ import {
   getDependentExperiments,
   getDependentFeatures,
   getEffectiveRevisionHoldout,
+  getRevertTargetArchived,
   getRevertTargetHoldout,
   featureRuleMergeConfig,
   resolveDraftEdit,
-  getRevertValueValidationWarnings,
   getReviewSetting,
   getRulesForEnvironment,
   isFeatureStale,
@@ -180,6 +180,11 @@ import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
+import {
+  assertCanRevertArchived,
+  assertRevertLandingGuards,
+  assertRevertValuesReadable,
+} from "back-end/src/services/revertGuards";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   assertConfigBackedFeatureValuesValid,
@@ -189,10 +194,7 @@ import {
   assertRegisteredAttributes,
   assertRegisteredAttributesScoped,
 } from "back-end/src/services/attributes";
-import {
-  canLandArchivedState,
-  isArchiveTransition,
-} from "back-end/src/revisions/archiveTransition";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import {
   insertRuleBefore,
   moveFlatRule,
@@ -294,10 +296,7 @@ import {
 } from "back-end/src/services/experiment-feature";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
-import {
-  SoftWarningError,
-  UnrecoverableApiError,
-} from "back-end/src/util/errors";
+import { UnrecoverableApiError } from "back-end/src/util/errors";
 import {
   canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
@@ -2874,27 +2873,12 @@ export async function postFeatureRevert(
     mergeChanges.prerequisites = revision.prerequisites;
   }
 
-  // Archived state — sparse: only revert if this revision explicitly changed it
-  if (
-    revision.archived !== undefined &&
-    revision.archived !== (feature.archived ?? false)
-  ) {
-    if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
-      context.permissions.throwPermissionError();
-    }
-    // Restoring an archived state still takes the flag out of service, so it
-    // carries the same delete-class gate as archiving it any other way. Revert
-    // authority covers the restoration, not the elevation.
-    if (
-      isArchiveTransition({
-        proposed: revision.archived,
-        current: feature.archived,
-      }) &&
-      !context.permissions.canDeleteFeature(feature, allEnabledEnvs)
-    ) {
-      context.permissions.throwPermissionError();
-    }
-    mergeChanges.archived = revision.archived;
+  // Archived state — a revision that predates archived snapshots restores an
+  // active flag rather than leaving a later archive in place.
+  const targetArchived = getRevertTargetArchived(revision);
+  if (targetArchived !== (feature.archived ?? false)) {
+    assertCanRevertArchived(context, feature, targetArchived, allEnabledEnvs);
+    mergeChanges.archived = targetArchived;
   }
 
   // Metadata — sparse: revert only the fields this revision explicitly changed
@@ -3031,17 +3015,8 @@ export async function postFeatureRevert(
     );
   }
 
-  // Flag restored values the current schema/value-type can no longer read as a
-  // bypassable soft warning. Runs before createRevision so a blocked attempt
-  // leaves no orphaned draft.
-  const valueWarnings = getRevertValueValidationWarnings(feature, mergeChanges);
-  if (valueWarnings.length && !context.ignoreWarnings) {
-    throw new SoftWarningError(
-      "Reverting to this revision restores values that no longer pass validation:\n" +
-        valueWarnings.join("\n"),
-      valueWarnings,
-    );
-  }
+  // Before createRevision, so a blocked attempt leaves no orphaned draft.
+  assertRevertValuesReadable(context, feature, mergeChanges);
 
   // Build the full state of the target revision for the new revision document.
   // Sparse legacy revisions fall back to the feature's own rules.
@@ -3058,8 +3033,8 @@ export async function postFeatureRevert(
   if (revision.prerequisites !== undefined) {
     revisionChanges.prerequisites = revision.prerequisites;
   }
-  if (revision.archived !== undefined) {
-    revisionChanges.archived = revision.archived;
+  if (mergeChanges.archived !== undefined) {
+    revisionChanges.archived = mergeChanges.archived;
   }
   if (revision.metadata !== undefined) {
     revisionChanges.metadata = revision.metadata;
@@ -3072,11 +3047,7 @@ export async function postFeatureRevert(
     context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
     !!org.settings?.revertsBypassApproval;
 
-  await assertFeatureMoveDependentsGuard(
-    context,
-    feature,
-    mergeChanges.metadata,
-  );
+  await assertRevertLandingGuards(context, feature, mergeChanges);
   const newRevision = await createRevision({
     context,
     feature,
@@ -3094,11 +3065,6 @@ export async function postFeatureRevert(
       ? undefined
       : (draft) => assertCanAutoPublish(context, feature, draft),
   });
-  // A revert restoring an archived state is the same out-of-service flip the
-  // direct archive endpoint guards.
-  if (mergeChanges.archived === true && !feature.archived) {
-    await assertFeatureArchiveDependentsGuard(context, feature);
-  }
   const updatedFeature = await publishRevision({
     context,
     feature,
@@ -3208,8 +3174,11 @@ export async function postFeatureRevertDraft(
   if (revision.prerequisites !== undefined) {
     changes.prerequisites = revision.prerequisites;
   }
-  if (revision.archived !== undefined) {
-    changes.archived = revision.archived;
+  // A revision that predates archived snapshots restores an active flag rather
+  // than leaving a later archive in place.
+  const targetArchived = getRevertTargetArchived(revision);
+  if (targetArchived !== (feature.archived ?? false)) {
+    changes.archived = targetArchived;
   }
   if (revision.metadata !== undefined) {
     changes.metadata = revision.metadata;
