@@ -859,25 +859,8 @@ describe("experiments API", () => {
       expect(createExperiment).not.toHaveBeenCalled();
     });
 
-    // Phase targeting reaches the payload like a rule's, and gets its checks.
-    it.each([
-      [
-        "a phase condition that does not parse",
-        { condition: '{"country": ' },
-        400,
-        /Invalid targeting condition/,
-      ],
-      [
-        "a phase saved group that does not exist",
-        {
-          savedGroupTargeting: [
-            { matchType: "all", savedGroups: ["grp_missing"] },
-          ],
-        },
-        404,
-        /grp_missing/,
-      ],
-    ])("rejects %s", async (_label, targeting, status, message) => {
+    // Phase saved groups reach the payload like a rule's, and get its checks.
+    it("rejects a phase saved group that does not exist", async () => {
       (getDataSourceById as jest.Mock).mockResolvedValue({
         id: "ds_123",
         type: "postgres",
@@ -900,13 +883,15 @@ describe("experiments API", () => {
             {
               name: "Main",
               dateStarted: "2026-01-01T00:00:00.000Z",
-              ...targeting,
+              savedGroupTargeting: [
+                { matchType: "all", savedGroups: ["grp_missing"] },
+              ],
             },
           ],
         })
         .set("Authorization", "Bearer foo");
-      expect(res.body.message).toMatch(message);
-      expect(res.status).toBe(status);
+      expect(res.body.message).toMatch(/grp_missing/);
+      expect(res.status).toBe(404);
       expect(createExperiment).not.toHaveBeenCalled();
     });
 

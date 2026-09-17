@@ -40,7 +40,6 @@ import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import { ApiReqContext } from "back-end/types/api";
-
 import {
   assertValidChangedRuleExperimentIds,
   assertValidChangedRuleProjectIds,
