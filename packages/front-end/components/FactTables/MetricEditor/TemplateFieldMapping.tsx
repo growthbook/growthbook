@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { isProjectListValidForProject } from "shared/util";
 import { canInlineFilterColumn } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -31,7 +32,7 @@ export default function TemplateFieldMapping({
   onMapped: (mapped: FactMetricSeed) => void;
   onCancel: () => void;
 }) {
-  const { factTables, getFactTableById, getDatasourceById, datasources } =
+  const { factTables, getDatasourceById, datasources, project } =
     useDefinitions();
   const { numeric: numericPlaceholders, string: stringPlaceholders } =
     placeholderColumns(template);
@@ -49,7 +50,15 @@ export default function TemplateFieldMapping({
     Object.fromEntries([...stringPlaceholders].map((c) => [c, ""])),
   );
 
-  const factTable = getFactTableById(factTableId);
+  const availableDatasources = datasources.filter((d) =>
+    isProjectListValidForProject(d.projects, project),
+  );
+  const availableFactTables = factTables.filter(
+    (ft) =>
+      isProjectListValidForProject(ft.projects, project) &&
+      availableDatasources.some((d) => d.id === ft.datasource),
+  );
+  const factTable = availableFactTables.find((ft) => ft.id === factTableId);
   const numericOptions = factTable ? columnsForShape("sum", factTable) : [];
   const stringOptions = factTable
     ? factTable.columns
@@ -64,7 +73,9 @@ export default function TemplateFieldMapping({
 
   function changeFactTable(newFactTableId: string) {
     setFactTableId(newFactTableId);
-    const newFactTable = getFactTableById(newFactTableId);
+    const newFactTable = availableFactTables.find(
+      (ft) => ft.id === newFactTableId,
+    );
     // Rebuild every mapping from scratch against the new fact table - never
     // carry forward a value picked against a different table, which could
     // silently reference a column that doesn't exist here.
@@ -79,14 +90,14 @@ export default function TemplateFieldMapping({
     setStringMap((prev) => rebuild(prev, false));
   }
 
-  const hasSqlDatasource = datasources.some(
+  const hasSqlDatasource = availableDatasources.some(
     (d) => d.properties?.queryLanguage === "sql",
   );
-  const canSelectFactTable = hasSqlDatasource && factTables.length > 0;
+  const canSelectFactTable = hasSqlDatasource && availableFactTables.length > 0;
 
   const canContinue =
     canSelectFactTable &&
-    !!factTableId &&
+    !!factTable &&
     Object.values(numericMap).every(Boolean) &&
     Object.values(stringMap).every(Boolean);
 
@@ -168,7 +179,7 @@ export default function TemplateFieldMapping({
           Connect a SQL Data Source before adding a metric.{" "}
           <Link href="/datasources">View Data Sources</Link>
         </Callout>
-      ) : !factTables.length ? (
+      ) : !availableFactTables.length ? (
         <Callout status="info" mb="3">
           Create a fact table before adding a metric.{" "}
           <Link href="/fact-tables">View fact tables</Link>
@@ -178,11 +189,11 @@ export default function TemplateFieldMapping({
         <Select
           label="Fact table"
           disabled={!canSelectFactTable}
-          value={factTableId}
+          value={factTable?.id ?? ""}
           setValue={changeFactTable}
           placeholder="Select..."
         >
-          {factTables.map((ft) => (
+          {availableFactTables.map((ft) => (
             <SelectItem key={ft.id} value={ft.id}>
               {ft.name} (
               {getDatasourceById(ft.datasource)?.name || ft.datasource})
