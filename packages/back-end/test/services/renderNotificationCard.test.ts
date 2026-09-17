@@ -1,6 +1,7 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
 import { renderNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
 import { renderCard } from "back-end/src/services/notificationCards/cardStyles";
+import type { CardSection } from "back-end/src/services/notificationCards/types";
 
 jest.mock("back-end/src/services/notificationCards/cardStyles", () => ({
   renderCard: jest.fn(),
@@ -38,8 +39,9 @@ describe("renderNotificationCard", () => {
     });
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
-        state: "warning",
-        key: "exp-1",
+        tone: "warning",
+        icon: "warn",
+        url: expect.stringMatching(/\/experiment\/exp-1$/),
         banner: "Health Alert - SRM Detected",
       }),
       "light",
@@ -63,15 +65,20 @@ describe("renderNotificationCard", () => {
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
-        table: {
-          columns: ["Variation", "Units", "Actual %", "Expected %"],
-          rows: [
-            ["Control", "6,200", "62%", "50%"],
-            ["Treatment", "3,800", "38%", "50%"],
-          ],
-          note: "p-value: <0.001",
-        },
-        units: 10000,
+        sections: [
+          {
+            kind: "table",
+            table: {
+              columns: ["Variation", "Units", "Actual %", "Expected %"],
+              rows: [
+                ["Control", "6,200", "62%", "50%"],
+                ["Treatment", "3,800", "38%", "50%"],
+              ],
+              note: "p-value: <0.001",
+            },
+          },
+        ],
+        footer: "10,000 units",
       }),
       "light",
     );
@@ -122,14 +129,20 @@ describe("renderNotificationCard", () => {
     });
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
-        state: "started",
+        tone: "info",
+        icon: "play",
         banner: "Experiment Started",
-        fields: [
+        sections: [
           {
-            label: "Goal metrics",
-            value: "Conversion, Revenue, Retention (+1 more)",
+            kind: "fields",
+            fields: [
+              {
+                label: "Goal metrics",
+                value: "Conversion, Revenue, Retention (+1 more)",
+              },
+              { label: "Linked changes", value: "1 Feature Flag" },
+            ],
           },
-          { label: "Linked changes", value: "1 Feature Flag" },
         ],
       }),
       "dark",
@@ -148,16 +161,18 @@ describe("renderNotificationCard", () => {
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
-        state: "stopped",
+        tone: "neutral",
+        icon: "stop",
         banner: "Experiment Stopped",
-        fields: [
-          { label: "Result", value: "Stopped without a recorded outcome" },
+        sections: [
+          {
+            kind: "fields",
+            fields: [
+              { label: "Result", value: "Stopped without a recorded outcome" },
+            ],
+          },
         ],
       }),
-      "light",
-    );
-    expect(renderCard).toHaveBeenCalledWith(
-      expect.not.objectContaining({ rows: expect.anything() }),
       "light",
     );
   });
@@ -206,24 +221,39 @@ describe("renderNotificationCard", () => {
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
-        state: "winner",
+        tone: "success",
+        icon: "trophy",
         banner: "Experiment Stopped - Winner",
-        goal: "Conversion",
-        units: 20000,
-        durationDays: 21,
-        conclusion: { text: "Variation *Treatment* won." },
-        rows: [
-          expect.objectContaining({
-            v: "Treatment",
-            i: 1,
-            ctw: "98.0%",
-            sig: true,
-            chg: "+10%",
-            dir: "up",
-            good: true,
-            vio: { c: 10, s: 2 },
-            ci: { lo: 6, hi: 14, pt: 10 },
-          }),
+        footer: "20,000 units - 21 days",
+        sections: [
+          {
+            kind: "callout",
+            callout: {
+              label: "Conclusion",
+              markdown: "Variation *Treatment* won.",
+            },
+          },
+          {
+            kind: "results",
+            results: {
+              sectionLabel: "Goal metric",
+              title: "Conversion",
+              statLabel: "Chance to win",
+              rows: [
+                expect.objectContaining({
+                  v: "Treatment",
+                  i: 1,
+                  ctw: "98.0%",
+                  sig: true,
+                  chg: "+10%",
+                  dir: "up",
+                  good: true,
+                  vio: { c: 10, s: 2 },
+                  ci: { lo: 6, hi: 14, pt: 10 },
+                }),
+              ],
+            },
+          },
         ],
       }),
       "light",
@@ -245,9 +275,14 @@ describe("renderNotificationCard", () => {
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
         banner: "Experiment Stopped - Inconclusive",
-        fields: [
-          { label: "Result", value: "Inconclusive" },
-          { label: "Temporary rollout", value: "Variation *Control*" },
+        sections: [
+          {
+            kind: "fields",
+            fields: [
+              { label: "Result", value: "Inconclusive" },
+              { label: "Temporary rollout", value: "Variation *Control*" },
+            ],
+          },
         ],
       }),
       "light",
@@ -291,17 +326,25 @@ describe("renderNotificationCard", () => {
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
-        state: "loser",
+        tone: "danger",
+        icon: "x",
         banner: "Experiment Stopped - Lost",
-        statsEngine: "frequentist",
-        rows: [
-          expect.objectContaining({
-            ctw: "<0.001",
-            sig: true,
-            chg: "-8%",
-            dir: "down",
-            good: false,
-          }),
+        sections: [
+          {
+            kind: "results",
+            results: expect.objectContaining({
+              statLabel: "p-value",
+              rows: [
+                expect.objectContaining({
+                  ctw: "<0.001",
+                  sig: true,
+                  chg: "-8%",
+                  dir: "down",
+                  good: false,
+                }),
+              ],
+            }),
+          },
         ],
       }),
       "dark",
@@ -343,7 +386,14 @@ describe("renderNotificationCard", () => {
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
-        rows: [expect.objectContaining({ dir: "down", good: true })],
+        sections: expect.arrayContaining([
+          {
+            kind: "results",
+            results: expect.objectContaining({
+              rows: [expect.objectContaining({ dir: "down", good: true })],
+            }),
+          },
+        ]),
       }),
       "dark",
     );
@@ -378,7 +428,11 @@ describe("renderNotificationCard", () => {
       "dark",
     );
     const [card] = jest.mocked(renderCard).mock.calls[0];
-    expect("rows" in card ? card.rows : []).toEqual([
+    const results = card.sections.find(
+      (s): s is Extract<CardSection, { kind: "results" }> =>
+        s.kind === "results",
+    );
+    expect(results?.results.rows).toEqual([
       { v: "Treatment", i: 1, sig: false, ctw: "50.0%" },
     ]);
   });
@@ -400,13 +454,18 @@ describe("renderNotificationCard", () => {
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
-        fields: [
-          { label: "Result", value: "Won" },
+        sections: [
           {
-            label: "Temporary rollout",
-            value: "Variation *2\\*\\_fast\\_\\**",
+            kind: "fields",
+            fields: [
+              { label: "Result", value: "Won" },
+              {
+                label: "Temporary rollout",
+                value: "Variation *2\\*\\_fast\\_\\**",
+              },
+              { label: "Reason", value: "\\*Ship it\\*" },
+            ],
           },
-          { label: "Reason", value: "\\*Ship it\\*" },
         ],
       }),
       "light",

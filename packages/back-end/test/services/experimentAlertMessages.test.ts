@@ -32,10 +32,12 @@ describe("experiment alert messages", () => {
       "event_test",
     );
     const card = buildNotificationCard(event)?.data;
-    const linkedChanges =
-      card && "fields" in card
-        ? card.fields?.find((f) => f.label === "Linked changes")?.value
-        : undefined;
+    const fields = card?.sections.flatMap((s) =>
+      s.kind === "fields" ? s.fields : [],
+    );
+    const linkedChanges = fields?.find(
+      (f) => f.label === "Linked changes",
+    )?.value;
     expect(linkedChanges).toBe(
       "2 Feature Flags, 1 Visual Editor change, 1 URL redirect",
     );

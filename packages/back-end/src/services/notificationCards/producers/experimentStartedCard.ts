@@ -1,4 +1,5 @@
 import { experimentStartedNotificationPayload } from "shared/validators";
+import { getExperimentUrl } from "back-end/src/util/appUrls";
 import {
   EXPERIMENT_STARTED_LABEL,
   getExperimentStartedFields,
@@ -14,10 +15,11 @@ export const buildExperimentStartedCard: NotificationCardProducer = (event) => {
   if (!parsed.success) return null;
   const data = parsed.data;
   return {
-    state: "started",
+    tone: "info",
+    icon: "play",
     name: data.experimentName,
-    key: data.experimentId,
     banner: EXPERIMENT_STARTED_LABEL,
-    fields: getExperimentStartedFields(data),
+    url: getExperimentUrl(data.experimentId),
+    sections: [{ kind: "fields", fields: getExperimentStartedFields(data) }],
   };
 };

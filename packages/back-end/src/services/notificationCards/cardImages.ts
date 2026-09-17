@@ -2,23 +2,23 @@ import fs from "fs";
 import path from "path";
 import satori from "satori";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
-import { formatInteger, formatPercentChange } from "shared/util";
+import { formatPercentChange } from "shared/util";
 import { logger } from "back-end/src/util/logger";
 import {
   type MdRun,
   parseInlineMarkdown,
 } from "back-end/src/services/notificationCards/markdown";
-import { confidenceLabel } from "back-end/src/services/notificationCards/statLabel";
 import type {
-  CardState,
-  CardGoalRow,
+  CardTone,
+  CardIcon,
+  CardResultRow,
   CardField,
   CardTable,
+  CardCallout,
+  CardResults,
+  CardSection,
   CardIdentity,
-  EventCardData,
-  ExperimentCardData,
   CardData,
-  CardEvent,
 } from "back-end/src/services/notificationCards/types";
 
 // Server-side notification-card rendering. The renderer is platform-neutral:
@@ -194,12 +194,12 @@ const SOFT: Record<Hue, string> = {
 };
 type Hue = "violet" | "blue" | "green" | "red" | "amber" | "slate";
 
-const HUE: Record<CardState, Hue> = {
-  // Started shares the app's Running badge color (indigo).
-  started: "blue",
-  winner: "green",
-  loser: "red",
-  stopped: "slate",
+const HUE: Record<CardTone, Hue> = {
+  // Info shares the app's Running badge color (indigo).
+  info: "blue",
+  success: "green",
+  danger: "red",
+  neutral: "slate",
   warning: "amber",
 };
 // Variation number-circle palette (index 0 = control).
@@ -223,9 +223,6 @@ const RESULT_LAYOUT = {
   axis: 11,
   ci: 12.5,
 } as const;
-
-const isResultsCard = (card: CardData): card is ExperimentCardData =>
-  "rows" in card;
 
 // ---------------------------------------------------------------------------
 // Element helpers (Satori "without JSX" object form).
@@ -619,22 +616,22 @@ function colHeader(statLabel: string): El {
 // Whether a row's change is in the metric's desired direction. Rows from a
 // payload say so via `good` (which accounts for inverse metrics); samples fall
 // back to the arrow.
-const isGoodOutcome = (r: Pick<CardGoalRow, "dir" | "good">): boolean =>
+const isGoodOutcome = (r: Pick<CardResultRow, "dir" | "good">): boolean =>
   r.good ?? r.dir !== "down";
 
-const outcomeColor = (r: Pick<CardGoalRow, "dir" | "good">): string =>
+const outcomeColor = (r: Pick<CardResultRow, "dir" | "good">): string =>
   isGoodOutcome(r) ? P.st.green : P.st.red;
 
 // Color for the stat cell. Rows that know their significance (frequentist
 // p-values, or bayesian rows the producer already judged) color by outcome
 // direction; otherwise fall back to the chance-to-win thresholds.
-function statColor(r: CardGoalRow): string {
+function statColor(r: CardResultRow): string {
   return r.sig ? outcomeColor(r) : P.muted;
 }
 
 // One variation's result. Means are intentionally omitted: the row is the
 // stat, the interval, and the change.
-function goalRowEl(r: CardGoalRow): El {
+function resultRowEl(r: CardResultRow): El {
   const intervalCell = el(
     "div",
     { display: "flex", flexDirection: "column", gap: 2 },
@@ -722,27 +719,12 @@ function sectionLabel(t: string): El {
   });
 }
 
-const statLabelFor = (exp: ExperimentCardData): string =>
-  confidenceLabel(exp.statsEngine ?? "bayesian");
-
 // ---------------------------------------------------------------------------
 // Card sections.
 // ---------------------------------------------------------------------------
 
-// "{units} units - {days} days", with whichever parts the card knows.
-function footerText(card: CardIdentity): string {
-  return [
-    card.units !== undefined ? `${formatInteger(card.units)} units` : undefined,
-    card.durationDays !== undefined
-      ? `${card.durationDays} day${card.durationDays === 1 ? "" : "s"}`
-      : undefined,
-  ]
-    .filter(Boolean)
-    .join(" - ");
-}
-
-// Every card ends the same way: units and duration on the left, the
-// GrowthBook logo on the right. Rendered even when nothing is known so the
+// Every card ends the same way: the producer's footer line on the left, the
+// GrowthBook logo on the right. Rendered even when there is no line so the
 // logo always sits in the same place.
 function standardFooterEl(card: CardIdentity): El {
   const logoH = 20;
@@ -759,7 +741,7 @@ function standardFooterEl(card: CardIdentity): El {
       marginTop: "auto",
     },
     [
-      txt(footerText(card), { fontSize: 14, color: P.subtle }),
+      txt(card.footer ?? "", { fontSize: 14, color: P.subtle }),
       {
         type: "img",
         props: {
@@ -773,31 +755,20 @@ function standardFooterEl(card: CardIdentity): El {
   );
 }
 
-// Metric name above the header, one numbered row per variation.
-function goalSectionEls(exp: ExperimentCardData): El[] {
-  return [
-    sectionLabel("Goal metric"),
-    metricNameEl(exp.goal),
-    colHeader(statLabelFor(exp)),
-    ...exp.rows.map((r) => goalRowEl(r)),
-  ];
+// Title above the header, one numbered row per variation.
+function resultsEl(results: CardResults): El {
+  return el("div", { display: "flex", flexDirection: "column", flexGrow: 1 }, [
+    sectionLabel(results.sectionLabel),
+    metricNameEl(results.title),
+    colHeader(results.statLabel),
+    ...results.rows.map((r) => resultRowEl(r)),
+  ]);
 }
 
-function standardBody(exp: ExperimentCardData): El {
-  return el(
-    "div",
-    { display: "flex", flexDirection: "column", flexGrow: 1 },
-    goalSectionEls(exp),
-  );
-}
-
-// The main learning, featured near the top: soft status-hue background, a caps
-// CONCLUSION label, then the conclusion text.
-function conclusionEl(exp: ExperimentCardData): El | null {
-  const { text, rollout } = exp.conclusion ?? {};
-  if (!text && !rollout) return null;
-  const hue = HUE[exp.state];
-  const section = (label: string, markdown: string, first: boolean) => [
+// The main learning, featured near the top: soft tone-colored background, a
+// caps label, then the prose.
+function calloutEl(callout: CardCallout, hue: Hue): El {
+  const block = (label: string, markdown: string, first: boolean) => [
     txt(label, {
       fontSize: 12,
       fontWeight: 600,
@@ -819,8 +790,10 @@ function conclusionEl(exp: ExperimentCardData): El | null {
       borderBottom: `1px solid ${P.border}`,
     },
     [
-      ...(text ? section("Conclusion", text, true) : []),
-      ...(rollout ? section("Temporary Rollout", rollout, !text) : []),
+      ...block(callout.label, callout.markdown, true),
+      ...(callout.aside
+        ? block(callout.aside.label, callout.aside.markdown, false)
+        : []),
     ],
   );
 }
@@ -926,7 +899,9 @@ function fieldEl(field: CardField): El {
   ]);
 }
 
-function eventSummaryBody(card: EventCardData): El {
+// Inset body section: fields and tables sit inside the card's gutters, unlike
+// callouts and results tables, which run full-bleed.
+function insetSection(children: El[]): El {
   return el(
     "div",
     {
@@ -935,18 +910,33 @@ function eventSummaryBody(card: EventCardData): El {
       gap: 22,
       padding: "0 28px 26px",
     },
-    [
-      ...(card.fields ?? []).map(fieldEl),
-      ...(card.table ? [tableEl(card.table)] : []),
-    ],
+    children,
   );
 }
 
-// Full-width headline bar in the card's state color, e.g. "Health Alert - SRM
-// Detected", with the event's icon. Amber is too light for white text, so it
+function sectionEl(section: CardSection, hue: Hue): El {
+  switch (section.kind) {
+    case "fields":
+      return insetSection(section.fields.map(fieldEl));
+    case "table":
+      return insetSection([tableEl(section.table)]);
+    case "callout":
+      return calloutEl(section.callout, hue);
+    case "results":
+      return resultsEl(section.results);
+    default: {
+      const exhaustive: never = section;
+      throw new Error(
+        `Unhandled notification card section: ${JSON.stringify(exhaustive)}`,
+      );
+    }
+  }
+}
+
+// Full-width headline bar in the card's tone color, e.g. "Health Alert - SRM
+// Detected", with the card's icon. Amber is too light for white text, so it
 // gets the dark text color; the other hues take white.
 function eventBannerEl(card: CardIdentity, hue: Hue): El {
-  const event = eventFor(card);
   const color = hue === "amber" ? P.text : "#ffffff";
   return el(
     "div",
@@ -966,13 +956,13 @@ function eventBannerEl(card: CardIdentity, hue: Hue): El {
         letterSpacing: "-0.01em",
         color,
       }),
-      svgImg(eventIconSvg(EVENT_ICON[event], color), 26, 26),
+      svgImg(eventIconSvg(card.icon, color), 26, 26),
     ],
   );
 }
 
-// Header for banner cards: the banner carries the state and the footer the
-// logo, so this is just the large experiment name (plus tags).
+// Header for banner cards: the banner carries the tone and the footer the
+// logo, so this is just the large object name (plus tags).
 function eventHeaderEl(card: CardIdentity): El {
   return el(
     "div",
@@ -996,13 +986,11 @@ function eventHeaderEl(card: CardIdentity): El {
 }
 
 function buildCard(card: CardData): El {
-  const hue = HUE[card.state];
+  const hue = HUE[card.tone];
   return cardShell([
     eventBannerEl(card, hue),
     eventHeaderEl(card),
-    ...(isResultsCard(card)
-      ? [conclusionEl(card), standardBody(card)]
-      : [eventSummaryBody(card)]),
+    ...card.sections.map((section) => sectionEl(section, hue)),
     standardFooterEl(card),
   ]);
 }
@@ -1029,18 +1017,8 @@ function cardShell(column: (El | null)[]): El {
 // Event banner icons.
 // ---------------------------------------------------------------------------
 
-type EventIconKind = "play" | "check" | "trophy" | "x" | "stop" | "warn";
-
-const EVENT_ICON: Record<CardEvent, EventIconKind> = {
-  started: "play",
-  won: "trophy",
-  lost: "x",
-  stopped: "stop",
-  warning: "warn",
-};
-
 // Icons drawn in a 24x24 viewBox (svgImg scales to the requested px).
-function eventIconSvg(kind: EventIconKind, color: string): string {
+function eventIconSvg(kind: CardIcon, color: string): string {
   const wrap = (inner: string) =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${inner}</svg>`;
   switch (kind) {
@@ -1063,27 +1041,13 @@ function eventIconSvg(kind: EventIconKind, color: string): string {
         `<rect x="5" y="5" width="14" height="14" rx="2" fill="${color}"/>`,
       );
     case "warn":
-    default:
       return wrap(
         `<path d="M12 3 L22 20 H2 Z" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="9.5" x2="12" y2="14.5" stroke="${color}" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.2" fill="${color}"/>`,
       );
-  }
-}
-
-// The event a card announces follows from its state.
-function eventFor(exp: CardIdentity): CardEvent {
-  switch (exp.state) {
-    case "started":
-      return "started";
-    case "winner":
-      return "won";
-    case "loser":
-      return "lost";
-    case "warning":
-      return "warning";
-    case "stopped":
-    default:
-      return "stopped";
+    default: {
+      const exhaustive: never = kind;
+      throw new Error(`Unhandled notification card icon: ${exhaustive}`);
+    }
   }
 }
 

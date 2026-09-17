@@ -2,6 +2,7 @@ import {
   type ExperimentStoppedNotificationPayload,
   experimentStoppedNotificationPayload,
 } from "shared/validators";
+import { getExperimentUrl } from "back-end/src/util/appUrls";
 import {
   RESULT_LABEL,
   formatConfidenceValue,
@@ -12,10 +13,15 @@ import {
   variationMarkdown,
 } from "back-end/src/services/experimentChanges/experimentStoppedSummary";
 import { escapeInlineMarkdown } from "back-end/src/services/notificationCards/markdown";
+import { confidenceLabel } from "back-end/src/services/notificationCards/statLabel";
+import { formatExperimentFooter } from "back-end/src/services/notificationCards/producers/experimentFooter";
 import type {
+  CardCallout,
   CardData,
   CardField,
-  CardGoalRow,
+  CardIcon,
+  CardResultRow,
+  CardTone,
   NotificationCardProducer,
 } from "back-end/src/services/notificationCards/types";
 
@@ -56,12 +62,12 @@ function getExperimentStoppedFields(
 // a fabricated 0%.
 function goalRows(
   goalMetric: NonNullable<ExperimentStoppedNotificationPayload["goalMetric"]>,
-): CardGoalRow[] {
+): CardResultRow[] {
   return goalMetric.variations.map((v) => {
     const ctw = formatConfidenceValue(goalMetric.statsEngine, v);
     // Unknown significance (e.g. the goal metric was deleted) stays muted.
     const stat = { sig: v.significant ?? false, ...(ctw ? { ctw } : {}) };
-    const base: CardGoalRow = {
+    const base: CardResultRow = {
       v: v.variationName,
       i: v.variationIndex,
       ...stat,
@@ -84,45 +90,79 @@ function goalRows(
   });
 }
 
+// The recorded outcome colors the card and picks its glyph.
+function outcomeStyle(data: ExperimentStoppedNotificationPayload): {
+  tone: CardTone;
+  icon: CardIcon;
+} {
+  switch (data.results) {
+    case "won":
+      return { tone: "success", icon: "trophy" };
+    case "lost":
+      return { tone: "danger", icon: "x" };
+    case "dnf":
+    case "inconclusive":
+    case undefined:
+      return { tone: "neutral", icon: "stop" };
+    default: {
+      const exhaustive: never = data.results;
+      throw new Error(`Unhandled experiment result: ${exhaustive}`);
+    }
+  }
+}
+
+// The written analysis, plus the variation a temporary rollout serves when one
+// is active. Either can stand alone as the callout's primary block.
+function getExperimentStoppedCallout(
+  data: ExperimentStoppedNotificationPayload,
+): CardCallout | undefined {
+  const conclusion = getExperimentStoppedConclusion(data);
+  const rollout = getExperimentStoppedRollout(data);
+  const aside = rollout
+    ? { label: "Temporary Rollout", markdown: rollout }
+    : undefined;
+  if (conclusion) {
+    return {
+      label: "Conclusion",
+      markdown: conclusion,
+      ...(aside ? { aside } : {}),
+    };
+  }
+  return aside;
+}
+
 function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
+  const footer = formatExperimentFooter(data.totalUsers, data.durationDays);
   const identity = {
+    ...outcomeStyle(data),
     name: data.experimentName,
-    key: data.experimentId,
     banner: getExperimentStoppedLabel(data),
-    ...(data.totalUsers !== undefined ? { units: data.totalUsers } : {}),
-    ...(data.durationDays !== undefined
-      ? { durationDays: data.durationDays }
-      : {}),
+    url: getExperimentUrl(data.experimentId),
+    ...(footer ? { footer } : {}),
   };
+  // No successful snapshot at stop time: report the outcome as labeled fields
+  // rather than a results table with nothing in it.
   if (!data.goalMetric) {
     return {
       ...identity,
-      state: "stopped",
-      fields: getExperimentStoppedFields(data),
+      sections: [{ kind: "fields", fields: getExperimentStoppedFields(data) }],
     };
   }
-  const state =
-    data.results === "won"
-      ? "winner"
-      : data.results === "lost"
-        ? "loser"
-        : "stopped";
-  const conclusion = getExperimentStoppedConclusion(data);
-  const rollout = getExperimentStoppedRollout(data);
+  const callout = getExperimentStoppedCallout(data);
   return {
     ...identity,
-    state,
-    goal: data.goalMetric.metricName,
-    statsEngine: data.goalMetric.statsEngine,
-    rows: goalRows(data.goalMetric),
-    ...(conclusion || rollout
-      ? {
-          conclusion: {
-            ...(conclusion ? { text: conclusion } : {}),
-            ...(rollout ? { rollout } : {}),
-          },
-        }
-      : {}),
+    sections: [
+      ...(callout ? [{ kind: "callout" as const, callout }] : []),
+      {
+        kind: "results",
+        results: {
+          sectionLabel: "Goal metric",
+          title: data.goalMetric.metricName,
+          statLabel: confidenceLabel(data.goalMetric.statsEngine),
+          rows: goalRows(data.goalMetric),
+        },
+      },
+    ],
   };
 }
 

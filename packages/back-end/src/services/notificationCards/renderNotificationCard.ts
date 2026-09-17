@@ -3,7 +3,6 @@ import type { CardNotificationEventName } from "shared/notifications";
 import type { NotificationEventName } from "shared/types/events/base-types";
 import type { NotificationCardFormat } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
-import { getExperimentUrl } from "back-end/src/util/appUrls";
 import { LruCache } from "back-end/src/services/cache";
 import { renderCard } from "back-end/src/services/notificationCards/cardStyles";
 import type {
@@ -32,7 +31,7 @@ export function buildNotificationCard(
   return {
     data,
     altText: `${data.name} - ${data.banner}`,
-    objectUrl: getExperimentUrl(data.key),
+    objectUrl: data.url,
     objectName: data.name,
     eventLabel: data.banner,
   };

@@ -19,7 +19,11 @@ describe("notification card rendering", () => {
       const card = buildNotificationCard(event);
       expect(card).not.toBeNull();
       if (!card) throw new Error("Missing event sample card");
-      if ("rows" in card.data) expect(card.data.rows.length).toBeGreaterThan(0);
+      for (const section of card.data.sections) {
+        if (section.kind === "results") {
+          expect(section.results.rows.length).toBeGreaterThan(0);
+        }
+      }
       for (const format of ["light", "dark"] as const) {
         const png = await renderCard(card.data, format);
         expect(isPng(png)).toBe(true);
