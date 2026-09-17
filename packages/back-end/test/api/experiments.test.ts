@@ -93,6 +93,9 @@ describe("experiments API", () => {
           getAll: jest.fn().mockResolvedValue([]),
           ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
         },
+        savedGroups: {
+          getAll: jest.fn().mockResolvedValue([]),
+        },
         dataSources: {
           getById: jest.fn().mockResolvedValue({
             id: "ds_123",
@@ -853,6 +856,57 @@ describe("experiments API", () => {
         expect.anything(),
         [{ id: "missing_flag", condition: '{"value": true}' }],
       );
+      expect(createExperiment).not.toHaveBeenCalled();
+    });
+
+    // Phase targeting reaches the payload like a rule's, and gets its checks.
+    it.each([
+      [
+        "a phase condition that does not parse",
+        { condition: '{"country": ' },
+        400,
+        /Invalid targeting condition/,
+      ],
+      [
+        "a phase saved group that does not exist",
+        {
+          savedGroupTargeting: [
+            { matchType: "all", savedGroups: ["grp_missing"] },
+          ],
+        },
+        404,
+        /grp_missing/,
+      ],
+    ])("rejects %s", async (_label, targeting, status, message) => {
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+        },
+      });
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_targeting",
+          name: "Targeting",
+          datasourceId: "ds_123",
+          assignmentQueryId: "user_id",
+          variations: [
+            { key: "0", name: "Control", description: "", screenshots: [] },
+            { key: "1", name: "Treatment", description: "", screenshots: [] },
+          ],
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              ...targeting,
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+      expect(res.body.message).toMatch(message);
+      expect(res.status).toBe(status);
       expect(createExperiment).not.toHaveBeenCalled();
     });
 
@@ -2057,6 +2111,53 @@ describe("experiments API", () => {
         { id: "v1", status: "active" },
         { id: "v0", status: "active" },
       ]);
+    });
+
+    it("re-checks phase targeting only where it differs from the stored phases", async () => {
+      // Stored phase names a group that no longer exists.
+      const stale = {
+        condition: '{"id": {"$inGroup": "grp_gone"}}',
+        savedGroups: [{ match: "all", ids: ["grp_gone"] }],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2026-01-01T00:00:00.000Z"),
+            coverage: 1,
+            variationWeights: [1],
+            ...stale,
+          },
+        ],
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+      const update = (targeting: Record<string, unknown>) =>
+        request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({
+            phases: [
+              {
+                name: "Main",
+                dateStarted: "2026-01-01T00:00:00.000Z",
+                ...targeting,
+              },
+            ],
+          })
+          .set("Authorization", "Bearer foo");
+
+      const echo = await update(stale);
+      expect(echo.body.message).toBeUndefined();
+      expect(echo.status).toBe(200);
+
+      const changed = await update({
+        ...stale,
+        savedGroups: [{ match: "all", ids: ["grp_gone", "grp_other"] }],
+      });
+      expect(changed.body.message).toMatch(/grp_gone/);
+      expect(changed.status).toBe(404);
     });
 
     it("honors the GET-response phase field names on a round-trip update", async () => {

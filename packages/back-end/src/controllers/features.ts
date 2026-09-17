@@ -171,6 +171,7 @@ import {
   getLiveRevisionForFeature,
   getDraftRevision,
   assertCanAutoPublish,
+  assertFeatureValuesValid,
   revisionRequiresReview,
   assertCanUndoFeatureReview,
 } from "back-end/src/services/features";
@@ -303,10 +304,9 @@ import {
   parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
 import {
-  assertRuleVariationsMatchExperiment,
-  assertValidExperimentRefRule,
+  assertValidFeatureRules,
   assertValidHoldout,
-  experimentRefChanged,
+  assertValidRuleWrite,
 } from "back-end/src/api/features/v2Shared";
 import {
   shouldValidateCustomFieldsOnUpdate,
@@ -318,10 +318,14 @@ import {
   rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
 import {
+  assertValidRevisionRulePrerequisites,
   collectRampPlanPatches,
   rampPatchEntries,
+  validatePrerequisiteConditions,
+  validatePrerequisiteReferences,
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 
 function normalizeRampStepAction(a: {
   targetType?: string;
@@ -988,6 +992,12 @@ export async function postFeatures(
   // Inbound v2 rules (e.g. from FeatureFromExperimentModal) often arrive with
   // `id: ""`; stamp ids so they're addressable by later update/delete ops.
   addIdsToFlatRules(feature.rules, feature.id);
+  await assertValidFeatureRules(context, feature.rules ?? []);
+  await assertValidPrerequisiteParents(context, feature);
+  assertFeatureValuesValid(context, feature, {
+    defaultValue: feature.defaultValue,
+    rules: feature.rules,
+  });
 
   await createFeature(context, feature);
   await context.models.watch.upsertWatch({
@@ -3539,20 +3549,15 @@ export async function postFeatureRule(
   // experiment-ref rules (writes deferred until after custom-hook prevalidation)
   if (rule.type === "experiment-ref") {
     const experiment = await getExperimentById(context, rule.experimentId);
-    // With a holdout in play the experiment must exist; without one, a missing
-    // experiment is left for downstream validation (preserves prior behavior).
-    if (effectiveHoldout?.id && !experiment) {
+    if (!experiment) {
       throw new Error(`Could not find experiment "${rule.experimentId}"`);
     }
-    if (experiment) {
-      assertRuleVariationsMatchExperiment(rule, experiment);
-      await resolveHoldoutExperimentToLink({
-        context,
-        feature,
-        experiment,
-        effectiveHoldout,
-      });
-    }
+    await resolveHoldoutExperimentToLink({
+      context,
+      feature,
+      experiment,
+      effectiveHoldout,
+    });
   }
 
   // Stamp id + rollout seed via the shared chokepoint (safe-rollout seed set above).
@@ -3646,13 +3651,14 @@ export async function postFeatureRule(
   if (stampedRule.allProjects === true) {
     delete (stampedRule as { projects?: string[] }).projects;
   }
-  const ruleScopeProjects = (stampedRule as { projects?: string[] }).projects;
-  if (ruleScopeProjects?.length) {
-    await context.models.projects.ensureProjectsExist(ruleScopeProjects);
-  }
+  await assertValidRuleWrite(context, feature, stampedRule);
   const ruleAdditionChanges = {
     rules: insertRuleBefore(existingRules, stampedRule, insertBeforeRuleId),
   };
+  await assertValidRevisionRulePrerequisites(context, feature, revision, {
+    before: existingRules,
+    after: ruleAdditionChanges.rules,
+  });
 
   const combinedChanges: Record<string, unknown> = ruleAdditionChanges;
   if (rampActionsUpdate) {
@@ -3884,6 +3890,18 @@ export async function postFeatureSync(
     needsNewRevision = true;
   }
 
+  await assertValidFeatureRules(context, nextFlatRules, feature.rules ?? []);
+  await assertValidPrerequisiteParents(
+    context,
+    { ...feature, rules: nextFlatRules },
+    feature,
+  );
+  const liveRuleById = new Map((feature.rules ?? []).map((r) => [r.id, r]));
+  assertFeatureValuesValid(context, feature, {
+    defaultValue: updatesInRevision.defaultValue,
+    rules: nextFlatRules.filter((r) => !isEqual(liveRuleById.get(r.id), r)),
+  });
+
   environments.forEach((env) => {
     // envSettings tracks the kill switch only; rules flow via changes.rules.
     updatesInRevision.environmentSettings =
@@ -3996,7 +4014,6 @@ export async function postFeatureExperimentRefRule(
   if (!experiment) {
     throw new Error("Invalid experiment selected");
   }
-  assertRuleVariationsMatchExperiment(rule, experiment);
 
   // allEnvironments:true strips any stale environments[]; false passes the
   // explicit list through. Legacy callers that send neither default to every
@@ -4020,6 +4037,7 @@ export async function postFeatureExperimentRefRule(
     );
   }
 
+  await assertValidRuleWrite(context, feature, scopedRule);
   const ruleEnvFootprint = scopedRule.allEnvironments
     ? environments
     : (scopedRule.environments ?? []);
@@ -4399,6 +4417,9 @@ export async function postFeatureDefaultValue(
     });
   }
 
+  assertFeatureValuesValid(context, feature, {
+    defaultValue: resolution.merged.defaultValue,
+  });
   // The baseline check above closes the stale-editor window; this closes the
   // request-overlap one, as on the rule path.
   let updatedRevisionAfterDefaultValue: FeatureRevisionInterface | null;
@@ -4829,13 +4850,6 @@ export async function putFeatureRule(
   // never re-bucketed; a force rule the UI promoted by dropping coverage has no
   // rollout history, so it seeds off its own id. Id first, so nothing mints one.
   const inboundRule = effectiveRule as FeatureRule;
-  // Only a changed reference is checked, so it must resolve.
-  if (
-    inboundRule.type === "experiment-ref" &&
-    experimentRefChanged(inboundRule, existingRule)
-  ) {
-    await assertValidExperimentRefRule(context, inboundRule);
-  }
   if (!inboundRule.id) inboundRule.id = ruleId;
   inheritStoredRolloutSeeds([inboundRule], existingRules);
   addIdsToFlatRules([inboundRule], feature.id);
@@ -5022,15 +5036,15 @@ export async function putFeatureRule(
   // feature is config-backed JSON.
   const ruleToValidate = nextRules.find((r) => r.id === ruleId);
   if (ruleToValidate) {
-    const ruleScopeProjects = (ruleToValidate as { projects?: string[] })
-      .projects;
-    if (ruleScopeProjects?.length) {
-      await context.models.projects.ensureProjectsExist(ruleScopeProjects);
-    }
+    await assertValidRuleWrite(context, feature, ruleToValidate, existingRule);
     await assertConfigBackedFeatureValuesValid(context, feature, {
       rules: [ruleToValidate],
     });
   }
+  await assertValidRevisionRulePrerequisites(context, feature, revision, {
+    before: existingRules,
+    after: nextRules,
+  });
 
   const combinedChanges: Record<string, unknown> = { rules: nextRules };
   if (rampSchedulePayload?.mode === "clear") {
@@ -7059,6 +7073,25 @@ function assertPrerequisitesUnchanged({
   return false;
 }
 
+// The REST prerequisites endpoint's checks: the new condition parses and names
+// known groups; the parents exist, are live and boolean, and close no cycle.
+async function assertValidPrerequisiteWrite(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: Pick<FeatureRevisionInterface, "rules" | "prerequisites"> | null,
+  changed: FeaturePrerequisite[],
+  prerequisites: FeaturePrerequisite[],
+): Promise<void> {
+  validatePrerequisiteConditions(changed);
+  await validatePrerequisiteReferences(changed, context);
+  const rules = draft?.rules ?? feature.rules;
+  await assertValidPrerequisiteParents(
+    context,
+    { ...feature, rules, prerequisites },
+    { rules, prerequisites: draft?.prerequisites ?? feature.prerequisites },
+  );
+}
+
 export async function postPrerequisite(
   req: AuthRequest<
     {
@@ -7095,6 +7128,13 @@ export async function postPrerequisite(
   const basePrerequisites =
     baseDraft?.prerequisites ?? feature.prerequisites ?? [];
   const newPrerequisites = [...basePrerequisites, prerequisite];
+  await assertValidPrerequisiteWrite(
+    context,
+    feature,
+    baseDraft,
+    [prerequisite],
+    newPrerequisites,
+  );
   const draft = await createOrUpdateDraftWithChanges(
     context,
     feature,
@@ -7171,6 +7211,13 @@ export async function putPrerequisite(
     throw new Error("Unknown prerequisite");
   }
   newPrerequisites[i] = prerequisite;
+  await assertValidPrerequisiteWrite(
+    context,
+    feature,
+    baseDraftPut,
+    [prerequisite],
+    newPrerequisites,
+  );
   const putDraft = await createOrUpdateDraftWithChanges(
     context,
     feature,

@@ -567,6 +567,42 @@ export async function validateChangedRuleReferences(
   );
 }
 
+type PhaseTargeting = {
+  condition?: string | null;
+  savedGroups?: FeatureRule["savedGroups"] | null;
+};
+
+// Experiment phases carry a rule's condition and saved groups and reach the
+// payload the same way, so they get the rule reference checks. A phase whose
+// condition or saved groups a stored phase already holds is not re-checked.
+export async function validateChangedPhaseReferences(
+  phases: PhaseTargeting[],
+  stored: PhaseTargeting[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const conditions = new Set(stored.map((p) => p.condition || "{}"));
+  const groups = stored.map((p) => p.savedGroups ?? []);
+  await validateRulesReferences(
+    phases.flatMap((phase) => {
+      const condition = phase.condition || "{}";
+      const savedGroups = phase.savedGroups ?? [];
+      const conditionChanged = condition !== "{}" && !conditions.has(condition);
+      const groupsChanged =
+        savedGroups.length > 0 && !groups.some((g) => isEqual(g, savedGroups));
+      if (!conditionChanged && !groupsChanged) return [];
+      return [
+        {
+          condition: conditionChanged
+            ? (phase.condition ?? undefined)
+            : undefined,
+          savedGroups: groupsChanged ? (phase.savedGroups ?? undefined) : [],
+        },
+      ];
+    }),
+    context,
+  );
+}
+
 function validateRuleReferencesWithGroups(
   rule: Pick<FeatureRule, "condition" | "savedGroups">,
   groupMap: SavedGroupMap,

@@ -172,6 +172,7 @@ import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
 } from "back-end/src/services/prerequisiteParents";
+import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import {
   ExperimentLinkedFeatureValueUpdate,
   updateExperimentRefVariations,
@@ -1228,6 +1229,7 @@ export async function postExperiments(
     undefined,
     attributeScope,
   );
+  await validateChangedPhaseReferences(data.phases ?? [], [], context);
   for (const phase of data.phases ?? []) {
     await assertRegisteredAttributesScoped(
       context,
@@ -1599,6 +1601,11 @@ export async function postExperiment(
   // spliced phase lists must not re-validate grandfathered conditions.
   const persistedConditions = new Set(
     (experiment.phases ?? []).map((p) => p.condition),
+  );
+  await validateChangedPhaseReferences(
+    data.phases ?? [],
+    experiment.phases,
+    context,
   );
   for (const phase of data.phases ?? []) {
     await assertRegisteredAttributesScoped(
@@ -2838,6 +2845,7 @@ export async function putExperimentPhase(
     ? getValidDate(phase.dateEnded + ":00Z")
     : undefined;
 
+  await validateChangedPhaseReferences([phase], experiment.phases, context);
   const phases = [...experiment.phases];
   phases[i] = {
     ...phases[i],
@@ -2974,6 +2982,11 @@ export async function postExperimentTargeting(
       ),
   );
 
+  await validateChangedPhaseReferences(
+    [{ condition, savedGroups }],
+    experiment.phases,
+    context,
+  );
   const phases = [...experiment.phases];
   await assertValidExperimentPrerequisites(
     context,
@@ -3142,6 +3155,7 @@ export async function postExperimentPhase(
       getExperimentAttributeScopeProjects(context, experiment, linkedFeatures),
   );
 
+  await validateChangedPhaseReferences([data], experiment.phases, context);
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
   const phases = [...experiment.phases];

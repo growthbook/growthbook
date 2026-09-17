@@ -58,6 +58,7 @@ import {
 import {
   getMergeResultPublishEnvs,
   addIdsToFlatRules,
+  assertFeatureValuesValidForPublish,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
@@ -3657,6 +3658,10 @@ export async function prevalidatePublishRevision({
   // stale (a config's schema/invariants may tighten between draft and publish),
   // and auto-publish paths don't pass through a REST handler's own net.
   if (defaultToCheck !== undefined || rulesToCheck.length) {
+    assertFeatureValuesValidForPublish(context, proposedFeature, {
+      defaultValue: defaultToCheck,
+      rules: rulesToCheck,
+    });
     await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
       defaultValue: defaultToCheck,
       rules: rulesToCheck,

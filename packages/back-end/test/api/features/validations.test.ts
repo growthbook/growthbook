@@ -5,6 +5,7 @@ import {
   normalizeInlineRampSchedule,
   rampPatchEntries,
   rampPatchEntriesForTargets,
+  validateChangedPhaseReferences,
   validateRampPlanPatches,
   validateRuleAttributes,
   validateRulesReferences,
@@ -277,6 +278,61 @@ describe("rampPatchEntriesForTargets", () => {
     expect(entries[0].feature).toBe(feature);
     expect(entries[0].rule).toMatchObject({ id: "r1" });
     expect(entries[1]).toMatchObject({ feature: null, rule: null });
+  });
+});
+
+describe("validateChangedPhaseReferences", () => {
+  const getAll = jest.fn();
+  const ctx = {
+    org: { id: "org_1", settings: { attributeSchema: [] } },
+    models: { savedGroups: { getAll } },
+  } as unknown as ApiReqContext;
+  const stale = {
+    condition: '{"id": {"$inGroup": "grp_gone"}}',
+    savedGroups: [{ match: "all" as const, ids: ["grp_gone"] }],
+  };
+
+  beforeEach(() => {
+    getAll.mockReset();
+    getAll.mockResolvedValue([
+      { id: "grp_known", type: "list", attributeKey: "id", values: ["1"] },
+    ]);
+  });
+
+  it("checks conditions and saved groups a stored phase does not already hold", async () => {
+    await expect(
+      validateChangedPhaseReferences([{ condition: '{"country": ' }], [], ctx),
+    ).rejects.toThrow(BadRequestError);
+    await expect(
+      validateChangedPhaseReferences(
+        [{ savedGroups: [{ match: "any", ids: ["grp_missing"] }] }],
+        [],
+        ctx,
+      ),
+    ).rejects.toThrow(/grp_missing/);
+    // Untargeted and echoed phases load nothing.
+    await expect(
+      validateChangedPhaseReferences(
+        [{ condition: "", savedGroups: [] }, stale, { condition: "{}" }],
+        [stale],
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+    expect(getAll).toHaveBeenCalledTimes(2);
+    await expect(
+      validateChangedPhaseReferences(
+        [{ ...stale, savedGroups: [{ match: "all", ids: ["grp_known"] }] }],
+        [stale],
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      validateChangedPhaseReferences(
+        [{ ...stale, condition: '{"id": {"$inGroup": "grp_missing"}}' }],
+        [stale],
+        ctx,
+      ),
+    ).rejects.toThrow(/grp_missing/);
   });
 });
 
