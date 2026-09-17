@@ -140,6 +140,10 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
 import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
+import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
@@ -4355,6 +4359,16 @@ async function publishRevisionInner({
       `Failed to clear pending feature drafts for feature ${feature.id} revision ${revision.version} after publish`,
     );
   }
+
+  // The landing owes the lifecycle event, not each caller. Nothing to catch:
+  // the re-read falls back and the dispatcher swallows its own failures.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    await getPublishedRevisionForEvents(context, updatedFeature, revision),
+    "revision.published",
+    {},
+  );
 
   // Apply deferred update actions after publish succeeds.
   // Best-effort: errors are logged but do not fail the publish response
