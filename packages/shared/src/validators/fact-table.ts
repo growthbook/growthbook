@@ -922,8 +922,6 @@ export const testRowFiltersPropsValidator = z
   })
   .strict();
 
-export const previewMetricRowsPropsValidator = testRowFiltersPropsValidator;
-
 // ---- API Validators (migrated from openapi.ts) ----
 
 // Corresponds to schemas/FactTableColumn.yaml
