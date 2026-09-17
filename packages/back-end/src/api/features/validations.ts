@@ -549,7 +549,7 @@ export async function validateRulesReferences(
 export async function validateChangedRuleReferences(
   inbound: FeatureRule[],
   stored: FeatureRule[],
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
 ): Promise<void> {
   await validateRulesReferences(
     inbound.flatMap((rule) => {
@@ -647,7 +647,7 @@ function validateRuleReferencesWithGroups(
 // parents themselves are checked by assertValidPrerequisiteParents.
 export async function validatePrerequisiteReferences(
   prerequisites: FeaturePrerequisite[],
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
 ): Promise<void> {
   const savedGroupIds = new Set(
     (await context.models.savedGroups.getAll()).map((sg) => sg.id),
@@ -670,7 +670,7 @@ export async function validatePrerequisiteReferences(
 // Per-rule endpoints: the revision's rules before and after the change, with
 // the revision's own prerequisites list when it has one.
 export async function assertValidRevisionRulePrerequisites(
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: Pick<FeatureRevisionInterface, "prerequisites">,
   rules: { before: FeatureRule[]; after: FeatureRule[] },
@@ -803,7 +803,15 @@ export async function assertValidFeatureRules(
   rules: FeatureRule[],
   stored: FeatureRule[] = [],
 ): Promise<void> {
-  assertValidRuleEnvironments(context, rules);
+  const scope = (r: FeatureRule) =>
+    `${r.allEnvironments === true}|${[...(r.environments ?? [])].sort().join(",")}`;
+  assertValidRuleEnvironments(
+    context,
+    rules.filter((rule) => {
+      const prior = findStoredRuleCounterpart(stored, rule);
+      return !prior || scope(prior) !== scope(rule);
+    }),
+  );
   await assertValidChangedRuleProjectIds(rules, stored, context);
   await assertValidChangedRuleExperimentIds(rules, stored, context);
   await validateChangedRuleReferences(rules, stored, context);

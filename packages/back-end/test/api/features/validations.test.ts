@@ -1,5 +1,6 @@
-import type { FeatureInterface } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
+  assertValidFeatureRules,
   assertValidRuleEnvironments,
   collectRampPlanPatches,
   normalizeInlineRampSchedule,
@@ -278,6 +279,35 @@ describe("rampPatchEntriesForTargets", () => {
     expect(entries[0].feature).toBe(feature);
     expect(entries[0].rule).toMatchObject({ id: "r1" });
     expect(entries[1]).toMatchObject({ feature: null, rule: null });
+  });
+});
+
+describe("assertValidFeatureRules", () => {
+  const ctx = {
+    org: { id: "org_1", settings: { environments: [{ id: "production" }] } },
+    models: { savedGroups: { getAll: jest.fn().mockResolvedValue([]) } },
+    getAllProjectIds: async () => [],
+    hasPremiumFeature: () => true,
+  } as unknown as ApiReqContext;
+  const rule = (environments: string[]) =>
+    ({
+      id: "fr_1",
+      type: "force",
+      value: "true",
+      allEnvironments: false,
+      environments,
+    }) as FeatureRule;
+
+  it("checks environment ids only where the scope differs from the stored rule", async () => {
+    await expect(
+      assertValidFeatureRules(ctx, [rule(["gone"])], [rule(["gone"])]),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertValidFeatureRules(ctx, [rule(["gone"])], [rule(["production"])]),
+    ).rejects.toThrow(/Invalid environment: "gone"/);
+    await expect(
+      assertValidFeatureRules(ctx, [rule(["gone"])]),
+    ).rejects.toThrow(/Invalid environment: "gone"/);
   });
 });
 

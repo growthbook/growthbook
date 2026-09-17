@@ -181,7 +181,10 @@ import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigBackedFeatureValuesValid,
+  configCheckedRuleValues,
+} from "back-end/src/services/configValidation";
 import {
   assertRegisteredAttributes,
   assertRegisteredAttributesScoped,
@@ -822,7 +825,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 }
 
 export async function postFeatures(
-  req: AuthRequest<Partial<FeatureInterface>>,
+  req: AuthRequest<Partial<FeatureInterface> & { duplicateOf?: string }>,
   res: Response<
     { status: 200; feature: FeatureInterface },
     EventUserForResponseLocals
@@ -836,6 +839,7 @@ export async function postFeatures(
     holdout,
     customFields,
     jsonSchema,
+    duplicateOf,
     ...otherProps
   } = req.body;
 
@@ -990,8 +994,11 @@ export async function postFeatures(
   // Inbound v2 rules (e.g. from FeatureFromExperimentModal) often arrive with
   // `id: ""`; stamp ids so they're addressable by later update/delete ops.
   addIdsToFlatRules(feature.rules, feature.id);
-  await assertValidFeatureRules(context, feature.rules ?? []);
-  await assertValidPrerequisiteParents(context, feature);
+  // A duplicate echoes its source's rules; only what the copy changes is
+  // re-checked.
+  const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
+  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules);
+  await assertValidPrerequisiteParents(context, feature, source ?? undefined);
   assertFeatureValuesValid(context, feature, {
     defaultValue: feature.defaultValue,
     rules: feature.rules,
@@ -3538,6 +3545,26 @@ export async function postFeatureRule(
     rule.safeRolloutId = generateId("sr_");
   }
 
+  // Stamp id + rollout seed via the shared chokepoint (safe-rollout seed set above).
+  addIdsToFlatRules([rule], feature.id);
+  // Honor a client-supplied `allEnvironments: true`; otherwise stamp the
+  // rule with the explicit env list. Without this, "All environments"
+  // selections were being saved as a discrete `environments[]` snapshot,
+  // freezing the rule against future env additions.
+  const stampedRule: FeatureRule =
+    rule.allEnvironments === true
+      ? ({
+          ...omit(rule, ["environments"]),
+          allEnvironments: true,
+        } as FeatureRule)
+      : stampRuleForEnvs(rule, selectedEnvironments);
+  // Mirror the env-scope invariant for project scope: an all-projects rule
+  // carries no explicit list, so cleanup can't later empty it into "all".
+  if (stampedRule.allProjects === true) {
+    delete (stampedRule as { projects?: string[] }).projects;
+  }
+  await assertValidRuleWrite(context, feature, stampedRule);
+
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
@@ -3558,8 +3585,6 @@ export async function postFeatureRule(
     });
   }
 
-  // Stamp id + rollout seed via the shared chokepoint (safe-rollout seed set above).
-  addIdsToFlatRules([rule], feature.id);
   let rampActionsUpdate:
     | RevisionRampCreateAction
     | RevisionRampDetachAction
@@ -3632,24 +3657,7 @@ export async function postFeatureRule(
     }
   }
 
-  // Honor a client-supplied `allEnvironments: true`; otherwise stamp the
-  // rule with the explicit env list. Without this, "All environments"
-  // selections were being saved as a discrete `environments[]` snapshot,
-  // freezing the rule against future env additions.
   const existingRules = cloneDeep(revision.rules ?? []);
-  const stampedRule: FeatureRule =
-    rule.allEnvironments === true
-      ? ({
-          ...omit(rule, ["environments"]),
-          allEnvironments: true,
-        } as FeatureRule)
-      : stampRuleForEnvs(rule, selectedEnvironments);
-  // Mirror the env-scope invariant for project scope: an all-projects rule
-  // carries no explicit list, so cleanup can't later empty it into "all".
-  if (stampedRule.allProjects === true) {
-    delete (stampedRule as { projects?: string[] }).projects;
-  }
-  await assertValidRuleWrite(context, feature, stampedRule);
   const ruleAdditionChanges = {
     rules: insertRuleBefore(existingRules, stampedRule, insertBeforeRuleId),
   };
@@ -3897,7 +3905,13 @@ export async function postFeatureSync(
   const liveRuleById = new Map((feature.rules ?? []).map((r) => [r.id, r]));
   assertFeatureValuesValid(context, feature, {
     defaultValue: updatesInRevision.defaultValue,
-    rules: nextFlatRules.filter((r) => !isEqual(liveRuleById.get(r.id), r)),
+    rules: nextFlatRules.filter((r) => {
+      const live = liveRuleById.get(r.id);
+      return (
+        !live ||
+        !isEqual(configCheckedRuleValues(live), configCheckedRuleValues(r))
+      );
+    }),
   });
 
   environments.forEach((env) => {
@@ -4396,6 +4410,7 @@ export async function postFeatureDefaultValue(
     context.permissions.throwPermissionError();
   }
 
+  assertFeatureValuesValid(context, feature, { defaultValue });
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const resolution = resolveDraftEdit<{ defaultValue: string }>({
@@ -4415,9 +4430,6 @@ export async function postFeatureDefaultValue(
     });
   }
 
-  assertFeatureValuesValid(context, feature, {
-    defaultValue: resolution.merged.defaultValue,
-  });
   // The baseline check above closes the stale-editor window; this closes the
   // request-overlap one, as on the rule path.
   let updatedRevisionAfterDefaultValue: FeatureRevisionInterface | null;
