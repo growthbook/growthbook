@@ -577,13 +577,26 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         rule.type === "force" &&
         rampPlanBucketsOnDefault(rampSchedule, rule.id)
       ) {
+        const bucketsOn = getDefaultHashAttribute(settings.attributeSchema);
         ruleTags.push(
-          <Badge
+          <Tooltip
             key="ramp-hash"
-            color="amber"
-            variant="soft"
-            label={`Ramp will bucket on "${getDefaultHashAttribute(settings.attributeSchema)}" · edit the rule to choose`}
-          />,
+            body={
+              <p>
+                Neither this rule nor its ramp names a hash attribute, so the
+                first partial-coverage step turns the rule into a rollout
+                bucketed on <strong>{bucketsOn}</strong>. Edit the rule to
+                choose a different one.
+              </p>
+            }
+            style={{ display: "inline-flex", alignItems: "center" }}
+          >
+            <Badge
+              label={`Ramp will bucket on "${bucketsOn}"`}
+              color="amber"
+              variant="soft"
+            />
+          </Tooltip>,
         );
       }
     }
