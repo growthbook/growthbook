@@ -20,6 +20,7 @@ import {
 } from "shared/types/query";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  EXPERIMENT_SNAPSHOT_COLLECTION,
   errorSnapshotIfStillRunning,
   findSnapshotById,
   updateSnapshot,
@@ -394,6 +395,8 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   ExperimentIncrementalRefreshExploratoryQueryParams,
   SnapshotResult
 > {
+  protected readonly modelCollectionName = EXPERIMENT_SNAPSHOT_COLLECTION;
+
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 

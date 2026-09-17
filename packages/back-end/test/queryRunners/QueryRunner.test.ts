@@ -35,6 +35,8 @@ class TestQueryRunner extends QueryRunner<
   object,
   { success: boolean }
 > {
+  protected readonly modelCollectionName = "testmodels";
+  public persistLateQueryPointer = jest.fn().mockResolvedValue(true);
   checkPermissions() {
     return true;
   }
@@ -563,6 +565,8 @@ describe("QueryRunner", () => {
       { pointers: Queries },
       { success: boolean }
     > {
+      protected readonly modelCollectionName = "testmodels";
+      public persistLateQueryPointer = jest.fn().mockResolvedValue(true);
       public persistedQueries: Queries = [];
       public updateModelSpy = jest.fn();
       public onQueryFinishSpy = jest.fn();
@@ -978,6 +982,8 @@ describe("QueryRunner", () => {
       { pointers: Queries },
       { success: boolean }
     > {
+      protected readonly modelCollectionName = "testmodels";
+      public persistLateQueryPointer = jest.fn().mockResolvedValue(true);
       public onHeartbeatSpy = jest.fn();
 
       checkPermissions() {
@@ -1165,6 +1171,8 @@ describe("QueryRunner", () => {
       { pointers: Queries },
       { success: boolean }
     > {
+      protected readonly modelCollectionName = "testmodels";
+      public persistLateQueryPointer = jest.fn().mockResolvedValue(true);
       public runAnalysisSpy = jest.fn();
       public updateModelSpy = jest.fn();
       public getLatestModelImpl: () => Promise<InterfaceWithQueries> = () =>
@@ -1709,6 +1717,207 @@ describe("QueryRunner", () => {
         jest.clearAllTimers();
         jest.useRealTimers();
       }
+    });
+
+    describe("late query completion after the runner concluded", () => {
+      function deferred<T>() {
+        let resolve!: (value: T) => void;
+        let reject!: (error: Error) => void;
+        const promise = new Promise<T>((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+        return { promise, resolve, reject };
+      }
+
+      const pendingPointers: Queries = [
+        { name: "a", query: "qry_a", status: "failed" },
+        { name: "b", query: "qry_b", status: "running" },
+      ];
+
+      beforeEach(() => {
+        jest.useFakeTimers();
+        jest.mocked(updateQueryIfPending).mockResolvedValue(true);
+        jest.mocked(updateQueryIfRunning).mockResolvedValue(true);
+        jest.mocked(updateQuery).mockResolvedValue(undefined);
+      });
+
+      afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      });
+
+      async function startQuery() {
+        const runner = new StallTestQueryRunner(
+          mockContext,
+          makeModel(pendingPointers.map((q) => ({ ...q }))),
+          mockIntegration,
+        );
+        runner.markDagPersisted();
+        runner.status = "running";
+        const response = deferred<{ rows: [] }>();
+        const run = jest.fn(() => response.promise);
+        await runner.executeQuery(createMockQuery("qry_b", "running"), {
+          run,
+          onFailure: jest.fn(),
+        });
+        return { runner, response };
+      }
+
+      it.each(["succeeded", "failed"] as const)(
+        "persists a late %s without restarting or updating the model",
+        async (status) => {
+          const { runner, response } = await startQuery();
+          runner.status = "finished";
+          if (status === "succeeded") response.resolve({ rows: [] });
+          else response.reject(new Error("late warehouse failure"));
+          await jest.advanceTimersByTimeAsync(0);
+
+          expect(runner.persistLateQueryPointer).toHaveBeenCalledTimes(1);
+          expect(runner.persistLateQueryPointer).toHaveBeenCalledWith(
+            "qry_b",
+            status,
+          );
+          expect(runner.updateModelSpy).not.toHaveBeenCalled();
+          expect(runner.hasDebounceTimer()).toBe(false);
+          expect(jest.getTimerCount()).toBe(0);
+          expect(runner.status).toBe("finished");
+        },
+      );
+
+      it("does not reconcile a failure owned by another terminal writer", async () => {
+        const { runner, response } = await startQuery();
+        runner.status = "finished";
+        jest.mocked(updateQueryIfRunning).mockResolvedValue(false);
+        response.reject(new Error("late warehouse failure"));
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.persistLateQueryPointer).not.toHaveBeenCalled();
+        expect(runner.updateModelSpy).not.toHaveBeenCalled();
+        expect(jest.getTimerCount()).toBe(0);
+      });
+
+      it.each([true, false])(
+        "reconciles a query claimed during shutdown only if its failure was written (%s)",
+        async (updated) => {
+          const runner = new StallTestQueryRunner(
+            mockContext,
+            makeModel(pendingPointers),
+            mockIntegration,
+          );
+          runner.status = "finished";
+          jest.mocked(updateQueryIfRunning).mockResolvedValue(updated);
+          const run = jest.fn();
+          await runner.executeQuery(createMockQuery("qry_b", "queued"), {
+            run,
+            onFailure: jest.fn(),
+          });
+          expect(run).not.toHaveBeenCalled();
+          expect(runner.persistLateQueryPointer).toHaveBeenCalledTimes(
+            updated ? 1 : 0,
+          );
+          if (updated)
+            expect(runner.persistLateQueryPointer).toHaveBeenCalledWith(
+              "qry_b",
+              "failed",
+            );
+          expect(jest.getTimerCount()).toBe(0);
+        },
+      );
+
+      it("reconciles a completion landing during the finalizing model write exactly once", async () => {
+        const { runner, response } = await startQuery();
+        const write = deferred<InterfaceWithQueries>();
+        const update = jest
+          .spyOn(runner, "updateModel")
+          .mockReturnValue(write.promise);
+        jest
+          .mocked(getQueriesByIds)
+          .mockResolvedValue([
+            createMockQuery("qry_a", "failed"),
+            createMockQuery("qry_b", "running"),
+          ]);
+        const refresh = runner.refreshQueryStatuses();
+        await jest.advanceTimersByTimeAsync(0);
+        expect(update).toHaveBeenCalledTimes(1);
+        response.resolve({ rows: [] });
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.persistLateQueryPointer).not.toHaveBeenCalled();
+        write.resolve(makeModel(pendingPointers));
+        await refresh;
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(runner.status).toBe("finished");
+        expect(runner.persistLateQueryPointer).toHaveBeenCalledTimes(1);
+        expect(runner.persistLateQueryPointer).toHaveBeenCalledWith(
+          "qry_b",
+          "succeeded",
+        );
+        expect(update).toHaveBeenCalledTimes(1);
+        expect(jest.getTimerCount()).toBe(0);
+      });
+
+      it("defers reconciliation until the error shutdown write completes", async () => {
+        const write = deferred<void>();
+        class DeferredErrorRunner extends StallTestQueryRunner {
+          protected async writeErrorIfStillActive() {
+            await write.promise;
+          }
+        }
+        const runner = new DeferredErrorRunner(
+          mockContext,
+          makeModel([]),
+          mockIntegration,
+        );
+        await runner.startAnalysis({
+          pointers: [{ name: "b", query: "qry_b", status: "running" }],
+        });
+        const response = deferred<{ rows: [] }>();
+        await runner.executeQuery(createMockQuery("qry_b", "running"), {
+          run: () => response.promise,
+          onFailure: jest.fn(),
+        });
+        jest.mocked(getQueriesByIds).mockRejectedValue(new Error("mongo down"));
+        for (let i = 0; i < 5; i++) {
+          await jest.advanceTimersByTimeAsync(302000);
+        }
+        expect(runner.status).toBe("finishing");
+        response.resolve({ rows: [] });
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.persistLateQueryPointer).not.toHaveBeenCalled();
+        write.resolve();
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.status).toBe("finished");
+        expect(runner.persistLateQueryPointer).toHaveBeenCalledTimes(1);
+        expect(runner.persistLateQueryPointer).toHaveBeenCalledWith(
+          "qry_b",
+          "succeeded",
+        );
+      });
+
+      it("skips pointers already persisted as terminal", async () => {
+        const { runner, response } = await startQuery();
+        runner.model.queries = [
+          { name: "b", query: "qry_b", status: "succeeded" },
+        ];
+        runner.status = "finished";
+        response.resolve({ rows: [] });
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.persistLateQueryPointer).not.toHaveBeenCalled();
+      });
+
+      it("still attempts the conditional write when cancellation emptied the pointers", async () => {
+        const { runner, response } = await startQuery();
+        runner.model.queries = [];
+        runner.status = "finished";
+        response.resolve({ rows: [] });
+        await jest.advanceTimersByTimeAsync(0);
+        expect(runner.persistLateQueryPointer).toHaveBeenCalledTimes(1);
+        expect(runner.persistLateQueryPointer).toHaveBeenCalledWith(
+          "qry_b",
+          "succeeded",
+        );
+        expect(runner.model.queries).toEqual([]);
+        expect(runner.updateModelSpy).not.toHaveBeenCalled();
+      });
     });
 
     it("re-queues a queued query when the concurrency retry throws", async () => {

@@ -41,6 +41,7 @@ import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  EXPERIMENT_SNAPSHOT_COLLECTION,
   errorSnapshotIfStillRunning,
   findSnapshotById,
   updateSnapshot,
@@ -501,6 +502,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   ExperimentResultsQueryParams,
   SnapshotResult
 > {
+  protected readonly modelCollectionName = EXPERIMENT_SNAPSHOT_COLLECTION;
+
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
