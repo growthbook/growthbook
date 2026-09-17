@@ -900,6 +900,10 @@ export const notificationCategoryPresets: Record<
 > = {
   experiment: {
     default: [
+      "experiment.status.started",
+      "experiment.status.stopped",
+      "experiment.status.endingSoon",
+      "experiment.status.stale",
       "experiment.decision.ship",
       "experiment.decision.rollback",
       "experiment.decision.review",
@@ -908,7 +912,7 @@ export const notificationCategoryPresets: Record<
     all: eventsInCategory("experiment"),
   },
   holdout: {
-    default: ["holdout.status.changed"],
+    default: ["holdout.status.changed", "holdout.config.newLinkage"],
     all: eventsInCategory("holdout"),
   },
   feature: {
