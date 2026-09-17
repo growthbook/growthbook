@@ -12,11 +12,16 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import Text from "@/ui/Text";
-import { getVariationColor } from "@/services/features";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import VariationLabel from "@/ui/VariationLabel";
 import ConfigBackedSummary from "@/components/Features/ConfigBackedSummary";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
 
 export function isContextualBanditRefRuleSkipped(
   cb: ApiContextualBanditInterface,
@@ -61,7 +66,7 @@ export default function ContextualBanditRefSummary({
     return (
       <Callout status="info">
         This Contextual Bandit is archived and will be skipped.{" "}
-        <Link href={detailHref}>View CB</Link>
+        <Link href={detailHref}>View Contextual Bandit</Link>
       </Callout>
     );
   }
@@ -70,7 +75,7 @@ export default function ContextualBanditRefSummary({
     return (
       <Callout status="info">
         This Contextual Bandit is stopped and will be skipped.{" "}
-        <Link href={detailHref}>View CB</Link>
+        <Link href={detailHref}>View Contextual Bandit</Link>
       </Callout>
     );
   }
@@ -117,7 +122,7 @@ export default function ContextualBanditRefSummary({
           color="gray"
           label={
             <Text color="text-high">
-              {`${Math.round((cb.coverage ?? 1) * 10000) / 100}%`}
+              {percentFormatter.format(cb.coverage ?? 1)}
             </Text>
           }
         />
@@ -125,9 +130,11 @@ export default function ContextualBanditRefSummary({
       </Flex>
 
       {cb.contextualAttributes.length > 0 && (
-        <Flex direction="row" gap="2" mb="3">
+        <Flex direction="row" gap="2" mb="3" wrap="wrap" align="center">
           <Text weight="medium">CONTEXT</Text>
-          <Text color="text-high">{cb.contextualAttributes.join(", ")}</Text>
+          {cb.contextualAttributes.map((a) => (
+            <AttributeBadge key={a} attributeId={a} />
+          ))}
         </Flex>
       )}
 
@@ -156,29 +163,7 @@ export default function ContextualBanditRefSummary({
                   style={{ color: "var(--color-text-high)" }}
                 >
                   <TableCell style={{ whiteSpace: "nowrap" }}>
-                    <Flex align="center" gap="2">
-                      <span
-                        style={{
-                          color: getVariationColor(i, true),
-                          borderColor: getVariationColor(i, true),
-                          fontSize: "14px",
-                          width: 20,
-                          height: 20,
-                          borderRadius: 20,
-                          borderWidth: 1,
-                          borderStyle: "solid",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {i}
-                      </span>
-                      <Text weight="medium" whiteSpace="nowrap">
-                        {v.name || v.key}
-                      </Text>
-                    </Flex>
+                    <VariationLabel number={i} name={v.name || v.key} />
                   </TableCell>
                   <TableCell width="100%">
                     {ruleVariation ? (
@@ -216,7 +201,7 @@ export default function ContextualBanditRefSummary({
                     }}
                   >
                     {weight != null ? (
-                      `${Math.round(weight * 10000) / 100}%`
+                      percentFormatter.format(weight)
                     ) : (
                       <em>—</em>
                     )}

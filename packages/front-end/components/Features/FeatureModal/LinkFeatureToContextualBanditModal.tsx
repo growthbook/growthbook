@@ -417,45 +417,38 @@ export default function LinkFeatureToContextualBanditModal({
         <>
           <FeatureKeyField keyField={form.register("id")} />
 
-          {showTags ? (
-            <TagsField
-              value={form.watch("tags") || []}
-              onChange={(tags) => form.setValue("tags", tags)}
-            />
-          ) : (
-            <a
-              href="#"
-              className="badge badge-light badge-pill mr-3 mb-3"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowTags(true);
-              }}
-            >
-              + tags
-            </a>
-          )}
-
-          {showDescription ? (
-            <div className="form-group">
-              <label>Description</label>
-              <MarkdownInput
-                value={form.watch("description") || ""}
-                setValue={(value) => form.setValue("description", value)}
-                autofocus={true}
+          <Flex direction="column" mt="3">
+            {showTags && (
+              <TagsField
+                value={form.watch("tags") || []}
+                onChange={(tags) => form.setValue("tags", tags)}
+                autoFocus={!cb.tags?.length}
               />
-            </div>
-          ) : (
-            <a
-              href="#"
-              className="badge badge-light badge-pill mb-3"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowDescription(true);
-              }}
-            >
-              + description
-            </a>
-          )}
+            )}
+            {showDescription && (
+              <div className="form-group" style={{ width: "100%" }}>
+                <label>Description</label>
+                <Box mt="1">
+                  <MarkdownInput
+                    value={form.watch("description") || ""}
+                    setValue={(value) => form.setValue("description", value)}
+                    autofocus={!cb.description}
+                  />
+                </Box>
+              </div>
+            )}
+
+            <Flex gap="4" mb="4">
+              {!showTags && (
+                <Link onClick={() => setShowTags(true)}>+ tags</Link>
+              )}
+              {!showDescription && (
+                <Link onClick={() => setShowDescription(true)}>
+                  + description
+                </Link>
+              )}
+            </Flex>
+          </Flex>
 
           <ValueTypeField
             value={valueType}

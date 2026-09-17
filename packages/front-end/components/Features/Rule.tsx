@@ -87,6 +87,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
 import Callout from "@/ui/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
@@ -924,13 +925,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       {linkedContextualBandit.name}
                     </Link>
                     <span style={{ verticalAlign: "1px" }}>
-                      <Badge
-                        color={
-                          linkedContextualBandit.status === "running"
-                            ? "green"
-                            : "gray"
-                        }
-                        label={linkedContextualBandit.status}
+                      <ExperimentStatusIndicator
+                        experimentData={contextualBanditStatusIndicatorData(
+                          linkedContextualBandit,
+                        )}
                       />
                     </span>
                   </>
