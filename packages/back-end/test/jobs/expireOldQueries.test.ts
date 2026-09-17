@@ -425,7 +425,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect.objectContaining({
         error: expect.stringContaining("A retry has been scheduled."),
       }),
-      "query",
+      "cancelled",
     );
   });
 

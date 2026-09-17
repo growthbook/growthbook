@@ -381,7 +381,13 @@ async function reapStalledSnapshots() {
         queries: snapshot.queries,
         error,
       },
-      isOrphanedDag ? "query" : "analysis",
+      // A retry is already scheduled, so nobody needs an alert about it; the
+      // cancelled cause is the one the notifier suppresses.
+      shouldScheduleSnapshotRetry
+        ? "cancelled"
+        : isOrphanedDag
+          ? "query"
+          : "analysis",
     );
     if (!reaped) continue;
 
