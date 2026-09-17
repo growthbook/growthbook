@@ -167,6 +167,8 @@ export function getInitialConfigByBlockType(
 // compressed format and lets us keep decoding links shared before it existed.
 // It is also unreserved in a URL, so it survives without percent-encoding.
 const COMPRESSED_CONFIG_PREFIX = "~";
+const MAX_ENCODED_CONFIG_LENGTH = 16 * 1024;
+const MAX_DECODED_CONFIG_BYTES = 100 * 1024;
 
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -196,18 +198,36 @@ export function encodeExplorationConfig(config: ExplorationConfig): string {
   return COMPRESSED_CONFIG_PREFIX + bytesToBase64Url(deflated);
 }
 
+function inflateExplorationConfig(deflated: Uint8Array): Uint8Array {
+  // Streaming Inflate still grows an internal buffer before ondata; `out` is
+  // what caps allocation.
+  const out = new Uint8Array(MAX_DECODED_CONFIG_BYTES + 1);
+  const inflated = inflateSync(deflated, { out });
+  if (inflated.length > MAX_DECODED_CONFIG_BYTES) {
+    throw new Error("Exploration config is too large");
+  }
+  return inflated;
+}
+
 /**
  * Parses an encoded `?config=` payload into untrusted JSON. Callers validate the
  * result. Throws on a malformed payload.
  */
 export function decodeExplorationConfigJson(encoded: string): unknown {
+  if (encoded.length > MAX_ENCODED_CONFIG_LENGTH) {
+    throw new Error("Exploration config is too large");
+  }
   if (encoded.startsWith(COMPRESSED_CONFIG_PREFIX)) {
     const deflated = base64UrlToBytes(
       encoded.slice(COMPRESSED_CONFIG_PREFIX.length),
     );
-    return JSON.parse(strFromU8(inflateSync(deflated)));
+    return JSON.parse(strFromU8(inflateExplorationConfig(deflated)));
   }
-  return JSON.parse(decodeURIComponent(atob(encoded)));
+  const json = decodeURIComponent(atob(encoded));
+  if (json.length > MAX_DECODED_CONFIG_BYTES) {
+    throw new Error("Exploration config is too large");
+  }
+  return JSON.parse(json);
 }
 
 // ---- showAs inference & applicability ---------------------------------------
