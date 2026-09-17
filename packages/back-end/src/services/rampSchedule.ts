@@ -708,7 +708,10 @@ export function applyPatchToRule(
       ...updated,
       type: "rollout",
       coverage: patch.coverage as number,
-      hashAttribute: patch.hashAttribute || defaultHashAttribute,
+      hashAttribute:
+        patch.hashAttribute ||
+        (updated as { hashAttribute?: string }).hashAttribute ||
+        defaultHashAttribute,
     } as FeatureRule;
   }
   // A promoted rule's start anchor carries no coverage; replaying it means

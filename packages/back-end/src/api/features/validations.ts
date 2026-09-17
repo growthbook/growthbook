@@ -374,6 +374,8 @@ function assertRampCoverageHashAcknowledged(
     if ((patch.coverage ?? 1) >= 1 || rule?.type !== "force") return;
     if (rule.hashAttribute) return;
     // Acknowledged when the stored plan already ramped this rule's coverage.
+    // Rule ids are generated per rule, so a stored patch's id names one rule
+    // across the flags a schedule spans.
     if (
       stored.some(
         (s) =>

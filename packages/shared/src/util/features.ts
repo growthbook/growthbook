@@ -582,9 +582,11 @@ export function rampPlanBucketsOnDefault(
   ]
     .map((a) => a.patch)
     .filter((p): p is RampRulePatch => !!p && (p.ruleId ?? ruleId) === ruleId);
+  // The first partial-coverage patch promotes; only it and the patches before
+  // it can name the attribute.
+  const first = patches.findIndex((p) => (p.coverage ?? 1) < 1);
   return (
-    patches.some((p) => (p.coverage ?? 1) < 1) &&
-    !patches.some((p) => p.hashAttribute)
+    first !== -1 && !patches.slice(0, first + 1).some((p) => p.hashAttribute)
   );
 }
 type RampRulePatch = {

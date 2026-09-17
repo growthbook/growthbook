@@ -297,11 +297,19 @@ describe("applyPatchToRule", () => {
       coverage: 0.5,
       hashAttribute: "user_id",
     });
-    // No hash attribute anywhere: the organization's default.
+    // No hash attribute anywhere: the organization's default. One left on the
+    // rule (demoted from a rollout) is kept.
     expect(applyPatchToRule(force, { coverage: 0.5 }, "device")).toMatchObject({
       type: "rollout",
       hashAttribute: "device",
     });
+    expect(
+      applyPatchToRule(
+        { ...force, hashAttribute: "user_id" } as FeatureRule,
+        { coverage: 0.5 },
+        "device",
+      ),
+    ).toMatchObject({ type: "rollout", hashAttribute: "user_id" });
     // Full or no coverage never promotes.
     expect(applyPatchToRule(force, { coverage: 1 }).type).toBe("force");
     expect(applyPatchToRule(force, { condition: "{}" }).type).toBe("force");
