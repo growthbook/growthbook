@@ -1,5 +1,7 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 
@@ -133,41 +135,15 @@ export default function SlackMessagePreview({
       }}
     >
       <Flex gap="3" align="start">
-        <Box
-          style={{
-            flexShrink: 0,
-            width: 32,
-            height: 32,
-            borderRadius: 7,
-            background: "var(--accent-9)",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 700,
-            fontSize: 15,
-          }}
-        >
+        <Avatar size="md" radius="small">
           G
-        </Box>
+        </Avatar>
         <Box style={{ minWidth: 0 }}>
           <Flex gap="2" align="center" mb="1">
             <Text weight="medium" as="span">
               {botName}
             </Text>
-            <span
-              style={{
-                background: "var(--gray-a3)",
-                color: "var(--color-text-mid)",
-                borderRadius: 3,
-                padding: "0 4px",
-                fontSize: 10,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              App
-            </span>
+            <Badge size="xs" label="APP" color="gray" variant="soft" />
             <Text size="sm" color="text-mid" as="span">
               now
             </Text>

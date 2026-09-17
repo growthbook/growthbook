@@ -203,20 +203,6 @@ export default function SlackWorkspacePanel({
         <div className={channels.length > 0 ? styles.content : undefined}>
           {channels.length > 0 && (
             <Box px="3" pt="4" pb="3" className={styles.rail}>
-              <Flex justify="between" align="center" gap="2" mb="3">
-                <Text size="sm" color="text-mid" weight="semibold">
-                  Channels
-                </Text>
-                <Button
-                  variant="ghost"
-                  color="gray"
-                  size="sm"
-                  aria-label={`Add channel to ${name}`}
-                  onClick={onAddChannel}
-                >
-                  <PiPlus />
-                </Button>
-              </Flex>
               <Flex direction="column" gap="1">
                 {channels.map((channel) => {
                   const active = selected?.id === channel.id;
@@ -261,38 +247,33 @@ export default function SlackWorkspacePanel({
                           <Badge label="Disabled" color="gray" variant="soft" />
                         )}
                       </Flex>
-                      <span
-                        style={{
-                          display: "block",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        <Text size="sm">
-                          {getSlackChannelSummary(
-                            active ? values : channel,
-                            projects,
-                          )}
-                        </Text>
-                      </span>
+                      <Text as="div" size="sm" color="text-mid" truncate>
+                        {getSlackChannelSummary(
+                          active ? values : channel,
+                          projects,
+                        )}
+                      </Text>
                     </Link>
                   );
                 })}
+              </Flex>
+              <Box mt="4">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   color="gray"
-                  size="sm"
-                  mt="3"
-                  icon={<PiPlus />}
+                  size="md"
+                  icon={<PiPlus size={16} aria-hidden />}
                   onClick={onAddChannel}
                   style={{
+                    boxSizing: "border-box",
                     width: "100%",
+                    height: 40,
+                    justifyContent: "flex-start",
                   }}
                 >
                   Add channel
                 </Button>
-              </Flex>
+              </Box>
             </Box>
           )}
           <Box

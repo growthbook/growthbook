@@ -72,8 +72,8 @@ function SlackManifestModal({
       <Callout status="info" mt="3">
         This manifest configures OAuth and notification delivery. AI assistant
         event subscriptions and interactivity require additional setup after
-        enabling the assistant. Set SLACK_SIGNING_SECRET before configuring
-        those inbound requests.
+        enabling the assistant. Set <code>SLACK_SIGNING_SECRET</code> before
+        configuring those inbound requests.
       </Callout>
     </ModalStandard>
   );
@@ -97,7 +97,10 @@ export default function SlackAppSetup({ scopes }: { scopes: string[] }) {
           Create your Slack app from a manifest pre-filled for this instance,
           set its credentials on your API server, and restart GrowthBook.
         </Text>
-        <Button icon={<FaSlack />} onClick={() => setShowManifest(true)}>
+        <Button
+          icon={<FaSlack aria-hidden />}
+          onClick={() => setShowManifest(true)}
+        >
           Set up Slack app
         </Button>
       </Flex>

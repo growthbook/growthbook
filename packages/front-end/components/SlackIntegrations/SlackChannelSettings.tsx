@@ -8,9 +8,8 @@ import {
   notificationFiltersSchema,
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiCircleFill, PiX } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiCircleFill, PiDotsThreeVertical, PiX } from "react-icons/pi";
 import {
   notificationEventOptions,
   notificationCategories,
@@ -268,21 +267,16 @@ export default function SlackChannelSettings({
             <DropdownMenu
               menuPlacement="end"
               trigger={
-                <Button
+                <IconButton
                   variant="ghost"
                   color="gray"
-                  size="sm"
+                  radius="full"
+                  size="2"
+                  highContrast
                   aria-label="Channel actions"
-                  style={{
-                    boxSizing: "border-box",
-                    width: 32,
-                    height: 32,
-                    padding: 0,
-                    borderRadius: "50%",
-                  }}
                 >
-                  <BsThreeDotsVertical size={18} aria-hidden />
-                </Button>
+                  <PiDotsThreeVertical size={18} aria-hidden />
+                </IconButton>
               }
             >
               <DropdownMenuItem

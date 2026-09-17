@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { NotificationFilters } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretUp } from "react-icons/pi";
+import { PiCaretDown, PiCaretUp, PiMinus, PiPlus } from "react-icons/pi";
 import {
   notificationEventOptions,
   notificationCategories,
@@ -175,13 +175,14 @@ export default function NotificationSubscriptionSettings({
                   Tags
                 </Text>
                 <TagsInput
+                  size="lg"
                   tagOptions={tags}
                   value={filterTags}
                   onChange={(value) => {
                     setFilterTags(value);
                   }}
                   autoFocus={false}
-                  prompt="All tags"
+                  prompt="All Tags"
                   creatable={false}
                 />
               </Box>
@@ -189,7 +190,8 @@ export default function NotificationSubscriptionSettings({
                 <MultiSelectField
                   label="Experiments"
                   containerStyle={{ marginBottom: 0 }}
-                  placeholder="All experiments"
+                  placeholder="All Experiments"
+                  size="lg"
                   value={filterExperiments}
                   options={experimentOptions}
                   onChange={(value) => {
@@ -201,7 +203,8 @@ export default function NotificationSubscriptionSettings({
                 <MultiSelectField
                   label="Metrics"
                   containerStyle={{ marginBottom: 0 }}
-                  placeholder="All metrics"
+                  placeholder="All Metrics"
+                  size="lg"
                   value={filterMetrics}
                   options={metricOptions}
                   onChange={(value) => {
@@ -213,7 +216,8 @@ export default function NotificationSubscriptionSettings({
                 <MultiSelectField
                   label="Feature Flags"
                   containerStyle={{ marginBottom: 0 }}
-                  placeholder="All feature flags"
+                  placeholder="All Feature Flags"
+                  size="lg"
                   value={filterFeatures}
                   options={featureOptions}
                   onChange={(value) => {
@@ -227,6 +231,7 @@ export default function NotificationSubscriptionSettings({
                 variant="ghost"
                 color="gray"
                 size="sm"
+                icon={<PiMinus aria-hidden />}
                 onClick={() => {
                   onChange({
                     ...value,
@@ -238,7 +243,7 @@ export default function NotificationSubscriptionSettings({
                   setShowMoreFilters(false);
                 }}
               >
-                − Remove all filters
+                Remove all filters
               </Button>
             </Box>
           </Box>
@@ -246,10 +251,12 @@ export default function NotificationSubscriptionSettings({
           <Box mt="3">
             <Button
               variant="ghost"
+              color="gray"
               size="sm"
+              icon={<PiPlus aria-hidden />}
               onClick={() => setShowMoreFilters(true)}
             >
-              + Add filters
+              Add filters
             </Button>
           </Box>
         )}
