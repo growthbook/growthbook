@@ -1,4 +1,4 @@
-import { Flex } from "@radix-ui/themes";
+import { Flex, SegmentedControl } from "@radix-ui/themes";
 import { useState } from "react";
 import {
   ColumnRef,
@@ -6,10 +6,9 @@ import {
   MetricQuantileSettings,
 } from "shared/types/fact-table";
 import { quantileSettingsValidator } from "shared/validators";
-import RadioGroup from "@/ui/RadioGroup";
 import { Select, SelectItem } from "@/ui/Select";
 import TextField from "@/ui/TextField";
-import Switch from "@/ui/Switch";
+import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import DataList from "@/ui/DataList";
 import { getPercentileLabel } from "@/services/metrics";
@@ -33,9 +32,6 @@ const QUANTILE_OPTIONS = [
 
 const SCOPE_LABELS = { event: "All events", unit: "All units" };
 
-// Across: 2 radios, 50% each (spec). Unit scope shows an Aggregation
-// ShapeSelect; event scope skips it and restricts Column to numeric only -
-// onQuantileScopeChange (PR 1) already encodes both refits.
 export default function QuantileFields({
   quantileSettings,
   onQuantileSettingsChange,
@@ -71,20 +67,20 @@ export default function QuantileFields({
       <DataList
         maxColumns={1}
         data={[
-          { label: "Scope", value: SCOPE_LABELS[scope] },
+          { label: "Across", value: SCOPE_LABELS[scope] },
           {
             label: "Value",
             value: columnValueLabel(numerator.column, factTable),
           },
           ...(agg
-            ? [{ label: "Per-User Aggregation", value: agg.toUpperCase() }]
+            ? [{ label: "Per-user aggregation", value: agg.toUpperCase() }]
             : []),
           {
             label: "Percentile",
             value: getPercentileLabel(quantileSettings.quantile),
           },
           {
-            label: "Ignore Zeros",
+            label: "Ignore zeros",
             value: quantileSettings.ignoreZeros ? "Yes" : "No",
           },
         ]}
@@ -98,10 +94,12 @@ export default function QuantileFields({
         <Text size="sm" weight="semibold">
           Across
         </Text>
-        <RadioGroup
+        <SegmentedControl.Root
+          aria-label="Across"
+          style={{ alignSelf: "flex-start" }}
           value={scope}
-          setValue={(value) => {
-            const newScope = value as "unit" | "event";
+          onValueChange={(newScope) => {
+            if (newScope !== "unit" && newScope !== "event") return;
             onNumeratorChange(
               onQuantileScopeChange(
                 numerator,
@@ -112,11 +110,12 @@ export default function QuantileFields({
             );
             onQuantileSettingsChange({ ...quantileSettings, type: newScope });
           }}
-          options={[
-            { value: "event", label: "All events" },
-            { value: "unit", label: "All units" },
-          ]}
-        />
+        >
+          <SegmentedControl.Item value="event">
+            All events
+          </SegmentedControl.Item>
+          <SegmentedControl.Item value="unit">All units</SegmentedControl.Item>
+        </SegmentedControl.Root>
       </Flex>
 
       <Flex gap="2" align="end" wrap="wrap">
@@ -203,10 +202,11 @@ export default function QuantileFields({
             }}
           />
         )}
-        <Switch
+        <Checkbox
           label="Ignore zeros"
+          weight="regular"
           value={quantileSettings.ignoreZeros}
-          onChange={(ignoreZeros) =>
+          setValue={(ignoreZeros) =>
             onQuantileSettingsChange({ ...quantileSettings, ignoreZeros })
           }
         />
