@@ -10,7 +10,7 @@ import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
+import MetricTemplateRedirect from "@/components/FactTables/MetricTemplateRedirect";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -48,7 +48,7 @@ const MetricsPage = (): React.ReactElement => {
           source="blank-state"
         />
       )}
-      <CreateMetricFromTemplate />
+      <MetricTemplateRedirect />
       <Box mb="4">
         <h1 style={{ margin: 0 }}>Metrics</h1>
       </Box>
