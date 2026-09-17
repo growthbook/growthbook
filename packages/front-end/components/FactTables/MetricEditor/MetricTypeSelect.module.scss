@@ -1,0 +1,81 @@
+.item:global(.rt-SelectItem) {
+  height: auto;
+  min-height: 64px;
+  padding-block: var(--space-3);
+  margin-block: var(--space-1);
+
+  &:last-child {
+    margin-bottom: var(--space-3);
+  }
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  white-space: normal;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.item .copy {
+  max-width: min(32rem, 70vw);
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-2);
+  background: var(--accent-a3);
+  color: var(--accent-11);
+}
+
+.title {
+  font-weight: 600;
+}
+
+.selectedIcon {
+  display: none;
+}
+
+.description {
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+  opacity: 0.8;
+}
+
+:global(.gb-select--md) .trigger:global(.rt-SelectTrigger) {
+  height: auto;
+  min-height: var(--space-9);
+  padding-block: var(--space-2);
+  text-align: left;
+  width: 100%;
+
+  .icon {
+    width: 16px;
+    height: 16px;
+    background: transparent;
+    color: inherit;
+  }
+
+  .optionIcon {
+    display: none;
+  }
+
+  .selectedIcon {
+    display: block;
+  }
+
+  .copy {
+    gap: 0;
+  }
+}
