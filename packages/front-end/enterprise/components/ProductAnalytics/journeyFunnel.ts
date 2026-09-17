@@ -93,3 +93,17 @@ export function funnelExploreHref(config: ExplorationConfig): string {
     [EXPLORER_AUTO_RUN_QUERY]: "1",
   })}`;
 }
+
+export function journeyFunnelLink(
+  config: ExplorationConfig,
+): { href: string; error: null } | { href: null; error: string } {
+  try {
+    return { href: funnelExploreHref(journeyToFunnel(config)), error: null };
+  } catch (error) {
+    return {
+      href: null,
+      error:
+        error instanceof Error ? error.message : "Unable to create a funnel.",
+    };
+  }
+}

@@ -50,6 +50,7 @@ import {
   isTimeSeriesChart,
   isSubmittableConfig,
   journeyDiffersOnlyByPath,
+  canInteractWithJourney,
   normalizeTimelessSqlConfig,
   resetValueAxisLabelOnDatasetChange,
   applyTimestampColumn,
@@ -1089,6 +1090,15 @@ export function ExplorerProvider({
     (value: string) => {
       setDraftExploreState((prev) => {
         if (prev.dataset.type !== "journey") return prev;
+        if (
+          !canInteractWithJourney(
+            prev,
+            submittedExploreState,
+            loading || polling,
+          )
+        ) {
+          return prev;
+        }
         if (prev.dataset.path.length >= MAX_JOURNEY_PATH_LENGTH) return prev;
         return {
           ...prev,
@@ -1099,7 +1109,7 @@ export function ExplorerProvider({
         } as ExplorationConfig;
       });
     },
-    [setDraftExploreState],
+    [setDraftExploreState, submittedExploreState, loading, polling],
   );
 
   const clearJourneyAnchor = useCallback(() => {

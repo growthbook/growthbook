@@ -7,6 +7,7 @@ import {
   EXPLORER_AUTO_RUN_QUERY,
   funnelExploreHref,
   journeyToFunnel,
+  journeyFunnelLink,
   selectedJourneySteps,
 } from "@/enterprise/components/ProductAnalytics/journeyFunnel";
 
@@ -173,4 +174,26 @@ describe("selectedJourneySteps after clearing the anchor", () => {
       ).toEqual([]);
     },
   );
+});
+
+describe("journeyFunnelLink", () => {
+  it("returns an auto-run link for a convertible path", () => {
+    const link = journeyFunnelLink(config);
+    expect(link.error).toBeNull();
+    expect(link.href).toBe(funnelExploreHref(journeyToFunnel(config)));
+  });
+
+  it("returns an explanation instead of throwing for an ambiguous path", () => {
+    const link = journeyFunnelLink({
+      ...config,
+      dataset: {
+        ...config.dataset,
+        stepColumns: ["event", "url"],
+        anchorStepValues: ["view", "/items/*"],
+        path: [{ value: "click / /items / details" }],
+      },
+    });
+    expect(link.href).toBeNull();
+    expect(link.error).toMatch(/ambiguous/);
+  });
 });

@@ -538,6 +538,7 @@ function SankeySvg({
   canViewMore,
   viewMoreLoading,
   canCommitStep,
+  disabled,
 }: {
   model: JourneyViewModel;
   width: number;
@@ -549,6 +550,7 @@ function SankeySvg({
   canViewMore: (levelIndex: number) => boolean;
   viewMoreLoading: (levelIndex: number) => boolean;
   canCommitStep: boolean;
+  disabled: boolean;
 }) {
   const w = Math.floor(width);
   const h = Math.floor(height);
@@ -665,6 +667,7 @@ function SankeySvg({
             const parts = ribbonParts(e, model.dimTop, toExit);
             const targetCol = A.side === "b" ? A : B;
             const popIndex =
+              !disabled &&
               e.committedEdge &&
               !e.leak &&
               targetCol.committed &&
@@ -675,6 +678,7 @@ function SankeySvg({
             const frontierKey = targetCol === B ? e.tgtKey : e.srcKey;
             const optionsLevel = targetCol.optionsLevel;
             const expandsOther =
+              !disabled &&
               targetCol.frontier &&
               frontierKey === JOURNEY_OTHER &&
               optionsLevel !== undefined &&
@@ -683,6 +687,7 @@ function SankeySvg({
             const commitKeys =
               e.committedEdge ||
               e.leak ||
+              disabled ||
               !canCommitStep ||
               !frontierKey ||
               frontierKey === JOURNEY_OTHER ||
@@ -775,18 +780,21 @@ function SankeySvg({
               const moreLoading =
                 c.optionsLevel !== undefined && viewMoreLoading(c.optionsLevel);
               const canExpandOther =
+                !disabled &&
                 n.key === JOURNEY_OTHER &&
                 !!c.frontier &&
                 c.optionsLevel !== undefined &&
                 canViewMore(c.optionsLevel) &&
                 !moreLoading;
               const canCommit =
+                !disabled &&
                 canCommitStep &&
                 !!c.frontier &&
                 !term &&
                 n.key !== JOURNEY_OTHER &&
                 c.fi === 0;
               const canPop =
+                !disabled &&
                 n.chain === true &&
                 c.committed &&
                 !c.anchor &&
@@ -919,6 +927,7 @@ export default function JourneySankey({
   canViewMore,
   viewMoreLoading,
   canCommitStep,
+  disabled,
 }: {
   model: JourneyViewModel;
   heightScale: JourneyHeightScale;
@@ -928,6 +937,7 @@ export default function JourneySankey({
   canViewMore: (levelIndex: number) => boolean;
   viewMoreLoading: (levelIndex: number) => boolean;
   canCommitStep: boolean;
+  disabled: boolean;
 }) {
   return (
     <ParentSizeModern>
@@ -945,6 +955,7 @@ export default function JourneySankey({
             canViewMore={canViewMore}
             viewMoreLoading={viewMoreLoading}
             canCommitStep={canCommitStep}
+            disabled={disabled}
           />
         );
       }}

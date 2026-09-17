@@ -96,7 +96,8 @@ type PathStep = JourneyDataset["path"][number];
 
 function addDim(map: Map<string, number>, dim: string | null, n: number) {
   if (!dim) return;
-  map.set(dim, (map.get(dim) || 0) + n);
+  const key = dim === "other" ? JOURNEY_OTHER : dim;
+  map.set(key, (map.get(key) || 0) + n);
 }
 
 function parsePathRows(rows: ProductAnalyticsResultRow[]): PathRow[] {
@@ -355,7 +356,7 @@ function materializeJourneyViewModel({
 
   const anchorDims = new Map(history.anchorDims);
   const dimTop = Array.from(anchorDims.entries())
-    .filter(([k]) => k !== JOURNEY_OTHER && k !== "other")
+    .filter(([k]) => k !== JOURNEY_OTHER)
     .sort((a, b) => b[1] - a[1])
     .map(([k]) => k);
 

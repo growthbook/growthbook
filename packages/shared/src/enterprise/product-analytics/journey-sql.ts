@@ -427,10 +427,8 @@ export function buildJourneySql(
   // Without this, every event missing the unit id collapses into one synthetic
   // unit-day journey and inflates whatever paths those events happen to form.
   filterParts.push(`${unitExpr} IS NOT NULL`);
-  // A NULL step would break dedupe collapse and read as the terminal in
-  // LEAD/LAG. Multi-column steps COALESCE to '', so this keeps single-column
-  // steps consistent with them.
-  filterParts.push(`${stepExpr} IS NOT NULL`);
+  // Empty and NULL steps are not events in a journey.
+  filterParts.push(`${stepExpr} <> ''`);
   if (dimension?.dimensionType === "static" && dimension.values.length > 0) {
     const dimCol = columnExpr(dimension.column, factTable, dialect);
     filterParts.push(
@@ -473,10 +471,11 @@ export function buildJourneySql(
     `,
   });
 
+  // ClickHouse returns '' past the window boundary for non-nullable strings.
   const nbCols = Array.from(
     { length: neighbourhoodCount },
     (_, i) =>
-      `${leadOrLag}(step, ${i + 1}) OVER ${JOURNEY_WINDOW} AS nb_${i + 1}`,
+      `NULLIF(${leadOrLag}(step, ${i + 1}) OVER ${JOURNEY_WINDOW}, '') AS nb_${i + 1}`,
   );
   ctes.push({
     name: "__journey_neighbourhood",

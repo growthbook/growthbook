@@ -1391,6 +1391,23 @@ export function toFetchKey(
   };
 }
 
+/** Chart actions must use the same journey that produced the visible results. */
+export function canInteractWithJourney(
+  draft: ExplorerDraftConfig,
+  submitted: ExplorerDraftConfig | null,
+  loading: boolean,
+): boolean {
+  return (
+    !loading &&
+    draft.type === "journey" &&
+    submitted?.type === "journey" &&
+    isEqual(
+      toFetchKey(cleanConfigForSubmission(draft)),
+      toFetchKey(cleanConfigForSubmission(submitted)),
+    )
+  );
+}
+
 /** True when the draft only changed the drilled journey path. */
 export function journeyDiffersOnlyByPath(
   submitted: ExplorationConfig,

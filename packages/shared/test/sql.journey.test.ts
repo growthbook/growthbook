@@ -305,6 +305,35 @@ describe("buildJourneySql", () => {
     expect(sql).toContain("user_id IS NOT NULL");
   });
 
+  it("excludes empty and NULL steps before deduplicating and finding neighbours", () => {
+    const { sql } = buildJourneySql(baseJourneyConfig(), factTableMap, helpers);
+    const events = sql.slice(
+      sql.indexOf("__journey_events AS"),
+      sql.indexOf("__journey_deduped AS"),
+    );
+    expect(events).toContain("cast(event_name as varchar) <> ''");
+  });
+
+  it.each(["forward", "backward"] as const)(
+    "normalizes empty %s window boundaries before ranking and bucketing",
+    (direction) => {
+      const config = baseJourneyConfig();
+      if (config.dataset.type !== "journey")
+        throw new Error("expected journey");
+      config.dataset.direction = direction;
+      config.dataset.path = [{ value: "checkout" }];
+      const { sql } = buildJourneySql(config, factTableMap, helpers);
+      const fn = direction === "forward" ? "LEAD" : "LAG";
+      for (let i = 1; i <= 4; i++) {
+        expect(sql).toMatch(
+          new RegExp(
+            `NULLIF\\(\\s*${fn}\\(step, ${i}\\) OVER \\([^)]+\\),\\s*''\\s*\\) AS nb_${i}`,
+          ),
+        );
+      }
+    },
+  );
+
   it("tie-breaks the journey ordering so equal timestamps are deterministic", () => {
     const config = baseJourneyConfig();
     const { sql } = buildJourneySql(config, factTableMap, helpers);

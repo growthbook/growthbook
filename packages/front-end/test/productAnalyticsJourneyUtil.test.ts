@@ -9,6 +9,7 @@ import type {
 import { projectJourneyRows } from "shared/journeys";
 import {
   createEmptyDataset,
+  canInteractWithJourney,
   fillMissingUnits,
   getDefaultJourneyStepColumns,
   getInitialInlineFilters,
@@ -756,5 +757,103 @@ describe("buildJourneyTableData", () => {
         journeys: 40,
       },
     ]);
+  });
+});
+
+describe("journey interactions", () => {
+  const config: ExplorationConfig = {
+    type: "journey",
+    datasource: "ds_1",
+    chartType: "bar",
+    dateRange: {
+      predefined: "last7Days",
+      startDate: null,
+      endDate: null,
+      lookbackValue: null,
+      lookbackUnit: null,
+    },
+    dimensions: [],
+    dataset: journeyDataset(),
+  };
+
+  it("blocks pending requests and paths ahead of the displayed results", () => {
+    expect(canInteractWithJourney(config, config, false)).toBe(true);
+    expect(canInteractWithJourney(config, config, true)).toBe(false);
+    expect(canInteractWithJourney(config, null, false)).toBe(false);
+    const drilled = {
+      ...config,
+      dataset: { ...config.dataset, path: [{ value: "checkout" }] },
+    };
+    expect(canInteractWithJourney(drilled, config, false)).toBe(false);
+    expect(canInteractWithJourney(drilled, drilled, false)).toBe(true);
+  });
+
+  it("blocks changed filters but allows display-only changes", () => {
+    expect(
+      canInteractWithJourney(
+        {
+          ...config,
+          dataset: {
+            ...config.dataset,
+            rowFilters: [{ column: "country", operator: "=", values: ["US"] }],
+          },
+        },
+        config,
+        false,
+      ),
+    ).toBe(false);
+    expect(
+      canInteractWithJourney(
+        {
+          ...config,
+          dataset: { ...config.dataset, heightScale: "absolute" },
+        },
+        config,
+        false,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("journey other dimensions", () => {
+  it("merges both other labels in path and committed rows and hides them together", () => {
+    const model = buildJourneyViewModel({
+      dataset: journeyDataset({ path: [{ value: "checkout" }] }),
+      hasDimension: true,
+      rows: [
+        pathRow(["purchase"], 60, "other"),
+        pathRow(["purchase"], 20, "(other)"),
+        pathRow(["purchase"], 20, "US"),
+        ...[
+          ["other", 60],
+          ["(other)", 20],
+          ["US", 20],
+        ].map(
+          ([dim, count]): ProductAnalyticsResultRow => ({
+            dimensions: [String(dim)],
+            journey: {
+              kind: "committed",
+              direction: "forward",
+              stepIndex: 0,
+              value: "checkout",
+              count: Number(count),
+            },
+          }),
+        ),
+      ],
+    });
+    expect(model.anchorTotal).toBe(100);
+    expect(model.dimTop).toEqual(["US"]);
+    expect(model.anchorDims.get("(other)")).toBe(80);
+    for (const edge of model.edges) {
+      expect(edge.dims?.get("(other)")).toBe(80);
+      expect(edge.dims?.has("other")).toBe(false);
+      expect(
+        Array.from(edge.dims?.values() ?? []).reduce((a, b) => a + b, 0),
+      ).toBe(edge.value);
+    }
+    const filtered = withHiddenJourneyDims(model, new Set(["(other)"]));
+    expect(filtered.anchorTotal).toBe(20);
+    expect(filtered.edges.every((edge) => edge.value === 20)).toBe(true);
   });
 });

@@ -19,9 +19,11 @@ import {
 } from "shared/journeys";
 import { PiArrowRight, PiX } from "react-icons/pi";
 import LinkButton from "@/ui/LinkButton";
+import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
+import { canInteractWithJourney } from "@/enterprise/components/ProductAnalytics/util";
 import {
-  funnelExploreHref,
-  journeyToFunnel,
+  journeyFunnelLink,
   selectedJourneySteps,
 } from "@/enterprise/components/ProductAnalytics/journeyFunnel";
 import Badge from "@/ui/Badge";
@@ -76,8 +78,19 @@ export default function JourneyChart({
     [model, hiddenDims],
   );
 
+  const interactionsDisabled = !canInteractWithJourney(
+    draftExploreState,
+    submittedExploreState,
+    loading,
+  );
+  const funnelLink = useMemo(
+    () => journeyFunnelLink(draftExploreState),
+    [draftExploreState],
+  );
+
   const onCommit = useCallback(
     (keys: string[]) => {
+      if (interactionsDisabled) return;
       for (const key of keys) {
         if (
           key === JOURNEY_OTHER ||
@@ -89,13 +102,13 @@ export default function JourneyChart({
         commitJourneyStep(key);
       }
     },
-    [commitJourneyStep],
+    [commitJourneyStep, interactionsDisabled],
   );
 
   const dimValues = journeyDimValueCount(submittedExploreState.dimensions[0]);
   const canViewMore = useCallback(
     (levelIndex: number) => {
-      if (!draftDataset) return false;
+      if (!draftDataset || interactionsDisabled) return false;
       return canIncreaseJourneyOptions({
         optionsPerStep: draftDataset.optionsPerStep,
         levelIndex,
@@ -104,11 +117,11 @@ export default function JourneyChart({
         dimValues,
       });
     },
-    [draftDataset, dimValues],
+    [draftDataset, dimValues, interactionsDisabled],
   );
   const onViewMore = useCallback(
     (levelIndex: number) => {
-      if (loading) return;
+      if (interactionsDisabled) return;
       if (draftExploreState.type !== "journey") return;
       const nextValue =
         journeyOptionsAt(draftExploreState.dataset.optionsPerStep, levelIndex) +
@@ -128,7 +141,7 @@ export default function JourneyChart({
         },
       });
     },
-    [draftExploreState, handleSubmit, loading],
+    [draftExploreState, handleSubmit, interactionsDisabled],
   );
   const viewMoreLoading = useCallback(
     (levelIndex: number) => {
@@ -199,18 +212,19 @@ export default function JourneyChart({
           )}
           {(draftDataset ?? dataset).path.length > 0 && (
             <Box style={{ marginLeft: "auto", flexShrink: 0 }}>
-              <LinkButton
-                size="sm"
-                href={funnelExploreHref(
-                  journeyToFunnel(
-                    draftExploreState.type === "journey"
-                      ? draftExploreState
-                      : submittedExploreState,
-                  ),
-                )}
-              >
-                Explore this funnel
-              </LinkButton>
+              {funnelLink.href !== null ? (
+                <LinkButton size="sm" href={funnelLink.href}>
+                  Explore this funnel
+                </LinkButton>
+              ) : (
+                <Tooltip content={funnelLink.error}>
+                  <span>
+                    <Button size="sm" disabled>
+                      Explore this funnel
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
             </Box>
           )}
         </Flex>
@@ -218,6 +232,7 @@ export default function JourneyChart({
       <Box style={{ flex: 1, minHeight: 220, position: "relative" }}>
         <JourneySankey
           model={visibleModel ?? model}
+          disabled={interactionsDisabled}
           heightScale={heightScale}
           onCommit={onCommit}
           onPop={popJourneyPath}
