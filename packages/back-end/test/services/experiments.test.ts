@@ -20,6 +20,7 @@ import {
 import {
   applyVariationWeightsToLatestPhase,
   assertValidReleasedVariationId,
+  assertValidUpdateSchedule,
   createMetric,
   fillEmptyVariationKeys,
   getExperimentMetricById,
@@ -2507,5 +2508,78 @@ describe("assertValidReleasedVariationId", () => {
         ).not.toThrow();
       });
     });
+  });
+});
+
+describe("assertValidUpdateSchedule", () => {
+  const cron = (expression: string) => ({
+    type: "cron" as const,
+    cron: expression,
+  });
+
+  it("accepts cron schedules that run at most once an hour", () => {
+    [
+      "0 * * * *",
+      "0 */6 * * *",
+      "30 9 * * 1-5",
+      "@hourly",
+      "0 0 * * * *",
+    ].forEach((expression) => {
+      expect(() => assertValidUpdateSchedule(cron(expression))).not.toThrow();
+    });
+  });
+
+  it("rejects cron schedules that run more than once an hour", () => {
+    ["*/5 * * * *", "0,30 * * * *", "* 0 * * * *"].forEach((expression) => {
+      expect(() => assertValidUpdateSchedule(cron(expression))).toThrow(
+        /more than once an hour/,
+      );
+    });
+  });
+
+  it("rejects an empty or invalid cron expression", () => {
+    expect(() => assertValidUpdateSchedule(cron(""))).toThrow(/required/);
+    expect(() => assertValidUpdateSchedule({ type: "cron" })).toThrow(
+      /required/,
+    );
+    ["not a cron", "60 * * * *"].forEach((expression) => {
+      expect(() => assertValidUpdateSchedule(cron(expression))).toThrow(
+        /Invalid cron expression/,
+      );
+    });
+  });
+
+  it("ignores schedules that are not cron based", () => {
+    expect(() =>
+      assertValidUpdateSchedule({
+        type: "stale",
+        hours: 6,
+        cron: "*/5 * * * *",
+      }),
+    ).not.toThrow();
+    expect(() => assertValidUpdateSchedule({ type: "never" })).not.toThrow();
+    expect(() => assertValidUpdateSchedule(undefined)).not.toThrow();
+  });
+
+  it("leaves an unchanged stored cron schedule alone", () => {
+    expect(() =>
+      assertValidUpdateSchedule(cron("*/5 * * * *"), cron("*/5 * * * *")),
+    ).not.toThrow();
+  });
+
+  it("rejects switching to a too frequent cron that was only stored", () => {
+    expect(() =>
+      assertValidUpdateSchedule(cron("*/5 * * * *"), {
+        type: "stale",
+        hours: 6,
+        cron: "*/5 * * * *",
+      }),
+    ).toThrow(/more than once an hour/);
+  });
+
+  it("rejects changing a stored cron schedule to another too frequent one", () => {
+    expect(() =>
+      assertValidUpdateSchedule(cron("*/10 * * * *"), cron("*/5 * * * *")),
+    ).toThrow(/more than once an hour/);
   });
 });
