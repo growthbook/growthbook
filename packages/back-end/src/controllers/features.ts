@@ -171,6 +171,7 @@ import {
   getLiveRevisionForFeature,
   getDraftRevision,
   assertCanAutoPublish,
+  assertFeatureValuesValid,
   revisionRequiresReview,
   assertCanUndoFeatureReview,
 } from "back-end/src/services/features";
@@ -180,7 +181,10 @@ import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigBackedFeatureValuesValid,
+  configCheckedRuleValues,
+} from "back-end/src/services/configValidation";
 import {
   assertRegisteredAttributes,
   assertRegisteredAttributesScoped,
@@ -302,12 +306,7 @@ import {
   maybeAutoPublishFeatureRevision,
   parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
-import {
-  assertRuleVariationsMatchExperiment,
-  assertValidExperimentRefRule,
-  assertValidHoldout,
-  experimentRefChanged,
-} from "back-end/src/api/features/v2Shared";
+import { assertValidHoldout } from "back-end/src/api/features/v2Shared";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
@@ -317,6 +316,18 @@ import {
   normalizeRampPlanForceValues,
   rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
+import {
+  assertValidFeatureRules,
+  assertValidRevisionRulePrerequisites,
+  assertValidRuleWrite,
+  collectRampPlanPatches,
+  withStagedSchema,
+  rampPatchEntries,
+  validatePrerequisiteConditions,
+  validatePrerequisiteReferences,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 
 function normalizeRampStepAction(a: {
   targetType?: string;
@@ -350,6 +361,43 @@ function normalizeRuleModalRampValues(
         })),
       ),
     }),
+  );
+}
+
+// The draft a write targets, read without creating one; null when the write
+// starts a new draft off live.
+async function stagedRevision(
+  context: ReqContext,
+  feature: FeatureInterface,
+  version: number | undefined,
+): Promise<FeatureRevisionInterface | null> {
+  if (!version) return null;
+  return getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version,
+  });
+}
+
+// Same for the plan's targeting fields (condition, saved groups, environments,
+// prerequisites). Start actions are the editor's anchor and are not judged.
+async function validateRuleModalRampPatches(
+  context: ReqContext,
+  plan: InlineRampScheduleCreate | InlineRampScheduleUpdate,
+  feature: FeatureInterface,
+  rule: Pick<FeatureRule, "allEnvironments" | "environments"> | null,
+  stored: unknown[],
+): Promise<void> {
+  await validateRampPlanPatches(
+    context,
+    rampPatchEntries(
+      collectRampPlanPatches({ ...plan, startActions: undefined }),
+      feature,
+      rule,
+    ),
+    { stored },
   );
 }
 
@@ -795,7 +843,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 }
 
 export async function postFeatures(
-  req: AuthRequest<Partial<FeatureInterface>>,
+  req: AuthRequest<Partial<FeatureInterface> & { duplicateOf?: string }>,
   res: Response<
     { status: 200; feature: FeatureInterface },
     EventUserForResponseLocals
@@ -809,6 +857,7 @@ export async function postFeatures(
     holdout,
     customFields,
     jsonSchema,
+    duplicateOf,
     ...otherProps
   } = req.body;
 
@@ -963,6 +1012,15 @@ export async function postFeatures(
   // Inbound v2 rules (e.g. from FeatureFromExperimentModal) often arrive with
   // `id: ""`; stamp ids so they're addressable by later update/delete ops.
   addIdsToFlatRules(feature.rules, feature.id);
+  // A duplicate echoes its source's rules; only what the copy changes is
+  // re-checked.
+  const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
+  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules);
+  await assertValidPrerequisiteParents(context, feature, source ?? undefined);
+  assertFeatureValuesValid(context, feature, {
+    defaultValue: feature.defaultValue,
+    rules: feature.rules,
+  });
 
   await createFeature(context, feature);
   await context.models.watch.upsertWatch({
@@ -3454,8 +3512,9 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  // The scope loader uses read-only getRevision — getDraftRevision would
-  // persist a draft before validation passes.
+  // Read-only: getDraftRevision would persist a draft before validation
+  // passes.
+  const staged = await stagedRevision(context, feature, parseInt(version));
   await assertRegisteredAttributesScoped(
     context,
     {
@@ -3466,22 +3525,9 @@ export async function postFeatureRule(
     },
     "rule",
     undefined,
-    async () => {
-      const existingRevision = await getRevision({
-        context,
-        organization: context.org.id,
-        featureId: feature.id,
-        feature,
-        version: parseInt(version),
-      });
-      return (
-        getRuleAttributeScopeProjectIds(
-          feature,
-          existingRevision?.metadata,
-          rule,
-        ) ?? undefined
-      );
-    },
+    async () =>
+      getRuleAttributeScopeProjectIds(feature, staged?.metadata, rule) ??
+      undefined,
   );
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
@@ -3505,6 +3551,30 @@ export async function postFeatureRule(
     rule.safeRolloutId = generateId("sr_");
   }
 
+  // Stamp id + rollout seed via the shared chokepoint (safe-rollout seed set above).
+  addIdsToFlatRules([rule], feature.id);
+  // Honor a client-supplied `allEnvironments: true`; otherwise stamp the
+  // rule with the explicit env list. Without this, "All environments"
+  // selections were being saved as a discrete `environments[]` snapshot,
+  // freezing the rule against future env additions.
+  const stampedRule: FeatureRule =
+    rule.allEnvironments === true
+      ? ({
+          ...omit(rule, ["environments"]),
+          allEnvironments: true,
+        } as FeatureRule)
+      : stampRuleForEnvs(rule, selectedEnvironments);
+  // Mirror the env-scope invariant for project scope: an all-projects rule
+  // carries no explicit list, so cleanup can't later empty it into "all".
+  if (stampedRule.allProjects === true) {
+    delete (stampedRule as { projects?: string[] }).projects;
+  }
+  await assertValidRuleWrite(
+    context,
+    withStagedSchema(feature, staged),
+    stampedRule,
+  );
+
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
@@ -3514,13 +3584,7 @@ export async function postFeatureRule(
   // experiment-ref rules (writes deferred until after custom-hook prevalidation)
   if (rule.type === "experiment-ref") {
     const experiment = await getExperimentById(context, rule.experimentId);
-    // With a holdout in play the experiment must exist; without one, a missing
-    // experiment is left for downstream validation (preserves prior behavior).
-    if (effectiveHoldout?.id && !experiment) {
-      throw new Error(`Could not find experiment "${rule.experimentId}"`);
-    }
     if (experiment) {
-      assertRuleVariationsMatchExperiment(rule, experiment);
       await resolveHoldoutExperimentToLink({
         context,
         feature,
@@ -3530,8 +3594,6 @@ export async function postFeatureRule(
     }
   }
 
-  // Stamp id + rollout seed via the shared chokepoint (safe-rollout seed set above).
-  addIdsToFlatRules([rule], feature.id);
   let rampActionsUpdate:
     | RevisionRampCreateAction
     | RevisionRampDetachAction
@@ -3543,6 +3605,13 @@ export async function postFeatureRule(
   ) {
     if (rampSchedulePayload.mode === "create") {
       normalizeRuleModalRampValues(rampSchedulePayload, feature, rule.id);
+      await validateRuleModalRampPatches(
+        context,
+        rampSchedulePayload,
+        feature,
+        rule,
+        [],
+      );
       const createAction: RevisionRampCreateAction = {
         mode: "create",
         name: rampSchedulePayload.name,
@@ -3597,30 +3666,14 @@ export async function postFeatureRule(
     }
   }
 
-  // Honor a client-supplied `allEnvironments: true`; otherwise stamp the
-  // rule with the explicit env list. Without this, "All environments"
-  // selections were being saved as a discrete `environments[]` snapshot,
-  // freezing the rule against future env additions.
   const existingRules = cloneDeep(revision.rules ?? []);
-  const stampedRule: FeatureRule =
-    rule.allEnvironments === true
-      ? ({
-          ...omit(rule, ["environments"]),
-          allEnvironments: true,
-        } as FeatureRule)
-      : stampRuleForEnvs(rule, selectedEnvironments);
-  // Mirror the env-scope invariant for project scope: an all-projects rule
-  // carries no explicit list, so cleanup can't later empty it into "all".
-  if (stampedRule.allProjects === true) {
-    delete (stampedRule as { projects?: string[] }).projects;
-  }
-  const ruleScopeProjects = (stampedRule as { projects?: string[] }).projects;
-  if (ruleScopeProjects?.length) {
-    await context.models.projects.ensureProjectsExist(ruleScopeProjects);
-  }
   const ruleAdditionChanges = {
     rules: insertRuleBefore(existingRules, stampedRule, insertBeforeRuleId),
   };
+  await assertValidRevisionRulePrerequisites(context, feature, revision, {
+    before: existingRules,
+    after: ruleAdditionChanges.rules,
+  });
 
   const combinedChanges: Record<string, unknown> = ruleAdditionChanges;
   if (rampActionsUpdate) {
@@ -3852,6 +3905,24 @@ export async function postFeatureSync(
     needsNewRevision = true;
   }
 
+  await assertValidFeatureRules(context, nextFlatRules, feature.rules ?? []);
+  await assertValidPrerequisiteParents(
+    context,
+    { ...feature, rules: nextFlatRules },
+    feature,
+  );
+  const liveRuleById = new Map((feature.rules ?? []).map((r) => [r.id, r]));
+  assertFeatureValuesValid(context, feature, {
+    defaultValue: updatesInRevision.defaultValue,
+    rules: nextFlatRules.filter((r) => {
+      const live = liveRuleById.get(r.id);
+      return (
+        !live ||
+        !isEqual(configCheckedRuleValues(live), configCheckedRuleValues(r))
+      );
+    }),
+  });
+
   environments.forEach((env) => {
     // envSettings tracks the kill switch only; rules flow via changes.rules.
     updatesInRevision.environmentSettings =
@@ -3964,7 +4035,6 @@ export async function postFeatureExperimentRefRule(
   if (!experiment) {
     throw new Error("Invalid experiment selected");
   }
-  assertRuleVariationsMatchExperiment(rule, experiment);
 
   // allEnvironments:true strips any stale environments[]; false passes the
   // explicit list through. Legacy callers that send neither default to every
@@ -3988,6 +4058,14 @@ export async function postFeatureExperimentRefRule(
     );
   }
 
+  await assertValidRuleWrite(
+    context,
+    withStagedSchema(
+      feature,
+      await stagedRevision(context, feature, draftVersion),
+    ),
+    scopedRule,
+  );
   const ruleEnvFootprint = scopedRule.allEnvironments
     ? environments
     : (scopedRule.environments ?? []);
@@ -4184,6 +4262,14 @@ export async function postFeatureContextualBanditRefRule(
   if (!contextualBandit) {
     throw new Error("Invalid contextual bandit selected");
   }
+  await assertValidRuleWrite(
+    context,
+    withStagedSchema(
+      feature,
+      await stagedRevision(context, feature, draftVersion),
+    ),
+    rule,
+  );
 
   const { version, published } = await linkFeatureToContextualBandit({
     context,
@@ -4348,6 +4434,10 @@ export async function postFeatureDefaultValue(
     context.permissions.throwPermissionError();
   }
 
+  const staged = await stagedRevision(context, feature, parseInt(version));
+  assertFeatureValuesValid(context, withStagedSchema(feature, staged), {
+    defaultValue,
+  });
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const resolution = resolveDraftEdit<{ defaultValue: string }>({
@@ -4797,13 +4887,6 @@ export async function putFeatureRule(
   // never re-bucketed; a force rule the UI promoted by dropping coverage has no
   // rollout history, so it seeds off its own id. Id first, so nothing mints one.
   const inboundRule = effectiveRule as FeatureRule;
-  // Only a changed reference is checked, so it must resolve.
-  if (
-    inboundRule.type === "experiment-ref" &&
-    experimentRefChanged(inboundRule, existingRule)
-  ) {
-    await assertValidExperimentRefRule(context, inboundRule);
-  }
   if (!inboundRule.id) inboundRule.id = ruleId;
   inheritStoredRolloutSeeds([inboundRule], existingRules);
   addIdsToFlatRules([inboundRule], feature.id);
@@ -4852,6 +4935,24 @@ export async function putFeatureRule(
       rampSchedulePayload.mode === "update"
     ) {
       normalizeRuleModalRampValues(rampSchedulePayload, feature, ruleId);
+      await validateRuleModalRampPatches(
+        context,
+        rampSchedulePayload,
+        feature,
+        inboundRule,
+        [
+          ...(revision.rampActions ?? []).filter(
+            (a) => "ruleId" in a && a.ruleId === ruleId,
+          ),
+          ...(rampSchedulePayload.mode === "update"
+            ? [
+                await context.models.rampSchedules.getById(
+                  rampSchedulePayload.rampScheduleId,
+                ),
+              ]
+            : []),
+        ],
+      );
     }
     if (rampSchedulePayload.mode === "create") {
       const createAction: RevisionRampCreateAction = {
@@ -4965,22 +5066,26 @@ export async function putFeatureRule(
     return merged;
   });
 
-  // A config-backed rule value (incl. running-experiment / bandit variations
-  // edited from the feature) must satisfy the backing Config's schema +
-  // invariants, the same as a REST publish. Validate only the edited rule so a
-  // pre-existing violation elsewhere can't block this edit. No-op unless the
-  // feature is config-backed JSON.
+  // The rule write checks, then the config-backed value net (running-experiment
+  // / bandit variations edited from the feature must satisfy the backing
+  // Config's schema + invariants, as on a REST publish). Only the edited rule,
+  // so a pre-existing violation elsewhere can't block this edit.
   const ruleToValidate = nextRules.find((r) => r.id === ruleId);
   if (ruleToValidate) {
-    const ruleScopeProjects = (ruleToValidate as { projects?: string[] })
-      .projects;
-    if (ruleScopeProjects?.length) {
-      await context.models.projects.ensureProjectsExist(ruleScopeProjects);
-    }
+    await assertValidRuleWrite(
+      context,
+      withStagedSchema(feature, revision),
+      ruleToValidate,
+      existingRule,
+    );
     await assertConfigBackedFeatureValuesValid(context, feature, {
       rules: [ruleToValidate],
     });
   }
+  await assertValidRevisionRulePrerequisites(context, feature, revision, {
+    before: existingRules,
+    after: nextRules,
+  });
 
   const combinedChanges: Record<string, unknown> = { rules: nextRules };
   if (rampSchedulePayload?.mode === "clear") {
@@ -7009,6 +7114,25 @@ function assertPrerequisitesUnchanged({
   return false;
 }
 
+// The REST prerequisites endpoint's checks: the new condition parses and names
+// known groups; the parents exist, are live and boolean, and close no cycle.
+async function assertValidPrerequisiteWrite(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: Pick<FeatureRevisionInterface, "rules" | "prerequisites"> | null,
+  changed: FeaturePrerequisite[],
+  prerequisites: FeaturePrerequisite[],
+): Promise<void> {
+  validatePrerequisiteConditions(changed);
+  await validatePrerequisiteReferences(changed, context);
+  const rules = draft?.rules ?? feature.rules;
+  await assertValidPrerequisiteParents(
+    context,
+    { ...feature, rules, prerequisites },
+    { rules, prerequisites: draft?.prerequisites ?? feature.prerequisites },
+  );
+}
+
 export async function postPrerequisite(
   req: AuthRequest<
     {
@@ -7045,6 +7169,13 @@ export async function postPrerequisite(
   const basePrerequisites =
     baseDraft?.prerequisites ?? feature.prerequisites ?? [];
   const newPrerequisites = [...basePrerequisites, prerequisite];
+  await assertValidPrerequisiteWrite(
+    context,
+    feature,
+    baseDraft,
+    [prerequisite],
+    newPrerequisites,
+  );
   const draft = await createOrUpdateDraftWithChanges(
     context,
     feature,
@@ -7121,6 +7252,13 @@ export async function putPrerequisite(
     throw new Error("Unknown prerequisite");
   }
   newPrerequisites[i] = prerequisite;
+  await assertValidPrerequisiteWrite(
+    context,
+    feature,
+    baseDraftPut,
+    [prerequisite],
+    newPrerequisites,
+  );
   const putDraft = await createOrUpdateDraftWithChanges(
     context,
     feature,

@@ -417,6 +417,7 @@ interface EntityHandler {
       stepLabel: string;
       user: EventUser;
       environment?: string | null;
+      judgeTargeting?: boolean;
     },
   ): Promise<void>;
 }
@@ -790,7 +791,7 @@ export function resolveRampStartState({
 
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
-    const { stepLabel, user, environment } = opts;
+    const { stepLabel, user, environment, judgeTargeting } = opts;
 
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
@@ -798,6 +799,36 @@ export const featureEntityHandler: EntityHandler = {
     const updatedRules: FeatureRule[] = (feature.rules ?? []).map((r) => ({
       ...r,
     }));
+
+    if (judgeTargeting) {
+      // A patch whose condition no longer parses or whose references are gone
+      // would serve everyone once landed; refuse the step instead. Lazy
+      // import: the validations module imports this one.
+      const { validateRampPlanPatches } = await import(
+        "back-end/src/api/features/validations"
+      );
+      const entries = actions.flatMap((action) => {
+        if (action.targetType !== "feature-rule") return [];
+        const { ruleId, ...patch } = action.patch;
+        return resolveRampTargets(
+          { ruleId, environment: environment ?? null },
+          updatedRules,
+        ).map((rule) => ({
+          patch: { ...patch, ruleId: rule.id },
+          feature,
+          rule,
+        }));
+      });
+      // The effective patch replays the start anchor too; only what the step
+      // changes on the live rule is judged.
+      await validateRampPlanPatches(ctx, entries, {
+        stored: entries.map(({ rule }) => ({
+          startActions: [
+            { patch: { ...getStartPatchForRule(rule), ruleId: rule.id } },
+          ],
+        })),
+      });
+    }
 
     for (const action of actions) {
       if (action.targetType !== "feature-rule") continue;
@@ -863,6 +894,7 @@ export const featureEntityHandler: EntityHandler = {
       result: forceResult,
       comment: stepLabel,
       bypassLockdown: true,
+      skipValueSchemaNet: true,
     });
   },
 };
@@ -1093,7 +1125,9 @@ async function executeStepActions(
   actions: RampStepAction[],
   // fromStepIndex: position before a catch-up jump, so the published
   // revision's label shows the folded range instead of a normal single advance.
-  opts: { fromStepIndex?: number } = {},
+  // judgeTargeting: stored step or end patches are checked before they land.
+  // Rollbacks are not: refusing a retreat is worse than replaying a stale step.
+  opts: { fromStepIndex?: number; judgeTargeting?: boolean } = {},
 ): Promise<void> {
   const ruleActions = actions.filter((a) => a.targetType === "feature-rule");
   if (!ruleActions.length) return;
@@ -1165,6 +1199,7 @@ async function executeStepActions(
         stepLabel,
         user,
         environment: group.environment,
+        judgeTargeting: opts.judgeTargeting,
       });
     } catch (e) {
       if ((e as Error).message?.startsWith("Feature not found:")) {
@@ -1378,6 +1413,7 @@ export async function advanceStep(
     }),
   );
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions, {
+    judgeTargeting: true,
     fromStepIndex: schedule.currentStepIndex,
   });
 
@@ -2199,7 +2235,9 @@ export async function jumpAheadToStep(
   );
 
   if (jumpActions.length > 0) {
-    await executeStepActions(ctx, schedule, jumpTarget, jumpActions);
+    await executeStepActions(ctx, schedule, jumpTarget, jumpActions, {
+      judgeTargeting: true,
+    });
   }
 
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
@@ -2271,7 +2309,12 @@ async function applyEndActionsAndAwaitCutoff(
       schedule,
       schedule.steps.length,
       actionsToApply,
-      opts.autoCatchUp ? { fromStepIndex: schedule.currentStepIndex } : {},
+      {
+        judgeTargeting: true,
+        ...(opts.autoCatchUp
+          ? { fromStepIndex: schedule.currentStepIndex }
+          : {}),
+      },
     );
   }
 
@@ -2390,7 +2433,12 @@ export async function completeRollout(
       schedule,
       schedule.steps.length,
       actionsToApply,
-      opts.autoCatchUp ? { fromStepIndex: schedule.currentStepIndex } : {},
+      {
+        judgeTargeting: true,
+        ...(opts.autoCatchUp
+          ? { fromStepIndex: schedule.currentStepIndex }
+          : {}),
+      },
     );
   }
 

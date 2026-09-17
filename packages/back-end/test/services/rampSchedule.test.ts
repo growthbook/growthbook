@@ -71,6 +71,12 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   publishRevision: jest.fn(),
 }));
 
+// The fire-time targeting check imports the whole validations module graph;
+// this suite asserts only that it is asked, and when.
+jest.mock("back-end/src/api/features/validations", () => ({
+  validateRampPlanPatches: jest.fn(),
+}));
+
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   createRevision: jest.fn(),
   getRevision: jest.fn(),
@@ -100,6 +106,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 
 // Pull in mocked module references AFTER the mock declarations.
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import { validateRampPlanPatches } from "back-end/src/api/features/validations";
 import {
   createRevision,
   getRevision,
@@ -2039,6 +2046,35 @@ describe("advanceStep — interval step", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
+  it("judges the step's stored targeting against the live rule before it lands", async () => {
+    const { ctx } = makeContext({ currentStepIndex: -1 });
+    await advanceStep(ctx as never, makeSchedule({ currentStepIndex: -1 }));
+    expect(validateRampPlanPatches).toHaveBeenCalledTimes(1);
+    expect(validateRampPlanPatches).toHaveBeenCalledWith(
+      ctx,
+      [
+        expect.objectContaining({
+          patch: expect.objectContaining({ ruleId: RULE_ID, coverage: 0.3 }),
+          rule: expect.objectContaining({ id: RULE_ID }),
+        }),
+      ],
+      {
+        stored: [
+          {
+            startActions: [
+              {
+                patch: expect.objectContaining({
+                  ruleId: RULE_ID,
+                  environments: ["production"],
+                }),
+              },
+            ],
+          },
+        ],
+      },
+    );
+  });
+
   it("increments currentStepIndex", async () => {
     const { ctx, updateById } = makeContext({ currentStepIndex: -1 });
     await advanceStep(ctx as never, makeSchedule({ currentStepIndex: -1 }));
@@ -2532,6 +2568,11 @@ describe("rollbackToStep", () => {
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  afterEach(() => {
+    // Rollbacks are never judged; refusing a retreat is worse than a stale step.
+    expect(validateRampPlanPatches).not.toHaveBeenCalled();
   });
 
   it("applies accumulated effective patch when rolling back — excludes steps after target", async () => {

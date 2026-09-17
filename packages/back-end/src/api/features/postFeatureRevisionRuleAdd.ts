@@ -53,6 +53,9 @@ import {
   assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  validateRampPlanPatches,
 } from "./validations";
 import {
   assertRuleVariationsMatchExperiment,
@@ -161,6 +164,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     rampSchedule: inlineRampSchedule,
   });
   const ruleInput = req.body.rule;
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
+      environments: [environment],
+    }),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,

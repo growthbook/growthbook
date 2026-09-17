@@ -58,6 +58,7 @@ import {
 import {
   getMergeResultPublishEnvs,
   addIdsToFlatRules,
+  assertFeatureValuesValidForPublish,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
@@ -3642,6 +3643,7 @@ export async function prevalidatePublishRevision({
   result,
   comment,
   skipValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3649,6 +3651,7 @@ export async function prevalidatePublishRevision({
   result: MergeResultChanges;
   comment?: string;
   skipValidation?: boolean;
+  skipValueSchemaNet?: boolean;
 }) {
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(context, feature, revision, result);
@@ -3657,6 +3660,12 @@ export async function prevalidatePublishRevision({
   // stale (a config's schema/invariants may tighten between draft and publish),
   // and auto-publish paths don't pass through a REST handler's own net.
   if (defaultToCheck !== undefined || rulesToCheck.length) {
+    if (!skipValueSchemaNet) {
+      assertFeatureValuesValidForPublish(context, proposedFeature, {
+        defaultValue: defaultToCheck,
+        rules: rulesToCheck,
+      });
+    }
     await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
       defaultValue: defaultToCheck,
       rules: rulesToCheck,
@@ -3770,6 +3779,7 @@ export async function collectPublishRevisionBlockers({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3778,6 +3788,7 @@ export async function collectPublishRevisionBlockers({
   comment?: string;
   bypassLockdown?: boolean;
   skipPrevalidateValidation?: boolean;
+  skipValueSchemaNet?: boolean;
 }): Promise<Error[]> {
   // Errors, not messages: SoftWarningError (422 + warnings) and BadRequestError
   // (400) reach the caller as themselves rather than a generic 500.
@@ -3816,6 +3827,7 @@ export async function collectPublishRevisionBlockers({
       result,
       comment,
       skipValidation: skipPrevalidateValidation,
+      skipValueSchemaNet,
     }),
   );
 
@@ -3888,6 +3900,7 @@ export async function publishRevision({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3898,6 +3911,10 @@ export async function publishRevision({
   // Set when this exact revision was already validated — as publish gates by the
   // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
+  // Set by the ramp engine: a step value is judged by type only and never
+  // refused, so rollbacks can re-apply the rule's own earlier values. The
+  // config-backed net below is unchanged; it has always run on ramp publishes.
+  skipValueSchemaNet?: boolean;
 }) {
   // One deduped SDK refresh per landing (feature applies are multi-step: ramp
   // schedules, the feature document, holdout linkage), flushed on success and
@@ -3911,6 +3928,7 @@ export async function publishRevision({
       comment,
       bypassLockdown,
       skipPrevalidateValidation,
+      skipValueSchemaNet,
     }),
   );
 }
@@ -3923,6 +3941,7 @@ async function publishRevisionInner({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: Parameters<typeof publishRevision>[0]) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
@@ -3966,6 +3985,7 @@ async function publishRevisionInner({
     comment,
     bypassLockdown,
     skipPrevalidateValidation,
+    skipValueSchemaNet,
   });
   if (blockers.length === 1) {
     throw blockers[0];
