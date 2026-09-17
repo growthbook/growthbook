@@ -2,7 +2,9 @@ const BIGQUERY_TABLE_NAME_MAX_LENGTH = 1024;
 const SNOWFLAKE_IDENTIFIER_MAX_LENGTH = 255;
 const SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com";
 const DATABRICKS_IDENTIFIER_MAX_LENGTH = 255;
-const DATABRICKS_ZEROBUS_HOST_SEGMENT = ".zerobus.";
+// <workspace-id>.zerobus.<region>.cloud.databricks.com | .azuredatabricks.net
+const DATABRICKS_ZEROBUS_HOST_PATTERN =
+  /^[a-z0-9-]+\.zerobus\.[a-z0-9-]+\.(cloud\.databricks\.com|azuredatabricks\.net)$/i;
 
 export const DEFAULT_EVENT_FORWARDER_TABLE_PREFIX = "gb";
 export const EVENT_FORWARDER_EVENTS_TABLE_SUFFIX = "events";
@@ -620,9 +622,7 @@ export function normalizeDatabricksEventForwarderZerobusEndpoint(
     throw new Error("Zerobus endpoint is not a valid URL.");
   }
 
-  if (
-    !parsed.hostname.toLowerCase().includes(DATABRICKS_ZEROBUS_HOST_SEGMENT)
-  ) {
+  if (!DATABRICKS_ZEROBUS_HOST_PATTERN.test(parsed.hostname)) {
     throw new Error(
       "Zerobus endpoint hostname must look like <workspace-id>.zerobus.<region>.cloud.databricks.com or .azuredatabricks.net.",
     );

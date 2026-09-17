@@ -322,7 +322,7 @@ export function buildEventForwarderFeatureUsageQuerySql({
   sinkType: EventForwarderQuerySinkType;
   tableRef: string;
 }): string {
-  if (sinkType === "bigquery") {
+  if (sinkType === "bigquery" || sinkType === "databricks") {
     return `SELECT
   timestamp AS timestamp,
   feature_key AS feature_key,

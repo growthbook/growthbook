@@ -73,6 +73,35 @@ describe("buildDatabricksConnectionOptions", () => {
     expect("token" in options).toBe(false);
   });
 
+  it("builds Entra ID options with the tenant id and no Azure override", () => {
+    const options = buildDatabricksConnectionOptions({
+      ...sharedParams,
+      authType: "azure-entra",
+      azureTenantId: "tenant-123",
+      oauthClientId: "entra-app-id",
+      oauthClientSecret: "entra-secret",
+    });
+
+    expect(options).toEqual({
+      host: sharedParams.host,
+      port: sharedParams.port,
+      path: sharedParams.path,
+      userAgentEntry: sharedParams.clientId,
+      authType: "databricks-oauth",
+      azureTenantId: "tenant-123",
+      oauthClientId: "entra-app-id",
+      oauthClientSecret: "entra-secret",
+    });
+    expect(() =>
+      buildDatabricksConnectionOptions({
+        ...sharedParams,
+        authType: "azure-entra",
+        oauthClientId: "entra-app-id",
+        oauthClientSecret: "entra-secret",
+      }),
+    ).toThrow(/tenant ID/);
+  });
+
   it("shares host/port/path/userAgentEntry across both auth methods and defaults them", () => {
     const base = {
       host: "host.databricks.com",

@@ -542,6 +542,19 @@ describe("normalizeDatabricksEventForwarderZerobusEndpoint", () => {
     ).toBe("https://1234.zerobus.eastus.azuredatabricks.net");
   });
 
+  it("rejects Zerobus-looking hosts outside Databricks domains", () => {
+    expect(() =>
+      normalizeDatabricksEventForwarderZerobusEndpoint(
+        "https://1234.zerobus.us-east-1.example.com",
+      ),
+    ).toThrow(/hostname must look like/);
+    expect(() =>
+      normalizeDatabricksEventForwarderZerobusEndpoint(
+        "https://evil.com/1234.zerobus.us-east-1.cloud.databricks.com",
+      ),
+    ).toThrow(/hostname must look like/);
+  });
+
   it("rejects empty and non-Zerobus hosts", () => {
     expect(() => normalizeDatabricksEventForwarderZerobusEndpoint("")).toThrow(
       /required/,

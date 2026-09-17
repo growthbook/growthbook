@@ -491,6 +491,19 @@ describe("event-forwarder-warehouse-queries feature_usage table reference", () =
 });
 
 describe("buildEventForwarderFeatureUsageQuerySql", () => {
+  it("bounds Databricks by received_at and reads properties via variant_get", () => {
+    const sql = buildEventForwarderFeatureUsageQuerySql({
+      sinkType: "databricks",
+      tableRef: "`cat`.`sch`.`gb_feature_usage`",
+    });
+    expect(sql).toContain("FROM `cat`.`sch`.`gb_feature_usage`");
+    expect(sql).toContain(
+      "WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'",
+    );
+    expect(sql).toContain("variant_get(properties");
+    expect(sql).not.toContain("FEATURE_KEY");
+  });
+
   const tableRef = "`proj`.`ds`.`feature_usage`";
 
   it("includes received_at partition filter and property columns for BigQuery", () => {
