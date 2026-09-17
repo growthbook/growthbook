@@ -140,6 +140,10 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
 import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
+import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
@@ -3953,12 +3957,8 @@ async function publishRevisionInner({
   // publish authority; one that is entirely inert metadata is draft-class and
   // skips the gate (the semantic the features matrix pins for drafters
   // editing descriptions).
-  if (mergeResultTouchesPayload(result)) {
-    await assertCanPublishFeatureRevision({
-      context,
-      feature,
-      revision,
-      environments: await getMergeResultPublishEnvs({
+  const publishEnvironments = mergeResultTouchesPayload(result)
+    ? await getMergeResultPublishEnvs({
         context,
         feature,
         // The live feature's own rules are the baseline the merge lands on.
@@ -3970,7 +3970,14 @@ async function publishRevisionInner({
         ),
         // The draft's ramp actions reach environments no rule diff mentions.
         rampActions: revision.rampActions,
-      }),
+      })
+    : null;
+  if (publishEnvironments !== null) {
+    await assertCanPublishFeatureRevision({
+      context,
+      feature,
+      revision,
+      environments: publishEnvironments,
       mergeChanges: result,
     });
   }
@@ -4355,6 +4362,17 @@ async function publishRevisionInner({
       `Failed to clear pending feature drafts for feature ${feature.id} revision ${revision.version} after publish`,
     );
   }
+
+  // Emit once after commit, before deferred work can fail.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    await getPublishedRevisionForEvents(context, updatedFeature, revision),
+    "revision.published",
+    {},
+    // Route by the landed change; unchanged rules can target other environments.
+    publishEnvironments === null ? {} : { environments: publishEnvironments },
+  );
 
   // Apply deferred update actions after publish succeeds.
   // Best-effort: errors are logged but do not fail the publish response

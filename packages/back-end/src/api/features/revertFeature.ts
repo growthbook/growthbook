@@ -409,13 +409,6 @@ export async function revertFeatureCore(
     "revision.reverted",
     { revertedToVersion: version },
   );
-  await dispatchFeatureRevisionEvent(
-    context,
-    updatedFeature,
-    latestRevision,
-    "revision.published",
-    {},
-  );
 
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
