@@ -30,20 +30,16 @@ import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import {
-  assertValidRuleEnvironments,
+  assertValidFeatureRules,
   validateCustomFields,
   validateRuleAttributes,
-  validateRulesReferences,
 } from "./validations";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertConfigSchemaCompat,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidRuleProjectIds,
   assertUniqueRuleIds,
-  assertValidRuleExperimentIds,
-  validateRulesScheduleRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -155,15 +151,8 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       mapV2ApiRuleToFeatureRule(rule),
     );
     assertUniqueRuleIds(feature.rules);
-    assertValidRuleEnvironments(req.context, feature.rules);
-    await assertValidRuleProjectIds(feature.rules, req.context);
-    await assertValidRuleExperimentIds(feature.rules, req.context);
-    // Same condition / saved-group reference checks the per-rule endpoints
-    // run; the payload builder silently drops a condition it cannot parse and
-    // unknown group ids, which widens the rule's audience.
-    await validateRulesReferences(feature.rules, req.context);
+    await assertValidFeatureRules(req.context, feature.rules);
     await assertValidPrerequisiteParents(req.context, feature);
-    validateRulesScheduleRules(feature.rules, req.context);
 
     // Config backing comes through dedicated fields — reject a raw `@config:`
     // in the default value, validate the fields, then compose the stored value

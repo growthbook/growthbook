@@ -921,12 +921,14 @@ describe("Saved Group project scope publish gates", () => {
     );
   });
 
-  it("aggregates scope violations with other feature gates, including scheduled publishes", async () => {
+  it("enforces scope without a manual schedule warning on automatic publishes", async () => {
     const f = feature();
     const revision = {
       rules: f.rules,
       version: 2,
       status: "draft",
+      autoPublishOnApproval: true,
+      scheduledPublishAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     } as FeatureRevisionInterface;
     const context = {
       org: { settings: { enforceSavedGroupProjectScope: true } },

@@ -60,6 +60,7 @@ import {
 import {
   getMergeResultPublishEnvs,
   addIdsToFlatRules,
+  assertFeatureValuesValidForPublish,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
@@ -82,6 +83,7 @@ import {
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
   mergeStepsForRunningSchedule,
+  normalizeRampActionsForceValues,
   remapTemplateActions,
   runLockedRampScheduleAction,
   startReadyScheduleNow,
@@ -2999,16 +3001,25 @@ async function createRampSchedulesForRevision(
     // Inject the generated targetId into every action and ensure targetType
     // is always set. Handles both correctly-typed actions and legacy drafts
     // that were stored without targetType.
+    // `force` is brought to the string form rule values are stored in and
+    // validated against the feature, so a plan staged with a raw JSON value
+    // (older UI drafts, REST callers) cannot put a non-string value on a rule.
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
-    ): RampStepAction => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch: {
-        ...a.patch,
-        ruleId: action.ruleId,
-      },
-    });
+    ): RampStepAction =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule" as const,
+            targetId,
+            patch: {
+              ...a.patch,
+              ruleId: action.ruleId,
+            },
+          },
+        ],
+        feature,
+      )[0];
 
     // Template is used as a fallback; explicit steps/endActions win.
     let template: RampScheduleTemplateInterface | undefined;
@@ -3056,13 +3067,17 @@ async function createRampSchedulesForRevision(
             holdConditions: step.holdConditions ?? undefined,
           }))
         : template
-          ? template.steps.map((s) => ({
+          ? template.steps.map((s, i) => ({
               interval: s.interval,
-              actions: remapTemplateActions(
-                s.actions,
-                targetId,
-                action.ruleId,
-                feature.valueType,
+              actions: normalizeRampActionsForceValues(
+                remapTemplateActions(
+                  s.actions,
+                  targetId,
+                  action.ruleId,
+                  feature.valueType,
+                ),
+                feature,
+                `Template step ${i + 1} value`,
               ),
               approvalNotes: s.approvalNotes ?? undefined,
               monitored: !!s.monitored,
@@ -3082,22 +3097,36 @@ async function createRampSchedulesForRevision(
           ? action.endActions.map(normalizeAction)
           : []
         : template?.endPatch && Object.keys(template.endPatch).length > 0
-          ? [
-              {
-                targetType: "feature-rule" as const,
-                targetId,
-                patch: {
-                  ruleId: action.ruleId,
-                  ...template.endPatch,
+          ? normalizeRampActionsForceValues<RampStepAction>(
+              [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId,
+                  patch: {
+                    ruleId: action.ruleId,
+                    ...template.endPatch,
+                  },
                 },
-              },
-            ]
+              ],
+              feature,
+              "End value",
+            )
           : [];
 
     // Like steps, empty startActions are "not provided": the rollback anchor
-    // is derived from the rule as published.
+    // is derived from the rule as published. A provided anchor is usually the
+    // rule's own earlier value captured by the editor, so its `force` is only
+    // stringified, not judged against the feature type.
     const explicitStartActions = Array.isArray(action.startActions)
-      ? action.startActions.map(normalizeAction)
+      ? normalizeRampActionsForceValues(
+          action.startActions.map(
+            (a): RampStepAction => ({
+              targetType: "feature-rule" as const,
+              targetId,
+              patch: { ...a.patch, ruleId: action.ruleId },
+            }),
+          ),
+        )
       : [];
     const startActionsExplicit = explicitStartActions.length > 0;
     const startActions: RampStepAction[] = startActionsExplicit
@@ -3642,6 +3671,7 @@ export async function prevalidatePublishRevision({
   result,
   comment,
   skipValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3649,6 +3679,7 @@ export async function prevalidatePublishRevision({
   result: MergeResultChanges;
   comment?: string;
   skipValidation?: boolean;
+  skipValueSchemaNet?: boolean;
 }) {
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(context, feature, revision, result);
@@ -3661,6 +3692,12 @@ export async function prevalidatePublishRevision({
   // stale (a config's schema/invariants may tighten between draft and publish),
   // and auto-publish paths don't pass through a REST handler's own net.
   if (defaultToCheck !== undefined || rulesToCheck.length) {
+    if (!skipValueSchemaNet) {
+      assertFeatureValuesValidForPublish(context, proposedFeature, {
+        defaultValue: defaultToCheck,
+        rules: rulesToCheck,
+      });
+    }
     await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
       defaultValue: defaultToCheck,
       rules: rulesToCheck,
@@ -3775,6 +3812,7 @@ export async function collectPublishRevisionBlockers({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3783,6 +3821,7 @@ export async function collectPublishRevisionBlockers({
   comment?: string;
   bypassLockdown?: boolean;
   skipPrevalidateValidation?: boolean;
+  skipValueSchemaNet?: boolean;
 }): Promise<Error[]> {
   // Errors, not messages: SoftWarningError (422 + warnings) and BadRequestError
   // (400) reach the caller as themselves rather than a generic 500.
@@ -3821,6 +3860,7 @@ export async function collectPublishRevisionBlockers({
       result,
       comment,
       skipValidation: skipPrevalidateValidation,
+      skipValueSchemaNet,
     }),
   );
 
@@ -3893,6 +3933,7 @@ export async function publishRevision({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3903,6 +3944,10 @@ export async function publishRevision({
   // Set when this exact revision was already validated — as publish gates by the
   // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
+  // Set by the ramp engine: a step value is judged by type only and never
+  // refused, so rollbacks can re-apply the rule's own earlier values. The
+  // config-backed net below is unchanged; it has always run on ramp publishes.
+  skipValueSchemaNet?: boolean;
 }) {
   // One deduped SDK refresh per landing (feature applies are multi-step: ramp
   // schedules, the feature document, holdout linkage), flushed on success and
@@ -3916,6 +3961,7 @@ export async function publishRevision({
       comment,
       bypassLockdown,
       skipPrevalidateValidation,
+      skipValueSchemaNet,
     }),
   );
 }
@@ -3928,6 +3974,7 @@ async function publishRevisionInner({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: Parameters<typeof publishRevision>[0]) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
@@ -3971,6 +4018,7 @@ async function publishRevisionInner({
     comment,
     bypassLockdown,
     skipPrevalidateValidation,
+    skipValueSchemaNet,
   });
   if (blockers.length === 1) {
     throw blockers[0];
