@@ -1132,6 +1132,9 @@ export async function prepareFeatureRevision({
       // Like the values above, metadata inherits live plus changes; baseRevision is only the merge baseline.
       { valueType: metadata.valueType ?? feature.valueType },
       revision,
+      (metadata.valueType ?? feature.valueType) === feature.valueType
+        ? feature
+        : undefined,
     ),
     baseRevision,
     baseVersion,
@@ -1409,6 +1412,7 @@ export function computeRevisionUpdate(
         : {}),
       ...normalizedRules,
     },
+    valueType === currentValueType ? revision : undefined,
   );
 
   // An approval was given for the draft as it stood. Derived here from the

@@ -120,6 +120,7 @@ import {
   liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
 } from "shared/util";
+import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -3363,23 +3364,21 @@ export function assertFeatureValuesValid(
 export function collectFeatureValueErrorsForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): string[] {
   const errors: string[] = [];
-  const collect = (fn: () => void) => {
-    try {
-      fn();
-    } catch (e) {
-      errors.push(e instanceof Error ? e.message : String(e));
-    }
-  };
-  if (values.defaultValue !== undefined) {
-    collect(() =>
-      validateFeatureValue(feature, values.defaultValue!, "Default value"),
-    );
-  }
-  for (const rule of values.rules ?? []) {
-    collect(() => validateFeatureRuleValues(feature, rule));
-  }
+  mapChangedFeatureValues(
+    values,
+    (value, label) => {
+      try {
+        validateFeatureValue(feature, value, label);
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : String(e));
+      }
+      return value;
+    },
+    previous,
+  );
   return errors;
 }
 
@@ -3387,11 +3386,17 @@ export function assertFeatureValuesValidForPublish(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
-  assertFeatureValuesValid(context, { valueType: feature.valueType }, values);
+  const typeErrors = collectFeatureValueErrorsForPublish(
+    { valueType: feature.valueType },
+    values,
+    previous,
+  );
+  if (typeErrors.length) throw new BadRequestError(typeErrors.join(", "));
   if (context.canSkipSchemaValidationFor("feature")) return;
 
-  const errors = collectFeatureValueErrorsForPublish(feature, values);
+  const errors = collectFeatureValueErrorsForPublish(feature, values, previous);
   if (!errors.length) return;
 
   // Default to blocking when the setting is absent.

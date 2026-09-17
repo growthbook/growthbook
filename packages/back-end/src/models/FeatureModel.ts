@@ -1366,8 +1366,8 @@ export async function updateFeature(
     // set-then-fetch, so its `dateUpdated` may already be a rival's, and
     // reading ownership from it says "still ours" at the moment it isn't.
     onStamped?: (stamp: Date) => void;
-    // Internal failed-write recovery only: restore the exact pre-image.
-    isCompensation?: boolean;
+    // Internal recovery only: restore values from an already-persisted snapshot.
+    preserveStoredValues?: boolean;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
@@ -1381,12 +1381,15 @@ export async function updateFeature(
     dateUpdated: ourStamp,
   };
   // Recovery must restore the exact pre-image, including legacy values.
-  if (!options?.isCompensation) {
+  if (!options?.preserveStoredValues) {
     Object.assign(
       allUpdates,
       normalizeFeatureJSONValues(
         { valueType: updates.valueType ?? feature.valueType },
         allUpdates,
+        (updates.valueType ?? feature.valueType) === feature.valueType
+          ? feature
+          : undefined,
       ),
     );
   }
@@ -3596,6 +3599,9 @@ export function computeProposedFeatureForValidation(
     ...normalizeFeatureJSONValues(
       { valueType: changes.valueType ?? base.valueType },
       changes,
+      (changes.valueType ?? base.valueType) === base.valueType
+        ? base
+        : undefined,
     ),
     dateUpdated: new Date(),
   };
@@ -3743,7 +3749,7 @@ async function restorePublishedFeatureDoc(
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
         onStamped,
-        isCompensation: true,
+        preserveStoredValues: true,
       });
       return;
     } catch (e) {

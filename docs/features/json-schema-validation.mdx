@@ -89,6 +89,8 @@ When you try to save a value that doesn't match the schema, GrowthBook shows an 
 
 The API's `skipSchemaValidation` option bypasses schema checks, but values must still be valid for the Feature Flag's value type. JSON values that GrowthBook can repair (for example, objects with unquoted keys) are saved as valid JSON. Values that cannot be parsed or repaired are rejected, including default values and rule variations. The JSON literal `null` is a valid value unless your schema disallows it.
 
+Existing stored values are preserved when they are carried forward unchanged. Creating an empty draft, changing metadata, or toggling a Feature Flag does not require repairing legacy values first. New or changed JSON values must still pass type validation.
+
 ## Related
 
 - [Feature Flag Basics](/features/basics) — overview of the JSON flag type

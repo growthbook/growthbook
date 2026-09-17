@@ -225,10 +225,15 @@ export async function publishFeatureRevision(
   // here (interactive publishes ran it above as a gate). The config-backed net +
   // custom hooks run in publishRevision -> prevalidatePublishRevision below.
   if (!inlineValidationGates) {
-    assertFeatureValuesValidForPublish(req.context, feature, {
-      defaultValue: mergeChanges.defaultValue,
-      rules: mergeChanges.rules,
-    });
+    assertFeatureValuesValidForPublish(
+      req.context,
+      feature,
+      {
+        defaultValue: mergeChanges.defaultValue,
+        rules: mergeChanges.rules,
+      },
+      feature,
+    );
   }
 
   // Armed/scheduled path only: the same archive-dependents check as a throw

@@ -714,7 +714,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // Guard restoration on the ownership read; losing this CAS leaves the winner untouched.
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
-        isCompensation: true,
+        preserveStoredValues: true,
       });
     }
     // Suppress this adapter's deferred update event after restoration.
