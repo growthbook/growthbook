@@ -1,6 +1,6 @@
 import isEqual from "lodash/isEqual";
 import {
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
   isScheduledRule,
@@ -36,9 +36,13 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleAttributes,
+  assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  validateRampPlanPatches,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
 import {
@@ -47,6 +51,8 @@ import {
   composeConfigBacking,
   resolveScopeFromInput,
   assertCanUseRuleScheduling,
+  assertValidExperimentRefRule,
+  experimentRefChanged,
 } from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(
@@ -70,6 +76,16 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   }
   // Same environment-id check as the add endpoint, before a draft is created.
   assertValidRuleEnvironments(req.context, [patch]);
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(inlineRampSchedule),
+      feature,
+      patch.allEnvironments !== undefined || patch.environments !== undefined
+        ? patch
+        : (feature.rules ?? []).find((r) => r.id === req.params.ruleId),
+    ),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -231,6 +247,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
             : v.value,
       }));
     }
+    if (
+      updatedRule.type === "experiment-ref" &&
+      experimentRefChanged(updatedRule, oldRule)
+    ) {
+      await assertValidExperimentRefRule(req.context, updatedRule);
+    }
 
     // A coverage patch can convert a force rule to a rollout, which arrives
     // seedless. Existing rollouts already carry a seed and are left untouched.
@@ -272,13 +294,16 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       validateRuleAttributes(
         changedAttributes,
         req.context,
-        getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+        getRuleAttributeScopeProjectIds(
+          feature,
+          revision.metadata,
+          updatedRule,
+        ) ?? undefined,
       );
     }
     if (
       basePatch.condition !== undefined ||
-      basePatch.savedGroups !== undefined ||
-      basePatch.prerequisites !== undefined
+      basePatch.savedGroups !== undefined
     ) {
       await validateRuleReferences(
         {
@@ -288,10 +313,6 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
               : undefined,
           savedGroups:
             basePatch.savedGroups !== undefined ? updatedRule.savedGroups : [],
-          prerequisites:
-            basePatch.prerequisites !== undefined
-              ? updatedRule.prerequisites
-              : [],
         },
         req.context,
       );
@@ -300,6 +321,10 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     // Fold updated rule back into flat array at the same index.
     const newRules = flatRules.map((r, i) => (i === idx ? updatedRule : r));
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: flatRules,
+      after: newRules,
+    });
 
     const usesLegacyScheduling =
       oldRule.type === "experiment-ref" || oldRule.type === "safe-rollout";
@@ -317,6 +342,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       resolvedRampAction = normalizeInlineRampSchedule(
         inlineRampSchedule,
         updatedRule.id,
+        feature,
       );
       updatedRule.scheduleRules = [];
       updatedRule.scheduleType = "none";

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import useAgentOnboarding from "@/hooks/useAgentOnboarding";
-import useFeaturesSettled from "@/hooks/useFeaturesSettled";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import GetStartedAndHomePage from "@/components/GetStarted";
@@ -19,8 +18,6 @@ export default function Home(): React.ReactElement {
   const { apiCall } = useAuth();
   const { organization } = useUser();
   const agentOnboarding = useAgentOnboarding();
-  // The redirect below fires once, so it waits for the feature payload.
-  const flagsSettled = useFeaturesSettled();
 
   // Fetch fresh on mount — we don't want a cached "no features yet" result
   // bouncing the user back to /setup right after they create their first one.
@@ -55,7 +52,6 @@ export default function Home(): React.ReactElement {
   useEffect(() => {
     if (!organization) return;
     if (!willRedirect) return;
-    if (!flagsSettled) return;
 
     const demographics = organization.demographicData;
 
@@ -88,7 +84,7 @@ export default function Home(): React.ReactElement {
     } else {
       router.replace("/getstarted");
     }
-  }, [organization, willRedirect, router, flagsSettled, agentOnboarding]);
+  }, [organization, willRedirect, router, agentOnboarding]);
 
   if (error) {
     return (

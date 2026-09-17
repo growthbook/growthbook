@@ -1,10 +1,18 @@
+import {
+  SlackNotificationPreviewBody,
+  SlackNotificationSettingsBody,
+  SlackWorkspaceConnectionFrontEndInterface,
+} from "shared/validators";
 import type { Response } from "express";
 import {
   SlackIntegrationInterface,
   SlackOAuthIntegrationInterface,
 } from "shared/types/slack-integration";
-import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { NotificationEventName } from "shared/types/events/base-types";
+import {
+  buildSlackSettingsPreview,
+  sendSlackSettingsTest,
+} from "back-end/src/services/slack/slackSettingsPreview";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -116,13 +124,7 @@ export const getSlackOAuthConnection = async (
 };
 
 type PutSlackOAuthConnectionRequest = AuthRequest<
-  {
-    enabled: boolean;
-    events: string[];
-    projects: string[];
-    environments: string[];
-    tags: string[];
-  },
+  SlackNotificationSettingsBody,
   { id: string }
 >;
 
@@ -565,3 +567,31 @@ export const deleteSlackIntegration = async (
 };
 
 // endregion DELETE /integrations/slack/:id
+
+export const postSlackPreview = async (
+  req: AuthRequest<SlackNotificationPreviewBody>,
+  res: Response,
+) => {
+  const { message, card } = await buildSlackSettingsPreview(
+    getContextFromReq(req),
+    req.body.eventName,
+    req.body.notificationSettings,
+  );
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    message,
+    image: card ? `data:image/png;base64,${card.png.toString("base64")}` : null,
+  });
+};
+export const postSlackTest = async (
+  req: AuthRequest<SlackNotificationPreviewBody, { id: string }>,
+  res: Response,
+) => {
+  const result = await sendSlackSettingsTest(
+    getContextFromReq(req),
+    req.params.id,
+    req.body.eventName,
+    req.body.notificationSettings,
+  );
+  res.json(result);
+};
