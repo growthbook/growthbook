@@ -520,13 +520,10 @@ export function computeEffectivePatch(
 
 type RampForceFeature = Pick<FeatureInterface, "valueType">;
 
-// Bring the `force` value on every feature-rule action to the string form rule
-// values are stored in (see stringifyFeatureValue) and, when the target
-// feature is given, reject one its value TYPE does not accept ("False" on a
-// boolean flag, "ten" on a number flag) — the same type check a rule write
-// gets, without the JSON-schema part, so a value that predates a schema
-// change is never refused here. Pass no feature to only stringify (used for
-// rollback anchors captured from the live rule, which are not caller input).
+// Bring every feature-rule action's `force` to the string form rule values
+// are stored in and, given the feature, reject one its value TYPE rejects —
+// the type half of a rule write's check, so a value predating a JSON-schema
+// change is never refused. Without a feature, only stringify.
 export function normalizeRampActionsForceValues<
   A extends { targetType?: string; patch: { force?: unknown } },
 >(
@@ -823,11 +820,8 @@ export const featureEntityHandler: EntityHandler = {
 
       for (const target of targets) {
         const idx = updatedRules.indexOf(target);
-        // applyPatchToRule stores any `force` as the string form rule values
-        // use; that is the whole fire-time contract. A value the feature's
-        // type would not accept is logged, never refused: refusing here would
-        // also block rollbacks and restarts, whose anchor is the rule's own
-        // earlier value.
+        // A value the feature's type rejects is logged, never refused:
+        // rollbacks and restarts re-apply the rule's own earlier value.
         const patched = applyPatchToRule(target, patchFields);
         if ("force" in patchFields && patchFields.force !== undefined) {
           const value = (patched as { value?: string }).value ?? "";

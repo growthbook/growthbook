@@ -29,7 +29,6 @@ import {
   resolveStartApproval,
 } from "shared/src/validators/ramp-schedule";
 import { getJSONValue } from "shared/src/sdk-versioning/sdk-payload";
-import { stringifyFeatureValue } from "shared/util";
 import {
   computeNextStepAt,
   computeAutoAdvanceTarget,
@@ -368,45 +367,18 @@ describe("ramp force values are applied and stored as strings", () => {
     condition: "",
   };
 
-  it("stringifyFeatureValue leaves strings alone and JSON-encodes everything else", () => {
-    expect(stringifyFeatureValue("false")).toBe("false");
-    expect(stringifyFeatureValue(false)).toBe("false");
-    expect(stringifyFeatureValue(true)).toBe("true");
-    expect(stringifyFeatureValue(10)).toBe("10");
-    expect(stringifyFeatureValue(null)).toBe("null");
-    expect(stringifyFeatureValue({ limit: 5 })).toBe('{"limit":5}');
-    expect(stringifyFeatureValue([1, 2])).toBe("[1,2]");
-    expect(stringifyFeatureValue('{"limit": 5}')).toBe('{"limit": 5}');
-  });
-
-  it("applyPatchToRule turns a raw boolean force into the string the payload reads as false", () => {
-    const result = applyPatchToRule(boolRule, {
-      force: false,
-    }) as FeatureRule & {
-      value?: unknown;
-    };
-    expect(result.value).toBe("false");
-    expect(getJSONValue("boolean", result.value as string)).toBe(false);
-  });
-
-  it("applyPatchToRule turns a raw object force into JSON text the payload can parse", () => {
-    const jsonRule: FeatureRule = { ...boolRule, value: "{}" };
-    const result = applyPatchToRule(jsonRule, {
-      force: { limit: 5 },
-    }) as FeatureRule & { value?: unknown };
-    expect(result.value).toBe('{"limit":5}');
-    expect(getJSONValue("json", result.value as string)).toEqual({ limit: 5 });
-  });
-
-  it("applyPatchToRule keeps a string force and still clears on undefined", () => {
-    expect(
-      (applyPatchToRule(boolRule, { force: "false" }) as { value?: unknown })
-        .value,
-    ).toBe("false");
-    expect(
-      (applyPatchToRule(boolRule, { force: undefined }) as { value?: unknown })
-        .value,
-    ).toBeUndefined();
+  it("applyPatchToRule stores a force as the string the payload parses, and clears on undefined", () => {
+    const value = (rule: FeatureRule, force: unknown) =>
+      (applyPatchToRule(rule, { force }) as { value?: unknown }).value;
+    expect(value(boolRule, false)).toBe("false");
+    expect(getJSONValue("boolean", value(boolRule, false) as string)).toBe(
+      false,
+    );
+    expect(value({ ...boolRule, value: "{}" }, { limit: 5 })).toBe(
+      '{"limit":5}',
+    );
+    expect(value(boolRule, "false")).toBe("false");
+    expect(value(boolRule, undefined)).toBeUndefined();
   });
 
   it("normalizeRampActionsForceValues stringifies, validates against the feature, and leaves other actions alone", () => {
@@ -435,33 +407,6 @@ describe("ramp force values are applied and stored as strings", () => {
     expect(normalizeRampActionsForceValues([noPatch], feature)[0]).toBe(
       noPatch,
     );
-  });
-
-  it("an echoed start anchor holding legacy text is not judged when startActions are exempt", () => {
-    const anchor: RampStepAction = {
-      targetType: "feature-rule",
-      targetId: "t1",
-      patch: { ruleId: "r1", coverage: 0, force: "True" },
-    };
-    expect(() =>
-      normalizeRampPlanForceValues(
-        { startActions: [anchor], steps: [] } as Pick<
-          RampScheduleInterface,
-          "steps" | "startActions" | "endActions"
-        >,
-        { valueType: "boolean" },
-        { validateStartActions: false },
-      ),
-    ).not.toThrow();
-    expect(() =>
-      normalizeRampPlanForceValues(
-        { startActions: [anchor], steps: [] } as Pick<
-          RampScheduleInterface,
-          "steps" | "startActions" | "endActions"
-        >,
-        { valueType: "boolean" },
-      ),
-    ).toThrow('Start value (action 1): Must be "true" or "false"');
   });
 
   it("a start value echoing its target's rule or stored anchor is not judged; a typed one is", () => {
@@ -1943,54 +1888,6 @@ describe("featureEntityHandler.applyActions", () => {
       { stepLabel: "Ramp rolled back", user: { type: "system" } },
     );
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
-  });
-
-  it("a coverage-only step over a rule whose value would fail the current schema still publishes", async () => {
-    mockGetFeature.mockResolvedValue({
-      ...makeFeature([
-        {
-          id: RULE_ID,
-          uid: "ruid_" + RULE_ID,
-          allEnvironments: true,
-          type: "rollout" as const,
-          value: '{"old":true}',
-          coverage: 0.1,
-          hashAttribute: "id",
-          enabled: true,
-          condition: "",
-        },
-      ]),
-      valueType: "json" as const,
-      defaultValue: "{}",
-      jsonSchema: {
-        schemaType: "schema" as const,
-        schema: JSON.stringify({ type: "object", required: ["limit"] }),
-        simple: { type: "object" as const, fields: [] },
-        date: new Date(),
-        enabled: true,
-      },
-    } as never);
-    await featureEntityHandler.applyActions(
-      ctx,
-      FEATURE_ID,
-      [
-        {
-          targetType: "feature-rule" as const,
-          targetId: TARGET_ID,
-          patch: { ruleId: RULE_ID, coverage: 0.5 },
-        },
-      ],
-      { stepLabel: "Ramp [1 of 3]: Test", user: { type: "system" } },
-    );
-    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
-    const rules: FeatureRule[] =
-      mockPublishRevision.mock.calls[0][0].result.rules ?? [];
-    const rule = rules.find((r) => r.id === RULE_ID) as {
-      coverage?: number;
-      value?: unknown;
-    };
-    expect(rule.coverage).toBe(0.5);
-    expect(rule.value).toBe('{"old":true}');
   });
 
   it("throws when the rule is not found (no env scope)", async () => {

@@ -105,17 +105,24 @@ export function toApiRampStep(
   };
 }
 
-// A `force` value compares in the string form it is stored and applied in,
-// so `false` echoed against a stored "false" is not a change.
+// An action's `force` in the string form it is stored and applied in.
+export function withStringForce<A extends RampStepAction>(action: A): A {
+  return action.patch &&
+    "force" in action.patch &&
+    action.patch.force !== undefined
+    ? {
+        ...action,
+        patch: {
+          ...action.patch,
+          force: stringifyFeatureValue(action.patch.force),
+        },
+      }
+    : action;
+}
+
+// So `false` echoed against a stored "false" is not a change.
 function comparableActions(actions: RampStepAction[] | null | undefined) {
-  return (actions ?? []).map((a) =>
-    a.patch && "force" in a.patch && a.patch.force !== undefined
-      ? {
-          ...a,
-          patch: { ...a.patch, force: stringifyFeatureValue(a.patch.force) },
-        }
-      : a,
-  );
+  return (actions ?? []).map(withStringForce);
 }
 
 // The shape GET emits for each field, so an echoed schedule compares equal to

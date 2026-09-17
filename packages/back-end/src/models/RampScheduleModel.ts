@@ -17,13 +17,13 @@ import {
   stemRuleId,
   isRampScheduleServing,
   unanchoredRampTargets,
-  stringifyFeatureValue,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
   assertRampScheduleReplanAllowed,
   changesRampPlan,
   toApiRampStep,
+  withStringForce,
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
@@ -230,18 +230,6 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
     return { ...doc, status: "running" };
   }
   return doc;
-}
-
-function withStringForce(action: RampStepAction): RampStepAction {
-  return "force" in action.patch && action.patch.force !== undefined
-    ? {
-        ...action,
-        patch: {
-          ...action.patch,
-          force: stringifyFeatureValue(action.patch.force),
-        },
-      }
-    : action;
 }
 
 export function rampScheduleToApiInterface(

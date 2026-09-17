@@ -347,10 +347,8 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
-  // Rule values are strings; bring any raw JSON `force` to that form and, when
-  // the target feature is known, reject a value its type does not accept.
-  // startActions derived from the live rule (no `startActions` in the body)
-  // are the rule's own value and are only stringified.
+  // startActions derived from the live rule (none in the body) are its own
+  // value and are only stringified; everything else is checked.
   const normalizedPlan = normalizeRampPlanForceValues(
     {
       steps: resolvedSteps,
