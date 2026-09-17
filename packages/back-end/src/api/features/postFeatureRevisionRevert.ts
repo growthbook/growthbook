@@ -447,17 +447,20 @@ export async function revertFeatureRevision(
       : [];
 
   await assertRevertLandingGuards(context, feature, changes);
-  const { revision: publishedRevision, updatedFeature } =
-    await createAndPublishRevision({
-      context,
-      feature,
-      user: eventAudit,
-      org: organization,
-      changes: revisionChanges,
-      comment: comment ?? defaultComment,
-      canBypassApprovalChecks: canBypass,
-      revertedFrom: targetRevision.version,
-    });
+  const {
+    revision: publishedRevision,
+    updatedFeature,
+    publishEnvironments,
+  } = await createAndPublishRevision({
+    context,
+    feature,
+    user: eventAudit,
+    org: organization,
+    changes: revisionChanges,
+    comment: comment ?? defaultComment,
+    canBypassApprovalChecks: canBypass,
+    revertedFrom: targetRevision.version,
+  });
 
   if (
     revisionChanges.metadata?.tags !== undefined &&
@@ -496,6 +499,17 @@ export async function revertFeatureRevision(
     finalRevision,
     "revision.reverted",
     { revertedToVersion: targetRevision.version },
+  );
+
+  // A revert publishes a new revision, so emit the same lifecycle event as a
+  // regular publish — consumers watching `revision.published` see reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
+    publishEnvironments === null ? {} : { environments: publishEnvironments },
   );
 
   return { feature, revision: finalRevision, bypassedGates };

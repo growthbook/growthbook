@@ -119,6 +119,7 @@ import {
   canRecallFeatureReview,
   canReopenFeatureDraft,
   holdsFeaturePublishAuthority,
+  mergeResultTouchesPayload,
   revertFootprint,
   stagingTargetingBase,
 } from "back-end/src/revisions/featureDraftAuthority";
@@ -2660,7 +2661,18 @@ export async function postFeaturePublish(
     updatedFeature,
     revision,
   );
-  // publishRevision emits revision.published; reverts also need revision.reverted.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    publishedRevision,
+    "revision.published",
+    {},
+    mergeResultTouchesPayload(mergeResult.result)
+      ? { environments: envsToCheck }
+      : {},
+  );
+  // A revert that lands is ALSO a publish, so it owes both events — same rule
+  // as the generic engine and the direct revert doors.
   const publishedRevertedTo = draftRevertedFromVersion(publishedRevision);
   if (publishedRevertedTo !== undefined) {
     await dispatchFeatureRevisionEvent(
@@ -3062,6 +3074,16 @@ export async function postFeatureRevert(
       ? undefined
       : (draft) => assertCanAutoPublish(context, feature, draft),
   });
+  const publishEnvironments = mergeResultTouchesPayload(mergeChanges)
+    ? await getMergeResultPublishEnvs({
+        context,
+        feature,
+        filledLiveRules: liveRules,
+        result: mergeChanges,
+        environmentIds,
+        rampActions: newRevision.rampActions,
+      })
+    : null;
   const updatedFeature = await publishRevision({
     context,
     feature,
@@ -3095,6 +3117,17 @@ export async function postFeatureRevert(
     finalRevision,
     "revision.reverted",
     { revertedToVersion: revision.version },
+  );
+
+  // A revert publishes a new revision, so emit the same lifecycle event as a
+  // regular publish — consumers watching `revision.published` see reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
+    publishEnvironments === null ? {} : { environments: publishEnvironments },
   );
 
   res.status(200).json({
@@ -6359,7 +6392,7 @@ export async function postFeatureArchive(
     if (newArchivedState === true && !feature.archived) {
       await assertFeatureArchiveDependentsGuard(context, feature);
     }
-    await publishRevision({
+    const updatedFeature = await publishRevision({
       context,
       feature,
       revision: draft,
@@ -6369,6 +6402,23 @@ export async function postFeatureArchive(
         "feature",
       ),
     });
+    // Re-fetch so the payload reflects the post-publish status ("published").
+    const publishedRevision =
+      (await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        version: draft.version,
+      })) ?? draft;
+    await dispatchFeatureRevisionEvent(
+      context,
+      updatedFeature,
+      publishedRevision,
+      "revision.published",
+      {},
+      { environments: archiveEnvs },
+    );
   }
 
   if (newArchivedState) {

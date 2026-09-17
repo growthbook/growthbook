@@ -229,6 +229,7 @@ export async function toggleFeatureCore(
       await getPublishedRevisionForEvents(context, updatedFeature, revision),
       "revision.published",
       {},
+      { environments: Object.keys(changedToggles) },
     );
   } catch (e) {
     logger.error(

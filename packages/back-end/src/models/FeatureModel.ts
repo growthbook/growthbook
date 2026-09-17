@@ -140,10 +140,6 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
 import {
-  dispatchFeatureRevisionEvent,
-  getPublishedRevisionForEvents,
-} from "back-end/src/services/featureRevisionEvents";
-import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
@@ -3957,8 +3953,12 @@ async function publishRevisionInner({
   // publish authority; one that is entirely inert metadata is draft-class and
   // skips the gate (the semantic the features matrix pins for drafters
   // editing descriptions).
-  const publishEnvironments = mergeResultTouchesPayload(result)
-    ? await getMergeResultPublishEnvs({
+  if (mergeResultTouchesPayload(result)) {
+    await assertCanPublishFeatureRevision({
+      context,
+      feature,
+      revision,
+      environments: await getMergeResultPublishEnvs({
         context,
         feature,
         // The live feature's own rules are the baseline the merge lands on.
@@ -3970,14 +3970,7 @@ async function publishRevisionInner({
         ),
         // The draft's ramp actions reach environments no rule diff mentions.
         rampActions: revision.rampActions,
-      })
-    : null;
-  if (publishEnvironments !== null) {
-    await assertCanPublishFeatureRevision({
-      context,
-      feature,
-      revision,
-      environments: publishEnvironments,
+      }),
       mergeChanges: result,
     });
   }
@@ -4363,17 +4356,6 @@ async function publishRevisionInner({
     );
   }
 
-  // Emit once after commit, before deferred work can fail.
-  await dispatchFeatureRevisionEvent(
-    context,
-    updatedFeature,
-    await getPublishedRevisionForEvents(context, updatedFeature, revision),
-    "revision.published",
-    {},
-    // Route by the landed change; unchanged rules can target other environments.
-    publishEnvironments === null ? {} : { environments: publishEnvironments },
-  );
-
   // Apply deferred update actions after publish succeeds.
   // Best-effort: errors are logged but do not fail the publish response
   // (feature is already committed; a failed schedule update is recoverable).
@@ -4432,6 +4414,7 @@ export async function createAndPublishRevision({
 }): Promise<{
   revision: FeatureRevisionInterface;
   updatedFeature: FeatureInterface;
+  publishEnvironments: string[] | null;
   /** True when a live approval requirement was stepped over, for the caller to report. */
   bypassedApproval: boolean;
 }> {
@@ -4506,11 +4489,22 @@ export async function createAndPublishRevision({
     },
   });
 
+  const mergeChanges = mergeForPublish(revision);
+  const publishEnvironments = mergeResultTouchesPayload(mergeChanges)
+    ? await getMergeResultPublishEnvs({
+        context,
+        feature,
+        filledLiveRules: feature.rules ?? [],
+        result: mergeChanges,
+        environmentIds: allEnvironments,
+        rampActions: revision.rampActions,
+      })
+    : null;
   const updatedFeature = await publishRevision({
     context,
     feature,
     revision,
-    result: mergeForPublish(revision),
+    result: mergeChanges,
     comment,
     // See postFeatureRevisionPublish.ts for the bypassLockdown policy rationale:
     // approval-bypass permission intentionally doubles as ramp-lockdown bypass.
@@ -4521,7 +4515,12 @@ export async function createAndPublishRevision({
   // Every other publish surface names its bypasses in the response; without
   // this a caller cannot tell a publish that needed no approval from one that
   // stepped over a live requirement.
-  return { revision, updatedFeature, bypassedApproval: requiresReview };
+  return {
+    revision,
+    updatedFeature,
+    publishEnvironments,
+    bypassedApproval: requiresReview,
+  };
 }
 
 function getLinkedExperiments(feature: FeatureInterface) {

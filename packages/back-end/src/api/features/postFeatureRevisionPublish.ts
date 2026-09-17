@@ -30,7 +30,10 @@ import {
   evaluatePublishGates,
   PublishBlockedError,
 } from "back-end/src/revisions/publishGates";
-import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureDraftAuthority";
+import {
+  assertCanPublishFeatureRevision,
+  mergeResultTouchesPayload,
+} from "back-end/src/revisions/featureDraftAuthority";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function publishFeatureRevision(
@@ -283,14 +286,26 @@ export async function publishFeatureRevision(
     }),
   });
 
-  // A failed re-read must not fail the committed publish.
+  // Re-read so the event carries the published status; falls back to the
+  // in-memory revision instead of failing the already-committed publish.
   const finalRevision = await getPublishedRevisionForEvents(
     req.context,
     updatedFeature,
     revision,
   );
 
-  // publishRevision emits revision.published; reverts also need revision.reverted.
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
+    mergeResultTouchesPayload(mergeChanges)
+      ? { environments: envsToCheck }
+      : {},
+  );
+  // A revert that lands is ALSO a publish, so it owes both events — same rule
+  // as the generic engine and the direct revert doors.
   const restRevertedTo = draftRevertedFromVersion(finalRevision);
   if (restRevertedTo !== undefined) {
     await dispatchFeatureRevisionEvent(

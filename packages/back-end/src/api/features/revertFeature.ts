@@ -368,17 +368,20 @@ export async function revertFeatureCore(
       : [];
 
   await assertRevertLandingGuards(context, feature, changes);
-  const { revision: newRevision, updatedFeature } =
-    await createAndPublishRevision({
-      context,
-      feature,
-      user: eventAudit,
-      org: organization,
-      changes,
-      comment: comment ?? `Reverted to revision #${version}`,
-      canBypassApprovalChecks: canBypass,
-      revertedFrom: version,
-    });
+  const {
+    revision: newRevision,
+    updatedFeature,
+    publishEnvironments,
+  } = await createAndPublishRevision({
+    context,
+    feature,
+    user: eventAudit,
+    org: organization,
+    changes,
+    comment: comment ?? `Reverted to revision #${version}`,
+    canBypassApprovalChecks: canBypass,
+    revertedFrom: version,
+  });
 
   await audit({
     event: "feature.revert",
@@ -408,6 +411,14 @@ export async function revertFeatureCore(
     latestRevision,
     "revision.reverted",
     { revertedToVersion: version },
+  );
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    latestRevision,
+    "revision.published",
+    {},
+    publishEnvironments === null ? {} : { environments: publishEnvironments },
   );
 
   const safeRolloutMap =

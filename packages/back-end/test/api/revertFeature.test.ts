@@ -223,7 +223,7 @@ describe("revertFeatureCore revision events", () => {
     return { targetRevision, updatedFeature, liveRevision };
   }
 
-  it("dispatches revision.reverted with the re-read published revision", async () => {
+  it("dispatches revision.reverted and revision.published with the re-read published revision", async () => {
     const { targetRevision, liveRevision } = setupSuccessfulRevert();
     const publishedRevision = { version: 6, status: "published" } as never;
     // Three reads, in order: the target revision, the LIVE revision the approval
@@ -246,12 +246,13 @@ describe("revertFeatureCore revision events", () => {
       false,
     );
 
-    // publishRevision emits revision.published.
-    expect(mockDispatchEvent).toHaveBeenCalledTimes(1);
-    const [revertedCall] = mockDispatchEvent.mock.calls;
+    expect(mockDispatchEvent).toHaveBeenCalledTimes(2);
+    const [revertedCall, publishedCall] = mockDispatchEvent.mock.calls;
     expect(revertedCall[2]).toBe(publishedRevision);
     expect(revertedCall[3]).toBe("revision.reverted");
     expect(revertedCall[4]).toEqual({ revertedToVersion: 3 });
+    expect(publishedCall[2]).toBe(publishedRevision);
+    expect(publishedCall[3]).toBe("revision.published");
   });
 
   it("falls back to the in-memory revision with a corrected published status when the post-publish read returns nothing", async () => {
@@ -271,9 +272,14 @@ describe("revertFeatureCore revision events", () => {
       false,
     );
 
-    // The fallback must report the committed status.
-    expect(mockDispatchEvent).toHaveBeenCalledTimes(1);
+    // Publication succeeded, so the fallback reports published — a
+    // revision.published event that said "draft" would misinform consumers.
+    expect(mockDispatchEvent).toHaveBeenCalledTimes(2);
     expect(mockDispatchEvent.mock.calls[0][2]).toEqual({
+      version: 6,
+      status: "published",
+    });
+    expect(mockDispatchEvent.mock.calls[1][2]).toEqual({
       version: 6,
       status: "published",
     });
@@ -297,7 +303,7 @@ describe("revertFeatureCore revision events", () => {
       false,
     );
 
-    expect(mockDispatchEvent).toHaveBeenCalledTimes(1);
+    expect(mockDispatchEvent).toHaveBeenCalledTimes(2);
     expect(mockDispatchEvent.mock.calls[0][2]).toEqual({
       version: 6,
       status: "published",

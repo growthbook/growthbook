@@ -53,6 +53,10 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
@@ -630,6 +634,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         revision,
         updatedFeature: updatedFeatureFromRevision,
         bypassedApproval,
+        publishEnvironments,
       } = await createAndPublishRevision({
         context: req.context,
         feature,
@@ -643,6 +648,36 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       Object.assign(feature, updatedFeatureFromRevision);
       updates.version = revision.version;
 
+      // This path creates AND publishes a live revision, so it owes the same
+      // `revision.published` webhook the dedicated publish endpoints emit. Without it
+      // a consumer mirroring revision state sees the version advance with no publish
+      // event — the only feature path that landed a revision silently.
+
+      // Dispatched HERE, immediately after the revision commits — not at the end of
+      // the handler. The publish is already live at this point; everything between
+      // (the metadata write, the tags diff, the audit entry, and four reads for the
+      // response payload) can throw, and every one of them turned a live publish into
+      // a 500 with no lifecycle event at all. Those later steps are not part of the
+      // publish, so their failure does not make this event untrue.
+      //
+      // Best-effort, as before: a failed notification must not fail a committed write.
+      try {
+        await dispatchFeatureRevisionEvent(
+          req.context,
+          feature,
+          await getPublishedRevisionForEvents(req.context, feature, revision),
+          "revision.published",
+          {},
+          publishEnvironments === null
+            ? {}
+            : { environments: publishEnvironments },
+        );
+      } catch (e) {
+        logger.error(
+          e,
+          `Failed to dispatch revision.published for feature ${feature.id}`,
+        );
+      }
       if (bypassedApproval) {
         bypassedGates.push({
           type: "approval-required",
