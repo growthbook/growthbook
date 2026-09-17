@@ -263,7 +263,8 @@ export default function MetricEditor({
           )}
         </Frame>
 
-        {canEdit && formType === "ratio" &&
+        {canEdit &&
+          formType === "ratio" &&
           showCappingConversionNotice &&
           cappingSettings.type === "percentile" &&
           cappingSettings.value === 0 && (
@@ -358,7 +359,7 @@ export default function MetricEditor({
                     numerator,
                     valueShape,
                     factTable,
-                    hasCountDistinctHLL,
+                    { hasCountDistinctHLL: () => hasCountDistinctHLL },
                   );
                   form.setValue("numerator", { ...refit, column });
                 }}
