@@ -1,6 +1,6 @@
 import type { EventWebHookInterface } from "shared/types/event-webhook";
 import type { EventInterface } from "shared/types/events/event";
-import { DEFAULT_NOTIFICATION_SETTINGS } from "shared/validators";
+import { parseNotificationSettings } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { EventWebHookResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import {
@@ -54,8 +54,9 @@ export async function deliverSlackNotification({
     };
   }
 
-  const notificationSettings =
-    eventWebHook.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
+  const notificationSettings = parseNotificationSettings(
+    eventWebHook.notificationSettings,
+  );
   const card =
     event.version && notificationSettings.type === "image"
       ? await renderNotificationCard(

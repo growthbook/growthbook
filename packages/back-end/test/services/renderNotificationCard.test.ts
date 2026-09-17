@@ -29,9 +29,7 @@ describe("renderNotificationCard", () => {
   });
 
   it("renders the SRM warning card from the event payload alone", async () => {
-    await expect(
-      renderNotificationCard(srmWarning, "compact"),
-    ).resolves.toEqual({
+    await expect(renderNotificationCard(srmWarning, "light")).resolves.toEqual({
       png: Buffer.from("png"),
       altText: "Checkout - Health Alert - SRM Detected",
       objectUrl: expect.stringMatching(/^https?:\/\/.+\/experiment\/exp-1$/),
@@ -44,7 +42,7 @@ describe("renderNotificationCard", () => {
         key: "exp-1",
         banner: "Health Alert - SRM Detected",
       }),
-      "compact",
+      "light",
     );
   });
 
@@ -61,7 +59,7 @@ describe("renderNotificationCard", () => {
           { name: "Treatment", users: 3800, weight: 1 },
         ],
       }),
-      "compact",
+      "light",
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -75,11 +73,11 @@ describe("renderNotificationCard", () => {
         },
         units: 10000,
       }),
-      "compact",
+      "light",
     );
   });
 
-  it.each(["compact", "compact-dark", "detailed"] as const)(
+  it.each(["light", "dark"] as const)(
     "passes the %s format through to the renderer",
     async (format) => {
       await renderNotificationCard(srmWarning, format);
@@ -97,7 +95,7 @@ describe("renderNotificationCard", () => {
             experimentId: "exp-1",
             experimentName: "Checkout",
           }),
-          "compact",
+          "light",
         ),
       ).resolves.toBeNull();
       expect(renderCard).not.toHaveBeenCalled();
@@ -115,7 +113,7 @@ describe("renderNotificationCard", () => {
           phaseName: "Main phase",
           goalMetricNames: ["Conversion", "Revenue", "Retention", "NPS"],
         }),
-        "detailed",
+        "dark",
       ),
     ).resolves.toMatchObject({
       altText: "Checkout - Experiment Started",
@@ -134,7 +132,7 @@ describe("renderNotificationCard", () => {
           { label: "Linked changes", value: "1 Feature Flag" },
         ],
       }),
-      "detailed",
+      "dark",
     );
   });
 
@@ -146,7 +144,7 @@ describe("renderNotificationCard", () => {
         experimentName: "Checkout",
         enableTemporaryRollout: false,
       }),
-      "compact",
+      "light",
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -156,11 +154,11 @@ describe("renderNotificationCard", () => {
           { label: "Result", value: "Stopped without a recorded outcome" },
         ],
       }),
-      "compact",
+      "light",
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.not.objectContaining({ rows: expect.anything() }),
-      "compact",
+      "light",
     );
   });
 
@@ -204,7 +202,7 @@ describe("renderNotificationCard", () => {
           ],
         },
       }),
-      "compact",
+      "light",
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -230,7 +228,7 @@ describe("renderNotificationCard", () => {
           }),
         ],
       }),
-      "compact",
+      "light",
     );
   });
 
@@ -244,7 +242,7 @@ describe("renderNotificationCard", () => {
         enableTemporaryRollout: true,
         releasedVariationName: "Control",
       }),
-      "compact",
+      "light",
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -254,7 +252,7 @@ describe("renderNotificationCard", () => {
           { label: "Temporary rollout", value: "Variation *Control*" },
         ],
       }),
-      "compact",
+      "light",
     );
   });
 
@@ -291,7 +289,7 @@ describe("renderNotificationCard", () => {
           ],
         },
       }),
-      "detailed",
+      "dark",
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -308,7 +306,7 @@ describe("renderNotificationCard", () => {
           }),
         ],
       }),
-      "detailed",
+      "dark",
     );
   });
 
@@ -343,13 +341,13 @@ describe("renderNotificationCard", () => {
           ],
         },
       }),
-      "detailed",
+      "dark",
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
         rows: [expect.objectContaining({ dir: "down", good: true })],
       }),
-      "detailed",
+      "dark",
     );
   });
 
@@ -379,7 +377,7 @@ describe("renderNotificationCard", () => {
           ],
         },
       }),
-      "detailed",
+      "dark",
     );
     const [card] = jest.mocked(renderCard).mock.calls[0];
     expect("rows" in card ? card.rows : []).toEqual([
@@ -400,7 +398,7 @@ describe("renderNotificationCard", () => {
         winningVariationIndex: 1,
         reason: "*Ship it*",
       }),
-      "compact",
+      "light",
     );
     expect(renderCard).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -413,7 +411,7 @@ describe("renderNotificationCard", () => {
           { label: "Reason", value: "\\*Ship it\\*" },
         ],
       }),
-      "compact",
+      "light",
     );
   });
 
@@ -425,7 +423,7 @@ describe("renderNotificationCard", () => {
           metricId: "metric-2",
           variationId: "variation-3",
         }),
-        "compact",
+        "light",
       ),
     ).resolves.toBeNull();
     expect(renderCard).not.toHaveBeenCalled();
@@ -438,7 +436,7 @@ describe("renderNotificationCard", () => {
           type: "srm",
           experimentId: "exp-1",
         }),
-        "compact",
+        "light",
       ),
     ).resolves.toBeNull();
     expect(renderCard).not.toHaveBeenCalled();
@@ -446,10 +444,10 @@ describe("renderNotificationCard", () => {
 
   it("renders each stored event once per format across deliveries", async () => {
     const options = { eventId: "event_cache_1" };
-    const first = await renderNotificationCard(srmWarning, "compact", options);
-    const second = await renderNotificationCard(srmWarning, "compact", options);
-    await renderNotificationCard(srmWarning, "detailed", options);
-    await renderNotificationCard(srmWarning, "compact", {
+    const first = await renderNotificationCard(srmWarning, "light", options);
+    const second = await renderNotificationCard(srmWarning, "light", options);
+    await renderNotificationCard(srmWarning, "dark", options);
+    await renderNotificationCard(srmWarning, "light", {
       eventId: "event_cache_2",
     });
     expect(second).toBe(first);
@@ -459,7 +457,7 @@ describe("renderNotificationCard", () => {
   it("falls back to text when rendering fails", async () => {
     jest.mocked(renderCard).mockRejectedValue(new Error("boom"));
     await expect(
-      renderNotificationCard(srmWarning, "compact"),
+      renderNotificationCard(srmWarning, "light"),
     ).resolves.toBeNull();
   });
 });

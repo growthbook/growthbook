@@ -25,10 +25,10 @@ export type CardState =
   | "stopped"
   | "warning";
 
-// A compact notification announces an EVENT (distinct from the experiment's
-// status), derived from the card state: started fires while Running;
-// won/lost/stopped once Stopped; warning is a health alert.
-export type CompactEvent = "started" | "won" | "lost" | "stopped" | "warning";
+// The EVENT a card announces (distinct from the experiment's status), derived
+// from the card state: started fires while Running; won/lost/stopped once
+// Stopped; warning is a health alert.
+export type CardEvent = "started" | "won" | "lost" | "stopped" | "warning";
 
 export interface CardGoalRow {
   v: string; // variation name
@@ -75,7 +75,7 @@ export interface CardIdentity {
   units?: number;
   durationDays?: number;
   // Headline for a full-width banner in the card's state color. When set, the
-  // detailed card drops the state badge and the compact banner reuses the text.
+  // card drops the state badge.
   banner?: string;
 }
 
@@ -116,7 +116,6 @@ export interface ExperimentCardData extends CardIdentity {
   winningVariationIndex?: number;
   // Picks the stat column label: chance to win, or p-value for frequentist.
   statsEngine?: StatsEngine;
-  compactLine?: string; // one-line conclusion fallback for outcome events
 }
 
 export type CardData = EventCardData | ExperimentCardData;

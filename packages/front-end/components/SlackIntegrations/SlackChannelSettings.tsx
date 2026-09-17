@@ -46,18 +46,13 @@ const CARD_FORMAT_LABELS: Record<
   (typeof notificationCardFormats)[number],
   { label: string; description: string }
 > = {
-  compact: {
-    label: "Compact card",
-    description: "A short image highlighting the SRM warning.",
+  light: {
+    label: "Light",
+    description: "The card on a white background.",
   },
-  "compact-dark": {
-    label: "Compact dark",
-    description:
-      "A short image with a dark background and colored event header.",
-  },
-  detailed: {
-    label: "Detailed card",
-    description: "A larger image with the SRM warning and a results table.",
+  dark: {
+    label: "Dark",
+    description: "The same card on a dark background for dark Slack themes.",
   },
 };
 
@@ -290,8 +285,8 @@ export default function SlackChannelSettings({
             Notification Format
           </Heading>
           <Text as="p" color="text-mid" mb="3">
-            Choose how SRM warnings appear. Significance notifications and other
-            events remain text-only.
+            Choose how experiment alerts appear. Events without a card remain
+            text-only.
           </Text>
           <RadioGroup
             gap="3"

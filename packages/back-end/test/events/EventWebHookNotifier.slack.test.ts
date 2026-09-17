@@ -380,7 +380,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
     setWebhook({
       url: SLACK_WORKSPACE_PLACEHOLDER_URL,
       slack: { channelId: "C123", teamId: "T123" },
-      notificationSettings: { type: "image", cardFormat: "detailed" },
+      notificationSettings: { type: "image", cardFormat: "light" },
     });
     getSlackWorkspaceConnectionByTeamId.mockResolvedValue({
       teamId: "T123",
@@ -400,7 +400,7 @@ describe("Slack EventWebHook delivery compatibility", () => {
 
     expect(renderNotificationCard).toHaveBeenCalledWith(
       {},
-      "detailed",
+      "light",
       expect.any(Object),
     );
     expect(getSlackMessageForNotificationEvent).not.toHaveBeenCalled();

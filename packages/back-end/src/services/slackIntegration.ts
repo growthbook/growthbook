@@ -9,6 +9,7 @@ import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
+  parseNotificationSettings,
   SlackWorkspaceConnectionFrontEndInterface,
   SlackWorkspaceConnectionInterface,
 } from "shared/validators";
@@ -399,7 +400,9 @@ export const slackEventWebhookToIntegration = (
   tags: eventWebHook.tags,
   lastRunAt: eventWebHook.lastRunAt,
   lastState: eventWebHook.lastState,
-  notificationSettings: eventWebHook.notificationSettings,
+  notificationSettings: parseNotificationSettings(
+    eventWebHook.notificationSettings,
+  ),
   slack: eventWebHook.slack,
 });
 
