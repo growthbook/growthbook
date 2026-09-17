@@ -12,6 +12,7 @@ import {
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
 import {
+  rampPlanBucketsOnDefault,
   getDefaultHashAttribute,
   findStoredRuleCounterpart,
   stemRuleId,
@@ -358,46 +359,49 @@ const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 
 // The payload reads coverage only on rollout rules, so a partial-coverage step
 // promotes a force rule when it fires. Without a hash attribute from the rule
-// or from an earlier patch in the plan it buckets on the organization's default;
-// the caller acknowledges that (ignoreWarnings) or chooses one first.
+// or the plan it buckets on the organization's default; the caller acknowledges
+// that (ignoreWarnings) or chooses one first.
 function assertRampCoverageHashAcknowledged(
   context: ReqContext | ApiReqContext,
   entries: RampPatchEntry[],
   stored: RampPatchTargetingInput[],
 ): void {
   if (context.ignoreWarnings) return;
-  const sameRule = (a: RampPatchEntry, b: RampPatchEntry) =>
-    (a.feature?.id ?? null) === (b.feature?.id ?? null) &&
-    (a.rule?.id ?? null) === (b.rule?.id ?? null);
-  entries.forEach((entry, i) => {
-    const { patch, rule, feature } = entry;
-    if ((patch.coverage ?? 1) >= 1 || rule?.type !== "force") return;
-    if (rule.hashAttribute) return;
+  const byRule = new Map<string, RampPatchEntry[]>();
+  for (const entry of entries) {
+    const key = `${entry.feature?.id ?? ""}\0${entry.rule?.id ?? ""}`;
+    byRule.set(key, [...(byRule.get(key) ?? []), entry]);
+  }
+  for (const group of byRule.values()) {
+    const { rule, feature } = group[0];
+    if (rule?.type !== "force" || rule.hashAttribute || !rule.id) continue;
     // Acknowledged when the stored plan already ramped this rule's coverage.
     // Rule ids are generated per rule, so a stored patch's id names one rule
     // across the flags a schedule spans.
     if (
       stored.some(
-        (s) =>
-          (s.ruleId ?? null) === (rule.id ?? null) && (s.coverage ?? 1) < 1,
+        (s) => (s.ruleId ?? null) === rule.id && (s.coverage ?? 1) < 1,
       )
     ) {
-      return;
+      continue;
     }
-    if (
-      entries
-        .slice(0, i + 1)
-        .some((e) => sameRule(e, entry) && e.patch.hashAttribute)
-    ) {
-      return;
-    }
+    const plan = {
+      steps: [
+        {
+          actions: group.map((e) => ({
+            patch: { ...e.patch, ruleId: rule.id },
+          })),
+        },
+      ],
+    };
+    if (!rampPlanBucketsOnDefault(plan, rule.id)) continue;
     const fallback = getDefaultHashAttribute(
       context.org.settings?.attributeSchema,
     );
     const where = feature ? `"${rule.id}" on "${feature.id}"` : `"${rule.id}"`;
     const message = `Rule ${where} is a force rule with no hash attribute; when this ramp reaches partial coverage it becomes a rollout bucketed on "${fallback}". Set hashAttribute on the rule or in the plan to choose another.`;
     throw new SoftWarningError(message, [message]);
-  });
+  }
 }
 
 // The rule endpoints' checks (`assertValidRuleEnvironments`,

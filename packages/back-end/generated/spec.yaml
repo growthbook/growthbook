@@ -5588,10 +5588,10 @@ paths:
                                   - type: 'null'
                               hashAttribute:
                                 description: >-
-                                  Attribute users are bucketed on. A coverage
-                                  step promotes a force rule to a rollout, which
-                                  needs one; required there unless the rule
-                                  already has it.
+                                  Attribute a force rule buckets on once a
+                                  partial-coverage step promotes it to a
+                                  rollout; without one the rule's, else the
+                                  organization's default, is used.
                                 anyOf:
                                   - type: string
                                   - type: 'null'
@@ -5707,10 +5707,10 @@ paths:
                                         - type: 'null'
                                     hashAttribute:
                                       description: >-
-                                        Attribute users are bucketed on. A
-                                        coverage step promotes a force rule to a
-                                        rollout, which needs one; required there
-                                        unless the rule already has it.
+                                        Attribute a force rule buckets on once a
+                                        partial-coverage step promotes it to a
+                                        rollout; without one the rule's, else
+                                        the organization's default, is used.
                                       anyOf:
                                         - type: string
                                         - type: 'null'
@@ -5833,10 +5833,10 @@ paths:
                                   - type: 'null'
                               hashAttribute:
                                 description: >-
-                                  Attribute users are bucketed on. A coverage
-                                  step promotes a force rule to a rollout, which
-                                  needs one; required there unless the rule
-                                  already has it.
+                                  Attribute a force rule buckets on once a
+                                  partial-coverage step promotes it to a
+                                  rollout; without one the rule's, else the
+                                  organization's default, is used.
                                 anyOf:
                                   - type: string
                                   - type: 'null'
@@ -6263,10 +6263,10 @@ paths:
                                   - type: 'null'
                               hashAttribute:
                                 description: >-
-                                  Attribute users are bucketed on. A coverage
-                                  step promotes a force rule to a rollout, which
-                                  needs one; required there unless the rule
-                                  already has it.
+                                  Attribute a force rule buckets on once a
+                                  partial-coverage step promotes it to a
+                                  rollout; without one the rule's, else the
+                                  organization's default, is used.
                                 anyOf:
                                   - type: string
                                   - type: 'null'
@@ -6382,10 +6382,10 @@ paths:
                                         - type: 'null'
                                     hashAttribute:
                                       description: >-
-                                        Attribute users are bucketed on. A
-                                        coverage step promotes a force rule to a
-                                        rollout, which needs one; required there
-                                        unless the rule already has it.
+                                        Attribute a force rule buckets on once a
+                                        partial-coverage step promotes it to a
+                                        rollout; without one the rule's, else
+                                        the organization's default, is used.
                                       anyOf:
                                         - type: string
                                         - type: 'null'
@@ -6508,10 +6508,10 @@ paths:
                                   - type: 'null'
                               hashAttribute:
                                 description: >-
-                                  Attribute users are bucketed on. A coverage
-                                  step promotes a force rule to a rollout, which
-                                  needs one; required there unless the rule
-                                  already has it.
+                                  Attribute a force rule buckets on once a
+                                  partial-coverage step promotes it to a
+                                  rollout; without one the rule's, else the
+                                  organization's default, is used.
                                 anyOf:
                                   - type: string
                                   - type: 'null'
@@ -6986,10 +6986,10 @@ paths:
                               - type: 'null'
                           hashAttribute:
                             description: >-
-                              Attribute users are bucketed on. A coverage step
-                              promotes a force rule to a rollout, which needs
-                              one; required there unless the rule already has
-                              it.
+                              Attribute a force rule buckets on once a
+                              partial-coverage step promotes it to a rollout;
+                              without one the rule's, else the organization's
+                              default, is used.
                             anyOf:
                               - type: string
                               - type: 'null'
@@ -7103,10 +7103,10 @@ paths:
                                     - type: 'null'
                                 hashAttribute:
                                   description: >-
-                                    Attribute users are bucketed on. A coverage
-                                    step promotes a force rule to a rollout,
-                                    which needs one; required there unless the
-                                    rule already has it.
+                                    Attribute a force rule buckets on once a
+                                    partial-coverage step promotes it to a
+                                    rollout; without one the rule's, else the
+                                    organization's default, is used.
                                   anyOf:
                                     - type: string
                                     - type: 'null'
@@ -7228,10 +7228,10 @@ paths:
                               - type: 'null'
                           hashAttribute:
                             description: >-
-                              Attribute users are bucketed on. A coverage step
-                              promotes a force rule to a rollout, which needs
-                              one; required there unless the rule already has
-                              it.
+                              Attribute a force rule buckets on once a
+                              partial-coverage step promotes it to a rollout;
+                              without one the rule's, else the organization's
+                              default, is used.
                             anyOf:
                               - type: string
                               - type: 'null'
@@ -11406,10 +11406,10 @@ paths:
                                   - type: 'null'
                               hashAttribute:
                                 description: >-
-                                  Attribute users are bucketed on. A coverage
-                                  step promotes a force rule to a rollout, which
-                                  needs one; required there unless the rule
-                                  already has it.
+                                  Attribute a force rule buckets on once a
+                                  partial-coverage step promotes it to a
+                                  rollout; without one the rule's, else the
+                                  organization's default, is used.
                                 anyOf:
                                   - type: string
                                   - type: 'null'
@@ -11525,10 +11525,10 @@ paths:
                                         - type: 'null'
                                     hashAttribute:
                                       description: >-
-                                        Attribute users are bucketed on. A
-                                        coverage step promotes a force rule to a
-                                        rollout, which needs one; required there
-                                        unless the rule already has it.
+                                        Attribute a force rule buckets on once a
+                                        partial-coverage step promotes it to a
+                                        rollout; without one the rule's, else
+                                        the organization's default, is used.
                                       anyOf:
                                         - type: string
                                         - type: 'null'
@@ -11651,10 +11651,10 @@ paths:
                                   - type: 'null'
                               hashAttribute:
                                 description: >-
-                                  Attribute users are bucketed on. A coverage
-                                  step promotes a force rule to a rollout, which
-                                  needs one; required there unless the rule
-                                  already has it.
+                                  Attribute a force rule buckets on once a
+                                  partial-coverage step promotes it to a
+                                  rollout; without one the rule's, else the
+                                  organization's default, is used.
                                 anyOf:
                                   - type: string
                                   - type: 'null'
@@ -12106,10 +12106,10 @@ paths:
                                   - type: 'null'
                               hashAttribute:
                                 description: >-
-                                  Attribute users are bucketed on. A coverage
-                                  step promotes a force rule to a rollout, which
-                                  needs one; required there unless the rule
-                                  already has it.
+                                  Attribute a force rule buckets on once a
+                                  partial-coverage step promotes it to a
+                                  rollout; without one the rule's, else the
+                                  organization's default, is used.
                                 anyOf:
                                   - type: string
                                   - type: 'null'
@@ -12225,10 +12225,10 @@ paths:
                                         - type: 'null'
                                     hashAttribute:
                                       description: >-
-                                        Attribute users are bucketed on. A
-                                        coverage step promotes a force rule to a
-                                        rollout, which needs one; required there
-                                        unless the rule already has it.
+                                        Attribute a force rule buckets on once a
+                                        partial-coverage step promotes it to a
+                                        rollout; without one the rule's, else
+                                        the organization's default, is used.
                                       anyOf:
                                         - type: string
                                         - type: 'null'
@@ -12351,10 +12351,10 @@ paths:
                                   - type: 'null'
                               hashAttribute:
                                 description: >-
-                                  Attribute users are bucketed on. A coverage
-                                  step promotes a force rule to a rollout, which
-                                  needs one; required there unless the rule
-                                  already has it.
+                                  Attribute a force rule buckets on once a
+                                  partial-coverage step promotes it to a
+                                  rollout; without one the rule's, else the
+                                  organization's default, is used.
                                 anyOf:
                                   - type: string
                                   - type: 'null'
@@ -12839,10 +12839,10 @@ paths:
                               - type: 'null'
                           hashAttribute:
                             description: >-
-                              Attribute users are bucketed on. A coverage step
-                              promotes a force rule to a rollout, which needs
-                              one; required there unless the rule already has
-                              it.
+                              Attribute a force rule buckets on once a
+                              partial-coverage step promotes it to a rollout;
+                              without one the rule's, else the organization's
+                              default, is used.
                             anyOf:
                               - type: string
                               - type: 'null'
@@ -12956,10 +12956,10 @@ paths:
                                     - type: 'null'
                                 hashAttribute:
                                   description: >-
-                                    Attribute users are bucketed on. A coverage
-                                    step promotes a force rule to a rollout,
-                                    which needs one; required there unless the
-                                    rule already has it.
+                                    Attribute a force rule buckets on once a
+                                    partial-coverage step promotes it to a
+                                    rollout; without one the rule's, else the
+                                    organization's default, is used.
                                   anyOf:
                                     - type: string
                                     - type: 'null'
@@ -13081,10 +13081,10 @@ paths:
                               - type: 'null'
                           hashAttribute:
                             description: >-
-                              Attribute users are bucketed on. A coverage step
-                              promotes a force rule to a rollout, which needs
-                              one; required there unless the rule already has
-                              it.
+                              Attribute a force rule buckets on once a
+                              partial-coverage step promotes it to a rollout;
+                              without one the rule's, else the organization's
+                              default, is used.
                             anyOf:
                               - type: string
                               - type: 'null'
@@ -13276,9 +13276,10 @@ paths:
                         - type: 'null'
                     hashAttribute:
                       description: >-
-                        Attribute users are bucketed on. A coverage step
-                        promotes a force rule to a rollout, which needs one;
-                        required there unless the rule already has it.
+                        Attribute a force rule buckets on once a
+                        partial-coverage step promotes it to a rollout; without
+                        one the rule's, else the organization's default, is
+                        used.
                       anyOf:
                         - type: string
                         - type: 'null'
@@ -32813,10 +32814,10 @@ paths:
                                     - type: 'null'
                                 hashAttribute:
                                   description: >-
-                                    Attribute users are bucketed on. A coverage
-                                    step promotes a force rule to a rollout,
-                                    which needs one; required there unless the
-                                    rule already has it.
+                                    Attribute a force rule buckets on once a
+                                    partial-coverage step promotes it to a
+                                    rollout; without one the rule's, else the
+                                    organization's default, is used.
                                   anyOf:
                                     - type: string
                                     - type: 'null'
@@ -32939,10 +32940,10 @@ paths:
                               - type: 'null'
                           hashAttribute:
                             description: >-
-                              Attribute users are bucketed on. A coverage step
-                              promotes a force rule to a rollout, which needs
-                              one; required there unless the rule already has
-                              it.
+                              Attribute a force rule buckets on once a
+                              partial-coverage step promotes it to a rollout;
+                              without one the rule's, else the organization's
+                              default, is used.
                             anyOf:
                               - type: string
                               - type: 'null'
@@ -33045,10 +33046,10 @@ paths:
                               - type: 'null'
                           hashAttribute:
                             description: >-
-                              Attribute users are bucketed on. A coverage step
-                              promotes a force rule to a rollout, which needs
-                              one; required there unless the rule already has
-                              it.
+                              Attribute a force rule buckets on once a
+                              partial-coverage step promotes it to a rollout;
+                              without one the rule's, else the organization's
+                              default, is used.
                             anyOf:
                               - type: string
                               - type: 'null'
@@ -54996,10 +54997,10 @@ paths:
                                     - type: 'null'
                                 hashAttribute:
                                   description: >-
-                                    Attribute users are bucketed on. A coverage
-                                    step promotes a force rule to a rollout,
-                                    which needs one; required there unless the
-                                    rule already has it.
+                                    Attribute a force rule buckets on once a
+                                    partial-coverage step promotes it to a
+                                    rollout; without one the rule's, else the
+                                    organization's default, is used.
                                   anyOf:
                                     - type: string
                                     - type: 'null'
@@ -55309,10 +55310,10 @@ paths:
                                     - type: 'null'
                                 hashAttribute:
                                   description: >-
-                                    Attribute users are bucketed on. A coverage
-                                    step promotes a force rule to a rollout,
-                                    which needs one; required there unless the
-                                    rule already has it.
+                                    Attribute a force rule buckets on once a
+                                    partial-coverage step promotes it to a
+                                    rollout; without one the rule's, else the
+                                    organization's default, is used.
                                   anyOf:
                                     - type: string
                                     - type: 'null'
@@ -55743,10 +55744,10 @@ paths:
                                     - type: 'null'
                                 hashAttribute:
                                   description: >-
-                                    Attribute users are bucketed on. A coverage
-                                    step promotes a force rule to a rollout,
-                                    which needs one; required there unless the
-                                    rule already has it.
+                                    Attribute a force rule buckets on once a
+                                    partial-coverage step promotes it to a
+                                    rollout; without one the rule's, else the
+                                    organization's default, is used.
                                   anyOf:
                                     - type: string
                                     - type: 'null'
@@ -55876,10 +55877,10 @@ paths:
                               - type: 'null'
                           hashAttribute:
                             description: >-
-                              Attribute users are bucketed on. A coverage step
-                              promotes a force rule to a rollout, which needs
-                              one; required there unless the rule already has
-                              it.
+                              Attribute a force rule buckets on once a
+                              partial-coverage step promotes it to a rollout;
+                              without one the rule's, else the organization's
+                              default, is used.
                             anyOf:
                               - type: string
                               - type: 'null'
@@ -55982,10 +55983,10 @@ paths:
                               - type: 'null'
                           hashAttribute:
                             description: >-
-                              Attribute users are bucketed on. A coverage step
-                              promotes a force rule to a rollout, which needs
-                              one; required there unless the rule already has
-                              it.
+                              Attribute a force rule buckets on once a
+                              partial-coverage step promotes it to a rollout;
+                              without one the rule's, else the organization's
+                              default, is used.
                             anyOf:
                               - type: string
                               - type: 'null'
@@ -59383,10 +59384,10 @@ components:
                                 - type: 'null'
                             hashAttribute:
                               description: >-
-                                Attribute users are bucketed on. A coverage step
-                                promotes a force rule to a rollout, which needs
-                                one; required there unless the rule already has
-                                it.
+                                Attribute a force rule buckets on once a
+                                partial-coverage step promotes it to a rollout;
+                                without one the rule's, else the organization's
+                                default, is used.
                               anyOf:
                                 - type: string
                                 - type: 'null'
@@ -59502,10 +59503,10 @@ components:
                                       - type: 'null'
                                   hashAttribute:
                                     description: >-
-                                      Attribute users are bucketed on. A
-                                      coverage step promotes a force rule to a
-                                      rollout, which needs one; required there
-                                      unless the rule already has it.
+                                      Attribute a force rule buckets on once a
+                                      partial-coverage step promotes it to a
+                                      rollout; without one the rule's, else the
+                                      organization's default, is used.
                                     anyOf:
                                       - type: string
                                       - type: 'null'
@@ -59627,10 +59628,10 @@ components:
                                 - type: 'null'
                             hashAttribute:
                               description: >-
-                                Attribute users are bucketed on. A coverage step
-                                promotes a force rule to a rollout, which needs
-                                one; required there unless the rule already has
-                                it.
+                                Attribute a force rule buckets on once a
+                                partial-coverage step promotes it to a rollout;
+                                without one the rule's, else the organization's
+                                default, is used.
                               anyOf:
                                 - type: string
                                 - type: 'null'
@@ -59841,10 +59842,10 @@ components:
                                 - type: 'null'
                             hashAttribute:
                               description: >-
-                                Attribute users are bucketed on. A coverage step
-                                promotes a force rule to a rollout, which needs
-                                one; required there unless the rule already has
-                                it.
+                                Attribute a force rule buckets on once a
+                                partial-coverage step promotes it to a rollout;
+                                without one the rule's, else the organization's
+                                default, is used.
                               anyOf:
                                 - type: string
                                 - type: 'null'
@@ -59960,10 +59961,10 @@ components:
                                       - type: 'null'
                                   hashAttribute:
                                     description: >-
-                                      Attribute users are bucketed on. A
-                                      coverage step promotes a force rule to a
-                                      rollout, which needs one; required there
-                                      unless the rule already has it.
+                                      Attribute a force rule buckets on once a
+                                      partial-coverage step promotes it to a
+                                      rollout; without one the rule's, else the
+                                      organization's default, is used.
                                     anyOf:
                                       - type: string
                                       - type: 'null'
@@ -60085,10 +60086,10 @@ components:
                                 - type: 'null'
                             hashAttribute:
                               description: >-
-                                Attribute users are bucketed on. A coverage step
-                                promotes a force rule to a rollout, which needs
-                                one; required there unless the rule already has
-                                it.
+                                Attribute a force rule buckets on once a
+                                partial-coverage step promotes it to a rollout;
+                                without one the rule's, else the organization's
+                                default, is used.
                               anyOf:
                                 - type: string
                                 - type: 'null'
@@ -60912,10 +60913,10 @@ components:
                                 - type: 'null'
                             hashAttribute:
                               description: >-
-                                Attribute users are bucketed on. A coverage step
-                                promotes a force rule to a rollout, which needs
-                                one; required there unless the rule already has
-                                it.
+                                Attribute a force rule buckets on once a
+                                partial-coverage step promotes it to a rollout;
+                                without one the rule's, else the organization's
+                                default, is used.
                               anyOf:
                                 - type: string
                                 - type: 'null'
@@ -61031,10 +61032,10 @@ components:
                                       - type: 'null'
                                   hashAttribute:
                                     description: >-
-                                      Attribute users are bucketed on. A
-                                      coverage step promotes a force rule to a
-                                      rollout, which needs one; required there
-                                      unless the rule already has it.
+                                      Attribute a force rule buckets on once a
+                                      partial-coverage step promotes it to a
+                                      rollout; without one the rule's, else the
+                                      organization's default, is used.
                                     anyOf:
                                       - type: string
                                       - type: 'null'
@@ -61156,10 +61157,10 @@ components:
                                 - type: 'null'
                             hashAttribute:
                               description: >-
-                                Attribute users are bucketed on. A coverage step
-                                promotes a force rule to a rollout, which needs
-                                one; required there unless the rule already has
-                                it.
+                                Attribute a force rule buckets on once a
+                                partial-coverage step promotes it to a rollout;
+                                without one the rule's, else the organization's
+                                default, is used.
                               anyOf:
                                 - type: string
                                 - type: 'null'
@@ -61370,10 +61371,10 @@ components:
                                 - type: 'null'
                             hashAttribute:
                               description: >-
-                                Attribute users are bucketed on. A coverage step
-                                promotes a force rule to a rollout, which needs
-                                one; required there unless the rule already has
-                                it.
+                                Attribute a force rule buckets on once a
+                                partial-coverage step promotes it to a rollout;
+                                without one the rule's, else the organization's
+                                default, is used.
                               anyOf:
                                 - type: string
                                 - type: 'null'
@@ -61489,10 +61490,10 @@ components:
                                       - type: 'null'
                                   hashAttribute:
                                     description: >-
-                                      Attribute users are bucketed on. A
-                                      coverage step promotes a force rule to a
-                                      rollout, which needs one; required there
-                                      unless the rule already has it.
+                                      Attribute a force rule buckets on once a
+                                      partial-coverage step promotes it to a
+                                      rollout; without one the rule's, else the
+                                      organization's default, is used.
                                     anyOf:
                                       - type: string
                                       - type: 'null'
@@ -61614,10 +61615,10 @@ components:
                                 - type: 'null'
                             hashAttribute:
                               description: >-
-                                Attribute users are bucketed on. A coverage step
-                                promotes a force rule to a rollout, which needs
-                                one; required there unless the rule already has
-                                it.
+                                Attribute a force rule buckets on once a
+                                partial-coverage step promotes it to a rollout;
+                                without one the rule's, else the organization's
+                                default, is used.
                               anyOf:
                                 - type: string
                                 - type: 'null'
@@ -68170,9 +68171,9 @@ components:
                       - type: 'null'
                   hashAttribute:
                     description: >-
-                      Attribute users are bucketed on. A coverage step promotes
-                      a force rule to a rollout, which needs one; required there
-                      unless the rule already has it.
+                      Attribute a force rule buckets on once a partial-coverage
+                      step promotes it to a rollout; without one the rule's,
+                      else the organization's default, is used.
                     anyOf:
                       - type: string
                       - type: 'null'
@@ -68316,9 +68317,10 @@ components:
                             - type: 'null'
                         hashAttribute:
                           description: >-
-                            Attribute users are bucketed on. A coverage step
-                            promotes a force rule to a rollout, which needs one;
-                            required there unless the rule already has it.
+                            Attribute a force rule buckets on once a
+                            partial-coverage step promotes it to a rollout;
+                            without one the rule's, else the organization's
+                            default, is used.
                           anyOf:
                             - type: string
                             - type: 'null'
@@ -68430,9 +68432,9 @@ components:
                       - type: 'null'
                   hashAttribute:
                     description: >-
-                      Attribute users are bucketed on. A coverage step promotes
-                      a force rule to a rollout, which needs one; required there
-                      unless the rule already has it.
+                      Attribute a force rule buckets on once a partial-coverage
+                      step promotes it to a rollout; without one the rule's,
+                      else the organization's default, is used.
                     anyOf:
                       - type: string
                       - type: 'null'
@@ -75581,9 +75583,10 @@ components:
                             - type: 'null'
                         hashAttribute:
                           description: >-
-                            Attribute users are bucketed on. A coverage step
-                            promotes a force rule to a rollout, which needs one;
-                            required there unless the rule already has it.
+                            Attribute a force rule buckets on once a
+                            partial-coverage step promotes it to a rollout;
+                            without one the rule's, else the organization's
+                            default, is used.
                           anyOf:
                             - type: string
                             - type: 'null'
@@ -78956,9 +78959,9 @@ components:
                 - type: 'null'
             hashAttribute:
               description: >-
-                Attribute users are bucketed on. A coverage step promotes a
-                force rule to a rollout, which needs one; required there unless
-                the rule already has it.
+                Attribute a force rule buckets on once a partial-coverage step
+                promotes it to a rollout; without one the rule's, else the
+                organization's default, is used.
               anyOf:
                 - type: string
                 - type: 'null'
@@ -79097,9 +79100,9 @@ components:
                       - type: 'null'
                   hashAttribute:
                     description: >-
-                      Attribute users are bucketed on. A coverage step promotes
-                      a force rule to a rollout, which needs one; required there
-                      unless the rule already has it.
+                      Attribute a force rule buckets on once a partial-coverage
+                      step promotes it to a rollout; without one the rule's,
+                      else the organization's default, is used.
                     anyOf:
                       - type: string
                       - type: 'null'

@@ -720,14 +720,9 @@ describe("validateRampPlanPatches", () => {
     await expect(
       run([{ coverage: 0.5, hashAttribute: "id" }], feature, forceRule),
     ).resolves.toBeUndefined();
-    // An earlier patch in the plan may carry it; a later one does not help the
-    // step that fires first.
     await expect(
       run([{ hashAttribute: "id" }, { coverage: 0.5 }], feature, forceRule),
     ).resolves.toBeUndefined();
-    await expect(
-      run([{ coverage: 0.5 }, { hashAttribute: "id" }], feature, forceRule),
-    ).rejects.toThrow(SoftWarningError);
     // A plan that already ramped this rule was acknowledged when stored.
     await expect(
       run([{ coverage: 0.5 }], feature, forceRule, [

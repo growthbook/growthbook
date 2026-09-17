@@ -564,6 +564,12 @@ export function expandSparseToFull(
   return serializeExtendsObject(mergedRefs, ownKeys);
 }
 
+type RampRulePatch = {
+  ruleId?: string | null;
+  coverage?: number | null;
+  hashAttribute?: string | null;
+};
+
 // Whether a ramp plan will turn `ruleId` (a force rule) into a rollout bucketed
 // on the organization's default: a partial-coverage patch for the rule with no
 // patch for it naming a hash attribute.
@@ -589,11 +595,6 @@ export function rampPlanBucketsOnDefault(
     first !== -1 && !patches.slice(0, first + 1).some((p) => p.hashAttribute)
   );
 }
-type RampRulePatch = {
-  ruleId?: string | null;
-  coverage?: number | null;
-  hashAttribute?: string | null;
-};
 
 // The attribute a new rollout buckets on when none is chosen: `id` when it is
 // marked as a hash attribute, else the first marked one, else `id`.

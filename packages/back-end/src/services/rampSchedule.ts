@@ -648,10 +648,6 @@ export function normalizeRampPlanForceValues<
 
 // Apply a patch to a rule. Uses "in" checks so injected undefined values clear the field.
 // null clears most fields, but force allows null (valid JSON feature value).
-function stepReason(notes: string[]): { reason?: string } {
-  return notes.length ? { reason: notes.join(" ") } : {};
-}
-
 export function applyPatchToRule(
   existing: FeatureRule,
   patch: Omit<FeatureRulePatch, "ruleId">,
@@ -1476,6 +1472,9 @@ export async function advanceStep(
     effectiveActions,
     { judgeTargeting: true, fromStepIndex: schedule.currentStepIndex },
   );
+  const reasons = isJump
+    ? ["Automatic catch-up of overdue steps", ...notes]
+    : notes;
 
   // `nextStepAt` is the time gate. Steps without an interval (pure approval /
   // instant gates) have no time gate, so nextStepAt is null. For instant
@@ -1539,9 +1538,7 @@ export async function advanceStep(
         previousStatus: schedule.status,
         // Distinguishes automatic catch-up jumps from user-initiated
         // jumpSchedule jumps in the timeline/audit view.
-        ...stepReason(
-          isJump ? ["Automatic catch-up of overdue steps", ...notes] : notes,
-        ),
+        ...(reasons.length ? { reason: reasons.join(" ") } : {}),
       },
     ),
   });

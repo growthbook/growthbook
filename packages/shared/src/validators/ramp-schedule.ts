@@ -26,7 +26,7 @@ export const featureRulePatch = z.object({
     .string()
     .nullish()
     .describe(
-      "Attribute users are bucketed on. A coverage step promotes a force rule to a rollout, which needs one; required there unless the rule already has it.",
+      "Attribute a force rule buckets on once a partial-coverage step promotes it to a rollout; without one the rule's, else the organization's default, is used.",
     ),
   force: z
     .unknown()
