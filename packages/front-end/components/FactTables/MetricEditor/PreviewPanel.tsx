@@ -142,18 +142,18 @@ export default function PreviewPanel({
                     ? "Preview not available for this metric"
                     : "Preview will appear here"}
                 </Text>
-                {needsPopulation ? (
+                {previewUnavailable ? (
                   <Text size="sm" color="text-mid" as="div">
                     Calculating this rate requires an eligible user population.
                     A source activity count would not represent this metric.
                   </Text>
-                ) : !isRetention ? (
+                ) : (
                   <Text size="sm" color="text-mid" as="div">
                     {draftMetric
                       ? "Run the query to calculate this metric over the last 7 days."
                       : "Complete the metric definition to preview its calculated value."}
                   </Text>
-                ) : null}
+                )}
               </Flex>
             )}
           </TabsContent>
