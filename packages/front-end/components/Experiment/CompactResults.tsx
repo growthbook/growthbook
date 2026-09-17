@@ -27,7 +27,7 @@ import {
   PiCaretCircleRight,
   PiCaretCircleDown,
   PiFunnelSimple,
-  PiMagnifyingGlass,
+  PiArrowsOut,
 } from "react-icons/pi";
 import {
   expandMetricGroups,
@@ -560,20 +560,19 @@ function MetricDrilldownButton({ row }: { row: ExperimentTableRow }) {
     drilldownContext.openDrilldown(row);
   };
   return (
-    <RadixTooltip content="Open metric drilldown" side="top">
-      <span
-        role="button"
-        tabIndex={0}
-        aria-label="Open metric drilldown"
-        className={styles.metricDrilldownIcon}
-        onClick={open}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") open(e);
-        }}
-      >
-        <PiMagnifyingGlass size={14} />
-      </span>
-    </RadixTooltip>
+    <span
+      role="button"
+      tabIndex={0}
+      aria-label="Open metric drilldown"
+      className={styles.metricDrilldownDetails}
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") open(e);
+      }}
+    >
+      <PiArrowsOut size={13} />
+      <span className={styles.metricDrilldownDetailsText}>Details</span>
+    </span>
   );
 }
 

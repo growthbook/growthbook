@@ -17,16 +17,31 @@
   white-space: nowrap;
 }
 
-.metricDrilldownIcon {
+.metricDrilldownDetails {
   display: inline-flex;
   align-items: center;
+  gap: 2px;
   position: relative;
   top: 1px;
-  margin-left: 4px;
+  margin-left: 6px;
   cursor: pointer;
   color: var(--color-text-low);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
 
   &:hover {
     color: var(--violet-11);
+    text-decoration: none;
   }
+}
+
+.metricDrilldownDetailsText {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+:global(.results-group-row):hover .metricDrilldownDetails {
+  opacity: 1;
 }
