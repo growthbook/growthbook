@@ -371,6 +371,7 @@ export default function ContextualBanditResultsTable({
           model={{
             queries: queryLatest?.queries ?? [],
             runStarted: queryLatest?.runStarted ?? null,
+            error: queryLatest?.error,
           }}
           cancelEndpoint={`/api/v1/contextual-bandits/${cb.id}/cancel`}
           mutate={mutate}
