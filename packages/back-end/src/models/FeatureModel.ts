@@ -3912,7 +3912,8 @@ export async function publishRevision({
   // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
   // Set by the ramp engine: a step value is judged by type only and never
-  // refused, so rollbacks can re-apply the rule's own earlier values.
+  // refused, so rollbacks can re-apply the rule's own earlier values. The
+  // config-backed net below is unchanged; it has always run on ramp publishes.
   skipValueSchemaNet?: boolean;
 }) {
   // One deduped SDK refresh per landing (feature applies are multi-step: ramp

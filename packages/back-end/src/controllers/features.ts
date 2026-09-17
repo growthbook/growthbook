@@ -364,6 +364,23 @@ function normalizeRuleModalRampValues(
   );
 }
 
+// The draft a write targets, read without creating one; null when the write
+// starts a new draft off live.
+async function stagedRevision(
+  context: ReqContext,
+  feature: FeatureInterface,
+  version: number | undefined,
+): Promise<FeatureRevisionInterface | null> {
+  if (!version) return null;
+  return getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version,
+  });
+}
+
 // Same for the plan's targeting fields (condition, saved groups, environments,
 // prerequisites). Start actions are the editor's anchor and are not judged.
 async function validateRuleModalRampPatches(
@@ -3497,13 +3514,7 @@ export async function postFeatureRule(
 
   // Read-only: getDraftRevision would persist a draft before validation
   // passes.
-  const staged = await getRevision({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    version: parseInt(version),
-  });
+  const staged = await stagedRevision(context, feature, parseInt(version));
   await assertRegisteredAttributesScoped(
     context,
     {
@@ -4047,7 +4058,14 @@ export async function postFeatureExperimentRefRule(
     );
   }
 
-  await assertValidRuleWrite(context, feature, scopedRule);
+  await assertValidRuleWrite(
+    context,
+    withStagedSchema(
+      feature,
+      await stagedRevision(context, feature, draftVersion),
+    ),
+    scopedRule,
+  );
   const ruleEnvFootprint = scopedRule.allEnvironments
     ? environments
     : (scopedRule.environments ?? []);
@@ -4244,7 +4262,14 @@ export async function postFeatureContextualBanditRefRule(
   if (!contextualBandit) {
     throw new Error("Invalid contextual bandit selected");
   }
-  await assertValidRuleWrite(context, feature, rule);
+  await assertValidRuleWrite(
+    context,
+    withStagedSchema(
+      feature,
+      await stagedRevision(context, feature, draftVersion),
+    ),
+    rule,
+  );
 
   const { version, published } = await linkFeatureToContextualBandit({
     context,
@@ -4409,13 +4434,7 @@ export async function postFeatureDefaultValue(
     context.permissions.throwPermissionError();
   }
 
-  const staged = await getRevision({
-    context,
-    organization: context.org.id,
-    featureId: feature.id,
-    feature,
-    version: parseInt(version),
-  });
+  const staged = await stagedRevision(context, feature, parseInt(version));
   assertFeatureValuesValid(context, withStagedSchema(feature, staged), {
     defaultValue,
   });
