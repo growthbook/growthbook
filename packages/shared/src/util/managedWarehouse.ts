@@ -48,6 +48,28 @@ export function isManagedWarehousePendingQueryError(
   return message.includes(MANAGED_WAREHOUSE_PENDING_ERROR_CODE);
 }
 
+/** Returned in API `error` fields so the front-end can explain a warehouse OOM. */
+export const MANAGED_WAREHOUSE_OUT_OF_MEMORY_ERROR_CODE =
+  "managed_warehouse_out_of_memory" as const;
+
+export class ManagedWarehouseOutOfMemoryError extends Error {
+  readonly code: typeof MANAGED_WAREHOUSE_OUT_OF_MEMORY_ERROR_CODE =
+    MANAGED_WAREHOUSE_OUT_OF_MEMORY_ERROR_CODE;
+
+  constructor() {
+    super(MANAGED_WAREHOUSE_OUT_OF_MEMORY_ERROR_CODE);
+    this.name = "ManagedWarehouseOutOfMemoryError";
+    Object.setPrototypeOf(this, ManagedWarehouseOutOfMemoryError.prototype);
+  }
+}
+
+export function isManagedWarehouseOutOfMemoryQueryError(
+  message: string | null | undefined,
+): boolean {
+  if (message == null || message === "") return false;
+  return message.includes(MANAGED_WAREHOUSE_OUT_OF_MEMORY_ERROR_CODE);
+}
+
 /**
  * Information schema and other APIs may persist a legacy long message, the
  * stable pending code, or the no-events sentence alone — use this to show the
@@ -72,6 +94,9 @@ export function formatQueryExecutionErrorForApi(e: unknown): string {
     e.message === MANAGED_WAREHOUSE_PENDING_ERROR_CODE
   ) {
     return MANAGED_WAREHOUSE_PENDING_ERROR_CODE;
+  }
+  if (e instanceof ManagedWarehouseOutOfMemoryError) {
+    return MANAGED_WAREHOUSE_OUT_OF_MEMORY_ERROR_CODE;
   }
   return e instanceof Error ? e.message : String(e);
 }

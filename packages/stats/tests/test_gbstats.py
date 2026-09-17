@@ -11,6 +11,7 @@ from gbstats.gbstats import (
     BanditSettingsForStatsEngine,
     MetricSettingsForStatsEngine,
     detect_unknown_variations,
+    get_dimension_column_name,
     reduce_dimensionality,
     analyze_metric_df,
     get_metric_dfs,
@@ -550,6 +551,30 @@ class TestVariationStatisticBuilder(TestCase):
                 n=expected_baseline_n,
                 theta=None,
             ),
+        )
+
+
+class TestGetDimensionColumnName(TestCase):
+    def test_get_dimension_column_name(self):
+        self.assertEqual(get_dimension_column_name("pre:date"), "dim_pre_date")
+        self.assertEqual(get_dimension_column_name("pre:activation"), "dim_activation")
+        self.assertEqual(get_dimension_column_name("exp:country"), "dim_exp_country")
+        self.assertEqual(
+            get_dimension_column_name("precomputed:country"), "dim_exp_country"
+        )
+        self.assertEqual(get_dimension_column_name("dim_abc"), "dim_unit_dim_abc")
+        self.assertEqual(get_dimension_column_name(""), "dimension")
+
+    def test_custom_dimension_column_names(self):
+        # Neither may map into the dim_exp_ namespace (post-stratification
+        # treats those as strata columns)
+        self.assertEqual(
+            get_dimension_column_name("cutoff:2026-01-15T00:12:00.000Z"),
+            "dim_cutoff",
+        )
+        self.assertEqual(
+            get_dimension_column_name("combo:exp:country::dim_abc"),
+            "dim_combo",
         )
 
 

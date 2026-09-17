@@ -54,9 +54,21 @@ export default function SuggestionList({
             onMouseDown={(e) => e.preventDefault()} // keep focus in the editor
             onClick={() => onSelect(i)}
           >
-            <span className={styles.name}>{item.primary}</span>
+            {/* Titles, so a row too narrow for both is still recoverable on hover. */}
+            <span className={styles.name} title={item.primary}>
+              {item.primary}
+            </span>
             {item.secondary && (
-              <span className={styles.type}>{item.secondary}</span>
+              <span
+                className={styles.type}
+                title={
+                  typeof item.secondary === "string"
+                    ? item.secondary
+                    : undefined
+                }
+              >
+                {item.secondary}
+              </span>
             )}
           </button>
         ))

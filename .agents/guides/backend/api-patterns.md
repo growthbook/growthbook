@@ -383,3 +383,30 @@ Call the helper on the final API-shaped object — don't try to look up owner em
 | **Audience**       | GrowthBook web app                 | Customer integrations              |
 | **Documentation**  | Internal only                      | OpenAPI spec                       |
 | **URL Prefix**     | `/api/*`                           | `/api/v1/*`                        |
+
+## Plan gating for scheduling and ramps
+
+Simple schedules (a rule's `schedule` start/end shorthand, and legacy inline
+`scheduleRules`) and multi-step ramp schedules run on the same engine: the
+shorthand becomes a one-step ramp action. Gate them the same way.
+
+- The whole ramp family is Pro: `schedule-feature-flag`, `ramp-schedules`, and
+  `safe-rollout` all sit in `commercialFeaturesPro`
+  (`shared/src/enterprise/license-consts.ts`), and every refusal says "a Pro
+  plan or above". A simple schedule is a one-step ramp and a safe rollout is a
+  monitored ramp, so the three cannot sit on different tiers. If the tier ever
+  changes, move the keys in `license-consts.ts`; never encode a tier in a
+  message or an endpoint.
+- Only _new_ scheduling is gated. An org that has dropped below Pro (expired
+  license, self-hosted OSS) must still be able to edit, pause, cancel, or clear
+  the schedules it already has, so it can wind them down. Concretely: the engine
+  chokepoint `createRampSchedulesForRevision` in `FeatureModel` gates `create`
+  ramp actions but not `update`, and not a create whose target rule already
+  carried a schedule (`isScheduledRule` in `shared/util`); the per-rule REST
+  endpoints skip
+  `assertCanUseRuleScheduling` when the stored rule is already scheduled
+  (`isScheduledRule`) or a live ramp targets it; the bulk validators
+  `validateRulesScheduleRules` / `validateEnvRulesScheduleRules` gate only rules
+  whose stored counterpart was unscheduled; and the ramp-schedule update
+  endpoints (dashboard and REST) carry no plan gate at all. Reuse those helpers
+  rather than adding an inline check.

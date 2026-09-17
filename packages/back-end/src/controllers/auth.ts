@@ -40,6 +40,7 @@ import {
   getUserById,
 } from "back-end/src/models/UserModel";
 import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
+import { RetriableAuthError } from "back-end/src/services/auth/authChecks";
 import { reissueAttributionCookie } from "back-end/src/util/signup-attribution";
 
 export async function getHasOrganizations(req: Request, res: Response) {
@@ -142,6 +143,8 @@ export async function postOAuthCallback(req: Request, res: Response) {
     return res.status(400).json({
       status: 400,
       message: "Error Signing In",
+      // The front-end silently restarts the login for failures a fresh flow fixes
+      ...(e instanceof RetriableAuthError && { code: "stale_login_attempt" }),
     });
   }
 }

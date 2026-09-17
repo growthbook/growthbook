@@ -943,12 +943,30 @@ describe("experiments events", () => {
         },
       },
       experiment: experimentSnapshot,
+      snapshot: {
+        type: "standard",
+        health: {
+          traffic: { overall: { srm: 0.0004, variationUnits: [6200, 3800] } },
+        },
+      } as unknown as ExperimentSnapshotInterface,
       currentStatus: {
         status: "unhealthy",
         unhealthyData: { srm: true },
       },
       healthSettings: { srmThreshold: 0.5 },
     });
+
+    const srmObject = {
+      experimentId: "exp_dd4gxd4lyel8bwi",
+      experimentName: "Add To Cart",
+      threshold: 0.5,
+      type: "srm",
+      pValue: 0.0004,
+      variations: [
+        { name: "Control", users: 6200, weight: 0.5 },
+        { name: "Variation 1", users: 3800, weight: 0.5 },
+      ],
+    };
 
     expect(rawPayload).toEqual(
       expect.objectContaining({
@@ -960,14 +978,7 @@ describe("experiments events", () => {
         object: "experiment",
         projects: [],
         tags: [],
-        data: {
-          object: {
-            experimentId: "exp_dd4gxd4lyel8bwi",
-            experimentName: "Add To Cart",
-            threshold: 0.5,
-            type: "srm",
-          },
-        },
+        data: { object: srmObject },
         user: {
           email: "user@email.com",
           id: "user-aabb",
@@ -979,12 +990,7 @@ describe("experiments events", () => {
 
     expect(getLegacyMessageForNotificationEvent(rawPayload)).toEqual({
       containsSecrets: false,
-      data: {
-        experimentId: "exp_dd4gxd4lyel8bwi",
-        experimentName: "Add To Cart",
-        threshold: 0.5,
-        type: "srm",
-      },
+      data: srmObject,
       environments: [],
       event: "experiment.warning",
       object: "experiment",

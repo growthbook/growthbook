@@ -48,7 +48,7 @@ export const experimentTemplateInterface = baseSchema
 
     // Located in phases array for ExperimentInterface
     targeting: z.object({
-      coverage: z.number(),
+      coverage: z.number().min(0).max(1),
       savedGroups: z.array(savedGroupTargeting).optional(),
       prerequisites: z.array(featurePrerequisite).optional(),
       condition: z.string(),
@@ -103,7 +103,7 @@ export const apiExperimentTemplateValidator = namedSchema(
 
     // Located in phases array for ExperimentInterface
     targeting: z.object({
-      coverage: z.number(),
+      coverage: z.number().min(0).max(1),
       savedGroups: z.array(savedGroupTargeting).optional(),
       prerequisites: z.array(featurePrerequisite).optional(),
       condition: z.string(),
@@ -169,7 +169,7 @@ export const apiCreateExperimentTemplateBody = z.strictObject({
   skipPartialData: z.boolean().optional(),
 
   targeting: z.object({
-    coverage: z.number(),
+    coverage: z.number().min(0).max(1),
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     condition: z.string(),

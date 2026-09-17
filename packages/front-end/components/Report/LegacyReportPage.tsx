@@ -369,9 +369,13 @@ export default function LegacyReportPage({
                   </div>
                   <div className="col-auto">
                     {canUpdateReport && (
-                      <form
-                        onSubmit={async (e) => {
-                          e.preventDefault();
+                      <RunQueriesButton
+                        icon="refresh"
+                        cta="Refresh Data"
+                        mutate={mutate}
+                        model={report}
+                        cancelEndpoint={`/report/${report.id}/cancel`}
+                        onSubmit={async () => {
                           try {
                             const res = await apiCall<{
                               report: ReportInterface;
@@ -390,17 +394,7 @@ export default function LegacyReportPage({
                             setRefreshError(e.message);
                           }
                         }}
-                      >
-                        <RunQueriesButton
-                          useRadixButton={false}
-                          icon="refresh"
-                          cta="Refresh Data"
-                          mutate={mutate}
-                          model={report}
-                          cancelEndpoint={`/report/${report.id}/cancel`}
-                          color="outline-primary"
-                        />
-                      </form>
+                      />
                     )}
                   </div>
                   <div className="col-auto">

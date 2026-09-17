@@ -5,6 +5,7 @@ import {
   ApiRampScheduleInterface,
   RampScheduleInterface,
   RampStepAction,
+  RampTarget,
   StepHoldConditions,
   isAwaitingStartApproval,
   isReadyForApproval,
@@ -15,16 +16,28 @@ import {
   RULE_ID_ENV_SUFFIX_DELIMITER,
   stemRuleId,
   isRampScheduleServing,
+  unanchoredRampTargets,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
+  assertRampScheduleReplanAllowed,
+  changesRampPlan,
+  toApiRampStep,
+  withStringForce,
+} from "back-end/src/services/rampPlanReview";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import type { ApiReqContext } from "back-end/types/api";
+import {
   appendRampEvent,
+  assertCanEditRampScheduleConfig,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   computeNextProcessAt,
   dispatchRampEvent,
   getEffectiveRampAutoUpdateState,
   getRampAutoUpdatePreference,
   getRampMonitoringMode,
+  normalizeRampPlanForceValues,
+  rampStartValuesOf,
   runLockedRampScheduleAction,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
@@ -266,15 +279,14 @@ export function rampScheduleToApiInterface(
     entityType: doc.entityType,
     entityId: doc.entityId,
     targets: doc.targets,
-    startActions: doc.startActions,
+    // Plans written before values were normalized may still hold a raw JSON
+    // `force`; emit the string form the scheduler will apply.
+    startActions: doc.startActions?.map(withStringForce),
     steps: doc.steps.map((s) => ({
-      interval: s.interval,
-      actions: s.actions,
-      approvalNotes: s.approvalNotes ?? undefined,
-      monitored: !!s.monitored,
-      holdConditions: s.holdConditions ?? undefined,
+      ...toApiRampStep(s),
+      actions: (s.actions ?? []).map(withStringForce),
     })),
-    endActions: doc.endActions,
+    endActions: doc.endActions?.map(withStringForce),
     startDate: dateToIso(doc.startDate),
     cutoffDate: dateToIso(doc.cutoffDate),
     requiresStartApproval: doc.requiresStartApproval,
@@ -427,7 +439,38 @@ export function normalizeApiStepShapes(
   });
 }
 
+// A write may not leave an active target without a rollback anchor. Targets
+// already unanchored before the write (legacy docs, healed lazily by
+// ensureRampStartActions) are tolerated so housekeeping writes keep working.
+function assertTargetsAnchored(
+  doc: RampScheduleInterface,
+  previouslyUnanchored: RampTarget[],
+) {
+  const tolerated = new Set(previouslyUnanchored.map((t) => t.id));
+  const missing = unanchoredRampTargets(doc).filter(
+    (t) => !tolerated.has(t.id),
+  );
+  if (!missing.length) return;
+  const refs = missing.map((t) => t.ruleId ?? t.id).join(", ");
+  throw new BadRequestError(
+    `Ramp schedule target(s) ${refs} have no startActions. Every active target needs a rollback anchor; omit startActions to derive it from the rule.`,
+  );
+}
+
 export class RampScheduleModel extends BaseClass {
+  protected async beforeCreate(doc: RampScheduleInterface) {
+    assertTargetsAnchored(doc, []);
+  }
+  protected async beforeUpdate(
+    existing: RampScheduleInterface,
+    updates: UpdateProps<RampScheduleInterface>,
+  ) {
+    assertTargetsAnchored(
+      { ...existing, ...updates },
+      unanchoredRampTargets(existing),
+    );
+  }
+
   private getProject(doc: RampScheduleInterface): string | undefined {
     const { feature } = this.getForeignRefs(doc, false);
     return feature?.project;
@@ -622,21 +665,48 @@ export class RampScheduleModel extends BaseClass {
   ) {
     // Neutral not-found for unknown ids; the lock helper's "no longer exists"
     // message is reserved for the deleted-while-locked race.
-    if (!(await this.getById(req.params.id))) {
+    const schedule = await this.getById(req.params.id);
+    if (!schedule) {
       throw new NotFoundError("Ramp schedule not found");
     }
-
-    if (!this.context.hasPremiumFeature("ramp-schedules")) {
-      this.context.throwPlanDoesNotAllowError(
-        "Ramp schedules require an Enterprise plan.",
-      );
-    }
-
     // Locked so the read-modify-write can't clobber a concurrent advance.
     return runLockedRampScheduleAction(
       this.context,
       req.params.id,
       (schedule) => this.applyApiUpdateLocked(req, schedule),
+    );
+  }
+
+  private async validateApiPlanPatches(
+    context: ApiReqContext,
+    schedule: RampScheduleInterface,
+    updates: Record<string, unknown>,
+  ) {
+    // Lazy: the validations module reaches back into this model through the
+    // request context, so a static import trips initialization.
+    const {
+      collectRampPlanActions,
+      rampPatchEntriesForTargets,
+      validateRampPlanPatches,
+    } = await import("back-end/src/api/features/validations");
+    const actions = collectRampPlanActions(updates);
+    if (!actions.length) return;
+    const featureIds = [
+      ...new Set(
+        actions
+          .map(
+            (a) => schedule.targets.find((t) => t.id === a.targetId)?.entityId,
+          )
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    await context.populateForeignRefs({ feature: featureIds });
+    await validateRampPlanPatches(
+      context,
+      rampPatchEntriesForTargets(actions, schedule.targets, (id) =>
+        context.foreignRefs.feature.get(id),
+      ),
+      { stored: [schedule] },
     );
   }
 
@@ -647,6 +717,15 @@ export class RampScheduleModel extends BaseClass {
     if (!["pending", "ready", "paused"].includes(schedule.status)) {
       throw new Error(
         `Cannot update ramp schedule in status "${schedule.status}". Only pending, ready, or paused schedules can be modified.`,
+      );
+    }
+    // Judged against the in-lock document, so a plan reviewed meanwhile is
+    // not overwritten by a body that matched the earlier read.
+    if (schedule.targets.length && changesRampPlan(req.body, schedule)) {
+      await assertRampScheduleReplanAllowed(
+        this.context,
+        schedule,
+        canUseRestApiBypassSetting(req),
       );
     }
 
@@ -780,6 +859,35 @@ export class RampScheduleModel extends BaseClass {
         ? updates.startApprovedAt
         : schedule.startApprovedAt) as Date | null | undefined,
     });
+
+    // Same publish-class gate as the dashboard PUT; canUpdate() alone passes
+    // with draft access, which is right for name/monitoring edits only.
+    await assertCanEditRampScheduleConfig(this.context, schedule, updates);
+    // In-lock, after the permission gate: targets resolve against the in-lock
+    // document.
+    await this.validateApiPlanPatches(req.context, schedule, updates);
+
+    // Rule values are strings; bring any raw JSON `force` in the new plan to
+    // that form and reject a value the feature's type does not accept. A
+    // start value echoing the rule's own or the stored anchor is not judged.
+    const feature = this.getForeignRefs(schedule, false).feature;
+    Object.assign(
+      updates,
+      normalizeRampPlanForceValues(
+        updates as Pick<
+          RampScheduleInterface,
+          "steps" | "startActions" | "endActions"
+        >,
+        feature,
+        {
+          knownStartValues: rampStartValuesOf(
+            feature,
+            schedule.targets,
+            schedule.startActions,
+          ),
+        },
+      ),
+    );
 
     const editedFields = Object.keys(updates).filter(
       (k) => k !== "nextProcessAt" && k !== "eventHistory",

@@ -10,6 +10,10 @@ import {
   hideTimeColumn,
   parseRowFilterDateValue,
   getAllowedOperators,
+  getRowFilterColumnChange,
+  getRowFilterOperatorChange,
+  getRowFilterInputState,
+  isRowFilterComplete,
 } from "@/components/FactTables/rowFilterUtils";
 
 /** Wall-clock the picker would display for a parsed value. */
@@ -284,5 +288,134 @@ describe("getAllowedOperators", () => {
     for (const datatype of ["string", "number", "boolean", "json", ""]) {
       expect(getAllowedOperators(datatype)).toContain("is_null");
     }
+  });
+});
+
+describe("getRowFilterColumnChange", () => {
+  it("selects a saved filter in one step", () => {
+    expect(
+      getRowFilterColumnChange(
+        "$$saved_filter:flt_1",
+        { operator: "=", column: "country", values: ["US"] },
+        "",
+      ),
+    ).toEqual({ operator: "saved_filter", values: ["flt_1"] });
+  });
+
+  it("resets the operator when it doesn't apply to the new datatype", () => {
+    expect(
+      getRowFilterColumnChange(
+        "is_paid",
+        { operator: "contains", column: "country", values: ["US"] },
+        "boolean",
+      ),
+    ).toEqual({ operator: "is_true", column: "is_paid", values: [] });
+  });
+
+  it("keeps a compatible operator but drops non-numeric values", () => {
+    expect(
+      getRowFilterColumnChange(
+        "revenue",
+        { operator: "in", column: "country", values: ["10", "US"] },
+        "number",
+      ),
+    ).toEqual({ operator: "in", column: "revenue", values: ["10"] });
+  });
+
+  it("leaves saved_filter behind when switching to a column", () => {
+    expect(
+      getRowFilterColumnChange(
+        "country",
+        { operator: "saved_filter", values: ["flt_1"] },
+        "string",
+      ),
+    ).toEqual({ operator: "=", column: "country", values: [] });
+  });
+
+  it("keeps a saved `= false` boolean predicate when changing columns", () => {
+    const filter = {
+      operator: "=" as const,
+      column: "is_paid",
+      values: ["false"],
+    };
+    expect(getRowFilterColumnChange("is_active", filter, "boolean")).toEqual({
+      operator: "is_false",
+      column: "is_active",
+      values: ["false"],
+    });
+    // Normalization is derived — the caller's filter must stay untouched.
+    expect(filter).toEqual({
+      operator: "=",
+      column: "is_paid",
+      values: ["false"],
+    });
+  });
+});
+
+describe("getRowFilterInputState", () => {
+  it("hides the value editor for saved boolean equality", () => {
+    const filter = {
+      operator: "=" as const,
+      column: "is_paid",
+      values: ["false"],
+    };
+    const state = getRowFilterInputState({
+      operator: filter.operator,
+      values: filter.values,
+      datatype: "boolean",
+      topValues: [],
+    });
+    expect(state.displayOperator).toBe("is_false");
+    expect(state.valueInputRequired).toBe(false);
+    expect(filter).toEqual({
+      operator: "=",
+      column: "is_paid",
+      values: ["false"],
+    });
+  });
+});
+
+describe("getRowFilterOperatorChange", () => {
+  it("strips empty strings when switching to a multi-value operator", () => {
+    expect(
+      getRowFilterOperatorChange(
+        "in",
+        { operator: "=", column: "country", values: ["US", ""] },
+        false,
+      ),
+    ).toEqual({ operator: "in", values: ["US"] });
+  });
+});
+
+describe("isRowFilterComplete", () => {
+  it("requires a non-empty value for sql_expr and saved_filter", () => {
+    expect(isRowFilterComplete({ operator: "sql_expr", values: [""] })).toBe(
+      false,
+    );
+    expect(
+      isRowFilterComplete({ operator: "sql_expr", values: ["a = 1"] }),
+    ).toBe(true);
+    expect(
+      isRowFilterComplete({ operator: "saved_filter", values: ["flt_1"] }),
+    ).toBe(true);
+  });
+
+  it("requires only a column for value-less operators", () => {
+    expect(isRowFilterComplete({ operator: "is_null", column: "a" })).toBe(
+      true,
+    );
+    expect(isRowFilterComplete({ operator: "is_null" })).toBe(false);
+  });
+
+  it("requires both a column and a value otherwise", () => {
+    expect(
+      isRowFilterComplete({ operator: "=", column: "a", values: [""] }),
+    ).toBe(false);
+    expect(
+      isRowFilterComplete({ operator: "=", column: "", values: ["x"] }),
+    ).toBe(false);
+    expect(
+      isRowFilterComplete({ operator: "=", column: "a", values: ["x"] }),
+    ).toBe(true);
   });
 });

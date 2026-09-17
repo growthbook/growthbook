@@ -1494,6 +1494,15 @@ describe("v0 Feature Migration", () => {
     });
   });
 
+  it("stores a rule value written as a raw JSON type as its string form", () => {
+    const force = (value: unknown) =>
+      ({ id: "r", type: "force", value }) as unknown as FeatureRule;
+    expect(upgradeFeatureRule(force(false)).value).toBe("false");
+    expect(upgradeFeatureRule(force({ limit: 5 })).value).toBe('{"limit":5}');
+    expect(upgradeFeatureRule(force("true")).value).toBe("true");
+    expect(upgradeFeatureRule(force(undefined))).toEqual(force(undefined));
+  });
+
   it("migrates old feature rules", () => {
     const origRule: ExperimentRule = {
       type: "experiment",

@@ -228,6 +228,16 @@ export default function ConfigureReport({
                 ) ?? form.watch("experimentAnalysisSettings.userIdType")
               }
               newUi={false}
+              cutoffBounds={{
+                min: getValidDate(
+                  form.watch("experimentAnalysisSettings.dateStarted"),
+                ),
+                max: form.watch("experimentAnalysisSettings.dateEnded")
+                  ? getValidDate(
+                      form.watch("experimentAnalysisSettings.dateEnded") ?? "",
+                    )
+                  : new Date(),
+              }}
             />
             <SelectField
               size="legacy"

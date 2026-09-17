@@ -30,7 +30,10 @@ import {
   stemRuleId,
   stripConfigExtends,
 } from "shared/util";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getActiveVariations,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { cloneDeep, isNil, pick } from "lodash";
@@ -647,6 +650,147 @@ export function experimentMapForFeatures(
   );
 }
 
+// Gates live in three places — the feature, its rules, and the phases of any
+// experiment those rules reference — and all three become `parentConditions`.
+export function getPrerequisiteIdsInFeatures(
+  features: FeatureInterface[],
+  experimentMap?: Map<string, ExperimentInterface>,
+): string[] {
+  const ids = new Set<string>();
+
+  features.forEach((feature) => {
+    (feature.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
+
+    (feature.rules ?? []).forEach((rule) => {
+      if (!rule || typeof rule !== "object") return;
+      if (rule.enabled === false) return;
+
+      (rule.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
+
+      if (!experimentMap || rule.type !== "experiment-ref") return;
+      const phase = experimentMap
+        .get(rule.experimentId)
+        ?.phases?.slice(-1)?.[0];
+      (phase?.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
+    });
+  });
+
+  return [...ids];
+}
+
+// A gate whose parent is absent from the payload can never pass, so a delivered
+// feature's prerequisites travel with it even when they target other projects.
+export function featuresWithPrerequisiteClosure(
+  features: FeatureInterface[],
+  featuresMap: Map<string, FeatureInterface>,
+  experimentMap?: Map<string, ExperimentInterface>,
+): { features: FeatureInterface[]; carried: Set<string> } {
+  const carried = new Set<string>();
+  const present = new Set(features.map((f) => f.id));
+
+  let frontier = features;
+  while (frontier.length) {
+    const next: FeatureInterface[] = [];
+    for (const id of getPrerequisiteIdsInFeatures(frontier, experimentMap)) {
+      if (present.has(id)) continue;
+      const parent = featuresMap.get(id);
+      if (!parent) continue;
+      present.add(id);
+      carried.add(id);
+      next.push(parent);
+    }
+    frontier = next;
+  }
+
+  return {
+    features: carried.size
+      ? [...features, ...[...carried].map((id) => featuresMap.get(id)!)]
+      : features,
+    carried,
+  };
+}
+
+// Closure delivers a parent into payloads its own projects don't name, so a
+// change to it produces keys that miss them. Maps a project to the projects
+// whose payloads may carry a feature from it, so keys can be widened without
+// knowing which feature changed.
+export function buildPrerequisiteProjectReach(
+  features: FeatureInterface[],
+  allProjectIds: string[] = [],
+  experimentMap?: Map<string, ExperimentInterface>,
+): Map<string, Set<string>> {
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+  const reach = new Map<string, Set<string>>();
+
+  const link = (from: string, to: string) => {
+    if (!from || !to || from === to) return;
+    const set = reach.get(from) ?? new Set<string>();
+    set.add(to);
+    reach.set(from, set);
+  };
+
+  for (const dependent of features) {
+    // An all-projects dependent carries its prerequisites everywhere. The ""
+    // key doesn't cover that — it only reaches connections with no project
+    // filter unless treatEmptyProjectAsGlobal.
+    const dependentProjects =
+      getTargetingProjectIds(dependent) ?? allProjectIds;
+
+    for (const parentId of getPrerequisiteIdsInFeatures(
+      [dependent],
+      experimentMap,
+    )) {
+      const parent = featuresMap.get(parentId);
+      if (!parent) continue;
+      const parentProjects = getTargetingProjectIds(parent);
+      if (parentProjects === null) continue;
+      parentProjects.forEach((from) =>
+        dependentProjects.forEach((to) => link(from, to)),
+      );
+    }
+  }
+
+  // A grandparent reaches wherever its parent reaches.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [from, tos] of reach) {
+      for (const to of [...tos]) {
+        for (const onward of reach.get(to) ?? []) {
+          if (onward !== from && !tos.has(onward)) {
+            tos.add(onward);
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  return reach;
+}
+
+export function expandPayloadKeysForPrerequisites(
+  payloadKeys: SDKPayloadKey[],
+  reach: Map<string, Set<string>>,
+): SDKPayloadKey[] {
+  if (!reach.size) return payloadKeys;
+
+  const out = [...payloadKeys];
+  const seen = new Set(payloadKeys.map((k) => JSON.stringify(k)));
+
+  payloadKeys.forEach(({ environment, project }) => {
+    (reach.get(project) ?? []).forEach((p) => {
+      const key = { environment, project: p };
+      const s = JSON.stringify(key);
+      if (seen.has(s)) return;
+      seen.add(s);
+      out.push(key);
+    });
+  });
+
+  return out;
+}
+
 export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
   allowedEnvs: string[],
@@ -1231,12 +1375,19 @@ export function getFeatureDefinition({
             return null;
           }
 
+          // MUST match filterUsedContextualBandits so leaf-weight positions align.
+          const cbActiveVariations = getActiveVariations(cb.variations);
+          // No active arms left: drop the rule instead of serving an empty experiment.
+          if (cbActiveVariations.length === 0) {
+            return null;
+          }
+
           // Store variations under `contextualVariations` (a CB-capability
           // gated key) rather than `variations`. Older SDKs drop this key and,
           // finding no `variations`, skip the rule instead of bucketing users
           // into a plain experiment split. CB-capable SDKs read it back into
           // the experiment during evaluation.
-          rule.contextualVariations = cb.variations.map((v) => {
+          rule.contextualVariations = cbActiveVariations.map((v) => {
             const variation = r.variations?.find(
               (rv) => rv.variationId === v.id,
             );
@@ -1251,7 +1402,7 @@ export function getFeatureDefinition({
               : null;
           });
           rule.weights = cb.variationWeights
-            ? pairedWeightsToPositional(cb.variationWeights, cb.variations)
+            ? pairedWeightsToPositional(cb.variationWeights, cbActiveVariations)
             : undefined;
 
           const cbCapable =
@@ -1264,8 +1415,8 @@ export function getFeatureDefinition({
 
           rule.key = cb.trackingKey;
           rule.meta = includeExperimentNames
-            ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
-            : cb.variations.map((v) => ({ key: v.key }));
+            ? cbActiveVariations.map((v) => ({ key: v.key, name: v.name }))
+            : cbActiveVariations.map((v) => ({ key: v.key }));
           rule.phase = "0";
           if (includeExperimentNames) rule.name = cb.name;
 

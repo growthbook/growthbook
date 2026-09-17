@@ -309,6 +309,11 @@ export type DataSourceSettings = {
     featureUsage?: FeatureUsageQuery[];
   };
   events?: DataSourceEvents;
+  askData?: {
+    enabled?: boolean;
+    runPolicy?: "auto-below-threshold" | "always-confirm";
+    thresholdBytes?: number;
+  };
   default?: {
     timestampColumn?: string;
     userIdColumn?: string;

@@ -1,3 +1,4 @@
+export * from "./dimension-ids";
 export * from "./experiments";
 export * from "./metric-replacement";
 export * from "./outdated-reasons";
@@ -7,4 +8,5 @@ export * from "./variations";
 export * from "./contextual-bandit-columns";
 export * from "./contextual-bandit-condition";
 export * from "./contextual-bandit-weights";
+export * from "./contextual-bandit-variation-changes";
 export * from "./contextual-bandit-results";
