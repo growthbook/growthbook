@@ -1,8 +1,8 @@
-import { getSafeReturnUrl } from "@/services/returnUrl";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { CommercialFeature } from "shared/enterprise";
+import { getSafeReturnUrl } from "@/services/returnUrl";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
