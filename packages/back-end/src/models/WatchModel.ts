@@ -87,4 +87,21 @@ export class WatchModel extends BaseClass {
       [type]: existing[type].filter((el) => el !== item),
     });
   }
+
+  // Called when a feature or experiment is deleted, so no one keeps watching it.
+  public async removeEntityFromAllWatchers({
+    type,
+    item,
+  }: Omit<UpdateWatchOptions, "userId">) {
+    const watchers = await this._find(
+      type === "features" ? { features: item } : { experiments: item },
+    );
+    await Promise.all(
+      watchers.map((watch) =>
+        this._updateOne(watch, {
+          [type]: watch[type].filter((el) => el !== item),
+        }),
+      ),
+    );
+  }
 }
