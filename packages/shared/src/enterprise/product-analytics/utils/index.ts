@@ -1,6 +1,7 @@
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type {
   ExplorationConfig,
+  ExplorationDataset,
   ProductAnalyticsResultRow,
   ShowAs,
 } from "../../../validators/product-analytics";
@@ -40,6 +41,28 @@ export function mapDatabaseTypeToEnum(
   return "other";
 }
 
+/** True when a dataset timestamp field names a real column. Empty string, null, and undefined are all "unset". */
+export function hasTimestampColumn(
+  timestampColumn: string | null | undefined,
+): timestampColumn is string {
+  return typeof timestampColumn === "string" && timestampColumn.length > 0;
+}
+
+/**
+ * SQL and data_source datasets can omit a timestamp (SQL on purpose; data_source
+ * while the user is still picking a column). Other dataset types always have one.
+ */
+export function hasTimeAxis(
+  dataset: Pick<ExplorationDataset, "type"> & {
+    timestampColumn?: string | null;
+  },
+): boolean {
+  if (dataset.type === "sql" || dataset.type === "data_source") {
+    return hasTimestampColumn(dataset.timestampColumn);
+  }
+  return true;
+}
+
 /** Default product analytics config used for new blocks and Explorer initial state. */
 export const DEFAULT_EXPLORE_STATE: ExplorationConfig = {
   type: "metric",
@@ -69,7 +92,9 @@ export const DEFAULT_EXPLORE_STATE: ExplorationConfig = {
 export type ProductAnalyticsExplorationBlockType =
   | "metric-exploration"
   | "fact-table-exploration"
-  | "data-source-exploration";
+  | "data-source-exploration"
+  | "sql-exploration"
+  | "funnel-exploration";
 
 export function getInitialConfigByBlockType(
   blockType: ProductAnalyticsExplorationBlockType,
@@ -103,6 +128,32 @@ export function getInitialConfigByBlockType(
           path: "",
           timestampColumn: "",
           columnTypes: {},
+        },
+        datasource: datasourceId,
+      };
+    case "sql-exploration":
+      return {
+        ...DEFAULT_EXPLORE_STATE,
+        type: "sql",
+        dimensions: [],
+        chartType: "bar",
+        dataset: {
+          type: "sql",
+          values: [],
+          sql: "",
+          timestampColumn: null,
+          columnTypes: {},
+        },
+        datasource: datasourceId,
+      };
+    case "funnel-exploration":
+      return {
+        ...DEFAULT_EXPLORE_STATE,
+        type: "funnel",
+        dataset: {
+          type: "funnel",
+          unit: null,
+          steps: [],
         },
         datasource: datasourceId,
       };
@@ -275,6 +326,17 @@ export function getSharedUnit(config: ExplorationConfig | null): string | null {
   return units.every((u) => u === first) ? first : null;
 }
 
+/** Value-axis title when no custom `valueAxisLabel` is set. Empty when showAs does not apply. */
+export function getDefaultValueAxisName(
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  if (!showAsAppliesTo(config, getFactMetricById)) return "";
+  if (getEffectiveShowAs(config, getFactMetricById) === "total") return "Total";
+  const sharedUnit = getSharedUnit(config);
+  return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+}
+
 /**
  * Computes the effective numeric value for a single metric result cell, given
  * the effective showAs and whether the underlying metric is a ratio. Ratios
@@ -379,7 +441,12 @@ export function buildExplorationColumns(
     cols.push({ kind: "dimension", key: `__dim_${i}__`, label, dimIndex: i });
   });
 
-  const values = config?.dataset?.values ?? [];
+  // Funnel datasets have no `values` — the funnel table builds its own
+  // column layout (see useExplorationTableData). Bail out here with only
+  // dimension columns so the shared schema doesn't claim a value layout
+  // that doesn't exist on the row.
+  const values =
+    config?.dataset?.type === "funnel" ? [] : (config?.dataset?.values ?? []);
   if (values.length === 0) return cols;
 
   const isRatio = getIsRatioByIndex(config, getFactMetricById);
@@ -443,7 +510,10 @@ export function buildExplorationColumns(
 export function getExplorationCellValue(
   row: {
     dimensions: (string | null)[];
-    values: { numerator: number | null; denominator: number | null }[];
+    // Optional because funnel rows carry `steps` instead of `values`. The
+    // shared schema for funnels is dimension-only (no metric columns), so
+    // values is always undefined for funnel callers and treated as empty.
+    values?: { numerator: number | null; denominator: number | null }[];
   },
   col: ExplorationColumn,
   renderOpts: ExplorationRenderOpts,
@@ -451,7 +521,7 @@ export function getExplorationCellValue(
   if (col.kind === "dimension") {
     return row.dimensions[col.dimIndex] ?? null;
   }
-  const v = row.values[col.metricIndex];
+  const v = row.values?.[col.metricIndex];
   if (!v) return null;
   if (col.sub === "numerator") return v.numerator;
   if (col.sub === "denominator") return v.denominator;
@@ -476,7 +546,7 @@ function getRowTotal(
   row: ProductAnalyticsResultRow,
   opts: ExplorationRenderOpts,
 ): number {
-  return row.values.reduce(
+  return (row.values ?? []).reduce(
     (sum, v, i) =>
       sum +
       getEffectiveMetricValue(v, {

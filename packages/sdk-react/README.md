@@ -51,10 +51,11 @@ const gb = new GrowthBook({
   subscribeToChanges: true,
   // Only required for A/B testing
   // Called every time a user is put into an experiment
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     console.log("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
@@ -242,21 +243,24 @@ In order to run A/B tests, you need to set up a tracking callback function. This
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  trackingCallback: (experiment, result) => {
+  trackingCallback: (experiment, result, user) => {
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
       variationId: result.key,
+      attributes: user?.attributes,
     });
   },
 });
 ```
 
+Starting in version 1.7.0, the callback receives a third `user` argument: a `TrackingUserContext` containing the `attributes` and optional `url` used when the experiment was evaluated. We recommend recording attributes from this argument so exposure events consistently reflect the attributes GrowthBook used for targeting and assignment.
+
 This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
 
 ### Feature Flag Experiments
 
-There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+Evaluate the feature (for example with `useFeatureValue` or `useFeatureIsOn`) to enter a feature flag experiment; that is when `trackingCallback` runs. If they are not included, you still get a value and `trackingCallback` does not run.
 
 ```js
 // If this has an active experiment and the user is included,

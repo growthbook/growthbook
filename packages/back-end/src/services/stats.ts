@@ -7,14 +7,17 @@ import {
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 
-import { putBaselineVariationFirst } from "shared/util";
+import { parseEnvInt, putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
   eligibleForUncappedMetric,
+  getFunnelStepMetrics,
   isBinomialMetric,
   isFactMetric,
+  isFactFunnelMetric,
   isRatioMetric,
   isRegressionAdjusted,
+  parseDimensionId,
   quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
@@ -49,6 +52,8 @@ import {
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
   SnapshotBanditSettings,
+  SnapshotMetric,
+  SnapshotVariation,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import { BanditResult } from "shared/types/experiment";
@@ -66,9 +71,11 @@ import {
   MAX_METRICS_PER_QUERY,
   MAX_ROWS_UNIT_AGGREGATE_QUERY,
 } from "back-end/src/services/experimentQueries/constants";
+import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/funnelMetricBlock";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
+import { getErrorMessage } from "back-end/src/util/errors";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -103,7 +110,7 @@ export function getAnalysisSettingsForStatsEngine(
     phase_length_days: phaseLengthDays,
     alpha: pValueThresholdNumber,
     max_dimensions:
-      settings.dimensions[0]?.substring(0, 8) === "pre:date"
+      parseDimensionId(settings.dimensions[0] || "").kind === "date"
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
@@ -141,6 +148,13 @@ export function getBanditSettingsForStatsEngine(
   };
 }
 
+/** Upper bound for one external stats-engine call; mirrors the local engine timeout. */
+const EXTERNAL_PYTHON_SERVER_TIMEOUT_MS = parseEnvInt(
+  process.env.GB_EXTERNAL_STATS_TIMEOUT_MS,
+  600_000,
+  { min: 1, name: "GB_EXTERNAL_STATS_TIMEOUT_MS" },
+);
+
 export async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[],
 ): Promise<MultipleExperimentMetricAnalysis[]> {
@@ -149,6 +163,7 @@ export async function runStatsEngine(
       `${process.env.EXTERNAL_PYTHON_SERVER_URL}/stats`,
       {
         method: "POST",
+        signal: AbortSignal.timeout(EXTERNAL_PYTHON_SERVER_TIMEOUT_MS),
         headers: {
           "Content-Type": "application/json",
           ...(process.env.PYTHON_SERVER_AUTH_TOKEN
@@ -425,17 +440,50 @@ export function getMetricsAndQueryDataForStatsEngine(
 
           const metric = metricMap.get(metricId);
           // skip any metrics somehow missing from map
-          if (metric) {
-            metricIds.push(metricId);
-            metricSettings[metricId] = getMetricSettingsForStatsEngine(
+          if (!metric) {
+            metricIds.push(null);
+            continue;
+          }
+
+          // A funnel occupies one slot in this query but has no main_sum of
+          // its own — its block is a sum per step. Vacate the slot and hand
+          // gbstats a separate result whose metrics are the per-step binomials.
+          if (isFactFunnelMetric(metric)) {
+            metricIds.push(null);
+            queryResults.push(
+              splitFunnelMetricBlock({
+                metric,
+                slotAlias: `m${i}`,
+                rows,
+                sql: query.query,
+              }),
+            );
+
+            metricSettings[metric.id] = getMetricSettingsForStatsEngine(
               metric,
               metricMap,
               settings,
               true,
             );
-          } else {
-            metricIds.push(null);
+
+            getFunnelStepMetrics(metric).forEach((stepMetric) => {
+              metricSettings[stepMetric.id] = getMetricSettingsForStatsEngine(
+                stepMetric,
+                metricMap,
+                settings,
+                true,
+              );
+            });
+            continue;
           }
+
+          metricIds.push(metricId);
+          metricSettings[metricId] = getMetricSettingsForStatsEngine(
+            metric,
+            metricMap,
+            settings,
+            true,
+          );
         }
         queryResults.push({
           metrics: metricIds,
@@ -461,6 +509,7 @@ export function getMetricsAndQueryDataForStatsEngine(
       });
     });
   }
+
   return {
     queryResults,
     metricSettings,
@@ -475,15 +524,27 @@ const getFormattedCI = (
   return [ci[0] ?? -Infinity, ci[1] ?? Infinity];
 };
 
-function parseStatsEngineResult({
+const getFailedMetricResult = (errorMessage: string): SnapshotMetric => ({
+  users: 0,
+  value: 0,
+  cr: 0,
+  buckets: [],
+  errorMessage,
+  // Marks an analysis-level compute failure, distinct from the benign
+  // per-variation errorMessage gbstats stamps on successful snapshots.
+  // TODO: change how we handle expected vs unexpected errors so we can remove this flag
+  computeFailed: true,
+});
+
+export function parseStatsEngineResult({
   analysisSettings,
   snapshotSettings,
   queryResults,
   unknownVariations,
-  result,
+  result: metricResults,
 }: {
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "variations">;
   queryResults: QueryResultsForStatsEngine[];
   unknownVariations: string[];
   result: ExperimentMetricAnalysis;
@@ -491,97 +552,127 @@ function parseStatsEngineResult({
   let unknownVariationsCopy = [...unknownVariations];
 
   const experimentReportResults: ExperimentReportResults[] = [];
-  // TODO fix for dimension slices and move to health query
+  // Fallback when there is no traffic query; see analyzeExperimentTraffic.
+  // Rows are one per (variation × dimension slice), so sum the slices within
+  // a query; the unit set is the same across queries, so max is a safe merge
   const multipleExposures = Math.max(
     0,
-    ...queryResults.map(
-      (q) =>
-        q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
+    ...queryResults.map((q) =>
+      q.rows
+        .filter((r) => r.variation === "__multiple__")
+        .reduce((sum, r) => sum + (Number(r.users) || 0), 0),
     ),
   );
 
-  analysisSettings.forEach((_, i) => {
+  analysisSettings.forEach((_, analysisIndex) => {
     const dimensionMap: Map<string, ExperimentReportResultDimension> =
       new Map();
-    result.forEach(({ metric, analyses }) => {
+    const failedMetrics: SnapshotVariation["metrics"] = {};
+    for (const { metric, analyses } of metricResults) {
       // each result can have multiple analyses (a set of computations that
       // use the same snapshot)
       // we loop over the analyses requested and pull out the results for each one
-      const result = analyses[i];
-      if (!result) return;
+      const analysisResult = analyses[analysisIndex];
+      if (!analysisResult) continue;
 
-      unknownVariationsCopy = unknownVariationsCopy.concat(
-        result.unknownVariations,
-      );
+      const analysisError = analysisResult.error ?? null;
+      if (analysisError !== null) {
+        logger.error(
+          "Metric analysis failed in stats engine:\n" +
+            (analysisResult.traceback
+              ? `${analysisError}\n\n${analysisResult.traceback}`
+              : analysisError),
+        );
+        failedMetrics[metric] = getFailedMetricResult(analysisError);
+        continue;
+      }
 
-      result.dimensions.forEach((row) => {
-        const dim = dimensionMap.get(row.dimension) || {
-          name: row.dimension,
-          srm: 1,
-          variations: [],
-        };
+      try {
+        unknownVariationsCopy = unknownVariationsCopy.concat(
+          analysisResult.unknownVariations,
+        );
 
-        row.variations.forEach((v, i) => {
-          const data = dim.variations[i] || {
-            users: v.users,
-            metrics: {},
+        analysisResult.dimensions.forEach((row) => {
+          const dim = dimensionMap.get(row.dimension) || {
+            name: row.dimension,
+            srm: 1,
+            variations: [],
           };
-          data.users = Math.max(data.users, v.users);
 
-          // translate null in CI to infinity
-          if ("ci" in v) {
-            v.ci = getFormattedCI(v.ci);
-          }
-          if (
-            v.supplementalResults?.cupedUnadjusted &&
-            "ci" in v.supplementalResults.cupedUnadjusted
-          ) {
-            v.supplementalResults.cupedUnadjusted.ci = getFormattedCI(
-              v.supplementalResults.cupedUnadjusted.ci,
-            );
-          }
-          if (
-            v.supplementalResults?.uncapped &&
-            "ci" in v.supplementalResults.uncapped
-          ) {
-            v.supplementalResults.uncapped.ci = getFormattedCI(
-              v.supplementalResults.uncapped.ci,
-            );
-          }
-          if (
-            v.supplementalResults?.unstratified &&
-            "ci" in v.supplementalResults.unstratified
-          ) {
-            v.supplementalResults.unstratified.ci = getFormattedCI(
-              v.supplementalResults.unstratified.ci,
-            );
-          }
-          if (
-            v.supplementalResults?.noVarianceReduction &&
-            "ci" in v.supplementalResults.noVarianceReduction
-          ) {
-            v.supplementalResults.noVarianceReduction.ci = getFormattedCI(
-              v.supplementalResults.noVarianceReduction.ci,
-            );
-          }
+          row.variations.forEach((v, variationIndex) => {
+            const data = dim.variations[variationIndex] || {
+              users: v.users,
+              metrics: {},
+            };
+            data.users = Math.max(data.users, v.users);
 
-          data.metrics[metric] = {
-            ...v,
-            buckets: [],
-          };
-          dim.variations[i] = data;
+            // translate null in CI to infinity
+            if ("ci" in v) {
+              v.ci = getFormattedCI(v.ci);
+            }
+            if (
+              v.supplementalResults?.cupedUnadjusted &&
+              "ci" in v.supplementalResults.cupedUnadjusted
+            ) {
+              v.supplementalResults.cupedUnadjusted.ci = getFormattedCI(
+                v.supplementalResults.cupedUnadjusted.ci,
+              );
+            }
+            if (
+              v.supplementalResults?.uncapped &&
+              "ci" in v.supplementalResults.uncapped
+            ) {
+              v.supplementalResults.uncapped.ci = getFormattedCI(
+                v.supplementalResults.uncapped.ci,
+              );
+            }
+            if (
+              v.supplementalResults?.unstratified &&
+              "ci" in v.supplementalResults.unstratified
+            ) {
+              v.supplementalResults.unstratified.ci = getFormattedCI(
+                v.supplementalResults.unstratified.ci,
+              );
+            }
+            if (
+              v.supplementalResults?.noVarianceReduction &&
+              "ci" in v.supplementalResults.noVarianceReduction
+            ) {
+              v.supplementalResults.noVarianceReduction.ci = getFormattedCI(
+                v.supplementalResults.noVarianceReduction.ci,
+              );
+            }
+
+            data.metrics[metric] = {
+              ...v,
+              buckets: [],
+            };
+            dim.variations[variationIndex] = data;
+          });
+
+          dimensionMap.set(row.dimension, dim);
         });
-
-        dimensionMap.set(row.dimension, dim);
-      });
-    });
+      } catch (error) {
+        const errorMessage = getErrorMessage(error);
+        logger.error(
+          `Failed to process stats engine result for metric ${metric}: ${errorMessage}`,
+        );
+        failedMetrics[metric] = getFailedMetricResult(errorMessage);
+      }
+    }
 
     const dimensions = Array.from(dimensionMap.values());
-    if (!dimensions.length) {
+    const hasFailedMetrics = Object.keys(failedMetrics).length > 0;
+    if (dimensions.length === 0) {
       dimensions.push({
         name: "All",
         srm: 1,
-        variations: [],
+        variations: hasFailedMetrics
+          ? snapshotSettings.variations.map(() => ({
+              users: 0,
+              metrics: cloneDeep(failedMetrics),
+            }))
+          : [],
       });
     } else {
       dimensions.forEach((dimension) => {
@@ -590,6 +681,14 @@ function parseStatsEngineResult({
           dimension.variations.map((v) => v.users),
           snapshotSettings.variations.map((v) => v.weight),
         );
+        if (hasFailedMetrics) {
+          dimension.variations.forEach((variation) => {
+            variation.metrics = {
+              ...variation.metrics,
+              ...cloneDeep(failedMetrics),
+            };
+          });
+        }
       });
     }
     experimentReportResults.push({
@@ -757,6 +856,7 @@ export function analyzeExperimentTraffic({
   const trafficResults: ExperimentSnapshotTraffic = {
     overall: overallResult,
     dimension: {},
+    multipleExposures: 0,
   };
 
   let banditSrmSet = false;
@@ -764,6 +864,15 @@ export function analyzeExperimentTraffic({
     if (r.dimension_name === BANDIT_SRM_DIMENSION_NAME) {
       trafficResults.overall.srm = chi2pvalue(r.units, variations.length - 1);
       banditSrmSet = true;
+    }
+    // Every dimension repeats the __multiple__ units, so count them once
+    // via the exposure-date dimension (which also feeds the overall counts)
+    if (
+      r.variation === "__multiple__" &&
+      r.dimension_name === EXPOSURE_DATE_DIMENSION_NAME
+    ) {
+      trafficResults.multipleExposures =
+        (trafficResults.multipleExposures ?? 0) + (Number(r.units) || 0);
     }
     const variationIndex = variationIdMap[r.variation];
     // skip if variation is not found (this happens if variation is __multiple__)

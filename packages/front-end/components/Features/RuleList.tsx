@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
@@ -28,15 +29,16 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { ruleFootprint } from "shared/util";
+import { getTargetingProjectIds, ruleProjectScope } from "shared/util";
 import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import { getRules, isRuleInactive } from "@/services/features";
 import {
   buildConflictBanners,
   ConflictBanner,
-  getRuleReachability,
-  RuleReachability,
+  getReachabilityCells,
+  OTHER_PROJECT_BUCKET,
   SavedGroupForConflicts,
 } from "@/services/rule-conflicts";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -54,6 +56,7 @@ type CommonProps = {
     ruleId?: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
+    rampToNewValue?: boolean;
   }) => void;
   version: number;
   setVersion: (version: number) => void;
@@ -66,10 +69,15 @@ type CommonProps = {
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
   holdoutIsDeleted: boolean;
+  holdoutIsPendingAdd: boolean;
   openHoldoutModal: () => void;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
   draftRevision?: FeatureRevisionInterface | null;
+  // The revision the draft is based on — lets us tell an intentional disable
+  // (draft changed enabled vs its base) from a stale-inherited one (a rebase
+  // would reconcile to live's value).
+  baseRevision?: FeatureRevisionInterface | null;
   // allEnvsView visibility filter; reorder still resolves against feature.rules.
   hiddenRuleIds?: Set<string>;
 };
@@ -104,36 +112,44 @@ export default function RuleList(props: RuleListProps) {
     safeRolloutsMap,
     holdout,
     holdoutIsDeleted,
+    holdoutIsPendingAdd,
     openHoldoutModal,
     revisionList,
     rampSchedules,
     draftRevision,
+    baseRevision,
     allEnvsView,
     hiddenRuleIds,
   } = props;
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-  const { savedGroups } = useDefinitions();
+  const { savedGroups, getProjectById } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Saved group definitions for conflict detection. Condition groups carry
-  // their `condition` in the definitions payload, but ID-list `values` are
-  // stripped from it (for size), so we fetch those lazily below. Until they
-  // arrive, a list group is opaque — conflict detection still surfaces soft
-  // overlap on its attribute, then upgrades to precise conflicts once values
-  // load and this map (and the memos below) recompute.
+  const { data: savedGroupsWithCondition } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const conditionById = useMemo<Map<string, string | undefined>>(() => {
+    const map = new Map<string, string | undefined>();
+    for (const g of savedGroupsWithCondition?.savedGroups ?? []) {
+      map.set(g.id, g.condition);
+    }
+    return map;
+  }, [savedGroupsWithCondition]);
+
+  // Missing conditions or values keep conflict detection conservative.
   const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
     const map = new Map<string, SavedGroupForConflicts>();
     for (const g of savedGroups) {
       map.set(g.id, {
         type: g.type,
         attributeKey: g.attributeKey,
-        condition: g.condition,
+        condition: conditionById.get(g.id),
       });
     }
     return map;
-  }, [savedGroups]);
+  }, [savedGroups, conditionById]);
 
   // ID-list saved group ids referenced by this feature's rules (any env).
   const referencedListGroupIds = useMemo<string[]>(() => {
@@ -219,11 +235,39 @@ export default function RuleList(props: RuleListProps) {
   // Ramp schedules: in single-env mode filter to that env so only rules
   // visible in this projection get pending-publish badges. In all-envs mode
   // we want every pending schedule, regardless of env.
+  // The PERSISTED schedules and the LIVE rules, for the runtime-control authority
+  // check only. `rampSchedulesMap` merges draft steps and `feature` is the draft
+  // projection, so measuring runtime controls against either diverged from the gate,
+  // which reads both from live state.
+  const liveRampSchedulesMap = useMemo(() => {
+    const map = new Map<string, RampScheduleInterface>();
+    for (const schedule of rampSchedules ?? []) {
+      for (const target of schedule.targets ?? []) {
+        if (target.ruleId) map.set(target.ruleId, schedule);
+      }
+    }
+    return map;
+  }, [rampSchedules]);
+
+  const liveRulesById = useMemo(
+    () => new Map((baseFeature.rules ?? []).map((r) => [r.id ?? "", r])),
+    [baseFeature],
+  );
+
   const rampSchedulesMap = buildRuleRampScheduleMap({
     rampSchedules,
     draftRevision,
     environment: allEnvsView ? undefined : props.environment,
   });
+  // Env-unfiltered: "Ramp to new value" must be blocked when the rule is
+  // ramping in any environment, not just the viewed one.
+  const anyEnvRampSchedulesMap = allEnvsView
+    ? rampSchedulesMap
+    : buildRuleRampScheduleMap({
+        rampSchedules,
+        draftRevision,
+        environment: undefined,
+      });
 
   // Reachability & targeting-conflict detection.
   //   single-env: per-rule analysis of `items` in evaluation order.
@@ -232,87 +276,95 @@ export default function RuleList(props: RuleListProps) {
   //     unreachable in production but only soft-conflicting in dev shows both,
   //     each naming its environments. Rules with no env footprint never apply
   //     anywhere and are surfaced via the "No environments" badge.
-  const reachabilityByRule = useMemo<Map<string, RuleReachability>>(
-    () =>
-      allEnvsView
-        ? new Map()
-        : getRuleReachability(items, experimentsMap, savedGroupConflictMap),
-    [allEnvsView, items, experimentsMap, savedGroupConflictMap],
-  );
-
-  const reachByEnv = useMemo<Map<string, Map<string, RuleReachability>>>(() => {
-    const map = new Map<string, Map<string, RuleReachability>>();
-    if (!allEnvsView) return map;
-    for (const e of props.environments) {
-      map.set(
-        e.id,
-        getRuleReachability(
-          getRules(feature, e.id),
-          experimentsMap,
-          savedGroupConflictMap,
-        ),
-      );
+  // Project buckets from the staged revision scope (falling back to the live feature).
+  const projectBuckets = useMemo<string[]>(() => {
+    const meta = draftRevision?.metadata;
+    const deliveryIds = getTargetingProjectIds({
+      project: meta?.project ?? feature.project,
+      targetingProjects: meta?.targetingProjects ?? feature.targetingProjects,
+      targetingAllProjects:
+        meta?.targetingAllProjects ?? feature.targetingAllProjects,
+    });
+    if (deliveryIds === null) {
+      // Delivers to all projects (can't enumerate): partition by rule-scoped projects + sentinel.
+      const scoped = new Set<string>();
+      for (const r of feature.rules ?? []) {
+        ruleProjectScope(r)?.forEach((p) => scoped.add(p));
+      }
+      return [...scoped, OTHER_PROJECT_BUCKET];
     }
-    return map;
+    return deliveryIds.length ? deliveryIds : [""];
+  }, [
+    draftRevision,
+    feature.project,
+    feature.targetingProjects,
+    feature.targetingAllProjects,
+    feature.rules,
+  ]);
+
+  // A feature reaching >1 project gets project-nuanced conflict messaging.
+  const multiProject = projectBuckets.length > 1;
+
+  const cellsByRule = useMemo(() => {
+    const rulesByEnv = allEnvsView
+      ? props.environments.map((e) => ({
+          env: e.id,
+          rules: getRules(feature, e.id),
+        }))
+      : [{ env: props.environment, rules: items }];
+    return getReachabilityCells(
+      rulesByEnv,
+      projectBuckets,
+      experimentsMap,
+      savedGroupConflictMap,
+    );
   }, [
     allEnvsView,
-    feature,
-    experimentsMap,
     props.environments,
+    props.environment,
+    feature,
+    items,
+    projectBuckets,
+    experimentsMap,
     savedGroupConflictMap,
   ]);
 
-  // Per-rule conflict banners. Single-env → at most one banner (env unnamed);
-  // all-envs → one banner per status, each naming the environments that share
-  // it. The "rule number" shown in the details maps a consuming rule's id to its
-  // 1-based position (offset by 1 for the holdout row when present).
+  // Per-rule conflict banners. Multi-project features add "…for project X" when a
+  // status is confined to some projects. "rule number" = 1-based position (+1 for holdout).
   const bannersByRule = useMemo<Map<string, ConflictBanner[]>>(() => {
     const flat = feature.rules ?? [];
-    const offset = holdout ? 2 : 1;
+    const offset = holdout || holdoutIsPendingAdd ? 2 : 1;
     const ruleNumber = (id: string) => {
       const idx = flat.findIndex((r) => r.id === id);
       return idx === -1 ? undefined : idx + offset;
     };
+    const projectLabel = (id: string) => getProjectById(id)?.name ?? id;
     const out = new Map<string, ConflictBanner[]>();
-    if (!allEnvsView) {
-      for (const rule of items) {
-        const reach = reachabilityByRule.get(rule.id);
-        if (!reach) continue;
-        out.set(
-          rule.id,
-          buildConflictBanners(
-            [{ env: props.environment, reach }],
-            ruleNumber,
-            false,
-          ),
-        );
-      }
-    } else {
-      const envIds = props.environments.map((e) => e.id);
-      for (const rule of items) {
-        const perEnv = ruleFootprint(rule, envIds)
-          .map((env) => ({ env, reach: reachByEnv.get(env)?.get(rule.id) }))
-          .filter(
-            (x): x is { env: string; reach: RuleReachability } => !!x.reach,
-          );
-        out.set(rule.id, buildConflictBanners(perEnv, ruleNumber, true));
-      }
+    for (const rule of items) {
+      const cells = cellsByRule.get(rule.id) ?? [];
+      out.set(
+        rule.id,
+        buildConflictBanners(cells, ruleNumber, !!allEnvsView, {
+          multiProject,
+          projectLabel,
+        }),
+      );
     }
     return out;
   }, [
-    allEnvsView,
     items,
-    reachabilityByRule,
-    reachByEnv,
-    props.environment,
-    props.environments,
+    cellsByRule,
+    allEnvsView,
+    multiProject,
     feature.rules,
     holdout,
+    holdoutIsPendingAdd,
+    getProjectById,
   ]);
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
-  if (!items.length && !holdout && !holdoutIsDeleted) {
+  if (!items.length && !holdout && !holdoutIsDeleted && !holdoutIsPendingAdd) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
@@ -355,9 +407,7 @@ export default function RuleList(props: RuleListProps) {
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
-  const canEdit =
-    permissionsUtil.canViewFeatureModal(feature.project) &&
-    permissionsUtil.canManageFeatureDrafts(feature);
+  const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
 
   // Optimistic reorder + flat-index API call. Used by both DnD onDragEnd and
   // the per-rule "Move up/down" menu items, so they share the same translation
@@ -409,10 +459,11 @@ export default function RuleList(props: RuleListProps) {
             <em>No Active Rules</em>
           </div>
         )}
-        {(holdout || holdoutIsDeleted) && (
+        {(holdout || holdoutIsDeleted || holdoutIsPendingAdd) && (
           <HoldoutRule
             feature={holdoutIsDeleted ? baseFeature : feature}
             isDeleted={holdoutIsDeleted}
+            isPendingAdd={holdoutIsPendingAdd}
             setRuleModal={openHoldoutModal}
             mutate={mutate}
             revisionList={revisionList}
@@ -431,18 +482,40 @@ export default function RuleList(props: RuleListProps) {
             const canMoveToTop = canEdit && i > 0;
             // Don't show "move to bottom" if already at bottom
             const canMoveToBottom = canEdit && i < items.length - 1;
-            // Warn when a draft rule is disabled but the live counterpart is
-            // enabled and the live feature has advanced since the draft was
-            // created — surfaces stale drafts that would re-disable a rule
-            // recently enabled by a schedule. Gated on baseVersion < live
-            // version so intentional disables in fresh drafts don't trigger it.
-            const liveEnabledDraftDisabled =
+            // Divergence signals for a draft whose base is behind live.
+            const draftBehindLive =
               isDraft &&
+              (draftRevision?.baseVersion ?? Infinity) < baseFeature.version;
+            const liveRule = (baseFeature.rules ?? []).find(
+              (r) => r.id === rule.id,
+            );
+            // Aggressive: the draft intentionally disabled a rule that's enabled
+            // in live (the disable is the draft's own change vs its base, not
+            // stale-inherited) — publishing really would revert a schedule-driven
+            // enable. `baseRevRuleEnabled === false` means the draft inherited the
+            // disable, so it would NOT revert.
+            const baseRevRuleEnabled = (baseRevision?.rules ?? []).find(
+              (r) => r.id === rule.id,
+            )?.enabled;
+            const willRevertScheduleEnable =
+              draftBehindLive &&
               !rule.enabled &&
-              (draftRevision?.baseVersion ?? Infinity) < baseFeature.version &&
-              (baseFeature.rules ?? []).some(
-                (r) => r.id === rule.id && r.enabled,
-              );
+              !!liveRule?.enabled &&
+              baseRevRuleEnabled !== false;
+            // Gentle: the draft is behind live and this rule's shown state
+            // (enabled or coverage) differs from live for a non-reverting
+            // reason — a rebase reconciles it. One message per rule.
+            const enabledDiffers =
+              draftBehindLive &&
+              !!liveRule &&
+              !!liveRule.enabled !== !!rule.enabled;
+            const coverageDiffers =
+              draftBehindLive &&
+              rule.type === "rollout" &&
+              liveRule?.type === "rollout" &&
+              (liveRule.coverage ?? 1) !== (rule.coverage ?? 1);
+            const draftBehindLiveStale =
+              !willRevertScheduleEnable && (enabledDiffers || coverageDiffers);
             return (
               <SortableRule
                 key={rule.id || i}
@@ -465,9 +538,15 @@ export default function RuleList(props: RuleListProps) {
                 holdout={holdout}
                 revisionList={revisionList}
                 rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
+                hasAnyEnvRampSchedule={anyEnvRampSchedulesMap.has(
+                  rule.id ?? "",
+                )}
+                liveRampSchedule={liveRampSchedulesMap.get(rule.id ?? "")}
+                liveRule={liveRulesById.get(rule.id ?? "")}
                 draftRevision={draftRevision}
                 isAllEnvsView={allEnvsView}
-                liveEnabledDraftDisabled={liveEnabledDraftDisabled}
+                willRevertScheduleEnable={willRevertScheduleEnable}
+                draftBehindLiveStale={draftBehindLiveStale}
                 onMoveUp={
                   canEdit && prevId
                     ? () => reorderByRuleId(rule.id, prevId)
@@ -517,6 +596,11 @@ export default function RuleList(props: RuleListProps) {
               holdout={holdout}
               revisionList={revisionList}
               rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
+              hasAnyEnvRampSchedule={anyEnvRampSchedulesMap.has(
+                activeRule.id ?? "",
+              )}
+              liveRampSchedule={liveRampSchedulesMap.get(activeRule.id ?? "")}
+              liveRule={liveRulesById.get(activeRule.id ?? "")}
               draftRevision={draftRevision}
               isAllEnvsView={allEnvsView}
             />

@@ -69,6 +69,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   datasource: DataSourceInterface;
   params: MixpanelConnectionParams;
   decryptionError: boolean;
+  columnNamesAreCaseSensitive = false;
   constructor(context: ReqContext, datasource: DataSourceInterface) {
     this.context = context;
     this.datasource = datasource;
@@ -783,9 +784,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
     _queryMetadata?: QueryMetadata,
   ): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
-  }
-  getSensitiveParamKeys(): string[] {
-    return ["secret"];
   }
 
   private getMetricFunction(metric: MetricInterface, name: string) {

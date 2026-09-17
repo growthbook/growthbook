@@ -12,12 +12,16 @@ export default function ConstantDraftSelectorForChanges({
 }: {
   constantId: string;
   openRevisions: Revision[];
+  /** Forwarded: only drafts this flow may write into. */
+  canWriteIntoDraft?: (revision: Revision) => boolean;
   allRevisions: Revision[];
   mode: DraftMode;
   setMode: (m: DraftMode) => void;
   selectedDraftId: string | null;
   setSelectedDraftId: (v: string | null) => void;
   canAutoPublish: boolean;
+  /** Whether this caller may STAGE a draft at all; the shell defaults it to true. */
+  canDraft?: boolean;
   approvalRequired: boolean;
   metadataOnly?: boolean;
   defaultExpanded?: boolean;

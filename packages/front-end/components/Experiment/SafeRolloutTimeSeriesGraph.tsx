@@ -500,7 +500,7 @@ function getTooltipContent(
         </Text>
       </Flex>
 
-      <Table size="1">
+      <Table size="sm">
         <TableBody>
           <TableRow
             style={{ color: "var(--color-text-high)", fontWeight: 500 }}

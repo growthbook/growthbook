@@ -1,19 +1,32 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
-import { JsonPatchOperation, Revision } from "shared/enterprise";
+import {
+  JsonPatchOperation,
+  Revision,
+  getConstantRestoreChange,
+} from "shared/enterprise";
 import { ConstantInterface } from "shared/types/constant";
 import {
   postConstantRevisionRevertValidator,
   constantUpdatableFieldsSchema,
 } from "shared/validators";
+import { flipsArchivedState } from "shared/util";
+import {
+  revertRevision,
+  resolveRevertStrategy,
+} from "back-end/src/revisions/revertActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
-  applyPatchToSnapshot,
-  createOrUpdateRevision,
-  ensureLiveRevisionExists,
-} from "back-end/src/revisions/util";
-import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+  archiveServeFootprint,
+  constantPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -22,13 +35,16 @@ export const postConstantRevisionRevert = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
   const adapter = getAdapter("constant");
-  if (!adapter.canUpdate(req.context, constant as Record<string, unknown>)) {
-    req.context.permissions.throwPermissionError();
-  }
+  const revertsBypassApproval =
+    !!req.organization.settings?.revertsBypassApproval;
+  const strategy = resolveRevertStrategy(
+    req.body.strategy,
+    revertsBypassApproval,
+  );
 
   const targetRevision = await loadRevisionByVersion(
     req.context,
@@ -50,121 +66,155 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     targetRevision.target.proposedChanges,
   ) as ConstantInterface;
 
+  // Executing the revert needs revert authority over the environments whose
+  // override the restoration changes; a differing base value carries no
+  // intrinsic environment, matching every other landing. Proposing a draft is
+  // also open to anyone who can author drafts.
+  const {
+    changedEnvironments: revertEnvs,
+    unresolvedOps: revertOpsUnresolved,
+  } = getConstantRestoreChange(constant, targetRevision.target);
+  // Coarse standing before the reconstruction; assertCanRevertRevision below is
+  // authoritative once the change set is known. Subset-refusing.
+  if (
+    (["revert", "draft"] as const).every(
+      (action) =>
+        !req.context.permissions.canRevisionAction(
+          "constant",
+          action,
+          constant,
+          NO_ENVIRONMENT_BINDING,
+        ),
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
   // Diff vs the current live constant; omit fields equal to live.
   const fieldsToUpdate: Record<string, unknown> = {};
   for (const field of Object.keys(constantUpdatableFieldsSchema.shape)) {
     const targetValue = (targetState as Record<string, unknown>)[field];
     const liveValue = (constant as unknown as Record<string, unknown>)[field];
-    if (targetValue !== undefined && !isEqual(targetValue, liveValue)) {
+    if (isEqual(targetValue, liveValue)) continue;
+    if (targetValue !== undefined) {
       fieldsToUpdate[field] = targetValue;
+    } else if (field === "environmentValues") {
+      // Absent in target but set live → clear the per-env overrides.
+      fieldsToUpdate[field] = {};
     }
+    // Other optional fields absent in the target are left as-is.
   }
 
   if (Object.keys(fieldsToUpdate).length === 0) {
     throw new BadRequestError(
-      `Revision #${req.params.version} matches the current constant — nothing to revert.`,
+      `Revision #${req.params.version} matches the current Constant — nothing to revert.`,
     );
   }
 
-  const revertsBypassApproval =
-    !!req.organization.settings?.revertsBypassApproval;
-  const strategy =
-    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
-  const isPublish = strategy === "publish";
-
+  // Reverting to a historically-archived state re-archives the constant; enforce
+  // the same soft referenced-constant warning as the archive endpoint (bypassable
+  // by ignoreWarnings). Only the archive transition is guarded. Mirrors the config twin.
+  // Authoritative: the revert atom over the right scope for this mode, plus a
+  // relocation's destination and an archive restore's delete atom.
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
   );
 
-  // For publish, mirror the publish handler's per-revision approval gate. The
-  // constant adapter reads target.snapshot for the project + change diff, so
-  // include the live constant as the snapshot (unlike the saved-group handler,
-  // whose adapter ignores the snapshot here).
-  let approvalRequired = false;
-  let canBypass = false;
-  if (isPublish) {
-    approvalRequired = revertsBypassApproval
-      ? false
-      : adapter.isApprovalRequiredForRevision
+  const title = req.body.title ?? `Revert to v${req.params.version}`;
+
+  const { revision: result, bypassedGates } = await revertRevision({
+    context: req.context,
+    entityType: "constant",
+    entity: constant as unknown as Record<string, unknown> & { id: string },
+    targetRevision,
+    strategy,
+    fields: fieldsToUpdate,
+    patchOps,
+    // A revert that flips `archived` takes the Constant out of service, or returns
+    // it, EVERYWHERE it serves — the same footprint archiving uses. The changed-env
+    // list is empty for a base-value-only revert, and an empty footprint skips the
+    // environment check rather than narrowing it.
+    //
+    // Same treatment when the restoration carries an op we couldn't read: the
+    // state is rebuilt with the FULL applier above, so a footprint derived from
+    // the lightweight one can name fewer environments than the revert writes.
+    footprint:
+      flipsArchivedState({
+        proposed:
+          "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+        current: constant.archived,
+      }) || revertOpsUnresolved
+        ? archiveServeFootprint(req.context, constant)
+        : constantPublishEnvironments(req.context, revertEnvs),
+    title,
+    // Approval for this landing, resolved by the pipeline after authority.
+    resolveApproval: async () => {
+      // Computed even when the setting suppresses it, so the response can say the
+      // approval was SKIPPED rather than silently reporting nothing.
+      const baseApprovalRequired = adapter.isApprovalRequiredForRevision
         ? adapter.isApprovalRequiredForRevision(req.context, {
             target: { snapshot: constant, proposedChanges: patchOps },
           } as unknown as Revision)
         : adapter.isApprovalRequired(req.context);
-    canBypass =
-      !!req.organization.settings?.restApiBypassesReviews ||
-      adapter.canBypassApproval(
+      const approvalRequired = revertsBypassApproval
+        ? false
+        : baseApprovalRequired;
+      const restApiBypass = canUseRestApiBypassSetting(req);
+      const permissionBypass = adapter.canBypassApproval(
         req.context,
         constant as Record<string, unknown>,
       );
-    if (approvalRequired && !canBypass) {
-      throw new BadRequestError(
-        "This revert requires approval before changes can be published. " +
-          'Use `strategy: "draft"` to create a draft for review, ' +
-          "or use a role/token that grants bypassApprovalChecks.",
-      );
-    }
-  }
-
-  await ensureLiveRevisionExists(
-    req.context,
-    "constant",
-    constant as unknown as Record<string, unknown> & {
-      id: string;
-      owner?: string;
-      dateCreated?: Date;
+      const canBypass = restApiBypass || permissionBypass;
+      if (approvalRequired && !canBypass) {
+        throw new BadRequestError(
+          "This revert requires approval before changes can be published. " +
+            'Use `strategy: "draft"` to create a draft for review, ' +
+            "or use a role/token that grants FlagsBypassApprovals.",
+        );
+      }
+      return {
+        approvalRequired,
+        canBypass,
+        // Same precedence the gate layer uses for `approval-required`, so the
+        // two publish paths report the same source for the same caller.
+        bypassVia: restApiBypass
+          ? ("restApiBypassesReviews" as const)
+          : ("bypassApprovalPermission" as const),
+        settingSuppressedApproval:
+          revertsBypassApproval && baseApprovalRequired,
+      };
     },
-  );
-
-  const title = req.body.title ?? `Revert to v${req.params.version}`;
-
-  if (!isPublish) {
-    const draft = await createOrUpdateRevision(
-      req.context,
-      "constant",
-      constant as unknown as Record<string, unknown> & { id: string },
-      patchOps,
-      { forceCreate: true, title, revertedFrom: targetRevision.id },
-    );
-    await dispatchConstantRevisionEvent(req.context, draft, {
-      type: "created",
-    });
-    return { revision: await toApiConstantRevision(draft, req.context) };
-  }
-
-  // Record the already-merged revert revision FIRST, then apply it to the live
-  // entity. If the apply fails, delete the just-created revision so we never
-  // leave a "reverted" record with no corresponding live change. (There's no
-  // concurrent-discard vector here — the revision is created in its terminal
-  // `merged` state — so this is a clean abort rather than a claim-then-CAS.)
-  const merged = await req.context.models.revisions.createMerged({
-    type: "constant",
-    id: constant.id,
-    snapshot: constant as unknown as Record<string, unknown>,
-    proposedChanges: patchOps,
-    bypass: approvalRequired && canBypass,
-    title,
-    revertedFrom: targetRevision.id,
+    // Guards that only bite on landing: taking the Constant out of service, and
+    // the value guards a live rewrite must clear. A metadata-only revert cannot
+    // rewrite a served value.
+    assertLandable: async () => {
+      if (fieldsToUpdate.archived === true && !constant.archived) {
+        await assertConstantArchiveDependentsGuard(
+          req.context,
+          { id: constant.id, key: constant.key, project: constant.project },
+          { armed: false },
+        );
+      }
+      if (!constantChangeAffectsServedValue(Object.keys(fieldsToUpdate)))
+        return;
+      await assertConstantPublishGuards(
+        req.context,
+        constant,
+        targetRevision,
+        { armed: false },
+        (fieldsToUpdate.value as string | undefined) ?? constant.value,
+        "environmentValues" in fieldsToUpdate
+          ? (fieldsToUpdate.environmentValues as Record<string, string>)
+          : constant.environmentValues,
+        // A revert that flips archived scrubs (or restores) refs — model the
+        // transition so dependents' schema breaks are checked.
+        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+      );
+    },
   });
 
-  try {
-    await adapter.applyChanges(
-      req.context,
-      constant as unknown as Record<string, unknown>,
-      fieldsToUpdate,
-      { isRevert: true },
-    );
-  } catch (e) {
-    try {
-      await req.context.models.revisions.deleteById(merged.id);
-    } catch {
-      // ignore — surface the original applyChanges error
-    }
-    throw e;
-  }
-
-  await dispatchConstantRevisionEvent(req.context, merged, {
-    type: "reverted",
-  });
-
-  return { revision: await toApiConstantRevision(merged, req.context) };
+  return {
+    revision: await toApiConstantRevision(result, req.context),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
+  };
 });

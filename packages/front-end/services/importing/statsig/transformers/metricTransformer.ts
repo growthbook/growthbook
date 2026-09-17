@@ -198,6 +198,7 @@ export async function transformStatsigMetricToMetric(
     numerator,
     denominator,
     quantileSettings,
+    funnelSettings: null,
     cappingSettings,
     priorSettings: {
       override: false,

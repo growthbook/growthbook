@@ -1,5 +1,9 @@
 import { postFeatureRevisionUndoReviewV2Validator } from "shared/validators";
-import { toApiRevisionV2 } from "back-end/src/services/features";
+import {
+  assertCanUndoFeatureReview,
+  toApiRevisionV2,
+} from "back-end/src/services/features";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -15,10 +19,6 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canReviewFeatureDrafts(feature)) {
-    req.context.permissions.throwPermissionError();
-  }
-
   const revision = await getRevision({
     context: req.context,
     organization: req.organization.id,
@@ -27,6 +27,12 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
+  await assertCanUndoFeatureReview({
+    context: req.context,
+    feature,
+    revision,
+    user: req.context.auditUser,
+  });
 
   const allowed = ["approved", "changes-requested"];
   if (!allowed.includes(revision.status)) {
@@ -49,6 +55,17 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
       feature,
       version: req.params.version,
     })) ?? revision;
+
+  // The REFRESHED revision. Retraction is the whole point of the event, and the
+  // pre-image still carries the verdict that was just removed and the status it
+  // implied — so a subscriber reading the payload would see no retraction at all.
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    feature,
+    updated,
+    "revision.reviewRetracted",
+    {},
+  );
 
   // Undoing a "changes-requested" verdict can resolve the draft to "approved"
   // (another reviewer's approval still stands); trigger auto-publish so an

@@ -21,12 +21,8 @@ import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import { useTemplates } from "@/hooks/useTemplates";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 
 type Props = {
@@ -60,7 +56,6 @@ const TemplateForm: FC<Props> = ({
 
   const { getDatasourceById, refreshTags, project, projects } =
     useDefinitions();
-  const { hasCommercialFeature } = useUser();
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
@@ -111,7 +106,7 @@ const TemplateForm: FC<Props> = ({
       skipPartialData: initialValue.skipPartialData ? "strict" : "loose",
       segment: initialValue.segment || "",
       targeting: {
-        coverage: initialValue.targeting?.coverage || 1,
+        coverage: initialValue.targeting?.coverage ?? 1,
         savedGroups: initialValue.targeting?.savedGroups || [],
         prerequisites: initialValue.targeting?.prerequisites || [],
         condition: initialValue.targeting?.condition || "",
@@ -120,17 +115,19 @@ const TemplateForm: FC<Props> = ({
     },
   });
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    form.watch("project"),
-  );
+  const selectedProject = form.watch("project");
+
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
-
-  const selectedProject = form.watch("project");
 
   const { apiCall } = useAuth();
 
@@ -236,7 +233,6 @@ const TemplateForm: FC<Props> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
-        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}
@@ -265,15 +261,14 @@ const TemplateForm: FC<Props> = ({
 
             {currentProjectIsDemo && (
               <Callout status="warning">
-                You are creating a template under the demo datasource project.
-                This template will be deleted when the demo datasource project
-                is deleted.
+                You are creating a template in the Sample Data Project.
               </Callout>
             )}
 
             <h4 className="mb-3">Template Details</h4>
 
             <Field
+              size="legacy"
               label="Template Name"
               required
               minLength={2}
@@ -284,6 +279,7 @@ const TemplateForm: FC<Props> = ({
               <div className="form-group">
                 <label>Available in Project</label>
                 <SelectField
+                  size="legacy"
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
                     form.setValue("project", p);
@@ -296,6 +292,7 @@ const TemplateForm: FC<Props> = ({
             )}
 
             <Field
+              size="legacy"
               label="Template Description"
               textarea
               minRows={1}
@@ -308,6 +305,7 @@ const TemplateForm: FC<Props> = ({
             <h4 className="my-3">Experiment Details</h4>
 
             <Field
+              size="legacy"
               label="Experiment Hypothesis"
               textarea
               minRows={1}
@@ -316,6 +314,7 @@ const TemplateForm: FC<Props> = ({
             />
 
             <Field
+              size="legacy"
               label="Experiment Description"
               textarea
               minRows={1}
@@ -332,20 +331,15 @@ const TemplateForm: FC<Props> = ({
               />
             </div>
 
-            {hasCommercialFeature("custom-metadata") &&
-              !!customFields?.length && (
-                <div className="form-group">
-                  <CustomFieldInput
-                    customFields={customFields}
-                    setCustomFields={(value) => {
-                      form.setValue("customFields", value);
-                    }}
-                    currentCustomFields={form.watch("customFields") || {}}
-                    section={"experiment"}
-                    project={selectedProject}
-                  />
-                </div>
-              )}
+            {customFields.length > 0 && (
+              <div className="form-group">
+                <CustomFieldInput
+                  fields={customFields}
+                  value={customFieldValues}
+                  onChange={(value) => form.setValue("customFields", value)}
+                />
+              </div>
+            )}
           </div>
         </Page>
 

@@ -1,44 +1,56 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  isValidRowFilterRangeLength,
+  ROW_FILTER_RANGE_LENGTH_MESSAGE,
+} from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
 
 // Shared sub-schemas for fact metric column references
 
-const apiRowFilterValidator = z.object({
-  operator: z.enum([
-    "=",
-    "!=",
-    ">",
-    "<",
-    ">=",
-    "<=",
-    "in",
-    "not_in",
-    "is_null",
-    "not_null",
-    "is_true",
-    "is_false",
-    "contains",
-    "not_contains",
-    "starts_with",
-    "ends_with",
-    "sql_expr",
-    "saved_filter",
-  ]),
-  values: z
-    .array(z.string())
-    .describe(
-      "Not required for is_null, not_null, is_true, is_false operators.",
-    )
-    .optional(),
-  column: z
-    .string()
-    .describe("Required for all operators except sql_expr and saved_filter.")
-    .optional(),
-});
+const apiRowFilterValidator = z
+  .object({
+    operator: z.enum([
+      "=",
+      "!=",
+      ">",
+      "<",
+      ">=",
+      "<=",
+      "between",
+      "not_between",
+      "in",
+      "not_in",
+      "is_null",
+      "not_null",
+      "is_true",
+      "is_false",
+      "contains",
+      "not_contains",
+      "starts_with",
+      "ends_with",
+      "sql_expr",
+      "saved_filter",
+    ]),
+    values: z
+      .array(z.string())
+      .describe(
+        "Not required for is_null, not_null, is_true, is_false operators. The between and not_between operators take at most two values, a lower and an upper bound in that order; leave a bound as an empty string for an open-ended range.",
+      )
+      .optional(),
+    column: z
+      .string()
+      .describe("Required for all operators except sql_expr and saved_filter.")
+      .optional(),
+  })
+  .refine(isValidRowFilterRangeLength, {
+    message: ROW_FILTER_RANGE_LENGTH_MESSAGE,
+    path: ["values"],
+  });
 
 const apiNumeratorRef = z.object({
   factTableId: z.string(),
@@ -134,6 +146,74 @@ const apiQuantileSettings = z
     'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',
   );
 
+const apiFunnelStep = z.object({
+  name: z.string().describe("Display name for the funnel step"),
+  factTableId: z
+    .string()
+    .describe("The fact table this step draws events from"),
+  rowFilters: z
+    .array(apiRowFilterValidator)
+    .describe("Filters that decide whether an event row counts as this step"),
+  optional: z
+    .boolean()
+    .describe(
+      "When true, this step still counts for its own conversion but does not anchor later steps. Later steps window off the nearest prior required step (or exposure, for experiment funnel metrics, when every prior step is optional).",
+    ),
+  conversionWindow: z
+    .object({
+      unit: z.enum(["weeks", "days", "hours", "minutes"]),
+      value: z.number().positive(),
+    })
+    .describe(
+      "Bounds how long after the nearest prior required step (or exposure, for the first step / after only-optional priors of an experiment funnel metric) this step's event can occur.",
+    )
+    .nullish(),
+});
+
+const apiFunnelSettings = z
+  .object({
+    steps: z
+      .array(apiFunnelStep)
+      .min(2)
+      .max(MAX_FUNNEL_STEPS)
+      .describe("Ordered list of funnel steps. Minimum 2 steps required."),
+    ordering: z
+      .enum(["sequential", "strict", "unordered"])
+      .describe("Step ordering mode. Only 'sequential' is supported in v1.")
+      .optional(),
+    concurrencyWindowSeconds: z
+      .number()
+      .int()
+      .min(0)
+      .describe(
+        "Out-of-order tolerance between adjacent steps in seconds. Defaults to 0.",
+      )
+      .optional(),
+  })
+  .describe('Funnel metric settings (required when metricType is "funnel")');
+
+const postFunnelSettings = z
+  .object({
+    steps: z
+      .array(apiFunnelStep)
+      .min(2)
+      .max(MAX_FUNNEL_STEPS)
+      .describe("Ordered list of funnel steps. Minimum 2 steps required."),
+    ordering: z
+      .enum(["sequential"])
+      .describe("Step ordering mode. Only 'sequential' is supported in v1.")
+      .optional(),
+    concurrencyWindowSeconds: z
+      .number()
+      .int()
+      .min(0)
+      .describe(
+        "Out-of-order tolerance between adjacent steps in seconds. Defaults to 0.",
+      )
+      .optional(),
+  })
+  .describe('Funnel metric settings (required when metricType is "funnel")');
+
 const apiCappingSettings = z
   .object({
     type: z.enum(["none", "absolute", "percentile"]),
@@ -214,14 +294,17 @@ const apiPriorSettings = z
   })
   .describe("Controls the bayesian prior for the metric");
 
-const apiMetricTypeEnum = z.enum([
+export const apiMetricTypeEnum = z.enum([
   "proportion",
   "retention",
   "mean",
   "quantile",
   "ratio",
   "dailyParticipation",
+  "funnel",
 ]);
+
+const apiResponseMetricTypeEnum = apiMetricTypeEnum;
 
 // Corresponds to schemas/FactMetric.yaml
 export const apiFactMetricValidator = namedSchema(
@@ -236,8 +319,8 @@ export const apiFactMetricValidator = namedSchema(
       projects: z.array(z.string()),
       tags: z.array(z.string()),
       datasource: z.string(),
-      metricType: apiMetricTypeEnum,
-      numerator: apiNumeratorRef,
+      metricType: apiResponseMetricTypeEnum,
+      numerator: apiNumeratorRef.optional(),
       denominator: apiDenominatorRef.optional(),
       inverse: z
         .boolean()
@@ -245,6 +328,7 @@ export const apiFactMetricValidator = namedSchema(
           "Set to true for things like Bounce Rate, where you want the metric to decrease",
         ),
       quantileSettings: apiQuantileSettings.optional(),
+      funnelSettings: apiFunnelSettings.optional(),
       cappingSettings: apiCappingSettings,
       windowSettings: apiWindowSettings,
       priorSettings: apiPriorSettings,
@@ -273,6 +357,12 @@ export const apiFactMetricValidator = namedSchema(
         .array(z.string())
         .describe(
           "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
+        )
+        .optional(),
+      replaces: z
+        .array(z.string())
+        .describe(
+          "Ids of older metrics (legacy or fact) that this metric supersedes, for example the legacy metric it was migrated from. Informational only - GrowthBook uses it to link the old and new definitions in the UI and to keep showing results from a snapshot that was created before an experiment switched to this metric.",
         )
         .optional(),
     })
@@ -509,158 +599,177 @@ const postRegressionAdjustmentSettings = z
     "Controls the regression adjustment (CUPED) settings for the metric",
   );
 
+export const factMetricCreateArchivedField = z
+  .boolean()
+  .describe(
+    "Set to true to archive the metric. Archived metrics are hidden by default in the UI and excluded from new experiments.",
+  )
+  .optional();
+
 // Corresponds to payload-schemas/PostFactMetricPayload.yaml
-const postFactMetricBody = z
-  .object({
-    name: z.string(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-    owner: ownerInputField.optional(),
-    projects: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
-    metricType: apiMetricTypeEnum,
-    numerator: postNumeratorRef,
-    denominator: postDenominatorRef.optional(),
-    inverse: z
-      .boolean()
-      .describe(
-        "Set to true for things like Bounce Rate, where you want the metric to decrease",
-      )
-      .optional(),
-    quantileSettings: postQuantileSettings.optional(),
-    cappingSettings: postCappingSettings.optional(),
-    windowSettings: postWindowSettings.optional(),
-    priorSettings: postPriorSettings.optional(),
-    regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
-    riskThresholdSuccess: z
-      .number()
-      .gte(0)
-      .describe(
-        "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
-      )
-      .optional()
-      .meta({ deprecated: true }),
-    riskThresholdDanger: z
-      .number()
-      .gte(0)
-      .describe(
-        "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
-      )
-      .optional()
-      .meta({ deprecated: true }),
-    displayAsPercentage: z
-      .boolean()
-      .describe(
-        "If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.",
-      )
-      .optional(),
-    minPercentChange: z
-      .number()
-      .gte(0)
-      .describe(
-        "Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)",
-      )
-      .optional(),
-    maxPercentChange: z
-      .number()
-      .gte(0)
-      .describe(
-        "Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)",
-      )
-      .optional(),
-    minSampleSize: z.number().gte(0).optional(),
-    targetMDE: z
-      .number()
-      .gte(0)
-      .describe(
-        'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.',
-      )
-      .optional(),
-    managedBy: z
-      .enum(["", "api", "admin"])
-      .describe('Set this to "api" to disable editing in the GrowthBook UI')
-      .optional(),
-    metricAutoSlices: z
-      .array(z.string())
-      .describe(
-        "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
-      )
-      .optional(),
-  })
-  .strict();
+export const postFactMetricBodyFields = z.object({
+  name: z.string(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  owner: ownerInputField.optional(),
+  projects: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+  metricType: apiMetricTypeEnum,
+  numerator: postNumeratorRef.nullable().optional(),
+  denominator: postDenominatorRef.optional(),
+  inverse: z
+    .boolean()
+    .describe(
+      "Set to true for things like Bounce Rate, where you want the metric to decrease",
+    )
+    .optional(),
+  quantileSettings: postQuantileSettings.optional(),
+  funnelSettings: postFunnelSettings.optional(),
+  cappingSettings: postCappingSettings.optional(),
+  windowSettings: postWindowSettings.optional(),
+  priorSettings: postPriorSettings.optional(),
+  regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
+  riskThresholdSuccess: z
+    .number()
+    .gte(0)
+    .describe(
+      "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
+    )
+    .optional()
+    .meta({ deprecated: true }),
+  riskThresholdDanger: z
+    .number()
+    .gte(0)
+    .describe(
+      "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
+    )
+    .optional()
+    .meta({ deprecated: true }),
+  displayAsPercentage: z
+    .boolean()
+    .describe(
+      "If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.",
+    )
+    .optional(),
+  minPercentChange: z
+    .number()
+    .gte(0)
+    .describe(
+      "Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)",
+    )
+    .optional(),
+  maxPercentChange: z
+    .number()
+    .gte(0)
+    .describe(
+      "Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)",
+    )
+    .optional(),
+  minSampleSize: z.number().gte(0).optional(),
+  targetMDE: z
+    .number()
+    .gte(0)
+    .describe(
+      'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.',
+    )
+    .optional(),
+  managedBy: z
+    .enum(["", "api", "admin"])
+    .describe('Set this to "api" to disable editing in the GrowthBook UI')
+    .optional(),
+  metricAutoSlices: z
+    .array(z.string())
+    .describe(
+      "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
+    )
+    .optional(),
+  replaces: z
+    .array(z.string())
+    .describe(
+      "Ids of older metrics (legacy or fact) that this metric supersedes, for example the legacy metric it was migrated from. Cannot include this metric's own id. Informational only - GrowthBook uses it to link the old and new definitions in the UI and to keep showing results from a snapshot that was created before an experiment switched to this metric. This field can only be set through the API.",
+    )
+    .optional(),
+});
+
+export function refineFactMetricCreateBody(
+  body: z.infer<typeof postFactMetricBodyFields>,
+  ctx: z.RefinementCtx,
+): void {
+  if (body.metricType === "funnel") {
+    if (!body.funnelSettings) {
+      ctx.addIssue({
+        code: "custom",
+        message: "funnelSettings is required for funnel metrics",
+        path: ["funnelSettings"],
+      });
+    }
+    if ((body.numerator ?? null) !== null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "numerator is not allowed for funnel metrics",
+        path: ["numerator"],
+      });
+    }
+    if (body.denominator) {
+      ctx.addIssue({
+        code: "custom",
+        message: "denominator is not allowed for funnel metrics",
+        path: ["denominator"],
+      });
+    }
+  } else {
+    if (!body.numerator) {
+      ctx.addIssue({
+        code: "custom",
+        message: "numerator is required for non-funnel metrics",
+        path: ["numerator"],
+      });
+    }
+    if (body.funnelSettings) {
+      ctx.addIssue({
+        code: "custom",
+        message: "funnelSettings is only allowed for funnel metrics",
+        path: ["funnelSettings"],
+      });
+    }
+  }
+}
+
+export const postFactMetricBody = postFactMetricBodyFields
+  .strict()
+  .superRefine(refineFactMetricCreateBody);
 
 // Corresponds to payload-schemas/UpdateFactMetricPayload.yaml
-const updateFactMetricBody = z
-  .object({
-    name: z.string().optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-    owner: ownerInputField.optional(),
-    projects: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
-    metricType: apiMetricTypeEnum.optional(),
-    numerator: postNumeratorRef.optional(),
-    denominator: postDenominatorRef.optional(),
-    inverse: z
-      .boolean()
-      .describe(
-        "Set to true for things like Bounce Rate, where you want the metric to decrease",
-      )
-      .optional(),
-    quantileSettings: postQuantileSettings.optional(),
-    cappingSettings: postCappingSettings.optional(),
-    windowSettings: postWindowSettings.optional(),
-    priorSettings: postPriorSettings.optional(),
-    regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
-    riskThresholdSuccess: z
-      .number()
-      .gte(0)
-      .describe(
-        "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
-      )
-      .optional()
-      .meta({ deprecated: true }),
-    riskThresholdDanger: z
-      .number()
-      .gte(0)
-      .describe(
-        "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
-      )
-      .optional()
-      .meta({ deprecated: true }),
-    displayAsPercentage: z
-      .boolean()
-      .describe(
-        "If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.",
-      )
-      .optional(),
-    minPercentChange: z
-      .number()
-      .gte(0)
-      .describe(
-        "Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)",
-      )
-      .optional(),
-    maxPercentChange: z
-      .number()
-      .gte(0)
-      .describe(
-        "Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)",
-      )
-      .optional(),
-    minSampleSize: z.number().gte(0).optional(),
-    targetMDE: z.number().gte(0).optional(),
-    managedBy: z
-      .enum(["", "api", "admin"])
-      .describe('Set this to "api" to disable editing in the GrowthBook UI')
-      .optional(),
-    archived: z.boolean().optional(),
-    metricAutoSlices: z
-      .array(z.string())
-      .describe(
-        "Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.",
-      )
-      .optional(),
+const updateFactMetricBody = postFactMetricBodyFields
+  .partial()
+  .extend({
+    archived: factMetricCreateArchivedField,
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.metricType !== "funnel") return;
+
+    if (!body.funnelSettings) {
+      ctx.addIssue({
+        code: "custom",
+        message: "funnelSettings is required when changing to a funnel metric",
+        path: ["funnelSettings"],
+      });
+    }
+    if ((body.numerator ?? null) !== null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "numerator is not allowed for funnel metrics",
+        path: ["numerator"],
+      });
+    }
+    if (body.denominator) {
+      ctx.addIssue({
+        code: "custom",
+        message: "denominator is not allowed for funnel metrics",
+        path: ["denominator"],
+      });
+    }
+  });
 
 // Corresponds to payload-schemas/PostFactMetricAnalysisPayload.yaml
 const postFactMetricAnalysisBody = z
@@ -733,7 +842,7 @@ export const listFactMetricsValidator = {
       factTableId: z
         .string()
         .describe(
-          "Filter by Fact Table Id (for ratio metrics, we only look at the numerator)",
+          "Filter by Fact Table Id (for ratio metrics, only the numerator is considered)",
         )
         .optional(),
     })

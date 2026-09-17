@@ -137,6 +137,10 @@ class TestModel extends BaseModel<WriteOptions> {
   public exposeGetEntityId(doc: Record<string, unknown>): string {
     return this.getEntityId(doc);
   }
+
+  public exposeFindWithProjection() {
+    return this._find({}, { projection: { name: 0 } });
+  }
 }
 
 const CompositeBaseModel = MakeModelClass({
@@ -377,7 +381,10 @@ describe("BaseModel", () => {
     model.canReadMock.mockReturnValue(true);
 
     const ret = await model.getAll();
-    expect(model.migrateMock).toHaveBeenCalledWith({ id: "aabb", name: "foo" });
+    expect(model.migrateMock).toHaveBeenCalledWith(
+      { id: "aabb", name: "foo" },
+      undefined,
+    );
     expect(mockFind).toHaveBeenCalledWith({ organization: "a" });
     expect(model.populateForeignRefsMock).toHaveBeenCalledWith([
       { id: "aabb", name: "foo" },
@@ -389,6 +396,27 @@ describe("BaseModel", () => {
       { id: "aabb", name: "foo" },
       { id: "ccdd", name: "bla" },
     ]);
+  });
+
+  it("tells migrate which fields a projection omitted", async () => {
+    const model = new TestModel(defaultContext);
+
+    const mockProject = jest.fn();
+    const mockFind = jest.fn().mockReturnValueOnce({
+      project: mockProject,
+      toArray: () => [{ _id: "removed", __v: "removed", id: "aabb" }],
+    });
+
+    model.dangerousGetCollectionMock.mockReturnValueOnce({ find: mockFind });
+    model.canReadMock.mockReturnValue(true);
+
+    await model.exposeFindWithProjection();
+
+    expect(mockProject).toHaveBeenCalledWith({ name: 0 });
+    expect(model.migrateMock).toHaveBeenCalledWith(
+      { id: "aabb" },
+      new Set(["name"]),
+    );
   });
 
   it("can filter getAll result by read permission", async () => {
@@ -758,6 +786,57 @@ describe("BaseModel", () => {
     ).rejects.toEqual(
       new Error("You do not have access to update this resource"),
     );
+  });
+
+  it("checks update access even when the update is a no-op", async () => {
+    const model = new TestModel(defaultContext);
+    model.canUpdateMock.mockReturnValue(false);
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    await expect(model.update(existing, { name: "foo" })).rejects.toEqual(
+      new Error("You do not have access to update this resource"),
+    );
+    expect(updateOneMock).not.toHaveBeenCalled();
+  });
+
+  it("gates a no-op update on the payload as submitted, not on {}", async () => {
+    const model = new TestModel(defaultContext);
+    // Key-aware canUpdate, like ApiKeyModel's `disabled`-only allowlist.
+    model.canUpdateMock.mockImplementation(
+      (_existing, updates) =>
+        Object.keys(updates).length === 1 && "name" in updates,
+    );
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    await expect(model.update(existing, { name: "foo" })).resolves.toEqual(
+      existing,
+    );
+    expect(model.canUpdateMock).toHaveBeenCalledWith(
+      existing,
+      { name: "foo" },
+      expect.objectContaining({ name: "foo" }),
+    );
+    expect(updateOneMock).not.toHaveBeenCalled();
   });
 
   it("raises an error when attempting to update a read-only field", () => {

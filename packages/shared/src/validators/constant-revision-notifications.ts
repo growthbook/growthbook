@@ -6,6 +6,10 @@
 
 import { z } from "zod";
 import { apiConstantRevisionValidator } from "./constant-revisions";
+import {
+  bulkPublishIdField,
+  revisionPublishFailedExtension,
+} from "./revision-publish-failed";
 
 const reviewer = z
   .object({
@@ -50,7 +54,9 @@ export type ConstantRevisionRebasedPayload = z.infer<
   typeof constantRevisionRebasedPayload
 >;
 
-export const constantRevisionPublishedPayload = constantRevisionWebhookPayload;
+export const constantRevisionPublishedPayload = constantRevisionWebhookPayload
+  .extend({ bulkPublishId: bulkPublishIdField })
+  .strict();
 export type ConstantRevisionPublishedPayload = z.infer<
   typeof constantRevisionPublishedPayload
 >;
@@ -63,6 +69,23 @@ export type ConstantRevisionDiscardedPayload = z.infer<
 export const constantRevisionReopenedPayload = constantRevisionWebhookPayload;
 export type ConstantRevisionReopenedPayload = z.infer<
   typeof constantRevisionReopenedPayload
+>;
+
+export const constantRevisionRecalledPayload = constantRevisionWebhookPayload;
+export type ConstantRevisionRecalledPayload = z.infer<
+  typeof constantRevisionRecalledPayload
+>;
+
+export const constantRevisionReviewRetractedPayload =
+  constantRevisionWebhookPayload;
+export type ConstantRevisionReviewRetractedPayload = z.infer<
+  typeof constantRevisionReviewRetractedPayload
+>;
+
+export const constantRevisionPublishScheduleChangedPayload =
+  constantRevisionWebhookPayload;
+export type ConstantRevisionPublishScheduleChangedPayload = z.infer<
+  typeof constantRevisionPublishScheduleChangedPayload
 >;
 
 // `change` indicates which kind of constant field was mutated, derived from the
@@ -99,8 +122,19 @@ export type ConstantRevisionCommentedPayload = z.infer<
 >;
 
 export const constantRevisionRevertedPayload = constantRevisionWebhookPayload
-  .extend({ revertedToVersion: z.number().int().optional() })
+  .extend({
+    revertedToVersion: z.number().int().optional(),
+    bulkPublishId: bulkPublishIdField,
+  })
   .strict();
 export type ConstantRevisionRevertedPayload = z.infer<
   typeof constantRevisionRevertedPayload
+>;
+
+export const constantRevisionPublishFailedPayload =
+  constantRevisionWebhookPayload
+    .extend(revisionPublishFailedExtension)
+    .strict();
+export type ConstantRevisionPublishFailedPayload = z.infer<
+  typeof constantRevisionPublishFailedPayload
 >;

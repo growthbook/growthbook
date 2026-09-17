@@ -26,7 +26,10 @@ export function PersonRow({
   email: string;
   trailing?: React.ReactNode;
 }) {
-  const displayName = name || email || "Unknown";
+  // Treat a blank/whitespace-only name as absent so the top line never renders
+  // empty (some user records carry " "); the email then becomes the sole line.
+  const trimmedName = (name || "").trim();
+  const displayName = trimmedName || email || "Unknown";
   return (
     <Flex align="start" gap="2">
       <Box flexShrink="0" mt="1">
@@ -37,11 +40,11 @@ export function PersonRow({
         />
       </Box>
       <Box flexGrow="1" style={{ minWidth: 0, lineHeight: 1.3 }}>
-        <Text size="small" color="text-high" as="div" overflowWrap="anywhere">
+        <Text size="sm" color="text-high" as="div" overflowWrap="anywhere">
           {displayName}
         </Text>
-        {name && email && (
-          <Text size="small" color="text-low" as="div" overflowWrap="anywhere">
+        {trimmedName && email && (
+          <Text size="sm" color="text-low" as="div" overflowWrap="anywhere">
             {email}
           </Text>
         )}
@@ -63,12 +66,16 @@ export function ReviewerVerdictIcon({
   name,
   timestamp,
   stale,
+  uncoveredReason,
 }: {
   status: "approved" | "changes-requested";
   name: string;
   timestamp?: string;
   // The draft's content changed after this verdict (see the reviewers memo).
   stale?: boolean;
+  // Set when the approver's environment authority no longer covers what the
+  // draft changes, so the verdict stands but cannot sanction publishing.
+  uncoveredReason?: string;
 }) {
   const color = revisionStatusColor(status);
   const who = name || "This reviewer";
@@ -80,14 +87,22 @@ export function ReviewerVerdictIcon({
     ? ` on ${format(new Date(timestamp), "MMM d, yyyy")}`
     : "";
   const staleNote = stale ? " — the draft has changed since" : "";
-  const content = `${verdict}${when}${staleNote}`;
+  const uncoveredNote = uncoveredReason ? ` — ${uncoveredReason}` : "";
+  const content = `${verdict}${when}${staleNote}${uncoveredNote}`;
   return (
     <Tooltip content={content}>
       <Box style={{ position: "relative", display: "inline-flex" }}>
         {/* Stale verdicts mute to the soft variant with an hourglass pip —
             still attributable, but visibly not vouching for the current
             draft content. */}
-        <Avatar size="sm" color={color} variant={stale ? "soft" : "solid"}>
+        {/* Outlined rather than filled when the verdict cannot sanction the
+            draft — attributable, but visibly not sufficient. */}
+        <Avatar
+          size="sm"
+          color={color}
+          variant={stale || uncoveredReason ? "soft" : "solid"}
+          ring={!!uncoveredReason}
+        >
           <>{revisionStatusIcon(status)}</>
         </Avatar>
         {stale && (

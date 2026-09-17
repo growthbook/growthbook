@@ -19,6 +19,8 @@ export const eventForwarderConfigValidator = baseSchema
     topic: z.string(),
     schemaId: z.number(), // The confluent schema registry schema id
     sinkType: eventForwarderSinkTypeValidator,
+    /** AWS region hosting this forwarder's Kafka/Confluent resources. Set once at creation; absent means `us-east-1`. */
+    region: z.enum(["us-east-1", "eu-west-1"]).optional(),
     config: z.string(), // Encrypted sink-specific configuration
     status: eventForwarderStatusValidator,
     /** Confluent connector name — set after successful provisioning; teardown uses this only (not env-derived). */

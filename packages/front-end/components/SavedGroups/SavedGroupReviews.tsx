@@ -244,7 +244,12 @@ const SavedGroupReviews: FC = () => {
     <Box mt="4">
       <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
         <Box style={{ flexBasis: 300, flexShrink: 0 }}>
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+          <Field
+            size="legacy"
+            placeholder="Search..."
+            type="search"
+            {...searchInputProps}
+          />
         </Box>
         <Flex gap="5" align="center">
           <FilterDropdown
@@ -275,7 +280,7 @@ const SavedGroupReviews: FC = () => {
       {isLoading ? (
         <LoadingOverlay />
       ) : statusFilteredItems.length === 0 ? (
-        <Callout status="info">No drafts for saved groups.</Callout>
+        <Callout status="info">No drafts for Saved Groups.</Callout>
       ) : (
         <>
           <Table variant="list" stickyHeader roundedCorners>
@@ -351,9 +356,7 @@ const SavedGroupReviews: FC = () => {
                           background: draftStatusDotColor(row.status),
                         }}
                       />
-                      <Text size="medium">
-                        {revisionStatusLabel(row.status)}
-                      </Text>
+                      <Text size="md">{revisionStatusLabel(row.status)}</Text>
                     </Flex>
                   </TableCell>
                 </TableRow>

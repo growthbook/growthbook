@@ -1,25 +1,34 @@
 import { useMemo } from "react";
-import { CONSTANT_REF_PATTERN } from "shared/validators";
+import { ANY_REF_PATTERN } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { LinkifyConfig } from "@/components/SyntaxHighlighting/InlineCode";
 
-// Builds a LinkifyConfig that turns `@const:key` references in a displayed
-// value into links to the referenced constant's detail page. Only keys that
-// resolve to a known (non-archived) constant become links; unknown keys are
-// left as plain text. Pass the result to ValueDisplay's `linkify` prop.
+// Linkifies `@const:key` / `@config:key` references to the matching detail page.
+// The two namespaces are independent (a key may exist in both), so route by the
+// reference's own `@const:`/`@config:` prefix. Unknown/archived keys stay plain
+// text.
 export function useConstantLinkify(): LinkifyConfig {
-  const { constants } = useDefinitions();
+  const { constants, configs } = useDefinitions();
 
   return useMemo(() => {
-    const liveKeys = new Set(
+    const constantKeys = new Set(
       constants.filter((c) => !c.archived).map((c) => c.key),
     );
+    const configKeys = new Set(
+      configs.filter((c) => !c.archived).map((c) => c.key),
+    );
     return {
-      pattern: new RegExp(CONSTANT_REF_PATTERN),
-      // The detail page is addressed by key; only link keys that resolve to a
-      // known (non-archived) constant.
-      getHref: (key: string) =>
-        liveKeys.has(key) ? `/constants/${key}` : undefined,
+      // Capture the full token so getHref can read the namespace prefix.
+      pattern: new RegExp("(" + ANY_REF_PATTERN + ")"),
+      getHref: (token: string) => {
+        const m = token.match(/^@(const|config):(.+)$/);
+        if (!m) return undefined;
+        const [, ns, key] = m;
+        if (ns === "config") {
+          return configKeys.has(key) ? `/configs/${key}` : undefined;
+        }
+        return constantKeys.has(key) ? `/constants/${key}` : undefined;
+      },
     };
-  }, [constants]);
+  }, [constants, configs]);
 }

@@ -71,7 +71,7 @@ export function RevisionDiff({
   return (
     <Box>
       {diffs.length === 0 ? (
-        <Text size="medium" color="text-low">
+        <Text size="md" color="text-low">
           No changes to display.
         </Text>
       ) : (
@@ -79,7 +79,7 @@ export function RevisionDiff({
           {/* Summary of changes */}
           {showFormatted && (
             <>
-              <Heading as="h4" size="medium" mb="3">
+              <Heading as="h4" size="md" mb="3">
                 Summary of changes
               </Heading>
               {badges.length > 0 && (
@@ -119,7 +119,7 @@ export function RevisionDiff({
           {/* Change details */}
           {showJson && (
             <>
-              <Heading as="h4" size="medium" mb="3">
+              <Heading as="h4" size="md" mb="3">
                 Change details
               </Heading>
               <Flex
@@ -149,7 +149,7 @@ export function RevisionDiff({
                   ))
                 ) : (
                   <Box p="3">
-                    <Text size="medium" color="text-low">
+                    <Text size="md" color="text-low">
                       No material changes detected
                     </Text>
                   </Box>

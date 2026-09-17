@@ -8,13 +8,21 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
 import Callout from "@/ui/Callout";
+import { useCanKeepExistingCredentials } from "@/components/Forms/secretInput";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   existing: boolean;
+  datasourceId?: string;
   setParams: (params: { [key: string]: string | boolean }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, setParams, existing, onParamChange }) => {
+}> = ({ params, setParams, existing, datasourceId, onParamChange }) => {
+  const cloud = isCloud();
+  const authType = cloud ? "json" : (params.authType ?? "json");
+  const canKeepExistingCredentials = useCanKeepExistingCredentials(
+    existing,
+    authType,
+  );
   const [testConnectionResults, setTestConnectionResults] = useState<{
     status: "success" | "danger" | "warning";
     message: string;
@@ -33,6 +41,7 @@ const BigQueryForm: FC<{
             projectId: params.projectId,
             client_email: params.clientEmail,
             private_key: params.privateKey,
+            datasourceId,
           }),
         },
       );
@@ -65,37 +74,28 @@ const BigQueryForm: FC<{
 
   return (
     <div className="row">
-      {!isCloud() && (
+      {!cloud && (
         <div className="col-md-12">
-          <Field
+          <SelectField
+            size="legacy"
             label="Authentication Method"
             options={[
-              {
-                value: "json",
-                display: "JSON key file",
-              },
-              {
-                value: "auto",
-                display: "Auto-discovery",
-              },
+              { value: "json", label: "JSON key file" },
+              { value: "auto", label: "Auto-discovery" },
             ]}
             helpText="'Auto-discovery' will look for credentials in environment variables and GCP metadata."
-            value={params.authType || "json"}
-            onChange={(e) => {
-              setParams({
-                authType: e.target.value,
-              });
-            }}
+            value={authType}
+            onChange={(value) => setParams({ authType: value })}
           />
         </div>
       )}
-      {(isCloud() || params.authType !== "auto") && (
+      {(cloud || authType !== "auto") && (
         <>
           <div className="form-group col-md-12">
             <div className="custom-file">
               <input
                 type="file"
-                required={!existing}
+                required={!canKeepExistingCredentials}
                 className="custom-file-input"
                 id="bigQueryFileInput"
                 accept="application/json"
@@ -142,8 +142,13 @@ const BigQueryForm: FC<{
                 }}
               />
               <label className="custom-file-label" htmlFor="bigQueryFileInput">
-                Upload key file...
+                {canKeepExistingCredentials
+                  ? "Upload a new key file..."
+                  : "Upload key file..."}
               </label>
+              {canKeepExistingCredentials ? (
+                <small>Leave blank to keep the existing credentials.</small>
+              ) : null}
             </div>
           </div>
           <div className="form-group col-md-12">
@@ -180,7 +185,9 @@ const BigQueryForm: FC<{
             )}
             <Button
               disabled={
-                !params.projectId || !params.clientEmail || !params.privateKey
+                !params.projectId ||
+                !params.clientEmail ||
+                (!params.privateKey && !datasourceId)
               }
               color="primary"
               className="mt-2"
@@ -196,6 +203,7 @@ const BigQueryForm: FC<{
       <div className="form-group col-md-12">
         <label>BigQuery Project ID</label>
         <Field
+          size="legacy"
           type="text"
           className="form-control"
           name="defaultProject"
@@ -210,6 +218,7 @@ const BigQueryForm: FC<{
           <Tooltip body="If set, GrowthBook will include this reservation on all BigQuery query jobs. Use the full reservation resource name (e.g. projects/my-project/locations/US/reservations/my-reservation)." />
         </label>
         <Field
+          size="legacy"
           type="text"
           className="form-control"
           name="reservation"
@@ -225,6 +234,7 @@ const BigQueryForm: FC<{
         {testConnectionResults &&
         testConnectionResults?.datasetOptions.length > 0 ? (
           <SelectField
+            size="legacy"
             placeholder="Choose a dataset or create a new one..."
             name="defaultDataset"
             autoComplete="off"
@@ -242,6 +252,7 @@ const BigQueryForm: FC<{
           />
         ) : (
           <Field
+            size="legacy"
             type="text"
             className="form-control"
             name="defaultDataset"
@@ -249,7 +260,7 @@ const BigQueryForm: FC<{
             onChange={onParamChange}
             placeholder=""
             helpText={
-              params.authType !== "auto"
+              authType !== "auto"
                 ? "Use the 'Test Connection' button to fetch a list of datasets from your BigQuery project."
                 : ""
             }

@@ -12,6 +12,7 @@ import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
 import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema } from "@/services/features";
 import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import { GBHashLock } from "@/components/Icons";
@@ -56,6 +57,7 @@ const VerifyConnectionPage = ({
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
+  const { ready: definitionsReady, eventIngestorRegion } = useDefinitions();
 
   const currentConnection: SDKConnectionInterface | null =
     data?.connections.find((c) => c.id === connection) || null;
@@ -153,7 +155,7 @@ const VerifyConnectionPage = ({
 
   return (
     <div style={{ padding: "0px 57px" }}>
-      {!currentConnection && <LoadingOverlay />}
+      {(!currentConnection || !definitionsReady) && <LoadingOverlay />}
       {inviting && (
         <InviteModal
           close={() => setInviting(false)}
@@ -176,7 +178,7 @@ const VerifyConnectionPage = ({
           showModalClose
         />
       )}
-      {currentConnection && (
+      {currentConnection && definitionsReady && (
         <div>
           <div className="d-flex mb-1">
             <h3>
@@ -249,6 +251,7 @@ const VerifyConnectionPage = ({
                   remoteEvalEnabled={
                     currentConnection.remoteEvalEnabled || false
                   }
+                  eventIngestorRegion={eventIngestorRegion}
                 />
               </div>
             )}
@@ -280,6 +283,7 @@ const VerifyConnectionPage = ({
                   }
                   eventTracker={eventTracker}
                   setEventTracker={updateEventTracker}
+                  eventIngestorRegion={eventIngestorRegion}
                 />
               </div>
             )}

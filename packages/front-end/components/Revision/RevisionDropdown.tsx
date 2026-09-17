@@ -79,7 +79,7 @@ export default function RevisionDropdown({
   const effectiveSelectedId = selectedRevisionId ?? liveRevision?.id ?? null;
 
   const buildMeta = (r: Revision): ReactNode => (
-    <Text size="small" color="text-low" whiteSpace="nowrap">
+    <Text size="sm" color="text-low" whiteSpace="nowrap">
       {getUserDisplay(r.authorId)}
       {r.dateUpdated && <> &middot; {dateNoYear(r.dateUpdated)}</>}
     </Text>
@@ -110,10 +110,10 @@ export default function RevisionDropdown({
     discardedCount > 0 ? (
       <DropdownMenuLabel>
         <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             Show discarded ({discardedCount})
           </Text>
-          <Switch size="1" value={showDiscarded} onChange={setShowDiscarded} />
+          <Switch size="sm" value={showDiscarded} onChange={setShowDiscarded} />
         </Flex>
       </DropdownMenuLabel>
     ) : undefined;

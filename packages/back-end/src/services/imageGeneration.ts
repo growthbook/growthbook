@@ -13,6 +13,7 @@ import {
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
+import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";
 import { logger } from "back-end/src/util/logger";
 
 // Unified image-generation entrypoint. Dispatches between dedicated
@@ -59,15 +60,16 @@ function resolveAspect(
 
 // Build the right provider factory for a given model, using the
 // per-org API keys from getAISettingsForOrg.
-function getImageProvider(
+async function getImageProvider(
   context: ReqContext | ApiReqContext,
   meta: AIImageModelMeta,
-):
+): Promise<
   | ReturnType<typeof createGoogleGenerativeAI>
   | ReturnType<typeof createOpenAI>
-  | ReturnType<typeof createXai> {
+  | ReturnType<typeof createXai>
+> {
   const { aiEnabled, googleAPIKey, openAIAPIKey, xaiAPIKey } =
-    getAISettingsForOrg(context, true);
+    await getAISettingsForOrg(context, true);
   if (!aiEnabled) {
     throw new Error(
       "AI is not enabled for this organization. Visit Settings → AI Settings to enable it.",
@@ -75,18 +77,16 @@ function getImageProvider(
   }
   if (meta.provider === "google") {
     if (!googleAPIKey) {
-      throw new Error(
-        "GOOGLE_AI_API_KEY (or legacy GEMINI_API_KEY) is not set.",
-      );
+      throw new Error(missingAIKeyMessage("google"));
     }
     return createGoogleGenerativeAI({ apiKey: googleAPIKey });
   }
   if (meta.provider === "openai") {
-    if (!openAIAPIKey) throw new Error("OPENAI_API_KEY is not set.");
+    if (!openAIAPIKey) throw new Error(missingAIKeyMessage("openai"));
     return createOpenAI({ apiKey: openAIAPIKey });
   }
   if (meta.provider === "xai") {
-    if (!xaiAPIKey) throw new Error("XAI_API_KEY is not set.");
+    if (!xaiAPIKey) throw new Error(missingAIKeyMessage("xai"));
     return createXai({ apiKey: xaiAPIKey });
   }
   throw new Error(`Unsupported image provider: ${meta.provider}`);
@@ -116,7 +116,7 @@ async function generateViaImageEndpoint(
       `Model "${model}" does not support reference images. Choose a Gemini *-image-preview model for image-as-context, or generate from a text prompt only.`,
     );
   }
-  const provider = getImageProvider(context, meta);
+  const provider = await getImageProvider(context, meta);
   const sdkModelId = resolveImageModelIdForSdk(model);
   const { images, warnings } = await generateImage({
     model: provider.image(sdkModelId),
@@ -152,7 +152,7 @@ async function generateViaMultimodalText(
   aspect: { value: string; width: number; height: number },
 ): Promise<GeneratedImage[]> {
   const { context, model, prompt, count, referenceImage } = params;
-  const provider = getImageProvider(context, meta);
+  const provider = await getImageProvider(context, meta);
   const sdkModelId = resolveImageModelIdForSdk(model);
   // The reference image (if any) is the same on every call.
   const baseContent: Array<
@@ -195,7 +195,7 @@ async function generateViaMultimodalText(
         google: {
           // Without this Gemini returns a text description instead of bytes.
           responseModalities: ["IMAGE"],
-          // Only sent to models that honor it (gemini-3-pro-image-preview).
+          // Only sent to models that honor it (gemini-3-pro-image).
           // gemini-2.5-flash-image ignores it, so we steer shape via the
           // prompt's framing instruction instead.
           ...(meta.honorsAspectRatio

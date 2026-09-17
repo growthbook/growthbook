@@ -28,6 +28,7 @@ const EditableH1: FC<{
   }
   return (
     <Field
+      size="legacy"
       label={label}
       className={clsx(className, "form-control-lg")}
       style={style}

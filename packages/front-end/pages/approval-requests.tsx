@@ -1,8 +1,19 @@
+import {
+  ANY_REVIEW_FOOTPRINT,
+  featureReviewCandidateProjects,
+} from "shared/util";
+import type { OrganizationSettings } from "shared/types/organization";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
-import { Revision, RevisionStatus, getRevisionKey } from "shared/enterprise";
+import {
+  Revision,
+  RevisionStatus,
+  getRevisionKey,
+  isInReviewCycle,
+} from "shared/enterprise";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FeatureMetaInfo } from "shared/types/feature";
 import Link from "next/link";
@@ -28,6 +39,7 @@ import { buildSavedGroupRevisionUrl } from "@/components/Revision/revisionUtils"
 import { useRevisions } from "@/hooks/useRevisions";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 
 const ITEMS_PER_PAGE = 20;
@@ -80,9 +92,10 @@ type ApprovalRow = {
   // only understands numbers/strings/arrays) can properly order rows by date.
   dateCreated: number;
   url: string;
-  // Projects the underlying entity belongs to. Features have exactly one
-  // project (empty string → "no project"); saved groups can belong to many
-  // or none. Used by the "Needs my review" scope to check per-project
+  // Projects whose reviewers may act on the row. Features list their primary
+  // project first (empty string → "no project"), then any targeting project
+  // whose own review rule can bind them; saved groups can belong to many or
+  // none. Used by the "Needs my review" scope to check per-project
   // review/edit permissions without having to refetch the entities.
   projects: string[];
 };
@@ -161,10 +174,18 @@ function revisionToRow(revision: Revision): ApprovalRow {
       ? revision.target.snapshot?.groupName || revision.target.id
       : revision.target.id;
 
+  // Saved Groups carry `projects[]`; Configs and Constants a scalar `project`.
+  // Reading only the array left the scalar entities with no project, so a
+  // project-filtered "needs my review" view dropped them entirely.
+  const snapshot = revision.target.snapshot as
+    | { projects?: string[]; project?: string }
+    | undefined;
   const projects =
     revision.target.type === "saved-group"
-      ? (revision.target.snapshot?.projects ?? [])
-      : [];
+      ? (snapshot?.projects ?? [])
+      : snapshot?.project
+        ? [snapshot.project]
+        : [];
 
   return {
     id: revision.id,
@@ -197,6 +218,7 @@ function buildRevisionUrl(revision: Revision): string {
 
 function featureRevisionToRow(
   revision: FeatureRevisionWithMeta,
+  settings: OrganizationSettings,
 ): ApprovalRow | null {
   // Only show revisions with an identifiable logged-in author (matches the
   // shape expected by the "Requested by" column).
@@ -215,7 +237,11 @@ function featureRevisionToRow(
   const status: RevisionStatus =
     revision.status === "published" ? "merged" : revision.status;
 
-  const featureProject = revision.featureMeta?.project ?? "";
+  const projects = featureReviewCandidateProjects(
+    revision.featureMeta ?? { project: "" },
+    settings,
+    revision,
+  );
 
   return {
     id: `${revision.featureId}-v${revision.version}`,
@@ -228,7 +254,7 @@ function featureRevisionToRow(
     status,
     dateCreated: new Date(revision.dateCreated).getTime(),
     url: `/features/${revision.featureId}?v=${revision.version}`,
-    projects: [featureProject],
+    projects,
   };
 }
 
@@ -236,6 +262,7 @@ const ApprovalRequests: FC = () => {
   const router = useRouter();
   const { getUserDisplay, hasCommercialFeature, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const settings = useOrgSettings();
   const hasFeature = hasCommercialFeature("require-approvals");
 
   // Scope selector controlling the top-level "who cares about this row?"
@@ -268,11 +295,11 @@ const ApprovalRequests: FC = () => {
     const all: ApprovalRow[] = [
       ...revisions.map(revisionToRow),
       ...(featureRevisionsData?.revisions || [])
-        .map(featureRevisionToRow)
+        .map((r) => featureRevisionToRow(r, settings))
         .filter((r): r is ApprovalRow => r !== null),
     ];
     return all;
-  }, [revisions, featureRevisionsData]);
+  }, [revisions, featureRevisionsData, settings]);
 
   const entityTypes = useMemo(() => {
     const types = new Set(rows.map((r) => r.entityType));
@@ -356,22 +383,31 @@ const ApprovalRequests: FC = () => {
     return items.filter((item) => allowed.has(item.status));
   }, [items, hasExplicitStatusFilter]);
 
-  // Per-row "can I act on this as a reviewer?" check. Mirrors the rules used
-  // elsewhere: `canReview` permission on the feature's project for feature
-  // revisions, and "can edit = can review" (canUpdateSavedGroup) for
-  // saved-group revisions — matching canUserReviewEntity in
-  // shared/src/revisions/helpers.ts.
+  // Per-row "can I act on this as a reviewer?" check. Reviewing is its own
+  // authority for every model, so each row asks the same question of its own
+  // family's review atom. Constants and Configs previously fell through to
+  // `false`, hiding their rows from every reviewer.
   const canReviewRow = useCallback(
     (row: ApprovalRow): boolean => {
       if (row.entityType === "feature") {
-        return permissionsUtil.canReviewFeatureDrafts({
-          project: row.projects[0] ?? "",
-        });
+        // "any" on purpose: this gates visibility, not approval. Hiding a draft
+        // is worse than showing one you cannot fully approve.
+        return permissionsUtil.canReviewFeatureDrafts(
+          { project: row.projects[0] ?? "" },
+          ANY_REVIEW_FOOTPRINT,
+          row.projects.slice(1),
+        );
       }
-      if (row.entityType === "saved-group") {
-        return permissionsUtil.canUpdateSavedGroup(
+      if (
+        row.entityType === "saved-group" ||
+        row.entityType === "constant" ||
+        row.entityType === "config"
+      ) {
+        return permissionsUtil.canRevisionAction(
+          row.entityType,
+          "review",
           { projects: row.projects },
-          { projects: row.projects },
+          NO_ENVIRONMENT_BINDING,
         );
       }
       return false;
@@ -381,7 +417,8 @@ const ApprovalRequests: FC = () => {
 
   // Scope-level filter applied on top of the status/search filtering.
   // - "needs-my-review": rows I'm allowed to review, that I didn't author,
-  //   and that are in an actionable state (pending-review, changes-requested).
+  //   and that still accept a verdict — "approved" included, since an approval
+  //   that doesn't cover the change still needs one that does.
   // - "my-requests": rows I authored (any status).
   // - "all": no additional filtering.
   const effectiveItems = useMemo(() => {
@@ -394,8 +431,7 @@ const ApprovalRequests: FC = () => {
     // scope === "needs-my-review"
     return statusFilteredItems.filter(
       (row) =>
-        (row.status === "pending-review" ||
-          row.status === "changes-requested") &&
+        isInReviewCycle(row.status) &&
         row.authorId !== userId &&
         canReviewRow(row),
     );
@@ -530,7 +566,7 @@ const ApprovalRequests: FC = () => {
   return (
     <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
       <Box mb="5">
-        <Heading as="h1" size="large" mb="2">
+        <Heading as="h1" size="lg" mb="2">
           Approval Requests
         </Heading>
         <Text color="text-low">

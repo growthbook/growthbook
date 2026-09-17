@@ -1,9 +1,15 @@
-import { useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo } from "react";
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
+  blockUsesDashboardDateControl,
+  FunnelExplorationBlockInterface,
+  getEffectiveExplorationConfig,
+  restoreBlockLocalDateControls,
 } from "shared/enterprise";
 import type { BlockComparison } from "shared/enterprise";
 import { isEqual } from "lodash";
@@ -14,37 +20,73 @@ import { stripExplorerDraftFields } from "@/enterprise/components/ProductAnalyti
 export default function ProductAnalyticsExplorerSideBarWrapper({
   block,
   setBlock,
-  saveAndCloseTrigger,
-  onSaveAndClose,
+  dashboardGlobalControls,
+  invalidateStaleResults = true,
+  hideDataSourceSelector = false,
+  sqlExploreConfigOnly = false,
+  dashboardHeaderLeadingContent,
 }: {
   block: DashboardBlockInterfaceOrData<
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | SqlExplorationBlockInterface
+    | FunnelExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | SqlExplorationBlockInterface
+      | FunnelExplorationBlockInterface
     >
   >;
-  saveAndCloseTrigger?: number;
-  onSaveAndClose?: () => void;
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
+  invalidateStaleResults?: boolean;
+  hideDataSourceSelector?: boolean;
+  sqlExploreConfigOnly?: boolean;
+  dashboardHeaderLeadingContent?: ReactNode;
 }) {
-  const { needsFetch, needsUpdate, draftExploreState, handleSubmit, loading } =
-    useExplorerContext();
-  const pendingCloseRef = useRef(false);
-  const onSaveAndCloseRef = useRef(onSaveAndClose);
-  onSaveAndCloseRef.current = onSaveAndClose;
-
+  const {
+    needsFetch,
+    needsUpdate,
+    draftExploreState,
+    setDraftExploreState,
+    handleSubmit,
+    comparisonMode,
+    linkedFunnelMetricId,
+  } = useExplorerContext();
   const explorerAnalysisId =
     "explorerAnalysisId" in block ? block.explorerAnalysisId : undefined;
-  const comparisonExplorerAnalysisId =
-    "comparisonExplorerAnalysisId" in block
-      ? block.comparisonExplorerAnalysisId
-      : undefined;
-  const compareEnabled = draftExploreState.previousTimeFrame != null;
+  const dateControlledBlock = blockUsesDashboardDateControl(block)
+    ? block
+    : null;
+  const usesDashboardDateRange =
+    dateControlledBlock !== null && Boolean(dashboardGlobalControls?.dateRange);
+  const getEffectiveDraftConfig = useCallback(
+    () =>
+      usesDashboardDateRange && dateControlledBlock
+        ? ({
+            ...getEffectiveExplorationConfig(
+              {
+                ...dateControlledBlock,
+                config: stripExplorerDraftFields(
+                  draftExploreState,
+                ) as typeof dateControlledBlock.config,
+              } as typeof dateControlledBlock,
+              { globalControls: dashboardGlobalControls },
+            ),
+            previousTimeFrame: draftExploreState.previousTimeFrame,
+          } as typeof draftExploreState)
+        : draftExploreState,
+    [
+      dashboardGlobalControls,
+      dateControlledBlock,
+      draftExploreState,
+      usesDashboardDateRange,
+    ],
+  );
 
   const nextComparison = useMemo<BlockComparison | undefined>(() => {
     const previousTimeFrame = draftExploreState.previousTimeFrame;
@@ -52,71 +94,157 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
 
     return {
       enabled: true,
-      ...(draftExploreState.dateRange.predefined === "customDateRange"
-        ? { previousTimeFrame }
-        : {}),
+      mode: comparisonMode,
+      // Only a hand-picked window needs persisting; the derived modes roll.
+      ...(comparisonMode === "custom" ? { previousTimeFrame } : {}),
     };
-  }, [
-    draftExploreState.dateRange.predefined,
-    draftExploreState.previousTimeFrame,
-  ]);
+  }, [comparisonMode, draftExploreState.previousTimeFrame]);
+  const blockLinkedMetricId =
+    "linkedFunnelMetricId" in block
+      ? (block.linkedFunnelMetricId ?? null)
+      : null;
+  const linkedMetricChanged = linkedFunnelMetricId !== blockLinkedMetricId;
 
   useEffect(() => {
-    const nextConfig = stripExplorerDraftFields(draftExploreState);
+    const nextDraftConfig = stripExplorerDraftFields(draftExploreState);
+    const nextConfig =
+      usesDashboardDateRange && dateControlledBlock
+        ? restoreBlockLocalDateControls(
+            nextDraftConfig as typeof dateControlledBlock.config,
+            dateControlledBlock.config,
+          )
+        : nextDraftConfig;
+    const shouldInvalidateResults =
+      needsFetch && invalidateStaleResults && Boolean(explorerAnalysisId);
+    const comparisonChanged =
+      needsUpdate && !isEqual(block.comparison, nextComparison);
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
-      !isEqual(block.comparison, nextComparison)
+      comparisonChanged ||
+      shouldInvalidateResults ||
+      linkedMetricChanged
     ) {
       setBlock({
         ...block,
         config: nextConfig,
         comparison: nextComparison,
         // Only invalidate the cached analysis when the change requires new data
-        explorerAnalysisId: needsFetch ? "" : block.explorerAnalysisId,
+        explorerAnalysisId:
+          needsFetch && invalidateStaleResults ? "" : block.explorerAnalysisId,
         comparisonExplorerAnalysisId:
-          nextComparison && !needsFetch
+          nextComparison && (!needsFetch || !invalidateStaleResults)
             ? block.comparisonExplorerAnalysisId
             : undefined,
+        ...(block.type === "funnel-exploration"
+          ? { linkedFunnelMetricId }
+          : {}),
       } as
         | MetricExplorationBlockInterface
         | FactTableExplorationBlockInterface
-        | DataSourceExplorationBlockInterface);
+        | DataSourceExplorationBlockInterface
+        | SqlExplorationBlockInterface
+        | FunnelExplorationBlockInterface);
     }
   }, [
     needsFetch,
     needsUpdate,
+    invalidateStaleResults,
     setBlock,
     block,
     draftExploreState,
+    dashboardGlobalControls,
+    dateControlledBlock,
     nextComparison,
-  ]);
-
-  // When Save & Close is requested and the block is stale, run the analysis first.
-  useEffect(() => {
-    if (!saveAndCloseTrigger) return;
-    pendingCloseRef.current = true;
-    handleSubmit({ force: true });
-  }, [saveAndCloseTrigger, handleSubmit]);
-
-  // Once onRunComplete writes the required analysis ids, complete the save.
-  useEffect(() => {
-    if (
-      pendingCloseRef.current &&
-      explorerAnalysisId &&
-      (!compareEnabled ||
-        comparisonExplorerAnalysisId ||
-        (!loading && !needsFetch))
-    ) {
-      pendingCloseRef.current = false;
-      onSaveAndCloseRef.current?.();
-    }
-  }, [
-    compareEnabled,
-    comparisonExplorerAnalysisId,
+    usesDashboardDateRange,
     explorerAnalysisId,
-    loading,
-    needsFetch,
+    linkedMetricChanged,
+    linkedFunnelMetricId,
   ]);
 
-  return <ExplorerSideBar renderingInDashboardSidebar />;
+  return (
+    <>
+      <ExplorerSideBar
+        renderingInDashboardSidebar
+        hideDataSourceSelector={hideDataSourceSelector}
+        sqlExploreConfigOnly={sqlExploreConfigOnly}
+        dashboardHeaderLeadingContent={dashboardHeaderLeadingContent}
+        dashboardDateRange={dashboardGlobalControls?.dateRange}
+        useDashboardDateControl={usesDashboardDateRange}
+        onSubmit={() =>
+          handleSubmit({ force: true, config: getEffectiveDraftConfig() })
+        }
+        // Writes config, not just the flag: block.config is what reseeds the draft,
+        // so this is what makes the edit survive a provider remount.
+        onClaimDashboardDateRange={({ dateRange, granularity }) =>
+          setBlock({
+            ...block,
+            globalControlSettings: {
+              ...block.globalControlSettings,
+              dateRange: false,
+            },
+            config: {
+              ...block.config,
+              dateRange,
+              dimensions: granularity
+                ? block.config.dimensions.map((dimension) =>
+                    dimension.dimensionType === "date"
+                      ? { ...dimension, dateGranularity: granularity }
+                      : dimension,
+                  )
+                : block.config.dimensions,
+            },
+          } as
+            | MetricExplorationBlockInterface
+            | FactTableExplorationBlockInterface
+            | DataSourceExplorationBlockInterface
+            | FunnelExplorationBlockInterface)
+        }
+        onGlobalControlSettingsChange={(settings) => {
+          const nextSettings = {
+            ...block.globalControlSettings,
+            ...settings,
+          };
+          if (settings.dateRange !== undefined) {
+            setDraftExploreState((prev) => ({
+              ...prev,
+              dateRange:
+                settings.dateRange && dashboardGlobalControls?.dateRange
+                  ? dashboardGlobalControls.dateRange
+                  : block.config.dateRange,
+              dimensions: prev.dimensions.map((dimension) => {
+                if (dimension.dimensionType !== "date") return dimension;
+                if (
+                  settings.dateRange &&
+                  dashboardGlobalControls?.dateGranularity
+                ) {
+                  return {
+                    ...dimension,
+                    dateGranularity: dashboardGlobalControls.dateGranularity,
+                  };
+                }
+
+                const blockDateDimension = block.config.dimensions.find(
+                  (blockDimension) => blockDimension.dimensionType === "date",
+                );
+                return blockDateDimension
+                  ? {
+                      ...dimension,
+                      dateGranularity: blockDateDimension.dateGranularity,
+                    }
+                  : dimension;
+              }),
+            }));
+          }
+          setBlock({
+            ...block,
+            globalControlSettings: nextSettings,
+          } as
+            | MetricExplorationBlockInterface
+            | FactTableExplorationBlockInterface
+            | DataSourceExplorationBlockInterface
+            | SqlExplorationBlockInterface);
+        }}
+      />
+    </>
+  );
 }

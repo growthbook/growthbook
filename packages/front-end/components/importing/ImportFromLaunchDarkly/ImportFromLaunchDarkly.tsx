@@ -721,6 +721,7 @@ export default function ImportFromLaunchDarkly() {
             <div className="row">
               <div className="col">
                 <Field
+                  size="legacy"
                   label="API Token"
                   value={token}
                   type="password"
@@ -730,6 +731,7 @@ export default function ImportFromLaunchDarkly() {
               </div>
               <div className="col-auto">
                 <Field
+                  size="legacy"
                   label="Max requests per 10 secs"
                   type="number"
                   value={intervalCap}

@@ -1,4 +1,8 @@
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import {
+  getFactTableIdColumn,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import { useEffect, useMemo, useState } from "react";
 import {
   PiUserBold,
@@ -58,6 +62,8 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
     const out: (ColumnInterface & { jsonFieldParent?: string })[] = [];
     for (const col of factTable.columns || []) {
       if (col.deleted) continue;
+      // Virtual columns are managed in their own tab, not the Columns list.
+      if (col.isVirtual) continue;
       out.push(col);
       if (col.datatype === "json" && col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
@@ -78,11 +84,15 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
     return out;
   }, [factTable]);
 
+  const timestampColumn = getFactTableTimestampColumn(factTable);
+
   const columns = useAddComputedFields(availableColumns, (column) => ({
     ...column,
     name: column.name || column.column,
     id: column.name || column.column,
-    identifier: factTable.userIdTypes.includes(column.column),
+    identifier: factTable.userIdTypes.some(
+      (idType) => getFactTableIdColumn(factTable, idType) === column.column,
+    ),
     isJsonField: !!column.jsonFieldParent,
     type:
       column.datatype === "number"
@@ -128,6 +138,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
         {columns.length > 0 && (
           <div className="col-auto mr-auto">
             <Field
+              size="legacy"
               placeholder="Search..."
               type="search"
               {...searchInputProps}
@@ -137,7 +148,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
         {canEdit && (
           <div className="col-auto">
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               loading={refreshing || !!factTable.columnRefreshPending}
               onClick={async () => {
@@ -202,7 +213,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                           </Avatar>
                         </Tooltip>
                       )}
-                      {col.column === "timestamp" && (
+                      {col.column === timestampColumn && (
                         <Tooltip
                           body="Main date field used for sorting and filtering"
                           tipPosition="left"

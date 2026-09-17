@@ -1,11 +1,25 @@
+import { isEqual } from "lodash";
+import { pruneApprovalRuleReferences } from "shared/util";
+import { TeamInterface } from "shared/types/team";
 import {
   ManagedBy,
   ProjectInterface,
   projectValidator,
   ApiProject,
 } from "shared/validators";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { getCollection } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
+import {
+  pruneDefinitionsVersionProject,
+  touchDefinitionsVersion,
+} from "./DefinitionsVersionModel";
+import {
+  removeProjectRolesForProject,
+  updateOrganization,
+} from "./OrganizationModel";
 import { MakeModelClass } from "./BaseModel";
 
 function slugify(text: string): string {
@@ -23,6 +37,7 @@ type MigratedProject = Omit<ProjectInterface, "settings"> & {
 const BaseClass = MakeModelClass({
   schema: projectValidator,
   collectionName: "projects",
+  affectsDefinitionsVersion: true,
   idPrefix: "prj_",
   auditLog: {
     entity: "project",
@@ -31,6 +46,13 @@ const BaseClass = MakeModelClass({
     deleteEvent: "project.delete",
   },
   globallyUniquePrimaryKeys: true,
+  additionalIndexes: [
+    {
+      fields: { organization: 1, restrictAccess: 1 },
+      name: "org_restrict_access",
+      partialFilterExpression: { restrictAccess: true },
+    },
+  ],
   defaultValues: {
     description: "",
     settings: {},
@@ -40,6 +62,34 @@ const BaseClass = MakeModelClass({
 export class ProjectModel extends BaseClass {
   protected canRead(doc: ProjectInterface) {
     return this.context.permissions.canReadSingleProjectResource(doc.id);
+  }
+
+  // Runs during auth middleware, before any request context (and therefore any
+  // permission-checked model) exists — permission resolution needs this list.
+  public static async dangerousGetRestrictedProjectIds(
+    orgId: string,
+  ): Promise<string[]> {
+    const docs = await getCollection<ProjectInterface>("projects")
+      .find({ organization: orgId, restrictAccess: true })
+      .project<{ id: string }>({ id: 1 })
+      .toArray();
+    return docs.map((p) => p.id);
+  }
+
+  // Every org project id, unfiltered by read permissions (internal fan-out only).
+  public async getAllIdsForOrg(): Promise<string[]> {
+    const projects = await this._find({}, { bypassReadPermissionChecks: true });
+    return projects.map((p) => p.id);
+  }
+
+  // Projects that refuse new Targeting Projects delivery, unfiltered: the gate
+  // must hold for projects the caller cannot read.
+  public async getTargetingOptOutIds(): Promise<string[]> {
+    const projects = await this._find(
+      { allowTargeting: false },
+      { bypassReadPermissionChecks: true },
+    );
+    return projects.map((p) => p.id);
   }
 
   protected canCreate() {
@@ -54,15 +104,90 @@ export class ProjectModel extends BaseClass {
     return this.context.permissions.canDeleteProject(doc.id);
   }
 
+  protected async afterDelete(doc: ProjectInterface) {
+    // Drop the deleted project's definitions-version counter; the delete
+    // itself bumps globally via affectsDefinitionsVersion.
+    await pruneDefinitionsVersionProject(this.context.org.id, doc.id);
+    // Approval rules naming the project would otherwise block later settings
+    // saves once the dashboard round-trips them.
+    const settings = this.context.org.settings ?? {};
+    const pruned = pruneApprovalRuleReferences(settings, {
+      projects: (await this.context.getAllProjectIds()).filter(
+        (id) => id !== doc.id,
+      ),
+    });
+    if (!isEqual(pruned, settings)) {
+      await updateOrganization(this.context.org.id, { settings: pruned });
+    }
+    // Project roles naming it are dead grants; drop them wherever they live.
+    // The project is already gone, so a cleanup failure is logged rather than
+    // turned into an error that would also skip the caller's remaining cleanup.
+    const cleanups = await Promise.allSettled([
+      removeProjectRolesForProject(this.context.org, doc.id),
+      getCollection<TeamInterface>("teams").updateMany(
+        { organization: this.context.org.id, "projectRoles.project": doc.id },
+        { $pull: { projectRoles: { project: doc.id } } },
+      ),
+    ]);
+    for (const result of cleanups) {
+      if (result.status === "rejected") {
+        logger.error(
+          result.reason,
+          `Failed to remove project roles for deleted project ${doc.id}`,
+        );
+      }
+    }
+  }
+
   protected migrate(doc: MigratedProject) {
     const settings = {
       ...(doc.settings || {}),
     };
 
-    return { ...doc, settings };
+    // Projects predating the setting allow targeting; only a stored false opts out.
+    return { ...doc, settings, allowTargeting: doc.allowTargeting ?? true };
+  }
+
+  private checkCanRestrictAccess() {
+    if (!this.context.hasPremiumFeature("advanced-permissions")) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support restricting Project access.",
+      );
+    }
   }
 
   protected async beforeCreate(data: Partial<ProjectInterface>) {
+    if (data.restrictAccess) {
+      this.checkCanRestrictAccess();
+    }
+
+    // Enforce the plan's project limit across every creation path. The demo
+    // "Sample Data" project is exempt (it's created with a fixed id).
+    const maxProjects = this.context.limits.getMaxProjects();
+    const isDemo =
+      !!data.id &&
+      isDemoDatasourceProject({
+        projectId: data.id,
+        organizationId: this.context.org.id,
+      });
+    if (maxProjects !== null && !isDemo) {
+      const existingProjects = await this.context.getProjects();
+      const nonDemoProjectCount = existingProjects.filter(
+        (p) =>
+          !isDemoDatasourceProject({
+            projectId: p.id,
+            organizationId: this.context.org.id,
+          }),
+      ).length;
+      if (nonDemoProjectCount >= maxProjects) {
+        this.context.throwPaymentRequiredError(
+          `Your plan only supports ${maxProjects} project${
+            maxProjects === 1 ? "" : "s"
+          }. Upgrade your plan to create more.`,
+        );
+      }
+    }
+
     if (!data.publicId && data.name) {
       const baseSlug = slugify(data.name);
       if (!baseSlug) return; // name yields no slug (e.g. non-ASCII only); leave publicId unset
@@ -110,6 +235,10 @@ export class ProjectModel extends BaseClass {
     original: ProjectInterface,
     updates: Partial<ProjectInterface>,
   ) {
+    if (updates.restrictAccess && !original.restrictAccess) {
+      this.checkCanRestrictAccess();
+    }
+
     if (
       updates.publicId !== undefined &&
       updates.publicId !== original.publicId
@@ -171,6 +300,8 @@ export class ProjectModel extends BaseClass {
         },
       },
     );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 
   public async ensureProjectsExist(projectIds: string[]) {
@@ -184,12 +315,25 @@ export class ProjectModel extends BaseClass {
     }
   }
 
+  // Existence only, unfiltered by read access: for references a caller may
+  // legitimately carry without being able to read the project, such as a
+  // flag's existing Targeting Projects. Authorization is the caller's job.
+  public async ensureProjectIdsExist(projectIds: string[]) {
+    const valid = new Set(await this.getAllIdsForOrg());
+    const missing = projectIds.filter((id) => !valid.has(id));
+    if (missing.length) {
+      throw new Error(`Invalid project ids: ${missing.join(", ")}`);
+    }
+  }
+
   public toApiInterface(project: ProjectInterface): ApiProject {
     return {
       id: project.id,
       name: project.name,
       description: project.description || "",
       publicId: project.publicId,
+      restrictAccess: project.restrictAccess,
+      allowTargeting: project.allowTargeting ?? true,
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {

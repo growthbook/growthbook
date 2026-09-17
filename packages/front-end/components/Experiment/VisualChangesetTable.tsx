@@ -464,7 +464,7 @@ function VariationRow({
           <VariationLabel
             number={variationIndex}
             name={variationName}
-            size="medium"
+            size="md"
           />
         </Box>
         <Flex flexBasis="90px" flexShrink="0" justify="end">

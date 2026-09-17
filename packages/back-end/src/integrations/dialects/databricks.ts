@@ -13,6 +13,7 @@ const databricksEscapeStringLiteral = (value: string) =>
 
 export const databricksDialect: SqlDialect = {
   ...baseDialect,
+  identifierQuote: "`",
   formatDialect: "spark",
   toTimestamp: (date: Date) => `TIMESTAMP'${date.toISOString()}'`,
   addTime: (
@@ -40,6 +41,22 @@ export const databricksDialect: SqlDialect = {
     const raw = `${jsonCol}:${path}`;
     return isNumeric ? databricksDialect.castToFloat(raw) : raw;
   },
+  // Spark SQL (Databricks) — `collect_list` skips NULLs by default; we
+  // then sort the resulting array ascending. `min_by` is native.
+  arrayAggSorted: (col: string) => `array_sort(collect_list(${col}))`,
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `min_by(${valueCol}, ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const preds: string[] = [];
+    if (lowerBound) preds.push(`x >= ${lowerBound}`);
+    if (upperBound) preds.push(`x <= ${upperBound}`);
+    const predicate = preds.length ? preds.join(" AND ") : "true";
+    return `array_min(filter(${col}, x -> ${predicate}))`;
+  },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `timestampadd(SECOND, ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `(unix_millis(${endCol}) - unix_millis(${startCol}))`,
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":
@@ -54,10 +71,18 @@ export const databricksDialect: SqlDialect = {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // Databricks isn't an incremental target today; defined for
+        // exhaustiveness. Identity castUserDateCol → TIMESTAMP.
+        return "TIMESTAMP";
       case "hll":
         return "BINARY";
       case "quantileSketch":
         return "BINARY";
+      // Spark array type. Databricks isn't an incremental target today, so this
+      // is defined for exhaustiveness/forward-compat rather than active use.
+      case "arrayTimestamp":
+        return "ARRAY<TIMESTAMP>";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);

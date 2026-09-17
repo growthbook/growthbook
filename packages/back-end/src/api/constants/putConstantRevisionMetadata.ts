@@ -1,4 +1,5 @@
 import { putConstantRevisionMetadataValidator } from "shared/validators";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -20,12 +21,29 @@ export const putConstantRevisionMetadata = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
   const { name, owner, description, project } = req.body;
 
-  // Mass-assignment guard: only allowlisted fields reach the patch builder.
+  // Authorize both scopes before checking project existence.
+  if (
+    !req.context.permissions.canRevisionAction("constant", "draft", constant)
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+  if (
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "constant",
+      action: "draft",
+      existing: constant,
+      proposed: { ...constant, ...(project === undefined ? {} : { project }) },
+    })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
   const fieldsToUpdate: Record<string, unknown> = {};
   if (typeof name !== "undefined") fieldsToUpdate.name = name;
   if (typeof owner !== "undefined") fieldsToUpdate.owner = owner;
@@ -36,16 +54,6 @@ export const putConstantRevisionMetadata = createApiRequestHandler(
       await req.context.models.projects.ensureProjectsExist([project]);
     }
     fieldsToUpdate.project = project;
-  }
-
-  // Re-check edit permission against the merged change set so a `project` move
-  // requires edit on both old AND new project.
-  if (
-    !req.context.permissions.canUpdateConstant(constant, {
-      project: typeof project !== "undefined" ? project : constant.project,
-    })
-  ) {
-    req.context.permissions.throwPermissionError();
   }
 
   await ensureLiveRevisionExists(

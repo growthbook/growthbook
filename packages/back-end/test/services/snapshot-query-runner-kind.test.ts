@@ -41,7 +41,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -53,7 +53,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "exploratory",
         hasSnapshotDimensions: true,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental-exploratory");
   });
 
@@ -65,7 +65,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "exploratory",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -79,7 +79,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: false,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason:
         "No materialized units table yet for Overall Results.",
     });
@@ -95,9 +95,10 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: false,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason:
         "No materialized units table yet for Overall Results.",
+      dimensionBlockedOnOverallResults: true,
     });
   });
 
@@ -109,7 +110,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: false,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -124,7 +125,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });
@@ -142,7 +143,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });
@@ -160,7 +161,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });
@@ -176,7 +177,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -190,7 +191,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason:
         'Experiment type "multi-armed-bandit" is not supported for Incremental Pipeline mode.',
     });
@@ -206,7 +207,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason:
         'Experiment type "holdout" is not supported for Incremental Pipeline mode.',
     });
@@ -223,7 +224,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });
@@ -236,7 +237,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -252,7 +253,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -270,7 +271,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });
@@ -288,7 +289,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("results");
   });
 
@@ -307,7 +308,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });

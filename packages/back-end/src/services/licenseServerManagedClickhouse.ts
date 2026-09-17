@@ -3,7 +3,6 @@
  * (see managed-clickhouse/* routes there).
  */
 import type { AIPromptType } from "shared/ai";
-import type { MaterializedColumn } from "shared/types/datasource";
 import type { DailyUsage } from "shared/types/organization";
 import { dailyUsageForOrgResponseValidator } from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
@@ -160,6 +159,25 @@ export async function deleteClickhouseUser(orgId: string): Promise<void> {
   await postManagedClickhouse("delete", { orgId });
 }
 
+/**
+ * Apply the JSON-ergonomics affordances (per-org user settings + typed
+ * `attributes.<property>` ALIAS columns) to a provisioned JSON-columns
+ * warehouse. The license server reads the desired column list from
+ * `settings.typedAttributeColumns` on the datasource doc, so persist that
+ * (via syncManagedWarehouseIdentifiers) before calling. Idempotent. Returns
+ * whether the DDL was actually applied (false = the license server skipped a
+ * warehouse with no JSON tables to alter yet).
+ */
+export async function syncJsonErgonomicsInClickhouse(
+  orgId: string,
+): Promise<boolean> {
+  const res = await postManagedClickhouseJson<{
+    ok: boolean;
+    applied?: boolean;
+  }>("sync-json-ergonomics", { orgId });
+  return res.applied === true;
+}
+
 export async function addCloudSDKMapping(
   key: string,
   organization: string,
@@ -174,31 +192,6 @@ export async function migrateOverageEventsForOrgId(
   orgId: string,
 ): Promise<void> {
   await postManagedClickhouse("migrate-overage", { orgId });
-}
-
-export async function updateMaterializedColumnsInClickhouse({
-  orgId,
-  columnsToAdd,
-  columnsToDelete,
-  columnsToRename,
-  finalColumns,
-  originalColumns,
-}: {
-  orgId: string;
-  columnsToAdd: MaterializedColumn[];
-  columnsToDelete: string[];
-  columnsToRename: { from: string; to: string }[];
-  finalColumns: MaterializedColumn[];
-  originalColumns: MaterializedColumn[];
-}): Promise<void> {
-  await postManagedClickhouse("update-materialized-columns", {
-    orgId,
-    columnsToAdd,
-    columnsToDelete,
-    columnsToRename,
-    finalColumns,
-    originalColumns,
-  });
 }
 
 export async function logCloudAIUsage({

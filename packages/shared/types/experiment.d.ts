@@ -64,18 +64,21 @@ export type DecisionFrameworkExperimentRecommendationStatus =
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      scheduledEndPassed: boolean;
     }
   | {
       status: "rollback-now";
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      scheduledEndPassed: boolean;
     }
   | {
       status: "ready-for-review";
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      scheduledEndPassed: boolean;
     };
 
 export type ExperimentUnhealthyData = {
@@ -93,7 +96,12 @@ export type ExperimentResultStatus =
   | DecisionFrameworkExperimentRecommendationStatus
   | { status: "no-data" }
   | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
-  | { status: "before-min-duration" };
+  | { status: "data-incomplete"; erroredMetrics: string[] }
+  | { status: "before-min-duration" }
+  // The scheduled end date has passed but there is no decision recommendation
+  // (e.g. no goal metrics, no results yet, or the Experiment Decision
+  // Framework is not enabled). Schedule-driven, not EDF-driven.
+  | { status: "scheduled-end-review" };
 
 export type ExperimentResultStatusData = ExperimentResultStatus & {
   tooltip?: string;
@@ -144,14 +152,18 @@ export type ExperimentPhaseStringDates = Omit<
 };
 
 type NextScheduledStatusUpdateStringDates = Omit<
-  NextScheduledStatusUpdate,
+  NonNullable<ExperimentInterface["nextScheduledStatusUpdate"]>,
   "date"
 > & {
   date: string;
 };
 
-type StatusUpdateScheduleStringDates = Omit<StatusUpdateSchedule, "startAt"> & {
+type StatusUpdateScheduleStringDates = Omit<
+  NonNullable<ExperimentInterface["statusUpdateSchedule"]>,
+  "startAt" | "stopAt"
+> & {
   startAt?: string;
+  stopAt?: string;
 };
 
 export type LegacyMetricOverride = MetricOverride & {
@@ -220,7 +232,16 @@ export type ComputedExperimentInterface = ExperimentInterfaceStringDates & {
   statusSortOrder: number;
   statusIndicator: StatusIndicatorData;
   isWatched?: boolean;
+  healthState: ExperimentHealthState | null;
+  // Higher = more urgent; 0 when healthState is null.
+  healthSortOrder: number;
 };
+
+export type ExperimentHealthState =
+  | "no-data"
+  | "unhealthy"
+  | "temp-rollout"
+  | "old-temp-rollout";
 
 export type Changeset = Partial<ExperimentInterface>;
 
@@ -239,6 +260,7 @@ export type ExperimentTargetingData = Pick<
     ExperimentInterfaceStringDates,
     | "hashAttribute"
     | "fallbackAttribute"
+    | "attributeScopeAllProjects"
     | "hashVersion"
     | "disableStickyBucketing"
     | "bucketVersion"
@@ -277,6 +299,12 @@ export interface LinkedFeatureInfo {
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
   /**
+   * Projects whose registered attributes are in scope for targeting through
+   * this feature (primary + targeting projects, current ∪ draft-staged).
+   * null = unscoped (the feature targets all projects).
+   */
+  attributeScopeProjects?: string[] | null;
+  /**
    * True when the live revision has at least one experiment-ref rule for this
    * experiment.
    */
@@ -297,6 +325,13 @@ export interface LinkedFeatureInfo {
    * switches and metadata are excluded (auto-toggled / typically no SDK impact).
    */
   hasUnrelatedDraftChanges?: boolean;
+  /**
+   * Environments currently disabled on the live feature that will be enabled
+   * when the pending draft is auto-published on experiment start. Only set for
+   * drafts queued in `pendingFeatureDrafts` — a draft created directly on the
+   * feature isn't published by the start flow.
+   */
+  environmentsToEnable?: string[];
 }
 
 export type LinkedChangeEnvState = "active" | "no-sdk-connection";
@@ -327,6 +362,7 @@ export type ExperimentDataForStatusStringDates = Omit<
     | "datasource"
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
+    | "statusUpdateSchedule"
   >,
   "type"
 > & {
@@ -353,6 +389,7 @@ export type ExperimentDataForStatus = Omit<
     | "datasource"
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
+    | "statusUpdateSchedule"
   >,
   "type"
 > & {

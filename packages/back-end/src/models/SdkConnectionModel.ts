@@ -72,6 +72,8 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeCustomFieldsInMetadata: Boolean,
   allowedCustomFieldsInMetadata: [String],
   includeTagsInMetadata: Boolean,
+  includeExperimentScheduleInMetadata: Boolean,
+  includeReferencedPrerequisites: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -160,6 +162,18 @@ export async function findSDKConnectionsByOrganization(
   );
 }
 
+// Not filtered by the caller's project read access: used as a referential
+// integrity check before an environment is removed.
+export async function countSDKConnectionsByEnvironment(
+  context: ReqContext | ApiReqContext,
+  environment: string,
+) {
+  return await SDKConnectionModel.countDocuments({
+    organization: context.org.id,
+    environment,
+  });
+}
+
 export async function findAllSDKConnectionsAcrossAllOrgs() {
   const docs = await SDKConnectionModel.find();
   return docs.map(toInterface);
@@ -209,10 +223,12 @@ export const createSDKConnectionValidator = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    includeReferencedPrerequisites: z.boolean().optional(),
     managedBy: managedByValidator.optional(),
   })
   .strict();
@@ -227,12 +243,20 @@ export async function createSDKConnection(
   context: ReqContext | ApiReqContext,
   params: CreateSDKConnectionParams,
 ) {
-  const { proxyEnabled, proxyHost, languages, ...otherParams } =
-    createSDKConnectionValidator.parse(params);
+  const {
+    proxyEnabled,
+    proxyHost,
+    languages,
+    // Written explicitly so "absent" keeps one meaning: off, for the
+    // connections that predate the setting.
+    includeReferencedPrerequisites = true,
+    ...otherParams
+  } = createSDKConnectionValidator.parse(params);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
     ...otherParams,
+    includeReferencedPrerequisites,
     organization: context.org.id,
     languages: languages as SDKLanguage[],
     id: uniqid("sdk_"),
@@ -318,8 +342,10 @@ export const editSDKConnectionValidator = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    includeReferencedPrerequisites: z.boolean().optional(),
     eventTracker: z.string().optional(),
   })
   .strict();
@@ -389,7 +415,9 @@ export async function editSDKConnection(
     "includeCustomFieldsInMetadata",
     "allowedCustomFieldsInMetadata",
     "includeTagsInMetadata",
+    "includeExperimentScheduleInMetadata",
     "savedGroupReferencesEnabled",
+    "includeReferencedPrerequisites",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
     if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {
@@ -644,11 +672,14 @@ export function toApiSDKConnectionInterface(
     includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
     includeTagsInMetadata: connection.includeTagsInMetadata,
+    includeExperimentScheduleInMetadata:
+      connection.includeExperimentScheduleInMetadata,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,
     proxySigningKey: connection.proxy.signingKey,
     remoteEvalEnabled: connection.remoteEvalEnabled,
     savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+    includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
   };
 }

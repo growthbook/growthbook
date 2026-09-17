@@ -1,10 +1,9 @@
 import { FeatureRule } from "shared/validators";
 import { Environment } from "shared/types/organization";
-import { stemRuleId, suffixRuleId } from "shared/util";
+import { getApplicableEnvIds, stemRuleId, suffixRuleId } from "shared/util";
 import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
-  getApplicableEnvIds,
   hasNoV1EnvRules,
   isV2RevisionRules,
   narrowRuleForEnvRemoval,
@@ -1117,6 +1116,31 @@ describe("getApplicableEnvIds", () => {
   it("preserves the order of orgEnvs", () => {
     const envs = [env("prod"), env("dev"), env("staging")];
     expect(getApplicableEnvIds(envs)).toEqual(["prod", "dev", "staging"]);
+  });
+
+  // A scope object unions the primary + targeting projects — a rule reaching an
+  // env restricted to a targeting-only project must not be scrubbed (v1 PUT bug).
+  it("unions primary + targeting projects for a scope object", () => {
+    const envs = [env("global", ["global"]), env("eu-prod", ["eu"])];
+    // primary-only would drop eu-prod
+    expect(getApplicableEnvIds(envs, "global")).toEqual(["global"]);
+    // union keeps it
+    expect(
+      getApplicableEnvIds(envs, {
+        project: "global",
+        targetingProjects: ["eu"],
+      }),
+    ).toEqual(["global", "eu-prod"]);
+  });
+
+  it("returns every env when the scope targets all projects", () => {
+    const envs = [env("global", ["global"]), env("eu-prod", ["eu"])];
+    expect(
+      getApplicableEnvIds(envs, {
+        project: "global",
+        targetingAllProjects: true,
+      }),
+    ).toEqual(["global", "eu-prod"]);
   });
 });
 

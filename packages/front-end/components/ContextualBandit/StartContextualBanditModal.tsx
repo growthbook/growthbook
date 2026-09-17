@@ -59,6 +59,18 @@ function computeBlockers(
     </Link>
   );
 
+  if (linkedFeatures.length === 0) {
+    hardBlockerItems.push({
+      key: "no-linked-feature",
+      hardBlock: true,
+      display: (
+        <>
+          Link at least one Feature Flag before this contextual bandit can start
+        </>
+      ),
+    });
+  }
+
   linkedFeatures
     .filter((f) => f.state === "draft" && f.hasMergeConflict)
     .forEach((f) => {
@@ -189,7 +201,7 @@ function SummaryRow({
       gap={inline ? "2" : "1"}
       align={inline ? "baseline" : "stretch"}
     >
-      <Text size="medium" weight="semibold" color="text-high">
+      <Text size="md" weight="semibold" color="text-high">
         {label}:
       </Text>
       <Box>{children}</Box>
@@ -283,7 +295,7 @@ export default function StartContextualBanditModal({
                     aria-label="warning"
                   />
                 )}
-                <Text size="large" weight="semibold" color="text-high">
+                <Text size="lg" weight="semibold" color="text-high">
                   Tasks to Complete
                 </Text>
               </Flex>
@@ -298,7 +310,7 @@ export default function StartContextualBanditModal({
                 {hasHardBlockers ? (
                   <Flex direction="column" gap="4">
                     <Box>
-                      <Text size="small" weight="semibold" color="text-high">
+                      <Text size="sm" weight="semibold" color="text-high">
                         Must resolve before starting
                       </Text>
                       <Box mt="2">
@@ -307,7 +319,7 @@ export default function StartContextualBanditModal({
                     </Box>
                     {softBlockerItems.length > 0 && (
                       <Box>
-                        <Text size="small" weight="semibold" color="text-high">
+                        <Text size="sm" weight="semibold" color="text-high">
                           Recommended
                         </Text>
                         <Box mt="2">
@@ -325,7 +337,7 @@ export default function StartContextualBanditModal({
           <Box>
             <Flex align="center" gap="1">
               <PiInfoFill color="var(--indigo-11)" size={15} />
-              <Text size="large" weight="semibold" color="text-high">
+              <Text size="lg" weight="semibold" color="text-high">
                 Summary
               </Text>
             </Flex>

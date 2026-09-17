@@ -1,16 +1,17 @@
 import { forwardRef } from "react";
 import { Flex } from "@radix-ui/themes";
+import { Size } from "@/ui/sizes";
 import Text from "@/ui/Text";
 
 type Props = {
   label: string;
   value: React.ReactNode | string;
   style?: React.CSSProperties;
-  size?: "small" | "medium";
+  size?: Size<"sm" | "md">;
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
-  { label, value, style, size = "medium", ...props },
+  { label, value, style, size = "md", ...props },
   ref,
 ) {
   return (

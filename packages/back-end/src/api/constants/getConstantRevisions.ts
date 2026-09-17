@@ -17,7 +17,7 @@ export const getConstantRevisions = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
   const mine = stringToBoolean(req.query.mine?.toString());
@@ -34,12 +34,9 @@ export const getConstantRevisions = createApiRequestHandler(
     );
   }
 
-  let limit: number;
-  let offset: number;
-  if (skipPagination) {
-    limit = req.query.limit ?? 10;
-    offset = req.query.offset ?? 0;
-  } else {
+  let limit = 0;
+  let offset = 0;
+  if (!skipPagination) {
     ({ limit, offset } = validatePagination(req.query));
   }
 
@@ -66,7 +63,7 @@ export const getConstantRevisions = createApiRequestHandler(
   return {
     revisions: apiRevisions,
     limit: skipPagination ? total : limit,
-    offset: skipPagination ? 0 : offset,
+    offset,
     count: apiRevisions.length,
     total,
     hasMore,

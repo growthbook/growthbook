@@ -114,6 +114,7 @@ export const resolvers: Record<
   secureAttributeSalt: genDefaultResolver("secureAttributeSalt"),
   killswitchConfirmation: genDefaultResolver("killswitchConfirmation"),
   requireReviews: genDefaultResolver("requireReviews"),
+  targetingReviewMode: genDefaultResolver("targetingReviewMode"),
   featureKeyExample: genDefaultResolver("featureKeyExample"),
   featureRegexValidator: genDefaultResolver("featureRegexValidator"),
   banditScheduleValue: genDefaultResolver("banditScheduleValue"),
@@ -126,6 +127,7 @@ export const resolvers: Record<
   topValuesLookbackValue: genDefaultResolver("topValuesLookbackValue"),
   topValuesLookbackUnit: genDefaultResolver("topValuesLookbackUnit"),
   useStickyBucketing: genDefaultResolver("useStickyBucketing"),
+  stickyBucketingOnByDefault: genDefaultResolver("stickyBucketingOnByDefault"),
   // TODO prior resolvers
 };
 

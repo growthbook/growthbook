@@ -15,6 +15,7 @@ const ssoConnectionSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  disabled: Boolean,
   dateCreated: Date,
   idpType: String,
   clientId: String,
@@ -42,7 +43,7 @@ export async function _dangerousGetSSOConnectionById(
   id: string,
 ): Promise<null | SSOConnectionInterface> {
   if (!id) return null;
-  const doc = await SSOConnectionModel.findOne({ id });
+  const doc = await SSOConnectionModel.findOne({ id: { $eq: String(id) } });
 
   return doc ? toInterface(doc) : null;
 }
@@ -54,15 +55,31 @@ export async function _dangerousGetAllSSOConnections(): Promise<
   return connections.map((c) => toInterface(c));
 }
 
-export async function _dangerousGetSSOConnectionByEmailDomain(
+export async function _dangerousGetSSOConnectionsByEmailDomain(
   emailDomain: string,
-): Promise<null | SSOConnectionInterface> {
-  if (!emailDomain) return null;
-  const doc = await SSOConnectionModel.findOne({
-    emailDomains: emailDomain,
+): Promise<SSOConnectionInterface[]> {
+  if (!emailDomain) return [];
+  const docs = await SSOConnectionModel.find({
+    emailDomains: { $eq: String(emailDomain) },
+    disabled: { $ne: true },
   });
 
-  return doc ? toInterface(doc) : null;
+  return docs.map((doc) => toInterface(doc));
+}
+
+export async function _dangerousGetSSOConnectionsByOrganization(
+  organization: string,
+): Promise<SSOConnectionInterface[]> {
+  if (!organization) return [];
+  const docs = await SSOConnectionModel.find({ organization });
+  return docs.map((doc) => toInterface(doc));
+}
+
+export async function _dangerousSetSSOConnectionsDisabled(
+  organization: string,
+  disabled: boolean,
+) {
+  await SSOConnectionModel.updateMany({ organization }, { $set: { disabled } });
 }
 
 export async function _dangerousCreateSSOConnection(

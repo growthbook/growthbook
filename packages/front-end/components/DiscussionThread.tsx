@@ -96,11 +96,7 @@ const DiscussionThread: FC<{
                       metadata={`commented on ${datetime(comment.date)}`}
                       metadataExtra={
                         comment.edited && (
-                          <Text
-                            color="text-low"
-                            size="small"
-                            fontStyle="italic"
-                          >
+                          <Text color="text-low" size="sm" fontStyle="italic">
                             &bull; edited
                           </Text>
                         )
@@ -168,7 +164,7 @@ const DiscussionThread: FC<{
           {!showTitle ? (
             <Separator size="4" mb="4" />
           ) : (
-            <Heading as="h4" size="small" mb="3">
+            <Heading as="h4" size="sm" mb="3">
               {title}
             </Heading>
           )}

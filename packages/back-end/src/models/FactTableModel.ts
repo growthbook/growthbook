@@ -1,23 +1,48 @@
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
-import { omit } from "lodash";
 import {
+  getFactMetricColumnRefs,
+  getFactMetricPrimaryFactTableId,
+  sqlReferencesColumn,
+} from "shared/experiments";
+import { explorationConfigReferencesColumn } from "shared/enterprise";
+import { SqlIdentifierQuote } from "shared/types/sql";
+import { isEqual, omit } from "lodash";
+import {
+  CreateColumnProps,
   CreateFactFilterProps,
   CreateFactTableProps,
+  ColumnRef,
   FactFilterInterface,
+  FactMetricInterface,
+  FactTableDefinition,
   FactTableInterface,
   UpdateFactFilterProps,
   UpdateColumnProps,
   UpdateFactTableProps,
   ColumnInterface,
 } from "shared/types/fact-table";
-import { ApiFactTable, ApiFactTableFilter } from "shared/validators";
+import {
+  ApiFactTable,
+  ApiFactTableColumn,
+  ApiFactTableFilter,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
+import {
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "back-end/src/models/DefinitionsVersionModel";
+import {
+  ensureAutoSliceDefaults,
+  normalizeJSONFieldsInput,
+  normalizePersistedColumn,
+} from "back-end/src/util/factTable";
+import { logger } from "back-end/src/util/logger";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -40,8 +65,11 @@ const factTableSchema = new mongoose.Schema({
   tags: [String],
   datasource: String,
   userIdTypes: [String],
+  userIdColumns: {},
   sql: String,
+  timestampColumn: String,
   eventName: String,
+  tableType: String,
   columns: [
     {
       _id: false,
@@ -52,6 +80,7 @@ const factTableSchema = new mongoose.Schema({
       column: String,
       numberFormat: String,
       datatype: String,
+      dataTypeFromWarehouse: String,
       jsonFields: {},
       deleted: Boolean,
       alwaysInlineFilter: Boolean,
@@ -60,6 +89,8 @@ const factTableSchema = new mongoose.Schema({
       isAutoSliceColumn: Boolean,
       autoSlices: [String],
       lockedAutoSlices: [String],
+      isVirtual: Boolean,
+      sql: String,
     },
   ],
   columnsError: String,
@@ -112,7 +143,25 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-function createPropsToInterface(
+export function buildColumnInterface(
+  column: CreateColumnProps,
+): ColumnInterface {
+  const columnInterface: ColumnInterface = {
+    ...column,
+    name: column.name ?? column.column,
+    description: column.description ?? "",
+    numberFormat: column.numberFormat ?? "",
+    datatype: column.datatype ?? "",
+    jsonFields: normalizeJSONFieldsInput(column.jsonFields),
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    deleted: false,
+  };
+
+  return normalizePersistedColumn(columnInterface);
+}
+
+export function createPropsToInterface(
   context: ReqContext | ApiReqContext,
   rawProps: CreateFactTableProps,
 ): FactTableInterface {
@@ -128,17 +177,7 @@ function createPropsToInterface(
   }
 
   const columns: ColumnInterface[] = props.columns
-    ? props.columns.map((column) => {
-        return {
-          ...column,
-          name: column.name ?? column.column,
-          description: column.description ?? "",
-          numberFormat: column.numberFormat ?? "",
-          dateCreated: new Date(),
-          dateUpdated: new Date(),
-          deleted: false,
-        };
-      })
+    ? props.columns.map(buildColumnInterface)
     : [];
 
   return {
@@ -154,8 +193,11 @@ function createPropsToInterface(
     projects: props.projects,
     tags: props.tags,
     sql: props.sql,
+    timestampColumn: props.timestampColumn,
     userIdTypes: props.userIdTypes,
+    userIdColumns: props.userIdColumns,
     eventName: props.eventName,
+    tableType: props.tableType,
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
@@ -178,6 +220,22 @@ export async function getAllFactTablesForOrganization(
   };
 
   const docs = await FactTableModel.find(query).sort({ id: 1 });
+  return docs
+    .map((doc) => toInterface(doc))
+    .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
+}
+
+// Slimmed version of getAllFactTablesForOrganization for the definitions
+// endpoint. The sql field and per-column jsonFields maps are excluded at the DB
+// layer to keep the payload small; consumers fetch the full fact table by id
+// when they need them.
+export async function getAllFactTablesForDefinitions(
+  context: ReqContext | ApiReqContext,
+): Promise<FactTableDefinition[]> {
+  const docs = await FactTableModel.find(
+    { organization: context.org.id },
+    { sql: 0, "columns.jsonFields": 0 },
+  ).sort({ id: 1 });
   return docs
     .map((doc) => toInterface(doc))
     .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
@@ -308,6 +366,10 @@ export async function createFactTable(
   const factTable = toInterface(doc);
 
   await audit.logCreate(context, factTable);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(factTable.projects),
+  );
 
   return factTable;
 }
@@ -335,21 +397,14 @@ export async function updateFactTable(
     context.permissions.throwPermissionError();
   }
 
-  // Clean up auto slices from metrics if columns were deleted or modified
-  if (changes.columns) {
-    const removedColumns = detectRemovedColumns(
-      factTable.columns || [],
-      changes.columns,
-    );
-
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
-  }
+  // Bail on a no-op save before writing anything — the front-end resubmits the
+  // whole form on every save, and some API clients re-PUT the same definition
+  // on a schedule. Not writing means there is nothing to invalidate, so the
+  // write and the definitions-version bump stay in lockstep.
+  const changed = Object.entries(changes).some(
+    ([k, v]) => !isEqual(factTable[k as keyof FactTableInterface], v),
+  );
+  if (!changed) return;
 
   await FactTableModel.updateOne(
     {
@@ -365,6 +420,25 @@ export async function updateFactTable(
   );
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
+
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(
+      factTable.projects,
+      changes.projects ?? factTable.projects,
+    ),
+  );
+
+  if (changes.columns) {
+    await cleanupMetricAutoSlices({
+      context,
+      factTableId: factTable.id,
+      removedColumns: detectRemovedColumns(
+        factTable.columns || [],
+        changes.columns,
+      ),
+    });
+  }
 }
 
 const ALLOWED_COLUMN_UPDATE_FIELDS = [
@@ -401,6 +475,19 @@ export async function updateFactTableColumns(
     },
   );
 
+  // Only bump the definitions version if something actually changed — this runs
+  // from a background cron on every fact table, so an unconditional touch would
+  // churn the version and tank the ETag hit rate.
+  const changedDefinitionFields = Object.entries(safeChanges).some(
+    ([k, v]) => !isEqual(factTable[k as keyof FactTableInterface], v),
+  );
+  if (changedDefinitionFields) {
+    await touchDefinitionsVersion(
+      factTable.organization,
+      definitionsScope(factTable.projects),
+    );
+  }
+
   // Clean up auto slices from metrics if columns were refreshed and some were deleted
   if (changes.columns) {
     const removedColumns = detectRemovedColumns(
@@ -427,18 +514,14 @@ export async function dangerouslySyncManagedWarehouseFactTable(
   factTable: FactTableInterface,
   changes: Pick<UpdateFactTableProps, "sql" | "columns" | "userIdTypes">,
 ) {
-  if (changes.columns) {
-    const removedColumns = detectRemovedColumns(
-      factTable.columns || [],
-      changes.columns,
-    );
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
+  // No-op sync: skip the write entirely so we neither churn the definitions
+  // version nor drift dateUpdated (which is part of the definitions payload).
+  if (
+    (Object.keys(changes) as (keyof typeof changes)[]).every((k) =>
+      isEqual(factTable[k], changes[k]),
+    )
+  ) {
+    return;
   }
 
   await FactTableModel.updateOne(
@@ -453,6 +536,21 @@ export async function dangerouslySyncManagedWarehouseFactTable(
       },
     },
   );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
+
+  if (changes.columns) {
+    await cleanupMetricAutoSlices({
+      context,
+      factTableId: factTable.id,
+      removedColumns: detectRemovedColumns(
+        factTable.columns || [],
+        changes.columns,
+      ),
+    });
+  }
 }
 
 // Detect columns that were removed or had auto slice disabled
@@ -491,7 +589,10 @@ export function detectRemovedColumns(
   return [...deletedColumns, ...disabledAutoSliceColumns];
 }
 
-// Clean up auto slices from fact metrics when columns are "deleted" or dropped
+// Cascade from a fact-table column change: drop metric auto slices that
+// reference removed or disabled columns. The fact table is the source of truth
+// and every reader intersects against it, so this is best-effort — it spans
+// metrics the caller can't read and never fails the fact-table write.
 export async function cleanupMetricAutoSlices({
   context,
   factTableId,
@@ -501,26 +602,34 @@ export async function cleanupMetricAutoSlices({
   factTableId: string;
   removedColumns: string[];
 }) {
-  // Get all fact metrics that use this fact table
-  const allFactMetrics = await context.models.factMetrics.getAll();
-  const affectedMetrics = allFactMetrics.filter(
-    (metric) => metric.numerator?.factTableId === factTableId,
-  );
+  if (!removedColumns.length) return;
 
-  // For each affected metric, remove auto slices that reference removed columns
-  for (const metric of affectedMetrics) {
-    if (!metric.metricAutoSlices?.length) continue;
-
-    const originalAutoSlices = [...metric.metricAutoSlices];
-    const cleanedAutoSlices = metric.metricAutoSlices.filter(
-      (sliceColumn) => !removedColumns.includes(sliceColumn),
+  let allFactMetrics: FactMetricInterface[];
+  try {
+    allFactMetrics =
+      await context.models.factMetrics.dangerousGetAllForDependencyScan();
+  } catch (e) {
+    logger.error(
+      e,
+      `Failed to scan fact metrics for auto-slice cleanup of ${factTableId}`,
     );
-
-    // Only update if there were changes
-    if (cleanedAutoSlices.length !== originalAutoSlices.length) {
-      await context.models.factMetrics.update(metric, {
-        metricAutoSlices: cleanedAutoSlices,
-      });
+    return;
+  }
+  for (const metric of allFactMetrics) {
+    if (getFactMetricPrimaryFactTableId(metric) !== factTableId) continue;
+    if (!metric.metricAutoSlices?.some((c) => removedColumns.includes(c))) {
+      continue;
+    }
+    try {
+      await context.models.factMetrics.removeAutoSlices(
+        metric.id,
+        removedColumns,
+      );
+    } catch (e) {
+      logger.error(
+        e,
+        `Failed to remove auto slices from fact metric ${metric.id}`,
+      );
     }
   }
 }
@@ -547,22 +656,16 @@ export async function updateColumn({
   }
 
   const originalColumn = factTable.columns[columnIndex];
-  const updatedColumn = {
+  const updatedColumn = ensureAutoSliceDefaults({
     ...originalColumn,
     ...changes,
+    jsonFields:
+      changes.jsonFields !== undefined
+        ? normalizeJSONFieldsInput(changes.jsonFields)
+        : originalColumn.jsonFields,
     ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
-  };
-
-  // If auto slice settings changed, reset autoSlices to empty array
-  if (updatedColumn.isAutoSliceColumn && !updatedColumn.autoSlices) {
-    updatedColumn.autoSlices = [];
-  }
-
-  // Ensure boolean columns only save ["true", "false"]
-  if (updatedColumn.datatype === "boolean" && updatedColumn.autoSlices) {
-    updatedColumn.autoSlices = ["true", "false"];
-  }
+  });
 
   factTable.columns[columnIndex] = updatedColumn;
 
@@ -578,6 +681,10 @@ export async function updateColumn({
       },
     },
   );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 
   // Clean up auto slices from metrics if column was deleted or isAutoSliceColumn was disabled
   if (
@@ -589,6 +696,376 @@ export async function updateColumn({
       context,
       factTableId: factTable.id,
       removedColumns: [column],
+    });
+  }
+}
+
+export async function createColumn(
+  factTable: FactTableInterface,
+  data: CreateColumnProps,
+): Promise<ColumnInterface> {
+  // Collide against ALL existing column identifiers, including soft-deleted
+  // source columns. `column` is the stable identifier inlined into generated
+  // SQL and metric references, so reusing a soft-deleted source column's id
+  // would resolve inconsistently if that source column later reappears on a
+  // refresh. Comparison is case-insensitive.
+  const newId = data.column.toLowerCase();
+  if (factTable.columns.some((c) => c.column.toLowerCase() === newId)) {
+    throw new Error(
+      `A column with the id "${data.column}" already exists in this fact table`,
+    );
+  }
+
+  // Build/normalize the column the same way every other write path does
+  // (defaults, jsonFields normalization, datatype "" = auto-detect pending).
+  const column = buildColumnInterface(data);
+
+  const columns = [...factTable.columns, column];
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+        columns,
+      },
+    },
+  );
+
+  return column;
+}
+
+// Whether a ColumnRef (numerator/denominator) still uses `columnName` on this
+// fact table — structured fields or free SQL in row filters / saved filters.
+function columnRefReferencesColumn(
+  ref: ColumnRef,
+  columnName: string,
+  factTable: FactTableInterface,
+  identifierQuote: SqlIdentifierQuote,
+): boolean {
+  if (ref.factTableId !== factTable.id) return false;
+  if (ref.column === columnName) return true;
+  if (ref.aggregateFilterColumn === columnName) return true;
+
+  for (const rowFilter of ref.rowFilters || []) {
+    if (rowFilter.column === columnName) return true;
+    if (
+      rowFilter.operator === "sql_expr" &&
+      rowFilter.values?.[0] &&
+      sqlReferencesColumn(rowFilter.values[0], columnName, identifierQuote)
+    ) {
+      return true;
+    }
+    if (rowFilter.operator === "saved_filter" && rowFilter.values?.[0]) {
+      const filter = factTable.filters.find(
+        (f) => f.id === rowFilter.values?.[0],
+      );
+      if (
+        filter &&
+        sqlReferencesColumn(filter.value, columnName, identifierQuote)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Saved explorations and dashboard blocks that still reference `columnName` on
+// this fact table. Scanned on demand so no dependency state is persisted.
+//
+// The scan is org-wide and deliberately ignores the caller's read permissions:
+// deleting a column is destructive and cross-cutting, so a dependent the caller
+// happens to not be able to read must still block the delete. Using a
+// read-filtered `getAll()` here would under-report and let the delete through,
+// leaving that exploration or dashboard generating SQL for a column that no
+// longer exists. A dependent the caller cannot read still blocks the delete but
+// must not be named in the error, so those are counted in `hiddenCount` instead.
+async function getDependentExplorationsAndDashboards(
+  context: ReqContext | ApiReqContext,
+  factTable: FactTableInterface,
+  columnName: string,
+  identifierQuote: SqlIdentifierQuote,
+): Promise<{
+  explorations: Array<{ id: string; name?: string }>;
+  dashboards: Array<{ id: string; name?: string }>;
+  hiddenCount: number;
+}> {
+  const [
+    allExplorations,
+    allDashboards,
+    visibleExplorations,
+    visibleDashboards,
+  ] = await Promise.all([
+    context.models.analyticsExplorations.dangerousGetAllForDependencyScan(),
+    context.models.dashboards.dangerousGetAllForDependencyScan(),
+    context.models.analyticsExplorations.getAll(),
+    context.models.dashboards.getAll(),
+  ]);
+
+  const visibleExplorationIds = new Set(visibleExplorations.map((e) => e.id));
+  const visibleDashboardIds = new Set(visibleDashboards.map((d) => d.id));
+
+  const dependentExplorations = allExplorations.filter((e) =>
+    explorationConfigReferencesColumn(
+      e.config,
+      factTable.id,
+      columnName,
+      identifierQuote,
+      factTable.filters,
+    ),
+  );
+
+  const dependentDashboards = allDashboards.filter((d) =>
+    d.blocks.some(
+      (block) =>
+        "config" in block &&
+        explorationConfigReferencesColumn(
+          block.config,
+          factTable.id,
+          columnName,
+          identifierQuote,
+          factTable.filters,
+        ),
+    ),
+  );
+
+  const explorations = dependentExplorations
+    .filter((e) => visibleExplorationIds.has(e.id))
+    .map((e) => ({ id: e.id }));
+
+  const dashboards = dependentDashboards
+    .filter((d) => visibleDashboardIds.has(d.id))
+    .map((d) => ({ id: d.id, name: d.title }));
+
+  const hiddenCount =
+    dependentExplorations.length -
+    explorations.length +
+    (dependentDashboards.length - dashboards.length);
+
+  return { explorations, dashboards, hiddenCount };
+}
+
+export async function deleteColumn(
+  context: ReqContext | ApiReqContext,
+  factTable: FactTableInterface,
+  columnName: string,
+  identifierQuote: SqlIdentifierQuote = '"',
+): Promise<void> {
+  const col = factTable.columns.find((c) => c.column === columnName);
+  if (!col) {
+    throw new Error("Could not find that column");
+  }
+  // Only virtual columns can be hard-deleted. SQL-detected columns are managed
+  // by the column refresh (soft delete) and must not be removed here.
+  if (!col.isVirtual) {
+    throw new Error("Only virtual columns can be deleted");
+  }
+
+  // Block deletion if anything still references this column — otherwise
+  // generated SQL falls back to a bare, now-undefined identifier and fails
+  // at query time. Scanned on demand; no dependency state is persisted.
+  const dependentIdentifierTypes = Object.entries(factTable.userIdColumns ?? {})
+    .filter(([, mappedColumn]) => mappedColumn.split(".")[0] === columnName)
+    .map(([idType]) => idType);
+  const dependentVirtualColumns = factTable.columns.filter(
+    (c) =>
+      c.isVirtual &&
+      !c.deleted &&
+      c.column !== columnName &&
+      c.sql &&
+      sqlReferencesColumn(c.sql, columnName, identifierQuote),
+  );
+  const dependentFilters = factTable.filters.filter((f) =>
+    sqlReferencesColumn(f.value, columnName, identifierQuote),
+  );
+  // Org-wide for the same reason as explorations/dashboards below: a metric in a
+  // project the caller cannot read must still block the delete.
+  const [allFactMetrics, visibleFactMetrics] = await Promise.all([
+    context.models.factMetrics.dangerousGetAllForDependencyScan(),
+    context.models.factMetrics.getAll(),
+  ]);
+  const visibleFactMetricIds = new Set(visibleFactMetrics.map((m) => m.id));
+  const allDependentMetrics = allFactMetrics.filter((metric) =>
+    getFactMetricColumnRefs(metric).some((columnRef) =>
+      columnRefReferencesColumn(
+        columnRef,
+        columnName,
+        factTable,
+        identifierQuote,
+      ),
+    ),
+  );
+  const dependentMetrics = allDependentMetrics.filter((m) =>
+    visibleFactMetricIds.has(m.id),
+  );
+  const hiddenMetricCount =
+    allDependentMetrics.length - dependentMetrics.length;
+
+  // Explorations and dashboard blocks persist column references (valueColumn,
+  // dimensions, row filters) that resolve through the same query-time
+  // chokepoint, so a virtual column they use must not be deleted out from
+  // under them.
+  const {
+    explorations: dependentExplorations,
+    dashboards: dependentDashboards,
+    hiddenCount,
+  } = await getDependentExplorationsAndDashboards(
+    context,
+    factTable,
+    columnName,
+    identifierQuote,
+  );
+
+  const lines: string[] = [
+    ...dependentIdentifierTypes.map(
+      (idType) => `\n - Identifier mapping: ${idType}`,
+    ),
+    ...dependentVirtualColumns.map(
+      (c) => `\n - Virtual column: ${c.name || c.column}`,
+    ),
+    ...dependentFilters.map((f) => `\n - Filter: ${f.name || f.id}`),
+    ...dependentMetrics.map((m) => `\n - Fact Metric: ${m.name || m.id}`),
+    ...dependentExplorations.map((e) => `\n - Exploration: ${e.name || e.id}`),
+    ...dependentDashboards.map((d) => `\n - Dashboard: ${d.name || d.id}`),
+  ];
+  // Counted, not named, so the error never reveals resources the caller cannot
+  // read — while still blocking the delete.
+  const totalHidden = hiddenCount + hiddenMetricCount;
+  if (totalHidden > 0) {
+    lines.push(
+      `\n - ${totalHidden} other resource(s) you do not have access to`,
+    );
+  }
+  if (lines.length) {
+    throw new Error(
+      `Cannot delete: the following still reference it:${lines.join("")}`,
+    );
+  }
+
+  const columns = factTable.columns.filter((c) => c.column !== columnName);
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+        columns,
+      },
+    },
+  );
+
+  // A virtual column may be referenced by metric auto-slices; remove those.
+  await cleanupMetricAutoSlices({
+    context,
+    factTableId: factTable.id,
+    removedColumns: [columnName],
+  });
+}
+
+export function mergeUpsertColumns(
+  existing: ColumnInterface[],
+  incoming: Array<UpdateColumnProps & { column: string }>,
+): { columns: ColumnInterface[]; removedAutoSliceColumns: string[] } {
+  const columns: ColumnInterface[] = existing.map((c) => ({ ...c }));
+  const removedAutoSliceColumns: string[] = [];
+
+  for (const incomingColumn of incoming) {
+    const index = columns.findIndex((c) => c.column === incomingColumn.column);
+
+    if (index < 0) {
+      columns.push(buildColumnInterface(incomingColumn));
+      continue;
+    }
+
+    const originalColumn = columns[index];
+    const nextColumn = normalizePersistedColumn({
+      ...originalColumn,
+      ...omit(incomingColumn, [
+        "column",
+        "datatype",
+        "jsonFields",
+        "dateCreated",
+        "dateUpdated",
+        // Origin is immutable on upsert (handled explicitly below).
+        "isVirtual",
+        "sql",
+      ]),
+      datatype: incomingColumn.datatype ?? originalColumn.datatype,
+      jsonFields:
+        incomingColumn.jsonFields !== undefined
+          ? normalizeJSONFieldsInput(incomingColumn.jsonFields)
+          : originalColumn.jsonFields,
+      // A column's origin cannot be flipped through an upsert: a SQL-detected
+      // column can never become virtual, and a virtual column can never lose
+      // its definition. For a virtual column, an incoming `sql` updates the
+      // expression; when omitted, the existing expression is preserved (so a
+      // partial sync that doesn't repeat `sql` never blanks it out).
+      isVirtual: originalColumn.isVirtual,
+      sql: originalColumn.isVirtual
+        ? (incomingColumn.sql ?? originalColumn.sql)
+        : undefined,
+      ...(incomingColumn.topValues ? { topValuesDate: new Date() } : {}),
+      dateUpdated: new Date(),
+    });
+
+    columns[index] = nextColumn;
+    if (
+      nextColumn.deleted ||
+      (!nextColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn)
+    ) {
+      removedAutoSliceColumns.push(incomingColumn.column);
+    }
+  }
+
+  return { columns, removedAutoSliceColumns };
+}
+
+export async function upsertColumns({
+  context,
+  factTable,
+  columns,
+}: {
+  context?: ReqContext | ApiReqContext;
+  factTable: FactTableInterface;
+  columns: Array<UpdateColumnProps & { column: string }>;
+}): Promise<void> {
+  const { columns: nextColumns, removedAutoSliceColumns } = mergeUpsertColumns(
+    factTable.columns,
+    columns,
+  );
+
+  factTable.columns = nextColumns;
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+        columns: nextColumns,
+      },
+    },
+  );
+
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
+
+  if (context && removedAutoSliceColumns.length > 0) {
+    await cleanupMetricAutoSlices({
+      context,
+      factTableId: factTable.id,
+      removedColumns: removedAutoSliceColumns,
     });
   }
 }
@@ -638,6 +1115,10 @@ export async function createFactFilter(
       },
     },
   );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 
   return filter;
 }
@@ -653,16 +1134,26 @@ export async function updateFactFilter(
   const filterIndex = filters.findIndex((f) => f.id === filterId);
   if (filterIndex < 0) throw new Error("Could not find filter with that id");
 
+  const existingFilter = filters[filterIndex];
+
   if (
     factTable.managedBy === "api" &&
-    filters[filterIndex]?.managedBy === "api" &&
+    existingFilter?.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {
     throw new Error("This fact filter is managed by the API");
   }
 
+  // Bail on a no-op save before writing — see updateFactTable. Returning here
+  // also avoids rewriting the whole filters array from a snapshot a concurrent
+  // write may already have superseded.
+  const changed = Object.entries(changes).some(
+    ([k, v]) => !isEqual(existingFilter[k as keyof FactFilterInterface], v),
+  );
+  if (!changed) return;
+
   filters[filterIndex] = {
-    ...filters[filterIndex],
+    ...existingFilter,
     ...changes,
     dateUpdated: new Date(),
   };
@@ -678,6 +1169,11 @@ export async function updateFactFilter(
         filters: filters,
       },
     },
+  );
+
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
   );
 }
 
@@ -710,6 +1206,20 @@ export async function deleteFactTable(
   });
 
   await audit.logDelete(context, factTable);
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
+}
+
+export async function projectHasFactTables(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await FactTableModel.exists({
+    organization: context.org.id,
+    projects: [projectId],
+  }));
 }
 
 export async function deleteAllFactTablesForAProject({
@@ -765,31 +1275,68 @@ export async function deleteFactFilter(
       },
     },
   );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 }
 
 export function toFactTableApiInterface(
   factTable: FactTableInterface,
 ): ApiFactTable {
+  const apiFactTable: { [K in keyof Required<ApiFactTable>]: ApiFactTable[K] } =
+    {
+      id: factTable.id,
+      name: factTable.name,
+      description: factTable.description,
+      owner: factTable.owner,
+      // Populated downstream by resolveOwnerEmail; listed here so the exhaustive
+      // type stays satisfied.
+      ownerEmail: undefined,
+      projects: factTable.projects,
+      tags: factTable.tags,
+      datasource: factTable.datasource,
+      userIdTypes: factTable.userIdTypes,
+      userIdColumns: factTable.userIdColumns,
+      aggregatedFactTableSettings:
+        factTable.aggregatedFactTableSettings ?? undefined,
+      sql: factTable.sql,
+      timestampColumn: factTable.timestampColumn,
+      eventName: factTable.eventName,
+      columns: factTable.columns.map(toFactTableColumnApiInterface),
+      columnsError: factTable.columnsError,
+      columnRefreshPending: factTable.columnRefreshPending ?? false,
+      archived: factTable.archived,
+      autoSliceUpdatesEnabled: factTable.autoSliceUpdatesEnabled,
+      managedBy: factTable.managedBy || "",
+      dateCreated: factTable.dateCreated?.toISOString() || "",
+      dateUpdated: factTable.dateUpdated?.toISOString() || "",
+    };
+  return apiFactTable;
+}
+
+export function toFactTableColumnApiInterface(
+  column: ColumnInterface,
+): ApiFactTableColumn {
   return {
-    ...omit(factTable, [
-      "organization",
-      "filters",
-      "dateCreated",
-      "dateUpdated",
-    ]),
-    columns: factTable.columns.map((col) => ({
-      ...col,
-      alwaysInlineFilter: col.alwaysInlineFilter ?? false,
-      isAutoSliceColumn: col.isAutoSliceColumn ?? false,
-      dateCreated: col.dateCreated.toISOString(),
-      dateUpdated: col.dateUpdated.toISOString(),
-      topValuesDate: col.topValuesDate?.toISOString(),
-    })),
-    managedBy: factTable.managedBy || "",
-    aggregatedFactTableSettings:
-      factTable.aggregatedFactTableSettings ?? undefined,
-    dateCreated: factTable.dateCreated?.toISOString() || "",
-    dateUpdated: factTable.dateUpdated?.toISOString() || "",
+    column: column.column,
+    datatype: column.datatype,
+    dataTypeFromWarehouse: column.dataTypeFromWarehouse,
+    numberFormat: column.numberFormat,
+    jsonFields: column.jsonFields,
+    name: column.name,
+    description: column.description,
+    alwaysInlineFilter: column.alwaysInlineFilter ?? false,
+    deleted: column.deleted,
+    isAutoSliceColumn: column.isAutoSliceColumn ?? false,
+    autoSlices: column.autoSlices,
+    lockedAutoSlices: column.lockedAutoSlices,
+    isVirtual: column.isVirtual,
+    sql: column.sql,
+    topValues: column.topValues,
+    topValuesDate: column.topValuesDate?.toISOString(),
+    dateCreated: column.dateCreated.toISOString(),
+    dateUpdated: column.dateUpdated.toISOString(),
   };
 }
 

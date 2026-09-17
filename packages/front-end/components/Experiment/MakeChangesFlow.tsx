@@ -6,7 +6,7 @@ import {
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { useEffect, useState } from "react";
-import { Flex, Box } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -14,8 +14,8 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
-import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
+import Checkbox from "@/ui/Checkbox";
+import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import TargetingForm from "./TargetingForm";
 
 export type ChangeType =
@@ -36,6 +36,7 @@ export type ReleasePlan =
 
 export interface MakeChangesFlowProps {
   experiment: ExperimentInterfaceStringDates;
+  attributeProjects?: string[] | null;
   form: UseFormReturn<ExperimentTargetingData>;
   // Loosely typed because `useForm` accepts a `DeepPartial<ExperimentTargetingData>`
   // and the namespace shape produced by `EditTargetingModal` doesn't always match
@@ -52,6 +53,7 @@ export interface MakeChangesFlowProps {
 
 export default function MakeChangesFlow({
   experiment,
+  attributeProjects,
   form,
   defaultValues,
   onSubmit,
@@ -74,7 +76,14 @@ export default function MakeChangesFlow({
   // mutated programmatically by the change-type step, not by the user.
   const watchedValues = useWatch({ control: form.control });
   const pickForCompare = <T extends Record<string, unknown>>(v: T) =>
-    omit(v, ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
+    omit(v, [
+      "newPhase",
+      "reseed",
+      "bucketVersion",
+      "minBucketVersion",
+      // Picker view preference — must not arm the publish flow on its own.
+      "attributeScopeAllProjects",
+    ]);
   const hasChanges = !isEqual(
     pickForCompare(watchedValues),
     pickForCompare(defaultValues),
@@ -107,6 +116,7 @@ export default function MakeChangesFlow({
 
   let cta = "Publish changes";
   let ctaEnabled = true;
+  let disabledMessage: string | undefined;
   let blockSteps: number[] = [];
   if (!changeType) {
     cta = "Select a change type";
@@ -125,19 +135,21 @@ export default function MakeChangesFlow({
       ctaEnabled = false;
     }
     if (step === lastStepNumber && !changesConfirmed) {
+      // Only name the confirm gate when it's the sole remaining blocker.
+      if (ctaEnabled) disabledMessage = 'Check "Confirm" to publish';
       ctaEnabled = false;
     }
   }
 
   return (
     <PagedModal
-      useRadixButton={false}
       trackingEventModalType="make-changes"
       close={close}
       header={`Make ${isBandit ? "Bandit" : "Experiment"} Changes`}
       submit={submit}
       cta={cta}
       ctaEnabled={ctaEnabled && canSubmit}
+      disabledMessage={disabledMessage}
       forceCtaText={!ctaEnabled}
       size="lg"
       step={step}
@@ -146,38 +158,24 @@ export default function MakeChangesFlow({
           setStep(i);
         }
       }}
-      secondaryCTA={
+      aboveFooterContent={
         step === lastStepNumber ? (
-          <Box style={{ minWidth: 520 }}>
-            <Callout status="warning">
-              <Flex align="center" justify="between" gap="3">
-                <Text>
-                  <Text weight="semibold">Warning:</Text> Changes made will
-                  apply to linked Feature Flags, Visual Changes, and URL
-                  Redirects immediately upon publishing
-                </Text>
-                <Box>
-                  <label
-                    htmlFor="confirm-changes"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Text weight="semibold">Confirm</Text>
-                    <input
-                      id="confirm-changes"
-                      type="checkbox"
-                      checked={changesConfirmed}
-                      onChange={(e) => setChangesConfirmed(e.target.checked)}
-                    />
-                  </label>
-                </Box>
-              </Flex>
-            </Callout>
-          </Box>
+          <ModalWarningBanner
+            controls={
+              <Box style={{ color: "var(--violet-11)" }}>
+                <Checkbox
+                  value={changesConfirmed}
+                  setValue={setChangesConfirmed}
+                  label="Confirm"
+                  weight="medium"
+                  align="center"
+                />
+              </Box>
+            }
+          >
+            Changes made will apply to linked Feature Flags, Visual Changes, and
+            URL Redirects immediately upon publishing.
+          </ModalWarningBanner>
         ) : undefined
       }
     >
@@ -210,6 +208,7 @@ export default function MakeChangesFlow({
           <div>
             <TargetingForm
               experiment={experiment}
+              attributeProjects={attributeProjects}
               form={form}
               changeType={changeType}
               conditionKey={conditionKey}

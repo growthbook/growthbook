@@ -8,7 +8,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
-import { HoldoutInterface } from "shared/validators";
+import { ContextualBanditInterface, HoldoutInterface } from "shared/validators";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { OrganizationInterface } from "shared/types/organization";
@@ -174,7 +174,7 @@ const CONNECTION_PRESETS: Array<{
   connection: ConnectionPayloadOptions;
 }> = [];
 
-// Capability sets from javascript.json: everything (undefined), 0.0.0, 0.23.0, 0.34.0, 1.1.0, 0.36.0, 1.6.5, legacy
+// Capability sets from javascript.json: everything (undefined), 0.0.0, 0.23.0, 0.34.0, 1.1.0, 0.36.0, 1.6.5, 1.7.0, legacy
 const CAPABILITY_SETS: Array<{ label: string; capabilities: string[] }> = [
   {
     label: "javascript default (everything)",
@@ -201,8 +201,12 @@ const CAPABILITY_SETS: Array<{ label: string; capabilities: string[] }> = [
     capabilities: getSDKCapabilities("javascript", "0.36.0"),
   },
   {
-    label: "javascript 1.6.5 (latest)",
+    label: "javascript 1.6.5",
     capabilities: getSDKCapabilities("javascript", "1.6.5"),
+  },
+  {
+    label: "javascript 1.7.0 (+ contextualBandits)",
+    capabilities: getSDKCapabilities("javascript", "1.7.0"),
   },
   { label: "legacy API key (bucketingV2 only)", capabilities: ["bucketingV2"] },
 ];
@@ -1592,6 +1596,227 @@ describe("SDK payload generation (scenario-specific)", () => {
       organization: ctx.org as OrganizationInterface,
     });
     expect(outIncluded.experiments?.length).toBe(1);
+  });
+
+  describe("includeDraftExperimentRefs", () => {
+    // Draft experiment linked only via a feature flag (no visual changesets or redirects)
+    function draftRefData(): SDKPayloadRawData {
+      const exp: ExperimentInterface = {
+        id: "exp-draft-ref",
+        organization: "org-1",
+        project: "",
+        name: "Draft Ref Exp",
+        hypothesis: "",
+        status: "draft",
+        hashVersion: 2,
+        archived: false,
+        hasVisualChangesets: false,
+        hasURLRedirects: false,
+        linkedFeatures: ["fd"],
+        trackingKey: "tk-draft",
+        phases: [
+          {
+            phase: "main",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            seed: "draft-ref-seed",
+          },
+        ],
+        variations: [
+          { id: "v0", key: "0", name: "Control" },
+          { id: "v1", key: "1", name: "Treatment" },
+        ],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      } as ExperimentInterface;
+      const feature: FeatureInterface = {
+        id: "fd",
+        project: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "false",
+        organization: "org-1",
+        owner: "",
+        valueType: "boolean",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                type: "experiment-ref",
+                id: "rule-draft-ref",
+                enabled: true,
+                experimentId: "exp-draft-ref",
+                variations: [
+                  { variationId: "v0", value: "false" },
+                  { variationId: "v1", value: "true" },
+                ],
+              },
+            ],
+          },
+        },
+      } as FeatureInterface;
+      return minimalRawData({
+        features: [feature],
+        experimentMap: new Map([[exp.id, exp]]),
+      });
+    }
+
+    it("excludes feature-only draft experiment-ref rules by default", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: [],
+        },
+        data: draftRefData(),
+      });
+      expect(out.features["fd"]?.rules ?? []).toEqual([]);
+    });
+
+    it("includes feature-only draft experiment-ref rules when enabled", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: [],
+          includeDraftExperimentRefs: true,
+        },
+        data: draftRefData(),
+      });
+      const rules = out.features["fd"]?.rules ?? [];
+      expect(rules.length).toBe(1);
+      expect(rules[0].variations).toEqual([false, true]);
+    });
+  });
+
+  describe("contextual bandits gated by SDK version", () => {
+    const cbDoc = {
+      id: "cb1",
+      organization: "org-1",
+      name: "CB One",
+      status: "running",
+      trackingKey: "cb-track",
+      hashAttribute: "id",
+      seed: "cb-seed",
+      coverage: 1,
+      variations: [
+        { id: "v0", key: "0", name: "Control" },
+        { id: "v1", key: "1", name: "Treatment" },
+      ],
+      variationWeights: [
+        { variationId: "v0", weight: 0.5 },
+        { variationId: "v1", weight: 0.5 },
+      ],
+      currentLeafWeights: [
+        {
+          leafId: 1,
+          condition: { country: "US" },
+          weights: [
+            { variationId: "v0", weight: 0.6 },
+            { variationId: "v1", weight: 0.4 },
+          ],
+        },
+      ],
+      banditVersion: 3,
+    } as unknown as ContextualBanditInterface;
+
+    function cbContext(): ApiReqContext {
+      const ctx = minimalContext();
+      ctx.models = {
+        contextualBandits: {
+          getById: async (id: string) => (id === "cb1" ? cbDoc : null),
+        },
+      } as unknown as ApiReqContext["models"];
+      return ctx;
+    }
+
+    function cbData(): SDKPayloadRawData {
+      const feature: FeatureInterface = {
+        id: "f-cb",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "x",
+        organization: "org-1",
+        owner: "",
+        valueType: "string",
+        archived: false,
+        description: "",
+        version: 1,
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+        rules: [
+          {
+            type: "contextual-bandit-ref",
+            id: "r-cb",
+            description: "",
+            enabled: true,
+            contextualBanditId: "cb1",
+            variations: [
+              { variationId: "v0", value: "a" },
+              { variationId: "v1", value: "b" },
+            ],
+            allEnvironments: true,
+          } as FeatureRule,
+        ],
+      } as FeatureInterface;
+      return minimalRawData({ features: [feature] });
+    }
+
+    const connectionForVersion = (
+      version: string,
+    ): ConnectionPayloadOptions => ({
+      capabilities: getSDKCapabilities(
+        "javascript",
+        version,
+      ) as ConnectionPayloadOptions["capabilities"],
+      environment: "production",
+      projects: [],
+    });
+
+    it("javascript 1.6.5: no contextualBandits map; rule has no contextualBanditRef and no variations (SDK skips it)", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: cbContext(),
+        connection: connectionForVersion("1.6.5"),
+        data: cbData(),
+      });
+      expect(out.contextualBandits).toBeUndefined();
+      const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+      expect(rules?.length).toBe(1);
+      expect(rules[0].contextualBanditRef).toBeUndefined();
+      expect(rules[0].variations).toBeUndefined();
+    });
+
+    it("javascript 1.7.0: contextualBandits map and CB rule keys included", async () => {
+      const out = await buildSDKPayloadForConnection({
+        context: cbContext(),
+        connection: connectionForVersion("1.7.0"),
+        data: cbData(),
+      });
+      expect(out.contextualBandits).toEqual({
+        cb1: {
+          banditVersion: 3,
+          contexts: [
+            { leafId: 1, condition: { country: "US" }, weights: [0.6, 0.4] },
+          ],
+        },
+      });
+      const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+      expect(rules?.length).toBe(1);
+      expect(rules[0].contextualBanditRef).toBe("cb1");
+      expect(rules[0].contextualVariations).toEqual(["a", "b"]);
+      expect(rules[0].weights).toEqual([0.5, 0.5]);
+      expect(rules[0].key).toBe("cb-track");
+      expect(rules[0].hashVersion).toBe(2);
+      expect(rules[0].disableStickyBucketing).toBe(true);
+      expect(rules[0].variations).toBeUndefined();
+    });
   });
 
   // Regression: the legacy SDK payload path read per-env rule arrays, so a

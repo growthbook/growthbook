@@ -21,7 +21,28 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^(features)/,
+    path: /^(features|constants|configs)/,
+    // Clicking the parent navigates to Feature Flags and expands, so the first
+    // sub-link is pre-selected.
+    navigateOnExpand: true,
+    subLinks: [
+      {
+        name: "Feature Flags",
+        href: "/features",
+        path: /^features/,
+      },
+      {
+        name: "Configs",
+        href: "/configs",
+        path: /^configs/,
+        beta: true,
+      },
+      {
+        name: "Constants",
+        href: "/constants",
+        path: /^constants/,
+      },
+    ],
   },
   {
     name: "Experimentation",
@@ -44,8 +65,9 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Contextual Bandits",
         href: "/contextual-bandits",
         path: /^contextual-bandits?($|\/)/,
-        beta: true,
-        filter: ({ gb }) => !!gb?.isOn("contextual-bandits"),
+        // Default ON; the remote flag only turns this off for specific orgs.
+        filter: ({ gb }) =>
+          gb?.getFeatureValue("contextual-bandits", true) ?? true,
       },
       {
         name: "Holdouts",
@@ -83,8 +105,17 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Explore",
         href: "/product-analytics/explore",
-        path: /^product-analytics\/explore(\/|$)/,
-        beta: true,
+        path: /^product-analytics\/explore(\/(?!funnel|sql).*)?$/,
+      },
+      {
+        name: "Funnels",
+        href: "/product-analytics/explore/funnel",
+        path: /^product-analytics\/explore\/funnel/,
+      },
+      {
+        name: "SQL Explorer",
+        href: "/product-analytics/explore/sql",
+        path: /^product-analytics\/explore\/sql/,
       },
       {
         name: "Dashboards",
@@ -181,7 +212,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "SDK Configuration",
     href: "/sdks",
-    path: /^(attributes|environments|saved-groups|constants|sdks|archetypes)/,
+    path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
@@ -204,11 +235,6 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Saved Groups",
         href: "/saved-groups",
         path: /^saved-groups/,
-      },
-      {
-        name: "Constants",
-        href: "/constants",
-        path: /^constants/,
       },
       {
         name: "Archetypes",
@@ -237,6 +263,13 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageOrgSettings(),
       },
       {
+        name: "Projects",
+        href: "/projects",
+        path: /^project/,
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canViewProjectsPage(),
+      },
+      {
         name: "Members",
         href: "/settings/team",
         path: /^settings\/team/,
@@ -249,13 +282,6 @@ export const navlinks: SidebarLinkProps[] = [
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canCreateAndUpdateTag() ||
           permissionsUtils.canDeleteTag(),
-      },
-      {
-        name: "Projects",
-        href: "/projects",
-        path: /^project/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewProjectsPage(),
       },
       {
         name: "Custom Fields",
@@ -292,8 +318,12 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Slack",
         href: "/integrations/slack",
         path: /^integrations\/slack/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canManageIntegrations(),
+        // Default ON so self-hosted and airgapped installs without a features
+        // payload still see the link; the remote flags only turn it off.
+        filter: ({ permissionsUtils, gb }) =>
+          permissionsUtils.canManageIntegrations() &&
+          ((gb?.getFeatureValue("slack-workspace-ui", true) ?? true) ||
+            (gb?.getFeatureValue("slack-integration", true) ?? true)),
       },
       {
         name: "Import your data",

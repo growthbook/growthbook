@@ -6,13 +6,19 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import {
+  ensureConfigBacking,
+  setConfigBacking,
+  valueHasConfigExtends,
+} from "shared/util";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -23,19 +29,17 @@ import {
   getDefaultVariationValue,
   validateFeatureRule,
 } from "@/services/features";
+import { useConfigBacking } from "@/hooks/useConfigBacking";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
+import useApi from "@/hooks/useApi";
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
@@ -74,13 +78,11 @@ const genFormDefaultValues = ({
   permissions,
   project,
   cb,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
   cb: ApiContextualBanditInterface;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Omit<
   FeatureInterface,
   | "organization"
@@ -98,11 +100,6 @@ const genFormDefaultValues = ({
     permissions,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [field.id, field.defaultValue ?? ""]),
-      )
-    : {};
   const type = cb.variations.length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
   return {
@@ -116,7 +113,7 @@ const genFormDefaultValues = ({
     tags: cb.tags || [],
     environmentSettings,
     rules: [],
-    customFields: customFieldValues,
+    customFields: {},
     variations: cb.variations.map((v, i) => ({
       value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
       variationId: v.id,
@@ -137,22 +134,12 @@ export default function LinkFeatureToContextualBanditModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { hasCommercialFeature } = useUser();
-  const allCustomFields = useCustomFields();
-  const customFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    selectedProject,
-  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     cb,
     project: selectedProject,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
-      : undefined,
   });
 
   const { features } = useFeatureMetaInfo({ project: cb.project });
@@ -166,6 +153,14 @@ export default function LinkFeatureToContextualBanditModal({
   const form = useForm<ReturnType<typeof genFormDefaultValues>>({
     defaultValues: defaultValues as never,
   });
+
+  const { availableFields: availableCustomFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "feature",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const [showTags, setShowTags] = useState(cb.tags && cb.tags.length > 0);
   const [showDescription, setShowDescription] = useState(
@@ -183,11 +178,34 @@ export default function LinkFeatureToContextualBanditModal({
   const existing = form.watch("existing");
   const variations = cb.variations;
 
+  const { data: existingFeatureData } = useApi<{
+    status: 200;
+    feature: FeatureInterface;
+  }>(`/feature/${existing}`, { shouldRun: () => !!existing });
+  const existingFeature = existingFeatureData?.feature;
+
+  // Config-backed existing JSON flags: every variation value is a sparse patch
+  // serving the default's config, so the variations use the config-backing
+  // editor and each value is seeded with the backing (mirrors
+  // useSeedConfigBackedVariations on the feature page; CB rules carry no
+  // `sparse` flag — their arm values are inherently patches).
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(existing ? existingFeature : undefined);
+  useEffect(() => {
+    if (!isConfigBacked || !defaultConfigKey) return;
+    (form.getValues("variations") || []).forEach((v, i) => {
+      const normalized = ensureConfigBacking(v.value, defaultConfigKey);
+      if (normalized !== v.value) {
+        form.setValue(`variations.${i}.value`, normalized);
+      }
+    });
+  }, [isConfigBacked, defaultConfigKey, form]);
+
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
   if (
-    !permissionsUtil.canManageFeatureDrafts({
+    !permissionsUtil.canEditFeatureDrafts({
       project: selectedProject,
     })
   ) {
@@ -342,6 +360,26 @@ export default function LinkFeatureToContextualBanditModal({
             const newFeature = validFeatures.find((f) => f.id === value);
             if (newFeature) {
               updateValuesOnTypeChange(newFeature.valueType);
+              // A config-backed flag serves its config, so seed each variation
+              // as a clean backing ref (empty override patch) rather than a
+              // copy of the type-transformed default. Selecting a non-config
+              // JSON flag strips any backing ref left from a prior selection.
+              if (newFeature.valueType === "json") {
+                const configKey = newFeature.configBackingKey ?? null;
+                (form.getValues("variations") || []).forEach((v, i) => {
+                  if (configKey) {
+                    form.setValue(
+                      `variations.${i}.value`,
+                      setConfigBacking(configKey, "{}"),
+                    );
+                  } else if (valueHasConfigExtends(v.value)) {
+                    form.setValue(
+                      `variations.${i}.value`,
+                      setConfigBacking(null, v.value),
+                    );
+                  }
+                });
+              }
             }
           }
           form.setValue("existing", value);
@@ -383,7 +421,8 @@ export default function LinkFeatureToContextualBanditModal({
           <ValueTypeField
             value={valueType}
             onChange={(val) => {
-              updateValuesOnTypeChange(val);
+              // config authoring type isn't offered here yet (allowConfig off).
+              if (val !== "config") updateValuesOnTypeChange(val);
             }}
           />
 
@@ -397,21 +436,15 @@ export default function LinkFeatureToContextualBanditModal({
             my="5"
           />
 
-          {hasCommercialFeature("custom-metadata") &&
-            customFields &&
-            customFields.length > 0 && (
-              <div>
-                <CustomFieldInput
-                  customFields={customFields}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  section={"feature"}
-                  project={selectedProject}
-                />
-              </div>
-            )}
+          {availableCustomFields.length > 0 && (
+            <div>
+              <CustomFieldInput
+                fields={availableCustomFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            </div>
+          )}
         </>
       )}
 
@@ -447,29 +480,22 @@ export default function LinkFeatureToContextualBanditModal({
         </Text>
         {variations.map((v, i) => (
           <Box key={v.id}>
-            <Flex align="center" direction="row" gap="1" mb="3">
-              <Box className={`variation with-variation-label variation${i}`}>
-                <span
-                  className="label"
-                  style={{
-                    width: 18,
-                    height: 18,
-                    fontSize: 11,
-                    lineHeight: "18px",
-                  }}
-                >
-                  {i}
-                </span>
-              </Box>
-              <Text weight="semibold">{v.name}</Text>
-            </Flex>
+            <Box mb="3">
+              <VariationLabel number={i} name={v.name} />
+            </Box>
             <FeatureValueField
               id={v.id}
               value={form.watch(`variations.${i}.value`) || ""}
               setValue={(val) => form.setValue(`variations.${i}.value`, val)}
               valueType={valueType}
+              feature={existing ? existingFeature : undefined}
               useCodeInput={true}
               showFullscreenButton={true}
+              sparse={isConfigBacked}
+              allowConfigBacking={isConfigBacked}
+              configBackingOptionKeys={configBackingOptionKeys}
+              configBackingShowPatch={isConfigBacked}
+              lockConfigBacking={isConfigBacked}
             />
             {i < variations.length - 1 && <Separator size="4" my="4" />}
           </Box>

@@ -8,17 +8,14 @@ import {
   buildEventForwarderFeatureUsageTableReference,
   EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
   EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
-  eventForwarderManagedExposureQueryExistsForUserIdType,
-  eventForwarderManagedFeatureUsageQueryExists,
-  generateEventForwarderExposureQueries,
   getActiveFeatureUsageQuery,
-  isEventForwarderManagedExposureQuery,
-  isEventForwarderManagedFeatureUsageQuery,
-  mergeEventForwarderExposureQueries,
   reconcileEventForwarderManagedExposureQueries,
-  refreshEventForwarderManagedExposureQuery,
 } from "../../src/util/event-forwarder-warehouse-queries";
-import { EVENT_FORWARDER_AVRO_PARTITION_FIELD } from "../../src/util/event-forwarder-fact-table";
+import { isEventForwarderManaged } from "../../src/util/event-forwarder-datasource";
+import {
+  buildEventForwarderPropertyValueSql,
+  EVENT_FORWARDER_AVRO_PARTITION_FIELD,
+} from "../../src/util/event-forwarder-fact-table";
 
 describe("event-forwarder-warehouse-queries experiment_viewed table reference", () => {
   it("builds BigQuery experiment_viewed table reference", () => {
@@ -137,6 +134,19 @@ describe("buildEventForwarderExposureQuerySql", () => {
     );
   });
 
+  it("aliases the identifier name but reads the source attribute", () => {
+    const sql = buildEventForwarderExposureQuerySql({
+      sinkType: "bigquery",
+      tableRef,
+      userIdType: "logged_in_user",
+      sourceAttribute: "user_id",
+    });
+
+    expect(sql).toContain(
+      "CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING) AS `logged_in_user`",
+    );
+  });
+
   it("has no WHERE clause for Snowflake", () => {
     const sql = buildEventForwarderExposureQuerySql({
       sinkType: "snowflake",
@@ -153,254 +163,270 @@ describe("buildEventForwarderExposureQuerySql", () => {
   });
 });
 
-describe("generateEventForwarderExposureQueries", () => {
-  it("creates one exposure query per managed identifier id", () => {
-    // Callers pass the prefixed managed identifier ids; id/userIdType/name mirror
-    // them, while the SQL extracts the real source attribute.
-    const queries = generateEventForwarderExposureQueries(
-      ["ef_user_id", "ef_anonymous_id"],
-      {
-        sinkType: "bigquery",
-        projectId: "proj",
-        dataset: "ds",
-        tablePrefix: "gb",
-      },
-    );
+describe("reconcileEventForwarderManagedExposureQueries", () => {
+  const params = {
+    sinkType: "bigquery" as const,
+    projectId: "proj",
+    dataset: "ds",
+    tablePrefix: "gb",
+  };
+  const stringAttribute = [
+    { property: "user_id", datatype: "string" as const, hashAttribute: true },
+  ];
+  const numberAttribute = [
+    { property: "user_id", datatype: "number" as const, hashAttribute: true },
+  ];
 
-    expect(queries).toHaveLength(2);
-    expect(queries[0].id).toBe("ef_user_id");
-    expect(queries[0].userIdType).toBe("ef_user_id");
-    expect(queries[0].name).toBe("ef_user_id");
-    expect(queries[1].id).toBe("ef_anonymous_id");
-    expect(queries[1].userIdType).toBe("ef_anonymous_id");
-    // Alias is the managed id; extraction reads the real attribute.
-    expect(queries[0].query).toContain("AS `ef_user_id`");
-    expect(queries[0].query).toContain('$."user_id"');
-    expect(queries[0].description).toBe(
-      EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
-    );
-    expect(queries[0].dimensions).toEqual([]);
-    expect(queries[0].managedBy).toBe("api");
-    expect(isEventForwarderManagedExposureQuery(queries[0])).toBe(true);
+  const pair = (userIdType: string, attribute = "user_id") => ({
+    attribute,
+    userIdType: { userIdType, managedBy: "api", attributes: [attribute] },
   });
-});
 
-describe("mergeEventForwarderExposureQueries", () => {
-  it("appends only missing identifier types", () => {
-    const existing = generateEventForwarderExposureQueries(["user_id"], {
-      sinkType: "snowflake",
-      database: "DB",
-      schema: "PUBLIC",
-      tablePrefix: "GB",
+  const generatedSql = (
+    alias: string,
+    attribute = "user_id",
+    attributeDatatype: "string" | "number" | undefined = "string",
+  ) =>
+    buildEventForwarderExposureQuerySql({
+      sinkType: params.sinkType,
+      tableRef: buildEventForwarderExperimentViewedTableReference(params),
+      userIdType: alias,
+      sourceAttribute: attribute,
+      attributeDatatype,
     });
 
-    const merged = mergeEventForwarderExposureQueries(
+  const reconcile = (
+    existing: ExposureQuery[],
+    pairs: ReturnType<typeof pair>[],
+    attributeSchema = stringAttribute,
+  ) =>
+    reconcileEventForwarderManagedExposureQueries({
       existing,
-      ["user_id", "device_id"],
+      pairs,
+      params,
+      attributeSchema,
+    });
+
+  it("creates one managed query per paired identifier type", () => {
+    const result = reconcile([], [pair("user_id")]);
+
+    expect(result).toEqual([
       {
-        sinkType: "snowflake",
-        database: "DB",
-        schema: "PUBLIC",
-        tablePrefix: "GB",
+        id: "",
+        userIdType: "user_id",
+        name: "user_id",
+        description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+        dimensions: [],
+        managedBy: "api",
+        query: generatedSql("user_id"),
       },
-    );
-
-    expect(merged).toHaveLength(2);
-    expect(merged[0].userIdType).toBe("user_id");
-    expect(merged[1].userIdType).toBe("device_id");
+    ]);
   });
 
-  it("is case-insensitive when checking existing queries", () => {
-    const existing = generateEventForwarderExposureQueries(["USER_ID"], {
-      sinkType: "snowflake",
-      database: "DB",
-      schema: "PUBLIC",
-      tablePrefix: "GB",
-    });
+  it("aliases the identifier type's name while reading the source attribute", () => {
+    const [created] = reconcile([], [pair("ef_user_id")]);
 
-    expect(
-      eventForwarderManagedExposureQueryExistsForUserIdType(
-        existing,
-        "user_id",
-      ),
-    ).toBe(true);
-
-    const merged = mergeEventForwarderExposureQueries(existing, ["user_id"], {
-      sinkType: "snowflake",
-      database: "DB",
-      schema: "PUBLIC",
-      tablePrefix: "GB",
-    });
-
-    expect(merged).toHaveLength(1);
+    expect(created.query).toContain("`ef_user_id`");
+    expect(created.query).toContain('$."user_id"');
   });
 
-  it("adds a managed query alongside a user's own query for the same identifier", () => {
+  it("casts the column to the attribute's datatype", () => {
+    const [created] = reconcile([], [pair("user_id")], numberAttribute);
+
+    expect(created.query).toContain("FLOAT64");
+  });
+
+  it("prefixes the query name when an existing query already holds it", () => {
     const existing: ExposureQuery[] = [
       {
-        id: "user_id",
-        name: "My custom query",
+        id: "exq_mine",
+        userIdType: "device_id",
+        name: "user_id",
+        dimensions: [],
+        query: "SELECT 1",
+      },
+    ];
+
+    const result = reconcile(existing, [pair("user_id")]);
+
+    expect(result).toHaveLength(2);
+    expect(result[1].name).toBe("ef_user_id");
+    expect(result[1].userIdType).toBe("user_id");
+  });
+
+  it("leaves a user query carrying identical SQL alone", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_mine",
         userIdType: "user_id",
+        name: "mine",
         dimensions: [],
-        query: "SELECT custom",
+        query: generatedSql("user_id"),
       },
     ];
 
-    const merged = mergeEventForwarderExposureQueries(
-      existing,
-      ["ef_user_id"],
-      {
-        sinkType: "snowflake",
-        database: "DB",
-        schema: "PUBLIC",
-        tablePrefix: "GB",
-      },
-    );
-
-    expect(merged).toHaveLength(2);
-    // The user's own query is preserved untouched...
-    expect(merged[0]).toEqual(existing[0]);
-    // ...and the managed query is added with the prefixed id so it doesn't collide.
-    expect(merged[1].id).toBe("ef_user_id");
-    expect(merged[1].userIdType).toBe("ef_user_id");
-    expect(merged[1].managedBy).toBe("api");
+    expect(reconcile(existing, [pair("user_id")])).toEqual(existing);
   });
-});
 
-describe("refreshEventForwarderManagedExposureQuery", () => {
-  it("renames managed exposure query and regenerates typed SQL", () => {
-    const existing = generateEventForwarderExposureQueries(["ef_user_id"], {
-      sinkType: "bigquery",
-      projectId: "proj",
-      dataset: "ds",
-      tablePrefix: "gb",
-    });
-
-    const refreshed = refreshEventForwarderManagedExposureQuery(
-      existing,
-      "ef_user_id",
+  it("still recognizes generator output that has been reformatted", () => {
+    const existing: ExposureQuery[] = [
       {
-        property: "account_id",
-        datatype: "number",
-        hashAttribute: true,
-      },
-      {
-        sinkType: "bigquery",
-        projectId: "proj",
-        dataset: "ds",
-        tablePrefix: "gb",
-      },
-    );
-
-    expect(refreshed[0].id).toBe("ef_account_id");
-    expect(refreshed[0].userIdType).toBe("ef_account_id");
-    expect(refreshed[0].name).toBe("ef_account_id");
-    // Alias is the managed id; extraction reads the real account_id attribute.
-    expect(refreshed[0].query).toContain("AS `ef_account_id`");
-    expect(refreshed[0].query).toContain('$."account_id"');
-    expect(refreshed[0].query).toContain("AS FLOAT64");
-  });
-});
-
-describe("reconcileEventForwarderManagedExposureQueries", () => {
-  it("rebuilds managed queries from desired hash attributes", () => {
-    const existing = [
-      ...generateEventForwarderExposureQueries(["ef_user_id", "ef_legacy_id"], {
-        sinkType: "bigquery",
-        projectId: "proj",
-        dataset: "ds",
-        tablePrefix: "gb",
-      }),
-      {
-        id: "custom_query",
-        userIdType: "custom_id",
-        name: "Custom",
+        id: "exq_mine",
+        userIdType: "user_id",
+        name: "mine",
         dimensions: [],
-        query: "SELECT custom_id FROM custom_table",
+        query: `  ${generatedSql("user_id").replace(/\n/g, "\n  ")}  `,
       },
     ];
 
-    const reconciled = reconcileEventForwarderManagedExposureQueries({
-      existing,
-      userIdTypes: ["ef_account_id", "ef_device_id"],
-      params: {
-        sinkType: "bigquery",
-        projectId: "proj",
-        dataset: "ds",
-        tablePrefix: "gb",
-      },
-      attributeSchema: [
-        {
-          property: "account_id",
-          datatype: "number",
-          hashAttribute: true,
-        },
-        {
-          property: "device_id",
-          datatype: "string",
-          hashAttribute: true,
-        },
-      ],
-    });
-
-    expect(reconciled).toHaveLength(3);
-    expect(reconciled[0].id).toBe("custom_query");
-    expect(reconciled.map((query) => query.userIdType)).toEqual([
-      "custom_id",
-      "ef_account_id",
-      "ef_device_id",
-    ]);
-    expect(reconciled[1].managedBy).toBe("api");
-    // account_id is a number attribute, resolved by stripping the ef_ prefix.
-    expect(reconciled[1].query).toContain("AS FLOAT64");
-    expect(
-      reconciled.some((query) => query.userIdType === "ef_legacy_id"),
-    ).toBe(false);
+    expect(reconcile(existing, [pair("user_id")])).toEqual(existing);
   });
 
-  it("preserves queries without the managed marker", () => {
-    const reconciled = reconcileEventForwarderManagedExposureQueries({
-      existing: [
-        {
-          id: "stored_managed",
-          userIdType: "legacy_id",
-          name: "legacy_id",
-          dimensions: [],
-          query: "SELECT legacy_id",
-        },
-        {
-          id: "custom_query",
-          userIdType: "custom_id",
-          name: "Custom",
-          dimensions: [],
-          query: "SELECT custom_id",
-        },
-      ],
-      userIdTypes: [],
-      params: {
-        sinkType: "snowflake",
-        database: "DB",
-        schema: "PUBLIC",
-        tablePrefix: "GB",
+  it("still recognizes generator output written before the datatype changed", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_mine",
+        userIdType: "user_id",
+        name: "mine",
+        dimensions: [],
+        query: generatedSql("user_id", "user_id", undefined),
       },
-    });
+    ];
 
-    expect(reconciled).toEqual([
+    expect(reconcile(existing, [pair("user_id")])).toEqual(existing);
+  });
+
+  it("adds a managed query alongside a user query whose SQL differs", () => {
+    const existing: ExposureQuery[] = [
       {
-        id: "stored_managed",
-        userIdType: "legacy_id",
-        name: "legacy_id",
+        id: "exq_mine",
+        userIdType: "user_id",
+        name: "user_id",
         dimensions: [],
-        query: "SELECT legacy_id",
+        query: "SELECT my_own_thing",
       },
+    ];
+
+    const result = reconcile(existing, [pair("user_id")]);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual(existing[0]);
+    expect(result[1].name).toBe("ef_user_id");
+    expect(result[1].managedBy).toBe("api");
+  });
+
+  it("regenerates the managed query even when a user query has the same SQL", () => {
+    const userQuery: ExposureQuery = {
+      id: "exq_mine",
+      userIdType: "user_id",
+      name: "mine",
+      dimensions: [],
+      query: generatedSql("user_id"),
+    };
+    const managedQuery: ExposureQuery = {
+      id: "exq_managed",
+      userIdType: "user_id",
+      name: "user_id",
+      dimensions: [],
+      managedBy: "api",
+      query: generatedSql("user_id"),
+    };
+
+    // Whichever order they are stored in, the managed query tracks the datatype
+    // and the user's own query is left untouched.
+    for (const existing of [
+      [userQuery, managedQuery],
+      [managedQuery, userQuery],
+    ]) {
+      const result = reconcile(existing, [pair("user_id")], numberAttribute);
+
+      expect(result).toHaveLength(2);
+      expect(result.find((q) => q.id === "exq_managed")?.query).toBe(
+        generatedSql("user_id", "user_id", "number"),
+      );
+      expect(result.find((q) => q.id === "exq_mine")).toEqual(userQuery);
+    }
+  });
+
+  it("keeps a managed query's id and name when it regenerates the SQL", () => {
+    const existing: ExposureQuery[] = [
       {
-        id: "custom_query",
-        userIdType: "custom_id",
-        name: "Custom",
-        dimensions: [],
-        query: "SELECT custom_id",
+        id: "exq_stable",
+        userIdType: "user_id",
+        name: "user_id",
+        dimensions: ["country"],
+        hasNameCol: true,
+        managedBy: "api",
+        query: generatedSql("user_id"),
       },
-    ]);
+    ];
+
+    const [updated] = reconcile(existing, [pair("user_id")], numberAttribute);
+
+    expect(updated.id).toBe("exq_stable");
+    expect(updated.name).toBe("user_id");
+    expect(updated.userIdType).toBe("user_id");
+    expect(updated.dimensions).toEqual(["country"]);
+    expect(updated.hasNameCol).toBe(true);
+    expect(updated.query).toBe(generatedSql("user_id", "user_id", "number"));
+  });
+
+  it("keeps the id and name of a legacy ef_-named managed query", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "ef_user_id",
+        userIdType: "ef_user_id",
+        name: "ef_user_id",
+        dimensions: [],
+        managedBy: "api",
+        query: generatedSql("ef_user_id"),
+      },
+    ];
+
+    const result = reconcile(existing, [pair("ef_user_id")]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("ef_user_id");
+    expect(result[0].name).toBe("ef_user_id");
+  });
+
+  it("leaves a managed query alone when its attribute is gone", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_orphan",
+        userIdType: "user_id",
+        name: "user_id",
+        dimensions: [],
+        managedBy: "api",
+        query: generatedSql("user_id"),
+      },
+    ];
+
+    expect(reconcile(existing, [])).toEqual(existing);
+  });
+
+  it("leaves a user's own query on another identifier alone", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_mine",
+        userIdType: "device_id",
+        name: "mine",
+        dimensions: [],
+        query: "SELECT 1",
+      },
+    ];
+
+    const result = reconcile(existing, [pair("user_id")]);
+
+    expect(result[0]).toEqual(existing[0]);
+    expect(isEventForwarderManaged(result[0])).toBe(false);
+  });
+
+  it("writes nothing on repeated syncs", () => {
+    const first = reconcile([], [pair("user_id")]);
+    const second = reconcile(first, [pair("user_id")]);
+
+    expect(second).toEqual(first);
   });
 });
 
@@ -431,7 +457,7 @@ describe("event-forwarder-warehouse-queries feature_usage table reference", () =
 describe("buildEventForwarderFeatureUsageQuerySql", () => {
   const tableRef = "`proj`.`ds`.`feature_usage`";
 
-  it("includes received_at partition filter for BigQuery only", () => {
+  it("includes received_at partition filter and property columns for BigQuery", () => {
     const sql = buildEventForwarderFeatureUsageQuerySql({
       sinkType: "bigquery",
       tableRef,
@@ -439,6 +465,15 @@ describe("buildEventForwarderFeatureUsageQuerySql", () => {
 
     expect(sql).toContain("timestamp AS timestamp");
     expect(sql).toContain("feature_key AS feature_key");
+    expect(sql).toContain("environment AS environment");
+    expect(sql).toContain("JSON_VALUE(`properties`, '$.\"value\"') AS value");
+    expect(sql).toContain("JSON_VALUE(`properties`, '$.\"source\"') AS source");
+    expect(sql).toContain(
+      "JSON_VALUE(`properties`, '$.\"ruleId\"') AS rule_id",
+    );
+    expect(sql).toContain(
+      "JSON_VALUE(`properties`, '$.\"variationId\"') AS variation_id",
+    );
     expect(sql).toContain(`FROM ${tableRef}`);
     expect(sql).toContain(
       `WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`,
@@ -453,8 +488,60 @@ describe("buildEventForwarderFeatureUsageQuerySql", () => {
 
     expect(sql).toContain("TIMESTAMP AS timestamp");
     expect(sql).toContain("FEATURE_KEY AS feature_key");
+    expect(sql).toContain("ENVIRONMENT AS environment");
+    expect(sql).toContain('PROPERTIES:"value"::STRING AS value');
+    expect(sql).toContain('PROPERTIES:"source"::STRING AS source');
+    expect(sql).toContain('PROPERTIES:"ruleId"::STRING AS rule_id');
+    expect(sql).toContain('PROPERTIES:"variationId"::STRING AS variation_id');
     expect(sql).toContain("FROM MY_DB.PUBLIC.FEATURE_USAGE");
     expect(sql).not.toContain("WHERE");
+  });
+});
+
+describe("buildEventForwarderPropertyValueSql", () => {
+  it("extracts a property from the BigQuery JSON column", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "bigquery",
+        propertyKey: "ruleId",
+      }),
+    ).toBe("JSON_VALUE(`properties`, '$.\"ruleId\"')");
+  });
+
+  it("extracts a property from the Snowflake VARIANT column", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "snowflake",
+        propertyKey: "variationId",
+      }),
+    ).toBe('PROPERTIES:"variationId"::STRING');
+  });
+
+  it("escapes double quotes in BigQuery property keys", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "bigquery",
+        propertyKey: 'a"b',
+      }),
+    ).toBe('JSON_VALUE(`properties`, \'$."a\\\\"b"\')');
+  });
+
+  it("escapes backslashes in BigQuery property keys", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "bigquery",
+        propertyKey: "a\\b",
+      }),
+    ).toBe("JSON_VALUE(`properties`, '$.\"a\\\\\\\\b\"')");
+  });
+
+  it("escapes single quotes in BigQuery property keys", () => {
+    expect(
+      buildEventForwarderPropertyValueSql({
+        sinkType: "bigquery",
+        propertyKey: "a'b",
+      }),
+    ).toBe("JSON_VALUE(`properties`, '$.\"a\\'b\"')");
   });
 });
 
@@ -472,7 +559,7 @@ describe("buildEventForwarderFeatureUsageQuery", () => {
       EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
     );
     expect(query.query).toContain("feature_usage");
-    expect(isEventForwarderManagedFeatureUsageQuery(query as never)).toBe(true);
+    expect(isEventForwarderManaged(query)).toBe(true);
   });
 });
 
@@ -492,16 +579,5 @@ describe("getActiveFeatureUsageQuery", () => {
     ]);
 
     expect(active?.id).toBe("manual");
-  });
-});
-
-describe("eventForwarderManagedFeatureUsageQueryExists", () => {
-  it("returns true when a managed query exists", () => {
-    expect(
-      eventForwarderManagedFeatureUsageQueryExists([
-        { id: "manual", query: "SELECT 1" },
-        { id: "managed", query: "SELECT 2", managedBy: "api" },
-      ]),
-    ).toBe(true);
   });
 });

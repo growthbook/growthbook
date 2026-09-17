@@ -92,7 +92,6 @@ const ImportExperimentModal: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType="import-experiment"
       header="Import Experiment"
       open={true}
@@ -128,6 +127,7 @@ const ImportExperimentModal: FC<{
             {error}
           </Callout>
           <SelectField
+            size="legacy"
             label="Choose a Data Source"
             value={datasourceId}
             onChange={(value) => setDatasourceId(value)}

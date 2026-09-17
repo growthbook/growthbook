@@ -155,7 +155,7 @@ export default function AnalysisSettings({
 
       <Frame>
         <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-          <Heading color="text-high" as="h4" size="small" mb="0">
+          <Heading color="text-high" as="h4" size="sm" mb="0">
             Analysis Settings
           </Heading>
           <div className="flex-1" />
@@ -240,7 +240,7 @@ export default function AnalysisSettings({
                           {isBandit &&
                             experiment.banditConversionWindowValue &&
                             experiment.banditConversionWindowUnit && (
-                              <Text size="small" color="text-mid">
+                              <Text size="sm" color="text-mid">
                                 Conversion Window:{" "}
                                 {experiment.banditConversionWindowValue}{" "}
                                 {experiment.banditConversionWindowValue === 1

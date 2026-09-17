@@ -138,6 +138,10 @@ mongosh -u root
 - `show collections` should show you the collections for the database you are using. This will throw an error if you are not logged in as the correct user.
 - `db` is available and you should be able to run queries against it, e.g. `db.users.find()`
 
+### Building the Docker image
+
+Day-to-day development uses `pnpm dev`, so you don't normally need to build the image. If you do change the `Dockerfile` and want to build it locally, run `docker login dhi.io` first: the hardened base images come from Docker's `dhi.io` registry, which rejects unauthenticated requests (including metadata reads) with a `401`. Any free Docker account works — see [Building from source](https://docs.growthbook.io/self-host#building-from-source) for details. You don't need your own credentials for CI: the preview workflow builds `Dockerfile` changes for pull requests from a branch on this repo, using the repo's own credentials, and skips the build entirely for pull requests from forks.
+
 ### Working on docs
 
 To start the docs site, first `cd docs` and then run `pnpm install` to install and `pnpm dev` to run the docs server. You can view the site at http://localhost:3200
@@ -183,12 +187,16 @@ You can also just run `yarn *` where \* is test, lint, build if you `cd` to the 
 
 There are a few repo-wide code quality tools:
 
-- `yarn test` - Run the full test suite on all packages
-- `yarn type-check` - Typescript type checking
-- `yarn lint` - Typescript code linting
-- `yarn workspace stats lint` - Python code linting (ensure you have run `yarn setup` first to install the poetry virtual environment)
+- `pnpm test` - Run the full test suite on all packages
+- `pnpm type-check` - Typescript type checking
+- `pnpm lint` - Typescript code linting
+- `pnpm pretty:check` - Prettier formatting check
+- `pnpm ci` - Everything above, in the order CI runs it
+- `pnpm --filter stats lint` - Python code linting (ensure you have run `pnpm setup` first to install the poetry virtual environment)
 
-There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't need to run that yourself.
+There is a pre-commit hook that lints and formats staged files automatically, so
+you shouldn't need to run those yourself. Linting and formatting are separate
+gates. `pnpm lint` does not format, and CI checks each independently.
 
 ## Opening Pull Requests
 

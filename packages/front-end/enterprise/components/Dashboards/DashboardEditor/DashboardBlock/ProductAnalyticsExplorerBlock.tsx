@@ -4,12 +4,25 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
+  blockUsesDashboardDateControl,
+  getEffectiveExplorationConfig,
+  getExplorationDateControlFingerprint,
   resolveBlockComparison,
+  resolveComparisonMode,
+  getComparisonAlignmentStrategy,
   computeExplorationComparisonPayload,
+  DashboardBlockInterfaceOrData,
 } from "shared/enterprise";
+import { isEqual } from "lodash";
 import { ProductAnalyticsExploration } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import useApi from "@/hooks/useApi";
+import {
+  explorationPollDelayMs,
+  isTableChartType,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
@@ -17,13 +30,53 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { BlockProps } from ".";
 
+// Poll interval for a tile's exploration: back off while it's still running,
+// stop (0) once it's terminal (success/error) or absent.
+function pollDelayForExploration(
+  exploration: ProductAnalyticsExploration | undefined | null,
+): number {
+  if (exploration?.status !== "running") return 0;
+  const started = exploration.runStarted
+    ? new Date(exploration.runStarted).getTime()
+    : Date.now();
+  return explorationPollDelayMs(Math.floor((Date.now() - started) / 1000));
+}
+
 export default function ProductAnalyticsExplorerBlock({
   block,
+  dashboardGlobalControls,
+  dashboardComparison,
 }: BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
+  | SqlExplorationBlockInterface
+  | FunnelExplorationBlockInterface
 >) {
+  return (
+    <ProductAnalyticsExplorerVisualization
+      block={block}
+      dashboardGlobalControls={dashboardGlobalControls}
+      dashboardComparison={dashboardComparison}
+    />
+  );
+}
+
+export function ProductAnalyticsExplorerVisualization({
+  block,
+  dashboardGlobalControls,
+  dashboardComparison,
+}: {
+  block: DashboardBlockInterfaceOrData<
+    | MetricExplorationBlockInterface
+    | FactTableExplorationBlockInterface
+    | DataSourceExplorationBlockInterface
+    | SqlExplorationBlockInterface
+    | FunnelExplorationBlockInterface
+  >;
+  dashboardGlobalControls?: BlockProps<SqlExplorationBlockInterface>["dashboardGlobalControls"];
+  dashboardComparison?: BlockProps<SqlExplorationBlockInterface>["dashboardComparison"];
+}) {
   const { getFactMetricById } = useDefinitions();
   const { data, error, isLoading } = useApi<{
     status: number;
@@ -31,24 +84,36 @@ export default function ProductAnalyticsExplorerBlock({
     query: QueryInterface | null;
   }>(`/product-analytics/exploration/${block.explorerAnalysisId}`, {
     shouldRun: () => !!block.explorerAnalysisId,
+    // A tile's exploration can be returned still "running" (a refresh query
+    // that exceeded the ~5s sync budget keeps executing server-side). Poll on
+    // a backoff until it reaches a terminal state; 0 stops the interval.
+    refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
   });
 
-  // Comparison is resolved through the shared seam so a future dashboard-wide
-  // compare toggle drives this the same way. The previous-period exploration is
-  // a separate entity produced on refresh; fetch it when present.
-  const comparison = resolveBlockComparison(block);
+  // Pass the dashboard, or a dashboard-wide comparison renders as primary-only.
+  // The previous-period exploration is a separate entity produced on refresh.
+  const comparison = resolveBlockComparison(block, {
+    comparison: dashboardComparison,
+  });
   const compareEnabled = !!comparison?.enabled;
+  const comparisonMode = comparison
+    ? resolveComparisonMode(comparison)
+    : "previousPeriod";
   const { data: comparisonData } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
     query: QueryInterface | null;
   }>(`/product-analytics/exploration/${block.comparisonExplorerAnalysisId}`, {
     shouldRun: () => compareEnabled && !!block.comparisonExplorerAnalysisId,
+    refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
   });
   const rawComparisonExploration = comparisonData?.exploration ?? null;
   // The resolved previous window lives on the comparison exploration's config.
   const submittedPreviousTimeFrame =
     rawComparisonExploration?.config?.dateRange ?? null;
+  const dateControlledBlock = blockUsesDashboardDateControl(block)
+    ? block
+    : null;
 
   // Dashboard blocks fetch the saved primary + previous explorations directly,
   // bypassing POST /product-analytics/run — where the live Explorer builds its
@@ -57,7 +122,36 @@ export default function ProductAnalyticsExplorerBlock({
   // dashboard matches the Explorer: empty previous periods densify to zeros
   // instead of triggering the "no data, nothing to compare" message, and
   // big-number / table trends are computed identically.
-  const submittedConfig = block.config ?? data?.exploration?.config ?? null;
+  const submittedConfig = useMemo(
+    () =>
+      block.config && dashboardGlobalControls && dateControlledBlock
+        ? getEffectiveExplorationConfig(dateControlledBlock, {
+            globalControls: dashboardGlobalControls,
+          })
+        : (block.config ?? data?.exploration?.config ?? null),
+    [
+      block.config,
+      dashboardGlobalControls,
+      data?.exploration?.config,
+      dateControlledBlock,
+    ],
+  );
+  const submittedExplorationConfig = data?.exploration?.config;
+  // A block only tracks the dashboard date control when it hasn't opted out.
+  const usesDashboardDateRange =
+    blockUsesDashboardDateControl(block) &&
+    Boolean(dashboardGlobalControls?.dateRange);
+  const hasStaleDashboardDateResults = useMemo(
+    () =>
+      usesDashboardDateRange &&
+      submittedConfig !== null &&
+      submittedExplorationConfig !== undefined &&
+      !isEqual(
+        getExplorationDateControlFingerprint(submittedConfig),
+        getExplorationDateControlFingerprint(submittedExplorationConfig),
+      ),
+    [usesDashboardDateRange, submittedConfig, submittedExplorationConfig],
+  );
   const comparisonPayload = useMemo(() => {
     if (
       !compareEnabled ||
@@ -73,6 +167,7 @@ export default function ProductAnalyticsExplorerBlock({
       submittedConfig,
       submittedPreviousTimeFrame,
       (id) => getFactMetricById(id) ?? null,
+      getComparisonAlignmentStrategy(comparisonMode),
     );
   }, [
     compareEnabled,
@@ -80,6 +175,7 @@ export default function ProductAnalyticsExplorerBlock({
     rawComparisonExploration,
     submittedConfig,
     submittedPreviousTimeFrame,
+    comparisonMode,
     getFactMetricById,
   ]);
 
@@ -102,20 +198,34 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }
 
-  const shouldShowTable = ["table", "timeseries-table"].includes(
-    block.config?.chartType ?? "",
-  );
+  if (data.exploration.status === "running") {
+    return <LoadingSpinner />;
+  }
+
+  if (hasStaleDashboardDateResults) {
+    return (
+      <Box p="4" style={{ textAlign: "center" }}>
+        <Callout status="info">
+          Global controls changed. Click the <code>Update</code> button to
+          refresh this block.
+        </Callout>
+      </Box>
+    );
+  }
+
+  const shouldShowTable = isTableChartType(block.config?.chartType);
 
   return (
-    <Flex direction="column" gap="2" style={{ height: "100%" }}>
+    <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>
       {shouldShowTable ? (
         <ExplorerDataTable
           exploration={data.exploration}
           comparisonExploration={comparisonExploration}
           compareEnabled={compareEnabled}
+          comparisonMode={compareEnabled ? comparisonMode : null}
           serverTableTrendsByRow={comparisonPayload?.tableTrendsByRow ?? null}
           error={data.exploration.error ?? error?.message ?? null}
-          submittedExploreState={block.config ?? data.exploration.config}
+          submittedExploreState={submittedConfig ?? data.exploration.config}
           loading={isLoading}
           hasChart={false}
           query={data?.query ?? null}
@@ -126,10 +236,11 @@ export default function ProductAnalyticsExplorerBlock({
           comparisonExploration={comparisonExploration}
           compareEnabled={compareEnabled}
           submittedPreviousTimeFrame={submittedPreviousTimeFrame}
+          submittedComparisonMode={compareEnabled ? comparisonMode : null}
           serverBigNumberTrends={comparisonPayload?.bigNumberTrends ?? null}
           error={data?.exploration.error || error?.message || null}
           loading={isLoading}
-          submittedExploreState={block.config ?? data?.exploration.config}
+          submittedExploreState={submittedConfig ?? data?.exploration.config}
         />
       )}
     </Flex>

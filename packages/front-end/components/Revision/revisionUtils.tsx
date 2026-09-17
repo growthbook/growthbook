@@ -98,6 +98,18 @@ export function buildConstantRevisionUrl(
   return base;
 }
 
+// Config revision deep-link. Configs are `config`-type constants but live on the
+// dedicated `/configs` route.
+export function buildConfigRevisionUrl(
+  configKey: string,
+  revision?: Pick<Revision, "version"> | null,
+): string {
+  const base = `/configs/${configKey}`;
+  if (revision && revision.version !== undefined)
+    return `${base}?v=${revision.version}`;
+  return base;
+}
+
 export function RevisionStatusDot({
   hasOpenRevisions,
 }: {

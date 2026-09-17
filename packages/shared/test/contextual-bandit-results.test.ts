@@ -11,6 +11,7 @@ const snapshot: ContextualBanditSnapshot = {
   responses: [
     {
       context: { country: "US" },
+      leafId: 3,
       sampleSizePerVariation: [500, 470],
       sampleMeans: [0.118, 0.151],
       sampleVariances: [0.1, 0.11],
@@ -21,6 +22,7 @@ const snapshot: ContextualBanditSnapshot = {
     },
     {
       context: { country: "CA" },
+      leafId: 3,
       sampleSizePerVariation: [300, 290],
       sampleMeans: [0.126, 0.146],
       sampleVariances: [0.09, 0.12],
@@ -31,6 +33,7 @@ const snapshot: ContextualBanditSnapshot = {
     },
     {
       context: { country: "MX" },
+      leafId: 7,
       sampleSizePerVariation: [100, 110],
       sampleMeans: [0.2, 0.18],
       sampleVariances: [0.05, 0.06],
@@ -41,9 +44,14 @@ const snapshot: ContextualBanditSnapshot = {
     },
   ],
   leaf_map: [
-    { context: { country: "US" }, leafId: 3 },
-    { context: { country: "CA" }, leafId: 3 },
-    { context: { country: "MX" }, leafId: 7 },
+    {
+      leafId: 3,
+      context: [{ attribute: "country", levels: ["CA", "US"], operator: "in" }],
+    },
+    {
+      leafId: 7,
+      context: [{ attribute: "country", levels: ["MX"], operator: "in" }],
+    },
   ],
   leaf_stats: [
     {
@@ -61,7 +69,16 @@ const snapshot: ContextualBanditSnapshot = {
   ],
   sse_trajectory: [
     { numSplits: 0, totalSse: 200 },
-    { numSplits: 1, totalSse: 150 },
+    {
+      numSplits: 1,
+      totalSse: 150,
+      split: {
+        leafClauses: [],
+        attribute: "country",
+        leftLevels: ["CA", "US"],
+        rightLevels: ["MX"],
+      },
+    },
   ],
 };
 
@@ -83,6 +100,15 @@ describe("buildContextualBanditResultsView", () => {
     ]);
   });
 
+  it("attaches the leaf's targeting clauses from leaf_map", () => {
+    expect(view.leaves[0].clauses).toEqual([
+      { attribute: "country", levels: ["CA", "US"], operator: "in" },
+    ]);
+    expect(view.leaves[1].clauses).toEqual([
+      { attribute: "country", levels: ["MX"], operator: "in" },
+    ]);
+  });
+
   it("puts shared weights + diagnostics on the leaf", () => {
     const leaf = view.leaves[0];
     expect(leaf.variations.map((v) => v.weight)).toEqual([0.6, 0.4]);
@@ -98,11 +124,21 @@ describe("buildContextualBanditResultsView", () => {
     expect(leaf.variations.map((v) => v.mean)).toEqual([0.121, 0.149]);
   });
 
-  it("exposes the total-SSE trajectory root-first", () => {
+  it("exposes the total-SSE trajectory root-first, passing through split metadata", () => {
     expect(view.sseTrajectory).toEqual([
       { numSplits: 0, totalSse: 200 },
-      { numSplits: 1, totalSse: 150 },
+      {
+        numSplits: 1,
+        totalSse: 150,
+        split: {
+          leafClauses: [],
+          attribute: "country",
+          leftLevels: ["CA", "US"],
+          rightLevels: ["MX"],
+        },
+      },
     ]);
+    expect(view.sseTrajectory[0].split).toBeUndefined();
   });
 
   it("defaults sseTrajectory to an empty array when absent", () => {
@@ -112,13 +148,19 @@ describe("buildContextualBanditResultsView", () => {
         responses: [
           {
             context: { country: "US" },
+            leafId: 0,
             sampleSizePerVariation: [10, 10],
             updatedWeights: [0.5, 0.5],
             updateMessage: "Successfully updated",
             error: null,
           },
         ],
-        leaf_map: [{ context: { country: "US" }, leafId: 0 }],
+        leaf_map: [
+          {
+            leafId: 0,
+            context: [{ attribute: "country", levels: ["US"], operator: "in" }],
+          },
+        ],
       },
       variations,
     );
@@ -144,6 +186,15 @@ describe("buildContextualBanditResultsView", () => {
     );
   });
 
+  it("computes population-weighted overall means per variation", () => {
+    // Population per context: US=970, CA=590, MX=210 (total 1770).
+    // v0: (970*0.118 + 590*0.126 + 210*0.2) / 1770 = 0.1303955...
+    // v1: (970*0.151 + 590*0.146 + 210*0.18) / 1770 = 0.1527740...
+    const overall = view.overall.variations;
+    expect(overall[0].mean).toBeCloseTo(0.1303955, 6);
+    expect(overall[1].mean).toBeCloseTo(0.152774, 6);
+  });
+
   it("throws when a leaf is missing updatedWeights (no best-arm fallback)", () => {
     expect(() =>
       buildContextualBanditResultsView(
@@ -152,13 +203,21 @@ describe("buildContextualBanditResultsView", () => {
           responses: [
             {
               context: { country: "US" },
+              leafId: 0,
               sampleSizePerVariation: [10, 10],
               bestArmProbabilities: [0.9, 0.1],
               updateMessage: "Successfully updated",
               error: null,
             },
           ],
-          leaf_map: [{ context: { country: "US" }, leafId: 0 }],
+          leaf_map: [
+            {
+              leafId: 0,
+              context: [
+                { attribute: "country", levels: ["US"], operator: "in" },
+              ],
+            },
+          ],
         },
         variations,
       ),

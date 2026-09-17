@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Responsive } from "@radix-ui/themes/props";
+import { Size } from "@/ui/sizes";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
@@ -7,12 +9,14 @@ import VariationNumber from "@/ui/VariationNumber";
 export interface VariationLabelProps {
   number: number;
   name: string;
-  size?: "small" | "medium" | "large";
+  size?: Size<"sm" | "md" | "lg">;
+  // Constrain the label width; the name truncates (with tooltip) to fit.
+  maxWidth?: Responsive<string>;
   // Set when rendered inside an element that already has a tooltip, to avoid nesting.
   disableTooltip?: boolean;
 }
 
-// Below this name width, hide the name and show only the number (tooltip reveals it).
+// Hide truncated names below this width, but keep shorter names that fully fit.
 const MIN_NAME_WIDTH_PX = 24;
 // Matches the Flex `gap="1"` between the number and the name.
 const FLEX_GAP_PX = 4;
@@ -20,7 +24,8 @@ const FLEX_GAP_PX = 4;
 export default function VariationLabel({
   number,
   name,
-  size = "medium",
+  size = "md",
+  maxWidth,
   disableTooltip = false,
 }: VariationLabelProps) {
   // Root always fills the available width so the ResizeObserver re-measures on grow.
@@ -37,10 +42,16 @@ export default function VariationLabel({
     const measure = () => {
       const rootWidth = root.clientWidth;
       const numberWidth = numberRef.current?.offsetWidth ?? 0;
-      const nameWidth = rootWidth - numberWidth - FLEX_GAP_PX;
-      setHideName(rootWidth > 0 && nameWidth < MIN_NAME_WIDTH_PX);
-      const text = textRef.current;
-      setIsTruncated(!!text && text.scrollWidth > text.clientWidth);
+      const availableNameWidth = rootWidth - numberWidth - FLEX_GAP_PX;
+      // Hidden text remains mounted so its full width stays measurable.
+      const fullNameWidth = textRef.current?.scrollWidth ?? 0;
+      const fitsEntirely = availableNameWidth >= fullNameWidth;
+      setHideName(
+        rootWidth > 0 &&
+          !fitsEntirely &&
+          availableNameWidth < MIN_NAME_WIDTH_PX,
+      );
+      setIsTruncated(!fitsEntirely);
     };
 
     measure();
@@ -48,42 +59,43 @@ export default function VariationLabel({
     const observer = new ResizeObserver(measure);
     observer.observe(root);
     return () => observer.disconnect();
-  }, [name, size, number, hideName]);
-
-  const variationNumber = <VariationNumber ref={numberRef} number={number} />;
+  }, [name, size, number]);
 
   const content = (
-    <Flex align="center" gap="1" minWidth="0">
-      {variationNumber}
-      <Box minWidth="0" flexGrow="1" overflow="hidden">
-        {!hideName ? (
-          <Text
-            ref={textRef}
-            as="div"
-            size={size}
-            weight={size === "large" ? "medium" : "semibold"}
-            color="text-mid"
-            truncate
-          >
-            {name}
-          </Text>
-        ) : null}
+    <Flex align="center" gap={hideName ? "0" : "1"} minWidth="0">
+      <VariationNumber ref={numberRef} number={number} />
+      <Box
+        minWidth="0"
+        flexGrow={hideName ? "0" : "1"}
+        width={hideName ? "0" : undefined}
+        overflow="hidden"
+      >
+        <Text
+          ref={textRef}
+          as="div"
+          size={size}
+          weight={size === "lg" ? "medium" : "semibold"}
+          color="text-mid"
+          truncate
+        >
+          {name}
+        </Text>
       </Box>
     </Flex>
   );
 
   if (disableTooltip) {
     return (
-      <Box ref={rootRef} minWidth="0">
+      <Box ref={rootRef} minWidth="0" maxWidth={maxWidth}>
         {content}
       </Box>
     );
   }
 
   return (
-    <Box ref={rootRef} minWidth="0">
+    <Box ref={rootRef} minWidth="0" maxWidth={maxWidth}>
       <Tooltip content={name} enabled={hideName || isTruncated} side="top">
-        {hideName ? variationNumber : content}
+        {content}
       </Tooltip>
     </Box>
   );

@@ -267,7 +267,20 @@ export class BrowserCookieStickyBucketService extends StickyBucketServiceSync {
     const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.jsCookie) return;
     const str = JSON.stringify(doc);
+    const { domain, ...hostOnlyAttributes } = this.cookieAttributes;
+    if (!domain) {
+      this.jsCookie.set(key, str, this.cookieAttributes);
+      return;
+    }
+    // Remove any legacy host-only cookie first - it would shadow the
+    // domain-scoped one on reads
+    this.jsCookie.remove(key, hostOnlyAttributes);
     this.jsCookie.set(key, str, this.cookieAttributes);
+    // Browsers silently reject a cookie whose domain doesn't cover this host
+    // (e.g. a typo) - fall back to host-only so assignments still persist
+    if (this.jsCookie.get(key) !== str) {
+      this.jsCookie.set(key, str, hostOnlyAttributes);
+    }
   }
 }
 

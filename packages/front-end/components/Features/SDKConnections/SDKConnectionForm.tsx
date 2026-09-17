@@ -40,7 +40,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -189,6 +189,11 @@ export default function SDKConnectionForm({
         (initialValue as { includeTagsInPayload?: boolean })
           .includeTagsInPayload ??
         false,
+      includeExperimentScheduleInMetadata:
+        initialValue.includeExperimentScheduleInMetadata ?? false,
+      // Absent = off, so existing connections keep their behavior.
+      includeReferencedPrerequisites:
+        initialValue.includeReferencedPrerequisites ?? !edit,
     },
   });
 
@@ -385,7 +390,6 @@ export default function SDKConnectionForm({
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
@@ -458,7 +462,7 @@ export default function SDKConnectionForm({
       open={true}
       cta={cta}
     >
-      <Field label="Name" {...form.register("name")} required />
+      <Field size="legacy" label="Name" {...form.register("name")} required />
 
       <div className="mb-4">
         <div className="form-group">
@@ -492,6 +496,7 @@ export default function SDKConnectionForm({
               <div className="d-flex">
                 <div>
                   <SelectField
+                    size="legacy"
                     style={{ width: 180 }}
                     className="mr-4"
                     placeholder="0.0.0"
@@ -567,6 +572,7 @@ export default function SDKConnectionForm({
 
       <div className="mb-4">
         <SelectField
+          size="legacy"
           label="Environment"
           required
           placeholder="Choose one..."
@@ -618,6 +624,7 @@ export default function SDKConnectionForm({
           />
         </label>
         <MultiSelectField
+          legacyHeight
           placeholder={
             environmentHasProjects ? "All Environment Projects" : "All Projects"
           }
@@ -659,11 +666,37 @@ export default function SDKConnectionForm({
             project being removed from the selected environment.
           </div>
         )}
+        <Box mt="3">
+          <Checkbox
+            weight="regular"
+            value={!!form.watch("includeReferencedPrerequisites")}
+            setValue={(val) =>
+              form.setValue("includeReferencedPrerequisites", val)
+            }
+            label={
+              <>
+                Always include prerequisite Feature Flags{" "}
+                <Tooltip
+                  body={
+                    <p className="mb-0">
+                      Deliver prerequisite Feature Flags that target other
+                      Projects. Without them, the Feature Flags they gate are
+                      always off. Only applies when this connection filters by
+                      Project.
+                    </p>
+                  }
+                >
+                  <PiInfo />
+                </Tooltip>
+              </>
+            }
+          />
+        </Box>
       </div>
 
       {shouldShowPayloadSecurity(languageType, languages) && (
         <>
-          <Heading as="h4" size="small" mb="3">
+          <Heading as="h4" size="sm" mb="3">
             Payload Security
           </Heading>
           <div className="bg-highlight rounded p-3 mb-2">
@@ -745,7 +778,7 @@ export default function SDKConnectionForm({
                   }
                 >
                   <Box p="4">
-                    <Heading as="h4" size="small" mb="3">
+                    <Heading as="h4" size="sm" mb="3">
                       Cipher Options
                     </Heading>
                     <Flex direction="column" gap="2">
@@ -912,7 +945,7 @@ export default function SDKConnectionForm({
                   }
                 >
                   <Box px="3" pb="3">
-                    <Heading as="h4" size="small" mb="3">
+                    <Heading as="h4" size="sm" mb="3">
                       Remote Evaluation Options
                     </Heading>
                     <Box>
@@ -1050,7 +1083,7 @@ export default function SDKConnectionForm({
       )}
 
       <Box mt="5">
-        <Heading as="h4" size="small" mb="3">
+        <Heading as="h4" size="sm" mb="3">
           Experiments
         </Heading>
         <Flex direction="column" gap="2">
@@ -1138,7 +1171,7 @@ export default function SDKConnectionForm({
 
       {showSavedGroupSettings && (
         <Box mt="5">
-          <Heading as="h4" size="small" mb="3">
+          <Heading as="h4" size="sm" mb="3">
             Saved Groups
           </Heading>
           <Box>
@@ -1181,7 +1214,7 @@ export default function SDKConnectionForm({
       )}
 
       <Box mt="5">
-        <Heading as="h4" size="small" mb="3">
+        <Heading as="h4" size="sm" mb="3">
           Payload Metadata
         </Heading>
         <Flex direction="column" gap="2">
@@ -1198,11 +1231,17 @@ export default function SDKConnectionForm({
                   <Tooltip
                     body={
                       <>
-                        <p className="mb-0">
+                        <p>
                           When enabled, each feature and experiment in the SDK
                           payload will include a <code>metadata.projects</code>{" "}
                           array containing the project&apos;s public ID (or
                           internal ID if no public ID is set).
+                        </p>
+                        <p className="mb-0">
+                          Features and rules that target all projects omit the
+                          array by convention — treat a missing{" "}
+                          <code>metadata.projects</code> as &quot;all
+                          projects&quot;.
                         </p>
                       </>
                     }
@@ -1245,6 +1284,7 @@ export default function SDKConnectionForm({
             {form.watch("includeCustomFieldsInMetadata") && (
               <Box mt="2">
                 <MultiSelectField
+                  legacyHeight
                   placeholder="No fields included"
                   containerClassName="w-100 mb-0"
                   value={form.watch("allowedCustomFieldsInMetadata") || []}
@@ -1272,11 +1312,35 @@ export default function SDKConnectionForm({
                   <Tooltip
                     body={
                       <>
-                        <p className="mb-0">
-                          When enabled, all feature tags will be included in the{" "}
-                          <code>metadata.tags</code> array for each feature in
-                          the SDK payload.
-                        </p>
+                        When enabled, all feature tags will be included in the{" "}
+                        <code>metadata.tags</code> array for each feature in the
+                        SDK payload.
+                      </>
+                    }
+                  >
+                    <PiInfo />
+                  </Tooltip>
+                </>
+              }
+            />
+          </Box>
+          <Box>
+            <Checkbox
+              weight="regular"
+              value={form.watch("includeExperimentScheduleInMetadata")}
+              setValue={(val) =>
+                form.setValue("includeExperimentScheduleInMetadata", val)
+              }
+              label={
+                <>
+                  Include experiment schedule dates{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        When enabled, an experiment&apos;s scheduled start/end
+                        are included as <code>metadata.startDate</code> and{" "}
+                        <code>metadata.endDate</code> on its experiment-ref
+                        rules in the SDK payload.
                       </>
                     }
                   >
@@ -1290,7 +1354,7 @@ export default function SDKConnectionForm({
       </Box>
 
       <Box mt="5">
-        <Heading as="h4" size="small" mb="3">
+        <Heading as="h4" size="sm" mb="3">
           Observability and QA
         </Heading>
         <Flex direction="column" gap="3">
@@ -1303,7 +1367,7 @@ export default function SDKConnectionForm({
             />
           </Box>
           <Box>
-            <Text as="div" size="medium" weight="medium" mb="2">
+            <Text as="div" size="md" weight="medium" mb="2">
               Draft mode experiments
             </Text>
             <Flex direction="column" gap="2">
@@ -1372,7 +1436,7 @@ export default function SDKConnectionForm({
 
       {isCloud() && (
         <Box mt="5">
-          <Heading as="h4" size="small" mb="3">
+          <Heading as="h4" size="sm" mb="3">
             GrowthBook Proxy
           </Heading>
           <Flex direction="column" gap="3">
@@ -1386,6 +1450,7 @@ export default function SDKConnectionForm({
             </Box>
             {form.watch("proxyEnabled") && (
               <Field
+                size="legacy"
                 id="sdk-connection-proxyHost"
                 containerClassName="mb-0"
                 label={

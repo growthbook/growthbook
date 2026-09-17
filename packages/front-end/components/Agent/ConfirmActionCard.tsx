@@ -1,5 +1,6 @@
 import { Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
+import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
 import { AssistantBubble } from "@/enterprise/components/AIChat/AIChatPrimitives";
 import ToolUsageDetails from "@/enterprise/components/AIChat/ToolUsageDetails";
@@ -47,7 +48,7 @@ export default function ConfirmActionCard({
   return (
     <AssistantBubble>
       <Flex direction="column" gap="2">
-        <Text size="small" weight="medium">
+        <Text size="sm" weight="medium">
           Apply this change?
         </Text>
         <Flex
@@ -73,8 +74,9 @@ export default function ConfirmActionCard({
         </Flex>
         {prompt.summary &&
           prompt.summary !== `${prompt.method} ${prompt.path}` && (
-            <Text size="small" color="text-low">
-              {prompt.summary}
+            // On the card's scale, or the write reads larger than its heading.
+            <Text as="div" size="sm" color="text-low">
+              <Markdown>{prompt.summary}</Markdown>
             </Text>
           )}
         {(prompt.body !== undefined || prompt.query) && (
@@ -88,20 +90,20 @@ export default function ConfirmActionCard({
             }}
           />
         )}
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           This is a write to GrowthBook. Confirm to run it, or cancel to keep it
           from happening.
         </Text>
         <Flex gap="2">
           <Button
-            size="xs"
+            size="sm"
             disabled={loading}
             onClick={() => onDecide("confirm")}
           >
             Confirm
           </Button>
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
             disabled={loading}
             onClick={() => onDecide("cancel")}

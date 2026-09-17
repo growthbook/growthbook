@@ -34,7 +34,10 @@ export default function StaleDetectionModal({
   const enabling = !!feature.neverStale;
   const newNeverStale = !enabling;
 
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   const staleGated: boolean = (() => {
     const raw = settings?.requireReviews;
@@ -44,7 +47,10 @@ export default function StaleDetectionModal({
     return !!reviewSetting?.requireReviewOn;
   })();
 
-  const canAutoPublish = isAdmin || !staleGated;
+  // Approval-gating and AUTHORITY are separate factors — see the metadata
+  // modals; without the publish atom a draft-only user defaulted into a 403.
+  const canAutoPublish =
+    (isAdmin || !staleGated) && permissionsUtil.canPublishFeature(feature, []);
 
   const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
     revisionList,
@@ -62,7 +68,7 @@ export default function StaleDetectionModal({
       close={close}
       header={`${
         enabling ? "Enable" : "Disable"
-      } stale feature flag detection for ${feature.id}`}
+      } stale Feature Flag detection for ${feature.id}`}
       cta={
         mode === "publish" ? (enabling ? "Enable" : "Disable") : "Save to draft"
       }

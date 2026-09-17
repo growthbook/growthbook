@@ -19,6 +19,13 @@ export const prestoDialect: SqlDialect = {
   ) => `${col} ${sign} INTERVAL '${amount}' ${unit}`,
   formatDate: (col: string) => `substr(to_iso8601(${col}),1,10)`,
   formatDateTimeString: (col: string) => `to_iso8601(${col})`,
+  // Casting preserves the precision of TIMESTAMP(p); date_format truncates it.
+  formatTimestampExact: (col: string) => prestoDialect.castToString(col),
+  // A typed literal takes its precision from the string, so a timestamp(6)
+  // watermark compares exactly with a timestamp(6) column. `CAST(... AS
+  // TIMESTAMP)` is timestamp(3) on Trino and rounds the value first. A bare
+  // string is a type error against a timestamp on Trino/Presto.
+  exactTimestampLiteral: (quoted: string) => `TIMESTAMP ${quoted}`,
   dateDiff: (startCol: string, endCol: string) =>
     `date_diff('day', ${startCol}, ${endCol})`,
   castToFloat: (col: string) => `CAST(${col} AS DOUBLE)`,
@@ -30,6 +37,26 @@ export const prestoDialect: SqlDialect = {
   hllAggregate: (col: string) => `APPROX_SET(${col})`,
   hllReaggregate: (col: string) => `MERGE(CAST(${col} AS HyperLogLog))`,
   hllCardinality: (col: string) => `CARDINALITY(${col})`,
+  // Same Presto/Trino engine as Athena — array helpers use the functional
+  // operators and the native `min_by` aggregate.
+  arrayAggSorted: (col: string) =>
+    `array_sort(filter(array_agg(${col}), x -> x IS NOT NULL))`,
+  // Collect each row's array into an array-of-arrays (array_agg) then flatten
+  // → the group's concatenated array. Incremental funnel read-step merge.
+  arrayConcatAgg: (col: string) => `flatten(array_agg(${col}))`,
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `min_by(${valueCol}, ${tsCol})`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const preds: string[] = [];
+    if (lowerBound) preds.push(`x >= ${lowerBound}`);
+    if (upperBound) preds.push(`x <= ${upperBound}`);
+    const predicate = preds.length ? preds.join(" AND ") : "true";
+    return `array_min(filter(${col}, x -> ${predicate}))`;
+  },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `date_add('second', ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `date_diff('millisecond', ${startCol}, ${endCol})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(prestoDialect, values, metricTable, where),
 

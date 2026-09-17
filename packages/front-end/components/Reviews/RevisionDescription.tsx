@@ -74,11 +74,13 @@ export default function RevisionDescription({
       <Flex
         align="center"
         gap="2"
+        wrap="wrap"
         px="4"
+        py="2"
         style={{ borderBottom: "1px solid var(--gray-a4)", minHeight: 40 }}
       >
         <Flex align="center" gap="2">
-          <Heading as="h5" size="small" color="text-mid" mb="0">
+          <Heading as="h5" size="sm" color="text-mid" mb="0">
             {heading}
           </Heading>
           {canEditNotes && !editing && (
@@ -97,7 +99,13 @@ export default function RevisionDescription({
         </Flex>
         {label}
         {editorMeta && (
-          <Flex align="center" gap="1" ml="auto">
+          <Flex
+            align="center"
+            gap="1"
+            wrap="wrap"
+            ml={{ initial: "0", sm: "auto" }}
+            style={{ minWidth: 0 }}
+          >
             {editorMeta}
           </Flex>
         )}
@@ -159,7 +167,7 @@ export default function RevisionDescription({
             )}
           </>
         ) : (
-          <Text size="medium" as="div" color="text-low" fontStyle="italic">
+          <Text size="md" as="div" color="text-low" fontStyle="italic">
             No description yet.
           </Text>
         )}

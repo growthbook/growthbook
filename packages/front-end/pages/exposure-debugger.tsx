@@ -15,6 +15,7 @@ import Button from "@/ui/Button";
 import { useExperiments } from "@/hooks/useExperiments";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import VariationLabel from "@/ui/VariationLabel";
 
 type UserExposureQueryResults = {
   rows?: UserExperimentExposuresQueryResponseRows;
@@ -115,6 +116,7 @@ const ExposureDebuggerPage = () => {
           <div className="row">
             <div className="col-md-4">
               <SelectField
+                size="legacy"
                 label="Select a Data Source"
                 labelClassName="font-weight-bold"
                 value={datasourceId ?? ""}
@@ -142,6 +144,7 @@ const ExposureDebuggerPage = () => {
               <div className="row align-items-center">
                 <div className="col-sm-2">
                   <SelectField
+                    size="legacy"
                     required
                     placeholder="Select identifier..."
                     value={form.watch("userIdType")}
@@ -160,6 +163,7 @@ const ExposureDebuggerPage = () => {
 
                 <div className="col-md-4">
                   <Field
+                    size="legacy"
                     placeholder="Enter an ID"
                     {...form.register("unitId", { required: true })}
                     error={
@@ -171,6 +175,7 @@ const ExposureDebuggerPage = () => {
 
                 <div className="col-sm-2">
                   <SelectField
+                    size="legacy"
                     labelClassName="font-weight-bold"
                     value={form.watch("lookbackDays") ?? ""}
                     onChange={(value) => form.setValue("lookbackDays", value)}
@@ -264,28 +269,11 @@ const ExposureDebuggerPage = () => {
                               </td>
                               <td>
                                 {variation ? (
-                                  <div
-                                    className={`variation variation${variationIndex} with-variation-label d-flex align-items-center`}
-                                  >
-                                    <span
-                                      className="label"
-                                      style={{
-                                        width: 20,
-                                        height: 20,
-                                        flex: "none",
-                                      }}
-                                    >
-                                      {variationIndex}
-                                    </span>
-                                    <span
-                                      className="d-inline-block"
-                                      style={{
-                                        lineHeight: "14px",
-                                      }}
-                                    >
-                                      {variation.name}
-                                    </span>
-                                  </div>
+                                  <VariationLabel
+                                    number={variationIndex}
+                                    name={variation.name}
+                                    size="md"
+                                  />
                                 ) : (
                                   <span>
                                     {row.variation_id}{" "}

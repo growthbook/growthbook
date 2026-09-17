@@ -1,0 +1,8 @@
+---
+description: "Casing and phrasing for user-facing copy across the front-end UI and back-end/API messages"
+globs: packages/front-end/**/*.tsx,packages/front-end/**/*.ts,packages/back-end/src/**/*.ts,packages/shared/src/**/*.ts
+alwaysApply: false
+---
+# Copy & Casing
+
+Before writing or editing any user-facing string — front-end labels, headings, buttons, placeholders, and body copy, or back-end error/validation messages returned to a user or API caller — read and follow `.agents/guides/ui-copy-style.md`.

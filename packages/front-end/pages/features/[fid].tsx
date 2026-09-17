@@ -170,12 +170,13 @@ export default function FeaturePage() {
       <FeatureUsageProvider feature={feature}>
         <PageHead
           breadcrumb={[
-            { display: "Features", href: "/features" },
+            { display: "Feature Flags", href: "/features" },
             { display: feature.id },
           ]}
         />
         <FeaturesHeader
           feature={feature}
+          baseFeature={baseFeature}
           mutate={refreshData}
           setVersion={setVersion}
           version={version}
@@ -306,6 +307,7 @@ export default function FeaturePage() {
 
         {editFeatureInfoModal && (
           <EditFeatureInfoModal
+            baseFeature={baseFeature}
             source="feature-header"
             dependents={dependents}
             feature={feature}

@@ -6,6 +6,10 @@ import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/
 const baseEscapeStringLiteral = (value: string) => value.replace(/'/g, `''`);
 
 export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
+  // Standard SQL quotes identifiers with double quotes. MySQL and BigQuery
+  // override this with a backtick.
+  identifierQuote: '"',
+
   escapeStringLiteral: baseEscapeStringLiteral,
 
   stringMatch: createLikeStringMatchFn({
@@ -27,6 +31,18 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   dateDiff: (startCol: string, endCol: string) =>
     `datediff(day, ${startCol}, ${endCol})`,
 
+  dateDiffMs: () => {
+    throw new Error(
+      "Millisecond date differences are not supported by this data source.",
+    );
+  },
+
+  addIntervalSeconds: () => {
+    throw new Error(
+      "Adding timestamp intervals is not supported by this data source.",
+    );
+  },
+
   percentileApprox: (column: string, percentile: number | string) =>
     `APPROX_PERCENTILE(${column}, ${percentile})`,
 
@@ -41,7 +57,31 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
 
   castToDate: (col: string) => `CAST(${col} AS DATE)`,
 
+  castToTimestamp: (col: string) => `CAST(${col} AS TIMESTAMP)`,
+
   castUserDateCol: (column: string) => column,
+
+  arrayAggSorted: () => {
+    throw new Error("Array aggregation is not supported by this data source.");
+  },
+
+  argMinByTimestamp: () => {
+    throw new Error(
+      "Finding a value at the minimum timestamp is not supported by this data source.",
+    );
+  },
+
+  arrayMinInRange: () => {
+    throw new Error(
+      "Finding a minimum array value is not supported by this data source.",
+    );
+  },
+
+  arrayConcatAgg: () => {
+    throw new Error(
+      "Merging arrays across rows is not supported by this data source.",
+    );
+  },
 
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,
 
@@ -62,10 +102,19 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "datetime":
+        // Base dialects don't cast event timestamps (castUserDateCol is
+        // identity), so the event-timestamp type is just TIMESTAMP.
+        return "TIMESTAMP";
       case "hll":
         return "VARBINARY";
       case "quantileSketch":
         return "VARBINARY";
+      // Trino/Presto/Athena array syntax (base dialect is Trino-flavored).
+      // Only used by the incremental funnel path; dialects with a different
+      // array syntax (BigQuery/Snowflake) override this below.
+      case "arrayTimestamp":
+        return "ARRAY(TIMESTAMP)";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);
@@ -83,6 +132,10 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   formatDate: (col: string) => col,
 
   formatDateTimeString: (col: string) => baseDialect.castToString(col),
+
+  // A truncated-but-plausible string here would silently re-load rows on every
+  // incremental refresh, so only dialects with a verified format opt in.
+  formatTimestampExact: () => "NULL",
 
   selectStarLimit: (
     from: string,

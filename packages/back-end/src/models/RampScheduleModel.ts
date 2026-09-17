@@ -5,26 +5,58 @@ import {
   ApiRampScheduleInterface,
   RampScheduleInterface,
   RampStepAction,
+  RampTarget,
   StepHoldConditions,
+  isAwaitingStartApproval,
+  isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
-import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
+import {
+  rampSchedulePublishEnvironments,
+  RULE_ID_ENV_SUFFIX_DELIMITER,
+  stemRuleId,
+  isRampScheduleServing,
+  unanchoredRampTargets,
+} from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
+  assertRampScheduleReplanAllowed,
+  changesRampPlan,
+  toApiRampStep,
+  withStringForce,
+} from "back-end/src/services/rampPlanReview";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import type { ApiReqContext } from "back-end/types/api";
+import {
   appendRampEvent,
+  assertCanEditRampScheduleConfig,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   computeNextProcessAt,
   dispatchRampEvent,
   getEffectiveRampAutoUpdateState,
   getRampAutoUpdatePreference,
   getRampMonitoringMode,
+  normalizeRampPlanForceValues,
+  rampStartValuesOf,
+  runLockedRampScheduleAction,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
 import { applyPagination } from "back-end/src/util/handler";
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
+
+// Stale = crashed-holder reclaim. 10min plus between-phase heartbeats: a
+// shorter threshold let live holders be stale-reclaimed under slow publishes,
+// reintroducing the double-publish this lock exists to prevent.
+const ADVANCE_LOCK_STALE_MS = 10 * 60 * 1000;
 
 export function migrateRampScheduleEndCondition<
   T extends {
@@ -95,18 +127,65 @@ type LegacyTriggerStep = {
   holdConditions?: StepHoldConditions;
 };
 
+function toEpochMs(value: Date | string | null | undefined): number | null {
+  if ((value ?? null) === null) return null;
+  const time = (value instanceof Date ? value : new Date(value!)).getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
 // Normalizes legacy `trigger` discriminated union to the unified `interval` +
 // `holdConditions.requiresApproval` shape. Idempotent on already-migrated docs.
+//
+// "scheduled" triggers carry an absolute fire date; the unified shape is
+// relative (cumulative intervals from the phase start), so each date becomes
+// the delta from the previous gate. Dropping the date instead would leave the
+// step with no gate at all — the evaluator treats a gate-less step as instant
+// and advances one per tick, so a multi-day plan would run to completion in
+// minutes.
 export function migrateRampStepTriggers<
-  T extends { steps?: LegacyTriggerStep[] | null },
+  T extends {
+    steps?: LegacyTriggerStep[] | null;
+    phaseStartedAt?: Date | string | null;
+    startedAt?: Date | string | null;
+    startDate?: Date | string | null;
+    dateCreated?: Date | string;
+  },
 >(doc: T): T {
   if (!doc.steps || !Array.isArray(doc.steps)) return doc;
   let changed = false;
+  // Running total of when the previous gate fires, accumulated in the same
+  // way the evaluator fires steps (anchor + cumulative interval). The anchor
+  // mirrors computeNextStepAt's precedence — phaseStartedAt, then startedAt —
+  // so converted intervals reproduce the plan's absolute dates for schedules
+  // that started later than their startDate (and, because this migration is
+  // recomputed on every read, pause/resume shifts to phaseStartedAt
+  // self-correct). Not-yet-started docs fall back to the scheduled start,
+  // creation time, or the first step's own date. Interval steps push the
+  // cursor forward by their duration; approval steps don't move it (their
+  // wait is unbounded).
+  let cursorMs =
+    toEpochMs(doc.phaseStartedAt) ??
+    toEpochMs(doc.startedAt) ??
+    toEpochMs(doc.startDate) ??
+    toEpochMs(doc.dateCreated) ??
+    doc.steps.reduce<number | null>(
+      (found, s) =>
+        found ??
+        (s?.trigger?.type === "scheduled" ? toEpochMs(s.trigger.at) : null),
+      null,
+    );
   const steps = doc.steps.map((s) => {
-    if (!s || !s.trigger) return s;
+    if (!s) return s;
+    if (!s.trigger) {
+      if (typeof s.interval === "number" && cursorMs !== null) {
+        cursorMs += s.interval * 1000;
+      }
+      return s;
+    }
     changed = true;
     const { trigger, ...rest } = s;
     if (trigger.type === "interval") {
+      if (cursorMs !== null) cursorMs += trigger.seconds * 1000;
       return { ...rest, interval: trigger.seconds };
     }
     if (trigger.type === "approval") {
@@ -119,10 +198,25 @@ export function migrateRampStepTriggers<
         },
       };
     }
-    // "scheduled" steps were only emitted by buildScheduleRampAction as a
-    // synthetic step-0; their `at` is already represented at the ramp level
-    // via startDate. Strip the trigger and let the schedule's startDate drive.
-    return { ...rest, interval: null };
+    // "scheduled": convert the absolute date to a relative interval. A date
+    // at or before the previous gate means the step is already due — clamp
+    // to 1s so the catch-up fold lands on it as a time-due step.
+    const atMs = toEpochMs(trigger.at);
+    if (atMs === null || cursorMs === null) {
+      // Unparseable date (or no anchor to measure from): fail safe by
+      // holding for a human instead of advancing without a gate.
+      return {
+        ...rest,
+        interval: null,
+        holdConditions: {
+          ...(rest.holdConditions ?? {}),
+          requiresApproval: true,
+        },
+      };
+    }
+    const interval = Math.max(1, Math.round((atMs - cursorMs) / 1000));
+    cursorMs += interval * 1000;
+    return { ...rest, interval };
   });
   return changed ? { ...doc, steps } : doc;
 }
@@ -150,17 +244,18 @@ export function rampScheduleToApiInterface(
     entityType: doc.entityType,
     entityId: doc.entityId,
     targets: doc.targets,
-    startActions: doc.startActions,
+    // Plans written before values were normalized may still hold a raw JSON
+    // `force`; emit the string form the scheduler will apply.
+    startActions: doc.startActions?.map(withStringForce),
     steps: doc.steps.map((s) => ({
-      interval: s.interval,
-      actions: s.actions,
-      approvalNotes: s.approvalNotes ?? undefined,
-      monitored: !!s.monitored,
-      holdConditions: s.holdConditions ?? undefined,
+      ...toApiRampStep(s),
+      actions: (s.actions ?? []).map(withStringForce),
     })),
-    endActions: doc.endActions,
+    endActions: doc.endActions?.map(withStringForce),
     startDate: dateToIso(doc.startDate),
     cutoffDate: dateToIso(doc.cutoffDate),
+    requiresStartApproval: doc.requiresStartApproval,
+    startApprovedAt: dateToIso(doc.startApprovedAt),
     status: doc.status,
     currentStepIndex: doc.currentStepIndex,
     startedAt: dateToIso(doc.startedAt),
@@ -178,6 +273,27 @@ export function rampScheduleToApiInterface(
       : doc.monitoringConfig,
     experimentHealthAction: doc.experimentHealthAction,
     currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
+    // The record is only meaningful for the current step (see the field's
+    // "Valid only while stepApproval.stepIndex === currentStepIndex" contract).
+    // The service nulls stepApproval on every step transition, so a mismatch
+    // shouldn't occur, but guard defensively so we never surface a prior step's
+    // approver against the current step — matching how isAwaitingApproval treats
+    // it internally.
+    // Reads also bypass zod validation (only migrate() runs), so guard against
+    // legacy docs whose approvedAt is a string or an Invalid Date — the field
+    // was silently dropped before this mapping existed, so bad values were
+    // harmless and may still exist.
+    stepApproval:
+      doc.stepApproval &&
+      doc.stepApproval.stepIndex === doc.currentStepIndex &&
+      doc.stepApproval.approvedAt instanceof Date &&
+      !isNaN(doc.stepApproval.approvedAt.getTime())
+        ? {
+            ...doc.stepApproval,
+            approvedAt: doc.stepApproval.approvedAt.toISOString(),
+          }
+        : undefined,
+    awaitingApproval: isReadyForApproval(doc) || isAwaitingStartApproval(doc),
     monitoringStartDate: dateToIso(doc.monitoringStartDate),
     lastRollbackAt: dateToIso(doc.lastRollbackAt),
     lastRollbackReason: doc.lastRollbackReason,
@@ -214,56 +330,100 @@ type PostBodyAction = {
   patch: Partial<RampStepAction["patch"]>;
 };
 
-// Normalize a legacy API trigger input into the unified `interval` +
-// `holdConditions` shape used internally and on output.
-function normalizeLegacyApiTrigger(
-  trigger: LegacyApiRampTrigger,
-  existingHoldConditions?: StepHoldConditions,
-): { interval: number | null; holdConditions?: StepHoldConditions } {
-  if (trigger.type === "interval") {
-    return {
-      interval: trigger.seconds,
-      ...(existingHoldConditions
-        ? { holdConditions: existingHoldConditions }
-        : {}),
-    };
-  }
-  if (trigger.type === "approval") {
-    return {
-      interval: null,
-      holdConditions: {
-        ...(existingHoldConditions ?? {}),
-        requiresApproval: true,
-      },
-    };
-  }
-  // `scheduled` trigger types are no longer accepted as step-level triggers;
-  // callers should set `startDate` at the schedule level instead.
-  return {
-    interval: null,
-    ...(existingHoldConditions
-      ? { holdConditions: existingHoldConditions }
-      : {}),
-  };
-}
-
 // Accepts both the new `{ interval, holdConditions }` shape and the legacy
 // `{ trigger: { type, ... } }` shape on input. Returns the unified shape.
-function normalizeApiStepShape(s: {
-  interval?: number | null;
-  trigger?: LegacyApiRampTrigger;
-  holdConditions?: StepHoldConditions;
-}): { interval: number | null; holdConditions?: StepHoldConditions } {
-  if (s.trigger) {
-    return normalizeLegacyApiTrigger(s.trigger, s.holdConditions);
-  }
-  return {
-    interval: s.interval ?? null,
-    ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
-  };
+//
+// Normalization needs the whole array: legacy `scheduled` triggers carry
+// absolute dates, and the unified shape is relative, so each date becomes the
+// delta from the previous gate (`anchor` seeds the first; see
+// migrateRampStepTriggers for the full rationale). Dates that don't parse or
+// don't increase are rejected so the caller learns the plan is malformed
+// instead of it running unpaced. Note the current v2 request schema strips
+// unrecognized step fields, so the trigger branch is defense-in-depth for
+// direct model callers and any future schema that re-admits the shape.
+export function normalizeApiStepShapes(
+  steps: {
+    interval?: number | null;
+    trigger?: LegacyApiRampTrigger;
+    holdConditions?: StepHoldConditions;
+  }[],
+  anchor: Date,
+): { interval: number | null; holdConditions?: StepHoldConditions }[] {
+  // Running total of when the previous gate fires. Approval steps don't move
+  // it (their wait is unbounded); gate-less steps are instant and don't either.
+  let cursorMs = anchor.getTime();
+  return steps.map((s, i) => {
+    const trigger = s.trigger;
+    const holdConditions = s.holdConditions
+      ? { holdConditions: s.holdConditions }
+      : {};
+    if (!trigger) {
+      if (typeof s.interval === "number") cursorMs += s.interval * 1000;
+      return { interval: s.interval ?? null, ...holdConditions };
+    }
+    if (trigger.type === "interval") {
+      cursorMs += trigger.seconds * 1000;
+      return { interval: trigger.seconds, ...holdConditions };
+    }
+    if (trigger.type === "approval") {
+      return {
+        interval: null,
+        holdConditions: {
+          ...(s.holdConditions ?? {}),
+          requiresApproval: true,
+        },
+      };
+    }
+    const atMs = toEpochMs(trigger.at);
+    if (atMs === null) {
+      throw new BadRequestError(
+        `steps[${i}].trigger.at is not a valid date: "${trigger.at}".`,
+      );
+    }
+    if (atMs <= cursorMs) {
+      throw new BadRequestError(
+        `steps[${i}].trigger.at (${trigger.at}) must be after the previous step's fire time. ` +
+          `Scheduled triggers are converted to relative intervals, so each date must be later than the schedule's timing anchor (its phase start once started, otherwise its start date) and all earlier steps.`,
+      );
+    }
+    const interval = Math.max(1, Math.round((atMs - cursorMs) / 1000));
+    cursorMs += interval * 1000;
+    return { interval, ...holdConditions };
+  });
+}
+
+// A write may not leave an active target without a rollback anchor. Targets
+// already unanchored before the write (legacy docs, healed lazily by
+// ensureRampStartActions) are tolerated so housekeeping writes keep working.
+function assertTargetsAnchored(
+  doc: RampScheduleInterface,
+  previouslyUnanchored: RampTarget[],
+) {
+  const tolerated = new Set(previouslyUnanchored.map((t) => t.id));
+  const missing = unanchoredRampTargets(doc).filter(
+    (t) => !tolerated.has(t.id),
+  );
+  if (!missing.length) return;
+  const refs = missing.map((t) => t.ruleId ?? t.id).join(", ");
+  throw new BadRequestError(
+    `Ramp schedule target(s) ${refs} have no startActions. Every active target needs a rollback anchor; omit startActions to derive it from the rule.`,
+  );
 }
 
 export class RampScheduleModel extends BaseClass {
+  protected async beforeCreate(doc: RampScheduleInterface) {
+    assertTargetsAnchored(doc, []);
+  }
+  protected async beforeUpdate(
+    existing: RampScheduleInterface,
+    updates: UpdateProps<RampScheduleInterface>,
+  ) {
+    assertTargetsAnchored(
+      { ...existing, ...updates },
+      unanchoredRampTargets(existing),
+    );
+  }
+
   private getProject(doc: RampScheduleInterface): string | undefined {
     const { feature } = this.getForeignRefs(doc, false);
     return feature?.project;
@@ -275,24 +435,49 @@ export class RampScheduleModel extends BaseClass {
     );
   }
   protected canCreate(doc: RampScheduleInterface) {
-    return this.context.permissions.canCreateFeature({
+    return this.context.permissions.canEditFeatureDrafts({
       project: this.getProject(doc),
     });
   }
+  // Written by revision-bound edits (draft-class) AND live state changes
+  // (publish-class); the model can't tell which, so it takes the union and the
+  // action handler gates precisely.
   protected canUpdate(
     existing: RampScheduleInterface,
     _updates: UpdateProps<RampScheduleInterface>,
     newDoc: RampScheduleInterface,
   ) {
-    return this.context.permissions.canUpdateFeature(
-      { project: this.getProject(existing) },
-      { project: this.getProject(newDoc) },
+    const project = this.getProject(newDoc);
+    return (
+      this.context.permissions.canEditFeatureDrafts({ project }) ||
+      this.context.permissions.canPublishFeature(
+        { project },
+        this.publishEnvironments(newDoc),
+      )
     );
   }
+  // Removing a serving schedule detaches it from a live rule, so it lands like a
+  // publish. One that isn't serving changes nothing users see, and must not take
+  // more authority than editing its steps does.
   protected canDelete(existing: RampScheduleInterface) {
-    return this.context.permissions.canDeleteFeature({
-      project: this.getProject(existing),
-    });
+    const project = this.getProject(existing);
+    const isServing = isRampScheduleServing(existing);
+    return (
+      (!isServing &&
+        this.context.permissions.canEditFeatureDrafts({ project })) ||
+      this.context.permissions.canPublishFeature(
+        { project },
+        this.publishEnvironments(existing),
+      )
+    );
+  }
+
+  /** Environments a live action on this schedule reaches. */
+  public publishEnvironments(doc: RampScheduleInterface): string[] {
+    return rampSchedulePublishEnvironments(
+      doc,
+      getEnvironmentIdsFromOrg(this.context.org),
+    );
   }
 
   protected migrate(legacyDoc: unknown): RampScheduleInterface {
@@ -431,20 +616,69 @@ export class RampScheduleModel extends BaseClass {
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
+    // Neutral not-found for unknown ids; the lock helper's "no longer exists"
+    // message is reserved for the deleted-while-locked race.
     const schedule = await this.getById(req.params.id);
     if (!schedule) {
-      throw new Error("Ramp schedule not found");
+      throw new NotFoundError("Ramp schedule not found");
     }
+    // Locked so the read-modify-write can't clobber a concurrent advance.
+    return runLockedRampScheduleAction(
+      this.context,
+      req.params.id,
+      (schedule) => this.applyApiUpdateLocked(req, schedule),
+    );
+  }
 
-    if (!this.context.hasPremiumFeature("ramp-schedules")) {
-      this.context.throwPlanDoesNotAllowError(
-        "Ramp schedules require an Enterprise plan.",
-      );
-    }
+  private async validateApiPlanPatches(
+    context: ApiReqContext,
+    schedule: RampScheduleInterface,
+    updates: Record<string, unknown>,
+  ) {
+    // Lazy: the validations module reaches back into this model through the
+    // request context, so a static import trips initialization.
+    const {
+      collectRampPlanActions,
+      rampPatchEntriesForTargets,
+      validateRampPlanPatches,
+    } = await import("back-end/src/api/features/validations");
+    const actions = collectRampPlanActions(updates);
+    if (!actions.length) return;
+    const featureIds = [
+      ...new Set(
+        actions
+          .map(
+            (a) => schedule.targets.find((t) => t.id === a.targetId)?.entityId,
+          )
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    await context.populateForeignRefs({ feature: featureIds });
+    await validateRampPlanPatches(
+      context,
+      rampPatchEntriesForTargets(actions, schedule.targets, (id) =>
+        context.foreignRefs.feature.get(id),
+      ),
+      { stored: [schedule] },
+    );
+  }
 
+  private async applyApiUpdateLocked(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+    schedule: RampScheduleInterface,
+  ) {
     if (!["pending", "ready", "paused"].includes(schedule.status)) {
       throw new Error(
         `Cannot update ramp schedule in status "${schedule.status}". Only pending, ready, or paused schedules can be modified.`,
+      );
+    }
+    // Judged against the in-lock document, so a plan reviewed meanwhile is
+    // not overwritten by a body that matched the earlier read.
+    if (schedule.targets.length && changesRampPlan(req.body, schedule)) {
+      await assertRampScheduleReplanAllowed(
+        this.context,
+        schedule,
+        canUseRestApiBypassSetting(req),
       );
     }
 
@@ -489,33 +723,45 @@ export class RampScheduleModel extends BaseClass {
       updates.startActions = body.startActions.map(resolveTargetId);
     }
     if (body.steps !== undefined) {
-      updates.steps = body.steps.map(
-        (step: {
-          interval?: number | null;
-          trigger?: LegacyApiRampTrigger;
-          actions?: {
-            targetType?: "feature-rule";
-            targetId?: string;
-            patch?: unknown;
-          }[];
-          approvalNotes?: string | null;
-          monitored?: boolean | null;
-          holdConditions?: StepHoldConditions | null;
-        }) => {
-          const normalized = normalizeApiStepShape({
-            interval: step.interval,
-            trigger: step.trigger,
-            holdConditions: step.holdConditions ?? undefined,
-          });
-          return {
-            interval: normalized.interval,
-            actions: (step.actions ?? []).map(resolveTargetId),
-            approvalNotes: step.approvalNotes ?? undefined,
-            monitored: !!step.monitored,
-            holdConditions: normalized.holdConditions,
-          };
-        },
+      const stepBodies = body.steps as {
+        interval?: number | null;
+        trigger?: LegacyApiRampTrigger;
+        actions?: {
+          targetType?: "feature-rule";
+          targetId?: string;
+          patch?: unknown;
+        }[];
+        approvalNotes?: string | null;
+        monitored?: boolean | null;
+        holdConditions?: StepHoldConditions | null;
+      }[];
+      // Legacy `scheduled` triggers become relative intervals measured from
+      // the point the step timers run from: the phase start once the schedule
+      // has started, otherwise the scheduled start (including one being set
+      // in this same request), otherwise now.
+      const bodyStartDate =
+        "startDate" in body
+          ? body.startDate
+            ? new Date(body.startDate)
+            : null
+          : undefined;
+      const normalized = normalizeApiStepShapes(
+        stepBodies.map((step) => ({
+          interval: step.interval,
+          trigger: step.trigger,
+          holdConditions: step.holdConditions ?? undefined,
+        })),
+        schedule.phaseStartedAt ??
+          (bodyStartDate !== undefined ? bodyStartDate : schedule.startDate) ??
+          new Date(),
       );
+      updates.steps = stepBodies.map((step, i) => ({
+        interval: normalized[i].interval,
+        actions: (step.actions ?? []).map(resolveTargetId),
+        approvalNotes: step.approvalNotes ?? undefined,
+        monitored: !!step.monitored,
+        holdConditions: normalized[i].holdConditions,
+      }));
     }
     if (body.endActions !== undefined) {
       updates.endActions = body.endActions.map(resolveTargetId);
@@ -559,7 +805,42 @@ export class RampScheduleModel extends BaseClass {
       startDate: ("startDate" in updates
         ? updates.startDate
         : schedule.startDate) as RampScheduleInterface["startDate"],
+      requiresStartApproval: ("requiresStartApproval" in updates
+        ? updates.requiresStartApproval
+        : schedule.requiresStartApproval) as boolean | undefined,
+      startApprovedAt: ("startApprovedAt" in updates
+        ? updates.startApprovedAt
+        : schedule.startApprovedAt) as Date | null | undefined,
     });
+
+    // Same publish-class gate as the dashboard PUT; canUpdate() alone passes
+    // with draft access, which is right for name/monitoring edits only.
+    await assertCanEditRampScheduleConfig(this.context, schedule, updates);
+    // In-lock, after the permission gate: targets resolve against the in-lock
+    // document.
+    await this.validateApiPlanPatches(req.context, schedule, updates);
+
+    // Rule values are strings; bring any raw JSON `force` in the new plan to
+    // that form and reject a value the feature's type does not accept. A
+    // start value echoing the rule's own or the stored anchor is not judged.
+    const feature = this.getForeignRefs(schedule, false).feature;
+    Object.assign(
+      updates,
+      normalizeRampPlanForceValues(
+        updates as Pick<
+          RampScheduleInterface,
+          "steps" | "startActions" | "endActions"
+        >,
+        feature,
+        {
+          knownStartValues: rampStartValuesOf(
+            feature,
+            schedule.targets,
+            schedule.startActions,
+          ),
+        },
+      ),
+    );
 
     const editedFields = Object.keys(updates).filter(
       (k) => k !== "nextProcessAt" && k !== "eventHistory",
@@ -599,7 +880,19 @@ export class RampScheduleModel extends BaseClass {
       );
     }
 
-    await this.deleteById(schedule.id);
+    // Locked so the doc can't be deleted out from under an in-flight advance.
+    await runLockedRampScheduleAction(
+      this.context,
+      schedule.id,
+      async (fresh) => {
+        if (fresh.status === "running") {
+          throw new ConflictError(
+            "Cannot delete: the schedule started running while the request was in flight",
+          );
+        }
+        await this.deleteById(fresh.id);
+      },
+    );
 
     await dispatchRampEvent(this.context, schedule, "rampSchedule.deleted", {
       object: {
@@ -704,6 +997,83 @@ export class RampScheduleModel extends BaseClass {
     return map;
   }
 
+  // Modeled on IncrementalRefreshModel.acquireLock.
+  public async acquireAdvanceLock(id: string, token: string): Promise<boolean> {
+    const staleThreshold = new Date(Date.now() - ADVANCE_LOCK_STALE_MS);
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id,
+        $or: [
+          // Unlocked ({ field: null } also matches docs missing the field).
+          { advanceLockToken: null },
+          // Holder crashed/stalled — reclaim.
+          { advanceLockAt: { $lt: staleThreshold, $ne: null } },
+          // Self-token idempotency: a retried acquire whose first write applied
+          // but whose response was lost must not orphan its own lock.
+          { advanceLockToken: token },
+        ],
+      },
+      {
+        $set: {
+          advanceLockToken: token,
+          advanceLockAt: new Date(),
+        },
+      },
+    );
+    return (result.modifiedCount ?? 0) > 0;
+  }
+
+  // Status-guarded write for the start-now busy fallback: arms the scheduler
+  // to perform a deferred start, but only while the schedule is still ready —
+  // a blind write could re-arm the poller on a terminal doc or override a
+  // concurrent edit.
+  public async deferReadyScheduleStart(id: string): Promise<boolean> {
+    const now = new Date();
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id,
+        status: "ready",
+      },
+      { $set: { startDate: now, nextProcessAt: now, dateUpdated: now } },
+    );
+    return result.matchedCount > 0;
+  }
+
+  public async releaseAdvanceLock(id: string, token: string): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id,
+        advanceLockToken: token,
+      },
+      {
+        $set: {
+          advanceLockToken: null,
+          advanceLockAt: null,
+        },
+      },
+    );
+  }
+
+  // Returns false when the token no longer holds the lock (stale-reclaimed)
+  // so the holder can abort instead of writing concurrently with the reclaimer.
+  public async touchAdvanceLockHeartbeat(
+    id: string,
+    token: string,
+  ): Promise<boolean> {
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id,
+        advanceLockToken: token,
+      },
+      { $set: { advanceLockAt: new Date() } },
+    );
+    return result.matchedCount > 0;
+  }
+
   /**
    * Cross-tenant query: finds all due ramp schedules across every org in one
    * Mongo round-trip. Only called from the Agenda poller — do not use elsewhere.
@@ -721,6 +1091,9 @@ export class RampScheduleModel extends BaseClass {
               status: "pending",
               "targets.activatingRevisionVersion": { $exists: true, $ne: null },
             },
+            // Ready schedules whose start is due are matched by startDate too,
+            // so a deferred "start now" survives a clobbered nextProcessAt.
+            { status: "ready", startDate: { $ne: null, $lte: now } },
           ],
         },
         { projection: { id: 1, organization: 1, _id: 0 } },

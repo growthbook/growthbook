@@ -6,6 +6,7 @@ import {
   getMetricMapForExperiment,
   toSnapshotApiInterface,
 } from "back-end/src/services/experiments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { toReportApiInterface } from "./toReportApiInterface";
 
@@ -31,7 +32,10 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
 
   if (report.type === "experiment-snapshot") {
     const snapshot = await findSnapshotById(req.context, report.snapshot);
-    const apiReport = toReportApiInterface(report, snapshot);
+    const apiReport = await resolveOwnerEmail(
+      toReportApiInterface(report, snapshot),
+      req.context,
+    );
 
     if (snapshot?.status === "success" && experiment) {
       const metricsById = await getMetricMapForExperiment(
@@ -45,5 +49,7 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
     return { report: apiReport };
   }
 
-  return { report: toReportApiInterface(report) };
+  return {
+    report: await resolveOwnerEmail(toReportApiInterface(report), req.context),
+  };
 });

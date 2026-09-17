@@ -1,6 +1,9 @@
 import {
   getColumnRefWhereClause,
+  getFactTableIdColumnExpression,
   getFactTableTemplateVariables,
+  getFactTableTimestampColumn,
+  isFactFunnelMetric,
   isRatioMetric,
   parseSliceMetricId,
 } from "shared/experiments";
@@ -13,7 +16,9 @@ import type {
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
+import { funnelStepTimestampColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
+import { afterWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { getKllEventCountSourceColumn } from "back-end/src/services/factMetrics";
 
 /** Fact Table CTE for multiple fact metrics that share the same fact table */
@@ -26,6 +31,7 @@ export function getFactMetricCTE(
     castIdToString,
     idJoinMap,
     startDate,
+    startDateRaw,
     endDate,
     experimentId,
     addFiltersToWhere,
@@ -39,6 +45,8 @@ export function getFactMetricCTE(
     baseIdType: string;
     idJoinMap: Record<string, string>;
     startDate: Date;
+    // Exact watermark literal body for exclusiveStartDateFilter, if known.
+    startDateRaw?: string | null;
     endDate: Date | null;
     experimentId?: string;
     addFiltersToWhere?: boolean;
@@ -54,12 +62,17 @@ export function getFactMetricCTE(
   let userIdCol = "";
   const userIdTypes = factTable.userIdTypes;
   if (userIdTypes.includes(baseIdType)) {
-    userIdCol = baseIdType;
+    userIdCol = getFactTableIdColumnExpression(factTable, baseIdType, dialect);
   } else if (userIdTypes.length > 0) {
     for (let i = 0; i < userIdTypes.length; i++) {
       const userIdType: string = userIdTypes[i];
       if (userIdType in idJoinMap) {
-        const metricUserIdCol = `m.${userIdType}`;
+        const metricUserIdCol = getFactTableIdColumnExpression(
+          factTable,
+          userIdType,
+          dialect,
+          "m",
+        );
         join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
         userIdCol = `i.${baseIdType}`;
         break;
@@ -67,20 +80,23 @@ export function getFactMetricCTE(
     }
   }
 
+  const timestampColumn = `m.${getFactTableTimestampColumn(factTable)}`;
+
   // BQ datetime cast for SELECT statements (do not use for where)
-  const timestampDateTimeColumn = dialect.castUserDateCol("m.timestamp");
+  const timestampDateTimeColumn = dialect.castUserDateCol(timestampColumn);
 
   const sql = factTable.sql;
   const where: string[] = [];
 
   // Add a rough date filter to improve query performance
   if (startDate) {
-    // If exclusive, we need to be more precise with the timestamp
-    const operator = exclusiveStartDateFilter ? ">" : ">=";
-    const timestampFn = exclusiveStartDateFilter
-      ? toTimestampWithMs
-      : dialect.toTimestamp.bind(dialect);
-    where.push(`m.timestamp ${operator} ${timestampFn(startDate)}`);
+    // If exclusive, startDate is a persisted watermark and the filter has to
+    // be precise about which rows were already loaded
+    where.push(
+      exclusiveStartDateFilter
+        ? afterWatermark(dialect, timestampColumn, startDate, startDateRaw)
+        : `${timestampColumn} >= ${dialect.toTimestamp(startDate)}`,
+    );
   }
   if (endDate) {
     // If exclusive, we need to be more precise with the timestamp
@@ -88,7 +104,7 @@ export function getFactMetricCTE(
     const timestampFn = exclusiveEndDateFilter
       ? toTimestampWithMs
       : dialect.toTimestamp.bind(dialect);
-    where.push(`m.timestamp ${operator} ${timestampFn(endDate)}`);
+    where.push(`${timestampColumn} ${operator} ${timestampFn(endDate)}`);
   }
 
   const metricCols: string[] = [];
@@ -97,6 +113,41 @@ export function getFactMetricCTE(
   metricsWithIndices.forEach((metricWithIndex) => {
     const m = metricWithIndex.metric;
     const index = metricWithIndex.index;
+
+    if (isFactFunnelMetric(m)) {
+      // A funnel has no value column. Each step instead projects the row's
+      // timestamp when the row matches that step's filters, so the resolution
+      // CTEs downstream can collect per-step timestamps per user.
+      m.funnelSettings.steps.forEach((step, stepIndex) => {
+        if (step.factTableId !== factTable.id) return;
+
+        const filters = getColumnRefWhereClause({
+          factTable,
+          columnRef: {
+            factTableId: step.factTableId,
+            column: "",
+            rowFilters: step.rowFilters,
+          },
+          escapeStringLiteral: dialect.escapeStringLiteral,
+          stringMatch: dialect.stringMatch,
+          jsonExtract: dialect.jsonExtract,
+          evalBoolean: dialect.evalBoolean,
+          castToTimestamp: dialect.castToTimestamp,
+          identifierQuote: dialect.identifierQuote,
+        });
+
+        const column = filters.length
+          ? `CASE WHEN (${filters.join("\n AND ")}) THEN ${timestampDateTimeColumn} ELSE NULL END`
+          : timestampDateTimeColumn;
+
+        metricCols.push(`-- ${m.name} (step ${stepIndex + 1}: ${step.name})
+        ${column} AS ${funnelStepTimestampColumn(`m${index}`, stepIndex)}`);
+
+        allMetricFilters.push(filters);
+      });
+      return;
+    }
+
     if (m.numerator?.factTableId === factTable.id) {
       const value = getFactMetricColumn(
         dialect,
@@ -116,7 +167,9 @@ export function getFactMetricCTE(
         stringMatch: dialect.stringMatch,
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
+        castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
+        identifierQuote: dialect.identifierQuote,
       });
 
       const column =
@@ -174,7 +227,9 @@ export function getFactMetricCTE(
         stringMatch: dialect.stringMatch,
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
+        castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
+        identifierQuote: dialect.identifierQuote,
       });
       const column =
         filters.length > 0

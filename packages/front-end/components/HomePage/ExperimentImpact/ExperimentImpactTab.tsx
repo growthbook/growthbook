@@ -1,8 +1,10 @@
 import React, { ReactElement } from "react";
 import clsx from "clsx";
+import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Link from "@/ui/Link";
+import VariationLabel from "@/ui/VariationLabel";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -45,22 +47,14 @@ export default function ExperimentImpactTab({
           anyNullImpact = true;
         }
         variations.push(
-          <div
-            key={`var-experiment${ei}-variation${i}`}
-            className={`variation variation${v.index} with-variation-label d-flex my-1`}
-          >
-            <span className="label" style={{ width: 20, height: 20 }}>
-              {i}
-            </span>
-            <span
-              className="d-inline-block text-ellipsis hover"
-              style={{
-                maxWidth: 200,
-              }}
-            >
-              {v.name}
-            </span>
-          </div>,
+          <Box key={`var-experiment${ei}-variation${i}`} my="1">
+            <VariationLabel
+              number={i}
+              name={v.name}
+              size="md"
+              maxWidth="220px"
+            />
+          </Box>,
         );
         impactsScaled.push(
           <div

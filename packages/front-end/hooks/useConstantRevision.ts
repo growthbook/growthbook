@@ -2,17 +2,18 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/router";
 import { Revision, JsonPatchOperation } from "shared/enterprise";
 import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 
-// Revision/approval state for a single constant. Mirrors useSavedGroupRevision
-// — the revision endpoints are generic by entity type, so this only differs in
-// the entity type string and snapshot interface.
+// Revision/approval state for a single constant or config. The revision
+// endpoints are generic by entity type; pass entityType "config" for configs.
 export function useConstantRevision(
   constantId: string | undefined,
   constantMutate: () => void,
-  constant?: ConstantInterface,
+  constant?: ConstantInterface | ConfigInterface,
+  entityType: "constant" | "config" = "constant",
 ) {
   const { userId } = useUser();
   const router = useRouter();
@@ -35,7 +36,7 @@ export function useConstantRevision(
 
   const { data, mutate: mutateRevisions } = useApi<{
     revisions: Revision[];
-  }>(`/revision/entity/constant/${constantId}`, {
+  }>(`/revision/entity/${entityType}/${constantId}`, {
     shouldRun: () => !!constantId,
   });
 
@@ -176,9 +177,12 @@ export function useConstantRevision(
         },
         { revalidate: true },
       ).catch(() => undefined);
+      // The revision may have published immediately (bypass/auto-publish or
+      // revert), which mutates the live entity — refresh it too.
+      constantMutate();
       updateUrl(revision);
     },
-    [mutateRevisions, updateUrl],
+    [mutateRevisions, constantMutate, updateUrl],
   );
 
   const handlePublish = useCallback(
@@ -233,7 +237,7 @@ export function useConstantRevision(
       version: 1,
       title: "Revision 1",
       target: {
-        type: "constant" as const,
+        type: entityType,
         id: constant.id,
         snapshot: constant,
         proposedChanges: [] as JsonPatchOperation[],
@@ -256,8 +260,8 @@ export function useConstantRevision(
       dateCreated: constant.dateCreated,
       dateUpdated: constant.dateUpdated,
       organization: constant.organization,
-    };
-  }, [data, constant]);
+    } as Revision;
+  }, [data, constant, entityType]);
 
   const allRevisions = useMemo(
     () =>

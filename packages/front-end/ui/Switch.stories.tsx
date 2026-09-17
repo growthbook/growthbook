@@ -84,6 +84,7 @@ export default function SwitchStories() {
           Configuration
         </Text>
         <SelectField
+          size="legacy"
           label="Status"
           value={switchState}
           options={[
@@ -94,6 +95,7 @@ export default function SwitchStories() {
           onChange={(v) => setSwitchState(v as "default" | "warning" | "error")}
         />
         <SelectField
+          size="legacy"
           label="Disabled"
           value={switchDisabled ? "true" : "false"}
           options={[

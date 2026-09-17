@@ -6,7 +6,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Field from "@/components/Forms/Field";
 import Callout from "@/ui/Callout";
-import { AreaWithHeader } from "./SqlExplorerModal";
+import AreaWithHeader from "./AreaWithHeader";
 
 export default function SchemaBrowserWrapper({
   children,
@@ -96,11 +96,11 @@ export default function SchemaBrowserWrapper({
           {informationSchema && !informationSchema.error && (
             <Box mt="1">
               <Field
+                size="legacy"
                 type="search"
                 value={tableFilter}
                 onChange={(e) => onTableFilterChange(e.target.value)}
                 placeholder="Search..."
-                autoFocus
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();

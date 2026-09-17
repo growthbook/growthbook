@@ -12,7 +12,6 @@ import {
   PiPlusCircle,
   PiUploadSimple,
 } from "react-icons/pi";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
@@ -217,6 +216,7 @@ export function VariationBox({
   openCarousel,
   mutate,
   percent,
+  showSplit,
   minWidth,
   isPublic = false,
   shareUid,
@@ -227,7 +227,7 @@ export function VariationBox({
 }: {
   i: number;
   v: Variation;
-  experiment: ExperimentInterfaceStringDates;
+  experiment: Pick<ExperimentInterfaceStringDates, "id" | "status" | "type">;
   showDescription?: boolean;
   showIds?: boolean;
   showNoImage?: boolean;
@@ -237,6 +237,7 @@ export function VariationBox({
   openCarousel?: (variationId: string, index: number) => void;
   mutate?: () => void;
   percent?: number;
+  showSplit?: boolean;
   minWidth?: string | number;
   isPublic?: boolean;
   shareUid?: string;
@@ -247,13 +248,14 @@ export function VariationBox({
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
+  const shouldShowSplit = showSplit ?? !isBandit;
 
   return (
     <Box
       key={i}
       p="5"
       pb="3"
-      className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
+      className="appbox mb-0 position-relative variation"
       style={{
         minWidth,
         maxWidth: capWidth ? MAX_VARIATION_WIDTH + "px" : undefined,
@@ -275,7 +277,7 @@ export function VariationBox({
         <Box>
           <Flex gap="2" align="center" justify="between">
             <Box minWidth="0" flexGrow="1">
-              <VariationLabel number={i} name={v.name} size="large" />
+              <VariationLabel number={i} name={v.name} size="lg" />
             </Box>
             {canEdit && onEditMetadata && onEditTraffic ? (
               <IconButton
@@ -335,11 +337,11 @@ export function VariationBox({
           {showIds ? <code className="small">ID: {v.key}</code> : null}
           <Flex align="center" justify="between">
             <Box>
-              {!isBandit && percent !== undefined ? (
+              {shouldShowSplit && percent !== undefined ? (
                 <Metadata
                   label="Split"
                   value={`${percent.toFixed(0)}%`}
-                  size="small"
+                  size="sm"
                 />
               ) : null}
             </Box>
@@ -355,7 +357,7 @@ export function VariationBox({
                     <Link>
                       <Flex align="center" gap="1">
                         <PiUploadSimple size="15" />
-                        <Text size="small" weight="semibold">
+                        <Text size="sm" weight="semibold">
                           Image
                         </Text>
                       </Flex>
@@ -363,7 +365,7 @@ export function VariationBox({
                   </ScreenshotUpload>
                 )}
                 {v.screenshots.length > 0 ? (
-                  <Text color="text-mid" size="small" whiteSpace="nowrap">
+                  <Text color="text-mid" size="sm" whiteSpace="nowrap">
                     {v.screenshots.length} image
                     {v.screenshots.length > 1 ? "s" : ""}
                   </Text>
@@ -404,7 +406,6 @@ const VariationsTable: FC<Props> = ({
     variationId: string;
     index: number;
   } | null>(null);
-  const collapseEmptyVariations = useFeatureIsOn("simple-experiment-flow");
 
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const someVariationHasImage = variations.some(
@@ -461,9 +462,7 @@ const VariationsTable: FC<Props> = ({
               onEditMetadata={onEditMetadata}
               onEditTraffic={onEditTraffic}
               showNoImage={
-                !collapseEmptyVariations ||
-                experiment.status === "draft" ||
-                someVariationHasImage
+                experiment.status === "draft" || someVariationHasImage
               }
               capWidth={centered}
             />

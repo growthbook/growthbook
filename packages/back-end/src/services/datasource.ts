@@ -1,23 +1,38 @@
 import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
-import { TemplateVariables } from "shared/types/sql";
+import {
+  SqlDialect,
+  SqlIdentifierQuote,
+  TemplateVariables,
+} from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
+  TestQueryResult,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
 import {
   DataSourceInterface,
   DataSourceParams,
+  DataSourceType,
   ExposureQuery,
   FeatureUsageQuery,
 } from "shared/types/datasource";
-import { FactTableColumnType } from "shared/types/fact-table";
+import {
+  DetectedFactTableColumn,
+  FactTableColumnType,
+} from "shared/types/fact-table";
+import { FeatureInterface } from "shared/types/feature";
 import { QueryStatistics, QueryType } from "shared/types/query";
-import { formatQueryExecutionErrorForApi } from "shared/util";
-import { SQLExecutionError } from "back-end/src/util/errors";
-import { determineColumnTypes } from "back-end/src/util/sql";
+import {
+  formatQueryExecutionErrorForApi,
+  DataSourceParamsForType,
+  mergeDataSourceParams,
+  redactSecretParams,
+} from "shared/util";
+import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
+import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -27,15 +42,18 @@ import Redshift from "back-end/src/integrations/Redshift";
 import Snowflake from "back-end/src/integrations/Snowflake";
 import Postgres from "back-end/src/integrations/Postgres";
 import Vertica from "back-end/src/integrations/Vertica";
+import AdobeExperiencePlatformQueryService from "back-end/src/integrations/AdobeExperiencePlatformQueryService";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import ClickHouse from "back-end/src/integrations/ClickHouse";
 import Mixpanel from "back-end/src/integrations/Mixpanel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { SQLExecutionError } from "back-end/src/util/errors";
 
 // freeFormQuery runs user-authored SQL; we should only use it for this scenario
 const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
@@ -50,26 +68,21 @@ export function encryptParams(params: DataSourceParams): string {
   return AES.encrypt(JSON.stringify(params), ENCRYPTION_KEY).toString();
 }
 
-export function getNonSensitiveParams(integration: SourceIntegrationInterface) {
-  const ret = { ...integration.params };
-  integration.getSensitiveParamKeys().forEach((k) => {
-    if (ret[k]) {
-      ret[k] = "";
-    }
-  });
-  return ret;
+export function getNonSensitiveParams<T extends DataSourceType>(
+  integration: SourceIntegrationInterface<T>,
+): DataSourceParamsForType<T> {
+  return redactSecretParams<T>(integration.datasource.type, integration.params);
 }
 
-export function mergeParams(
-  integration: SourceIntegrationInterface,
-  newParams: Partial<DataSourceParams>,
+export function mergeParams<T extends DataSourceType>(
+  integration: SourceIntegrationInterface<T>,
+  newParams: Partial<DataSourceParamsForType<T>>,
 ) {
-  const secretKeys = integration.getSensitiveParamKeys();
-  (Object.keys(newParams) as (keyof DataSourceParams)[]).forEach((k) => {
-    // If a secret value is left empty, keep the original value
-    if (secretKeys.includes(k) && !newParams[k]) return;
-    integration.params[k] = newParams[k];
-  });
+  integration.params = mergeDataSourceParams<T>(
+    integration.datasource.type,
+    integration.params,
+    newParams,
+  );
 }
 
 function getIntegrationObj(
@@ -91,6 +104,8 @@ function getIntegrationObj(
       return new Postgres(context, datasource);
     case "vertica":
       return new Vertica(context, datasource);
+    case "adobe_experience_platform_query_service":
+      return new AdobeExperiencePlatformQueryService(context, datasource);
     case "mysql":
       return new Mysql(context, datasource);
     case "mssql":
@@ -124,6 +139,11 @@ export async function getIntegrationFromDatasourceId(
   );
 }
 
+export function getSourceIntegrationObject<D extends DataSourceInterface>(
+  context: ReqContext | ApiReqContext,
+  datasource: D,
+  throwOnDecryptionError?: boolean,
+): SourceIntegrationInterface<D["type"]>;
 export function getSourceIntegrationObject(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
@@ -143,6 +163,34 @@ export function getSourceIntegrationObject(
   }
 
   return obj;
+}
+
+// The identifier-quote character (`"` or backtick) for an integration's SQL
+// dialect. This is the authoritative source — each dialect declares its own
+// `identifierQuote` — used off the query path (virtual-column dependency scans,
+// test-query building) to expand/detect quoted column identifiers correctly.
+// Non-SQL sources (e.g. Mixpanel) cannot back a fact table, so the standard
+// double quote is a safe fallback.
+export function getIntegrationIdentifierQuote(
+  integration: SourceIntegrationInterface,
+): SqlIdentifierQuote {
+  return getIntegrationSqlDialect(integration)?.identifierQuote ?? '"';
+}
+
+// The SQL dialect backing an integration, or null for non-SQL sources
+// (e.g. Mixpanel), which have no dialect to generate SQL with.
+export function getIntegrationSqlDialect(
+  integration: SourceIntegrationInterface,
+): SqlDialect | null {
+  return integration instanceof SqlIntegration
+    ? integration.getSqlDialect()
+    : null;
+}
+
+// Wraps a SQL identifier (column, alias) in the dialect's quote character,
+// escaping any embedded quotes by doubling them (ANSI SQL convention).
+export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
+  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
 }
 
 export async function testDataSourceConnection(
@@ -273,13 +321,16 @@ export async function runUserExposureQuery(
 export async function runFeatureEvalDiagnosticsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  feature: string,
+  feature: Pick<FeatureInterface, "id" | "project">,
 ): Promise<{
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
+  error?: string;
   sql?: string;
 }> {
-  if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
+  if (
+    !context.permissions.canRunFeatureDiagnosticsQueries(feature, datasource)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -296,7 +347,7 @@ export async function runFeatureEvalDiagnosticsQuery(
   }
 
   const sql = integration.getFeatureEvalDiagnosticsQuery({
-    feature,
+    feature: feature.id,
   });
 
   try {
@@ -308,7 +359,7 @@ export async function runFeatureEvalDiagnosticsQuery(
       sql,
     };
   } catch (e) {
-    throw new SQLExecutionError(e.message, sql);
+    throw new SQLExecutionError(formatQueryExecutionErrorForApi(e), sql);
   }
 }
 
@@ -319,11 +370,14 @@ export async function testQuery(
   templateVariables?: TemplateVariables,
   limit?: number,
   timestampColumn?: string,
+  // Return detected output columns along with sampled rows.
+  detectColumns?: boolean,
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
   error?: string;
   sql?: string;
+  columns?: DetectedFactTableColumn[];
 }> {
   if (!context.permissions.canRunTestQueries(datasource)) {
     throw new Error("Permission denied");
@@ -336,6 +390,8 @@ export async function testQuery(
     throw new Error("Unable to test query.");
   }
 
+  const timestampCols = timestampColumn ? [timestampColumn] : ["timestamp"];
+
   const sql = integration.getTestQuery({
     query,
     templateVariables,
@@ -344,15 +400,19 @@ export async function testQuery(
     timestampColumn,
   });
   try {
-    const { results, duration } = await integration.runTestQuery(
+    const result = await integration.runTestQuery(
       sql,
-      timestampColumn ? [timestampColumn] : ["timestamp"],
+      timestampCols,
       "testQuery",
     );
+
     return {
-      results,
-      duration,
+      results: result.results,
+      duration: result.duration,
       sql,
+      ...(detectColumns
+        ? { columns: detectColumnsFromQueryResult(result) }
+        : {}),
     };
   } catch (e) {
     return {
@@ -360,6 +420,39 @@ export async function testQuery(
       sql,
     };
   }
+}
+
+function findMissingRequiredColumns(
+  results: TestQueryResult,
+  requiredColumns: Set<string>,
+  caseSensitive: boolean,
+): string | undefined {
+  let present: string[];
+
+  // For datasources where the result includes columns, use column metadata
+  if (results.columns) {
+    present = results.columns.map((c) => c.name);
+    if (present.length === 0) {
+      return "Unable to determine columns from query";
+    }
+  } else {
+    // For other datasources, extract from first row (requires LIMIT 1+)
+    if (results.results.length === 0) {
+      return "No rows returned";
+    }
+    present = Object.keys(results.results[0]);
+  }
+
+  const missingColumns = [...requiredColumns].filter(
+    (col) =>
+      !present.some((name) => columnNamesMatch(name, col, caseSensitive)),
+  );
+
+  if (missingColumns.length > 0) {
+    return `Missing required columns in response: ${missingColumns.join(", ")}`;
+  }
+
+  return undefined;
 }
 
 // Return any errors that result when running the query otherwise return undefined
@@ -390,38 +483,11 @@ export async function testQueryValidity(
   );
   try {
     const results = await integration.runTestQuery(sql, undefined, "testQuery");
-
-    let columns: Set<string>;
-
-    // For datasources where the result includes columns, use column metadata
-    if (results.columns) {
-      const columnNames = results.columns.map((c) => c.name);
-      if (columnNames.length === 0) {
-        return "Unable to determine columns from query";
-      }
-      columns = new Set(columnNames);
-    } else {
-      // For other datasources, extract from first row (requires LIMIT 1+)
-      if (results.results.length === 0) {
-        return "No rows returned";
-      }
-      columns = new Set(Object.keys(results.results[0]));
-    }
-
-    const missingColumns: string[] = [];
-    for (const col of requiredColumns) {
-      if (!columns.has(col)) {
-        missingColumns.push(col);
-      }
-    }
-
-    if (missingColumns.length > 0) {
-      return `Missing required columns in response: ${missingColumns.join(
-        ", ",
-      )}`;
-    }
-
-    return undefined;
+    return findMissingRequiredColumns(
+      results,
+      requiredColumns,
+      integration.columnNamesAreCaseSensitive,
+    );
   } catch (e) {
     return e.message;
   }
@@ -446,36 +512,11 @@ export async function testFeatureUsageQueryValidity(
   );
   try {
     const results = await integration.runTestQuery(sql, undefined, "testQuery");
-
-    let columns: Set<string>;
-
-    if (results.columns) {
-      const columnNames = results.columns.map((c) => c.name);
-      if (columnNames.length === 0) {
-        return "Unable to determine columns from query";
-      }
-      columns = new Set(columnNames);
-    } else {
-      if (results.results.length === 0) {
-        return "No rows returned";
-      }
-      columns = new Set(Object.keys(results.results[0]));
-    }
-
-    const missingColumns: string[] = [];
-    for (const col of requiredColumns) {
-      if (!columns.has(col)) {
-        missingColumns.push(col);
-      }
-    }
-
-    if (missingColumns.length > 0) {
-      return `Missing required columns in response: ${missingColumns.join(
-        ", ",
-      )}`;
-    }
-
-    return undefined;
+    return findMissingRequiredColumns(
+      results,
+      requiredColumns,
+      integration.columnNamesAreCaseSensitive,
+    );
   } catch (e) {
     return e.message;
   }

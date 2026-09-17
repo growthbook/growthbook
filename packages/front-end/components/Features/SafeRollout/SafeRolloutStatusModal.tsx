@@ -62,6 +62,11 @@ function getDefaultStatusAndText(
         defaultStatus: "rolled-back",
         text: "The Safe Rollout has failing guardrails. We recommend reverting to Control.",
       };
+    case "data-incomplete":
+      return {
+        defaultStatus: "",
+        text: "Some guardrail metrics could not be computed, so no ship recommendation is available.",
+      };
     case "before-min-duration":
     case "days-left":
     case "no-data":
@@ -70,6 +75,7 @@ function getDefaultStatusAndText(
         text: "The Safe Rollout is still collecting data. Are you sure you want to stop early?",
       };
     case "ready-for-review":
+    case "scheduled-end-review":
       return {
         defaultStatus: "",
         text: "The Safe Rollout is ready for review. Are you sure you want to stop early?",
@@ -139,7 +145,6 @@ export default function SafeRolloutStatusModal({
 
   return (
     <Modal
-      useRadixButton={false}
       open={open}
       close={() => setStatusModalOpen(false)}
       header={`End Safe Rollout`}
@@ -171,6 +176,7 @@ export default function SafeRolloutStatusModal({
       ) : null}
       <div className="mb-4">
         <SelectField
+          size="legacy"
           label="Update Safe Rollout status"
           value={form.watch("status")}
           required

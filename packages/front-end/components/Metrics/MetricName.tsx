@@ -1,6 +1,6 @@
 import { HiBadgeCheck } from "react-icons/hi";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -18,7 +18,7 @@ import HelperText from "@/ui/HelperText";
 export function PercentileLabel({
   metric,
 }: {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
 }) {
   if (
     isFactMetric(metric) &&
@@ -38,6 +38,8 @@ export function OfficialBadge({
   type,
   managedBy,
   disableTooltip,
+  tooltip,
+  usePortal,
   showOfficialLabel,
   color,
   leftGap,
@@ -46,6 +48,10 @@ export function OfficialBadge({
   type: string;
   managedBy?: "" | "config" | "api" | "admin";
   disableTooltip?: boolean;
+  // Replaces the default "managed by the API" copy.
+  tooltip?: React.ReactNode;
+  // Needed when the badge sits inside a container that clips overflow.
+  usePortal?: boolean;
   showOfficialLabel?: boolean;
   color?: string;
   leftGap?: boolean;
@@ -66,9 +72,12 @@ export function OfficialBadge({
   return (
     <Box display="inline" className="text-purple mr-1" {...marginProps}>
       <Tooltip
+        usePortal={usePortal}
         body={
           disableTooltip ? (
             ""
+          ) : tooltip ? (
+            tooltip
           ) : (
             <>
               <h4 className="pb-1">
@@ -139,14 +148,14 @@ export default function MetricName({
   officialBadgeLeftGap = true,
 }: {
   id?: string;
-  metric?: ExperimentMetricInterface;
+  metric?: ExperimentMetricDefinition;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
   showDescription?: boolean;
   filterConversionWindowMetrics?: boolean;
   isGroup?: boolean;
   showGroupIcon?: boolean;
-  metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
+  metrics?: { metric: ExperimentMetricDefinition | null; joinable: boolean }[];
   showLink?: boolean;
   badgeColor?: string;
   officialBadgePosition?: "left" | "right";

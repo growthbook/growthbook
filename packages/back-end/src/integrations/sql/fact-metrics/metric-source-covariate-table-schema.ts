@@ -18,7 +18,7 @@ export function getMetricSourceCovariateTableSchema(
   schema.set(baseIdType, dialect.getDataType("string"));
 
   metrics.forEach((metric) => {
-    const includeNumerator = metric.numerator.factTableId === factTableId;
+    const includeNumerator = metric.numerator?.factTableId === factTableId;
     const includeDenominator =
       isRatioMetric(metric) && metric.denominator?.factTableId === factTableId;
 

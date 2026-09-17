@@ -3,10 +3,12 @@ import {
   isFactMetric,
   isLegacyMetric,
   isPercentileCappedMetric,
-  isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
   eligibleForUncappedMetric,
+  isFactFunnelMetric,
+  getFactMetricFactTableIds,
+  parseFunnelStepMetricId,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface } from "shared/types/metric";
@@ -34,8 +36,30 @@ import {
   RATIO_METRIC_FLOAT_COLS_UNCAPPED,
 } from "./constants";
 
-// Gets all columns besides the speciality quantile columns for all metrics
-export function getNonQuantileFloatColumns({
+/**
+ * The metrics a snapshot should actually query, resolved from its metric
+ * settings.
+ *
+ * Funnel step metrics live in the metric map and in `metricSettings` so their
+ * ids resolve for names, settings, and result lookups, but they are not
+ * queryable: the parent funnel is queried once and its result block is split
+ * per step afterwards (see `splitFunnelMetricBlock`). Querying a step would
+ * double-count the parent and, since a step carries no funnel definition of its
+ * own, produce wrong SQL. Every path that turns `metricSettings` into things to
+ * query must go through here so that contract lives in one place.
+ */
+export function getQueryableMetricsFromSnapshotSettings(
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "metricSettings">,
+  metricMap: Map<string, ExperimentMetricInterface>,
+): ExperimentMetricInterface[] {
+  return snapshotSettings.metricSettings
+    .filter((m) => !parseFunnelStepMetricId(m.id).isFunnelStepMetric)
+    .map((m) => metricMap.get(m.id))
+    .filter((m): m is ExperimentMetricInterface => !!m);
+}
+
+// Gets all columns besides the speciality quantile and funnel columns for all metrics
+export function getNonQuantileNonFunnelFloatColumns({
   metric,
   regressionAdjusted,
   isBandit,
@@ -44,6 +68,10 @@ export function getNonQuantileFloatColumns({
   regressionAdjusted: boolean;
   isBandit: boolean;
 }): string[] {
+  // Funnel metrics emit none of the standard float columns; their block is one
+  // `m{i}_step_{k}_sum` per step, sized in maxColumnsNeededForMetric.
+  if (metric.metricType === "funnel") return [];
+
   const baseCols = (() => {
     switch (metric.metricType) {
       case "mean":
@@ -154,7 +182,15 @@ export function maxColumnsNeededForMetric({
   // id column
   const boilerplateCols = 1;
 
-  const floatCols = getNonQuantileFloatColumns({
+  // A funnel occupies one metric slot but emits one sum column per step, so
+  // chunkMetrics has to budget for the step count, not for a fixed block.
+  if (isFactFunnelMetric(metric)) {
+    // TODO(funnel): when adding time from previous step, we should
+    // account for those additional columns.
+    return boilerplateCols + metric.funnelSettings.steps.length;
+  }
+
+  const floatCols = getNonQuantileNonFunnelFloatColumns({
     metric,
     regressionAdjusted,
     isBandit,
@@ -240,30 +276,23 @@ export function getFactMetricGroup(
     ? `_cw${getMaxHoursToConvert(false, [metric], null)}`
     : "";
 
-  // Ratio metrics must have the same numerator and denominator fact table to be grouped
-  if (isRatioMetric(metric)) {
-    if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
-      // TODO: smarter logic to make fewer groupings work
-      const tableIds = [
-        metric.numerator.factTableId,
-        metric.denominator?.factTableId,
-      ].sort((a, b) => a?.localeCompare(b ?? "") ?? 0);
-      return tableIds.length >= 2
-        ? `${tableIds[0]} ${tableIds[1]} (cross-table ratio metrics)${conversionWindowKey}`
-        : metric.id;
-    }
-  }
+  // Metrics group on the exact set of fact tables they read from — a ratio's
+  // numerator and denominator tables, or a funnel's per-step tables. Future
+  // optimizations are possible.
+  const factTableIds = [...getFactMetricFactTableIds(metric)].sort();
+  if (!factTableIds.length) return "";
 
   // Quantile metrics get their own group to prevent slowing down the main query
   // and because they do not support re-aggregation across pre-computed dimensions
   if (quantileMetricType(metric)) {
-    return metric.numerator.factTableId
-      ? `${metric.numerator.factTableId}_qtile${conversionWindowKey}`
-      : "";
+    return `${factTableIds.join(" ")}_qtile${conversionWindowKey}`;
   }
-  return metric.numerator.factTableId
-    ? `${metric.numerator.factTableId}${conversionWindowKey}`
-    : "";
+
+  if (factTableIds.length > 1) {
+    return `${factTableIds.join(" ")} (cross-table metrics)${conversionWindowKey}`;
+  }
+
+  return `${factTableIds[0]}${conversionWindowKey}`;
 }
 
 export interface GroupedMetrics {

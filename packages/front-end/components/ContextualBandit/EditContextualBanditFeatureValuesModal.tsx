@@ -7,14 +7,21 @@ import {
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ApiContextualBanditInterface } from "shared/validators";
-import { naiveFlattenV1Rules, validateFeatureValue } from "shared/util";
+import {
+  naiveFlattenV1Rules,
+  validateFeatureValue,
+  ensureConfigBacking,
+} from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
+import { getDefaultValue } from "@/services/features";
 import useApi from "@/hooks/useApi";
+import { useConfigBacking } from "@/hooks/useConfigBacking";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import Callout from "@/ui/Callout";
 
 export interface Props {
@@ -45,6 +52,8 @@ export default function EditContextualBanditFeatureValuesModal({
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(feature);
   const { data, error } = useApi<FeatureRevisionResponse>(
     `/feature/${feature.id}`,
   );
@@ -69,13 +78,29 @@ export default function EditContextualBanditFeatureValuesModal({
 
   const initialVariations = useMemo(
     () =>
-      cb.variations.map((v) => ({
-        variationId: v.id,
-        value:
+      cb.variations.map((v) => {
+        // An arm with no value on the linked rule must still seed a valid
+        // value for the feature's type — "" is not one.
+        const raw =
           linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
-          "",
-      })),
-    [cb.variations, linkedFeatureInfo.values],
+          getDefaultValue(feature.valueType);
+        // Seed the config backing so a config-backed feature's bandit arms open
+        // in the config-backing editor (matches the experiment-ref editor).
+        return {
+          variationId: v.id,
+          value:
+            isConfigBacked && defaultConfigKey
+              ? ensureConfigBacking(raw, defaultConfigKey)
+              : raw,
+        };
+      }),
+    [
+      cb.variations,
+      linkedFeatureInfo.values,
+      isConfigBacked,
+      defaultConfigKey,
+      feature.valueType,
+    ],
   );
 
   const form = useForm<FormValues>({
@@ -98,9 +123,13 @@ export default function EditContextualBanditFeatureValuesModal({
           );
         }
 
-        const updatedVariations = values.variations.map((r) => ({
+        const updatedVariations = values.variations.map((r, i) => ({
           variationId: r.variationId,
-          value: validateFeatureValue(feature, r.value ?? "", ""),
+          value: validateFeatureValue(
+            feature,
+            r.value ?? "",
+            `Variation ${i + 1}`,
+          ),
         }));
 
         const needsRefix = updatedVariations.some(
@@ -151,14 +180,9 @@ export default function EditContextualBanditFeatureValuesModal({
         <Flex direction="column" gap="3" pt="2">
           {cb.variations.map((v, i) => (
             <Box key={v.id}>
-              <Flex align="center" direction="row" gap="2" mb="3">
-                <Box className={`variation with-variation-label variation${i}`}>
-                  <span className="label">{i}</span>
-                </Box>
-                <Text weight="semibold" size="large">
-                  {v.name}
-                </Text>
-              </Flex>
+              <Box mb="3" minWidth="0">
+                <VariationLabel number={i} name={v.name} size="lg" />
+              </Box>
               <FeatureValueField
                 id={`variation-${v.id}`}
                 value={form.watch(`variations.${i}.value`) ?? ""}
@@ -168,6 +192,11 @@ export default function EditContextualBanditFeatureValuesModal({
                 renderJSONInline={true}
                 useCodeInput={true}
                 showFullscreenButton={true}
+                sparse={isConfigBacked}
+                allowConfigBacking={isConfigBacked}
+                configBackingOptionKeys={configBackingOptionKeys}
+                configBackingShowPatch={isConfigBacked}
+                lockConfigBacking={isConfigBacked}
               />
               {i < cb.variations.length - 1 && <Separator size="4" my="4" />}
             </Box>

@@ -1,10 +1,10 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Environment } from "shared/types/organization";
 import { FeatureEnvironment } from "shared/types/feature";
+import { filterProjectsByEnvironment } from "shared/util";
 import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -23,7 +23,7 @@ function envPreviewItem(envId: string, enabled: boolean) {
           style={{ color: featureStatusColors.offMuted }}
         />
       )}
-      <UIText size="small">{envId}</UIText>
+      <UIText size="sm">{envId}</UIText>
     </Flex>
   );
 }
@@ -33,32 +33,67 @@ const EnvironmentSelect: FC<{
   environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
   project?: string;
+  // Whether an environment may be switched on, for the entity THIS form creates.
+  // The rule differs per entity — a new flag takes create plus publish there, a
+  // holdout takes publish — and hardcoding the flag rule here silently blocked
+  // holdout users who hold no feature permissions. Defaults to permitted, so a
+  // form that has no per-environment restriction needn't state one.
+  canEnableEnvironment?: (environmentId: string) => boolean;
   isEditing?: boolean;
 }> = ({
   environmentSettings,
   environments,
+  canEnableEnvironment,
   setValue,
   project = "",
   isEditing = false,
 }) => {
-  const permissionsUtil = usePermissionsUtil();
-  const environmentsUserCanAccess = useMemo(() => {
-    return environments.filter((env) => {
-      return permissionsUtil.canPublishFeature({ project }, [env.id]);
-    });
-  }, [environments, permissionsUtil, project]);
+  const relevantEnvironments = useMemo(() => {
+    if (!project) return environments;
+    return environments.filter(
+      (env) => filterProjectsByEnvironment([project], env).length > 0,
+    );
+  }, [environments, project]);
 
-  const selectAllChecked = environmentsUserCanAccess.every(
-    (env) => environmentSettings[env.id]?.enabled,
+  const mayEnable = useCallback(
+    (environmentId: string) =>
+      canEnableEnvironment ? canEnableEnvironment(environmentId) : true,
+    [canEnableEnvironment],
   );
+  const environmentsUserCanAccess = useMemo(
+    () => relevantEnvironments.filter((env) => mayEnable(env.id)),
+    [relevantEnvironments, mayEnable],
+  );
+
+  const latestRef = useRef({ environments, environmentSettings, setValue });
+  latestRef.current = { environments, environmentSettings, setValue };
+
+  useEffect(() => {
+    const { environments, environmentSettings, setValue } = latestRef.current;
+    environments.forEach((env) => {
+      const isRelevant = relevantEnvironments.some((e) => e.id === env.id);
+      if (!isRelevant && environmentSettings[env.id]?.enabled) {
+        setValue(env, false);
+      }
+    });
+  }, [relevantEnvironments]);
+
+  const selectAllChecked =
+    environmentsUserCanAccess.length > 0 &&
+    environmentsUserCanAccess.every(
+      (env) => environmentSettings[env.id]?.enabled,
+    );
   const selectAllIndeterminate = environmentsUserCanAccess.some(
     (env) => environmentSettings[env.id]?.enabled,
   );
 
   const [expanded, setExpanded] = useState(isEditing);
 
-  const visible = environments.slice(0, MAX_VISIBLE_PREVIEW_ENVIRONMENTS);
-  const overflow = environments.slice(MAX_VISIBLE_PREVIEW_ENVIRONMENTS);
+  const visible = relevantEnvironments.slice(
+    0,
+    MAX_VISIBLE_PREVIEW_ENVIRONMENTS,
+  );
+  const overflow = relevantEnvironments.slice(MAX_VISIBLE_PREVIEW_ENVIRONMENTS);
 
   return (
     <div className="form-group">
@@ -94,7 +129,7 @@ const EnvironmentSelect: FC<{
                 </Flex>
               }
             >
-              <UIText as="span" color="text-low" size="small">
+              <UIText as="span" color="text-low" size="sm">
                 +{overflow.length} more
               </UIText>
             </Tooltip>
@@ -133,13 +168,11 @@ const EnvironmentSelect: FC<{
             style={{ maxHeight: "168px", wordBreak: "break-all" }}
             overflowY="auto"
           >
-            {environments.map((env) => (
+            {relevantEnvironments.map((env) => (
               <Checkbox
-                disabled={
-                  !permissionsUtil.canPublishFeature({ project }, [env.id])
-                }
-                disabledMessage="You don't have permission to create features in this environment."
-                value={environmentSettings[env.id].enabled}
+                disabled={!mayEnable(env.id)}
+                disabledMessage="You don't have permission to enable this environment."
+                value={environmentSettings[env.id]?.enabled ?? false}
                 setValue={(enabled) => setValue(env, enabled === true)}
                 label={env.id}
                 key={env.id}

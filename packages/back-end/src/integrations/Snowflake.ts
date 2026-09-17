@@ -6,8 +6,10 @@ import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
   cancelSnowflakeQuery,
+  getSnowflakeQueryStatus,
   runSnowflakeQuery,
 } from "back-end/src/services/snowflake";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 import { snowflakeDialect } from "./dialects/snowflake";
 
@@ -32,9 +34,6 @@ export default class Snowflake extends SqlIntegration {
       this.datasource.settings.pipelineSettings,
     );
   }
-  getSensitiveParamKeys(): string[] {
-    return ["password", "privateKey", "privateKeyPassword"];
-  }
   runQuery(
     sql: string,
     setExternalId: ExternalIdCallback | undefined,
@@ -44,6 +43,9 @@ export default class Snowflake extends SqlIntegration {
   }
   async cancelQuery(externalId: string): Promise<void> {
     await cancelSnowflakeQuery(this.params, externalId);
+  }
+  getExternalQueryStatus(externalId: string): Promise<ExternalQueryStatus> {
+    return getSnowflakeQueryStatus(this.params, externalId);
   }
   supportsLimitZeroColumnValidation(): boolean {
     return true;

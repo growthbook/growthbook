@@ -32,6 +32,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import ContextualBanditForm from "@/enterprise/components/ContextualBandit/ContextualBanditForm";
 import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import ContextualBanditEmptyState, {
@@ -91,7 +92,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
     }
   }, [didInitializeTab, setStoredTab, storedTab, tab]);
 
-  const { contextualBandits, error, loading, hasArchived, mutate } =
+  const { contextualBandits, error, loading, hasArchived } =
     useContextualBandits(project, activeTab === "archived");
 
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
@@ -205,8 +206,9 @@ const ContextualBanditsPage = (): React.ReactElement => {
             gap="3"
             wrap="wrap"
           >
-            <Flex align="center" flexGrow="1">
-              <h1>Contextual Bandits</h1>
+            <Flex align="center" flexGrow="1" gap="3">
+              <h1 className="mb-0">Contextual Bandits</h1>
+              <Badge color="indigo" label="Beta" variant="solid" size="lg" />
             </Flex>
             {canAdd && hasExperiments && (
               <PremiumTooltip
@@ -428,10 +430,6 @@ const ContextualBanditsPage = (): React.ReactElement => {
       {openNewModal && (
         <ContextualBanditForm
           onClose={() => setOpenNewModal(false)}
-          onCreate={async () => {
-            await mutate();
-            setOpenNewModal(false);
-          }}
           source="contextual-bandits-list"
           isNewExperiment={true}
         />

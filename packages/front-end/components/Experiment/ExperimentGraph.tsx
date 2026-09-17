@@ -98,7 +98,7 @@ export default function ExperimentGraph({
     projects.forEach((p) => {
       pMap.set(p.id, p.name);
     });
-    pMap.set("all", "All projects");
+    pMap.set("all", "All Projects");
     return pMap;
   }, [projects]);
 
@@ -283,6 +283,7 @@ export default function ExperimentGraph({
         </div>
         <div className="col-auto">
           <SelectField
+            size="legacy"
             containerClassName="d-inline-block ml-2 mb-0"
             options={showSelectOptions}
             value={showBy}
@@ -433,7 +434,7 @@ export default function ExperimentGraph({
                                 {projectMap.has(k)
                                   ? projectMap.get(k)
                                   : k === "all"
-                                    ? "All projects"
+                                    ? "All Projects"
                                     : k}
                               </div>
                               <div className={styles.tooltipValue}>
@@ -612,7 +613,7 @@ export default function ExperimentGraph({
                           {projectMap.has(k)
                             ? projectMap.get(k)
                             : k === "all"
-                              ? "All projects"
+                              ? "All Projects"
                               : k}
                         </div>
                       </div>

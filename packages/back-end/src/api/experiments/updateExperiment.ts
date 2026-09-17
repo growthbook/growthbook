@@ -1,7 +1,6 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
-  Variation,
   updateExperimentValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -11,14 +10,28 @@ import {
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
+  assertCanRunExperimentChanges,
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
+  getExperimentAttributeScopeProjects,
   updateExperimentApiPayloadToInterface,
-  validateStatusUpdateSchedule,
   validateVariationIds,
 } from "back-end/src/services/experiments";
-import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { startExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import {
+  assertRegisteredAttributesScoped,
+  lazyAttributeScope,
+} from "back-end/src/services/attributes";
+import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
+import { assertLivePayloadChangeAllowed } from "back-end/src/services/experimentLivePayload";
+import {
+  assertValidExperimentPrerequisites,
+  phasePrerequisites,
+} from "back-end/src/services/prerequisiteParents";
+import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
+import {
+  startExperiment,
+  validateExperimentChange,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   resolveOwnerEmail,
@@ -138,6 +151,9 @@ export const updateExperiment = createApiRequestHandler(
       req.body.customFields ?? experiment.customFields,
       req.context,
       req.body.project ?? experiment.project,
+      // A project change must re-validate all values against the new
+      // project's fields, so only grandfather unchanged values in place
+      projectChanged ? undefined : experiment.customFields,
     );
   }
 
@@ -206,13 +222,7 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
-    // Resolve the `variationId` response-field alias to `id` before validating,
-    // so echoing GET variations back doesn't regenerate ids (validateVariationIds
-    // assigns a fresh id to any variation missing one).
-    req.body.variations.forEach((v) => {
-      if (!v.id && v.variationId) v.id = v.variationId;
-    });
-    validateVariationIds(req.body.variations as Variation[]);
+    validateVariationIds(req.body.variations, experiment.variations);
   }
 
   const effectivePrecomputedUnitDimensionType =
@@ -284,31 +294,45 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  // Opt-in attribute registration check (org-level setting). Covers the
-  // experiment-level hash/fallback attributes and every provided phase.
-  assertRegisteredAttributes(
+  const attributeScope = lazyAttributeScope(() =>
+    getExperimentAttributeScopeProjects(req.context, {
+      project:
+        req.body.project !== undefined ? req.body.project : experiment.project,
+      linkedFeatures: experiment.linkedFeatures,
+    }),
+  );
+  await assertRegisteredAttributesScoped(
     req.context,
     {
       hashAttribute: req.body.hashAttribute,
       fallbackAttribute: req.body.fallbackAttribute,
     },
     "experiment",
-    undefined,
-    experiment.project,
+    {
+      hashAttribute: experiment.hashAttribute,
+      fallbackAttribute: experiment.fallbackAttribute,
+    },
+    attributeScope,
+  );
+  // Match persisted phases by condition value, not index — clients that
+  // insert or delete phases must not re-validate grandfathered conditions.
+  const persistedConditions = new Set(
+    (experiment.phases ?? []).map((p) => p.condition),
   );
   for (const phase of req.body.phases ?? []) {
-    assertRegisteredAttributes(
+    await assertRegisteredAttributesScoped(
       req.context,
       { condition: phase.condition },
       "experiment phase",
-      undefined,
-      experiment.project,
+      {
+        condition:
+          phase.condition !== undefined &&
+          persistedConditions.has(phase.condition)
+            ? phase.condition
+            : undefined,
+      },
+      attributeScope,
     );
-  }
-
-  if (req.body.statusUpdateSchedule) {
-    const effectiveType = req.body.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(effectiveType, req.body.statusUpdateSchedule);
   }
 
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
@@ -324,13 +348,76 @@ export const updateExperiment = createApiRequestHandler(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
+  // canUpdateExperiment (above) is the analysis-level check. Fields that reach
+  // SDK payloads additionally need run-experiments permission in the
+  // environments the experiment affects — the same rule, on the same fields,
+  // as the dashboard's POST /experiment/:id.
+  await assertCanRunExperimentChanges(req.context, experiment, changes);
+
+  // Linked feature rules would keep the old variation ids; the dashboard
+  // refuses this too. Coverage and weights stay editable, as in its targeting flow.
+  await assertLivePayloadChangeAllowed(req.context, experiment, {
+    variations: changes.variations,
+  });
+  // The served (latest) phase is checked against the latest stored phase;
+  // earlier phases are history, so any parent the stored experiment already
+  // references is not re-validated when they are echoed or reordered.
+  if (changes.phases) {
+    await validateChangedPhaseReferences(
+      changes.phases,
+      experiment.phases,
+      req.context,
+    );
+    await assertValidExperimentPrerequisites(
+      req.context,
+      changes.phases[changes.phases.length - 1]?.prerequisites,
+      experiment.phases[experiment.phases.length - 1]?.prerequisites,
+    );
+    await assertValidExperimentPrerequisites(
+      req.context,
+      phasePrerequisites(changes.phases.slice(0, -1)),
+      phasePrerequisites(experiment.phases),
+    );
+  }
+
+  // Same validation as PUT /schedule, against the stored schedule and the
+  // post-update variations/metrics.
+  if (req.body.statusUpdateSchedule) {
+    validateScheduleUpdate({
+      context: req.context,
+      experimentType: req.body.type ?? experiment.type ?? "standard",
+      status: experiment.status,
+      archived: !!experiment.archived,
+      phaseStart: experiment.phases[experiment.phases.length - 1]?.dateStarted,
+      existingSchedule: experiment.statusUpdateSchedule,
+      variations: changes.variations ?? experiment.variations,
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      incoming: req.body.statusUpdateSchedule,
+    });
+  }
+
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
+
+  await validateExperimentChange({ context: req.context, experiment, changes });
 
   let experimentForUpdate = experiment;
   let changesForUpdate = changes;
 
   if (isStartingFromDraft) {
+    // Persist the non-status changes (including any new statusUpdateSchedule)
+    // BEFORE starting, so startExperiment -> executeExperimentStart resolves a
+    // relative stopAfter off the real start time using the freshly-saved
+    // schedule (rather than the stale pre-start draft).
+    const remainingChanges = { ...changes };
+    delete remainingChanges.status;
+    if (Object.keys(remainingChanges).length > 0) {
+      await updateExperimentToDb({
+        context: req.context,
+        experiment,
+        changes: remainingChanges,
+      });
+    }
     // Route draft->running transitions through the dedicated lifecycle method
     // so ramp lockdown, checklist, and pending-draft publish behavior stays
     // consistent across all entry points.
@@ -341,8 +428,9 @@ export const updateExperiment = createApiRequestHandler(
       skipChecklist: true,
     });
     experimentForUpdate = updated;
-    const { status: _ignoredStatus, ...remainingChanges } = changes;
-    changesForUpdate = remainingChanges;
+    // All non-status changes were already persisted above; startExperiment
+    // handled the transition (and resolved the schedule), so nothing remains.
+    changesForUpdate = {};
   }
 
   const updatedExperiment =

@@ -1,0 +1,258 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { isEqual } from "lodash";
+import { JsonPatchOperation, Revision } from "shared/enterprise";
+import { ConfigInterface } from "shared/types/config";
+import {
+  postConfigRevisionRevertValidator,
+  configUpdatableFieldsSchema,
+} from "shared/validators";
+import { flipsArchivedState } from "shared/util";
+import {
+  revertRevision,
+  resolveRevertStrategy,
+} from "back-end/src/revisions/revertActions";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { getAdapter } from "back-end/src/revisions";
+import {
+  archiveServeFootprint,
+  configPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
+import { configChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
+import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import {
+  assertConfigValueValid,
+  assertConfigValueValidForPublish,
+} from "back-end/src/services/configValidation";
+import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import { loadRevisionByVersion } from "./validations";
+import { toApiConfigRevision } from "./toApiConfigRevision";
+
+export const postConfigRevisionRevert = createApiRequestHandler(
+  postConfigRevisionRevertValidator,
+)(async (req) => {
+  const config = await req.context.models.configs.getByKey(req.params.key);
+  if (!config) {
+    throw new NotFoundError("Could not find Config");
+  }
+
+  const adapter = getAdapter("config");
+  const revertsBypassApproval =
+    !!req.organization.settings?.revertsBypassApproval;
+  const strategy = resolveRevertStrategy(
+    req.body.strategy,
+    revertsBypassApproval,
+  );
+  const isPublish = strategy === "publish";
+
+  if (
+    !req.context.permissions.canRevisionAction(
+      "config",
+      "revert",
+      config,
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    !req.context.permissions.canRevisionAction(
+      "config",
+      "draft",
+      config,
+      NO_ENVIRONMENT_BINDING,
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  const targetRevision = await loadRevisionByVersion(
+    req.context,
+    config.id,
+    req.params.version,
+  );
+
+  if (targetRevision.status !== "merged") {
+    throw new BadRequestError(
+      "Can only revert to a published (merged) revision. " +
+        `Revision #${req.params.version} has status "${targetRevision.status}".`,
+    );
+  }
+
+  // Reconstruct the historical revision's post-merge state (snapshot + changes).
+  const targetState = applyPatchToSnapshot(
+    targetRevision.target.snapshot as ConfigInterface,
+    targetRevision.target.proposedChanges,
+  ) as ConfigInterface;
+
+  // Diff vs the current live config; omit fields equal to live.
+  const fieldsToUpdate: Record<string, unknown> = {};
+  for (const field of Object.keys(configUpdatableFieldsSchema.shape)) {
+    const targetValue = (targetState as Record<string, unknown>)[field];
+    const liveValue = (config as unknown as Record<string, unknown>)[field];
+    if (isEqual(targetValue, liveValue)) continue;
+    // A schema is absent (undefined) OR cleared (null) — both mean "no schema".
+    // isEqual treats those as different, so normalize before deciding it changed;
+    // otherwise reverting an already-cleared config to a pre-schema revision would
+    // record a no-op "revert".
+    if (
+      field === "schema" &&
+      (targetValue ?? null) === null &&
+      (liveValue ?? null) === null
+    ) {
+      continue;
+    }
+    if (targetValue !== undefined) {
+      fieldsToUpdate[field] = targetValue;
+    } else if (field === "parent") {
+      // Absent in target but set live → clear it; "" clears `parent`.
+      fieldsToUpdate[field] = "";
+    } else if (field === "extends") {
+      fieldsToUpdate[field] = [];
+    } else if (field === "description") {
+      // Restore "no description": "" is a valid empty value that round-trips as
+      // a normal replace op (no unset needed).
+      fieldsToUpdate[field] = "";
+    } else if (field === "schema") {
+      // Restore "no schema" (free-form). `null` is the clear signal: it survives
+      // the revision record's JSON round-trip (unlike a dropped `undefined`) and
+      // reads as "no schema" everywhere (every reader uses `?.`/truthiness), and
+      // it fires the descendant reconcile (the trigger tests `!== undefined`) so
+      // descendants shed the removed schema's derived state.
+      fieldsToUpdate[field] = null;
+    }
+  }
+
+  if (Object.keys(fieldsToUpdate).length === 0) {
+    throw new BadRequestError(
+      `Revision #${req.params.version} matches the current Config — nothing to revert.`,
+    );
+  }
+
+  // A historical value may predate the current schema; ensure the post-revert
+  // state still conforms (against current ancestors).
+  const revertedValue =
+    (fieldsToUpdate.value as string | undefined) ?? config.value;
+  const revertLeaf = {
+    key: config.key,
+    name: config.name,
+    value: revertedValue,
+    // A cleared schema (null) must reach the leaf as "no schema" — `?? config.schema`
+    // would wrongly re-apply the live schema and validate the reverted value against it.
+    schema:
+      "schema" in fieldsToUpdate
+        ? (fieldsToUpdate.schema as typeof config.schema)
+        : config.schema,
+    parent: (fieldsToUpdate.parent as string | undefined) ?? config.parent,
+    extends: (fieldsToUpdate.extends as string[] | undefined) ?? config.extends,
+    extensible:
+      (fieldsToUpdate.extensible as boolean | undefined) ?? config.extensible,
+  };
+  const revertValues = { value: revertedValue };
+  const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
+    ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
+  );
+
+  // A locked Config is frozen at its published revision, so a landing revert is
+  // refused before anything is written.
+  if (isPublish) assertConfigNotLocked(config);
+
+  const title = req.body.title ?? `Revert to v${req.params.version}`;
+
+  const { revision: result, bypassedGates } = await revertRevision({
+    context: req.context,
+    entityType: "config",
+    entity: config as unknown as Record<string, unknown> & { id: string },
+    targetRevision,
+    strategy,
+    fields: fieldsToUpdate,
+    patchOps,
+    // A revert that flips `archived` takes the Config out of service, or returns it,
+    // EVERYWHERE it serves — so it answers for the same footprint archiving does. The
+    // Config's own scope is empty for a base Config, which skips the environment check
+    // rather than narrowing it, letting an environment-limited deleter restore an
+    // archive across every served environment.
+    footprint: flipsArchivedState({
+      proposed:
+        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+      current: config.archived,
+    })
+      ? archiveServeFootprint(req.context, config)
+      : configPublishEnvironments(req.context, config),
+    title,
+    // Approval for this landing, resolved by the pipeline after authority.
+    resolveApproval: async () => {
+      // Computed even when the setting suppresses it, so the response can say the
+      // approval was SKIPPED rather than silently reporting nothing.
+      const baseApprovalRequired = adapter.isApprovalRequiredForRevision
+        ? adapter.isApprovalRequiredForRevision(req.context, {
+            target: { snapshot: config, proposedChanges: patchOps },
+          } as unknown as Revision)
+        : adapter.isApprovalRequired(req.context);
+      const approvalRequired = revertsBypassApproval
+        ? false
+        : baseApprovalRequired;
+      const restApiBypass = canUseRestApiBypassSetting(req);
+      const permissionBypass = adapter.canBypassApproval(
+        req.context,
+        config as Record<string, unknown>,
+      );
+      const canBypass = restApiBypass || permissionBypass;
+      if (approvalRequired && !canBypass) {
+        throw new BadRequestError(
+          "This revert requires approval before changes can be published. " +
+            'Use `strategy: "draft"` to create a draft for review, ' +
+            "or use a role/token that grants FlagsBypassApprovals.",
+        );
+      }
+      return {
+        approvalRequired,
+        canBypass,
+        // Same precedence the gate layer uses for `approval-required`, so the
+        // two publish paths report the same source for the same caller.
+        bypassVia: restApiBypass
+          ? ("restApiBypassesReviews" as const)
+          : ("bypassApprovalPermission" as const),
+        settingSuppressedApproval:
+          revertsBypassApproval && baseApprovalRequired,
+      };
+    },
+    // Cross-field and schema validation: stricter once it lands.
+    validate: async () => {
+      if (isPublish) {
+        await assertConfigValueValidForPublish(
+          req.context,
+          revertLeaf,
+          revertValues,
+        );
+      } else {
+        await assertConfigValueValid(req.context, revertLeaf, revertValues);
+      }
+    },
+    // Experiment guard and schema-break checks, which only bite on landing. A
+    // metadata-only revert cannot rewrite a served value, matching the other
+    // publish paths.
+    assertLandable: async () => {
+      if (!configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) return;
+      await assertConfigPublishGuards(
+        req.context,
+        config,
+        targetRevision,
+        { armed: false },
+        {
+          value: revertLeaf.value,
+          schema: revertLeaf.schema,
+          parent: revertLeaf.parent,
+          extends: revertLeaf.extends,
+          extensible: revertLeaf.extensible,
+        },
+        // A revert that flips archived scrubs (or restores) refs — model the
+        // transition so dependents' schema breaks are checked.
+        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+      );
+    },
+  });
+
+  return {
+    revision: await toApiConfigRevision(result, req.context),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
+  };
+});

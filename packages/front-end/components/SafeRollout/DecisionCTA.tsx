@@ -52,7 +52,7 @@ const DecisionCTA = ({
     return null;
   }
 
-  let buttonCopy = "Stop Early";
+  let buttonCopy = "End rollout";
   let variant: Variant = "soft";
   let color: Color = "violet";
 
@@ -73,7 +73,7 @@ const DecisionCTA = ({
       type="button"
       onClick={openStatusModal}
       variant={variant}
-      size="xs"
+      size="sm"
       color={color}
     >
       {buttonCopy}

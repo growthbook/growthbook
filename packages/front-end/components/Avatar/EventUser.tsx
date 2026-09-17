@@ -49,7 +49,7 @@ function getUserLabel(user?: EventUserType | null, bothNameAndEmail?: boolean) {
     );
   }
 
-  return <span>Unknown</span>;
+  return <span>{user?.type === "api_key" ? "API Key" : "Unknown"}</span>;
 }
 
 export default function EventUser({
@@ -114,6 +114,11 @@ export default function EventUser({
     }
   }
 
+  // Treat a blank/whitespace-only name as absent so it never renders as an
+  // empty label line or a blank avatar initial (some user records carry " ").
+  name = (name || "").trim();
+  email = (email || "").trim();
+
   if (display === "avatar") {
     return (
       <UserAvatar
@@ -126,15 +131,18 @@ export default function EventUser({
     );
   }
 
-  const apiBadge = isApi ? (
-    <Badge
-      variant="outline"
-      label="API"
-      size="xs"
-      ml="1"
-      title="via API Key or Personal Access Token"
-    />
-  ) : null;
+  // Only badge named actors; a nameless key already reads as "API Key" (see
+  // getUserLabel), so the badge would just double the "API" signal.
+  const apiBadge =
+    isApi && (name || email) ? (
+      <Badge
+        variant="outline"
+        label="API"
+        size="xs"
+        ml="1"
+        title={email ? "via Personal Access Token" : "via API Key"}
+      />
+    ) : null;
 
   const freshUser = { ...user, name, email } as EventUserType;
 

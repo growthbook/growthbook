@@ -2,8 +2,11 @@ import { z } from "zod";
 
 const datasourceParamsSchema = z.record(z.string(), z.unknown());
 
+const eventForwarderRegionSchema = z.enum(["us-east-1", "eu-west-1"]);
+
 const bigQueryEventForwarderConfigSchema = z.object({
   sinkType: z.literal("bigquery"),
+  region: eventForwarderRegionSchema.optional(),
   config: z.object({
     projectId: z.string(),
     dataset: z.string(),
@@ -14,6 +17,7 @@ const bigQueryEventForwarderConfigSchema = z.object({
 
 const snowflakeEventForwarderConfigSchema = z.object({
   sinkType: z.literal("snowflake"),
+  region: eventForwarderRegionSchema.optional(),
   config: z.object({
     database: z.string(),
     schema: z.string(),

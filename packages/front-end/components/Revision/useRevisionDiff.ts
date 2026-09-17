@@ -71,7 +71,7 @@ function computeDiff<T>(
     // honoring that suppression here; FormattedChanges' jsonFallback=false path
     // still covers any null render that reaches it.
     const customRender = postPick ? section.render(prePick, postPick) : null;
-    if (customRender == null) continue; // Render returned null, skip section
+    if ((customRender ?? null) === null) continue; // Render returned null, skip section
 
     const customBadges =
       section.getBadges && postPick

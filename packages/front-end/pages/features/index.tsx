@@ -1,12 +1,17 @@
+import {
+  NO_ENVIRONMENT_BINDING,
+  canCreateInSelectedScope,
+} from "shared/permissions";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeature } from "@growthbook/growthbook-react";
+import { useFeature, useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -26,9 +31,14 @@ import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
+import { FeatureLifecycleStatus } from "@/components/Features/FeatureStatusBadge";
+import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import FeatureHealthCell from "@/components/Features/FeatureHealthCell";
+import { FEATURE_STALE_FILTER_OPTIONS } from "@/services/health";
+import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useAgentOnboarding from "@/hooks/useAgentOnboarding";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -40,16 +50,11 @@ import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
-import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
-import {
-  draftStatusDots,
-  draftStatusTooltip,
-} from "@/components/Reviews/RevisionStatusBadge";
+import { useFeatureHealthStates } from "@/hooks/useFeatureHealthStates";
 import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
 import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
 import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
 import { useFeatureDependencyIndex } from "@/hooks/useFeatureDependencyIndex";
-import { useFeatureExperimentStates } from "@/hooks/useFeatureExperimentStates";
 import ProjectBadges from "@/components/ProjectBadges";
 import Table, {
   TableHeader,
@@ -59,6 +64,10 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import FeaturesDraftTable from "./FeaturesDraftTable";
+
+const STALE_FILTER_TOKENS = new Set<string>(
+  FEATURE_STALE_FILTER_OPTIONS.map((o) => o.value),
+);
 
 const NUM_PER_PAGE = 20;
 
@@ -98,23 +107,12 @@ const FEATURE_TABLE_COLUMN_WIDTH = {
   RECENT_USAGE: 170,
 } as const;
 
-function valueTypeLabel(
-  valueType: "boolean" | "string" | "number" | "json",
-): string {
-  const labels: Record<string, string> = {
-    boolean: "Boolean",
-    string: "String",
-    number: "Number",
-    json: "JSON",
-  };
-  return labels[valueType] ?? valueType;
-}
-
 export default function FeaturesPage() {
   const router = useRouter();
   const { organization } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
   const permissionsUtil = usePermissionsUtil();
+  const agentOnboarding = useAgentOnboarding();
   const [modalOpen, setModalOpen] = useState(false);
   const [featureToDuplicate, setFeatureToDuplicate] =
     useState<FeatureInterface | null>(null);
@@ -145,10 +143,9 @@ export default function FeaturesPage() {
 
   const statusHook = useFeaturesStatus();
   const draftHook = useFeatureDraftStates();
-  const staleHook = useFeatureStaleStates();
+  const healthHook = useFeatureHealthStates();
   const rampHook = useFeatureRampStates();
   const dependencyHook = useFeatureDependencyIndex();
-  const experimentHook = useFeatureExperimentStates();
 
   const archivedFilter = useMemo(
     () =>
@@ -157,6 +154,9 @@ export default function FeaturesPage() {
         : (items: FeatureInterface[]) => items.filter((f) => !f.archived),
     [showArchived],
   );
+
+  const gb = useGrowthBook<AppFeatures>();
+  gb?.isOn("teresa-cb-feature");
 
   const {
     searchInputProps,
@@ -169,10 +169,9 @@ export default function FeaturesPage() {
     environments,
     environmentStatus: statusHook.environmentStatus,
     draftStates: draftHook.draftStates,
-    staleStates: staleHook.staleStates,
+    healthStates: healthHook.healthStates,
     rampStates: rampHook.rampStates,
     dependencyIndex: dependencyHook.dependencyIndex,
-    experimentStates: experimentHook.experimentStates,
     filterResults: archivedFilter,
     contentSearchPrefixes: CONTENT_SEARCH_PREFIX_STRINGS,
   });
@@ -230,27 +229,24 @@ export default function FeaturesPage() {
       (f.field === "is" && f.values.includes("draft")) ||
       (f.field === "has" && f.values.includes("draft")),
   );
+  const healthFilterValues = useMemo(
+    () =>
+      syntaxFilters
+        .filter((f) => f.field === "health" && !f.negated)
+        .flatMap((f) => f.values.map((v) => v.toLowerCase())),
+    [syntaxFilters],
+  );
+  // Stale and Health filters need every feature's data, not just the visible page.
   const hasStaleFilter = syntaxFilters.some(
     (f) =>
-      (f.field === "is" && f.values.includes("stale")) ||
-      (f.field === "has" && f.values.includes("stale-env")),
+      f.field === "health" ||
+      (f.field === "is" && f.values.some((v) => STALE_FILTER_TOKENS.has(v))),
   );
   const hasRampFilter = syntaxFilters.some(
     (f) => f.field === "has" && f.values.includes("ramp-schedule"),
   );
   const hasDependentsFilter = syntaxFilters.some(
     (f) => f.field === "has" && f.values.includes("dependents"),
-  );
-  const hasExperimentStateFilter = syntaxFilters.some(
-    (f) =>
-      f.field === "has" &&
-      f.values.some(
-        (v) =>
-          v === "experiments" ||
-          v === "temp-rollout" ||
-          v.startsWith("experiment:") ||
-          v.startsWith("bandit:"),
-      ),
   );
 
   useEffect(() => {
@@ -264,7 +260,7 @@ export default function FeaturesPage() {
   }, [hasDraftFilter]);
 
   useEffect(() => {
-    if (hasStaleFilter) staleHook.fetchAll();
+    if (hasStaleFilter) healthHook.fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStaleFilter]);
 
@@ -278,28 +274,21 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDependentsFilter]);
 
-  useEffect(() => {
-    if (hasExperimentStateFilter) experimentHook.fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasExperimentStateFilter]);
-
   // fetchSome for visible features when no bulk filter is active
   useEffect(() => {
     const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
     if (!ids.length) return;
     if (!hasEnvFilter) statusHook.fetchSome(ids);
-    if (!hasDraftFilter) draftHook.fetchSome(ids);
-    if (!hasStaleFilter) staleHook.fetchSome(ids);
+    if (!hasStaleFilter) healthHook.fetchSome(ids);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
 
   const searchLoading = !!(
     statusHook.loading ||
     draftHook.loading ||
-    staleHook.loading ||
+    healthHook.loading ||
     rampHook.loading ||
     dependencyHook.loading ||
-    experimentHook.loading ||
     contentSearch.loading
   );
 
@@ -312,6 +301,7 @@ export default function FeaturesPage() {
               <Flex align="center" gap="1" width="40%">
                 <Box flexGrow="1" style={{ position: "relative" }}>
                   <Field
+                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     containerClassName="mb-0"
@@ -358,9 +348,6 @@ export default function FeaturesPage() {
                   </TableColumnHeader>
                 ))}
                 <TableColumnHeader>Data Type</TableColumnHeader>
-                <TableColumnHeader style={{ textAlign: "center" }}>
-                  Draft Status
-                </TableColumnHeader>
                 <SortableTableColumnHeader field="dateUpdated">
                   Last Modified
                 </SortableTableColumnHeader>
@@ -374,12 +361,12 @@ export default function FeaturesPage() {
                   </TableColumnHeader>
                 )}
                 <TableColumnHeader>Status</TableColumnHeader>
+                <TableColumnHeader>Stale</TableColumnHeader>
+                <TableColumnHeader>Health</TableColumnHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
               {featureItems.map((feature) => {
-                const draftEntry = draftHook.draftStates[feature.id];
-
                 return (
                   <TableRow
                     key={feature.id}
@@ -497,48 +484,18 @@ export default function FeaturesPage() {
                     <TableCell
                       style={{
                         minWidth: FEATURE_TABLE_COLUMN_WIDTH.DATA_TYPE_MIN,
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      {valueTypeLabel(feature.valueType)}
-                    </TableCell>
-                    <TableCell>
-                      {draftEntry
-                        ? (() => {
-                            const dots = draftStatusDots(draftEntry);
-                            if (!dots.length) return null;
-                            return (
-                              <Tooltip
-                                flipTheme={false}
-                                body={draftStatusTooltip(draftEntry)}
-                              >
-                                <Flex
-                                  align="center"
-                                  justify="center"
-                                  gap="1"
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    padding: "0 4px",
-                                  }}
-                                >
-                                  {dots.map((bg) => (
-                                    <span
-                                      key={bg}
-                                      style={{
-                                        display: "block",
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: "50%",
-                                        flexShrink: 0,
-                                        background: bg,
-                                      }}
-                                    />
-                                  ))}
-                                </Flex>
-                              </Tooltip>
-                            );
-                          })()
-                        : null}
+                      <FeatureValueTypeDisplay
+                        valueType={feature.valueType}
+                        configBackingKey={
+                          (feature as unknown as FeatureMetaInfo)
+                            .configBackingKey
+                        }
+                        link={false}
+                        maxWidth={120}
+                      />
                     </TableCell>
                     <TableCell title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
@@ -558,16 +515,32 @@ export default function FeaturesPage() {
                       </TableCell>
                     )}
                     <TableCell style={{ textAlign: "left" }}>
-                      <FeatureStatusBadge
-                        feature={feature}
+                      <FeatureLifecycleStatus
+                        archived={feature.archived}
                         envStatus={statusHook.environmentStatus[feature.id]}
-                        context="list"
-                        staleData={staleHook.getStaleState(feature.id)}
-                        fetchStaleData={async () => {
-                          staleHook.invalidate([feature.id]);
-                          await staleHook.fetchSome([feature.id]);
-                        }}
                       />
+                    </TableCell>
+                    <TableCell style={{ textAlign: "left" }}>
+                      {!feature.archived && (
+                        <StaleFeatureIcon
+                          context="list"
+                          neverStale={feature.neverStale}
+                          valueType={feature.valueType}
+                          staleData={healthHook.getHealthState(feature.id)}
+                          fetchStaleData={async () => {
+                            healthHook.invalidate([feature.id]);
+                            await healthHook.fetchSome([feature.id]);
+                          }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell style={{ textAlign: "left" }}>
+                      {!feature.archived && (
+                        <FeatureHealthCell
+                          staleData={healthHook.getHealthState(feature.id)}
+                          healthFilter={healthFilterValues}
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -576,7 +549,7 @@ export default function FeaturesPage() {
                 <TableRow>
                   <TableCell
                     colSpan={
-                      7 +
+                      8 +
                       (showProjectColumn ? 1 : 0) +
                       toggleEnvs.length +
                       (showGraphs ? 1 : 0)
@@ -608,28 +581,17 @@ export default function FeaturesPage() {
     projects,
   );
 
-  const canCreateFeatures = useMemo(() => {
-    // If a specific project is selected, check permissions for that project
-    if (project) {
-      return permissionsUtil.canManageFeatureDrafts({ project });
-    }
-    // "All Projects" selected. Check the global (no-project) permission first so
-    // a user who can create features at the org level (e.g. an admin) isn't
-    // blocked by a non-creatable project. Otherwise the read-only sample-data
-    // project would disable the button whenever it's the only project.
-    if (
-      permissionsUtil.canCreateFeature({ project: "" }) &&
-      permissionsUtil.canManageFeatureDrafts({ project: "" })
-    ) {
-      return true;
-    }
-    // Otherwise, allow if they can create in at least one specific project.
-    return (projects ?? []).some(
-      (p) =>
-        permissionsUtil.canCreateFeature({ project: p.id }) &&
-        permissionsUtil.canManageFeatureDrafts({ project: p.id }),
-    );
-  }, [project, projects, permissionsUtil]);
+  // Create authority alone, matching the endpoint: a create-only role can create a
+  // flag even though it can't draft changes to one afterwards.
+  const canCreateFeatures = canCreateInSelectedScope({
+    project,
+    projectIds: (projects ?? []).map((p) => p.id),
+    canCreateIn: (p) =>
+      permissionsUtil.canCreateFeature(
+        { project: p ?? "" },
+        NO_ENVIRONMENT_BINDING,
+      ),
+  });
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
@@ -692,7 +654,7 @@ export default function FeaturesPage() {
       )}
       <Flex align="center" justify="between" gap="3" mt="4" mb="2">
         <Box style={{ flex: 1 }}>
-          <h1>Features</h1>
+          <h1>Feature Flags</h1>
         </Box>
         {!showSetUpFlow && (
           <Box>
@@ -734,7 +696,13 @@ export default function FeaturesPage() {
             }
             rightButton={
               showSetUpFlow ? (
-                <LinkButton href="/setup?exitLocation=features">
+                <LinkButton
+                  href={
+                    agentOnboarding
+                      ? "/connect?exitLocation=features"
+                      : "/setup?exitLocation=features"
+                  }
+                >
                   Connect your SDK
                 </LinkButton>
               ) : (

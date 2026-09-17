@@ -6,7 +6,12 @@ import {
   ownerInputField,
   optionalOwnerInputField,
 } from "./owner-field";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+  ignoreWarningsBodyField,
+  publishBypassedGatesField,
+} from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -65,6 +70,20 @@ export const putSavedGroupBodyValidator = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.string().array().optional(),
   archived: z.boolean().optional(),
+  // The fields as the editor loaded them; a save is rejected when one of them
+  // has since changed. Condition and value lists can't be merged granularly,
+  // so this only flags them for the user to decide.
+  baseline: z
+    .object({
+      groupName: z.string(),
+      owner: ownerInputField,
+      values: z.string().array(),
+      condition: z.string(),
+      description: z.string(),
+      projects: z.string().array(),
+    })
+    .partial()
+    .optional(),
 });
 
 // --- External API validators (correspond to YAML specs) ---
@@ -142,7 +161,7 @@ const postSavedGroupBody = z
     bypassApproval: z
       .boolean()
       .describe(
-        "Set to true to skip the approval flow when the org requires approvals on saved groups. Requires the `bypassApprovalChecks` permission on every project the saved group belongs to. When the org does not require approvals, this flag has no effect.",
+        "Set to true to create the live Saved Group without approval. The caller must have Bypass draft approvals access in every assigned Project. This field has no effect when approval is not required.",
       )
       .optional(),
   })
@@ -169,7 +188,7 @@ const updateSavedGroupBody = z
     bypassApproval: z
       .boolean()
       .describe(
-        "Set to true to skip the approval flow when the org requires approvals on saved groups. Requires the `bypassApprovalChecks` permission on the saved group's existing projects. When the org does not require approvals, this flag has no effect.",
+        "Set to true to update the live Saved Group without approval. The caller must have Bypass draft approvals access in every current and destination Project. This field has no effect when approval is not required.",
       )
       .optional(),
   })
@@ -250,9 +269,14 @@ export const updateSavedGroupValidator = {
   responseSchema: z
     .object({
       savedGroup: apiSavedGroupValidator,
+      // An update lands a live revision, so it can also step over an approval
+      // requirement — reported like every other publish surface.
+      bypassedGates: publishBypassedGatesField,
     })
     .strict(),
   summary: "Partially update a single saved group",
+  description:
+    "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",
   operationId: "updateSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -264,15 +288,18 @@ export const updateSavedGroupValidator = {
 };
 
 export const archiveSavedGroupValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ignoreWarnings: ignoreWarningsBodyField }).strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
     .object({
       savedGroup: apiSavedGroupValidator,
+      bypassedGates: publishBypassedGatesField,
     })
     .strict(),
   summary: "Archive a single saved group",
+  description:
+    'Archives a Saved Group. If it is still referenced by a Feature Flag, experiment, or another Saved Group, the API returns 422 with the affected references. Send `"ignoreWarnings": true` to acknowledge those references and continue. When approval is required, create and publish an archive revision instead, or use a caller with Bypass draft approvals access. A successful response lists any skipped gates in `bypassedGates`.',
   operationId: "archiveSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -287,9 +314,12 @@ export const unarchiveSavedGroupValidator = {
   responseSchema: z
     .object({
       savedGroup: apiSavedGroupValidator,
+      bypassedGates: publishBypassedGatesField,
     })
     .strict(),
   summary: "Unarchive a single saved group",
+  description:
+    "Unarchives a Saved Group. When approval is required, create and publish an unarchive revision instead, or use a caller with Bypass draft approvals access. A successful response lists any skipped gates in `bypassedGates`.",
   operationId: "unarchiveSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,

@@ -2,6 +2,7 @@ import { deleteSavedGroupValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { assertSavedGroupDeletable } from "back-end/src/services/savedGroups";
 
 export const deleteSavedGroup = createApiRequestHandler(
   deleteSavedGroupValidator,
@@ -28,6 +29,11 @@ export const deleteSavedGroup = createApiRequestHandler(
         "or enable 'REST API always bypasses approval requirements' in organization settings.",
     );
   }
+
+  // Reference integrity: a dangling group id silently flips live targeting, so
+  // block regardless of archived state or REST bypass (that setting covers
+  // approval, not integrity).
+  await assertSavedGroupDeletable(req.context, req.params.id);
 
   await req.context.models.savedGroups.deleteById(req.params.id);
 

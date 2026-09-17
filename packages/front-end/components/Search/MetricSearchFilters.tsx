@@ -66,6 +66,7 @@ const MetricSearchFilters: FC<
     "duration",
     "revenue",
     "count",
+    "funnel",
   ];
 
   return (

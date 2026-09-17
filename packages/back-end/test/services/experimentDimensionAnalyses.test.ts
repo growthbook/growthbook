@@ -16,7 +16,7 @@ jest.mock("shared/experiments", () => ({
   ),
   getAllExpandedMetricIdsFromExperiment: jest.fn(() => ["met_1"]),
   isFactMetricId: jest.fn(() => false),
-  expandAllSliceMetricsInMap: jest.fn(),
+  expandDerivedMetricsInMap: jest.fn(),
   getLatestPhaseVariations: jest.fn(() => [
     { id: "0", name: "Control" },
     { id: "1", name: "Variation" },

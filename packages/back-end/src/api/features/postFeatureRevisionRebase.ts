@@ -2,12 +2,12 @@ import type { AuditInterfaceInput } from "shared/types/audit";
 import type { OrganizationInterface } from "shared/types/organization";
 import {
   autoMerge,
+  featureMetadataEnvelope,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
   MergeStrategy,
   pruneOrphanedRampActions,
-  resetReviewOnChange,
 } from "shared/util";
 import type { FeatureRule } from "shared/types/feature";
 import {
@@ -34,6 +34,7 @@ import {
   MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import { canRebaseFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 import { maybeAutoPublishFeatureRevision } from "./autoPublishOnApproval";
 import { isDraftStatus } from "./validations";
 
@@ -54,16 +55,6 @@ export async function computeRebaseMerge(
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
-
-  // The preview requires the same permission as the rebase itself: it is a
-  // planning step for that write, and accepting arbitrary resolutions makes
-  // it more than a passive read.
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    context.permissions.throwPermissionError();
-  }
 
   const revision = await getRevision({
     context,
@@ -130,6 +121,22 @@ export async function computeRebaseMerge(
     (body.conflictResolutions ?? {}) as Record<string, MergeStrategy>,
   );
 
+  // Checked here rather than up front because revert authority depends on what
+  // the merge pulled in. Nothing above this writes, so a refusal still leaves
+  // no trace. The preview requires the same permission as the rebase itself: it
+  // is a planning step for that write, and accepting arbitrary resolutions makes
+  // it more than a passive read.
+  if (
+    !(await canRebaseFeatureDraft({
+      context,
+      feature,
+      draft: revision,
+      mergeChanges: mergeResult.success ? mergeResult.result : undefined,
+    }))
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   return { feature, revision, live, environmentIds, mergeResult };
 }
 
@@ -160,16 +167,8 @@ export async function rebaseFeatureRevision(
       false;
   });
 
-  const featureMetadataSnapshot: RevisionMetadata = {
-    description: feature.description,
-    owner: feature.owner,
-    project: feature.project,
-    tags: feature.tags,
-    neverStale: feature.neverStale,
-    customFields: feature.customFields,
-    jsonSchema: feature.jsonSchema,
-    valueType: feature.valueType,
-  };
+  const featureMetadataSnapshot: RevisionMetadata =
+    featureMetadataEnvelope(feature);
   const newMetadata: RevisionMetadata = mergeResult.result.metadata
     ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
     : featureMetadataSnapshot;
@@ -179,26 +178,6 @@ export async function rebaseFeatureRevision(
   // intent forward; the prune is recorded in the rebase log entry below.
   const { kept: keptRampActions, pruned: prunedRampActions } =
     pruneOrphanedRampActions(revision.rampActions, newRules);
-
-  // A rebase that actually pulls in upstream changes must re-trigger review
-  // per org policy — the prior approval was for pre-rebase content.
-  // The merged result carries rules as a whole array, so when the rebase
-  // produced a new one we treat every env the feature is in as potentially
-  // changed for review-reset purposes. (Per-env keys only reflected which
-  // envs had explicit overrides, not which rules actually changed.)
-  const rulesChanged = mergeResult.result.rules !== undefined;
-  const changedEnvsFromRebase = Array.from(
-    new Set([
-      ...(rulesChanged ? environmentIds : []),
-      ...Object.keys(mergeResult.result.environmentsEnabled ?? {}),
-    ]),
-  );
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: changedEnvsFromRebase,
-    defaultValueChanged: mergeResult.result.defaultValue !== undefined,
-    settings: organization.settings,
-  });
 
   await updateRevision(
     context,
@@ -229,9 +208,8 @@ export async function rebaseFeatureRevision(
           : mergeResult.result,
       ),
     },
-    resetReview,
     // Rebase is permitted while a "lock edits" schedule is active.
-    { bypassScheduleLock: true },
+    { bypassScheduleLock: true, rebase: { live, merged: mergeResult.result } },
   );
 
   const updated = await getRevision({

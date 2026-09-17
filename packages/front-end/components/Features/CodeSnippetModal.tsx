@@ -9,6 +9,7 @@ import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PiPackage } from "react-icons/pi";
 import Link from "@/ui/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useAttributeSchema } from "@/services/features";
@@ -105,6 +106,7 @@ export default function CodeSnippetModal({
 
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
+  const { ready: definitionsReady, eventIngestorRegion } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
   const canUpdate = currentConnection
@@ -146,7 +148,7 @@ export default function CodeSnippetModal({
     setEventTracker(currentConnection?.eventTracker || "");
   }, [currentConnection]);
 
-  if (!currentConnection) {
+  if (!currentConnection || !definitionsReady) {
     return null;
   }
 
@@ -197,7 +199,6 @@ export default function CodeSnippetModal({
         />
       )}
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         secondaryCTA={secondaryCTA}
@@ -228,6 +229,7 @@ export default function CodeSnippetModal({
             {connections?.length > 1 && allowChangingConnection && (
               <div className="col-auto">
                 <SelectField
+                  size="legacy"
                   label="SDK Connection"
                   labelClassName="font-weight-bold small text-dark"
                   options={connections.map((connection) => ({
@@ -411,6 +413,7 @@ export default function CodeSnippetModal({
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
+                    eventIngestorRegion={eventIngestorRegion}
                   />
                   {languageMapping[language]?.packageUrl && (
                     <div className="mt-3">
@@ -458,6 +461,7 @@ export default function CodeSnippetModal({
                     remoteEvalEnabled={remoteEvalEnabled}
                     eventTracker={eventTracker}
                     setEventTracker={updateEventTracker}
+                    eventIngestorRegion={eventIngestorRegion}
                   />
                 </div>
               )}

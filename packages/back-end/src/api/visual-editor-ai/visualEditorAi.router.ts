@@ -7,6 +7,8 @@ import { postAIImageGen } from "./postAIImageGen";
 import { postPromoteImage } from "./postPromoteImage";
 import { postUploadSignedUrl } from "./postUploadSignedUrl";
 import { postAddVariant } from "./postAddVariant";
+import { postDeleteVariant } from "./postDeleteVariant";
+import { postRenameVariant } from "./postRenameVariant";
 import { postCreateExperiment } from "./postCreateExperiment";
 import { postCreateChangeset } from "./postCreateChangeset";
 import { postRenameExperiment } from "./postRenameExperiment";
@@ -24,6 +26,8 @@ export const visualEditorAiRoutes: OpenApiRoute[] = [
   postPromoteImage,
   postUploadSignedUrl,
   postAddVariant,
+  postDeleteVariant,
+  postRenameVariant,
   postCreateExperiment,
   postCreateChangeset,
   postRenameExperiment,

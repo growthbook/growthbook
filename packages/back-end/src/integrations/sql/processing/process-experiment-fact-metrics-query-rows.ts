@@ -8,6 +8,7 @@ import {
 } from "back-end/src/services/experimentQueries/constants";
 
 import { getQuantileBoundsFromQueryResponse } from "back-end/src/integrations/sql/columns/quantile-bounds-from-query-response";
+import { parseFunnelStepSumColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 
 export function processExperimentFactMetricsQueryRows(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,6 +26,17 @@ export function processExperimentFactMetricsQueryRows(
       ALL_NON_QUANTILE_METRIC_FLOAT_COLS.forEach((col) => {
         if (row[prefix + col] !== undefined) {
           metricData[prefix + col] = parseFloat(row[prefix + col]) || 0;
+        }
+      });
+
+      // A funnel metric emits one sum per step instead of the fixed column
+      // set, so its columns can't come from a static list.
+      Object.keys(row).forEach((key) => {
+        const parsed = parseFunnelStepSumColumn(key);
+        // TODO(funnel): clean-up with alias helper to solidify
+        // the column alias throughout the code
+        if (parsed?.alias === `m${i}`) {
+          metricData[key] = parseFloat(row[key]) || 0;
         }
       });
 

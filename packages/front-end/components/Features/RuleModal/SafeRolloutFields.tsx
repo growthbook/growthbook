@@ -12,7 +12,11 @@ import { useState } from "react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
-import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
+import {
+  NewExperimentRefRule,
+  useAttributeSchema,
+  resolveAttributeFilter,
+} from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -23,16 +27,21 @@ import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 import Callout from "@/ui/Callout";
 
 export default function SafeRolloutFields({
   feature,
+  attributeProjects,
+  attributeSelectIndicator,
   environment,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
@@ -44,9 +53,12 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
   envScope,
+  projectScope,
   onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
+  attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -58,12 +70,16 @@ export default function SafeRolloutFields({
   mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
   envScope: EnvScopeProps;
+  projectScope: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
   const [advancedOptionsSeedOpen, setAdvancedOptionsSeedOpen] = useState(false);
-  const attributeSchema = useAttributeSchema(false, feature.project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, feature.project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
@@ -100,6 +116,7 @@ export default function SafeRolloutFields({
       <>
         <TargetingFieldsGroup
           project={feature.project || ""}
+          attributeProjects={attributeProjects}
           environments={[environment]}
           feature={feature}
           savedGroups={form.watch("savedGroups") || []}
@@ -158,33 +175,19 @@ export default function SafeRolloutFields({
     return (
       <>
         <SelectField
+          size="legacy"
           withRadixThemedPortal
           disabled={disableFields}
           label="Sample based on attribute"
+          extraIndicator={attributeSelectIndicator}
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
-            .map((s) => ({
-              label: s.property,
-              value: s.property,
-              description: s.description,
-              tags: s.tags,
-              datatype: s.datatype,
-              hashAttribute: s.hashAttribute,
-            }))}
+            .map(toAttributeOption)}
           value={form.watch("hashAttribute")}
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
-          formatOptionLabel={(o, meta) => {
-            return (
-              <AttributeOptionWithTooltip
-                option={o as AttributeOptionForTooltip}
-                context={meta.context}
-              >
-                {o.label}
-              </AttributeOptionWithTooltip>
-            );
-          }}
+          formatOptionLabel={formatAttributeOptionLabel}
           className="mb-2"
           required
         />
@@ -219,6 +222,7 @@ export default function SafeRolloutFields({
         <div className="bg-highlight rounded p-3 mb-4">
           <div className="mb-3 pb-1">
             <SelectField
+              size="legacy"
               label="Data source"
               className="portal-overflow-ellipsis"
               options={datasources.map((d) => {
@@ -250,6 +254,7 @@ export default function SafeRolloutFields({
           </div>
           <div className="pb-1">
             <SelectField
+              size="legacy"
               label="Experiment assignment table"
               className="portal-overflow-ellipsis"
               options={exposureQueries.map((q) => ({
@@ -457,6 +462,7 @@ export default function SafeRolloutFields({
         placeholder="Short human-readable description of the safe rollout"
       />
       <RuleEnvironmentScopeField {...envScope} mt="2" mb="7" />
+      <RuleProjectScopeField {...projectScope} mb="7" />
       {renderVariationFieldSelector()}
       {renderDataAndMetrics()}
       <ScheduleInputs

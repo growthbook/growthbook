@@ -68,7 +68,7 @@ export default function DashboardSnapshotProvider({
 }: {
   experiment?: ExperimentInterfaceStringDates;
   dashboard?: DashboardInterface;
-  mutateDefinitions: () => void;
+  mutateDefinitions: () => Promise<unknown> | void;
   children: ReactNode;
 }) {
   const { apiCall } = useAuth();
@@ -232,10 +232,12 @@ export default function DashboardSnapshotProvider({
     } catch (e) {
       setRefreshError(e.message);
     } finally {
-      mutateDefinitions();
-      mutateDefaultSnapshot();
-      mutateAllSnapshots();
-      mutateSavedQueries();
+      await mutateDefinitions();
+      await Promise.all([
+        mutateDefaultSnapshot(),
+        mutateAllSnapshots(),
+        mutateSavedQueries(),
+      ]);
     }
   };
 
@@ -346,7 +348,7 @@ export function useDashboardSnapshot(
       const res = await apiCall<{ snapshot?: ExperimentSnapshotInterface }>(
         `/experiment/${experiment.id}/snapshot/${
           experiment.phases.length - 1
-        }/${dimension}`,
+        }${dimension ? "/" + encodeURIComponent(dimension) : ""}`,
       );
       if (!res.snapshot) {
         setFetchingSnapshotFailed(true);

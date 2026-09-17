@@ -39,6 +39,7 @@ export const apiSdkConnectionValidator = namedSchema(
       includeCustomFieldsInMetadata: z.boolean().optional(),
       allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
       includeTagsInMetadata: z.boolean().optional(),
+      includeExperimentScheduleInMetadata: z.boolean().optional(),
       key: z.string(),
       proxyEnabled: z.boolean(),
       proxyHost: z.string(),
@@ -47,6 +48,7 @@ export const apiSdkConnectionValidator = namedSchema(
       hashSecureAttributes: z.boolean().optional(),
       remoteEvalEnabled: z.boolean().optional(),
       savedGroupReferencesEnabled: z.boolean().optional(),
+      includeReferencedPrerequisites: z.boolean().optional(),
     })
     .strict(),
 );
@@ -77,11 +79,18 @@ const postSdkConnectionBody = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     hashSecureAttributes: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    includeReferencedPrerequisites: z
+      .boolean()
+      .optional()
+      .describe(
+        "Carry prerequisite Feature Flags into this payload even when they target other Projects. Defaults to true for new connections.",
+      ),
   })
   .strict();
 

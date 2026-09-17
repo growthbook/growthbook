@@ -3,10 +3,12 @@ import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
-  isEventForwarderManagedExposureQuery,
-  isEventForwarderManagedFeatureUsageQuery,
+  DataRegion,
+  findEventForwarderManagedViolation,
+  isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
+  findNewDuplicateUserIdTypeName,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -14,6 +16,7 @@ import {
   DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
+  GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { ApiDataSource } from "shared/validators";
@@ -30,7 +33,7 @@ import {
   getConfigDatasources,
 } from "back-end/src/init/config";
 import { upgradeDatasourceObject } from "back-end/src/util/migrations";
-import { getCollection } from "back-end/src/util/mongo.util";
+import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
@@ -41,6 +44,10 @@ import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
+import {
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "./DefinitionsVersionModel";
 
 const dataSourceAuditConfig = {
   entity: "datasource",
@@ -125,6 +132,32 @@ export async function getDataSourcesByOrganization(
   );
 }
 
+// Unfiltered by project permissions - the org's event ingestor region isn't
+// sensitive on its own, and gating it on datasource read permissions means
+// users without access to the Managed Warehouse/Event Forwarder datasource
+// would get an incorrect region for the SDK setup snippets.
+export async function getEventIngestorRegionForOrganization(
+  context: ReqContext | ApiReqContext,
+): Promise<DataRegion | undefined> {
+  const datasources = usingFileConfig()
+    ? getConfigDatasources(context.org.id)
+    : (await DataSourceModel.find({ organization: context.org.id })).map(
+        toInterface,
+      );
+
+  const managedWarehouse = datasources.find(
+    (d): d is GrowthbookClickhouseDataSource =>
+      d.type === "growthbook_clickhouse",
+  );
+  if (managedWarehouse) {
+    return managedWarehouse.settings?.region;
+  }
+
+  const forwarderConfigs =
+    await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
+  return forwarderConfigs.find((c) => c.region)?.region;
+}
+
 // WARNING: This does not restrict by organization
 export async function _dangerourslyGetAllDatasourcesByOrganizations(
   organizations: string[],
@@ -162,46 +195,6 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
     organization: context.org.id,
   });
   return doc ? toInterface(doc) : null;
-}
-
-/**
- * Read the managed-warehouse recreate coordination fields the license server
- * writes to the shared datasource doc: `lockUntil` (a rebuild is in progress) and
- * `recreateStatus` (its outcome). Both live top-level (outside `settings`, which
- * GrowthBook rewrites), so they aren't on the Mongoose schema — read them raw.
- */
-export async function getManagedWarehouseRecreateState(
-  context: ReqContext | ApiReqContext,
-): Promise<{ locked: boolean; recreateStatus: "success" | "error" | null }> {
-  const doc = await getCollection<{
-    lockUntil?: Date | string | number | null;
-    recreateStatus?: { status?: string } | null;
-  }>("datasources").findOne(
-    { organization: context.org.id, type: "growthbook_clickhouse" },
-    { projection: { lockUntil: 1, recreateStatus: 1 } },
-  );
-  const lockUntil = doc?.lockUntil ? new Date(doc.lockUntil) : null;
-  const locked = lockUntil !== null && lockUntil.getTime() > Date.now();
-  const status = doc?.recreateStatus?.status;
-  return {
-    locked,
-    recreateStatus: status === "success" || status === "error" ? status : null,
-  };
-}
-
-/**
- * Clear the license-server recreate outcome at the start of a migration so a stale
- * `recreateStatus` from an earlier rebuild (e.g. a prior super-admin recreate) can't
- * be misread as the current migration's result. Raw `$unset` since `recreateStatus`
- * is a top-level field the license server owns, not on the Mongoose schema.
- */
-export async function clearManagedWarehouseRecreateStatus(
-  context: ReqContext | ApiReqContext,
-): Promise<void> {
-  await getCollection<{ recreateStatus?: unknown }>("datasources").updateOne(
-    { organization: context.org.id, type: "growthbook_clickhouse" },
-    { $unset: { recreateStatus: "" } },
-  );
 }
 
 export async function getDataSourceById(
@@ -257,8 +250,9 @@ export async function removeProjectFromDatasources(
 ) {
   await DataSourceModel.updateMany(
     { organization, projects: project },
-    { $pull: { projects: project } },
+    { $pull: { projects: project }, $set: { dateUpdated: new Date() } },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function deleteDatasource(
@@ -302,13 +296,31 @@ export async function deleteDatasource(
     organization: context.org.id,
   });
 
+  // Eviction is synchronous; socket teardown can take up to the driver's
+  // connect timeout, so don't make the request wait on it
+  void closeMssqlPool(datasource.id);
+
   await audit.logDelete(context, datasource);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(datasource.projects),
+  );
 }
 
 /**
  * Deletes data sources where the provided project is the only project of that data source.
  * Runs event-forwarder teardown per datasource before removal so Confluent resources are not orphaned.
  */
+export async function projectHasDataSources(
+  organizationId: string,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await DataSourceModel.exists({
+    organization: organizationId,
+    projects: [projectId],
+  }));
+}
+
 export async function deleteAllDataSourcesForAProject({
   context,
   projectId,
@@ -336,6 +348,64 @@ export async function deleteAllDataSourcesForAProject({
     organization: organizationId,
     projects: [projectId],
   });
+
+  for (const doc of docs) {
+    void closeMssqlPool(doc.id);
+  }
+  // Only datasources whose sole project is projectId are deleted here, so only
+  // that project's readers are affected.
+  await touchDefinitionsVersion(organizationId, definitionsScope([projectId]));
+}
+
+// Identifier type names become warehouse column aliases, so two names differing
+// only in case would collide as one column.
+function assertUniqueUserIdTypeNames(
+  settings: DataSourceSettings | undefined,
+  existing?: DataSourceSettings,
+): void {
+  if (!settings?.userIdTypes?.length) {
+    return;
+  }
+  const duplicate = findNewDuplicateUserIdTypeName(
+    existing?.userIdTypes ?? [],
+    settings.userIdTypes,
+  );
+  if (duplicate) {
+    throw new Error(
+      `The identifier type ${duplicate} already exists (names are case-insensitive)`,
+    );
+  }
+}
+
+// Managed records have no Edit or Delete in the UI; this is what holds the line
+// for direct API calls and stale browser tabs.
+function assertEventForwarderManagedRecordsIntact(
+  updated: DataSourceSettings | undefined,
+  existing: DataSourceSettings | undefined,
+): void {
+  const violation =
+    findEventForwarderManagedViolation({
+      before: existing?.userIdTypes,
+      after: updated?.userIdTypes,
+      identify: (record) => record.userIdType,
+      label: "identifier type",
+    }) ??
+    findEventForwarderManagedViolation({
+      before: existing?.queries?.exposure,
+      after: updated?.queries?.exposure,
+      identify: (record) => record.id,
+      label: "experiment assignment query",
+    }) ??
+    findEventForwarderManagedViolation({
+      before: existing?.queries?.featureUsage,
+      after: updated?.queries?.featureUsage,
+      identify: (record) => record.id,
+      label: "feature usage query",
+    });
+
+  if (violation) {
+    throw new Error(violation);
+  }
 }
 
 export async function createDataSource(
@@ -391,6 +461,7 @@ export async function createDataSource(
     "all",
   );
 
+  assertUniqueUserIdTypeNames(settings);
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
   const model = (await DataSourceModel.create(
@@ -409,6 +480,10 @@ export async function createDataSource(
 
   const datasourceInterface = toInterface(model);
   await audit.logCreate(context, datasourceInterface);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(datasourceInterface.projects),
+  );
   return datasourceInterface;
 }
 
@@ -447,7 +522,7 @@ export async function validateExposureQueriesAndAddMissingIds(
 
         if (
           skipEventForwarderManagedValidation &&
-          isEventForwarderManagedExposureQuery(exposure) &&
+          isEventForwarderManaged(exposure) &&
           validation !== "all"
         ) {
           exposure.error = undefined;
@@ -494,7 +569,7 @@ export async function validateExposureQueriesAndAddMissingIds(
 
         if (
           skipEventForwarderManagedValidation &&
-          isEventForwarderManagedFeatureUsageQuery(featureUsage) &&
+          isEventForwarderManaged(featureUsage) &&
           validation !== "all"
         ) {
           featureUsage.error = undefined;
@@ -600,11 +675,22 @@ export async function updateDataSource(
           : "changed",
       skipEventForwarderManagedValidation,
     );
+    assertUniqueUserIdTypeNames(updates.settings, datasource.settings);
+    if (!skipEventForwarderManagedValidation) {
+      assertEventForwarderManagedRecordsIntact(
+        updates.settings,
+        datasource.settings,
+      );
+    }
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
   if (!hasActualChanges(datasource, updates)) {
     return;
   }
+
+  // Several service callers mutate `settings` without stamping dateUpdated;
+  // stamp it here at the model choke point so every real change is recorded.
+  updates = { ...updates, dateUpdated: new Date() };
 
   await DataSourceModel.updateOne(
     {
@@ -617,6 +703,13 @@ export async function updateDataSource(
   );
 
   await audit.logUpdate(context, datasource, { ...datasource, ...updates });
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(
+      datasource.projects,
+      updates.projects ?? datasource.projects,
+    ),
+  );
 }
 
 // WARNING: This does not restrict by organization

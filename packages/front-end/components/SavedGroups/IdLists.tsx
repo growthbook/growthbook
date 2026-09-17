@@ -20,7 +20,6 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Table, {
   TableHeader,
@@ -29,10 +28,6 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import {
-  draftStatusDots,
-  draftStatusTooltip,
-} from "@/components/Reviews/RevisionStatusBadge";
 import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
 import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
 import SavedGroupForm from "./SavedGroupForm";
@@ -40,7 +35,7 @@ import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 
 export interface Props {
   groups: SavedGroupWithoutValues[];
-  mutate: () => void;
+  mutate: () => void | Promise<void>;
 }
 
 export default function IdLists({ groups, mutate }: Props) {
@@ -48,9 +43,6 @@ export default function IdLists({ groups, mutate }: Props) {
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
-  const settings = useOrgSettings();
-  const approvalFlowRequired =
-    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
   const { project, projects, getProjectById } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
@@ -94,7 +86,6 @@ export default function IdLists({ groups, mutate }: Props) {
   );
 
   const hasArchived = idLists.some((g) => g.archived);
-  const hasDraftStates = Object.keys(draftHook.draftStates).length > 0;
 
   const {
     items,
@@ -153,14 +144,9 @@ export default function IdLists({ groups, mutate }: Props) {
   );
 
   useEffect(() => {
-    if (hasDraftFilter) {
-      draftHook.fetchAll();
-    } else {
-      const ids = items.map((s) => s.id);
-      if (ids.length) draftHook.fetchSome(ids);
-    }
+    if (hasDraftFilter) draftHook.fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, hasDraftFilter]);
+  }, [hasDraftFilter]);
 
   if (!idLists) return <LoadingOverlay />;
 
@@ -191,16 +177,21 @@ export default function IdLists({ groups, mutate }: Props) {
             close={() => setSavedGroupForm(null)}
             current={savedGroupForm}
             type="list"
-            approvalFlowRequired={approvalFlowRequired}
+            mutate={mutate}
           />
         )}
         <Flex align="center" justify="between" mb="1">
           <Heading size="6" mb="0">
             ID Lists
           </Heading>
-          {canCreate ? (
-            <Button onClick={() => setSavedGroupForm({})}>Add ID List</Button>
-          ) : null}
+          <Tooltip
+            body="You do not have permission to create Saved Groups."
+            shouldDisplay={!canCreate}
+          >
+            <Button disabled={!canCreate} onClick={() => setSavedGroupForm({})}>
+              Add ID List
+            </Button>
+          </Tooltip>
         </Flex>
         <p className="text-gray mb-1">
           Specify a list of values to include for an attribute.
@@ -226,6 +217,7 @@ export default function IdLists({ groups, mutate }: Props) {
             <Flex align="center" justify="between" gap="3" mb="4">
               <Box style={{ width: "40%" }}>
                 <Field
+                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}
@@ -237,7 +229,6 @@ export default function IdLists({ groups, mutate }: Props) {
                 setSearchValue={setSearchValue}
                 groups={filteredIdLists}
                 hasArchived={hasArchived}
-                hasDraftStates={hasDraftStates}
               />
             </Flex>
             <Table variant="list" stickyHeader roundedCorners>
@@ -251,9 +242,6 @@ export default function IdLists({ groups, mutate }: Props) {
                   </SortableTableColumnHeader>
                   <TableColumnHeader>Description</TableColumnHeader>
                   <TableColumnHeader>Projects</TableColumnHeader>
-                  <TableColumnHeader style={{ textAlign: "center" }}>
-                    Draft Status
-                  </TableColumnHeader>
                   <SortableTableColumnHeader field="dateUpdated">
                     Last Modified
                   </SortableTableColumnHeader>
@@ -261,7 +249,6 @@ export default function IdLists({ groups, mutate }: Props) {
               </TableHeader>
               <TableBody>
                 {items.map((s) => {
-                  const draftEntry = draftHook.draftStates[s.id];
                   return (
                     <TableRow key={s.id}>
                       <TableCell>
@@ -288,46 +275,6 @@ export default function IdLists({ groups, mutate }: Props) {
                           <ProjectBadges resourceType="saved group" />
                         )}
                       </TableCell>
-                      <TableCell>
-                        {draftEntry
-                          ? (() => {
-                              const dots = draftStatusDots(draftEntry);
-                              if (!dots.length) return null;
-                              return (
-                                <Tooltip
-                                  flipTheme={false}
-                                  body={draftStatusTooltip(draftEntry)}
-                                  usePortal
-                                >
-                                  <Flex
-                                    align="center"
-                                    justify="center"
-                                    gap="1"
-                                    style={{
-                                      width: "100%",
-                                      height: "100%",
-                                      padding: "0 4px",
-                                    }}
-                                  >
-                                    {dots.map((bg) => (
-                                      <span
-                                        key={bg}
-                                        style={{
-                                          display: "block",
-                                          width: 8,
-                                          height: 8,
-                                          borderRadius: "50%",
-                                          flexShrink: 0,
-                                          background: bg,
-                                        }}
-                                      />
-                                    ))}
-                                  </Flex>
-                                </Tooltip>
-                              );
-                            })()
-                          : null}
-                      </TableCell>
                       <TableCell title={datetime(s.dateUpdated)}>
                         {date(s.dateUpdated)}
                       </TableCell>
@@ -336,7 +283,7 @@ export default function IdLists({ groups, mutate }: Props) {
                 })}
                 {!items.length && isFiltered && (
                   <TableRow>
-                    <TableCell colSpan={6} style={{ textAlign: "center" }}>
+                    <TableCell colSpan={5} style={{ textAlign: "center" }}>
                       No matching saved groups
                     </TableCell>
                   </TableRow>

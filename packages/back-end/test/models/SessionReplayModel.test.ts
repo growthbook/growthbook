@@ -7,6 +7,7 @@ import {
   SessionReplayRow,
 } from "back-end/src/services/clickhouse";
 import { getSessionReplayEventsByStoragePrefix } from "back-end/src/services/session-replay";
+import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { logger } from "back-end/src/util/logger";
 
 jest.mock("back-end/src/services/clickhouse", () => ({
@@ -27,6 +28,10 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
     .mockResolvedValue([{ key: "ck_test", projects: [] }]),
 }));
 
+jest.mock("back-end/src/models/DataSourceModel", () => ({
+  getGrowthbookDatasource: jest.fn().mockResolvedValue(null),
+}));
+
 jest.mock("back-end/src/util/logger", () => ({
   logger: {
     warn: jest.fn(),
@@ -41,6 +46,7 @@ const mockGetSessionReplayChunksBySessionId = jest.mocked(
   getSessionReplayChunksBySessionId,
 );
 const mockGetEvents = jest.mocked(getSessionReplayEventsByStoragePrefix);
+const mockGetGrowthbookDatasource = jest.mocked(getGrowthbookDatasource);
 const mockLoggerWarn = jest.mocked(logger.warn);
 
 // ---------------------------------------------------------------------------
@@ -496,9 +502,10 @@ describe("SessionReplayModel — getBySessionId()", () => {
 describe("SessionReplayModel — getEventsForS3Key()", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetGrowthbookDatasource.mockResolvedValue(null);
   });
 
-  it("strips the chunk filename and passes the directory prefix to the service", async () => {
+  it("strips the chunk filename and passes the directory prefix and region to the service", async () => {
     const events = [
       { type: 2, timestamp: 1000, data: {} },
       { type: 3, timestamp: 2000, data: {} },
@@ -513,6 +520,7 @@ describe("SessionReplayModel — getEventsForS3Key()", () => {
     expect(result).toEqual(events);
     expect(mockGetEvents).toHaveBeenCalledWith(
       "session-replays/org_1/2026/04/29/sess_abc123/",
+      "us-east-1",
     );
   });
 
@@ -525,5 +533,38 @@ describe("SessionReplayModel — getEventsForS3Key()", () => {
     );
 
     expect(result).toEqual([]);
+  });
+
+  it("uses eu-west-1 when the org's managed warehouse is provisioned there", async () => {
+    mockGetGrowthbookDatasource.mockResolvedValue({
+      type: "growthbook_clickhouse",
+      settings: { region: "eu-west-1" },
+    } as never);
+    mockGetEvents.mockResolvedValue([]);
+
+    const model = new SessionReplayModel(makeContext());
+    await model.getEventsForS3Key(
+      "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
+    );
+
+    expect(mockGetEvents).toHaveBeenCalledWith(
+      "session-replays/org_1/2026/04/29/sess_abc123/",
+      "eu-west-1",
+    );
+  });
+
+  it("defaults to us-east-1 when no managed warehouse datasource exists", async () => {
+    mockGetGrowthbookDatasource.mockResolvedValue(null);
+    mockGetEvents.mockResolvedValue([]);
+
+    const model = new SessionReplayModel(makeContext());
+    await model.getEventsForS3Key(
+      "session-replays/org_1/2026/04/29/sess_abc123/0.json.gz",
+    );
+
+    expect(mockGetEvents).toHaveBeenCalledWith(
+      "session-replays/org_1/2026/04/29/sess_abc123/",
+      "us-east-1",
+    );
   });
 });

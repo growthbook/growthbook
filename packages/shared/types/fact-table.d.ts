@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   createFactFilterPropsValidator,
   createColumnPropsValidator,
+  createVirtualColumnPropsValidator,
   createFactTablePropsValidator,
   numberFormatValidator,
   updateFactFilterPropsValidator,
@@ -10,12 +11,14 @@ import {
   columnRefValidator,
   metricTypeValidator,
   factTableColumnTypeValidator,
+  factTableTypeValidator,
   testFactFilterPropsValidator,
+  testRowFiltersPropsValidator,
+  testVirtualColumnPropsValidator,
   conversionWindowUnitValidator,
   cappingSettingsValidator,
   windowSettingsValidator,
   cappingTypeValidator,
-  factMetricValidator,
   quantileSettingsValidator,
   priorSettingsValidator,
   columnAggregationValidator,
@@ -23,11 +26,24 @@ import {
   jsonColumnFieldsValidator,
   rowFilterValidator,
   aggregatedFactTableSettingsValidator,
+  StandardFactMetric,
+  FunnelFactMetric,
+  conversionWindowValidator,
+  funnelStepValidator,
+  funnelOrderingValidator,
+  funnelSettingsValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
+export type FactTableType = z.infer<typeof factTableTypeValidator>;
+
+// Funnel step / settings types (validators live in validators/fact-table).
+export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
+export type FunnelStep = z.infer<typeof funnelStepValidator>;
+export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
+export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;
 
 export type JSONColumnFields = z.infer<typeof jsonColumnFieldsValidator>;
@@ -39,6 +55,7 @@ export interface ColumnInterface {
   description: string;
   column: string;
   datatype: FactTableColumnType;
+  dataTypeFromWarehouse?: FactTableColumnType;
   numberFormat: NumberFormat;
   alwaysInlineFilter?: boolean;
   topValues?: string[];
@@ -48,6 +65,12 @@ export interface ColumnInterface {
   isAutoSliceColumn?: boolean;
   autoSlices?: string[];
   lockedAutoSlices?: string[];
+  // Virtual (computed) columns are user-defined SQL expressions over other
+  // columns in the fact table, rather than columns detected from the SQL.
+  isVirtual?: boolean;
+  // The raw SQL expression for a virtual column, e.g. "price * quantity".
+  // Inlined into generated SQL by getColumnExpression.
+  sql?: string;
 }
 
 export interface FactFilterInterface {
@@ -73,20 +96,45 @@ export interface FactTableInterface {
   tags: string[];
   datasource: string;
   userIdTypes: string[];
+  userIdColumns?: Record<string, string>; // defaults to the id type names
   sql: string;
+  timestampColumn?: string; // defaults to "timestamp"
   eventName: string;
+  // Set when the table was created through a flow that asked. Absent on older
+  // fact tables, which predate the question.
+  tableType?: FactTableType;
   columns: ColumnInterface[];
   columnsError?: string | null;
   columnRefreshPending?: boolean;
   filters: FactFilterInterface[];
   archived?: boolean;
-  timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
   // Null/undefined means the pipeline is disabled for this fact table.
   aggregatedFactTableSettings?: z.infer<
     typeof aggregatedFactTableSettingsValidator
   > | null;
 }
+
+// A column with the heavy `jsonFields` map excluded. Fetch the full fact table
+// by id (useFullFactTable) when JSON sub-fields are needed (e.g. the
+// metric/filter editors). Direct `.jsonFields` access on this type is a compile
+// error, but the guard is only structural: because `jsonFields` is optional on
+// ColumnInterface, a slim column still assigns to a `ColumnInterface` /
+// `Pick<FactTableInterface, "columns">` param, so passing a definitions fact
+// table into a helper that reads `jsonFields` internally (e.g.
+// getColumnExpression) is NOT caught by the compiler — always source such
+// helpers from the full fact table.
+export type FactTableColumnDefinition = Omit<ColumnInterface, "jsonFields">;
+
+// Slimmed fact table returned by the definitions endpoint. The `sql` field is
+// excluded and each column omits `jsonFields`; fetch the full fact table by id
+// when either is needed.
+export type FactTableDefinition = Omit<
+  FactTableInterface,
+  "sql" | "columns"
+> & {
+  columns: FactTableColumnDefinition[];
+};
 
 export type AggregatedFactTableSettings = z.infer<
   typeof aggregatedFactTableSettingsValidator
@@ -112,7 +160,12 @@ export type LegacyMetricWindowSettings = z.infer<
 >;
 export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
-export type FactMetricInterface = z.infer<typeof factMetricValidator>;
+export type StandardFactMetricInterface = StandardFactMetric;
+export type FunnelFactMetricInterface = FunnelFactMetric;
+
+export type FactMetricInterface =
+  | StandardFactMetricInterface
+  | FunnelFactMetricInterface;
 
 export type LegacyColumnRef = ColumnRef & {
   filters?: string[];
@@ -151,18 +204,47 @@ export type UpdateFactFilterProps = z.infer<
   typeof updateFactFilterPropsValidator
 >;
 export type TestFactFilterProps = z.infer<typeof testFactFilterPropsValidator>;
+export type TestRowFiltersProps = z.infer<typeof testRowFiltersPropsValidator>;
+export type TestVirtualColumnProps = z.infer<
+  typeof testVirtualColumnPropsValidator
+>;
 
 export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
 export type CreateColumnProps = z.infer<typeof createColumnPropsValidator>;
+export type CreateVirtualColumnProps = z.infer<
+  typeof createVirtualColumnPropsValidator
+>;
 
 export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
 
+/**
+ * Columns detected by running a Fact Table's SQL, before anything is persisted.
+ * Returned by the test-query endpoint so the create flow can show the columns
+ * and their types, and post them back with the new Fact Table.
+ */
+export type DetectedFactTableColumn = {
+  column: string;
+  datatype: FactTableColumnType;
+  jsonFields?: JSONColumnFields;
+};
+
 export type FactTableMap = Map<string, FactTableInterface>;
+
+// Accepts both full fact tables and slimmed definitions. Use for utils that
+// don't read `sql` or per-column `jsonFields`.
+export type FactTableDefinitionMap = Map<string, FactTableDefinition>;
 
 export type FactFilterTestResults = {
   sql: string;
   duration?: number;
   error?: string;
   results?: TestQueryRow[];
+};
+
+export type RowFilterTestResults = FactFilterTestResults & {
+  // The generated WHERE clause body, shown next to the sample rows so the user
+  // can see what their filters compile to. Only the dialect can build it, so it
+  // comes back with the results rather than being derived on the front-end.
+  where: string;
 };

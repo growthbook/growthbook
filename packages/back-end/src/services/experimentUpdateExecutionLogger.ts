@@ -1,12 +1,12 @@
 import { DataSourceInterface } from "shared/types/datasource";
 import {
+  SnapshotQueryRunnerKind,
   SnapshotTriggeredBy,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import type { CovariateInsertPathReason } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
-import { SnapshotQueryRunnerKind } from "./experiments";
 
 type ExperimentUpdateLogMeta = {
   experimentId: string;

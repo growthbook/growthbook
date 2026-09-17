@@ -3,11 +3,11 @@
 // no presets. Under the hood it writes into RampSectionState so the save path is
 // identical to the ramp schedule path.
 
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import DatePicker from "@/components/DatePicker";
+import ScheduleRow from "@/components/Schedule/ScheduleRow";
 import type { RampSectionState } from "@/components/Features/RuleModal/RampScheduleSection";
 
 interface Props {
@@ -120,24 +120,20 @@ export default function ScheduleInputs({
 
   return (
     <Flex direction="column" gap="1">
-      <Heading as="h3" size="small" mb="2">
+      <Heading as="h3" size="sm" mb="2">
         Schedule
       </Heading>
 
       {/* Start row */}
-      <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
-        <Box style={{ width: 70 }}>
-          <Text as="label" weight="medium" mb="0">
-            Start
-          </Text>
-        </Box>
+      <ScheduleRow label="Start">
         <SelectField
+          size="legacy"
           value={state.startDate ? "specific-time" : "immediately"}
           options={START_OPTIONS}
           onChange={handleStartChange}
           disabled={startDisabled}
           containerClassName="mb-0"
-          containerStyle={{ minHeight: 38, width: 150 }}
+          containerStyle={{ width: 150 }}
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />
@@ -151,22 +147,18 @@ export default function ScheduleInputs({
             disabled={startDisabled}
           />
         )}
-      </Flex>
+      </ScheduleRow>
 
       {/* End row */}
-      <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
-        <Box style={{ width: 70 }}>
-          <Text as="label" weight="medium" mb="0">
-            End
-          </Text>
-        </Box>
+      <ScheduleRow label="End">
         <SelectField
+          size="legacy"
           value={endTriggerValue}
           options={END_OPTIONS}
           onChange={handleEndChange}
           disabled={disabled}
           containerClassName="mb-0"
-          containerStyle={{ minHeight: 38, width: 150 }}
+          containerStyle={{ width: 150 }}
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />
@@ -185,7 +177,7 @@ export default function ScheduleInputs({
             disabled={disabled}
           />
         )}
-      </Flex>
+      </ScheduleRow>
     </Flex>
   );
 }

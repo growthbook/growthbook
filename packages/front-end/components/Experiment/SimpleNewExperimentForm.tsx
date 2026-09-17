@@ -3,12 +3,12 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  DataSourceInterfaceWithParams,
-  DataSourceSettings,
-} from "shared/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getManagedWarehouseExposureQueryIdForAttribute,
+  isProjectListValidForProject,
+} from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
@@ -16,8 +16,8 @@ import SelectField from "@/components/Forms/SelectField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
@@ -33,10 +33,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -89,14 +86,15 @@ export function getAutoDatasourceId({
 
 // Auto-select an experiment assignment query only when the choice is unambiguous.
 export function getAutoExposureQueryId({
-  dsSettings,
+  datasource,
   hashAttribute,
   templateExposureQueryId,
 }: {
-  dsSettings?: DataSourceSettings;
+  datasource?: DataSourceInterfaceWithParams;
   hashAttribute: string;
   templateExposureQueryId?: string;
 }): string {
+  const dsSettings = datasource?.settings;
   const exposureQueries = dsSettings?.queries?.exposure || [];
 
   if (templateExposureQueryId) {
@@ -107,6 +105,17 @@ export function getAutoExposureQueryId({
   }
 
   if (exposureQueries.length === 1) return exposureQueries[0].id;
+
+  // Managed warehouses don't populate userIdType.attributes links, so the generic
+  // lookup below can't resolve the assignment query. Map the hash attribute to its
+  // exposure query directly instead.
+  if (datasource?.type === "growthbook_clickhouse") {
+    return getManagedWarehouseExposureQueryIdForAttribute({
+      settings: datasource.settings,
+      attribute: hashAttribute,
+    });
+  }
+
   if (exposureQueries.length > 1) {
     // A hash attribute can be linked to multiple identifier types, each with
     // its own query. Only auto-select when exactly one query is linked across
@@ -146,7 +155,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     mutateTemplates: refreshTemplates,
   } = useTemplates();
   const { experimentsMap, holdoutsMap } = useHoldouts();
-  const { demoDataSourceId } = useDemoDataSourceProject();
+  const { demoDataSourceId, projectId: demoProjectId } =
+    useDemoDataSourceProject();
   const { data: sdkConnectionsData, isLoading: sdkConnectionsLoading } =
     useSDKConnections();
 
@@ -176,6 +186,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   });
 
   const selectedProject = form.watch("project") ?? "";
+  const creatingInDemoProject =
+    !!demoProjectId && selectedProject === demoProjectId;
 
   // Re-scope the live options to the selected project
   const attributeSchema = useAttributeSchema(false, selectedProject);
@@ -186,11 +198,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const defaultHashAttribute =
     hashAttributes.length === 1 ? hashAttributes[0] : "";
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    selectedProject,
-  );
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const availableProjects = projects
     .slice()
@@ -277,7 +291,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   ).some((t) => t.attributes?.includes(watchedHashAttribute));
   const wouldAutoSelectExposureQuery =
     getAutoExposureQueryId({
-      dsSettings: autoDatasource?.settings,
+      datasource: autoDatasource ?? undefined,
       hashAttribute: watchedHashAttribute,
       templateExposureQueryId: watchedTemplate?.exposureQueryId,
     }) !== "";
@@ -349,17 +363,18 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     );
     const hashVersion = hasSDKWithNoBucketingV2 ? 1 : 2;
 
-    const datasource = getAutoDatasourceId({
+    const datasourceId = getAutoDatasourceId({
       datasources,
       demoDataSourceId,
       defaultDataSource: settings.defaultDataSource,
       project,
       templateDatasource: data.datasource || "",
     });
+    const selectedDatasource = datasourceId
+      ? getDatasourceById(datasourceId)
+      : null;
     const exposureQueryId = getAutoExposureQueryId({
-      dsSettings: datasource
-        ? getDatasourceById(datasource)?.settings
-        : undefined,
+      datasource: selectedDatasource ?? undefined,
       hashAttribute: hashAttribute || "",
       templateExposureQueryId: data.exposureQueryId || "",
     });
@@ -373,7 +388,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       hypothesis: rawValue.hypothesis || "",
       hashAttribute,
       hashVersion,
-      datasource,
+      datasource: datasourceId,
       exposureQueryId,
       templateId: rawValue.templateId || "",
       holdoutId: rawValue.holdoutId || undefined,
@@ -445,6 +460,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           >
             Other experiment configuration steps now live on the experiment
             overview page.
+          </Callout>
+        )}
+        {creatingInDemoProject && (
+          <Callout status="warning">
+            You are creating an experiment in the Sample Data Project.
           </Callout>
         )}
         <SDKCapabilityWarning
@@ -557,22 +577,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         onChange={(v) => form.setValue("hashAttribute", v)}
         options={attributeSchema
           .filter((s) => !hasHashAttributes || s.hashAttribute)
-          .map((s) => ({
-            label: s.property,
-            value: s.property,
-            description: s.description,
-            tags: s.tags,
-            datatype: s.datatype,
-            hashAttribute: s.hashAttribute,
-          }))}
-        formatOptionLabel={(o, meta) => (
-          <AttributeOptionWithTooltip
-            option={o as AttributeOptionForTooltip}
-            context={meta.context}
-          >
-            {o.label}
-          </AttributeOptionWithTooltip>
-        )}
+          .map(toAttributeOption)}
+        formatOptionLabel={formatAttributeOptionLabel}
         helpText={
           hashAttributeHoldoutMismatch ? (
             <HelperText status="warning" size="sm" mt="2">
@@ -605,15 +611,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         </Callout>
       )}
 
-      {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
+      {customFields.length > 0 && (
         <CustomFieldInput
-          customFields={customFields}
-          currentCustomFields={form.watch("customFields") || {}}
-          setCustomFields={(value) => {
-            form.setValue("customFields", value);
-          }}
-          section={"experiment"}
-          project={selectedProject}
+          fields={customFields}
+          value={customFieldValues}
+          onChange={(value) => form.setValue("customFields", value)}
         />
       )}
     </ModalStandard>

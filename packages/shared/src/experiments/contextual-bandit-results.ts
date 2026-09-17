@@ -1,11 +1,16 @@
 import type {
   ContextualBanditSnapshot,
   ContextualBanditResponseSnapshot,
+  ContextualLeafClause,
   ContextualLeafMapEntry,
   ContextualLeafStatsEntry,
   ContextualSseTrajectoryEntry,
+  ContextualTreeSplit,
 } from "../../types/stats";
-import { computeOverallVariationWeights } from "./contextual-bandit-weights";
+import {
+  computeOverallVariationMeans,
+  computeOverallVariationWeights,
+} from "./contextual-bandit-weights";
 
 /** Minimal variation identity needed to label the leaf-first results view. */
 export type ContextualBanditResultsVariation = {
@@ -17,6 +22,11 @@ export type ContextualBanditOverallVariation = {
   variationId: string;
   variationName?: string;
   weight: number | null;
+  /**
+   * Population-weighted mean outcome for this variation across all contexts:
+   * the expected outcome if this variation served the entire population.
+   */
+  mean: number | null;
   users: number | null;
 };
 
@@ -47,6 +57,8 @@ export type ContextualBanditResultsLeaf = {
   leafId: number;
   updateMessage: string | null;
   error: string | null;
+  /** Per-attribute targeting clauses defining the leaf (AND-ed together). */
+  clauses: ContextualLeafClause[];
   variations: ContextualBanditLeafVariation[];
   contexts: ContextualBanditResultsContext[];
 };
@@ -55,6 +67,11 @@ export type ContextualBanditResultsLeaf = {
 export type ContextualBanditSseStep = {
   numSplits: number;
   totalSse: number;
+  /**
+   * Metadata for the split that produced this stage. Absent on the root stage
+   * (`numSplits === 0`), where no split has been applied yet.
+   */
+  split?: ContextualTreeSplit;
 };
 
 /**
@@ -93,8 +110,8 @@ export function buildContextualBanditResultsView(
 
   const indicesByLeaf = new Map<number, number[]>();
   const leafOrder: number[] = [];
-  responses.forEach((_, i) => {
-    const leafId = leafMap[i]?.leafId ?? 0;
+  responses.forEach((response, i) => {
+    const leafId = response.leafId ?? 0;
     const existing = indicesByLeaf.get(leafId);
     if (existing) {
       existing.push(i);
@@ -105,6 +122,17 @@ export function buildContextualBanditResultsView(
   });
 
   const leafStatsById = new Map(leafStats.map((s) => [s.leafId, s]));
+  const clausesByLeaf = new Map(leafMap.map((e) => [e.leafId, e.context]));
+
+  const contextAttributes = (
+    response: ContextualBanditResponseSnapshot | undefined,
+  ): Record<string, string> => {
+    const attributes: Record<string, string> = {};
+    Object.entries(response?.context ?? {}).forEach(([key, value]) => {
+      if ((value ?? null) !== null) attributes[key] = String(value);
+    });
+    return attributes;
+  };
 
   const leaves: ContextualBanditResultsLeaf[] = leafOrder
     .sort((a, b) => a - b)
@@ -135,7 +163,7 @@ export function buildContextualBanditResultsView(
       const contexts: ContextualBanditResultsContext[] = indices.map((i) => {
         const row = responses[i];
         return {
-          attributes: leafMap[i]?.context ?? {},
+          attributes: contextAttributes(row),
           variations: Array.from({ length: numVariations }, (_, j) => ({
             ...meta(j),
             users: row?.sampleSizePerVariation?.[j] ?? null,
@@ -149,6 +177,7 @@ export function buildContextualBanditResultsView(
         leafId,
         updateMessage: head?.updateMessage ?? null,
         error: head?.error ?? null,
+        clauses: clausesByLeaf.get(leafId) ?? [],
         variations: leafVariations,
         contexts,
       };
@@ -158,11 +187,13 @@ export function buildContextualBanditResultsView(
     responses,
     numVariations,
   );
+  const overallMeans = computeOverallVariationMeans(responses, numVariations);
   const overallVariations: ContextualBanditOverallVariation[] = Array.from(
     { length: numVariations },
     (_, i) => ({
       ...meta(i),
       weight: overallWeights[i] ?? null,
+      mean: overallMeans[i] ?? null,
       users: responses.reduce(
         (sum, r) => sum + (r.sampleSizePerVariation?.[i] ?? 0),
         0,
@@ -171,7 +202,11 @@ export function buildContextualBanditResultsView(
   );
 
   const sseTrajectory: ContextualBanditSseStep[] = sseTrajectorySnapshot.map(
-    (step) => ({ numSplits: step.numSplits, totalSse: step.totalSse }),
+    (step) => ({
+      numSplits: step.numSplits,
+      totalSse: step.totalSse,
+      ...(step.split ? { split: step.split } : {}),
+    }),
   );
 
   return {

@@ -117,7 +117,10 @@ describe("sortReplayChunkKeysByChunkIndex", () => {
 describe("getSessionReplayEventsByStoragePrefix", () => {
   it("returns an empty array when there are no chunks", async () => {
     mockListChunks.mockResolvedValue([]);
-    const result = await getSessionReplayEventsByStoragePrefix("org/session");
+    const result = await getSessionReplayEventsByStoragePrefix(
+      "org/session",
+      "us-east-1",
+    );
     expect(result).toEqual([]);
     expect(mockGetBuffer).not.toHaveBeenCalled();
   });
@@ -130,7 +133,10 @@ describe("getSessionReplayEventsByStoragePrefix", () => {
     mockListChunks.mockResolvedValue(["org/session/0.json.gz"]);
     mockGetBuffer.mockResolvedValue(gzip(events));
 
-    const result = await getSessionReplayEventsByStoragePrefix("org/session");
+    const result = await getSessionReplayEventsByStoragePrefix(
+      "org/session",
+      "us-east-1",
+    );
     expect(result).toEqual(events);
   });
 
@@ -146,7 +152,10 @@ describe("getSessionReplayEventsByStoragePrefix", () => {
       .mockResolvedValueOnce(gzip(chunk0))
       .mockResolvedValueOnce(gzip(chunk1));
 
-    const result = await getSessionReplayEventsByStoragePrefix("org/session");
+    const result = await getSessionReplayEventsByStoragePrefix(
+      "org/session",
+      "us-east-1",
+    );
     expect(result).toEqual([...chunk0, ...chunk1]);
   });
 
@@ -167,7 +176,10 @@ describe("getSessionReplayEventsByStoragePrefix", () => {
       throw new Error(`unexpected key: ${key}`);
     });
 
-    const result = await getSessionReplayEventsByStoragePrefix("org/session");
+    const result = await getSessionReplayEventsByStoragePrefix(
+      "org/session",
+      "us-east-1",
+    );
     // chunk0 events must precede chunk2 events
     expect(result).toEqual([...chunk0, ...chunk2]);
   });
@@ -187,7 +199,10 @@ describe("getSessionReplayEventsByStoragePrefix", () => {
       .mockResolvedValueOnce(gzip(chunk0))
       .mockResolvedValueOnce(gzip(chunk1));
 
-    const result = await getSessionReplayEventsByStoragePrefix("org/session");
+    const result = await getSessionReplayEventsByStoragePrefix(
+      "org/session",
+      "us-east-1",
+    );
     expect(Array.isArray(result)).toBe(true);
     expect(result).toHaveLength(chunk0.length + chunk1.length);
   });
@@ -197,7 +212,7 @@ describe("getSessionReplayEventsByStoragePrefix", () => {
     mockGetBuffer.mockResolvedValue(Buffer.from("not-gzip-data"));
 
     await expect(
-      getSessionReplayEventsByStoragePrefix("org/session"),
+      getSessionReplayEventsByStoragePrefix("org/session", "us-east-1"),
     ).rejects.toThrow();
   });
 });

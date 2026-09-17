@@ -53,6 +53,7 @@ const EXPERIMENT_VIEWED_SCHEMA: bq.TableField[] = [
 const FEATURE_USAGE_SCHEMA: bq.TableField[] = [
   ...BASE_FIELDS,
   { name: "feature_key", type: "STRING", mode: "NULLABLE" },
+  { name: "properties", type: "JSON", mode: "NULLABLE" },
   { name: "attributes", type: "JSON", mode: "NULLABLE" },
 ];
 

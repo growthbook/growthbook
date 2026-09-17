@@ -25,7 +25,6 @@ const EditLicenseModal: FC<{
 
   return (
     <Modal
-      useRadixButton={false}
       trackingEventModalType=""
       header="Enter License Key"
       open={true}
@@ -49,6 +48,7 @@ const EditLicenseModal: FC<{
       {editField ? (
         <>
           <Field
+            size="legacy"
             label="License Key"
             className={styles.textarea}
             textarea={true}

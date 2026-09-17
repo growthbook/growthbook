@@ -2,6 +2,7 @@ import { ApiKeyInterface } from "shared/types/apikey";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   isApiKeyForUserInOrganization,
+  migrateApiKey,
   roleForApiKey,
 } from "back-end/src/util/api-key.util";
 
@@ -130,6 +131,31 @@ describe("api key utils", () => {
       };
 
       expect(roleForApiKey(input)).toEqual("readonly");
+    });
+  });
+
+  describe("migrateApiKey", () => {
+    it("should strip the role from every user-attributed key", () => {
+      for (const role of ["user", "visualEditor"]) {
+        const migrated = migrateApiKey({
+          userId: "user-abc123",
+          role,
+          secret: true,
+          dateCreated: new Date(),
+        });
+
+        expect(migrated.role).toBeUndefined();
+      }
+    });
+
+    it("should still default a roleless org secret key to admin", () => {
+      const migrated = migrateApiKey({
+        role: undefined,
+        secret: true,
+        dateCreated: new Date(),
+      });
+
+      expect(migrated.role).toEqual("admin");
     });
   });
 });

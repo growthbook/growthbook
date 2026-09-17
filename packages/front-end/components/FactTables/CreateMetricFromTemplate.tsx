@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { isProjectListValidForProject } from "shared/util";
+import { isProjectListValidForProject, parseLooseJSON } from "shared/util";
 import {
   columnRefValidator,
   metricTypeValidator,
@@ -8,7 +8,6 @@ import {
 } from "shared/validators";
 import { z } from "zod";
 import { ReactNode, useState } from "react";
-import dJSON from "dirty-json";
 import { CommercialFeature } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
@@ -19,7 +18,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Link from "@/ui/Link";
 
 const metricToCreateValidator = z.object({
-  metricType: metricTypeValidator,
+  metricType: metricTypeValidator.exclude(["funnel"]),
   name: z.string(),
   numerator: columnRefValidator,
   denominator: columnRefValidator.optional(),
@@ -59,7 +58,13 @@ export default function CreateMetricFromTemplate() {
       typeof router.query[QUERY_KEY] === "string"
     ) {
       try {
-        const json = dJSON.parse(router.query[QUERY_KEY]);
+        // Shaped loosely for the defaulting below; metricToCreateValidator
+        // does the real validation.
+        const json = parseLooseJSON(router.query[QUERY_KEY]) as {
+          metricType?: string;
+          numerator?: Record<string, unknown>;
+          denominator?: Record<string, unknown>;
+        };
 
         if (json.numerator) {
           json.numerator.factTableId = "";

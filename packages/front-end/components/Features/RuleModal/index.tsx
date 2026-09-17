@@ -5,7 +5,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "shared/types/feature";
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -13,31 +13,37 @@ import {
   generateVariationId,
   isProjectListValidForProject,
   getReviewSetting,
+  getRuleAttributeScopeProjectIds,
+  getTargetingProjectIds,
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
 } from "shared/util";
-import { PiCaretRight } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
-import { kebabCase } from "lodash";
+import { cloneDeep, kebabCase, pick } from "lodash";
 import { Box, Flex } from "@radix-ui/themes";
 import {
+  ACTIVE_DRAFT_STATUSES,
   CreateSafeRolloutInterface,
+  RampScheduleInterface,
+  RampScheduleTemplateInterface,
+  RampStepAction,
   SafeRolloutInterface,
   SafeRolloutRule,
-  RampScheduleInterface,
-  RampStepAction,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
+  PutFeatureRuleConflict,
 } from "shared/types/feature-rule";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import { withStagedTargeting } from "shared/permissions";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import {
@@ -52,17 +58,47 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useAuth } from "@/services/auth";
+import { useLocalAttributeScopePicker } from "@/components/Experiment/useAttributeScopePicker";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import useApi from "@/hooks/useApi";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import Modal from "@/components/Modal";
+import {
+  CompactInlineDiff,
+  stringifyForRawDiff,
+} from "@/components/Reviews/Feature/RevisionDiffUtils";
+import { normalizeFeatureRules } from "@/components/Features/FeatureDiffRenders";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
+import {
+  countRampFallthroughRules,
+  getRampStartImpact,
+  type RampStartImpact,
+} from "@/components/Features/RuleModal/rampStartImpact";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
+import Tooltip from "@/ui/Tooltip";
+import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
+import {
+  ConflictCalloutRow,
+  WholeConflictCallout,
+  ConflictProvider,
+  ConflictResolution,
+  ContestedChunk,
+} from "@/components/DraftConflicts/ConflictContext";
+import { decimalToPercent } from "@/services/utils";
+import {
+  formatChunkValue,
+  namedProjectsFormatter,
+  projectFormValues,
+} from "@/components/DraftConflicts/conflictValues";
 import StandardRuleFields, {
   type ScheduleType,
   deriveScheduleType,
@@ -74,6 +110,7 @@ import Page from "@/components/Modal/Page";
 import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 
 import DraftSelectorForChanges, {
   DraftMode,
@@ -129,6 +166,103 @@ function buildRampStartActionsFromRule(
     },
   ];
 }
+
+// A future-dated or approval-gated ramp publishes its rule disabled (zero
+// traffic) until the schedule activates or is approved. Only applies pre-start:
+// once the schedule is running the ramp owns the rule's enabled state, so a
+// later edit must not re-disable a live rollout (requiresStartApproval stays set
+// after start — e.g. a running 0-step approval schedule).
+function shouldPublishRuleDisabled(
+  ramp: Record<string, unknown> | undefined,
+  existingScheduleStatus?: string,
+): boolean {
+  if (!ramp) return false;
+  const preStart =
+    existingScheduleStatus === undefined ||
+    existingScheduleStatus === "pending" ||
+    existingScheduleStatus === "ready";
+  if (!preStart) return false;
+  return (
+    ("startDate" in ramp && !!ramp.startDate) ||
+    ("requiresStartApproval" in ramp && !!ramp.requiresStartApproval)
+  );
+}
+
+// Form fields that carry over into the "Ramp to new value" clone.
+export const RAMP_TO_NEW_VALUE_CARRIED_FIELDS = [
+  "value",
+  "sparse",
+  "description",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+] as const;
+
+// Unsaved edits carried into the "Ramp to new value" clone. Scope doesn't
+// carry — the clone must match the source's saved (live) scope to take over.
+export interface RampToNewValueSeed {
+  rule: Record<(typeof RAMP_TO_NEW_VALUE_CARRIED_FIELDS)[number], unknown>;
+  ramp: RampSectionState;
+}
+
+// Full-bleed amber strip above the modal CTAs: warns that saving this ramp
+// takes traffic away from an already-published rule, and gates Save behind an
+// explicit acknowledgment.
+function RampImpactBanner({
+  impact,
+  fallthroughPhrase,
+  acknowledged,
+  setAcknowledged,
+  onRampToNewValue,
+}: {
+  impact: NonNullable<RampStartImpact>;
+  fallthroughPhrase: string;
+  acknowledged: boolean;
+  setAcknowledged: (value: boolean) => void;
+  onRampToNewValue?: () => void;
+}) {
+  return (
+    <ModalWarningBanner
+      controls={
+        <>
+          {onRampToNewValue && (
+            <Tooltip
+              content="Inserts a ramp-up rule above this one, keeping unenrolled users on the current value."
+              side="top"
+            >
+              <Button variant="outline" size="md" onClick={onRampToNewValue}>
+                Ramp to new value
+              </Button>
+            </Tooltip>
+          )}
+          <Box style={{ color: "var(--violet-11)" }}>
+            <Checkbox
+              value={acknowledged}
+              setValue={setAcknowledged}
+              label="Acknowledge"
+              weight="medium"
+              align="center"
+            />
+          </Box>
+        </>
+      }
+    >
+      This ramp-up will override an already-published rule.{" "}
+      {impact.kind === "coverage-drop" ? (
+        <>
+          Unenrolled users ({100 - impact.toPct}%) will fall through to{" "}
+          {fallthroughPhrase}.
+        </>
+      ) : (
+        <>
+          This rule will be disabled until the ramp-up starts; until then, all
+          traffic will fall through to {fallthroughPhrase}.
+        </>
+      )}
+    </ModalWarningBanner>
+  );
+}
+
 export interface Props {
   close: () => void;
   // Merged feature (base + draft changes). Use baseFeature to check live/published state.
@@ -147,6 +281,13 @@ export interface Props {
   ruleId?: string;
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
+  // "Ramp to new value" flow (duplicate mode only): ramp pre-attached, clone
+  // inserted directly above the source rule.
+  rampToNewValue?: boolean;
+  // Reopens this modal in the "Ramp to new value" flow for the given rule.
+  onSwitchToRampToNewValue?: (ruleId: string, seed: RampToNewValueSeed) => void;
+  // Carried edits when opened via that switch; they seed the clone.
+  rampToNewValueSeed?: RampToNewValueSeed;
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
   revisionList?: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
@@ -173,6 +314,36 @@ export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
   sameSeed?: boolean;
 };
 
+// Coverage is stored 0-1 but entered as a percentage.
+const RULE_VALUE_FORMATTERS: Record<string, (value: unknown) => string> = {
+  coverage: (v) =>
+    typeof v === "number" ? `${decimalToPercent(v)}%` : String(v),
+};
+
+const RULE_FIELD_LABELS: Record<string, string> = {
+  description: "Description",
+  environments: "Rule Environments",
+  projects: "Rule Projects",
+  value: "Value",
+  coverage: "Rollout Percentage",
+  hashAttribute: "Assignment Attribute",
+  seed: "Seed",
+  hashVersion: "Hashing",
+  savedGroups: "Saved Groups",
+  condition: "Attributes",
+  prerequisites: "Prerequisite Features",
+  scheduleRules: "Schedule",
+  enabled: "Enabled",
+  variations: "Variations",
+  experimentId: "Experiment",
+};
+
+// null (all projects) absorbs every other set.
+const unionProjectIds = (...sets: (string[] | null)[]): string[] | null =>
+  sets.some((s) => s === null)
+    ? null
+    : Array.from(new Set(sets.flat() as string[]));
+
 export default function RuleModal({
   close,
   feature,
@@ -184,6 +355,9 @@ export default function RuleModal({
   defaultType = "",
   setVersion,
   mode,
+  rampToNewValue = false,
+  onSwitchToRampToNewValue,
+  rampToNewValueSeed,
   safeRolloutsMap,
   revisionList = [],
   rampSchedules = [],
@@ -193,22 +367,49 @@ export default function RuleModal({
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
-  const attributeSchema = useAttributeSchema(false, feature.project);
-  // Unfiltered org-wide schema lets validateFeatureRule distinguish between
-  // truly-unknown attributes and attributes that exist but aren't scoped to
-  // this project, so the client-side error wording matches the server.
-  const allAttributesSchema = useAttributeSchema(false);
-
   const flatRules = feature.rules ?? [];
   const rule: FeatureRule | undefined = ruleId
     ? flatRules.find((r) => r.id === ruleId)
     : undefined;
-  // True when this rule already exists on the published feature. We use this
-  // (not `defaultValues.id`, which is also set for newly-added draft rules) to
-  // decide whether scheduling against a future date should warn about
-  // overriding an already-live rule's state.
-  const isLiveRule =
-    !!ruleId && (baseFeature.rules ?? []).some((r) => r.id === ruleId);
+
+  // Rule-level project scope. Absent `allProjects`/`projects` (legacy/default)
+  // means "all projects"; `allProjects === false` with a `projects` list scopes
+  // the rule. On duplicate/edit, seed from the existing rule.
+  const existingRuleAllProjects =
+    rule === undefined || rule.allProjects !== false;
+  const [scopeAllProjects, setScopeAllProjects] = useState<boolean>(
+    () => existingRuleAllProjects,
+  );
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
+    Array.isArray(rule?.projects) ? (rule?.projects ?? []) : [],
+  );
+
+  // `feature` is the merged view where staged targeting REPLACES current, so
+  // union the published `baseFeature` with the draft's staged metadata, then
+  // narrow to the projects this rule itself targets — the scope the server
+  // validates against.
+  const attributeScopeProjects = useMemo(
+    () =>
+      getRuleAttributeScopeProjectIds(baseFeature, draftRevision?.metadata, {
+        allProjects: scopeAllProjects,
+        projects: selectedProjects,
+      }),
+    [baseFeature, draftRevision, scopeAllProjects, selectedProjects],
+  );
+  const { effectiveAttributeProjects, attributeScopeToggle } =
+    useLocalAttributeScopePicker(baseFeature.project, attributeScopeProjects);
+  const attributeSchema = useAttributeSchema(false, effectiveAttributeProjects);
+  // Unfiltered org-wide schema lets validateFeatureRule distinguish between
+  // truly-unknown attributes and attributes that exist but aren't scoped to
+  // this project, so the client-side error wording matches the server.
+  const allAttributesSchema = useAttributeSchema(false);
+  // Published version of the rule being edited. Never set for duplicates —
+  // they create a new rule even though `ruleId` points at a published one.
+  const liveRule =
+    mode !== "duplicate" && ruleId
+      ? (baseFeature.rules ?? []).find((r) => r.id === ruleId)
+      : undefined;
+  const isLiveRule = !!liveRule;
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -217,6 +418,42 @@ export default function RuleModal({
   // Pre-generate a rule ID so we can reference it in the ramp schedule creation
   // without an extra round-trip. The back-end preserves a truthy id sent by the client.
   const [pregenRuleId] = useState(() => uniqId("fr_"));
+
+  // Pinned at open; `feature` is reactive and would retarget the save.
+  const [pinnedFeatureVersion] = useState(() => feature.version);
+  const [baselineRule, setBaselineRule] = useState<FeatureRule | undefined>(
+    () => (rule ? cloneDeep(rule) : undefined),
+  );
+  const [conflict, setConflict] = useState<
+    | (PutFeatureRuleConflict & {
+        baseAtConflict: FeatureRule | undefined;
+        // Frozen, so "You set …" survives a resolution overwriting the form.
+        attempted: FeatureRule | undefined;
+      })
+    | null
+  >(null);
+  const [showConflictDetails, setShowConflictDetails] = useState(false);
+  const [conflictResolutions, setConflictResolutions] = useState<
+    Map<string, "mine" | "theirs">
+  >(new Map());
+  const myConflictValuesRef = useRef<Map<string, Record<string, unknown>>>(
+    new Map(),
+  );
+  const [claimedConflictKeys, setClaimedConflictKeys] = useState<Set<string>>(
+    new Set(),
+  );
+  const claimConflictKey = useCallback((key: string) => {
+    setClaimedConflictKeys((s) => (s.has(key) ? s : new Set(s).add(key)));
+  }, []);
+  const releaseConflictKey = useCallback((key: string) => {
+    setClaimedConflictKeys((s) => {
+      if (!s.has(key)) return s;
+      const next = new Set(s);
+      next.delete(key);
+      return next;
+    });
+  }, []);
+  const conflictSignaledRef = useRef(false);
 
   // Find any existing ramp schedule that already targets this specific rule.
   // Uses stem matching so environment-suffixed rule IDs (e.g. fr_abc__production)
@@ -228,6 +465,12 @@ export default function RuleModal({
         ),
       )
     : undefined;
+
+  // Prefetch templates on modal open so they're resolved before the ramp step
+  // mounts RampScheduleSection.
+  const { data: rampTemplatesData } = useApi<{
+    rampScheduleTemplates: RampScheduleTemplateInterface[];
+  }>("/ramp-schedule-templates");
 
   // Check if there's a pending detach action for this rule in the draft.
   // When true, the ramp section should open as "off" so users don't think
@@ -275,13 +518,24 @@ export default function RuleModal({
         }
         return defaultRampSectionState(undefined);
       }
+      // Duplicates start fresh and never adopt the source's pending ramp
+      // action; the "Ramp to new value" flow pre-attaches its carried ramp.
+      if (mode === "duplicate") {
+        if (rampToNewValue) {
+          if (rampToNewValueSeed && rampToNewValueSeed.ramp.mode !== "off") {
+            return {
+              ...rampToNewValueSeed.ramp,
+              mode: "create",
+              linkedRampId: "",
+            };
+          }
+          return { ...defaultRampSectionState(undefined), mode: "create" };
+        }
+        return defaultRampSectionState(undefined);
+      }
       // If a pending create action exists in the draft (not yet in DB), pre-populate from it
       if (pendingCreateActionTyped) {
         return createActionToSectionState(pendingCreateActionTyped);
-      }
-      // Duplicate starts fresh — no schedule carried over
-      if (mode === "duplicate") {
-        return defaultRampSectionState(undefined);
       }
       // If a pending update action exists (modal re-opened after a prior edit in this draft),
       // merge it on top of the live schedule so the user sees their pending changes.
@@ -294,7 +548,11 @@ export default function RuleModal({
       return defaultRampSectionState(ruleRampSchedule);
     },
   );
-  const { datasources, project: currentProject } = useDefinitions();
+  const {
+    datasources,
+    project: currentProject,
+    getProjectById,
+  } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
   const { templates: allTemplates } = useTemplates();
   const allEnvironments = useEnvironments();
@@ -326,11 +584,36 @@ export default function RuleModal({
     defaultDraft,
   );
 
-  // Determines which draft/revision to target in the API call.
   const targetVersion =
     draftMode === "existing" && selectedDraft !== null
       ? selectedDraft
-      : feature.version;
+      : pinnedFeatureVersion;
+
+  // Holdout a newly-created experiment should join: the holdout of the draft the
+  // rule is being added to (revision.holdout), not just the live feature's — so
+  // a holdout added in that same draft is picked up. Falls back to the merged
+  // feature's holdout when the target revision isn't in context (e.g. a new
+  // draft branched from the viewed version carries that holdout forward).
+  const revisionsCtx = useFeatureRevisionsContext();
+  // The draft the rule is written into (it may differ from the viewed one) and
+  // the revision that draft was created from. Only an active draft counts: a
+  // discarded or published revision's envelope is not what the save lands in.
+  const isActiveDraft = (r: FeatureRevisionInterface | null | undefined) =>
+    !!r && (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
+  const targetDraft = [
+    revisionsCtx?.revisions.find((r) => r.version === targetVersion),
+    draftRevision,
+  ].find(isActiveDraft);
+  const targetDraftBase = revisionsCtx?.revisions.find(
+    (r) => r.version === targetDraft?.baseVersion,
+  );
+  const baseRule = targetDraftBase?.rules.find((r) => r.id === ruleId);
+  const targetHoldoutId = useMemo(() => {
+    const targetRev = revisionsCtx?.revisions.find(
+      (r) => r.version === targetVersion,
+    );
+    return (targetRev ? targetRev.holdout : feature.holdout)?.id;
+  }, [revisionsCtx, targetVersion, feature.holdout]);
 
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
@@ -354,6 +637,9 @@ export default function RuleModal({
     // has a value. getDefaultRuleValue only sets it for ruleType === "rollout";
     // other rule types ignore it at save time via their Zod validators.
     hashVersion: (hasSDKWithNoBucketingV2 ? 1 : 2) as 1 | 2,
+    // Seed sticky bucketing from the org default for new experiment rules. An
+    // existing rule's value overrides this via the convertRuleToFormValues spread.
+    disableStickyBucketing: !settings.stickyBucketingOnByDefault,
   };
 
   const convertRuleToFormValues = (rule: FeatureRule | undefined) => {
@@ -375,9 +661,13 @@ export default function RuleModal({
     return rule;
   };
 
-  const defaultValues = {
+  const baseDefaultValues = {
     ...defaultRuleValues,
     ...convertRuleToFormValues(rule),
+    // A duplicated rollout starts seedless so it buckets independently; the Seed
+    // field stays editable to reuse the original's cohort. Safe-rollout has its
+    // own "Same seed" checkbox, so it's excluded here.
+    ...(mode === "duplicate" && rule?.type === "rollout" ? { seed: "" } : {}),
     // Pre-set the ID for new rollout rules so ramp creation can reference it
     // without a second round-trip. Back-end preserves a truthy id from the client.
     ...(mode === "create" && !rule ? { id: pregenRuleId } : {}),
@@ -440,6 +730,16 @@ export default function RuleModal({
     })(),
   };
 
+  // Carried edits override the source rule's saved state; the cast restores
+  // the union a Record spread would widen away.
+  const defaultValues =
+    mode === "duplicate" && rampToNewValue && rampToNewValueSeed
+      ? ({
+          ...baseDefaultValues,
+          ...rampToNewValueSeed.rule,
+        } as typeof baseDefaultValues)
+      : baseDefaultValues;
+
   // Overview Page
   const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(
     mode === "create",
@@ -461,6 +761,14 @@ export default function RuleModal({
     defaultValues,
   });
 
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: feature.project,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
+
   // On edit/duplicate, seed scope from the existing rule. Legacy rules with
   // `environments === undefined` are treated as permissive (= all envs). On
   // create, seed from org default ("all envs") or fall back to the current
@@ -474,6 +782,24 @@ export default function RuleModal({
     (rule !== undefined &&
       rule.allEnvironments !== true &&
       existingRuleEnvList === undefined);
+
+  // react-hook-form can't type a dynamic field name against the rule union,
+  // so the cast lives here rather than at every call site.
+  const formValues = useCallback(
+    () => form.getValues() as unknown as Record<string, unknown>,
+    [form],
+  );
+  const setFormField = useCallback(
+    (field: string, value: unknown) =>
+      (
+        form.setValue as unknown as (
+          name: string,
+          value: unknown,
+          options: { shouldDirty: boolean },
+        ) => void
+      )(field, value, { shouldDirty: true }),
+    [form],
+  );
 
   const [scopeAllEnvs, setScopeAllEnvs] = useState<boolean>(() => {
     if (mode === "edit" || mode === "duplicate") return existingRuleScopeIsAll;
@@ -528,7 +854,9 @@ export default function RuleModal({
   const headerText = useMemo(() => {
     let text =
       mode === "duplicate"
-        ? "Duplicate "
+        ? rampToNewValue
+          ? "Ramp to New Value: "
+          : "Duplicate "
         : mode === "create"
           ? "Add "
           : "Edit ";
@@ -570,6 +898,7 @@ export default function RuleModal({
     ruleType,
     experimentType,
     mode,
+    rampToNewValue,
     environment,
     scopeAllEnvs,
     selectedEnvironments,
@@ -619,11 +948,78 @@ export default function RuleModal({
     return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
   }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
 
+  const contestedKeys: string[] = conflict
+    ? conflict.merge && !conflict.merge.wholeEntity && conflict.current
+      ? conflict.merge.contested.map((c) => c.key)
+      : ["__rule__"]
+    : [];
+  // Forking only keeps both versions when their edit is in another draft. Against
+  // live, the new draft carries this stale edit on top of their published change.
+  const newDraftAvoidsConflict =
+    draftMode === "new" && conflict?.draftVersion !== undefined;
+  const conflictResolved =
+    !conflict ||
+    newDraftAvoidsConflict ||
+    contestedKeys.every((k) => conflictResolutions.has(k));
+
   const isRampType = scheduleType === "ramp";
   const hasRampPage =
     isRampType && (ruleType === "force" || ruleType === "rollout");
+  const onRampPage = hasRampPage && step === 1;
   const rampIsEditable =
     !ruleRampSchedule || ruleRampSchedule.status !== "running";
+
+  // Ramping an already-live rule takes traffic away from it: block the ramp
+  // page's submit until that's acknowledged. Moot once the ramp has started.
+  const rampNotYetStarted =
+    !ruleRampSchedule || ["pending", "ready"].includes(ruleRampSchedule.status);
+  const rampStartImpact =
+    hasRampPage && rampNotYetStarted && rampSectionState.mode !== "off"
+      ? getRampStartImpact({
+          liveRule,
+          firstStepCoveragePct: rampSectionState.steps.find(
+            (s) => s.patch.coverage !== undefined,
+          )?.patch.coverage,
+          hasDelayedStart:
+            (!!rampSectionState.startDate &&
+              new Date(rampSectionState.startDate) > new Date()) ||
+            rampSectionState.requiresStartApproval,
+        })
+      : null;
+  // Acknowledgment binds to the impact's signature, so editing the ramp into
+  // a different impact re-arms the gate. A ramp that arrived already saved
+  // (pending schedule or draft action) starts acknowledged — its impact was
+  // accepted when it was first saved.
+  const rampImpactKey = rampStartImpact
+    ? rampStartImpact.kind === "coverage-drop"
+      ? `drop:${rampStartImpact.fromPct}:${rampStartImpact.toPct}`
+      : `delayed:${rampStartImpact.liveCoveragePct}:${rampSectionState.startDate}:${rampSectionState.requiresStartApproval}`
+    : "";
+  const [rampAcknowledgedKey, setRampAcknowledgedKey] = useState(() =>
+    ruleRampSchedule || pendingCreateActionTyped ? rampImpactKey : "",
+  );
+  const rampImpactAcknowledged =
+    rampImpactKey !== "" && rampAcknowledgedKey === rampImpactKey;
+  const rampImpactBlocksSubmit = !!rampStartImpact && !rampImpactAcknowledged;
+  const rampFallthroughPhrase =
+    rampStartImpact && countRampFallthroughRules(feature, ruleId) > 0
+      ? "the next matching rule, or the default value"
+      : "the default value";
+  // Hidden when the draft already has a pending ramp — publish would ramp
+  // both the source and the clone.
+  const switchToRampToNewValue =
+    mode === "edit" &&
+    isLiveRule &&
+    !ruleRampSchedule &&
+    !pendingCreateActionTyped &&
+    ruleId &&
+    onSwitchToRampToNewValue
+      ? () =>
+          onSwitchToRampToNewValue(ruleId, {
+            rule: pick(formValues(), RAMP_TO_NEW_VALUE_CARRIED_FIELDS),
+            ramp: rampSectionState,
+          })
+      : undefined;
 
   // Reset to page 1 when the ramp page disappears (user switched away from ramp).
   // Only applies to rollout/force rules — experiment rules have their own valid pages.
@@ -747,6 +1143,8 @@ export default function RuleModal({
     if (existingSeed) {
       (newVal as Record<string, unknown>).seed = existingSeed;
     }
+    (newVal as Record<string, unknown>).disableStickyBucketing =
+      !settings.stickyBucketingOnByDefault;
     // Org opt-in: new JSON rules start in sparse mode with a clean-slate value
     // (strip keys equal to the default) so the editor isn't pre-filled with the
     // whole default object. Only for eligible JSON features; new rules only.
@@ -874,6 +1272,15 @@ export default function RuleModal({
       };
     }
 
+    // An all-projects rule carries no explicit list, so project-deletion
+    // cleanup can never later empty it into "all". A scoped rule keeps its
+    // (possibly empty = "no project") list.
+    if (scopeAllProjects) {
+      values = { ...values, allProjects: true, projects: [] };
+    } else {
+      values = { ...values, allProjects: false, projects: selectedProjects };
+    }
+
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
     if (values.scheduleRules?.length) {
       values.scheduleRules?.forEach((scheduleRule: ScheduleRule) => {
@@ -911,6 +1318,7 @@ export default function RuleModal({
           {
             attributeSchema: allAttributesSchema,
             requireRegisteredAttributes: settings.requireRegisteredAttributes,
+            attributeProjects: effectiveAttributeProjects,
           },
         );
         if (newRule) {
@@ -997,6 +1405,8 @@ export default function RuleModal({
           },
         ];
         // All looks good, create experiment
+        const disableStickyBucketing =
+          values.disableStickyBucketing ?? !settings.stickyBucketingOnByDefault;
         const exp: Partial<ExperimentInterfaceStringDates> = {
           archived: false,
           autoSnapshots: true,
@@ -1007,8 +1417,10 @@ export default function RuleModal({
             project: feature.project || "",
           }),
           hashAttribute: values.hashAttribute,
-          fallbackAttribute: values.fallbackAttribute || "",
-          disableStickyBucketing: values.disableStickyBucketing ?? false,
+          fallbackAttribute: disableStickyBucketing
+            ? ""
+            : values.fallbackAttribute || "",
+          disableStickyBucketing,
           datasource: values.datasource || undefined,
           exposureQueryId: values.exposureQueryId || "",
           goalMetrics: values.goalMetrics || [],
@@ -1047,9 +1459,7 @@ export default function RuleModal({
           statsEngine: values.statsEngine ?? undefined,
           type: values.experimentType,
           holdoutId:
-            values.experimentType === "standard"
-              ? feature.holdout?.id
-              : undefined,
+            values.experimentType === "standard" ? targetHoldoutId : undefined,
         };
 
         if (values?.customFields) {
@@ -1108,6 +1518,8 @@ export default function RuleModal({
           id: values.id,
           allEnvironments: values.allEnvironments ?? false,
           environments: values.environments,
+          allProjects: values.allProjects ?? true,
+          projects: values.projects,
           condition: "",
           savedGroups: [],
           enabled: values.enabled ?? true,
@@ -1179,6 +1591,13 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).seed;
         delete (values as { hashVersion?: number }).hashVersion;
+      } else if (values.type === "rollout") {
+        // An empty seed means "stamp this rule's own id" (the default for
+        // duplicates) — omit it rather than submitting "".
+        if (!values.seed) {
+          // eslint-disable-next-line
+          delete (values as any).seed;
+        }
       }
       if (
         values.scheduleRules &&
@@ -1188,12 +1607,20 @@ export default function RuleModal({
         delete values.scheduleRules;
       }
 
+      // Only inline experiment rules store disableStickyBucketing; on every
+      // other type it's a stray form default
+      if (values.type !== "experiment") {
+        delete (values as { disableStickyBucketing?: boolean })
+          .disableStickyBucketing;
+      }
+
       const correctedRule = validateFeatureRule(
         values as FeatureRule,
         feature,
         {
           attributeSchema: allAttributesSchema,
           requireRegisteredAttributes: settings.requireRegisteredAttributes,
+          attributeProjects: effectiveAttributeProjects,
         },
       );
       if (correctedRule) {
@@ -1353,6 +1780,9 @@ export default function RuleModal({
                     rampState.monitoring,
                     rampState.steps,
                   ),
+                  requiresStartApproval: rampState.requiresStartApproval
+                    ? true
+                    : null,
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
@@ -1418,6 +1848,9 @@ export default function RuleModal({
                     rampState.monitoring,
                     rampState.steps,
                   ),
+                  requiresStartApproval: rampState.requiresStartApproval
+                    ? true
+                    : null,
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
@@ -1480,12 +1913,11 @@ export default function RuleModal({
           // advances, but the rule must have them set immediately for the period
           // between publish and ramp-start (or if the ramp never starts).
 
-          // Future-dated schedule → publish the rule as disabled so it
-          // remains hidden until the schedule activates.
           if (
-            rampScheduleInline &&
-            "startDate" in rampScheduleInline &&
-            rampScheduleInline.startDate
+            shouldPublishRuleDisabled(
+              rampScheduleInline,
+              ruleRampSchedule?.status,
+            )
           ) {
             values = { ...values, enabled: false };
           }
@@ -1497,10 +1929,51 @@ export default function RuleModal({
               body: JSON.stringify({
                 rule: values,
                 ruleId,
+                // A fork compares against live, which only the
+                // pre-conflict baseline describes.
+                ...(baselineRule
+                  ? {
+                      baseline: {
+                        rule:
+                          newDraftAvoidsConflict && conflict
+                            ? (conflict.baseAtConflict ?? baselineRule)
+                            : baselineRule,
+                      },
+                    }
+                  : {}),
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
               } as PutFeatureRuleBody),
+            },
+            (responseData) => {
+              if (responseData?.status === 409 && responseData?.conflict) {
+                conflictSignaledRef.current = true;
+                const payload = responseData.conflict as PutFeatureRuleConflict;
+                setConflict({
+                  ...payload,
+                  baseAtConflict: baselineRule,
+                  attempted: values as unknown as FeatureRule,
+                });
+                setConflictResolutions(new Map());
+                myConflictValuesRef.current = new Map();
+                if (
+                  payload.merge &&
+                  !payload.merge.wholeEntity &&
+                  payload.current
+                ) {
+                  const cur = payload.current as unknown as Record<
+                    string,
+                    unknown
+                  >;
+                  for (const f of payload.merge.theirFields) {
+                    setFormField(f, cur[f]);
+                  }
+                }
+                setBaselineRule(
+                  payload.current ? cloneDeep(payload.current) : undefined,
+                );
+              }
             },
           );
         }
@@ -1561,6 +2034,9 @@ export default function RuleModal({
                 rampState.monitoring,
                 rampState.steps,
               ),
+              requiresStartApproval: rampState.requiresStartApproval
+                ? true
+                : null,
               ...(rampState.lockFeature
                 ? { lockdownConfig: { mode: "locked" as const } }
                 : { lockdownConfig: { mode: "none" as const } }),
@@ -1568,14 +2044,7 @@ export default function RuleModal({
           }
         }
 
-        // Schedule with a start date → create rule disabled; the backend
-        // enables it via onActivatingRevisionPublished when the draft is
-        // published (immediately if the date has passed, or via poller if future).
-        if (
-          rampScheduleInline &&
-          "startDate" in rampScheduleInline &&
-          rampScheduleInline.startDate
-        ) {
+        if (shouldPublishRuleDisabled(rampScheduleInline)) {
           values = { ...values, enabled: false };
         }
 
@@ -1595,6 +2064,9 @@ export default function RuleModal({
                 : selectedEnvironments,
               safeRolloutFields,
               rampSchedule: rampScheduleInline,
+              // Land the clone directly above its source rule.
+              insertBeforeRuleId:
+                mode === "duplicate" && rampToNewValue ? ruleId : undefined,
             } as PostFeatureRuleBody),
           },
         );
@@ -1616,9 +2088,146 @@ export default function RuleModal({
         error: e.message,
       });
       forceConditionRender();
+      // Empty message: the conflict renders its own banner.
+      if (conflictSignaledRef.current) {
+        conflictSignaledRef.current = false;
+        throw new Error("");
+      }
       throw e;
     }
   });
+
+  const conflictAlert = conflict ? (
+    <HelperText status="warning" icon={null}>
+      {!conflict.current
+        ? "This rule was removed while you had it open. Saving re-adds it."
+        : newDraftAvoidsConflict
+          ? "This rule was modified while you were editing. Saving to a new draft keeps both versions."
+          : conflictResolved
+            ? "This rule was modified while you were editing."
+            : draftMode === "new"
+              ? "This rule was modified while you were editing. Resolve the conflicts below."
+              : "This rule was modified while you were editing. Resolve the conflicts below, or save to a new draft."}
+    </HelperText>
+  ) : undefined;
+
+  const conflictDetails =
+    conflict && conflict.current ? (
+      <Box mt="-4" mb="3">
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={showConflictDetails ? <PiCaretDown /> : <PiCaretRight />}
+          onClick={() => setShowConflictDetails((s) => !s)}
+        >
+          {showConflictDetails ? "Hide comparison" : "Compare versions"}
+        </Button>
+        {showConflictDetails && (
+          <Box
+            mt="2"
+            style={{
+              background: "var(--color-surface)",
+              borderRadius: "var(--radius-2)",
+              overflow: "hidden",
+            }}
+          >
+            <CompactInlineDiff
+              a={stringifyForRawDiff(normalizeFeatureRules([conflict.current]))}
+              b={stringifyForRawDiff(
+                normalizeFeatureRules([
+                  projectFormValues(formValues(), [
+                    conflict.current,
+                    conflict.baseAtConflict,
+                  ]) as unknown as FeatureRule,
+                ]),
+              )}
+              leftTitle="Modified version"
+              rightTitle="My version"
+            />
+          </Box>
+        )}
+      </Box>
+    ) : null;
+
+  const contestedChunks: ContestedChunk[] =
+    conflict?.merge && !conflict.merge.wholeEntity && conflict.current
+      ? conflict.merge.contested
+      : [];
+
+  const resolveConflict = useCallback(
+    (chunk: ContestedChunk, choice: ConflictResolution) => {
+      if (!conflict) return;
+      const values = formValues();
+      const stash = myConflictValuesRef.current;
+      if (choice === "theirs" && !stash.has(chunk.key)) {
+        stash.set(
+          chunk.key,
+          Object.fromEntries(chunk.fields.map((f) => [f, values[f]])),
+        );
+      }
+      const source =
+        choice === "theirs"
+          ? (conflict.current as unknown as Record<string, unknown> | null)
+          : stash.get(chunk.key);
+      // Keeping mine on the first click has nothing to write — the form already
+      // holds it — but the choice still resolves the chunk.
+      if (source) {
+        for (const f of chunk.fields) {
+          setFormField(f, source[f]);
+        }
+        // The condition builder seeds its own state from a prop.
+        forceConditionRender();
+      }
+      setConflictResolutions((m) => new Map([...m, [chunk.key, choice]]));
+    },
+    [conflict, formValues, setFormField, forceConditionRender],
+  );
+
+  const conflictFieldLabel = useCallback(
+    (chunk: ContestedChunk) => RULE_FIELD_LABELS[chunk.key] ?? chunk.key,
+    [],
+  );
+
+  const formatConflictValue = useCallback(
+    (chunk: ContestedChunk, side: ConflictResolution) =>
+      formatChunkValue(
+        side === "theirs"
+          ? (conflict?.current ?? null)
+          : (conflict?.attempted ?? null),
+        chunk.fields,
+        {
+          ...RULE_VALUE_FORMATTERS,
+          projects: namedProjectsFormatter(getProjectById),
+        },
+      ),
+    [conflict, getProjectById],
+  );
+
+  const conflictCallouts = conflict ? (
+    <>
+      {contestedChunks.length ? (
+        contestedChunks
+          .filter((c) => !claimedConflictKeys.has(c.key))
+          .map((chunk) => (
+            <ConflictCalloutRow
+              chunk={chunk}
+              showMine
+              stateful
+              key={chunk.key}
+            />
+          ))
+      ) : (
+        <WholeConflictCallout
+          chunkKey="__rule__"
+          message={
+            conflict.current
+              ? "This rule was restructured by someone else. Saving keeps your version."
+              : "This rule was deleted by someone else. Saving re-adds it."
+          }
+        />
+      )}
+    </>
+  ) : null;
 
   if (newRuleOverviewPage) {
     return (
@@ -1649,7 +2258,7 @@ export default function RuleModal({
           gatedEnvSet={gatedEnvSet}
         />
         <div className="bg-highlight rounded p-3 mb-3">
-          <Text size="x-large" weight="semibold" as="div" mb="4">
+          <Text size="xl" weight="semibold" as="div" mb="4">
             Rule Type
           </Text>
           <RadioCards
@@ -1703,7 +2312,7 @@ export default function RuleModal({
                 <Text as="div">
                   Looking for <strong>Safe Rollouts</strong>?
                 </Text>
-                <Text as="div" size="small" mt="1">
+                <Text as="div" size="sm" mt="1">
                   Guardrail monitoring can now be added to a Targeting
                   Rule&apos;s <strong>Ramp-up</strong> schedule
                 </Text>
@@ -1712,7 +2321,7 @@ export default function RuleModal({
                 <Button
                   color="inherit"
                   variant="soft"
-                  size="xs"
+                  size="sm"
                   onClick={() => {
                     setOverviewRadioSelectorRuleType("rollout");
                     setOverviewRuleType("rollout");
@@ -1736,7 +2345,7 @@ export default function RuleModal({
                   commercialFeature="safe-rollout"
                   usePortal={true}
                 >
-                  <Button color="inherit" variant="soft" size="xs" disabled>
+                  <Button color="inherit" variant="soft" size="sm" disabled>
                     Show me
                   </Button>
                 </PremiumTooltip>
@@ -1798,6 +2407,31 @@ export default function RuleModal({
     disabledEnvironmentIds,
   };
 
+  const projectScopeProps = {
+    allProjects: scopeAllProjects,
+    setAllProjects: setScopeAllProjects,
+    selectedProjects,
+    setSelectedProjects,
+    // The delivery set (null = all projects) of the viewed feature, the live
+    // feature, the target draft, and the revision that draft began from, plus
+    // this rule's scope live and in that revision, so a removed scope can be
+    // put back.
+    allowedProjectIds: unionProjectIds(
+      getTargetingProjectIds(feature),
+      getTargetingProjectIds(baseFeature),
+      getTargetingProjectIds(
+        withStagedTargeting(baseFeature, targetDraft?.metadata),
+      ),
+      targetDraftBase
+        ? getTargetingProjectIds(
+            withStagedTargeting(baseFeature, targetDraftBase.metadata),
+          )
+        : [],
+      liveRule?.projects ?? [],
+      baseRule?.projects ?? [],
+    ),
+  };
+
   // Resolved env list used by child components that care about which envs the
   // rule currently covers (prereq cycle checks, targeting previews, etc).
   // When `allEnvironments` is on, treat every applicable env as in-scope.
@@ -1805,7 +2439,7 @@ export default function RuleModal({
     ? environments.map((e) => e.id)
     : selectedEnvironments;
 
-  return (
+  const modalContent = (
     <FormProvider {...form}>
       <PagedModal
         trackingEventModalType={trackingEventModalType}
@@ -1827,10 +2461,31 @@ export default function RuleModal({
             ? ruleType !== undefined
             : hasRampPage && step === 0
               ? !isCyclic && !prerequisiteTargetingSdkIssues
-              : canSubmit
+              : canSubmit && conflictResolved && !rampImpactBlocksSubmit
         }
         disabledMessage={
-          hasRampPage && step === 0 ? undefined : (monitoringError ?? undefined)
+          hasRampPage && step === 0
+            ? undefined
+            : !conflictResolved
+              ? "Resolve the conflicting edits above, or save to a new draft."
+              : !canSubmit
+                ? (monitoringError ?? undefined)
+                : rampImpactBlocksSubmit
+                  ? "Acknowledge the traffic warning to save"
+                  : undefined
+        }
+        aboveFooterContent={
+          onRampPage && rampStartImpact ? (
+            <RampImpactBanner
+              impact={rampStartImpact}
+              fallthroughPhrase={rampFallthroughPhrase}
+              acknowledged={rampImpactAcknowledged}
+              setAcknowledged={(v) =>
+                setRampAcknowledgedKey(v ? rampImpactKey : "")
+              }
+              onRampToNewValue={switchToRampToNewValue}
+            />
+          ) : undefined
         }
         header={headerText}
         docSection={
@@ -1851,16 +2506,22 @@ export default function RuleModal({
         }
         submit={submit}
         bodyPrefix={
-          <DraftSelectorForChanges
-            feature={feature}
-            revisionList={revisionList}
-            mode={draftMode}
-            setMode={setDraftMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={false}
-            gatedEnvSet={gatedEnvSet}
-          />
+          <>
+            <DraftSelectorForChanges
+              feature={feature}
+              revisionList={revisionList}
+              mode={draftMode}
+              setMode={setDraftMode}
+              selectedDraft={selectedDraft}
+              setSelectedDraft={setSelectedDraft}
+              canAutoPublish={false}
+              gatedEnvSet={gatedEnvSet}
+              alert={conflictAlert}
+              alertActive={!conflictResolved}
+            />
+            {!newDraftAvoidsConflict && conflictDetails}
+            {!newDraftAvoidsConflict && conflictCallouts}
+          </>
         }
       >
         {(ruleType === "force" || ruleType === "rollout") && (
@@ -1868,6 +2529,8 @@ export default function RuleModal({
             <StandardRuleFields
               ruleType={ruleType}
               feature={feature}
+              attributeProjects={effectiveAttributeProjects}
+              attributeSelectIndicator={attributeScopeToggle}
               environments={effectiveEnvList}
               defaultValues={defaultValues}
               setPrerequisiteTargetingSdkIssues={
@@ -1884,6 +2547,7 @@ export default function RuleModal({
               scheduleType={scheduleType}
               setScheduleType={setScheduleType}
               envScope={envScopeProps!}
+              projectScope={projectScopeProps}
               isLiveRule={isLiveRule}
               isNew={mode === "create"}
               onRuleCyclicChange={onRuleCyclicChange}
@@ -1898,10 +2562,13 @@ export default function RuleModal({
               state={rampSectionState}
               setState={setRampSectionState}
               pendingDetach={hasPendingDetach}
+              preloadedTemplates={rampTemplatesData?.rampScheduleTemplates}
               embedded
               readOnly={!!ruleRampSchedule && !rampIsEditable}
               hideNameField={true}
               feature={feature}
+              attributeProjects={effectiveAttributeProjects}
+              attributeSelectIndicator={attributeScopeToggle}
               environments={environments.map((e) => e.id)}
               hashAttribute={form.watch("hashAttribute") as string}
               setHashAttribute={(v) => form.setValue("hashAttribute", v)}
@@ -1920,6 +2587,8 @@ export default function RuleModal({
         {ruleType === "safe-rollout" && (
           <SafeRolloutFields
             feature={feature}
+            attributeProjects={effectiveAttributeProjects}
+            attributeSelectIndicator={attributeScopeToggle}
             environment={environment}
             defaultValues={defaultValues}
             setPrerequisiteTargetingSdkIssues={
@@ -1933,6 +2602,7 @@ export default function RuleModal({
             mode={mode}
             isDraft={!safeRollout?.startedAt}
             envScope={envScopeProps}
+            projectScope={projectScopeProps}
             onRuleCyclicChange={onRuleCyclicChange}
           />
         )}
@@ -1948,6 +2618,7 @@ export default function RuleModal({
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
             envScope={envScopeProps!}
+            projectScope={projectScopeProps}
           />
         ) : null}
 
@@ -1958,6 +2629,7 @@ export default function RuleModal({
             existingRule={mode === "edit"}
             changeRuleType={changeRuleType}
             envScope={envScopeProps!}
+            projectScope={projectScopeProps}
           />
         ) : null}
 
@@ -1971,6 +2643,8 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
+                  attributeProjects={effectiveAttributeProjects}
+                  attributeSelectIndicator={attributeScopeToggle}
                   environments={effectiveEnvList}
                   defaultValues={defaultValues}
                   prerequisiteValue={form.watch("prerequisites") || []}
@@ -2019,10 +2693,13 @@ export default function RuleModal({
                   hideVariationIds={true}
                   startEditingIndexes={true}
                   orgStickyBucketing={orgStickyBucketing}
-                  setCustomFields={(customFields) =>
-                    form.setValue("customFields", customFields)
+                  customFields={customFields}
+                  customFieldValues={customFieldValues}
+                  setCustomFields={(value) =>
+                    form.setValue("customFields", value)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  projectScope={i === 0 ? projectScopeProps : undefined}
                   onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>
@@ -2037,6 +2714,8 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
+                  attributeProjects={effectiveAttributeProjects}
+                  attributeSelectIndicator={attributeScopeToggle}
                   environments={effectiveEnvList}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
@@ -2083,6 +2762,7 @@ export default function RuleModal({
                     setDisableBanditConversionWindow
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  projectScope={i === 0 ? projectScopeProps : undefined}
                   onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>
@@ -2090,5 +2770,20 @@ export default function RuleModal({
           : null}
       </PagedModal>
     </FormProvider>
+  );
+
+  return (
+    <ConflictProvider
+      contested={newDraftAvoidsConflict ? [] : contestedChunks}
+      resolutions={conflictResolutions}
+      resolve={resolveConflict}
+      format={formatConflictValue}
+      labelFor={conflictFieldLabel}
+      claimed={claimedConflictKeys}
+      claim={claimConflictKey}
+      release={releaseConflictKey}
+    >
+      {modalContent}
+    </ConflictProvider>
   );
 }

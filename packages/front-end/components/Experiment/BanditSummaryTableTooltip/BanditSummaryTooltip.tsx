@@ -16,6 +16,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { GBCuped } from "@/components/Icons";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import VariationLabel from "@/ui/VariationLabel";
 
 export const TOOLTIP_WIDTH = 350;
 export const TOOLTIP_HEIGHT = 300; // Used for over/under layout calculation. Actual height may vary.
@@ -213,17 +214,13 @@ export default function BanditSummaryTooltip({
             className="variation-label mt-2 d-flex justify-content-between"
             style={{ gap: 8 }}
           >
-            <div
-              className={`variation variation${data.variation.index} with-variation-label d-inline-flex align-items-center`}
-              style={{ maxWidth: 300 }}
-            >
-              <span className="label" style={{ width: 16, height: 16 }}>
-                {data.variation.index}
-              </span>
-              <span className="d-inline-block text-ellipsis font-weight-bold">
-                {data.variation.name}
-              </span>
-            </div>
+            <VariationLabel
+              number={data.variation.index}
+              name={data.variation.name}
+              size="md"
+              maxWidth="300px"
+              disableTooltip
+            />
           </div>
 
           <div

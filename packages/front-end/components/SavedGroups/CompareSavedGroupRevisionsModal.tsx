@@ -8,7 +8,6 @@ export interface Props {
   allRevisions: Revision[];
   currentRevisionId: string | null;
   onClose: () => void;
-  mutate: () => void;
   // Opens directly in "preview draft vs live" mode for this revision
   initialPreviewDraft?: string;
   initialMode?: "most-recent-live";

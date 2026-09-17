@@ -63,7 +63,7 @@ export default function CollapsedSteps({
           <PiCaretRight size={10} />
         </span>
         <PiCheckCircle size={12} color="var(--green-9)" />
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           Completed {count} {count === 1 ? "step" : "steps"}
         </Text>
       </button>
@@ -108,7 +108,7 @@ export default function CollapsedSteps({
                 style={{ flex: 1, minWidth: 0, paddingBottom: 4 }}
               >
                 {item.kind === "tool" ? (
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     {item.label}
                   </Text>
                 ) : (

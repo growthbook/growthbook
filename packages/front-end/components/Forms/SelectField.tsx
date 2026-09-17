@@ -12,12 +12,15 @@ import ReactSelect, {
   InputProps,
   FormatOptionLabelMeta,
   StylesConfig,
+  DropdownIndicatorProps,
 } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
-import { PiXBold } from "react-icons/pi";
+import { PiXBold, PiCaretDown } from "react-icons/pi";
 import CreatableSelect from "react-select/creatable";
+import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import { RadixTheme } from "@/services/RadixTheme";
+import HelperText from "@/ui/HelperText";
 import Field, { FieldProps } from "./Field";
 
 export const RadixThemeMenuPortal = (
@@ -46,7 +49,13 @@ export type FormatOptionLabelType = (
 
 export type SelectFieldProps = Omit<
   FieldProps,
-  "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
+  | "value"
+  | "onChange"
+  | "options"
+  | "multi"
+  | "initialOption"
+  | "placeholder"
+  | "size"
 > & {
   value: string;
   markRequired?: boolean;
@@ -56,6 +65,11 @@ export type SelectFieldProps = Omit<
   onChange: (value: string) => void;
   sort?: boolean;
   createable?: boolean;
+  // When createable with an empty option list, keep the real creatable select
+  // (type to create, commit on Enter/Tab/blur/select) instead of degrading to a
+  // plain text input whose onChange fires on every keystroke. Off by default so
+  // existing free-text callers keep the plain-input fallback.
+  keepCreatableWhenEmpty?: boolean;
   formatCreateLabel?: (value: string) => string;
   formatOptionLabel?: FormatOptionLabelType;
   formatGroupLabel?: (value: GroupedValue) => ReactNode;
@@ -66,7 +80,14 @@ export type SelectFieldProps = Omit<
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
   containerStyles?: StylesConfig<SingleValue, boolean>;
+  // Rendered before the dropdown caret; mirrors MultiSelectField's copy button.
+  extraIndicator?: ReactNode;
   withRadixThemedPortal?: boolean;
+  legacyLabelFormatting?: boolean;
+  labelSize?: TextSizes;
+  labelWeight?: TextWeights;
+  size?: "x-small" | "small" | "legacy" | "medium";
+  errorLevel?: "error" | "warning";
 };
 
 export function useSelectOptions(
@@ -128,19 +149,19 @@ export const ReactSelectProps = {
       return {
         ...styles,
         backgroundColor: "var(--form-multivalue-background-color)",
-        color: "var(--form-multivalue-text-color) !important",
+        color: "var(--slate-12) !important",
       };
     },
     multiValueLabel: (styles) => {
       return {
         ...styles,
-        color: "var(--form-multivalue-text-color)",
+        color: "var(--slate-12)",
       };
     },
     multiValueRemove: (styles) => {
       return {
         ...styles,
-        color: "var(--form-multivalue-text-color)",
+        color: "var(--slate-12)",
       };
     },
     control: (styles, { isFocused }) => {
@@ -205,6 +226,36 @@ const multilineStyles = {
   }),
 };
 
+function CustomDropdownIndicator(
+  props: DropdownIndicatorProps<SingleValue, false>,
+) {
+  return (
+    <components.DropdownIndicator {...props}>
+      <PiCaretDown size={16} />
+    </components.DropdownIndicator>
+  );
+}
+
+function IndicatorsContainerWithExtra(
+  props: React.ComponentProps<typeof components.IndicatorsContainer>,
+) {
+  const selectProps = props.selectProps as unknown as {
+    extraIndicator?: ReactNode;
+  };
+  const extra = selectProps?.extraIndicator;
+
+  if (!extra) {
+    return <components.IndicatorsContainer {...props} />;
+  }
+
+  return (
+    <components.IndicatorsContainer {...props}>
+      {extra}
+      {props.children}
+    </components.IndicatorsContainer>
+  );
+}
+
 const SelectField: FC<SelectFieldProps> = ({
   value,
   options,
@@ -219,6 +270,7 @@ const SelectField: FC<SelectFieldProps> = ({
   style,
   className,
   createable = false,
+  keepCreatableWhenEmpty = false,
   formatCreateLabel,
   formatOptionLabel,
   formatGroupLabel,
@@ -230,7 +282,13 @@ const SelectField: FC<SelectFieldProps> = ({
   forceUndefinedValueToNull = false,
   useMultilineLabels = false,
   containerStyles = {},
+  extraIndicator,
   withRadixThemedPortal = false,
+  legacyLabelFormatting = true,
+  labelSize,
+  labelWeight = "semibold",
+  size = "legacy" as "x-small" | "small" | "legacy" | "medium",
+  errorLevel = "error",
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -247,6 +305,12 @@ const SelectField: FC<SelectFieldProps> = ({
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
+  const { label, error } = fieldProps;
+  // Suppress Field's native error rendering; we render HelperText ourselves
+  delete fieldProps.error;
+  if (!legacyLabelFormatting) {
+    delete fieldProps.label;
+  }
 
   const selectRef = useRef(null);
 
@@ -280,23 +344,54 @@ const SelectField: FC<SelectFieldProps> = ({
       }
     });
 
-    return merged;
-  }, [useMultilineLabels, containerStyles]);
+    const sizeMinHeight: Record<string, number> = {
+      "x-small": 24,
+      small: 32,
+      legacy: 36,
+      medium: 40,
+    };
+    const sizeVPadding: Record<string, number> = {
+      "x-small": 0,
+      small: 0,
+      legacy: 2,
+      medium: 4,
+    };
+    const prevControl = merged.control;
+    merged.control = (base, state) => ({
+      ...(prevControl ? prevControl(base, state) : base),
+      minHeight: sizeMinHeight[size],
+    });
+    merged.valueContainer = (base) => ({
+      ...base,
+      paddingTop: sizeVPadding[size],
+      paddingBottom: sizeVPadding[size],
+    });
 
-  if (!options.length && createable) {
+    return merged;
+  }, [useMultilineLabels, containerStyles, size]);
+
+  if (!options.length && createable && !keepCreatableWhenEmpty) {
     return (
-      <Field
-        {...fieldProps}
-        ref={selectRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        autoFocus={autoFocus}
-        required={required}
-        className={className}
-        onBlur={onBlur}
-      />
+      <>
+        {!legacyLabelFormatting && label !== undefined && (
+          <Text as="label" size={labelSize ?? "md"} weight={labelWeight}>
+            {label}
+          </Text>
+        )}
+        <Field
+          {...fieldProps}
+          error={error}
+          ref={selectRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          autoFocus={autoFocus}
+          required={required}
+          className={className}
+          onBlur={onBlur}
+        />
+      </>
     );
   }
 
@@ -306,137 +401,173 @@ const SelectField: FC<SelectFieldProps> = ({
       ref={selectRef}
       render={(id, ref) => {
         return (
-          <div
-            style={style}
-            className={clsx(
-              "gb-select-wrapper position-relative",
-              disabled ? "disabled" : "",
-              className,
-            )}
-          >
-            {createable ? (
-              <CreatableSelect
-                {...ReactSelectProps}
-                styles={mergedStyles}
-                id={id}
-                ref={ref}
-                classNamePrefix="gb-select"
-                isClearable={isClearable}
-                isDisabled={disabled || false}
-                placeholder={placeholder}
-                inputValue={inputValue}
-                options={sorted}
-                formatCreateLabel={formatCreateLabel}
-                isValidNewOption={(value) => {
-                  if (!otherProps.pattern) return !!value;
-                  return new RegExp(otherProps.pattern).test(value);
-                }}
-                autoFocus={autoFocus}
-                onChange={(selected: { value: string }) => {
-                  onChange(selected?.value || "");
-                  setInputValue("");
-                }}
-                onFocus={() => {
-                  if (!selected?.value || !map.has(selected?.value)) {
-                    // If this was a custom option, reset the input value so it's editable
-                    setInputValue(selected?.value || "");
+          <>
+            {!legacyLabelFormatting &&
+              label !== undefined &&
+              (typeof label === "string" ? (
+                <Text
+                  as="label"
+                  htmlFor={id}
+                  size={labelSize ?? "md"}
+                  weight={labelWeight}
+                >
+                  {label}
+                </Text>
+              ) : (
+                label
+              ))}
+            <div
+              style={style}
+              className={clsx(
+                "gb-select-wrapper position-relative",
+                `gb-select-wrapper--${size}`,
+                disabled ? "disabled" : "",
+                className,
+              )}
+            >
+              {createable ? (
+                <CreatableSelect
+                  {...ReactSelectProps}
+                  styles={mergedStyles}
+                  id={id}
+                  ref={ref}
+                  className={clsx({
+                    error: !!error && errorLevel === "error",
+                    warning: !!error && errorLevel === "warning",
+                  })}
+                  classNamePrefix="gb-select"
+                  isClearable={isClearable}
+                  isDisabled={disabled || false}
+                  placeholder={placeholder}
+                  inputValue={inputValue}
+                  options={sorted}
+                  formatCreateLabel={formatCreateLabel}
+                  isValidNewOption={(value) => {
+                    if (!otherProps.pattern) return !!value;
+                    return new RegExp(otherProps.pattern).test(value);
+                  }}
+                  autoFocus={autoFocus}
+                  onChange={(selected: { value: string }) => {
+                    onChange(selected?.value || "");
+                    setInputValue("");
+                  }}
+                  onFocus={() => {
+                    if (!selected?.value || !map.has(selected?.value)) {
+                      // If this was a custom option, reset the input value so it's editable
+                      setInputValue(selected?.value || "");
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!inputValue) return;
+                    onChange(inputValue);
+                    onBlur && onBlur(e);
+                  }}
+                  onInputChange={(val) => {
+                    setInputValue(val);
+                  }}
+                  onKeyDown={(event) => {
+                    if (!inputValue) return;
+                    switch (event.key) {
+                      case "Enter":
+                      case "Tab":
+                        onChange(inputValue);
+                        setInputValue("");
+                        ref.current.blur();
+                    }
+                  }}
+                  onCreateOption={(val) => {
+                    onChange(val);
+                  }}
+                  noOptionsMessage={() => null}
+                  value={selected}
+                  formatOptionLabel={formatOptionLabel}
+                  formatGroupLabel={formatGroupLabel}
+                  isSearchable={!!isSearchable}
+                  onPaste={onPaste}
+                  extraIndicator={extraIndicator}
+                  components={{
+                    Input,
+                    DropdownIndicator: CustomDropdownIndicator,
+                    IndicatorSeparator: () => null,
+                    ClearIndicator: CustomClearIndicator,
+                    IndicatorsContainer: IndicatorsContainerWithExtra,
+                    ...(withRadixThemedPortal && {
+                      MenuPortal: RadixThemeMenuPortal,
+                    }),
+                  }}
+                  isOptionDisabled={isOptionDisabled}
+                />
+              ) : (
+                <ReactSelect
+                  {...ReactSelectProps}
+                  styles={mergedStyles}
+                  id={id}
+                  ref={ref}
+                  className={clsx({
+                    error: !!error && errorLevel === "error",
+                    warning: !!error && errorLevel === "warning",
+                  })}
+                  isClearable={isClearable}
+                  classNamePrefix="gb-select"
+                  isDisabled={disabled || false}
+                  options={sorted}
+                  onChange={(selected: { value: string }) => {
+                    onChange(selected?.value || "");
+                  }}
+                  onBlur={onBlur}
+                  autoFocus={autoFocus}
+                  value={
+                    forceUndefinedValueToNull ? (selected ?? null) : selected
                   }
-                }}
-                onBlur={(e) => {
-                  if (!inputValue) return;
-                  onChange(inputValue);
-                  onBlur && onBlur(e);
-                }}
-                onInputChange={(val) => {
-                  setInputValue(val);
-                }}
-                onKeyDown={(event) => {
-                  if (!inputValue) return;
-                  switch (event.key) {
-                    case "Enter":
-                    case "Tab":
-                      onChange(inputValue);
-                      setInputValue("");
-                      ref.current.blur();
-                  }
-                }}
-                onCreateOption={(val) => {
-                  onChange(val);
-                }}
-                noOptionsMessage={() => null}
-                value={selected}
-                formatOptionLabel={formatOptionLabel}
-                formatGroupLabel={formatGroupLabel}
-                isSearchable={!!isSearchable}
-                onPaste={onPaste}
-                components={{
-                  Input,
-                  IndicatorSeparator: () => null,
-                  ClearIndicator: CustomClearIndicator,
-                  ...(withRadixThemedPortal && {
-                    MenuPortal: RadixThemeMenuPortal,
-                  }),
-                }}
-                isOptionDisabled={isOptionDisabled}
-              />
-            ) : (
-              <ReactSelect
-                {...ReactSelectProps}
-                styles={mergedStyles}
-                id={id}
-                ref={ref}
-                isClearable={isClearable}
-                classNamePrefix="gb-select"
-                isDisabled={disabled || false}
-                options={sorted}
-                onChange={(selected: { value: string }) => {
-                  onChange(selected?.value || "");
-                }}
-                onBlur={onBlur}
-                autoFocus={autoFocus}
-                value={
-                  forceUndefinedValueToNull ? (selected ?? null) : selected
-                }
-                placeholder={initialOption ?? placeholder}
-                formatOptionLabel={formatOptionLabel}
-                formatGroupLabel={formatGroupLabel}
-                isSearchable={!!isSearchable}
-                onPaste={onPaste}
-                components={{
-                  Input,
-                  IndicatorSeparator: () => null,
-                  ClearIndicator: CustomClearIndicator,
-                  ...(withRadixThemedPortal && {
-                    MenuPortal: RadixThemeMenuPortal,
-                  }),
-                }}
-                isOptionDisabled={isOptionDisabled}
-              />
+                  placeholder={initialOption ?? placeholder}
+                  formatOptionLabel={formatOptionLabel}
+                  formatGroupLabel={formatGroupLabel}
+                  isSearchable={!!isSearchable}
+                  onPaste={onPaste}
+                  extraIndicator={extraIndicator}
+                  components={{
+                    Input,
+                    DropdownIndicator: CustomDropdownIndicator,
+                    IndicatorSeparator: () => null,
+                    ClearIndicator: CustomClearIndicator,
+                    IndicatorsContainer: IndicatorsContainerWithExtra,
+                    ...(withRadixThemedPortal && {
+                      MenuPortal: RadixThemeMenuPortal,
+                    }),
+                  }}
+                  isOptionDisabled={isOptionDisabled}
+                />
+              )}
+              {required && (
+                <input
+                  tabIndex={-1}
+                  autoComplete="off"
+                  style={{
+                    opacity: 0,
+                    width: "100%",
+                    height: 0,
+                    position: "absolute",
+                    pointerEvents: "none",
+                  }}
+                  value={selected?.value || ""}
+                  onChange={() => {
+                    // do nothing
+                  }}
+                  onFocus={() => {
+                    if (ref?.current) {
+                      ref.current.focus();
+                    }
+                  }}
+                  required
+                />
+              )}
+            </div>
+            {error && (
+              <HelperText status={errorLevel} mt="1">
+                {error}
+              </HelperText>
             )}
-            {required && (
-              <input
-                tabIndex={-1}
-                autoComplete="off"
-                style={{
-                  opacity: 0,
-                  width: "100%",
-                  height: 0,
-                  position: "absolute",
-                  pointerEvents: "none",
-                }}
-                value={selected?.value || ""}
-                onChange={() => {
-                  // do nothing
-                }}
-                onFocus={() => {
-                  if (ref?.current) {
-                    ref.current.focus();
-                  }
-                }}
-                required
-              />
-            )}
-          </div>
+          </>
         );
       }}
     />

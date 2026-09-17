@@ -101,13 +101,13 @@ export default function RevisionDropdown({
         : r.dateUpdated;
     if (publishedOnly) {
       return revDate ? (
-        <Text size="small" color="text-low" whiteSpace="nowrap">
+        <Text size="sm" color="text-low" whiteSpace="nowrap">
           Published: {dateNoYear(revDate)}
         </Text>
       ) : null;
     }
     return r.createdBy || revDate ? (
-      <Text size="small" color="text-low" whiteSpace="nowrap">
+      <Text size="sm" color="text-low" whiteSpace="nowrap">
         {r.createdBy?.type === "system" ? (
           <em>generated</em>
         ) : r.createdBy ? (
@@ -145,11 +145,11 @@ export default function RevisionDropdown({
       {generatedCount > 0 && (
         <DropdownMenuLabel>
           <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               Show ramp-generated ({generatedCount})
             </Text>
             <Switch
-              size="1"
+              size="sm"
               value={showGenerated}
               onChange={setShowGenerated}
             />
@@ -159,11 +159,11 @@ export default function RevisionDropdown({
       {!draftsOnly && !publishedOnly && discardedCount > 0 && (
         <DropdownMenuLabel>
           <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               Show discarded ({discardedCount})
             </Text>
             <Switch
-              size="1"
+              size="sm"
               value={showDiscarded}
               onChange={setShowDiscarded}
             />

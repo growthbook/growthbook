@@ -2,6 +2,7 @@ import { useState } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
+  LinkedFeatureEnvState,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -30,6 +31,32 @@ type Props = {
   mutate?: () => void;
 };
 
+function getEnvironmentStateTooltip(
+  state: LinkedFeatureEnvState,
+  experimentStarted: boolean,
+): string {
+  switch (state) {
+    case "active":
+      return experimentStarted
+        ? "The experiment is active in this environment"
+        : "The experiment will be active in this environment once started";
+    case "disabled-env":
+      return experimentStarted
+        ? "The environment is disabled for this feature, so the experiment is not active"
+        : "The environment is disabled for this feature, so the experiment will not be active once started";
+    case "disabled-rule":
+      return experimentStarted
+        ? "The experiment is disabled in this environment and is not active"
+        : "The experiment is disabled in this environment and will not be active once started";
+    case "missing":
+      return "The experiment is not present in this environment";
+    default: {
+      const _exhaustiveCheck: never = state;
+      return _exhaustiveCheck;
+    }
+  }
+}
+
 export default function LinkedFeatureFlag({
   info,
   experiment,
@@ -46,11 +73,11 @@ export default function LinkedFeatureFlag({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const canUpdateLinkedFeature =
-    canEditExperiment && permissionsUtil.canUpdateFeature(info.feature, {});
+    canEditExperiment && permissionsUtil.canEditFeatureDrafts(info.feature);
 
   const canEditFeatureDraft =
     canUpdateLinkedFeature &&
-    permissionsUtil.canManageFeatureDrafts(info.feature);
+    permissionsUtil.canEditFeatureDrafts(info.feature);
 
   // Gates the "Re-add feature flag" link in the discarded callout: requires
   // feature-draft perms AND the experiment to still be in draft status with no
@@ -61,7 +88,7 @@ export default function LinkedFeatureFlag({
     !experiment.nextScheduledStatusUpdate;
 
   const handleRemove = async () => {
-    if (!confirm("Remove this feature flag from the experiment?")) return;
+    if (!confirm("Remove this Feature Flag from the experiment?")) return;
     setRemoving(true);
     try {
       await apiCall(
@@ -110,14 +137,7 @@ export default function LinkedFeatureFlag({
       env,
       state,
       isActive: state === "active",
-      tooltip:
-        state === "active"
-          ? "The experiment is active in this environment"
-          : state === "disabled-env"
-            ? "The environment is disabled for this feature, so the experiment is not active"
-            : state === "disabled-rule"
-              ? "The experiment is disabled in this environment and is not active"
-              : "The experiment is not present in this environment",
+      tooltip: getEnvironmentStateTooltip(state, experiment.status !== "draft"),
     }),
   );
 
@@ -173,7 +193,7 @@ export default function LinkedFeatureFlag({
       >
         {info.state === "archived" && (
           <Callout status="warning" my="4">
-            This feature flag has been archived. Unarchive it to make this
+            This Feature Flag has been archived. Unarchive it to make this
             experiment active.
           </Callout>
         )}
@@ -183,7 +203,7 @@ export default function LinkedFeatureFlag({
             experiment-ref rule is no longer queued.{" "}
             {canAddLinkedChanges && onReAdd ? (
               <Link onClick={onReAdd} style={{ cursor: "pointer" }}>
-                Re-add feature flag
+                Re-add Feature Flag
               </Link>
             ) : (
               <Link href={`/features/${info.feature?.id}`} target="_blank">
@@ -323,8 +343,8 @@ export default function LinkedFeatureFlag({
 
                   {info.rulesAbove && (
                     <Callout status="info">
-                      <strong>Notice:</strong> There are feature rules above
-                      this experiment so some users might not be included.
+                      <strong>Notice:</strong> There are Feature Flag rules
+                      above this experiment so some users might not be included.
                     </Callout>
                   )}
                 </>

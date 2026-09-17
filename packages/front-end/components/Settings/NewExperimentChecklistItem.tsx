@@ -144,6 +144,7 @@ export default function NewExperimentChecklistItem({
         />
         {newTaskInput.task && newTaskInput.completionType === "manual" ? (
           <Field
+            size="legacy"
             label="Add URL (Optional)"
             autoFocus
             type="url"

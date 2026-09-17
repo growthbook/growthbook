@@ -17,7 +17,7 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import FactSegmentForm from "./FactSegmentForm";
@@ -140,7 +140,6 @@ const SegmentForm: FC<{
         />
       )}
       <Modal
-        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         open={true}
@@ -203,6 +202,7 @@ const SegmentForm: FC<{
           </Callout>
         ) : null}
         <Field
+          size="legacy"
           label="Name"
           required
           {...form.register("name")}
@@ -214,6 +214,7 @@ const SegmentForm: FC<{
           onChange={(v) => form.setValue("owner", v)}
         />
         <Field
+          size="legacy"
           label="Description"
           maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
@@ -221,6 +222,7 @@ const SegmentForm: FC<{
           disabled={isReadOnly}
         />
         <SelectField
+          size="legacy"
           label="Data Source"
           required
           value={form.watch("datasource")}
@@ -240,6 +242,7 @@ const SegmentForm: FC<{
         />
         {datasource?.properties?.userIds && (
           <SelectField
+            size="legacy"
             label="Identifier Type"
             required
             disabled={isReadOnly}
@@ -256,6 +259,7 @@ const SegmentForm: FC<{
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
+              legacyHeight
               label={
                 <>
                   Projects{" "}
@@ -266,7 +270,7 @@ const SegmentForm: FC<{
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={form.watch("projects")}
               disabled={isReadOnly}
               options={projectOptions}
@@ -296,6 +300,7 @@ const SegmentForm: FC<{
           </div>
         ) : (
           <Field
+            size="legacy"
             label="Event Condition"
             required
             {...form.register("sql")}

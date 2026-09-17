@@ -1,10 +1,210 @@
 import type { z } from "zod";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { postFeatureRuleV2 } from "shared/validators";
-import { validateScheduleRules } from "shared/util";
+import { resolveSavedGroupsInput } from "shared/validators";
+import {
+  validateScheduleRules,
+  setConfigBacking,
+  getConfigBackingKey,
+  getConfigSubtree,
+  isScopedConfig,
+  valueHasConfigExtends,
+  parsePlainJSONObject,
+  isScheduledRule,
+  findStoredRuleCounterpart,
+} from "shared/util";
+import isEqual from "lodash/isEqual";
+import { getLatestPhaseVariations } from "shared/experiments";
+import type { ExperimentInterface } from "shared/types/experiment";
 import type { ApiReqContext } from "back-end/types/api";
-import { BadRequestError } from "back-end/src/util/errors";
+import type { ReqContext } from "back-end/types/request";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  getExperimentById,
+  getExperimentsByIds,
+} from "back-end/src/models/ExperimentModel";
 import type { ApiFeatureEnvSettings } from "./postFeature";
+
+// A flag can't carry its own JSON schema while it's a config-backed ("Config
+// mode") flag — the config's schema is authoritative, so the two would conflict.
+// Config-backing is determined solely by `baseConfig` (the authoritative field),
+// never by sniffing the value's `$extends`. Pass the *effective* post-update
+// `baseConfig` (new value falling back to the existing one).
+export function assertConfigSchemaCompat({
+  jsonSchemaEnabled,
+  baseConfig,
+}: {
+  jsonSchemaEnabled: boolean | undefined;
+  baseConfig?: string | null;
+}): void {
+  if (jsonSchemaEnabled && (baseConfig ?? null) !== null) {
+    throw new BadRequestError(
+      "A flag cannot define its own JSON schema while it is backed by a Config (`baseConfig`). " +
+        "The Config's schema is authoritative — remove `baseConfig` or the flag's jsonSchema.",
+    );
+  }
+}
+
+// Matches the key charset the payload resolver accepts (`@config:<key>` refs).
+const CONFIG_KEY_RE = /^[a-z0-9][a-z0-9_-]*$/;
+
+async function requireLiveConfig(
+  context: ApiReqContext,
+  key: string,
+  featureProject: string | undefined,
+): Promise<void> {
+  if (!CONFIG_KEY_RE.test(key)) {
+    throw new BadRequestError(
+      `Invalid Config key "${key}". Keys must be lowercase alphanumeric with hyphens/underscores.`,
+    );
+  }
+  const config = await context.models.configs.getByKey(key);
+  if (!config) {
+    throw new BadRequestError(`Config "${key}" does not exist.`);
+  }
+  if (config.archived) {
+    throw new BadRequestError(
+      `Config "${key}" is archived and cannot back a feature value.`,
+    );
+  }
+  // Resolution scrubs a ref whose config is scoped to a different project than
+  // the resolving feature, so a cross-project attach would serve a bare patch
+  // while its values are validated against a schema that never applies. Global
+  // configs (no project) are usable everywhere. Matches the UI's config picker.
+  if (config.project && config.project !== (featureProject || "")) {
+    throw new BadRequestError(
+      `Config "${key}" is scoped to a different project than this Feature Flag and cannot back its values. Use a global Config or one in the Feature Flag's project.`,
+    );
+  }
+  // Flavors are selected implicitly per environment via the base's
+  // scopedOverrides — referencing one directly would serve its patch in EVERY
+  // environment and dodge its env-scoped review.
+  if (isScopedConfig(config)) {
+    throw new BadRequestError(
+      `Config "${key}" is an environment/project override of "${config.scopedConfig?.parent}" and can't back a feature value directly — reference its base Config instead.`,
+    );
+  }
+}
+
+// Config backing is set only through dedicated fields (`baseConfig`,
+// `defaultValueConfig`, rule/variation `config`) — never a raw `@config:`
+// `$extends` inside a value string. `@const:` refs are untouched.
+export function assertNoRawConfigExtends(
+  value: string | undefined,
+  label: string,
+): void {
+  if (valueHasConfigExtends(value)) {
+    throw new BadRequestError(
+      `${label} must not embed a Config via a raw "$extends" "@config:" directive. Use the config field instead (baseConfig / defaultValueConfig / a rule's config).`,
+    );
+  }
+}
+
+// Compose a stored config-backed value from a config key + an override patch,
+// rejecting a patch that isn't a JSON object. A config backing is a deep-merge
+// of the patch onto the config's object, so a scalar/array patch has nothing to
+// merge onto — setConfigBacking would silently drop the backing ref and store
+// the bare value unbacked. Reject the contradictory input instead. An empty
+// patch ("" / whitespace) is fine: it means "pure backing, no override".
+export function composeConfigBacking(
+  configKey: string | null | undefined,
+  value: string | undefined,
+  label: string,
+): string {
+  if (
+    (configKey ?? null) !== null &&
+    (value ?? "").trim() !== "" &&
+    !parsePlainJSONObject(value ?? "")
+  ) {
+    throw new BadRequestError(
+      `${label} must be a JSON object when backed by a Config — a scalar or array value can't extend a Config.`,
+    );
+  }
+  return setConfigBacking(configKey ?? null, value);
+}
+
+// `baseConfig` puts a flag in Config mode: JSON-typed and backed by a live config.
+export async function assertValidBaseConfig(
+  context: ApiReqContext,
+  baseConfig: string | null | undefined,
+  valueType: string | undefined,
+  featureProject: string | undefined,
+): Promise<void> {
+  if ((baseConfig ?? null) === null) return;
+  if (valueType !== "json") {
+    throw new BadRequestError('`baseConfig` requires `valueType: "json"`.');
+  }
+  await requireLiveConfig(context, baseConfig as string, featureProject);
+}
+
+// The default's optional extension must be a live config within `baseConfig`'s
+// family (the base itself or a descendant).
+export async function assertValidDefaultValueConfig(
+  context: ApiReqContext,
+  baseConfig: string | null | undefined,
+  defaultValueConfig: string | null | undefined,
+  featureProject: string | undefined,
+): Promise<void> {
+  if ((defaultValueConfig ?? null) === null) return;
+  if ((baseConfig ?? null) === null) {
+    throw new BadRequestError(
+      "`defaultValueConfig` requires `baseConfig` to be set.",
+    );
+  }
+  await requireLiveConfig(
+    context,
+    defaultValueConfig as string,
+    featureProject,
+  );
+  const allConfigs = await context.models.configs.getAll();
+  const family = new Set(getConfigSubtree(baseConfig as string, allConfigs));
+  if (!family.has(defaultValueConfig as string)) {
+    throw new BadRequestError(
+      `Config "${defaultValueConfig}" is not the feature's baseConfig "${baseConfig}" or one of its descendants.`,
+    );
+  }
+}
+
+// Request-supplied config keys on rules/variations must resolve to a live
+// config within the feature's family: the default value's backing config or a
+// descendant of it (mirrors the UI's getConfigSubtree constraint). `null`
+// (detach) and `undefined` (no change) entries are skipped.
+export async function assertValidRuleConfigKeys(
+  context: ApiReqContext,
+  configKeys: (string | null | undefined)[],
+  effectiveDefaultValue: string | undefined,
+  baseConfig: string | null | undefined,
+  featureProject: string | undefined,
+): Promise<void> {
+  const keys = [
+    ...new Set(configKeys.filter((k): k is string => typeof k === "string")),
+  ];
+  if (!keys.length) return;
+
+  for (const key of keys) {
+    await requireLiveConfig(context, key, featureProject);
+  }
+
+  const defaultConfigKey =
+    (baseConfig ?? null) !== null
+      ? (baseConfig ?? null)
+      : getConfigBackingKey(effectiveDefaultValue);
+  if (defaultConfigKey === null) {
+    throw new BadRequestError(
+      "Rule values can only reference a Config when the feature's default value is config-backed.",
+    );
+  }
+  const allConfigs = await context.models.configs.getAll();
+  const family = new Set(getConfigSubtree(defaultConfigKey, allConfigs));
+  for (const key of keys) {
+    if (!family.has(key)) {
+      throw new BadRequestError(
+        `Config "${key}" is not the Feature Flag's default Config "${defaultConfigKey}" or one of its descendants.`,
+      );
+    }
+  }
+}
 
 export type ApiRuleV2Input = z.infer<typeof postFeatureRuleV2>;
 
@@ -32,6 +232,24 @@ export function resolveScopeFromInput(
   return { allEnvironments: true, environments: undefined };
 }
 
+// Project-scope resolution mirroring resolveScopeFromInput. Default allProjects:true;
+// allProjects:false keeps an explicit projects list (empty = scoped to nothing, leak-safe).
+export function resolveProjectScopeFromInput(
+  allProjects: boolean | undefined,
+  projects: string[] | undefined,
+): { allProjects: boolean; projects: string[] | undefined } {
+  if (allProjects === true) {
+    return { allProjects: true, projects: undefined };
+  }
+  if (allProjects === false) {
+    return { allProjects: false, projects: projects ?? [] };
+  }
+  if (Array.isArray(projects)) {
+    return { allProjects: false, projects };
+  }
+  return { allProjects: true, projects: undefined };
+}
+
 // Convert a v2 API rule input to the internal `FeatureRule` shape. New rules
 // leave `id` blank; `addIdsToFlatRules` fills it in downstream.
 //
@@ -44,20 +262,29 @@ export function mapV2ApiRuleToFeatureRule(
   r: ApiRuleV2Input,
   existingFeature?: FeatureInterface,
 ): FeatureRule {
-  const { allEnvironments, environments, ...ruleInput } = r;
+  const { allEnvironments, environments, allProjects, projects, ...ruleInput } =
+    r;
   const { allEnvironments: resolvedAllEnvs, environments: resolvedEnvs } =
     resolveScopeFromInput(allEnvironments, environments);
+  const { allProjects: resolvedAllProjects, projects: resolvedProjects } =
+    resolveProjectScopeFromInput(allProjects, projects);
   const baseRule = {
     id: ruleInput.id ?? "",
     description: ruleInput.description ?? "",
     enabled: ruleInput.enabled ?? true,
     condition: ruleInput.condition ?? "",
-    savedGroups: ruleInput.savedGroupTargeting?.map((s) => ({
-      match: s.matchType,
-      ids: s.savedGroups,
-    })),
+    savedGroups: resolveSavedGroupsInput(ruleInput),
+    // Emitted on GET; dropping them broke the fetch → edit → send-back loop.
+    ...(ruleInput.prerequisites !== undefined && {
+      prerequisites: ruleInput.prerequisites,
+    }),
+    ...(ruleInput.scheduleRules !== undefined && {
+      scheduleRules: ruleInput.scheduleRules,
+    }),
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
+    allProjects: resolvedAllProjects,
+    projects: resolvedProjects,
   };
 
   if (ruleInput.type === "experiment-ref") {
@@ -65,21 +292,42 @@ export function mapV2ApiRuleToFeatureRule(
       ...baseRule,
       type: "experiment-ref" as const,
       experimentId: ruleInput.experimentId,
-      variations: ruleInput.variations.map((v) => ({
-        variationId: v.variationId,
-        value: v.value,
-      })),
+      variations: ruleInput.variations.map((v) => {
+        assertNoRawConfigExtends(v.value, "Variation value");
+        // When `config` is supplied, `value` is an override patch; recompose it
+        // into the internal `$extends`-first value. null detaches any config.
+        return {
+          variationId: v.variationId,
+          value:
+            v.config !== undefined
+              ? composeConfigBacking(v.config, v.value, "Variation value")
+              : v.value,
+        };
+      }),
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
     };
   }
   if (ruleInput.type === "rollout") {
+    assertNoRawConfigExtends(ruleInput.value, "Rule value");
     return {
       ...baseRule,
       type: "rollout" as const,
-      value: ruleInput.value,
+      value:
+        ruleInput.config !== undefined
+          ? composeConfigBacking(
+              ruleInput.config,
+              ruleInput.value,
+              "Rule value",
+            )
+          : ruleInput.value,
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
       coverage: ruleInput.coverage ?? 1,
       hashAttribute: ruleInput.hashAttribute ?? "",
+      // Preserve on round-trips — dropping seed/hashVersion re-buckets the rollout.
+      ...(ruleInput.seed !== undefined && { seed: ruleInput.seed }),
+      ...(ruleInput.hashVersion !== undefined && {
+        hashVersion: ruleInput.hashVersion,
+      }),
     };
   }
   if (ruleInput.type === "safe-rollout") {
@@ -109,10 +357,14 @@ export function mapV2ApiRuleToFeatureRule(
       status: ruleInput.status ?? existingSafeRollout.status,
     };
   }
+  assertNoRawConfigExtends(ruleInput.value, "Rule value");
   return {
     ...baseRule,
     type: "force" as const,
-    value: ruleInput.value,
+    value:
+      ruleInput.config !== undefined
+        ? composeConfigBacking(ruleInput.config, ruleInput.value, "Rule value")
+        : ruleInput.value,
     ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
   };
 }
@@ -122,9 +374,12 @@ const METADATA_FIELDS = [
   "owner",
   "description",
   "project",
+  "targetingAllProjects",
+  "targetingProjects",
   "tags",
   "customFields",
   "jsonSchema",
+  "baseConfig",
 ] as const;
 
 // Pure split of metadata-like fields from feature updates. Returns the
@@ -155,30 +410,298 @@ export async function assertValidProjectId(
   }
 }
 
-// `null` (explicit removal) and `undefined` (no change) are both no-ops.
-export async function assertValidHoldout(
-  holdout: { id: string } | null | undefined,
-  context: ApiReqContext,
+// Validate that every targeting project id exists (mirrors the primary-project check).
+export async function assertValidProjectIds(
+  projectIds: string[] | undefined,
+  context: ReqContext | ApiReqContext,
+  label = "targeting",
 ): Promise<void> {
-  if (!holdout) return;
-  const holdoutObj = await context.models.holdout.getById(holdout.id);
-  if (!holdoutObj) {
-    throw new Error(`Holdout id '${holdout.id}' not found.`);
+  if (!projectIds?.length) return;
+  // Existence only, unfiltered by read access: authorization ran before this,
+  // and a targeting project already on the flag may be one the caller cannot read.
+  const valid = new Set(await context.getAllProjectIds());
+  const missing = projectIds.filter((id) => id && !valid.has(id));
+  if (missing.length) {
+    throw new Error(
+      `The following ${label} project ids are not valid: ${missing.join(", ")}`,
+    );
   }
 }
 
-// Pro/Enterprise gated. Validates scheduleRules on v1-shape env rules.
+// Validate every rule-level project scope id across a set of rules.
+export async function assertValidRuleProjectIds(
+  rules: { projects?: string[] }[] | undefined,
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const ids = Array.from(
+    new Set((rules ?? []).flatMap((r) => r.projects ?? [])),
+  );
+  await assertValidProjectIds(ids, context, "rule");
+}
+
+type ExperimentRefRuleInput = {
+  experimentId: string;
+  // Absent on some malformed legacy rules; treated as empty.
+  variations?: { variationId?: string }[];
+};
+
+// An experiment-ref rule's variations must be exactly the experiment's
+// latest-phase variations, matched by id: the payload serves null for any arm
+// it cannot match, so a stray or missing id is a silent outage for that arm.
+export function assertRuleVariationsMatchExperiment(
+  rule: ExperimentRefRuleInput,
+  experiment: ExperimentInterface,
+): void {
+  const expected = new Set(
+    getLatestPhaseVariations(experiment).map((v) => v.id),
+  );
+  const seen = new Set<string>();
+  const variations = rule.variations ?? [];
+  for (const { variationId = "" } of variations) {
+    if (!expected.has(variationId)) {
+      throw new BadRequestError(
+        `Variation "${variationId}" is not a variation of experiment "${rule.experimentId}"`,
+      );
+    }
+    if (seen.has(variationId)) {
+      throw new BadRequestError(`Duplicate variationId "${variationId}"`);
+    }
+    seen.add(variationId);
+  }
+  if (seen.size !== expected.size) {
+    throw new BadRequestError(
+      `Experiment "${rule.experimentId}" has ${expected.size} variation(s) but ${variations.length} were specified`,
+    );
+  }
+}
+
+// Single-rule form for the per-rule endpoints.
+export async function assertValidExperimentRefRule(
+  context: ReqContext | ApiReqContext,
+  rule: ExperimentRefRuleInput,
+): Promise<void> {
+  const experiment = await getExperimentById(context, rule.experimentId);
+  if (!experiment) {
+    throw new NotFoundError(`Could not find experiment "${rule.experimentId}"`);
+  }
+  assertRuleVariationsMatchExperiment(rule, experiment);
+}
+
+// Experiment-ref rules must point at an experiment the caller can read, and
+// their variations must match it. Each referenced experiment is loaded once.
+export async function assertValidRuleExperimentIds(
+  rules: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const refs = rules.filter(
+    (r): r is Extract<FeatureRule, { type: "experiment-ref" }> =>
+      r.type === "experiment-ref",
+  );
+  if (!refs.length) return;
+  const experiments = new Map(
+    (
+      await getExperimentsByIds(context, [
+        ...new Set(refs.map((r) => r.experimentId)),
+      ])
+    ).map((e) => [e.id, e]),
+  );
+  for (const rule of refs) {
+    const experiment = experiments.get(rule.experimentId);
+    if (!experiment) {
+      throw new NotFoundError(
+        `Could not find experiment "${rule.experimentId}"`,
+      );
+    }
+    assertRuleVariationsMatchExperiment(rule, experiment);
+  }
+}
+
+// Whether a write changes which experiment a rule points at or which variation
+// ids it carries — the only changes that can introduce a mismatch.
+export function experimentRefChanged(
+  rule: ExperimentRefRuleInput,
+  prior: FeatureRule | undefined,
+): boolean {
+  const variationIds = (r: ExperimentRefRuleInput) =>
+    (r.variations ?? []).map((v) => v.variationId ?? "").sort();
+  return (
+    !prior ||
+    prior.type !== "experiment-ref" ||
+    prior.experimentId !== rule.experimentId ||
+    !isEqual(variationIds(prior), variationIds(rule))
+  );
+}
+
+// Update form: a rule whose experiment and variation ids are unchanged is not
+// re-checked, so a rule pointing at a since-deleted or since-edited experiment
+// can be posted back unchanged.
+export async function assertValidChangedRuleExperimentIds(
+  inbound: FeatureRule[],
+  stored: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  await assertValidRuleExperimentIds(
+    inbound.filter(
+      (rule) =>
+        rule.type === "experiment-ref" &&
+        experimentRefChanged(rule, findStoredRuleCounterpart(stored, rule)),
+    ),
+    context,
+  );
+}
+
+// Rule ids must be unique within one rules array (the v2 flat list, or one v1
+// environment); a repeated id makes update-by-id ambiguous.
+export function assertUniqueRuleIds(
+  rules: { id?: string }[],
+  environment?: string,
+): void {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const rule of rules) {
+    if (!rule.id) continue;
+    if (seen.has(rule.id)) duplicates.add(rule.id);
+    seen.add(rule.id);
+  }
+  if (duplicates.size) {
+    const where = environment ? ` in environment "${environment}"` : "";
+    throw new BadRequestError(
+      `Duplicate rule ID(s)${where}: ${[...duplicates].join(", ")}.`,
+    );
+  }
+}
+
+export function assertUniqueRuleIdsByEnv(
+  envBody: ApiFeatureEnvSettings | undefined,
+): void {
+  for (const [environment, settings] of Object.entries(envBody ?? {})) {
+    if (settings.rules) assertUniqueRuleIds(settings.rules, environment);
+  }
+}
+
+// Plan gate for scheduling. A simple schedule is a one-step ramp on the same
+// engine, so `schedule`, legacy inline `scheduleRules`, and an inline
+// `rampSchedule` are all the Pro `schedule-feature-flag` feature — the gate the
+// dashboard and `createRampSchedulesForRevision` (the engine chokepoint) apply.
+// Only newly introduced scheduling is gated: callers skip this for a rule that
+// is already scheduled, so an org that has dropped below Pro can still edit or
+// remove what it has. See .agents/guides/backend/api-patterns.md "Plan gating
+// for scheduling and ramps".
+export function assertCanUseRuleScheduling(
+  context: ApiReqContext,
+  input: {
+    schedule?: { startDate?: string | null; endDate?: string | null } | null;
+    scheduleRules?: unknown[] | null;
+    rampSchedule?: unknown;
+  },
+): void {
+  const scheduled =
+    input.schedule?.startDate ||
+    input.schedule?.endDate ||
+    input.scheduleRules?.length ||
+    input.rampSchedule;
+  if (scheduled && !context.hasPremiumFeature("schedule-feature-flag")) {
+    context.throwPlanDoesNotAllowError(
+      "Rule scheduling requires a Pro plan or above.",
+    );
+  }
+}
+
+// Update form: a rule whose project scope is unchanged from the stored rule
+// with the same id is not re-checked, so a rule still scoped to a since-deleted
+// project can be posted back unchanged while a new unknown id is rejected.
+export async function assertValidChangedRuleProjectIds(
+  inbound: FeatureRule[],
+  stored: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const scope = (r: FeatureRule) => [...(r.projects ?? [])].sort().join("\0");
+  await assertValidRuleProjectIds(
+    inbound.filter((rule) => {
+      const prior = findStoredRuleCounterpart(stored, rule);
+      return !prior || scope(prior) !== scope(rule);
+    }),
+    context,
+  );
+}
+
+// `null` (explicit removal) and `undefined` (no change) are both no-ops.
+// Validates both read access and the Holdout's Project scope.
+export async function assertValidHoldout(
+  holdout: { id: string } | null | undefined,
+  context: ReqContext | ApiReqContext,
+  project: string | undefined,
+): Promise<void> {
+  if (!holdout) return;
+  await getHoldoutAvailableForProject({
+    context,
+    holdoutId: holdout.id,
+    project,
+  });
+}
+
+// v2 counterpart on the flat rules array, keyed by rule index. Empty arrays
+// pass, and the plan gate applies only to rules not already scheduled in
+// `stored`, so a downgraded org can still echo, edit, or clear an existing
+// schedule.
+export function validateRulesScheduleRules(
+  rules: FeatureRule[],
+  context: ReqContext | ApiReqContext,
+  stored: FeatureRule[] = [],
+): void {
+  rules.forEach((rule, i) => {
+    if (!rule.scheduleRules?.length) return;
+    const prior = findStoredRuleCounterpart(stored, rule);
+    if (
+      !isScheduledRule(prior) &&
+      !context.hasPremiumFeature("schedule-feature-flag")
+    ) {
+      context.throwPlanDoesNotAllowError(
+        "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
+      );
+    }
+    if (isEqual(prior?.scheduleRules, rule.scheduleRules)) return;
+    try {
+      validateScheduleRules(rule.scheduleRules);
+    } catch (error) {
+      throw new BadRequestError(
+        `Invalid scheduleRules on rule ${i + 1}: ${error.message}`,
+      );
+    }
+  });
+}
+
+// v1-shape counterpart of validateRulesScheduleRules; the stored counterpart
+// of an env rule is looked up as if the rule were scoped to that environment.
 export function validateEnvRulesScheduleRules(
   envBody: ApiFeatureEnvSettings | undefined,
   context: ApiReqContext,
+  stored: FeatureRule[] = [],
 ): void {
   if (!envBody) return;
   for (const [envName, envSettings] of Object.entries(envBody)) {
     if (!envSettings.rules) continue;
     envSettings.rules.forEach((rule, ruleIndex) => {
-      if (!rule.scheduleRules) return;
-      if (!context.hasPremiumFeature("schedule-feature-flag")) {
-        throw new Error(
+      if (!rule.scheduleRules?.length) return;
+      const prior = findStoredRuleCounterpart<
+        Pick<
+          FeatureRule,
+          | "id"
+          | "allEnvironments"
+          | "environments"
+          | "scheduleRules"
+          | "scheduleType"
+        >
+      >(stored, {
+        id: rule.id ?? "",
+        allEnvironments: false,
+        environments: [envName],
+      });
+      if (
+        !isScheduledRule(prior) &&
+        !context.hasPremiumFeature("schedule-feature-flag")
+      ) {
+        context.throwPlanDoesNotAllowError(
           "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
         );
       }

@@ -22,14 +22,14 @@ export default function FullRefreshRequiredDialog({
       submit={controller.onConfirm}
       close={controller.onCancel}
     >
-      <Text size="medium" color="text-high" as="p">
+      <Text size="md" color="text-high" as="p">
         A full refresh can take longer to update, as it rebuilds the incremental
         pipeline with the new settings applied:
       </Text>
       <ul style={{ paddingLeft: "13px" }}>
         {controller.reasons.map((reason) => (
           <li key={reason}>
-            <Text size="medium" color="text-high">
+            <Text size="md" color="text-high">
               {reason}
             </Text>
           </li>

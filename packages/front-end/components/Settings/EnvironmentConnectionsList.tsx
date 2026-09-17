@@ -30,7 +30,7 @@ const EnvironmentConnectionsList: FC<EnvironmentConnectionsListProps> = ({
           trigger={
             <Flex align="center" gap="1">
               <PiCaretRightFill className="chevron" />
-              <Heading as="h3" size="small" mb="0">
+              <Heading as="h3" size="sm" mb="0">
                 SDK Connections
               </Heading>
               <Badge radius="full" label={connections.length.toString()} />

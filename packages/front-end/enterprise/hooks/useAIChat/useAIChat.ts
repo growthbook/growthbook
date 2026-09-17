@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import type {
   ActiveTurnItem,
   ConversationLoadResponse,
+  AIChatMention,
   AIChatMessage,
   UseAIChatOptions,
   UseAIChatReturn,
@@ -323,7 +324,11 @@ export function useAIChat({
   const sendMessage = useCallback(
     async (
       messageOverride?: string,
-      options?: { suppressUserMessage?: boolean },
+      options?: {
+        suppressUserMessage?: boolean;
+        mentions?: AIChatMention[];
+        skills?: string[];
+      },
     ) => {
       const trimmed = (messageOverride ?? input).trim();
       if (!trimmed || loading) return;
@@ -336,6 +341,8 @@ export function useAIChat({
           id: `msg_${messageCounterRef.current++}`,
           content: trimmed,
           ts: Date.now(),
+          ...(options?.mentions?.length ? { mentions: options.mentions } : {}),
+          ...(options?.skills?.length ? { skills: options.skills } : {}),
         };
         setMessages((prev) => [...prev, userMessage]);
       }

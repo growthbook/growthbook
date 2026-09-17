@@ -8,7 +8,7 @@ export const getConstant = createApiRequestHandler(getConstantValidator)(async (
 ) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant with that key");
+    throw new NotFoundError("Could not find Constant with that key");
   }
 
   return {

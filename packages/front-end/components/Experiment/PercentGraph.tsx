@@ -1,7 +1,7 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   hasEnoughData,
   isStatSig,
 } from "shared/experiments";
@@ -19,7 +19,7 @@ import { useResultPopover } from "./useResultPopover";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   significanceThresholds: SignificanceThresholds;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;

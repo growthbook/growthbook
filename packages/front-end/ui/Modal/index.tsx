@@ -20,16 +20,23 @@ import {
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
+import { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-export type Size = "md" | "lg";
+export type Size = SharedSize<"md" | "lg"> | "xl" | "fill";
 
+// Modal does not use the shared Radix map. Radix Dialog's size drives padding
+// and border radius rather than a step on the control scale, its own default is
+// "3", and the visible width comes from getMaxWidth below. So md is Radix "3"
+// here where it is "2" everywhere else.
 function getRadixSize(size: Size): Responsive<"3" | "4"> {
   switch (size) {
     case "md":
       return "3";
     case "lg":
+    case "xl":
+    case "fill":
       return "4";
   }
 }
@@ -40,6 +47,10 @@ function getMaxWidth(size: Size) {
       return "500px";
     case "lg":
       return "800px";
+    case "xl":
+      return "1100px";
+    case "fill":
+      return "calc(100vw - 32px)";
   }
 }
 
@@ -174,7 +185,7 @@ function Root({
         ref={contentRef}
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
-        maxHeight="85vh"
+        maxHeight={size === "fill" ? "calc(100vh - 32px)" : "85vh"}
         {...ariaDescribedBy}
         onEscapeKeyDown={(e) => {
           if (!dismissible) e.preventDefault();
@@ -187,10 +198,16 @@ function Root({
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            paddingTop: "32px",
-            paddingLeft: "40px",
+            paddingTop: size === "fill" ? "0" : "32px",
+            paddingLeft: size === "fill" ? "0" : "40px",
             paddingRight: "0",
-            paddingBottom: "20px",
+            paddingBottom: size === "fill" ? "0" : "20px",
+            ...(size === "fill"
+              ? {
+                  width: "calc(100vw - 32px)",
+                  height: "calc(100vh - 32px)",
+                }
+              : {}),
             "--inset-padding-left": "40px",
           } as CSSProperties
         }
@@ -245,8 +262,16 @@ function Description({ children }: { children: ReactNode }) {
 function Body({ children }: { children: ReactNode }) {
   const { bodyRef, error } = useModalContext();
   return (
-    <ScrollArea type="auto" mt="5" mb="3" ml="-1" ref={bodyRef}>
-      <Box pr="7" pl="1" className={styles.body}>
+    <ScrollArea
+      type="auto"
+      mt="5"
+      mb="3"
+      ml="-1"
+      ref={bodyRef}
+      scrollbars="vertical"
+      className={styles.bodyScrollArea}
+    >
+      <Box pr="7" pl="1" pb="1" className={styles.body}>
         {error && <ErrorDisplay error={error} mb="5" />}
         {children}
       </Box>

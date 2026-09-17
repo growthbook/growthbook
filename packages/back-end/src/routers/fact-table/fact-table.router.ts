@@ -1,12 +1,15 @@
 import express from "express";
 import { z } from "zod";
 import {
+  createVirtualColumnPropsValidator,
   createFactFilterPropsValidator,
   createFactTablePropsValidator,
   updateFactFilterPropsValidator,
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
   testFactFilterPropsValidator,
+  testRowFiltersPropsValidator,
+  testVirtualColumnPropsValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -31,6 +34,16 @@ router.post(
     body: createFactTablePropsValidator,
   }),
   factTableController.postFactTable,
+);
+
+router.get("/fact-tables", factTableController.getFactTables);
+
+router.get(
+  "/fact-tables/:id",
+  validateRequestMiddleware({
+    params: factTableParams,
+  }),
+  factTableController.getFactTableById,
 );
 
 router.put(
@@ -103,6 +116,15 @@ router.post(
   factTableController.postColumnTopValues,
 );
 
+router.post(
+  "/fact-tables/:id/virtual-column",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: createVirtualColumnPropsValidator,
+  }),
+  factTableController.postVirtualColumn,
+);
+
 router.put(
   "/fact-tables/:id/column/:column",
   validateRequestMiddleware({
@@ -110,6 +132,23 @@ router.put(
     body: updateColumnPropsValidator,
   }),
   factTableController.putColumn,
+);
+
+router.delete(
+  "/fact-tables/:id/column/:column",
+  validateRequestMiddleware({
+    params: columnParams,
+  }),
+  factTableController.deleteColumn,
+);
+
+router.post(
+  "/fact-tables/:id/test-virtual-column",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: testVirtualColumnPropsValidator,
+  }),
+  factTableController.postVirtualColumnTest,
 );
 
 router.post(
@@ -137,6 +176,15 @@ router.post(
     body: testFactFilterPropsValidator,
   }),
   factTableController.postFactFilterTest,
+);
+
+router.post(
+  "/fact-tables/:id/test-row-filters",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: testRowFiltersPropsValidator,
+  }),
+  factTableController.postRowFiltersTest,
 );
 
 router.delete(

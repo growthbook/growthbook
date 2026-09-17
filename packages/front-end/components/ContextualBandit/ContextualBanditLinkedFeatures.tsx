@@ -23,7 +23,7 @@ export default function ContextualBanditLinkedFeatures({
   return (
     <Frame>
       <Flex justify="between" align="center" mb="4" mx="1" gap="3">
-        <Heading color="text-high" as="h4" size="small" mb="0">
+        <Heading color="text-high" as="h4" size="sm" mb="0">
           Linked Features
         </Heading>
         {canAddFeature && setFeatureModal ? (

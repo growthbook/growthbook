@@ -273,7 +273,19 @@ const CreateOrJoinOrganization: FC<{
                       if (resp.projectId) {
                         setProject(resp.projectId);
                       }
+                      if (setOrgId) {
+                        setOrgId(resp.orgId);
+                      }
+                      try {
+                        localStorage.setItem(
+                          "gb-last-picked-org",
+                          `"${resp.orgId}"`,
+                        );
+                      } catch (e) {
+                        console.warn("Cannot set gb-last-picked-org");
+                      }
                       setLoading(false);
+                      router.push("/");
                     } catch (e) {
                       setError(e.message);
                       setLoading(false);
@@ -287,6 +299,7 @@ const CreateOrJoinOrganization: FC<{
                     </p>
                   </div>
                   <Field
+                    size="legacy"
                     label={
                       <div className="font-weight-bold">
                         Organization Name
@@ -302,6 +315,7 @@ const CreateOrJoinOrganization: FC<{
                     {...newOrgForm.register("company")}
                   />
                   <SelectField
+                    size="legacy"
                     label="Your role"
                     labelClassName="font-weight-bold"
                     markRequired

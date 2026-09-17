@@ -202,6 +202,7 @@ const ImportExperimentList: FC<{
         <div className="col-auto">
           {changeDatasource && supportedDatasources.length > 1 ? (
             <SelectField
+              size="legacy"
               value={data.experiments.datasource}
               options={supportedDatasources.map((d) => {
                 const isDefaultDataSource = d.id === defaultDataSource;
@@ -254,7 +255,6 @@ const ImportExperimentList: FC<{
                 }}
               >
                 <RunQueriesButton
-                  useRadixButton={false}
                   cta={
                     data.experiments.latestData ? "Get New Data" : "Run Query"
                   }
@@ -390,6 +390,7 @@ const ImportExperimentList: FC<{
             <div className="col-auto">
               <label className="small mb-0">Filter</label>
               <Field
+                size="legacy"
                 placeholder="Search..."
                 type="search"
                 {...searchInputProps}
@@ -397,6 +398,7 @@ const ImportExperimentList: FC<{
             </div>
             <div className="col-auto">
               <Field
+                size="legacy"
                 label="# Units"
                 labelClassName="small mb-0"
                 type="number"
@@ -412,6 +414,7 @@ const ImportExperimentList: FC<{
             </div>
             <div className="col-auto">
               <Field
+                size="legacy"
                 label="Test Duration"
                 labelClassName="small mb-0"
                 type="number"
@@ -428,6 +431,7 @@ const ImportExperimentList: FC<{
             </div>
             <div className="col-auto">
               <Field
+                size="legacy"
                 label="# Variations"
                 labelClassName="small mb-0"
                 type="number"
@@ -442,29 +446,19 @@ const ImportExperimentList: FC<{
               />
             </div>
             <div className="col-auto">
-              <Field
+              <SelectField
+                size="legacy"
                 label="Status"
                 labelClassName="small mb-0"
                 options={[
-                  {
-                    display: "All",
-                    value: "",
-                  },
-                  {
-                    display: "Running",
-                    value: "running",
-                  },
-                  {
-                    display: "Stopped",
-                    value: "stopped",
-                  },
+                  { label: "All", value: "" },
+                  { label: "Running", value: "running" },
+                  { label: "Stopped", value: "stopped" },
                 ]}
                 value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(
-                    (e.target.value as "" | "stopped" | "running") || "",
-                  );
-                }}
+                onChange={(value) =>
+                  setStatusFilter((value as "" | "stopped" | "running") || "")
+                }
               />
             </div>
             <div className="col-auto align-self-center">

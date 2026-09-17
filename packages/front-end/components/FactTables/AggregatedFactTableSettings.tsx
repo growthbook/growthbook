@@ -8,7 +8,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 
 const DEFAULT_TIME = "02:00";
 const DEFAULT_LOOKBACK_WINDOW = 60;
@@ -81,7 +81,7 @@ export default function AggregatedFactTableSettings({
 
   return (
     <>
-      <Heading as="h4" size="small" mb="1">
+      <Heading as="h4" size="sm" mb="1">
         [Experimental] Daily Aggregated Tables
       </Heading>
       <Text as="div" color="text-mid" mb="3">

@@ -1,11 +1,12 @@
-import Ajv from "ajv";
-import { subMonths, subWeeks } from "date-fns";
-import dJSON from "dirty-json";
+import Ajv, { ValidateFunction } from "ajv";
+import { differenceInDays, subMonths, subWeeks } from "date-fns";
+import { jsonrepair } from "jsonrepair";
 import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
 import {
+  ContextualBanditRefRule,
   ExperimentRefRule,
   RevisionMetadata,
   ApiFeature,
@@ -27,6 +28,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   OrganizationSettings,
   RequireReview,
+  TargetingReviewRule,
   Environment,
   SDKAttributeSchema,
 } from "shared/types/organization";
@@ -35,13 +37,27 @@ import { GroupMap } from "shared/types/saved-group";
 // Direct file import (not the `shared/validators` barrel) to avoid a runtime
 // import cycle: the barrel pulls safe-rollout-snapshot → enterprise → util.
 import { assertValidExtendsEntries } from "../validators/constant";
-import { RampScheduleInterface } from "../validators/ramp-schedule";
+import { RampScheduleInterface, RampTarget } from "../validators/ramp-schedule";
+import {
+  hasAttributeCondition,
+  hasTargetingConfigured,
+} from "../experiments/targeting";
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
   EXTENDS_KEY,
 } from "../sdk-versioning";
+import {
+  threeWayMerge,
+  ThreeWayMergeConfig,
+  ThreeWayMergeResult,
+} from "./threeWayMerge";
+import {
+  resolveProjectScopedRule,
+  projectsWithOwnRule,
+  RuleCombiners,
+} from "./projectScopedRules";
 import { formatJsonMultilineObjects } from "./format-json";
 import { stemRuleId } from "./ruleId";
 import {
@@ -80,6 +96,7 @@ export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
     const schemaDateUpdated = feature?.jsonSchema.date;
     return {
       jsonSchema,
+      schemaString,
       validationEnabled,
       schemaDateUpdated,
       simpleSchema:
@@ -194,11 +211,16 @@ export function mergeRevision(
     if (m.description !== undefined) newFeature.description = m.description;
     if (m.owner !== undefined) newFeature.owner = m.owner;
     if (m.project !== undefined) newFeature.project = m.project;
+    if (m.targetingAllProjects !== undefined)
+      newFeature.targetingAllProjects = m.targetingAllProjects;
+    if (m.targetingProjects !== undefined)
+      newFeature.targetingProjects = m.targetingProjects;
     if (m.tags !== undefined) newFeature.tags = m.tags;
     if (m.neverStale !== undefined) newFeature.neverStale = m.neverStale;
     if (m.customFields !== undefined)
       newFeature.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) newFeature.jsonSchema = m.jsonSchema;
+    if (m.baseConfig !== undefined) newFeature.baseConfig = m.baseConfig;
     // Use draft valueType for preview so rule/defaultValue validation is accurate
     if (m.valueType !== undefined) newFeature.valueType = m.valueType;
   }
@@ -212,6 +234,21 @@ export function getJSONValidator() {
   });
 }
 
+// Ajv compiles are expensive; cache by schema text. Each compile gets its own
+// Ajv instance so schemas sharing an `$id` never collide in a registry.
+const compiledValidators = new Map<string, ValidateFunction>();
+const MAX_COMPILED_VALIDATORS = 1000;
+export function getCompiledValidator(schemaString: string): ValidateFunction {
+  const cached = compiledValidators.get(schemaString);
+  if (cached) return cached;
+  const validate = getJSONValidator().compile(JSON.parse(schemaString));
+  if (compiledValidators.size >= MAX_COMPILED_VALIDATORS) {
+    compiledValidators.clear();
+  }
+  compiledValidators.set(schemaString, validate);
+  return validate;
+}
+
 export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
@@ -219,13 +256,12 @@ export function validateJSONFeatureValue(
   // Non-json flags hold a raw scalar; coerce instead of JSON-parsing (default keeps json behavior).
   valueType?: FeatureValueType,
 ) {
-  const { jsonSchema, validationEnabled } = getValidation(feature);
-  if (!validationEnabled) {
+  const { schemaString, validationEnabled } = getValidation(feature);
+  if (!validationEnabled || !schemaString) {
     return { valid: true, enabled: validationEnabled, errors: [] };
   }
   try {
-    const ajv = getJSONValidator();
-    const validate = ajv.compile(jsonSchema);
+    const validate = getCompiledValidator(schemaString);
     let parsedValue;
     if (valueType === "string") {
       parsedValue = value;
@@ -235,9 +271,9 @@ export function validateJSONFeatureValue(
       try {
         parsedValue = JSON.parse(value);
       } catch (e) {
-        // If the JSON is invalid, try to parse it with 'dirty-json' instead
+        // If the JSON is invalid, try repairing it instead
         try {
-          parsedValue = dJSON.parse(value);
+          parsedValue = parseLooseJSON(value);
         } catch (e) {
           return {
             valid: false,
@@ -278,6 +314,15 @@ export function validateJSONFeatureValue(
   }
 }
 
+// Rule values are stored as strings ("false", "10", '{"a":1}'); the SDK
+// payload builder parses that string per the feature's value type. Anything
+// that can carry a value as a raw JSON type (a ramp patch's `force` is typed
+// that way) is brought to this form before it reaches a rule: strings pass
+// through, anything else becomes its JSON text.
+export function stringifyFeatureValue(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 export function validateFeatureValue(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   value: string,
@@ -287,7 +332,7 @@ export function validateFeatureValue(
   const prefix = label ? label + ": " : "";
   if (type === "boolean") {
     if (!["true", "false"].includes(value)) {
-      return value ? "true" : "false";
+      throw new Error(prefix + 'Must be "true" or "false"');
     }
   } else if (type === "number") {
     if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
@@ -316,10 +361,10 @@ export function validateFeatureValue(
     try {
       parsedValue = JSON.parse(value);
     } catch (e) {
-      // If the JSON is invalid, try to parse it with 'dirty-json' instead
+      // If the JSON is invalid, try repairing it instead
       validJSON = false;
       try {
-        parsedValue = dJSON.parse(value);
+        parsedValue = parseLooseJSON(value);
       } catch (e) {
         throw new Error(prefix + (e instanceof Error ? e.message : String(e)));
       }
@@ -335,13 +380,19 @@ export function validateFeatureValue(
     // directive (≥1 ref/inline object), so a pre-existing flag that used
     // `$extends` as a plain data key still saves.
     assertValidExtendsEntries(parsedValue, prefix, true);
-    // If the JSON was invalid but could be parsed by 'dirty-json', return the fixed JSON
+    // If the JSON was invalid but could be repaired, return the fixed JSON
     if (!validJSON) {
       return stringify(parsedValue);
     }
   }
 
   return value;
+}
+
+// Repairs and parses JSON a user hand-wrote (single quotes, unquoted keys,
+// trailing commas, comments). Throws when the input is too broken to repair.
+export function parseLooseJSON(value: string): unknown {
+  return JSON.parse(jsonrepair(value));
 }
 
 // Parses a string into a plain JSON object. Returns null when it doesn't parse
@@ -556,9 +607,14 @@ export function getRevertValueValidationWarnings(
         );
         break;
       case "experiment-ref":
+      case "contextual-bandit-ref":
         rule.variations.forEach((v, j) =>
           check(v.value, `${label} variation #${j + 1}`),
         );
+        break;
+      case "safe-rollout":
+        check(rule.controlValue, `${label} control value`);
+        check(rule.variationValue, `${label} variation value`);
         break;
     }
   });
@@ -639,14 +695,26 @@ export function assertSchemaMatchesValueType(
 }
 
 // Helper function to validate ISO timestamp format
+// RFC 3339 date-time: what the API schemas accept. Storage is canonicalized to
+// `toISOString()` at write time (addIdsToFlatRules), so the check here only has
+// to reject garbage, not enforce one spelling.
+const RFC3339_DATETIME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/i;
 function isValidISOTimestamp(timestamp: string): boolean {
-  // Validate that it's a proper date and parses correctly
-  try {
-    const date = new Date(timestamp);
-    return !isNaN(date.getTime()) && date.toISOString() === timestamp;
-  } catch {
-    return false;
-  }
+  return (
+    RFC3339_DATETIME.test(timestamp) && !isNaN(new Date(timestamp).getTime())
+  );
+}
+
+// A rule that already carries a schedule of either shape; plan gates treat
+// changes to such a rule as edits, not as newly introduced scheduling.
+export function isScheduledRule(
+  rule: Pick<FeatureRule, "scheduleRules" | "scheduleType"> | undefined,
+): boolean {
+  if (!rule) return false;
+  return (
+    (rule.scheduleType ?? "none") !== "none" || !!rule.scheduleRules?.length
+  );
 }
 
 // Validate scheduleRules business logic
@@ -685,7 +753,7 @@ export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
   for (const rule of scheduleRules) {
     if (rule.timestamp !== null && !isValidISOTimestamp(rule.timestamp)) {
       throw new Error(
-        `Invalid timestamp format: "${rule.timestamp}". Must be in ISO format (e.g., "2025-06-23T16:09:37.769Z")`,
+        `Invalid timestamp format: "${rule.timestamp}". Must be an ISO 8601 date-time (e.g., "2025-06-23T16:09:37Z")`,
       );
     }
   }
@@ -702,12 +770,37 @@ export type StaleFeatureReason =
   | "has-dependents"
   | "toggled-off"
   | "active-experiment"
+  | "temp-rollout"
+  | "old-temp-rollout"
   | "has-rules";
+
+export const OLD_TEMP_ROLLOUT_DAYS = 30;
+
+export type TempRolloutStaleReason = Extract<
+  StaleFeatureReason,
+  "temp-rollout" | "old-temp-rollout"
+>;
+
+export function getTempRolloutStaleReason(
+  exp: { phases?: { dateEnded?: string | Date }[] },
+  now: Date = new Date(),
+): TempRolloutStaleReason {
+  const dateEnded = exp.phases?.[exp.phases.length - 1]?.dateEnded;
+  if (
+    dateEnded &&
+    differenceInDays(now, getValidDate(dateEnded)) > OLD_TEMP_ROLLOUT_DAYS
+  ) {
+    return "old-temp-rollout";
+  }
+  return "temp-rollout";
+}
 
 export type EnvStaleResult = {
   stale: boolean;
   reason?: StaleFeatureReason;
   evaluatesTo?: string; // set when all users receive the same value; same format as feature.defaultValue
+  // Cleanup signal, independent of staleness. Most severe tier when several.
+  tempRollout?: TempRolloutStaleReason;
 };
 
 export type IsFeatureStaleResult = {
@@ -723,19 +816,38 @@ const isForceRule = (rule: FeatureRule): rule is ForceRule =>
   rule.type === "force";
 const isExperimentRefRule = (rule: FeatureRule): rule is ExperimentRefRule =>
   rule.type === "experiment-ref";
+const isContextualBanditRefRule = (
+  rule: FeatureRule,
+): rule is ContextualBanditRefRule => rule.type === "contextual-bandit-ref";
 
 // A rule that unconditionally matches all users, blocking any rules after it.
-const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
-  if (!hasNoCondition(rule)) return false;
-  if ((rule.savedGroups ?? []).length > 0) return false;
-  if ((rule.prerequisites ?? []).length > 0) return false;
+const matchesEveryone = (rule: FeatureRule): boolean =>
+  !hasTargetingConfigured(rule) && !rule.scheduleRules?.length;
+
+export const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
+  if (!matchesEveryone(rule)) return false;
   if (isForceRule(rule)) return true;
   if (isRolloutRule(rule)) return rule.coverage >= 1;
   return false;
 };
 
+// The SDK payload keeps the phase's targeting on a temp rollout's force rule,
+// so it only serves everyone when neither the rule nor the phase targets.
+const isUnconditionalTempRollout = (
+  rule: FeatureRule,
+  exp: ExperimentInterfaceStringDates,
+): boolean => {
+  if (!matchesEveryone(rule)) return false;
+  const phase = exp.phases?.[exp.phases.length - 1];
+  if (!phase) return true;
+  if (hasTargetingConfigured(phase)) return false;
+  if ((phase.coverage ?? 1) < 1) return false;
+  if (phase.namespace?.enabled) return false;
+  return true;
+};
+
 const hasNoCondition = (rule: FeatureRule): boolean =>
-  !rule.condition || rule.condition === "{}";
+  !hasAttributeCondition(rule.condition);
 
 const areRulesOneSided = (
   rules: FeatureRule[], // can assume all rules are enabled
@@ -774,6 +886,7 @@ const REASON_PRIORITY: StaleFeatureReason[] = [
   "abandoned-draft",
   "no-rules",
   "rules-one-sided",
+  "old-temp-rollout",
 ];
 
 function pickOverallReason(
@@ -827,7 +940,7 @@ function buildEnvResults(
       ? []
       : ((envSetting as unknown as { rules?: FeatureRule[] }).rules ?? []);
     const rules = (v2RulesForEnv.length ? v2RulesForEnv : legacyRules).filter(
-      (r) => r.enabled,
+      (r) => r.enabled !== false,
     );
 
     const hasDependentsInEnv =
@@ -868,42 +981,98 @@ function buildEnvResults(
     }
 
     // Walk rules in order; an unconditional catcher shadows everything after it.
-    let hasActiveExperiment = false;
-    for (const rule of rules) {
+    // A running experiment does not: users it skips fall through to later rules.
+    // A recent temp rollout keeps the env non-stale (grace period). An old one
+    // serves a constant, so it counts as one-sided. Either way it is reported
+    // in `tempRollout` so it can be cleaned up.
+    let activeExperimentReason: "active-experiment" | "temp-rollout" | null =
+      null;
+    let tempRollout: TempRolloutStaleReason | undefined;
+    // First reachable unconditional temp rollout's released value, for `evaluatesTo`.
+    let rolloutValue: { index: number; value: string } | undefined;
+    // An old rollout that still targets a subset is real logic, not a constant.
+    let hasTargetedOldRollout = false;
+    for (const [index, rule] of rules.entries()) {
       if (isUnconditionalCatcher(rule)) break;
       if (isExperimentRefRule(rule)) {
         const exp = experimentMap.get(rule.experimentId);
         if (exp && includeExperimentInPayload(exp)) {
-          hasActiveExperiment = true;
-          break;
+          if (exp.status === "stopped") {
+            const tier = getTempRolloutStaleReason(exp);
+            if (!tempRollout || tier === "old-temp-rollout") tempRollout = tier;
+            const unconditional = isUnconditionalTempRollout(rule, exp);
+            if (tier === "temp-rollout") activeExperimentReason ??= tier;
+            else if (!unconditional) hasTargetedOldRollout = true;
+            if (unconditional && !rolloutValue) {
+              const released = rule.variations.find(
+                (v) => v.variationId === exp.releasedVariationId,
+              );
+              if (released) rolloutValue = { index, value: released.value };
+            }
+          } else {
+            activeExperimentReason = "active-experiment";
+          }
         }
       }
     }
-    if (hasActiveExperiment) {
-      envResults[envId] = { stale: false, reason: "active-experiment" };
-      continue;
-    }
-
-    if (areRulesOneSided(rules)) {
-      const firstValueRule = rules.find(
+    const withTempRollout = (result: EnvStaleResult): EnvStaleResult =>
+      tempRollout ? { ...result, tempRollout } : result;
+    const oneSided = areRulesOneSided(rules);
+    const oneSidedValue = (): string => {
+      const firstValueRuleIndex = rules.findIndex(
         (r): r is ForceRule | RolloutRule =>
           r.type === "force" || r.type === "rollout",
       );
-      envResults[envId] = hasDependentsInEnv
-        ? {
-            stale: false,
-            reason: "has-dependents",
-            evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
-          }
-        : {
-            stale: true,
-            reason: "rules-one-sided",
-            evaluatesTo: firstValueRule?.value ?? feature.defaultValue,
-          };
+      const firstValueRule = rules[firstValueRuleIndex] as
+        | ForceRule
+        | RolloutRule
+        | undefined;
+      return rolloutValue &&
+        (firstValueRuleIndex === -1 || rolloutValue.index < firstValueRuleIndex)
+        ? rolloutValue.value
+        : (firstValueRule?.value ?? feature.defaultValue);
+    };
+
+    if (activeExperimentReason) {
+      envResults[envId] = withTempRollout({
+        stale: false,
+        reason: activeExperimentReason,
+        ...(activeExperimentReason === "temp-rollout" &&
+        oneSided &&
+        rolloutValue &&
+        !hasTargetedOldRollout
+          ? { evaluatesTo: oneSidedValue() }
+          : {}),
+      });
       continue;
     }
 
-    envResults[envId] = { stale: false, reason: "has-rules" };
+    if (hasTargetedOldRollout) {
+      envResults[envId] = withTempRollout({
+        stale: false,
+        reason: "has-rules",
+      });
+      continue;
+    }
+
+    if (oneSided) {
+      const evaluatesTo = oneSidedValue();
+      envResults[envId] = withTempRollout(
+        hasDependentsInEnv
+          ? { stale: false, reason: "has-dependents", evaluatesTo }
+          : {
+              stale: true,
+              reason:
+                tempRollout === "old-temp-rollout"
+                  ? "old-temp-rollout"
+                  : "rules-one-sided",
+              evaluatesTo,
+            },
+      );
+      continue;
+    }
+
+    envResults[envId] = withTempRollout({ stale: false, reason: "has-rules" });
   }
 
   return envResults;
@@ -1071,6 +1240,91 @@ export type RevisionFields = Pick<
   | "rampActions"
 >;
 
+// Resolves the holdout a revision will publish under. Revisions store holdout
+// sparsely: `undefined` (legacy revisions that predate the field) means
+// carry-forward from the live feature, while an explicit `null` means the
+// draft removes the holdout.
+export function getEffectiveRevisionHoldout(
+  revision: Pick<RevisionFields, "holdout">,
+  feature: FeatureInterface,
+): Exclude<RevisionFields["holdout"], undefined> {
+  return revision.holdout !== undefined
+    ? revision.holdout
+    : (feature.holdout ?? null);
+}
+
+// The holdout a revert restores. Unlike getEffectiveRevisionHoldout, an absent
+// value means "no holdout" rather than carrying the live one forward — carrying
+// forward makes a holdout attached after this revision un-revertable, which
+// reads as a revert that silently does nothing.
+export function getRevertTargetHoldout(
+  revision: Pick<RevisionFields, "holdout">,
+): Exclude<RevisionFields["holdout"], undefined> {
+  return revision.holdout ?? null;
+}
+
+// The archived state a revert restores. Revisions only record `archived` since
+// they became full snapshots; a published revision from before that carries no
+// value, and restoring it restores an active flag rather than carrying the live
+// value forward. Same reasoning as the holdout above: carrying forward makes an
+// archive published after this revision un-revertable — the revert reports
+// nothing to revert, or lands with the flag still archived.
+export function getRevertTargetArchived(
+  revision: Pick<RevisionFields, "archived">,
+): boolean {
+  return revision.archived ?? false;
+}
+
+// An open draft that is already the feature's live version: a publish advanced
+// the feature but never marked the revision published. Publishing it reconciles.
+export function isStrandedLiveRevision({
+  featureVersion,
+  revisionVersion,
+  revisionStatus,
+  hasChanges,
+}: {
+  featureVersion: number;
+  revisionVersion: number;
+  revisionStatus: string;
+  hasChanges: boolean;
+}): boolean {
+  return (
+    !hasChanges &&
+    revisionVersion === featureVersion &&
+    revisionStatus !== "published" &&
+    revisionStatus !== "discarded"
+  );
+}
+
+// The metadata envelope as the live feature spells it. Revisions store metadata
+// sparsely — absent keys inherit live — so baselines seed from this and
+// snapshots write it; a field spelled in one place and absent from the other
+// reads as an edit nobody made.
+//
+// Every key of `RevisionMetadata` is optional, so `CompleteMetadata` forces
+// each key to be listed here (values may still be undefined).
+type CompleteMetadata = {
+  [K in keyof Required<RevisionMetadata>]: RevisionMetadata[K];
+};
+
+export function featureMetadataEnvelope(
+  feature: FeatureInterface,
+): CompleteMetadata {
+  return {
+    description: feature.description ?? "",
+    owner: feature.owner ?? "",
+    project: feature.project ?? "",
+    targetingAllProjects: feature.targetingAllProjects,
+    targetingProjects: feature.targetingProjects,
+    tags: feature.tags ?? [],
+    neverStale: feature.neverStale,
+    customFields: feature.customFields,
+    jsonSchema: feature.jsonSchema,
+    valueType: feature.valueType,
+    baseConfig: feature.baseConfig ?? null,
+  };
+}
+
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{
@@ -1089,11 +1343,13 @@ const revisionFieldFillers: Partial<{
     ),
     ...(current ?? {}),
   }),
-  // Backfill valueType for old revisions that predate this field.
-  metadata: (feature, current) =>
-    current?.valueType != null
-      ? current
-      : { ...current, valueType: feature.valueType },
+  // Seed the whole envelope for old revisions that predate these fields, so a
+  // legacy revision doesn't false-diff against the live baseline. Recorded keys
+  // win; only the absent ones inherit.
+  metadata: (feature, current) => ({
+    ...featureMetadataEnvelope(feature),
+    ...(current ?? {}),
+  }),
   // Backfill envelope fields for legacy revisions that predate them. Without
   // this, revisionHasGlobalChange compares e.g. "false" !== undefined for
   // defaultValue and returns "all", bypassing env-scoped review checks even
@@ -1104,9 +1360,8 @@ const revisionFieldFillers: Partial<{
   // Backfill holdout from feature so that removing a holdout is detected as a change.
   // Without this, comparing draft.holdout (null) vs base.holdout (undefined → null)
   // would show no change when the feature actually has a holdout.
-  // Note: we check for undefined explicitly because null is a valid value (means removal).
   holdout: (feature, current) =>
-    current !== undefined ? current : (feature.holdout ?? null),
+    getEffectiveRevisionHoldout({ holdout: current }, feature),
 };
 
 // Backfills stale/missing fields on a revision before passing to autoMerge.
@@ -1149,12 +1404,7 @@ export function liveRevisionFromFeature(
         ? ((feature as { holdout?: RevisionFields["holdout"] }).holdout ?? null)
         : (liveRevision.holdout ?? null),
     metadata: {
-      description: feature.description ?? "",
-      owner: feature.owner ?? "",
-      project: feature.project ?? "",
-      tags: feature.tags ?? [],
-      jsonSchema: feature.jsonSchema,
-      valueType: feature.valueType,
+      ...featureMetadataEnvelope(feature),
       ...(liveRevision.metadata ?? {}),
     },
   };
@@ -1184,6 +1434,22 @@ export function buildEffectiveDraft(
     ...("holdout" in draftRevision && {
       holdout: draftRevision.holdout,
     }),
+  };
+}
+
+// Reconciles a raw (live, base) revision pair against the live feature document
+// so every autoMerge caller compares against the same feature-model-anchored
+// baseline. Passing raw revision snapshots straight into autoMerge lets drift
+// between a snapshot and feature.environmentSettings/rules (e.g. from the legacy
+// v1/v2 write bridge) hide or invent changes, and leaves callers out of unison.
+export function reconcileMergeBaselines(
+  feature: FeatureInterface,
+  live: RevisionFields,
+  base: RevisionFields,
+): { live: RevisionFields; base: RevisionFields } {
+  return {
+    live: liveRevisionFromFeature(live, feature),
+    base: fillRevisionFromFeature(base, feature),
   };
 }
 
@@ -1439,6 +1705,7 @@ export function evaluatePublishGovernance({
 // the specific file (not a barrel) to avoid a runtime import cycle.
 export {
   isScheduledPublishPending,
+  pendingScheduleWarning,
   isScheduledPublishDue,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
@@ -1479,9 +1746,14 @@ export function normalizeMetadataValue(
   k: keyof RevisionMetadata,
   v: RevisionMetadata[keyof RevisionMetadata],
 ): unknown {
-  if (k === "tags") return (v as string[] | null | undefined) ?? [];
+  if (k === "tags" || k === "targetingProjects")
+    return (v as string[] | null | undefined) ?? [];
+  if (k === "targetingAllProjects") return !!v;
   if (k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
+  // Normalize unset/undefined to null so a non-config snapshot doesn't diff
+  // against an explicit null.
+  if (k === "baseConfig") return (v as string | null | undefined) ?? null;
   return v;
 }
 
@@ -1491,13 +1763,18 @@ export function normalizeMetadataValue(
 function revisionHasGlobalChange(
   revision: RevisionFields,
   base: RevisionFields,
+  { ignoreArchived = false }: { ignoreArchived?: boolean } = {},
 ): boolean {
   if (
     revision.prerequisites !== undefined &&
     !isEqual(revision.prerequisites, base.prerequisites || [])
   )
     return true;
-  if (revision.archived !== undefined && revision.archived !== base.archived)
+  if (
+    !ignoreArchived &&
+    revision.archived !== undefined &&
+    revision.archived !== base.archived
+  )
     return true;
   if (
     "holdout" in revision &&
@@ -1521,7 +1798,7 @@ function revisionHasGlobalChange(
 
 // Returns true if the revision has a metadata-only global change (no
 // prerequisites, archived, holdout, or defaultValue changes).
-function revisionHasMetadataOnlyGlobalChange(
+export function revisionHasMetadataOnlyGlobalChange(
   revision: RevisionFields,
   base: RevisionFields,
 ): boolean {
@@ -1557,6 +1834,62 @@ function revisionHasMetadataOnlyGlobalChange(
 //
 // Returns the conflicts found (resolved or not) and the merged array — or
 // `merged: null` while any rule-level conflict remains unresolved.
+// Mutually-exclusive pairs; merged independently they can contradict.
+const RULE_MERGE_CHUNKS: string[][] = [
+  ["environments", "allEnvironments"],
+  ["projects", "allProjects"],
+];
+
+function ruleTypeFamily(type: string | undefined): string {
+  return type === "force" || type === "rollout"
+    ? "force-rollout"
+    : (type ?? "");
+}
+
+export type RuleMergeResult = ThreeWayMergeResult<FeatureRule>;
+
+export function featureRuleMergeConfig(
+  yours: FeatureRule,
+): ThreeWayMergeConfig<FeatureRule> {
+  // Type follows coverage here, so resolve coverage and derive it.
+  const derivesTypeFromCoverage =
+    ruleTypeFamily(yours.type) === "force-rollout";
+  return {
+    chunks: RULE_MERGE_CHUNKS,
+    // What absent means on legacy rules. allEnvironments is omitted: its
+    // absent meaning depends on whether an environments list is present.
+    absentDefaults: {
+      enabled: true,
+      allProjects: true,
+      coverage: 1,
+      hashAttribute: "id",
+      hashVersion: 1,
+    },
+    family: (r) => ruleTypeFamily(r.type),
+    ignoreFields: () => (derivesTypeFromCoverage ? ["id", "type"] : ["id"]),
+    derive: derivesTypeFromCoverage
+      ? (merged) => {
+          const coverage = merged.coverage;
+          merged.type =
+            typeof coverage === "number" && coverage < 1 ? "rollout" : "force";
+        }
+      : undefined,
+  };
+}
+
+export function threeWayMergeRule(
+  base: FeatureRule,
+  theirs: FeatureRule,
+  yours: FeatureRule,
+): RuleMergeResult {
+  return threeWayMerge<FeatureRule>(
+    base,
+    theirs,
+    yours,
+    featureRuleMergeConfig(yours),
+  );
+}
+
 function mergeRulesGranular(
   base: FeatureRule[],
   live: FeatureRule[],
@@ -1765,11 +2098,17 @@ export function autoMerge(
       result.rules = revRules;
     }
 
-    // environmentsEnabled
+    // environmentsEnabled — anchor to the live feature model, not the base
+    // snapshot. `base` and `live` share a version here, so they should match;
+    // when they drift (e.g. a legacy v1 REST write that updated the feature doc
+    // but not the revision), a stale base value that equals the draft would
+    // otherwise swallow a real toggle and report "no changes to publish".
+    // `live` is feature-model-sourced (liveRevisionFromFeature), matching
+    // draftDiffersFromLive so the dashboard and REST publish gates stay in unison.
     if (revision.environmentsEnabled) {
       for (const env of Object.keys(revision.environmentsEnabled)) {
         const revVal = revision.environmentsEnabled[env];
-        if (revVal !== base.environmentsEnabled?.[env]) {
+        if (revVal !== live.environmentsEnabled?.[env]) {
           result.environmentsEnabled = result.environmentsEnabled || {};
           result.environmentsEnabled[env] = revVal;
         }
@@ -1792,10 +2131,15 @@ export function autoMerge(
       result.archived = revision.archived;
     }
 
-    // holdout
+    // holdout — compared against live, not base. Membership lives on the feature
+    // document, and a base revision snapshot can predate an attach that happened
+    // outside a publish, in which case a draft's removal equals the stale base
+    // and the change would be dropped. `live` is canonical (see
+    // liveRevisionFromFeature), which also keeps this in step with
+    // draftDiffersFromLive.
     if (
       "holdout" in revision &&
-      !isEqual(revision.holdout, base.holdout ?? null)
+      !isEqual(revision.holdout ?? null, live.holdout ?? null)
     ) {
       result.holdout = revision.holdout;
     }
@@ -1971,13 +2315,16 @@ export function autoMerge(
     }
   }
 
-  // holdout (nullable object, same conflict pattern as archived)
+  // holdout (nullable object, same conflict pattern as archived) — differing
+  // from live is what makes it a change, since membership lives on the feature
+  // document and a base snapshot can predate an attach made outside a publish.
+  // base is then only consulted to tell a conflict from a clean change.
   if ("holdout" in revision) {
-    const revVal = revision.holdout;
+    const revVal = revision.holdout ?? null;
     const baseVal = base.holdout ?? null;
     const liveVal = live.holdout ?? null;
-    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
-      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+    if (!isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal)) {
         const conflictInfo: MergeConflict = {
           name: "Holdout",
           key: "holdout",
@@ -2084,9 +2431,9 @@ export function validateCondition(
     return { success: true, empty: false };
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
-    // Try parsing with dJSON and see if it can be fixed automatically
+    // See if it can be repaired automatically
     try {
-      const fixed = dJSON.parse(condition);
+      const fixed = parseLooseJSON(condition);
       return {
         success: false,
         empty: false,
@@ -2104,8 +2451,9 @@ export function validateAndFixCondition(
   applySuggestion: (suggestion: string) => void,
   throwOnSuggestion: boolean = true,
   groupMap?: GroupMap,
+  skipSavedGroupCycleCheck: boolean = false,
 ): ValidateConditionReturn {
-  const res = validateCondition(condition, groupMap);
+  const res = validateCondition(condition, groupMap, skipSavedGroupCycleCheck);
   if (res.success) return res;
   if (res.suggestedValue) {
     applySuggestion(res.suggestedValue);
@@ -2347,7 +2695,11 @@ export function evaluatePrerequisiteState(
       return { state: "cyclic", value: null };
   }
 
+  // Guard recursion even when payload generation skips the full cycle check.
+  const visiting = new Set<string>();
   const visit = (feature: FeatureInterface): PrerequisiteStateResult => {
+    if (visiting.has(feature.id)) return { state: "cyclic", value: null };
+
     // 1. Current environment toggles take priority
     if (!feature.environmentSettings[env]) {
       return { state: "deterministic", value: null };
@@ -2401,6 +2753,7 @@ export function evaluatePrerequisiteState(
     //  - if any are "conditional", the feature is "conditional"
     isTopLevel = false;
     const prerequisites = feature.prerequisites || [];
+    visiting.add(feature.id);
     for (const prerequisite of prerequisites) {
       const prerequisiteFeature = featuresMap.get(prerequisite.id);
       if (!prerequisiteFeature) {
@@ -2411,6 +2764,9 @@ export function evaluatePrerequisiteState(
       }
       const { state: prerequisiteState, value: prerequisiteValue } =
         visit(prerequisiteFeature);
+      if (prerequisiteState === "cyclic") {
+        return { state: "cyclic", value: null };
+      }
       if (prerequisiteState === "deterministic") {
         const evaled = evalDeterministicPrereqValue(
           prerequisiteValue ?? null,
@@ -2427,6 +2783,7 @@ export function evaluatePrerequisiteState(
         value = undefined;
       }
     }
+    visiting.delete(feature.id);
 
     return { state, value };
   };
@@ -2567,28 +2924,88 @@ export function getParsedPrereqCondition(condition: string) {
 }
 
 // approval flows
-export type ResetReviewOnChange = {
-  feature: FeatureInterface;
-  changedEnvironments: string[];
-  defaultValueChanged: boolean;
-  settings?: OrganizationSettings;
+// Strict/loose review mode for one targeting project. Most-specific-wins; default strict.
+export function getTargetingReviewMode(
+  rules: TargetingReviewRule[] | undefined,
+  projectId: string,
+): "strict" | "loose" {
+  if (!rules?.length) return "strict";
+  const specific = rules.find((r) => r.projects.includes(projectId));
+  if (specific) return specific.mode;
+  const all = rules.find((r) => r.projects.length === 0);
+  return all ? all.mode : "strict";
+}
+
+// The projects an all-projects feature can be governed by: only those named in
+// a requireReviews rule can add a requirement beyond the primary. Lets us skip
+// enumerating every org project just to intersect it back down.
+function candidateReviewProjects(requireReviews: RequireReview[]): string[] {
+  return projectsWithOwnRule(requireReviews).filter(Boolean);
+}
+
+// Projects whose review rules govern a change: primary + strict-mode targeting
+// projects (pass current+staged union so de-scoping is governed too).
+export function getGoverningReviewProjects(
+  primary: string | undefined,
+  targetingProjects: string[],
+  targetingReviewMode: TargetingReviewRule[] | undefined,
+): string[] {
+  const strict = targetingProjects.filter(
+    (p) => getTargetingReviewMode(targetingReviewMode, p) === "strict",
+  );
+  return Array.from(new Set([primary ?? "", ...strict]));
+}
+
+// Only `project` today; a tag or flag-id selector slots in as another layer.
+export type ReviewRuleEntity = {
+  project?: string;
 };
+
+// `projects` is the selector and `requireReviewOn` the override's own switch.
+const INHERITABLE_FIELDS = [
+  "environments",
+  "resetReviewOnChange",
+  "featureRequireEnvironmentReview",
+  "featureRequireMetadataReview",
+  "blockSelfApproval",
+  "autopublishOnApproval",
+  "requiredApproverTeams",
+] as const;
+
+// Stricter wins, so the outcome never depends on rule order. Autopublish loosens
+// the flow, so it takes agreement rather than one vote.
+const REVIEW_COMBINERS: RuleCombiners<RequireReview> = {
+  requireReviewOn: (vals) => vals.some(Boolean),
+  resetReviewOnChange: (vals) => vals.some(Boolean),
+  blockSelfApproval: (vals) => vals.some(Boolean),
+  // These two gate unless turned off, so an unset value is already strict.
+  featureRequireEnvironmentReview: (vals) => vals.some((v) => v !== false),
+  featureRequireMetadataReview: (vals) => vals.some((v) => v !== false),
+  autopublishOnApproval: (vals) => vals.every(Boolean),
+  // No list means every environment, so it swallows narrower ones. Sorted so the
+  // fold is canonical rather than merely set-equal.
+  environments: (vals) =>
+    vals.some((v) => !v?.length)
+      ? []
+      : [...new Set(vals.flatMap((v) => v ?? []))].sort(),
+  // One OR-group: separate lists would demand an approver from each.
+  requiredApproverTeams: (vals) =>
+    [...new Set(vals.flatMap((v) => v ?? []))].sort(),
+};
+
+// Most specific wins, inheriting unset fields from the layers beneath. With one
+// rule it returns that rule unchanged. Mirrors getTargetingReviewMode.
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
-  // Any project-scoped entity (features, and constants which mirror the feature
-  // `project` field) — matched by its single project.
-  entity: { project?: string },
+  entity: ReviewRuleEntity,
 ): RequireReview | undefined {
-  // check projects
-  for (const reviewSetting of requireReviewSettings) {
-    // match first value found empty means all projects
-    if (
-      (entity?.project && reviewSetting.projects.includes(entity?.project)) ||
-      reviewSetting.projects.length === 0
-    ) {
-      return reviewSetting;
-    }
-  }
+  return resolveProjectScopedRule(
+    requireReviewSettings,
+    entity.project,
+    INHERITABLE_FIELDS,
+    REVIEW_COMBINERS,
+    (rule) => !!rule.requireReviewOn,
+  );
 }
 
 // `entity` is any project-scoped entity (a feature, or a constant which mirrors
@@ -2606,12 +3023,13 @@ export function checkEnvironmentsMatch(
   environments: string[],
   reviewSetting: RequireReview,
 ) {
-  for (const env of reviewSetting.environments) {
+  const gated = reviewSetting.environments ?? [];
+  for (const env of gated) {
     if (environments.includes(env)) {
       return true;
     }
   }
-  return reviewSetting.environments.length === 0;
+  return gated.length === 0;
 }
 export function featureRequiresReview(
   feature: FeatureInterface,
@@ -2628,15 +3046,19 @@ export function featureRequiresReview(
   ) {
     return !!requiresReviewSettings;
   }
-  const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
-
-  if (!reviewSetting || !reviewSetting.requireReviewOn) {
-    return false;
-  }
-  if (defaultValueChanged) {
-    return true;
-  }
-  return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+  const targetingProjects = feature.targetingAllProjects
+    ? candidateReviewProjects(requiresReviewSettings)
+    : (feature.targetingProjects ?? []);
+  return getGoverningReviewProjects(
+    feature.project,
+    targetingProjects,
+    settings?.targetingReviewMode,
+  ).some((project) => {
+    const reviewSetting = getReviewSetting(requiresReviewSettings, { project });
+    if (!reviewSetting?.requireReviewOn) return false;
+    if (defaultValueChanged) return true;
+    return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
+  });
 }
 
 // Constants are a drop-in for feature config and borrow the exact same
@@ -2688,6 +3110,76 @@ export function constantRequiresReview(
   return false;
 }
 
+export type ReviewScope = { project: string | null; environments: string[] };
+
+// What a team gates, resolved not raw: an override inherits or replaces teams.
+export function reviewScopesRequiringTeam(
+  teamId: string,
+  settings?: OrganizationSettings,
+): ReviewScope[] {
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return [];
+
+  const demandingRule = (entity: ReviewRuleEntity) => {
+    const rule = getReviewSetting(requireReviews, entity);
+    return rule?.requireReviewOn && rule.requiredApproverTeams?.includes(teamId)
+      ? rule
+      : undefined;
+  };
+
+  const scopes: ReviewScope[] = [];
+  const base = demandingRule({});
+  if (base) {
+    scopes.push({ project: null, environments: base.environments ?? [] });
+  }
+  const overridden = projectsWithOwnRule(requireReviews);
+  for (const project of overridden) {
+    const rule = demandingRule({ project });
+    if (rule) {
+      scopes.push({ project, environments: rule.environments ?? [] });
+    }
+  }
+  return scopes;
+}
+
+// Config form — carries the flavor scope.
+export function getConfigReviewRequirement(
+  config: { project?: string },
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): ReviewRequirement {
+  if (!configRequiresReview(config, change, flavorEnvironments, settings)) {
+    return { required: false, rules: [] };
+  }
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return { required: true, rules: [] };
+  const rule = getReviewSetting(requireReviews, config);
+  return { required: true, rules: rule ? [rule] : [] };
+}
+
+export function getConstantReviewRequirement(
+  constant: { project?: string },
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  settings?: OrganizationSettings,
+): ReviewRequirement {
+  if (!constantRequiresReview(constant, change, settings)) {
+    return { required: false, rules: [] };
+  }
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return { required: true, rules: [] };
+  const rule = getReviewSetting(requireReviews, constant);
+  return { required: true, rules: rule ? [rule] : [] };
+}
+
 // Constant analogue of `resetReviewOnChange` + `getFeatureAutopublishOnApproval`
 // — constants borrow the feature `requireReviews` model rather than the
 // saved-group `approvalFlows` config, so they need their own accessors keyed off
@@ -2729,6 +3221,79 @@ export function constantResetReviewOnChange(
   );
 }
 
+// Configs borrow the same `requireReviews` model as features/constants, with one
+// wrinkle: an env/project override "flavor" applies only to its scoped
+// environments, so a flavor's value change should require review only when one of
+// those environments is in the matched rule's scope — not unconditionally the way
+// a base config's value change (which applies to every environment, like a
+// feature's defaultValue) does. `flavorEnvironments` is the flavor's environment
+// scope (`scopedConfig.environments`) or null for a base config; an empty array is
+// a catch-all flavor and is treated as all-environments. These re-express a
+// flavor's value change as an environment change and defer to the constant
+// helpers (the single source of truth for the rule matching).
+function toEnvScopedChange(
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+): {
+  valueChanged: boolean;
+  changedEnvironments: string[];
+  metadataOnly: boolean;
+} {
+  if (
+    flavorEnvironments !== null &&
+    change.valueChanged &&
+    flavorEnvironments.length > 0
+  ) {
+    return {
+      valueChanged: false,
+      changedEnvironments: flavorEnvironments,
+      metadataOnly: change.metadataOnly,
+    };
+  }
+  return change;
+}
+
+export function configRequiresReview(
+  config: { project?: string },
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): boolean {
+  return constantRequiresReview(
+    config,
+    toEnvScopedChange(change, flavorEnvironments),
+    settings,
+  );
+}
+
+export function configResetReviewOnChange(
+  config: { project?: string },
+  change: { valueChanged: boolean; changedEnvironments: string[] },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): boolean {
+  const scoped = toEnvScopedChange(
+    { ...change, metadataOnly: false },
+    flavorEnvironments,
+  );
+  return constantResetReviewOnChange(
+    config,
+    {
+      valueChanged: scoped.valueChanged,
+      changedEnvironments: scoped.changedEnvironments,
+    },
+    settings,
+  );
+}
+
 // Whether auto-publish-on-approval may be armed for a constant, per the matched
 // review rule. Constants share the feature `requireReviews` model, so this is a
 // thin wrapper over `getFeatureAutopublishOnApproval` (single source of truth).
@@ -2751,35 +3316,6 @@ export function constantBlockSelfApproval(
   return !!getReviewSetting(requireReviews, constant)?.blockSelfApproval;
 }
 
-export function resetReviewOnChange({
-  feature,
-  changedEnvironments,
-  defaultValueChanged,
-  settings,
-}: ResetReviewOnChange) {
-  const requiresReviewSettings = settings?.requireReviews;
-  //legacy check
-  if (
-    requiresReviewSettings === true ||
-    requiresReviewSettings === false ||
-    requiresReviewSettings === undefined
-  ) {
-    return false;
-  }
-  const reviewSetting = getReviewSetting(requiresReviewSettings, feature);
-  if (
-    !reviewSetting ||
-    !reviewSetting.requireReviewOn ||
-    !reviewSetting.resetReviewOnChange
-  ) {
-    return false;
-  }
-  if (defaultValueChanged) {
-    return true;
-  }
-  return checkEnvironmentsMatch(changedEnvironments, reviewSetting);
-}
-
 // Returns which environments a revision affects relative to its base revision.
 // Per-env changes (rules, environmentsEnabled) return specific env IDs.
 // Global changes (prerequisites, archived, holdout, defaultValue, metadata) return "all".
@@ -2796,11 +3332,202 @@ function normalizeRuleForDiff(
   return rest as Omit<FeatureRule, "scheduleType">;
 }
 
+// The publish footprint for a live ramp-schedule action: the environments the
+// schedule touches, with "all" resolved to every environment rather than an
+// empty list (which would satisfy the environment check vacuously).
+export function rampSchedulePublishEnvironments(
+  schedule: Parameters<typeof getEnvsFromRampSchedule>[0],
+  allEnvironments: string[],
+): string[] {
+  const envs = getEnvsFromRampSchedule(schedule);
+  return envs === "all" ? allEnvironments : envs;
+}
+
 /**
- * Returns the union of all environments explicitly targeted by a ramp
- * schedule's patch actions (startActions, steps, endActions).  Returns "all"
- * if any patch sets `allEnvironments: true`.
+ * Every rule id one ramp target can reach: its own, plus every `ruleId` its patches
+ * name. The executor resolves what it writes from `patch.ruleId` and ignores the
+ * target's, so anything deciding authority has to consider both.
  */
+export function rampTargetRuleIds(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+  target: { id: string; ruleId?: string | null },
+): string[] {
+  const ids = new Set<string>();
+  if (target.ruleId) ids.add(target.ruleId);
+  for (const patch of rampPatchesForTarget(schedule, target.id)) {
+    if (patch.ruleId) ids.add(patch.ruleId);
+  }
+  return [...ids];
+}
+
+/**
+ * The environments ONE ramp target is acted on in, given what its rules serve.
+ *
+ * Per-target on purpose: the union across targets would demand authority in
+ * combinations the schedule never acts on, so callers do their own grouping
+ * (the gate by feature, the control over the one feature it renders).
+ */
+export function rampTargetFootprint({
+  schedule,
+  target,
+  currentRuleEnvs,
+  allEnvironments,
+}: {
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >;
+  target: { id: string; ruleId?: string | null };
+  /** What the target's rules serve now — `"all"` widens. */
+  currentRuleEnvs: string[] | "all";
+  allEnvironments: string[];
+}): string[] {
+  const envs = getEnvsForRampTarget(schedule, target.id, currentRuleEnvs);
+  return envs === "all" ? [...allEnvironments] : envs;
+}
+
+/**
+ * The footprint a live ramp CONTROL action answers for — the client's mirror of
+ * `assertCanControlRampSchedule`.
+ *
+ * Per target, unioned, with each target measured against what its rule
+ * currently serves. Not `rampSchedulePublishEnvironments`: that widens every
+ * unscoped patch to "all", disabling controls for publishers scoped to the
+ * only environments the ramp touches.
+ *
+ * A target whose rule the caller cannot resolve contributes "all" — fail-closed,
+ * since the gate checks every target and the client may only hold one.
+ */
+export function rampControlFootprint({
+  schedule,
+  allEnvironments,
+  ruleEnvsForTarget,
+}: {
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions" | "targets"
+  >;
+  allEnvironments: string[];
+  /** What the target's rule serves now, or undefined when it can't be resolved. */
+  ruleEnvsForTarget: (target: {
+    id: string;
+    ruleId?: string | null;
+    environment?: string | null;
+    // So a caller holding one feature can widen for a target on another.
+    entityId?: string;
+  }) => string[] | "all" | undefined;
+}): string[] {
+  const targets = schedule.targets ?? [];
+  if (!targets.length) {
+    const envs = getEnvsFromRampSchedule(schedule);
+    return envs === "all" ? [...allEnvironments] : envs;
+  }
+
+  const out = new Set<string>();
+  for (const target of targets) {
+    const current = ruleEnvsForTarget(target);
+    if (current === undefined) return [...allEnvironments];
+    for (const e of rampTargetFootprint({
+      schedule,
+      target,
+      currentRuleEnvs: current,
+      allEnvironments,
+    })) {
+      out.add(e);
+    }
+  }
+  return [...out];
+}
+
+/**
+ * Whether the schedule is acting on live traffic right now. Everything else —
+ * not started yet, or already finished — is inert, which is what separates a
+ * live ramp control from housekeeping.
+ */
+export function isRampScheduleServing(
+  schedule: Pick<RampScheduleInterface, "status">,
+): boolean {
+  return schedule.status === "running" || schedule.status === "paused";
+}
+
+/**
+ * Active rule targets with no start action to roll back to. Full rollback and
+ * restart apply `startActions` to return the rule to its pre-ramp state, so an
+ * unanchored target silently keeps whatever step it was on. Targets without a
+ * `ruleId` are inert to the engine and need no anchor.
+ */
+export function unanchoredRampTargets(
+  schedule: Pick<RampScheduleInterface, "targets" | "startActions">,
+): RampTarget[] {
+  const anchored = new Set(
+    (schedule.startActions ?? []).map((a) => a.targetId),
+  );
+  return schedule.targets.filter(
+    (t) => t.status === "active" && !!t.ruleId && !anchored.has(t.id),
+  );
+}
+
+/**
+ * Every patch a schedule aims at one target. Exported for the control gate,
+ * which needs the patches' own `ruleId`s (see `rampTargetRuleIds`).
+ */
+export function rampPatchesForTarget(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+  targetId: string,
+) {
+  return [
+    ...(schedule.startActions ?? []),
+    ...schedule.steps.flatMap((s) => s.actions),
+    ...(schedule.endActions ?? []),
+  ]
+    .filter((a) => a.targetId === targetId)
+    .map((a) => a.patch);
+}
+
+export function getEnvsForRampTarget(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+  targetId: string,
+  // The environments the target rule CURRENTLY serves. A patch's `environments`
+  // REPLACES the rule's (`applyPatchToRule`), so narrowing a rule from
+  // production to dev is a production change — the footprint unions patch envs
+  // with current envs, the same rule `getDraftAffectedEnvironments` applies to
+  // revision-embedded ramps.
+  currentRuleEnvs?: string[] | "all",
+): string[] | "all" {
+  if (currentRuleEnvs === "all") return "all";
+  const envs = new Set<string>();
+  const patches = rampPatchesForTarget(schedule, targetId);
+  for (const patch of patches) {
+    if (patch.allEnvironments) return "all";
+    const scoped = patch.environments ?? [];
+    // A patch without environments retains the rule's current scope.
+    for (const env of scoped) envs.add(env);
+  }
+  // Union the rule's own envs before the empty check below, so a target no
+  // patch names keeps its known envs rather than widening.
+  for (const env of currentRuleEnvs ?? []) envs.add(env);
+  // Nothing known from either source. A target no patch names is still acted on
+  // (start actions enable every active target), and an empty footprint SKIPS
+  // the environment check rather than narrowing it — so widen.
+  if (!envs.size) return "all";
+  return Array.from(envs);
+}
+
+// The environments a ramp schedule's patches reach, or "all".
+//
+// A patch naming neither `environments` nor `allEnvironments` inherits the
+// rule's scope at apply time, which can't be resolved here — so unscoped
+// patches widen to "all". Returning [] would hand the permission layer an
+// empty footprint, which SKIPS the environment check (NO_ENVIRONMENT_BINDING).
 export function getEnvsFromRampSchedule(
   schedule: Pick<
     RampScheduleInterface,
@@ -2815,11 +3542,40 @@ export function getEnvsFromRampSchedule(
   ];
   for (const patch of allPatches) {
     if (patch.allEnvironments) return "all";
-    for (const env of patch.environments ?? []) {
+    const scoped = patch.environments ?? [];
+    if (!scoped.length) return "all";
+    for (const env of scoped) {
       envs.add(env);
     }
   }
+  // A schedule with zero patches (armed with only a start date) skips the loop
+  // but still fires and enables every attached target — widen, don't return [].
+  if (!envs.size) return "all";
   return [...envs];
+}
+
+/** Whether this draft flips `archived` in either direction. */
+export function revisionFlipsArchived(
+  revision: RevisionFields,
+  base: RevisionFields,
+): boolean {
+  return revision.archived !== undefined && revision.archived !== base.archived;
+}
+
+// The environments an `archived` flip actually touches: the ones the flag
+// serves in. Archiving a flag that is live nowhere removes nothing from any
+// payload, so it isn't treated as affecting every environment the way other
+// global changes are.
+export function archiveAffectedEnvironments(
+  revision: RevisionFields,
+  base: RevisionFields,
+  allEnvironments: string[],
+): string[] {
+  return allEnvironments.filter(
+    (env) =>
+      (base.environmentsEnabled?.[env] ?? false) ||
+      (revision.environmentsEnabled?.[env] ?? false),
+  );
 }
 
 export function getDraftAffectedEnvironments(
@@ -2828,7 +3584,17 @@ export function getDraftAffectedEnvironments(
   allEnvironments: string[],
   liveRampScheduleEnvs?: Map<string, string[] | "all">,
 ): string[] | "all" {
-  if (revisionHasGlobalChange(revision, baseRevision)) return "all";
+  // A global change other than `archived` reaches every environment.
+  if (revisionHasGlobalChange(revision, baseRevision, { ignoreArchived: true }))
+    return "all";
+
+  // An `archived` flip only reaches the environments the flag serves in, so it
+  // seeds the set rather than short-circuiting to "all".
+  const envs = new Set<string>(
+    revisionFlipsArchived(revision, baseRevision)
+      ? archiveAffectedEnvironments(revision, baseRevision, allEnvironments)
+      : [],
+  );
 
   // Per-environment changes. v2 `rules` is a flat array, so derive the per-env
   // projection via `getRulesForEnvironment`. This preserves the env-granular
@@ -2837,7 +3603,6 @@ export function getDraftAffectedEnvironments(
   // with `environments: ["prod"]` counts only as touching prod.
   const revRulesAll = naiveFlattenV1Rules(revision.rules);
   const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
-  const envs = new Set<string>();
   for (const env of allEnvironments) {
     const revRules = getRulesForEnvironment(revRulesAll, env).map(
       normalizeRuleForDiff,
@@ -2965,11 +3730,96 @@ export function getNewDraftExperimentsToPublish({
   return [...new Set(draftExperiments)];
 }
 
-export function checkIfRevisionNeedsReview({
+// Only the field per-rule policy hangs off, so both rule families fit.
+export type PolicyRule = { requiredApproverTeams?: string[] };
+
+// `required` can be true with no rules: the legacy boolean setting has none.
+export type ReviewRequirement = {
+  required: boolean;
+  rules: PolicyRule[];
+  // Feature Flags only: strict-mode targeting projects whose OWN review rule
+  // fired. Each must be signed off by one of its own reviewers, not only the
+  // primary project's.
+  approverProjects?: string[];
+  // Feature Flags only: every governing project whose rule fired, with that
+  // rule, so a rule's required teams are judged against approvals that count
+  // for the project that imposed it.
+  governing?: { project: string; rule: PolicyRule }[];
+};
+
+// Primary + strict targeting over current+staged, so adds and removes are both
+// governed. All-projects uses the rule-named ones.
+export function governingReviewProjectsForFeature({
+  feature,
+  revision,
+  settings,
+}: {
+  feature: Pick<
+    FeatureInterface,
+    "project" | "targetingAllProjects" | "targetingProjects"
+  >;
+  revision: Pick<FeatureRevisionInterface, "metadata">;
+  settings?: OrganizationSettings;
+}): string[] {
+  const requireReviews = Array.isArray(settings?.requireReviews)
+    ? settings.requireReviews
+    : [];
+  const usesAllProjects =
+    !!feature.targetingAllProjects || !!revision.metadata?.targetingAllProjects;
+  const stagedTargeting =
+    revision.metadata?.targetingProjects ?? feature.targetingProjects ?? [];
+  const targetingUnion = usesAllProjects
+    ? candidateReviewProjects(requireReviews)
+    : Array.from(
+        new Set([...(feature.targetingProjects ?? []), ...stagedTargeting]),
+      );
+  return getGoverningReviewProjects(
+    feature.project,
+    targetingUnion,
+    settings?.targetingReviewMode,
+  );
+}
+
+// Every project whose reviewers might be eligible to review this flag's
+// drafts: the primary plus strict-mode targeting projects with a review rule
+// of their own. With a revision, current and staged targeting both count.
+// Without one (coarse gates that run before the revision is loaded) any such
+// project might be staged, so all of them qualify; the precise, per-draft
+// answer is `getRevisionReviewRequirement(...).approverProjects`.
+export function featureReviewCandidateProjects(
+  feature: Pick<
+    FeatureInterface,
+    "project" | "targetingAllProjects" | "targetingProjects"
+  >,
+  settings?: OrganizationSettings,
+  revision?: Pick<FeatureRevisionInterface, "metadata">,
+): string[] {
+  const primary = feature.project ?? "";
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return [primary];
+  const ownRule = projectsWithOwnRule(requireReviews).filter(
+    (project) =>
+      project &&
+      project !== primary &&
+      !!getReviewSetting(requireReviews, { project })?.requireReviewOn,
+  );
+  const targeting = revision
+    ? governingReviewProjectsForFeature({ feature, revision, settings }).filter(
+        (project) => ownRule.includes(project),
+      )
+    : ownRule.filter(
+        (project) =>
+          getTargetingReviewMode(settings?.targetingReviewMode, project) ===
+          "strict",
+      );
+  return [primary, ...targeting];
+}
+
+export function getRevisionReviewRequirement({
   feature,
   baseRevision,
   revision,
-  allEnvironments,
+  orgEnvironments,
   settings,
   requireApprovalsLicensed = true,
   liveRampScheduleEnvs,
@@ -2977,18 +3827,44 @@ export function checkIfRevisionNeedsReview({
   feature: FeatureInterface;
   baseRevision: FeatureRevisionInterface;
   revision: FeatureRevisionInterface;
-  allEnvironments: string[];
+  orgEnvironments: Environment[];
   settings?: OrganizationSettings;
   requireApprovalsLicensed?: boolean;
   liveRampScheduleEnvs?: Map<string, string[] | "all">;
-}) {
-  if (!requireApprovalsLicensed) return false;
+}): ReviewRequirement {
+  // Filtered here, not by the caller: several paths once judged review against
+  // environments the feature cannot serve.
+  const allEnvironments = filterEnvironmentsByFeature(
+    orgEnvironments,
+    feature,
+  ).map((e) => e.id);
+  const none: ReviewRequirement = {
+    required: false,
+    rules: [],
+    approverProjects: [],
+  };
+  if (!requireApprovalsLicensed) return none;
   const requireReviews = settings?.requireReviews;
-  // Boolean format: true = all changes require review, false/undefined = none do.
-  if (!Array.isArray(requireReviews)) return !!requireReviews;
+  if (!Array.isArray(requireReviews)) {
+    return requireReviews
+      ? { required: true, rules: [], approverProjects: [] }
+      : none;
+  }
 
-  const reviewSetting = getReviewSetting(requireReviews, feature);
-  if (!reviewSetting?.requireReviewOn) return false;
+  const reviewSettings = governingReviewProjectsForFeature({
+    feature,
+    revision,
+    settings,
+  })
+    .map((project) => ({
+      project,
+      setting: getReviewSetting(requireReviews, { project }),
+    }))
+    .filter(
+      (entry): entry is { project: string; setting: RequireReview } =>
+        !!entry.setting?.requireReviewOn,
+    );
+  if (!reviewSettings.length) return none;
 
   const affected = getDraftAffectedEnvironments(
     revision,
@@ -2997,71 +3873,311 @@ export function checkIfRevisionNeedsReview({
     liveRampScheduleEnvs,
   );
 
-  if (affected === "all") {
-    // Metadata-only changes respect the featureRequireMetadataReview gate;
-    // all other global changes (prerequisites, archived, holdout, defaultValue) always require review.
-    if (!revisionHasMetadataOnlyGlobalChange(revision, baseRevision))
-      return true;
-    return reviewSetting.featureRequireMetadataReview !== false;
-  }
-  if (affected.length === 0) return false;
-
-  // Env-specific changes split into rules/values vs kill switches.
-  // Rules/values always require approval; kill switches only when
-  // `featureRequireEnvironmentReview` is true (default when unset).
-  // Project rules per-env to account for `allEnvironments` / `environments` scopes.
-  const revRulesAll = naiveFlattenV1Rules(revision.rules);
-  const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
-  const envsWithRuleChanges = affected.filter((env) => {
-    const revRules = getRulesForEnvironment(revRulesAll, env).map(
-      normalizeRuleForDiff,
-    );
-    const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
-      normalizeRuleForDiff,
-    );
-    return !isEqual(revRules, baseRules);
-  });
-  const envKillSwitchChanges = affected.filter(
-    (env) =>
-      revision.environmentsEnabled?.[env] !== undefined &&
-      revision.environmentsEnabled[env] !==
-        (baseRevision.environmentsEnabled?.[env] ?? false),
-  );
-
-  const gatedEnvs = reviewSetting.environments;
-
-  // Rules/values always gate
-  if (envsWithRuleChanges.length > 0) {
-    if (gatedEnvs.length === 0) return true;
-    if (envsWithRuleChanges.some((env) => gatedEnvs.includes(env))) return true;
-  }
-
-  // Kill switch changes only gate when featureRequireEnvironmentReview is enabled
-  if (
-    envKillSwitchChanges.length > 0 &&
-    reviewSetting.featureRequireEnvironmentReview !== false
-  ) {
-    if (gatedEnvs.length === 0) return true;
-    if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
-      return true;
-  }
-
-  // Ramp actions (create/update/detach) change how the feature is rolled out
-  // across environments. They are treated like rule changes and always require
-  // approval when any of the targeted environments are gated.
-  if ((revision.rampActions ?? []).length > 0) {
-    const rampEnvs = affected.filter(
+  // Classify the change once; it's independent of which review rule is evaluated.
+  const metadataOnlyGlobal =
+    affected === "all"
+      ? revisionHasMetadataOnlyGlobalChange(revision, baseRevision)
+      : false;
+  // Archiving pulls the flag out of every environment it serves in at once, so
+  // it gates like a rule change rather than a kill switch — it is not subject to
+  // `featureRequireEnvironmentReview`. A flag serving nowhere yields no
+  // environments here and so needs no approval.
+  const archiveEnvs = revisionFlipsArchived(revision, baseRevision)
+    ? archiveAffectedEnvironments(revision, baseRevision, allEnvironments)
+    : [];
+  let envsWithRuleChanges: string[] = [];
+  let envKillSwitchChanges: string[] = [];
+  if (affected !== "all") {
+    // Env-specific changes split into rules/values vs kill switches.
+    // Rules/values always require approval; kill switches only when
+    // `featureRequireEnvironmentReview` is true (default when unset).
+    // Project rules per-env to account for `allEnvironments`/`environments` scopes.
+    const revRulesAll = naiveFlattenV1Rules(revision.rules);
+    const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
+    envsWithRuleChanges = affected.filter((env) => {
+      const revRules = getRulesForEnvironment(revRulesAll, env).map(
+        normalizeRuleForDiff,
+      );
+      const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
+        normalizeRuleForDiff,
+      );
+      return !isEqual(revRules, baseRules);
+    });
+    envKillSwitchChanges = affected.filter(
       (env) =>
-        !envsWithRuleChanges.includes(env) &&
-        !envKillSwitchChanges.includes(env),
+        revision.environmentsEnabled?.[env] !== undefined &&
+        revision.environmentsEnabled[env] !==
+          (baseRevision.environmentsEnabled?.[env] ?? false),
     );
-    if (rampEnvs.length > 0) {
-      if (gatedEnvs.length === 0) return true;
-      if (rampEnvs.some((env) => gatedEnvs.includes(env))) return true;
-    }
   }
 
-  return false;
+  const needsReviewForSetting = (reviewSetting: RequireReview): boolean => {
+    if (affected === "all") {
+      // Metadata-only changes respect the featureRequireMetadataReview gate; all
+      // other global changes (prerequisites, archived, holdout, defaultValue)
+      // always require review.
+      if (!metadataOnlyGlobal) return true;
+      return reviewSetting.featureRequireMetadataReview !== false;
+    }
+    if (affected.length === 0) return false;
+
+    const gatedEnvs = reviewSetting.environments ?? [];
+
+    if (archiveEnvs.length > 0) {
+      if (gatedEnvs.length === 0) return true;
+      if (archiveEnvs.some((env) => gatedEnvs.includes(env))) return true;
+    }
+
+    // Rules/values always gate
+    if (envsWithRuleChanges.length > 0) {
+      if (gatedEnvs.length === 0) return true;
+      if (envsWithRuleChanges.some((env) => gatedEnvs.includes(env)))
+        return true;
+    }
+
+    // Kill switch changes only gate when featureRequireEnvironmentReview is enabled
+    if (
+      envKillSwitchChanges.length > 0 &&
+      reviewSetting.featureRequireEnvironmentReview !== false
+    ) {
+      if (gatedEnvs.length === 0) return true;
+      if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
+        return true;
+    }
+
+    // Ramp actions (create/update/detach) change how the feature is rolled out
+    // across environments. They are treated like rule changes and always require
+    // approval when any of the targeted environments are gated.
+    if ((revision.rampActions ?? []).length > 0) {
+      const rampEnvs = affected.filter(
+        (env) =>
+          !envsWithRuleChanges.includes(env) &&
+          !envKillSwitchChanges.includes(env),
+      );
+      if (rampEnvs.length > 0) {
+        if (gatedEnvs.length === 0) return true;
+        if (rampEnvs.some((env) => gatedEnvs.includes(env))) return true;
+      }
+    }
+
+    return false;
+  };
+
+  const triggering = reviewSettings.filter((entry) =>
+    needsReviewForSetting(entry.setting),
+  );
+  // By content: merged rules are distinct objects, so identity would not dedupe.
+  const seen = new Set<string>();
+  const rules = triggering
+    .map((entry) => entry.setting)
+    .filter((r) => {
+      const key = JSON.stringify(r);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  // Inherited org-wide rules give a targeting project no say of its own.
+  const ownRule = new Set(projectsWithOwnRule(requireReviews));
+  const primary = feature.project ?? "";
+  const approverProjects = triggering
+    .map((entry) => entry.project)
+    .filter((project) => project !== primary && ownRule.has(project));
+  return {
+    required: rules.length > 0,
+    rules,
+    approverProjects,
+    governing: triggering.map((entry) => ({
+      project: entry.project,
+      rule: entry.setting,
+    })),
+  };
+}
+
+// Whether review is required anywhere in the org: the legacy boolean, or any
+// rule with its own switch on. Used to decide when writes that would skip the
+// revision review flow altogether must be reserved for approval-bypass callers.
+export function orgRequiresAnyReview(
+  settings: Pick<OrganizationSettings, "requireReviews"> | undefined,
+  requireApprovalsLicensed = true,
+): boolean {
+  if (!requireApprovalsLicensed) return false;
+  const requireReviews = settings?.requireReviews;
+  return Array.isArray(requireReviews)
+    ? requireReviews.some((rule) => !!rule.requireReviewOn)
+    : !!requireReviews;
+}
+
+// Boolean form, for callers that only ask whether review is needed.
+export function checkIfRevisionNeedsReview(
+  args: Parameters<typeof getRevisionReviewRequirement>[0],
+): boolean {
+  return getRevisionReviewRequirement(args).required;
+}
+
+// Entity pairing a single governance `project` with a secondary targeting scope.
+export type TargetingScopedEntity = {
+  project?: string;
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
+};
+
+// Project ids an entity targets (primary + targeting, deduped); null = all projects.
+export function getTargetingProjectIds(
+  entity: TargetingScopedEntity,
+): string[] | null {
+  if (entity.targetingAllProjects) return null;
+  return Array.from(
+    new Set([entity.project ?? "", ...(entity.targetingProjects ?? [])]),
+  );
+}
+
+// Staged targeting fields from `FeatureRevisionInterface.metadata`;
+// undefined = unchanged.
+export type StagedTargetingScope = {
+  project?: string;
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
+};
+
+// Attribute scope = primary + targetingProjects, unioned across live and
+// staged state while a draft is open. null = unscoped: the entity targets
+// all projects (live or staged), or its primary project is empty.
+export function getAttributeScopeProjectIds(
+  entity: TargetingScopedEntity,
+  staged?: StagedTargetingScope,
+): string[] | null {
+  if (entity.targetingAllProjects || staged?.targetingAllProjects) return null;
+  const primaries = [
+    entity.project ?? "",
+    staged?.project ?? entity.project ?? "",
+  ];
+  if (primaries.some((p) => !p)) return null;
+  return Array.from(
+    new Set([
+      ...primaries,
+      ...(entity.targetingProjects ?? []),
+      ...(staged?.targetingProjects ?? []),
+    ]),
+  ).filter(Boolean);
+}
+
+// A feature's attribute scope including every active draft's staged targeting.
+// null short-circuits (any unscoped state = unscoped feature).
+export function getFeatureAttributeScopeWithDrafts(
+  feature: TargetingScopedEntity,
+  stagedDrafts: Array<StagedTargetingScope | undefined>,
+): string[] | null {
+  let scope = getAttributeScopeProjectIds(feature);
+  for (const staged of stagedDrafts) {
+    if (scope === null) break;
+    if (!staged) continue;
+    const stagedScope = getAttributeScopeProjectIds(feature, staged);
+    if (stagedScope === null) return null;
+    scope = Array.from(new Set([...scope, ...stagedScope]));
+  }
+  return scope;
+}
+
+// Experiment scope: its project plus every linked feature's scope (targeting
+// evaluates wherever a linked feature is served); null = unscoped. The
+// persisted `attributeScopeAllProjects` picker preference never loosens this.
+export function getExperimentAttributeScopeProjectIds(
+  experiment: { project?: string },
+  linkedFeatureScopes: Array<string[] | null>,
+): string[] | null {
+  if (!experiment.project) return null;
+  const ids = new Set<string>([experiment.project]);
+  for (const scope of linkedFeatureScopes) {
+    if (scope === null) return null;
+    scope.forEach((id) => ids.add(id));
+  }
+  return Array.from(ids);
+}
+
+// `enforcement` mirrors the back-end check (null when any linked feature is
+// unscoped); `dropdown` is the stricter picker default where unscoped linked
+// features contribute nothing.
+export function getExperimentAttributeScopes(
+  project: string | undefined,
+  linkedFeatureScopes: Array<string[] | null>,
+): { enforcement: string[] | null; dropdown: string[] | null } {
+  return {
+    enforcement: getExperimentAttributeScopeProjectIds(
+      { project },
+      linkedFeatureScopes,
+    ),
+    dropdown: getExperimentAttributeScopeProjectIds(
+      { project },
+      linkedFeatureScopes.filter((s) => s !== null),
+    ),
+  };
+}
+
+export function entityTargetsProject(
+  entity: TargetingScopedEntity,
+  projectId: string,
+): boolean {
+  if (entity.targetingAllProjects) return true;
+  if ((entity.project ?? "") === projectId) return true;
+  return (entity.targetingProjects ?? []).includes(projectId);
+}
+
+// Concrete project ids an entity delivers to, resolving "all projects" against
+// the org's full project list. Used where a discrete id set is required.
+export function resolveTargetingProjectIds(
+  entity: TargetingScopedEntity,
+  allProjectIds: string[],
+): string[] {
+  const ids = getTargetingProjectIds(entity);
+  if (ids === null) return allProjectIds;
+  return ids.filter((id) => !!id);
+}
+
+// Write-time normalization: drop blanks/dupes/the primary from the list; clear it when targeting all projects.
+export function normalizeTargetingProjects(entity: TargetingScopedEntity): {
+  targetingAllProjects: boolean;
+  targetingProjects: string[];
+} {
+  if (entity.targetingAllProjects) {
+    return { targetingAllProjects: true, targetingProjects: [] };
+  }
+  const primary = entity.project ?? "";
+  const targetingProjects = Array.from(
+    new Set((entity.targetingProjects ?? []).filter((p) => p && p !== primary)),
+  );
+  return { targetingAllProjects: false, targetingProjects };
+}
+
+// Normalize targeting fields in a partial update in place, resolving the primary
+// against the update's project when changing (else current) so it's stripped correctly.
+export function normalizeTargetingInUpdates(
+  updates: TargetingScopedEntity,
+  current: TargetingScopedEntity,
+): void {
+  const hasAll = "targetingAllProjects" in updates;
+  const hasList = "targetingProjects" in updates;
+  if (!hasAll && !hasList) return;
+  const norm = normalizeTargetingProjects({
+    project: "project" in updates ? updates.project : current.project,
+    targetingAllProjects: hasAll
+      ? updates.targetingAllProjects
+      : current.targetingAllProjects,
+    targetingProjects: hasList
+      ? updates.targetingProjects
+      : current.targetingProjects,
+  });
+  if (hasAll) updates.targetingAllProjects = norm.targetingAllProjects;
+  if (hasList) updates.targetingProjects = norm.targetingProjects;
+  // Keep the invariant that all-projects implies no explicit list: a partial
+  // update turning all-projects on (without also sending the list) must clear
+  // any stale stored list rather than leave it behind.
+  if (
+    norm.targetingAllProjects &&
+    !hasList &&
+    (current.targetingProjects?.length ?? 0) > 0
+  ) {
+    updates.targetingProjects = [];
+  }
 }
 
 export function filterProjectsByEnvironment(
@@ -3102,18 +4218,45 @@ export function filterProjectsByEnvironmentWithNull(
   return filteredProjects;
 }
 
+export type EnvironmentApplicabilityScope = {
+  project?: string;
+  targetingProjects?: string[];
+  targetingAllProjects?: boolean;
+};
+
+// The one definition of which environments can serve an entity. Publish and
+// review expand "all environments" against this set, never the org's full list.
+export function environmentAppliesToScope(
+  environment: Environment,
+  scope: EnvironmentApplicabilityScope,
+): boolean {
+  if (scope.targetingAllProjects) return true;
+  const projects = [scope.project, ...(scope.targetingProjects ?? [])].filter(
+    (p): p is string => !!p,
+  );
+  if (projects.length === 0) return true;
+  return filterProjectsByEnvironment(projects, environment, true).length > 0;
+}
+
+export function getApplicableEnvIds(
+  orgEnvs: Environment[],
+  // A single project id (legacy callers) or a full targeting scope.
+  scope?: string | EnvironmentApplicabilityScope,
+): string[] {
+  const resolved =
+    typeof scope === "string" || scope == null
+      ? { project: scope ?? undefined }
+      : scope;
+  return orgEnvs
+    .filter((env) => environmentAppliesToScope(env, resolved))
+    .map((env) => env.id);
+}
+
 export function featureHasEnvironment(
   feature: FeatureInterface,
   environment: Environment,
 ): boolean {
-  const featureProjects = feature.project ? [feature.project] : [];
-  if (featureProjects.length === 0) return true;
-  const filteredProjects = filterProjectsByEnvironment(
-    featureProjects,
-    environment,
-    true,
-  );
-  return filteredProjects.length > 0;
+  return environmentAppliesToScope(environment, feature);
 }
 
 export function filterEnvironmentsByExperiment(
@@ -3168,11 +4311,49 @@ export function getDisallowedProjects(
   );
 }
 
-export function simpleToJSONSchema(simple: SimpleSchema): string {
-  const getValue = (
-    value: string,
-    field: SchemaField,
-  ): string | number | boolean => {
+// Codify a single SimpleSchema field into its JSON Schema subschema (type +
+// description + default + enum + min/max constraints + nullability). This is the
+// per-field half of `simpleToJSONSchema`, exported so editors can faithfully
+// seed a raw JSON Schema from simple-mode preferences. `nullable` is baked into
+// the subschema here (widening the type to include `"null"`); `required` is a
+// composition concern the parent object handles.
+export function simpleSchemaFieldToJSONSchema(
+  field: SchemaField,
+): Record<string, unknown> {
+  // A raw per-field schema (config-only) supersedes the simple type. Emit it
+  // directly so object/array/nullable/advanced fields compile faithfully (the
+  // simple-type path below can't represent them). Layer on the simple-mode
+  // description/default only when the raw schema omits them.
+  if (field.jsonSchema !== undefined) {
+    try {
+      const raw = JSON.parse(field.jsonSchema);
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const merged = { ...(raw as Record<string, unknown>) };
+        if (field.description && merged.description === undefined) {
+          merged.description = field.description;
+        }
+        if (field.default && merged.default === undefined) {
+          merged.default = field.default;
+        }
+        // A bare nullable preset (e.g. {"type":["object","null"]}) is reduced by
+        // normalizeField to a raw schema + the `nullable` flag, so re-apply the
+        // flag here — otherwise the compiled schema drops `null` and rejects a
+        // legitimate null value (and every export re-emits it non-nullable).
+        if (
+          field.nullable &&
+          typeof merged.type === "string" &&
+          merged.type !== "null"
+        ) {
+          merged.type = [merged.type, "null"];
+        }
+        return merged;
+      }
+    } catch {
+      // Malformed raw schema — fall back to the simple-type compilation.
+    }
+  }
+
+  const getValue = (value: string): string | number | boolean => {
     const type = field.type;
     // Validation
     if (field.type !== "boolean") {
@@ -3180,23 +4361,23 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
         throw new Error(`Value '${value}' not in enum for field ${field.key}`);
       }
       if (field.type === "string" && !field.enum.length) {
-        if (value.length < field.min) {
+        if (field.min !== undefined && value.length < field.min) {
           throw new Error(
             `Value '${value}' is shorter than min length for field ${field.key}`,
           );
         }
-        if (value.length > field.max) {
+        if (field.max !== undefined && value.length > field.max) {
           throw new Error(
             `Value '${value}' is longer than max length for field ${field.key}`,
           );
         }
       } else if (!field.enum.length) {
-        if (parseFloat(value) < field.min) {
+        if (field.min !== undefined && parseFloat(value) < field.min) {
           throw new Error(
             `Value '${value}' is less than min value for field ${field.key}`,
           );
         }
-        if (parseFloat(value) > field.max) {
+        if (field.max !== undefined && parseFloat(value) > field.max) {
           throw new Error(
             `Value '${value}' is greater than max value for field ${field.key}`,
           );
@@ -3216,41 +4397,62 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
     else return value !== "false";
   };
 
-  const fields = simple.fields.map((f) => {
-    const schema: Record<string, unknown> = {
-      type: ["float", "integer"].includes(f.type) ? "number" : f.type,
-    };
+  const baseType = ["float", "integer"].includes(field.type)
+    ? "number"
+    : field.type;
+  const schema: Record<string, unknown> = {
+    // A nullable field widens the type to a `T | null` union.
+    type: field.nullable ? [baseType, "null"] : baseType,
+  };
 
-    if (f.description) schema.description = f.description;
+  if (field.description) schema.description = field.description;
 
-    if (f.default) schema.default = getValue(f.default, f);
+  if (field.default) schema.default = getValue(field.default);
 
-    if (f.type !== "boolean" && f.enum.length) {
-      schema.enum = f.enum.map((v) => getValue(v, f));
-    }
-    if (!schema.enum) {
-      if (f.type === "string") {
-        schema.minLength = f.min;
-        schema.maxLength = f.max;
-        if (f.max < f.min || f.min < 0) {
-          throw new Error(`Invalid min or max for field ${f.key}`);
-        }
-      } else if (f.type === "float" || f.type === "integer") {
-        schema.minimum = f.min;
-        schema.maximum = f.max;
+  if (field.type !== "boolean" && field.enum.length) {
+    // A nullable enum must also admit null — the type union allows it, so the
+    // enum has to list it too or null would fail validation.
+    schema.enum = [
+      ...field.enum.map((v) => getValue(v)),
+      ...(field.nullable ? [null] : []),
+    ];
+  }
+  // Integer markers apply with or without an enum — dropping them on an enum
+  // field would re-import `{type:"number", enum:[1,2]}` as a float.
+  if (field.type === "integer") {
+    schema.multipleOf = 1;
+    schema.format = "number";
+  }
+  if (!schema.enum) {
+    // Bounds are optional — emit only when set.
+    const { min, max } = field;
+    if (field.type === "string") {
+      if (min !== undefined) schema.minLength = min;
+      if (max !== undefined) schema.maxLength = max;
+      if (
+        (min !== undefined && min < 0) ||
+        (min !== undefined && max !== undefined && max < min)
+      ) {
+        throw new Error(`Invalid min or max for field ${field.key}`);
+      }
+    } else if (field.type === "float" || field.type === "integer") {
+      if (min !== undefined) schema.minimum = min;
+      if (max !== undefined) schema.maximum = max;
 
-        if (f.type === "integer") {
-          schema.multipleOf = 1;
-          schema.format = "number";
-        }
-
-        if (f.max < f.min) {
-          throw new Error(`Invalid min or max for field ${f.key}`);
-        }
+      if (min !== undefined && max !== undefined && max < min) {
+        throw new Error(`Invalid min or max for field ${field.key}`);
       }
     }
-    return { key: f.key, required: f.required, schema };
-  });
+  }
+  return schema;
+}
+
+export function simpleToJSONSchema(simple: SimpleSchema): string {
+  const fields = simple.fields.map((f) => ({
+    key: f.key,
+    required: f.required,
+    schema: simpleSchemaFieldToJSONSchema(f),
+  }));
   if (fields.length === 0) {
     throw new Error("Schema must have at least 1 field");
   }
@@ -3270,7 +4472,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
           },
           {} as Record<string, unknown>,
         ),
-        additionalProperties: false,
+        additionalProperties: simple.additionalProperties ?? false,
       });
     case "object[]":
       if (fields.some((f) => !f.key)) {
@@ -3288,7 +4490,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
             },
             {} as Record<string, unknown>,
           ),
-          additionalProperties: false,
+          additionalProperties: simple.additionalProperties ?? false,
         },
       });
     case "primitive[]":
@@ -3332,6 +4534,11 @@ export function inferSchemaField(
       }
       max = Math.max(max || 999, value);
       break;
+    case "bigint":
+    case "symbol":
+    case "undefined":
+    case "object":
+    case "function":
     default:
       throw new Error(`Invalid value type: ${typeof value}`);
   }
@@ -3474,4 +4681,232 @@ export function getApiFeatureEnabledEnvs(feature: ApiFeature) {
 
 export function getApiFeatureAllEnvs(feature: ApiFeature) {
   return Object.keys(feature.environments);
+}
+
+// Accepts legacy v1 (Record<env, rules>) as well as v2 arrays: raw-doc readers
+// hand over v1 shapes until the migration completes.
+export function getExperimentIdsFromRules(rules: unknown): string[] {
+  return Array.from(
+    new Set(
+      naiveFlattenV1Rules(rules)
+        .filter(isExperimentRefRule)
+        .map((r) => r.experimentId)
+        .filter(Boolean),
+    ),
+  );
+}
+
+/**
+ * Unlinking is doubly bounded: a holdout's experiment list is not only a
+ * projection of feature rules — experiments can be added to a holdout directly —
+ * so a candidate must both have been contributed by THIS feature and be
+ * referenced by nothing else. Anything else belongs to another writer.
+ */
+export function computeHoldoutExperimentLinkageDelta({
+  publishedRules,
+  previousRules,
+  linkedExperimentIds,
+  experimentIdsReferencedElsewhere,
+}: {
+  publishedRules: FeatureRule[];
+  previousRules: FeatureRule[];
+  linkedExperimentIds: string[];
+  experimentIdsReferencedElsewhere: string[];
+}): { toLink: string[]; toUnlink: string[] } {
+  const desired = getExperimentIdsFromRules(publishedRules);
+  const desiredSet = new Set(desired);
+  const linked = new Set(linkedExperimentIds);
+  const elsewhere = new Set(experimentIdsReferencedElsewhere);
+  const contributed = new Set(getExperimentIdsFromRules(previousRules));
+
+  return {
+    toLink: desired.filter((id) => !linked.has(id)),
+    toUnlink: linkedExperimentIds.filter(
+      (id) => contributed.has(id) && !desiredSet.has(id) && !elsewhere.has(id),
+    ),
+  };
+}
+
+// Accepts legacy v1 (Record<env, rules>) as well as v2 arrays, same as
+// `getExperimentIdsFromRules`.
+export function getContextualBanditIdsFromRules(rules: unknown): string[] {
+  return Array.from(
+    new Set(
+      naiveFlattenV1Rules(rules)
+        .filter(isContextualBanditRefRule)
+        .map((r) => r.contextualBanditId)
+        .filter(Boolean),
+    ),
+  );
+}
+
+/** A contextual bandit's linkage as it stands, narrowed to one feature's entries. */
+export type ContextualBanditLinkageState = {
+  linkedFeatures: string[];
+  pendingFeatureDrafts: { featureId: string; revisionVersion: number }[];
+};
+
+export type ContextualBanditLinkageDelta = {
+  contextualBanditId: string;
+  link: boolean;
+  unlink: boolean;
+  draftsToQueue: number[];
+  draftsToDrop: number[];
+};
+
+/**
+ * - `linkedFeatures`: the feature's live revision serves a rule for this
+ *   contextual bandit.
+ * - `pendingFeatureDrafts`: open drafts that reference the contextual bandit, keyed by
+ *   revision version. These are the drafts the bandit publishes when it starts.
+ *
+ * Only CBs present in `currentStateByBandit` are considered — the caller
+ * decides which of the referenced bandits exist and are writable, and includes
+ * the ones that still hold entries for this feature so stale linkage is swept.
+ * Bandits with nothing to change are left out of the result.
+ */
+export function computeContextualBanditLinkageDelta({
+  featureId,
+  liveRules,
+  openDrafts,
+  currentStateByBandit,
+}: {
+  featureId: string;
+  liveRules: unknown;
+  openDrafts: { version: number; rules: unknown }[];
+  currentStateByBandit: Record<string, ContextualBanditLinkageState>;
+}): ContextualBanditLinkageDelta[] {
+  const liveIds = new Set(getContextualBanditIdsFromRules(liveRules));
+
+  const draftVersionsByBandit = new Map<string, Set<number>>();
+  for (const draft of openDrafts) {
+    for (const cbId of getContextualBanditIdsFromRules(draft.rules)) {
+      if (!draftVersionsByBandit.has(cbId)) {
+        draftVersionsByBandit.set(cbId, new Set());
+      }
+      const versions = draftVersionsByBandit.get(cbId);
+      if (versions) {
+        versions.add(draft.version);
+      }
+    }
+  }
+
+  const deltas: ContextualBanditLinkageDelta[] = [];
+  for (const [contextualBanditId, state] of Object.entries(
+    currentStateByBandit,
+  )) {
+    const isLive = liveIds.has(contextualBanditId);
+    const isLinked = state.linkedFeatures.includes(featureId);
+
+    const desiredVersions =
+      draftVersionsByBandit.get(contextualBanditId) ?? new Set<number>();
+    const currentVersions = new Set(
+      state.pendingFeatureDrafts
+        .filter((d) => d.featureId === featureId)
+        .map((d) => d.revisionVersion),
+    );
+
+    const delta: ContextualBanditLinkageDelta = {
+      contextualBanditId,
+      link: isLive && !isLinked,
+      unlink: !isLive && isLinked,
+      draftsToQueue: Array.from(desiredVersions)
+        .filter((v) => !currentVersions.has(v))
+        .sort((a, b) => a - b),
+      draftsToDrop: Array.from(currentVersions)
+        .filter((v) => !desiredVersions.has(v))
+        .sort((a, b) => a - b),
+    };
+
+    if (
+      delta.link ||
+      delta.unlink ||
+      delta.draftsToQueue.length ||
+      delta.draftsToDrop.length
+    ) {
+      deltas.push(delta);
+    }
+  }
+
+  return deltas;
+}
+
+// What a reviewer must hold authority over to sanction a draft.
+export type ReviewAuthorityFootprint =
+  | { scope: "environments"; environments: string[] }
+  | { scope: "everywhere" }
+  // Not sanctioning anything — reads, comments, withdrawing an approval.
+  | { scope: "any" }
+  // Unbound metadata: an empty environment list would pass vacuously.
+  | { scope: "unbound" };
+
+// The non-sanctioning footprint: holds the review atom at all, anywhere. For
+// reads, comments, withdrawals, and coarse pre-fetch gates.
+export const ANY_REVIEW_FOOTPRINT: ReviewAuthorityFootprint = { scope: "any" };
+
+// Per governing project: an unrelated rule must not widen a metadata change.
+export function requiresMetadataReview(
+  settings?: OrganizationSettings,
+  governingProjects?: string[],
+): boolean {
+  const requireReviews = settings?.requireReviews;
+  if (!Array.isArray(requireReviews)) return !!requireReviews;
+  const projects = governingProjects?.length ? governingProjects : [undefined];
+  return projects.some((project) => {
+    const rule = getReviewSetting(requireReviews, { project });
+    return (
+      !!rule?.requireReviewOn && rule.featureRequireMetadataReview !== false
+    );
+  });
+}
+
+// `bases` unions live and the draft's base, so drift only ever demands more.
+// Deliberately NOT narrowed to serving environments the way publish is: a rule
+// edited while an environment is off still applies once it is switched on.
+export function getReviewAuthorityFootprint({
+  revision,
+  bases,
+  allEnvironments,
+  settings,
+  governingProjects,
+  liveRampScheduleEnvs,
+}: {
+  revision: RevisionFields;
+  bases: RevisionFields[];
+  allEnvironments: string[];
+  settings?: OrganizationSettings;
+  governingProjects?: string[];
+  liveRampScheduleEnvs?: Map<string, string[] | "all">;
+}): ReviewAuthorityFootprint {
+  const environments = new Set<string>();
+  let metadataOnlyGlobal = false;
+
+  for (const base of bases) {
+    const affected = getDraftAffectedEnvironments(
+      revision,
+      base,
+      allEnvironments,
+      liveRampScheduleEnvs,
+    );
+
+    if (affected !== "all") {
+      affected.forEach((env) => environments.add(env));
+      continue;
+    }
+
+    // A non-metadata global change lands everywhere, so nothing narrower fits.
+    if (!revisionHasMetadataOnlyGlobalChange(revision, base)) {
+      return { scope: "everywhere" };
+    }
+    metadataOnlyGlobal = true;
+  }
+
+  if (
+    metadataOnlyGlobal &&
+    requiresMetadataReview(settings, governingProjects)
+  ) {
+    return { scope: "unbound" };
+  }
+
+  return { scope: "environments", environments: [...environments] };
 }

@@ -3,6 +3,7 @@ node_modules
 *.log
 .idea
 .env.local
+.env.local.*
 dist
 .next
 out
@@ -33,6 +34,7 @@ coverage.xml
 
 # Python virtual environment
 venv/
+.venv/
 .eslintcache
 
 # Docs
@@ -53,3 +55,16 @@ next-env.d.ts
 # Private claude folders
 .claude/worktrees/
 .claude/projects/
+
+# Agent scratch space
+.context/
+
+# Agent skills: keep the skills-src placeholder; ignore the local checkout
+# pointer and the assembled output.
+skills-src/*
+!skills-src/.gitkeep
+packages/back-end/agent-skills.local.json
+packages/back-end/generated/agent-skills/
+
+# Jest transform cache
+.jest-cache

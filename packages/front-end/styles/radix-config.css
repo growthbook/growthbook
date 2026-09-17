@@ -12,7 +12,8 @@
 }
 
 .light-theme :root,
-.light-theme .radix-themes {
+.light-theme .radix-themes,
+.radix-themes.radix-themes.light {
   --color-background: var(--accent-2);
   --color-panel-solid: #ffffff;
   --color-panel-translucent: rgba(255, 255, 255, 0.7);
@@ -28,7 +29,8 @@
 }
 
 .dark-theme :root,
-.dark-theme .radix-themes {
+.dark-theme .radix-themes,
+.radix-themes.radix-themes.dark {
   --color-background: #10172e;
   --color-panel-solid: #1c2339;
   --color-panel-translucent: var(--slate-a2);

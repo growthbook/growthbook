@@ -20,6 +20,7 @@ import HashVersionSelector, {
 import {
   getFeatureDefaultValue,
   useAttributeSchema,
+  resolveAttributeFilter,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
@@ -37,14 +38,17 @@ import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
-import Switch from "@/ui/Switch";
+import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 import Callout from "@/ui/Callout";
 
 export default function BanditRefNewFields({
@@ -52,6 +56,8 @@ export default function BanditRefNewFields({
   source,
   feature,
   project,
+  attributeProjects,
+  attributeSelectIndicator,
   environments,
   prerequisiteValue,
   setPrerequisiteValue,
@@ -73,12 +79,15 @@ export default function BanditRefNewFields({
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
   envScope,
+  projectScope,
   onRuleCyclicChange,
 }: {
   step: number;
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
+  attributeProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
@@ -99,6 +108,7 @@ export default function BanditRefNewFields({
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
   envScope?: EnvScopeProps;
+  projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
@@ -125,7 +135,10 @@ export default function BanditRefNewFields({
     }
   }, [exposureQueries, exposureQueryId, form]);
 
-  const attributeSchema = useAttributeSchema(false, project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -143,6 +156,7 @@ export default function BanditRefNewFields({
       {step === 0 ? (
         <>
           <Field
+            size="legacy"
             required={true}
             minLength={2}
             label="Bandit Name"
@@ -150,6 +164,7 @@ export default function BanditRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
@@ -157,6 +172,7 @@ export default function BanditRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Description"
             textarea
             minRows={1}
@@ -166,6 +182,7 @@ export default function BanditRefNewFields({
           />
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
+          {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
         </>
       ) : null}
 
@@ -180,36 +197,18 @@ export default function BanditRefNewFields({
               variation to assign
             </Text>
             <SelectField
+              size="legacy"
               withRadixThemedPortal
               containerClassName="flex-1"
+              extraIndicator={attributeSelectIndicator}
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({
-                  label: s.property,
-                  value: s.property,
-                  description: s.description,
-                  tags: s.tags,
-                  datatype: s.datatype,
-                  hashAttribute: s.hashAttribute,
-                }))}
+                .map(toAttributeOption)}
               value={form.watch("hashAttribute")}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
               }}
-              formatOptionLabel={(o, meta) => {
-                return (
-                  <AttributeOptionWithTooltip
-                    option={o as AttributeOptionForTooltip}
-                    context={meta.context}
-                  >
-                    {o.label}
-                  </AttributeOptionWithTooltip>
-                );
-              }}
-            />
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
+              formatOptionLabel={formatAttributeOptionLabel}
             />
 
             {hasSDKWithNoBucketingV2 && (
@@ -256,6 +255,8 @@ export default function BanditRefNewFields({
         <>
           <TargetingFieldsGroup
             project={project || ""}
+            attributeProjects={attributeProjects}
+            attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
             feature={feature}
             savedGroups={savedGroupValue}
@@ -283,6 +284,7 @@ export default function BanditRefNewFields({
         <>
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
+              size="legacy"
               label="Data Source"
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
@@ -318,6 +320,7 @@ export default function BanditRefNewFields({
 
             {datasource?.properties?.exposureQueries && exposureQueries ? (
               <SelectField
+                size="legacy"
                 label={
                   <>
                     Experiment Assignment Table{" "}
@@ -361,15 +364,22 @@ export default function BanditRefNewFields({
           </Box>
 
           {settings?.useStickyBucketing && (
-            <Switch
-              label="Disable Sticky Bucketing"
-              description="Permit users in low-performing variations to switch variations in future update periods."
-              value={!!form.watch("disableStickyBucketing")}
-              onChange={(v) => {
-                form.setValue("disableStickyBucketing", v);
-              }}
+            <StickyBucketingToggle
               mb="5"
               mt="5"
+              disableStickyBucketing={!!form.watch("disableStickyBucketing")}
+              setDisableStickyBucketing={(v) =>
+                form.setValue("disableStickyBucketing", v)
+              }
+              description="Keep users in their assigned variation across future Bandit update periods."
+            />
+          )}
+
+          {!form.watch("disableStickyBucketing") && (
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+              extraIndicator={attributeSelectIndicator}
             />
           )}
 
@@ -438,6 +448,7 @@ export default function BanditRefNewFields({
               />
 
               <SelectField
+                size="legacy"
                 className="mb-4"
                 label={
                   <PremiumTooltip commercialFeature="regression-adjustment">

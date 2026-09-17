@@ -7,6 +7,7 @@ import {
   RampStep,
   RampStepAction,
 } from "shared/validators";
+import { DraftConflict } from "shared/types/draft-conflict";
 
 // Inline ramp schedule to create atomically with the rule.
 export type InlineRampScheduleCreate = {
@@ -30,6 +31,9 @@ export type InlineRampScheduleCreate = {
   monitoringConfig?: RampMonitoringConfig;
   lockdownConfig?: LockdownConfig;
   experimentHealthAction?: ExperimentHealthAction;
+  // When true, the ramp holds at the start (rule disabled, zero traffic) until a
+  // human approves via the approve-step action. Composes with startDate.
+  requiresStartApproval?: boolean | null;
 };
 
 // Detach a rule from a ramp schedule (removes it from the targets array).
@@ -61,6 +65,9 @@ export type InlineRampScheduleUpdate = {
   monitoringConfig?: RampMonitoringConfig;
   lockdownConfig?: LockdownConfig;
   experimentHealthAction?: ExperimentHealthAction;
+  // Tri-state (mirrors startDate): true = hold for approval, null = explicitly
+  // off, undefined/absent = leave unchanged. Toggling on re-arms the gate.
+  requiresStartApproval?: boolean | null;
 };
 
 export type PostFeatureRuleBody = {
@@ -68,13 +75,21 @@ export type PostFeatureRuleBody = {
   environments: string[];
   safeRolloutFields?: CreateSafeRolloutInterface;
   rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleDetach;
+  // Insert the new rule directly above this rule; appends when the id is
+  // missing from the revision.
+  insertBeforeRuleId?: string;
 };
+
+export type PutFeatureRuleConflict = DraftConflict<FeatureRule>;
 
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
   // Stable rule locator. Every rule in v2 has an id (assigned at creation
   // or via JIT migration on read), so app callers always send this.
   ruleId: string;
+  baseline?: {
+    rule: FeatureRule;
+  };
   rampSchedule?:
     | InlineRampScheduleCreate
     | InlineRampScheduleUpdate

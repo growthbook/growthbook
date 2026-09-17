@@ -14,6 +14,7 @@ import {
   getSessionReplayEventsByStoragePrefix,
 } from "back-end/src/services/session-replay";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 
 /**
  * Internal API model for Session Replay metadata.
@@ -124,8 +125,15 @@ export class SessionReplayModel {
     // s3Key is the full object key (e.g. .../uuid/0.json.gz); strip the
     // chunk filename so the S3 listing finds all chunks for the session.
     const prefix = s3Key.substring(0, s3Key.lastIndexOf("/") + 1);
+    const datasource = await getGrowthbookDatasource(this.context);
+    const region =
+      datasource?.type === "growthbook_clickhouse" &&
+      datasource.settings.region === "eu-west-1"
+        ? "eu-west-1"
+        : "us-east-1";
     const events = (await getSessionReplayEventsByStoragePrefix(
       prefix,
+      region,
     )) as unknown as SessionReplayRrwebEvent[];
     return events;
   }

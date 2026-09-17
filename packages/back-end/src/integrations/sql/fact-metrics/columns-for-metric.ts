@@ -11,7 +11,7 @@ export function getColumnsForMetric(
 ): string[] {
   const enc = encodeMetricIdForColumnName(metric.id);
   const columns: string[] = [];
-  if (metric.numerator.factTableId === factTableId) {
+  if (metric.numerator?.factTableId === factTableId) {
     columns.push(`${enc}_value`);
     if (quantileMetricType(metric) === "event") {
       columns.push(`${enc}_n_events`);

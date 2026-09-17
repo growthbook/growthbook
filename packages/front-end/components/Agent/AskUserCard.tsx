@@ -35,7 +35,7 @@ export default function AskUserCard({
   return (
     <AssistantBubble>
       <Flex direction="column" gap="2">
-        <Text size="small">{prompt.question}</Text>
+        <Text size="sm">{prompt.question}</Text>
         <Flex direction="column" gap="2">
           {prompt.options.map((opt) => (
             <AskUserOptionButton
@@ -92,11 +92,11 @@ function AskUserOptionButton({
       }}
     >
       <Flex direction="column" gap="1" align="start">
-        <Text size="small" weight="medium">
+        <Text size="sm" weight="medium">
           {option.label}
         </Text>
         {option.description && (
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             {option.description}
           </Text>
         )}

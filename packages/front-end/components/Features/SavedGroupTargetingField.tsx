@@ -1,5 +1,5 @@
 import { SavedGroupTargeting } from "shared/types/feature";
-import { PiArrowSquareOut, PiPlusCircleBold, PiXBold } from "react-icons/pi";
+import { PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React, { useEffect } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
@@ -7,11 +7,12 @@ import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import Link from "@/ui/Link";
+import { formatSavedGroupOptionLabel } from "@/components/Features/SavedGroupOptionTooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import {
@@ -62,11 +63,11 @@ export default function SavedGroupTargetingField({
   const savedGroupsLabel =
     label &&
     (slimMode ? (
-      <Text as="div" size="medium" weight="semibold" color="text-mid">
+      <Text as="div" size="md" weight="semibold" color="text-mid">
         {label}
       </Text>
     ) : (
-      <Text as="div" size="medium" weight="semibold">
+      <Text as="div" size="md" weight="semibold">
         {label}
       </Text>
     ));
@@ -82,7 +83,7 @@ export default function SavedGroupTargetingField({
         { value: "set", label: setModeLabel ?? "Set targeting" },
         { value: "remove", label: removeModeLabel ?? "Remove targeting" },
       ]}
-      labelSize="2"
+      labelSize="md"
     />
   ) : null;
   useEffect(() => {
@@ -150,7 +151,7 @@ export default function SavedGroupTargetingField({
               color="text-low"
               fontStyle="italic"
               mb="2"
-              size={slimMode ? "small" : undefined}
+              size={slimMode ? "sm" : undefined}
             >
               {emptyText || "No saved group targeting applied."}
             </Text>
@@ -171,7 +172,7 @@ export default function SavedGroupTargetingField({
               >
                 <Text
                   weight="semibold"
-                  size="medium"
+                  size="md"
                   color={locked ? "text-low" : undefined}
                 >
                   <PiPlusCircleBold className="mr-1" />
@@ -260,6 +261,7 @@ export default function SavedGroupTargetingField({
                   }
                   attributeSlot={
                     <SelectField
+                      size="legacy"
                       disabled={locked}
                       value={v.match}
                       onChange={(match) => {
@@ -278,6 +280,7 @@ export default function SavedGroupTargetingField({
                   }
                   valueSlot={
                     <MultiSelectField
+                      legacyHeight
                       disabled={locked}
                       value={v.ids}
                       onChange={(ids) => {
@@ -287,35 +290,8 @@ export default function SavedGroupTargetingField({
                         setValue(newValue);
                       }}
                       options={options}
-                      formatOptionLabel={(o, meta) => {
-                        if (meta.context !== "value") return o.label;
-                        const group = getSavedGroupById(o.value);
-                        if (!group) return o.label;
-                        return (
-                          <Link
-                            href={`/saved-groups/${group.id}`}
-                            target="_blank"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              overflow: "hidden",
-                            }}
-                          >
-                            <span
-                              style={{
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                maxWidth: "200px",
-                              }}
-                            >
-                              {o.label}
-                            </span>
-                            <PiArrowSquareOut style={{ flexShrink: 0 }} />
-                          </Link>
-                        );
-                      }}
+                      formatOptionLabel={formatSavedGroupOptionLabel}
+                      valueTitles={false}
                       required
                       placeholder="Select groups..."
                       closeMenuOnSelect={true}

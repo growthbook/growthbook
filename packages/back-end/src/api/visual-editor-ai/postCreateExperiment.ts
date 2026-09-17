@@ -5,7 +5,9 @@ import type {
   ExperimentInterface,
   ExperimentInterfaceExcludingHoldouts,
 } from "shared/validators";
+import { ignoreWarningsBodyField } from "shared/validators";
 import { createExperiment } from "back-end/src/models/ExperimentModel";
+import { SoftWarningError } from "back-end/src/util/errors";
 import {
   createVisualChangeset,
   toVisualChangesetApiInterface,
@@ -43,6 +45,8 @@ const bodySchema = z
     // Standard A/B experiment (default) or a multi-armed bandit. Bandits
     // require the "multi-armed-bandits" premium feature (enforced below).
     type: z.enum(["standard", "multi-armed-bandit"]).default("standard"),
+    // Declared so the 422 retry hint's body form isn't rejected by .strict().
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -164,6 +168,7 @@ export const postCreateExperiment = createApiRequestHandler(validation)(async (
       context,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     logger.warn({ err: e }, "[visual-editor-ai] createExperiment failed");
     throw new Error(
       e instanceof Error

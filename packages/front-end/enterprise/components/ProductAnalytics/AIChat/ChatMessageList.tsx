@@ -29,6 +29,7 @@ import CollapsedSteps, {
   type CollapsedStepItem,
 } from "@/enterprise/components/AIChat/CollapsedSteps";
 import { useCollapsibleActiveTurnItems } from "@/enterprise/components/AIChat/useCollapsibleActiveTurnItems";
+import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
 import ExplorationBubble, {
   chartDataFromToolResult,
   chartDataFromRecord,
@@ -40,6 +41,10 @@ export const TOOL_STATUS_LABELS: Record<string, string> = {
   search: "Searching...",
   getAvailableColumns: "Inspecting data shape...",
   getColumnValues: "Inspecting values...",
+  searchTables: "Searching tables...",
+  getTableSchema: "Reading table schema...",
+  previewColumnValues: "Previewing values...",
+  runQuery: "Running SQL query...",
 };
 
 function groupIntoBlocks(
@@ -89,7 +94,8 @@ function classifyAssistantBlockMessages(msgs: AIChatMessage[]): {
     if (msg.role === "tool") {
       const hasChart = msg.content.some(
         (part) =>
-          part.toolName === "runExploration" &&
+          (part.toolName === "runExploration" ||
+            part.toolName === "runQuery") &&
           chartDataFromToolResult(part.result) !== null,
       );
       if (hasChart) {
@@ -291,7 +297,7 @@ export default function ChatMessageList({
         <AssistantBubble key={item.toolCallId}>
           <Flex align="center" gap="2">
             <ToolStatusIcon status={item.status} />
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               {item.label}
             </Text>
           </Flex>
@@ -320,13 +326,13 @@ export default function ChatMessageList({
       return (
         <React.Fragment key={msg.id}>
           <UserBubble>
-            <Text color="text-high" size="small">
-              {userText}
+            <Text color="text-high" size="sm">
+              <MessageTokens text={userText} mentions={msg.mentions} />
             </Text>
           </UserBubble>
           {timestamp && (
             <Box pr="1" style={{ alignSelf: "flex-end", marginTop: "-8px" }}>
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 {timestamp}
               </Text>
             </Box>
@@ -339,7 +345,7 @@ export default function ChatMessageList({
       if (msg.isError) {
         return (
           <ErrorBubble key={msg.id}>
-            <Text size="small">{getMessageText(msg)}</Text>
+            <Text size="sm">{getMessageText(msg)}</Text>
           </ErrorBubble>
         );
       }
@@ -368,7 +374,10 @@ export default function ChatMessageList({
       return msg.content.map((part, i) => {
         const pairedCall = findToolCallPart(messages, part);
 
-        if (part.toolName === "runExploration") {
+        if (
+          part.toolName === "runExploration" ||
+          part.toolName === "runQuery"
+        ) {
           const chartData = chartDataFromToolResult(part.result);
           if (chartData) {
             return (
@@ -395,7 +404,7 @@ export default function ChatMessageList({
           <AssistantBubble key={`${msg.id}-r${i}`}>
             <Flex align="center" gap="2">
               <ToolStatusIcon status={part.isError ? "error" : "done"} />
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 {TOOL_STATUS_LABELS[part.toolName] ??
                   toolResultPreviewLabel(part.result, part.toolName)}
               </Text>
@@ -448,13 +457,13 @@ export default function ChatMessageList({
           >
             <PiSparkle size={24} color="var(--violet-11)" />
           </Box>
-          <Heading as="h2" size="small" weight="medium">
+          <Heading as="h2" size="sm" weight="medium">
             What would you like to explore?
           </Heading>
-          <Text size="small" color="text-low" align="center">
+          <Text size="sm" color="text-low" align="center">
             Ask anything about your data.
           </Text>
-          <Text size="small" color="text-low" align="center">
+          <Text size="sm" color="text-low" align="center">
             Explore metrics, trends, experiment results, or user segments.
           </Text>
         </Flex>
@@ -567,7 +576,7 @@ export default function ChatMessageList({
 
       {error && (
         <ErrorBubble>
-          <Text size="small">{error}</Text>
+          <Text size="sm">{error}</Text>
         </ErrorBubble>
       )}
 

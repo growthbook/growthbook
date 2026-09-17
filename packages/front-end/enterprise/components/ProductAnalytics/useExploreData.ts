@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ExplorationDateRange,
   ProductAnalyticsExploration,
@@ -13,6 +14,8 @@ export type CacheOption = "preferred" | "required" | "never";
 export type ProductAnalyticsRunComparisonResponse =
   ProductAnalyticsRunComparisonPayload & {
     query: QueryInterface | null;
+    /** Set when the comparison leg failed but the primary one succeeded. */
+    error?: string | null;
   };
 
 export function useExploreData() {
@@ -25,6 +28,7 @@ export function useExploreData() {
       options?: {
         cache?: CacheOption;
         previousTimeFrame?: ExplorationDateRange | null;
+        comparisonMode?: ComparisonMode | null;
       },
     ): Promise<{
       data: ProductAnalyticsExploration | null;
@@ -42,9 +46,13 @@ export function useExploreData() {
       const body: {
         config: ExplorationConfig;
         previousTimeFrame?: ExplorationDateRange;
+        comparisonMode?: ComparisonMode;
       } = { config };
       if (options?.previousTimeFrame) {
         body.previousTimeFrame = options.previousTimeFrame;
+        if (options.comparisonMode) {
+          body.comparisonMode = options.comparisonMode;
+        }
       }
 
       try {
@@ -89,8 +97,41 @@ export function useExploreData() {
     [apiCall],
   );
 
+  // Fetch a single exploration by id. Used to poll for completion after a run
+  // returns a still-running exploration (the backend returns an in-progress
+  // model once a query exceeds the ~5s sync budget). Unlike `fetchData` this
+  // reads the specific exploration by id, so it observes every terminal
+  // state — success AND error — whereas the cache lookup only surfaces
+  // successful explorations.
+  const fetchExplorationById = useCallback(
+    async (
+      id: string,
+    ): Promise<{
+      data: ProductAnalyticsExploration | null;
+      query: QueryInterface | null;
+      error: string | null;
+    }> => {
+      try {
+        const response = await apiCall<{
+          exploration: ProductAnalyticsExploration | null;
+          query: QueryInterface | null;
+        }>(`/product-analytics/exploration/${id}`, { method: "GET" });
+        return {
+          data: response.exploration ?? null,
+          query: response.query ?? null,
+          error: response.exploration?.error ?? null,
+        };
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        return { data: null, query: null, error: err.message };
+      }
+    },
+    [apiCall],
+  );
+
   return {
     loading,
     fetchData,
+    fetchExplorationById,
   };
 }

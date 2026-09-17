@@ -2,15 +2,16 @@ import { ReactNode } from "react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import {
-  FactMetricInterface,
-  FactTableInterface,
+  FactTableDefinition,
   RowFilter,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAggregateFilters,
   isBinomialMetric,
   isFactMetric,
+  isFactFunnelMetric,
   isRatioMetric,
   getRowFilterSQL,
 } from "shared/experiments";
@@ -22,7 +23,7 @@ import { getPercentileLabel } from "@/services/metrics";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 interface MetricDrilldownMetricCardProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   type: "numerator" | "denominator";
 }
 
@@ -44,7 +45,7 @@ function RowFilterDisplay({
   factTable,
 }: {
   rowFilters: RowFilter[];
-  factTable?: FactTableInterface | null;
+  factTable?: FactTableDefinition | null;
 }) {
   if (!rowFilters.length) return null;
 
@@ -90,8 +91,8 @@ interface DataItem {
 }
 
 function buildNumeratorData(
-  factMetric: FactMetricInterface,
-  factTable: FactTableInterface | null,
+  factMetric: StandardFactMetricInterface,
+  factTable: FactTableDefinition | null,
 ): DataItem[] {
   const userFilters = getAggregateFilters({
     columnRef: factMetric.numerator,
@@ -163,8 +164,8 @@ function buildNumeratorData(
 }
 
 function buildDenominatorData(
-  factMetric: FactMetricInterface,
-  denominatorFactTable: FactTableInterface | null,
+  factMetric: StandardFactMetricInterface,
+  denominatorFactTable: FactTableDefinition | null,
 ): DataItem[] {
   if (
     factMetric.metricType !== "ratio" ||
@@ -213,7 +214,7 @@ export default function MetricDrilldownMetricCard({
   type,
 }: MetricDrilldownMetricCardProps) {
   const { getFactTableById } = useDefinitions();
-  if (!isFactMetric(metric)) {
+  if (!isFactMetric(metric) || isFactFunnelMetric(metric)) {
     return null;
   }
 

@@ -1,5 +1,5 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { FaChevronRight, FaPlus } from "react-icons/fa";
+import { PiCaretRight, PiPlus } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
@@ -121,8 +121,9 @@ export const DataSourceInlineEditIdentityJoins: FC<
                   variant="solid"
                   onClick={handleAdd}
                   disabled={addIsDisabled}
+                  icon={<PiPlus />}
                 >
-                  <FaPlus className="mr-1" /> Add
+                  Add
                 </Button>
               </Box>
             )}
@@ -173,8 +174,10 @@ export const DataSourceInlineEditIdentityJoins: FC<
                       variant="ghost"
                       color="violet"
                       onClick={handleExpandCollapseForIndex(idx)}
+                      aria-label={`${isOpen ? "Collapse" : "Expand"} identity join ${identityJoin.ids.join(" and ")}`}
+                      aria-expanded={isOpen}
                     >
-                      <FaChevronRight
+                      <PiCaretRight
                         style={{
                           transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
                         }}

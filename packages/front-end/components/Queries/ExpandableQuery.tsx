@@ -9,10 +9,12 @@ import {
 } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
+import { isManagedWarehousePendingQueryError } from "shared/util";
 import { FaBoltLightning } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import QueryStatsRow, { getNumberOfMetricsInQuery } from "./QueryStatsRow";
@@ -118,13 +120,18 @@ const ExpandableQuery: FC<{
         )}
       </h4>
       <Code language={query.language} code={query.query} expandable={true} />
-      {query.error && (
-        <Callout status="error" my="3">
-          <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
-            {query.error}
-          </pre>
-        </Callout>
-      )}
+      {query.error &&
+        (isManagedWarehousePendingQueryError(query.error) ? (
+          <div className="my-3">
+            <ManagedWarehouseNoEventsCallout />
+          </div>
+        ) : (
+          <Callout status="error" my="3">
+            <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
+              {query.error}
+            </pre>
+          </Callout>
+        ))}
       {query.status === "succeeded" && (
         <>
           {query.rawResult?.[0] ? (

@@ -142,7 +142,7 @@ const VisualEditorConnectPage = () => {
         {ready && status === "confirming" && (
           <Flex direction="column" gap="4">
             <Box>
-              <Heading as="h1" size="large" mb="2">
+              <Heading as="h1" size="lg" mb="2">
                 Connect the Visual Editor extension
               </Heading>
               <Text as="p" color="text-mid">
@@ -160,21 +160,21 @@ const VisualEditorConnectPage = () => {
                 background: "var(--color-panel-solid)",
               }}
             >
-              <Text size="small" color="text-mid" as="p" mb="1">
+              <Text size="sm" color="text-mid" as="p" mb="1">
                 Connecting to
               </Text>
-              <Heading as="h2" size="medium" mb="2">
+              <Heading as="h2" size="md" mb="2">
                 {currentOrgName}
               </Heading>
               {(name || email) && (
-                <Text size="small" color="text-mid" as="p">
+                <Text size="sm" color="text-mid" as="p">
                   as {name ? `${name} (${email})` : email}
                 </Text>
               )}
 
               {orgOptions.length > 1 && (
                 <Box mt="3">
-                  <Text size="small" color="text-mid" as="p" mb="1">
+                  <Text size="sm" color="text-mid" as="p" mb="1">
                     Not the right organization?
                   </Text>
                   <SelectField
@@ -190,7 +190,7 @@ const VisualEditorConnectPage = () => {
 
             <Flex gap="3" align="center">
               <Button onClick={onConfirm}>Connect to {currentOrgName}</Button>
-              <Text size="small" color="text-mid">
+              <Text size="sm" color="text-mid">
                 You can revoke access at any time from your account settings.
               </Text>
             </Flex>
@@ -200,7 +200,7 @@ const VisualEditorConnectPage = () => {
         {ready && status === "connecting" && (
           <Flex direction="column" align="center" gap="3">
             <LoadingSpinner />
-            <Heading as="h1" size="medium" align="center" mb="0">
+            <Heading as="h1" size="md" align="center" mb="0">
               Connecting…
             </Heading>
             <Text as="p" color="text-mid" align="center">
@@ -211,7 +211,7 @@ const VisualEditorConnectPage = () => {
 
         {ready && status === "done" && (
           <Flex direction="column" align="center" gap="3">
-            <Heading as="h1" size="large" align="center" mb="0">
+            <Heading as="h1" size="lg" align="center" mb="0">
               You&rsquo;re connected
             </Heading>
             <Text as="p" color="text-mid" align="center">
@@ -229,7 +229,7 @@ const VisualEditorConnectPage = () => {
 
         {ready && status === "error" && (
           <Flex direction="column" align="center" gap="3">
-            <Heading as="h1" size="large" align="center" mb="0">
+            <Heading as="h1" size="lg" align="center" mb="0">
               Couldn&rsquo;t connect
             </Heading>
             <Callout status="error">

@@ -228,7 +228,7 @@ const IdeaPage = (): ReactElement => {
         </div>
       </div>
       {data.experiment && (
-        <div className="bg-white border border-info p-3 mb-3">
+        <div className="appbox border-info p-3 mb-3">
           <div className="d-flex">
             <strong className="mr-3">Linked Experiment: </strong>
             <Link href={`/experiment/${data.experiment.id}`} className="mr-3">
@@ -247,7 +247,7 @@ const IdeaPage = (): ReactElement => {
       )}
       <div className="mb-3 row">
         <div className="col">
-          <div className="bg-white p-3 border idea-wrap mb-4">
+          <div className="appbox p-3 idea-wrap mb-4">
             <InlineForm
               editing={edit}
               canEdit={canEdit}
@@ -317,6 +317,7 @@ const IdeaPage = (): ReactElement => {
                       </div>
                       {projects.length > 0 && (
                         <SelectField
+                          size="legacy"
                           label="Project"
                           value={form.watch("project")}
                           onChange={(v) => form.setValue("project", v)}
@@ -399,7 +400,7 @@ const IdeaPage = (): ReactElement => {
 
         {canEstimateImpact && (
           <div className="col-md-3 pl-0">
-            <div className="mb-3 bg-white p-3 border">
+            <div className="appbox mb-3 p-3">
               <div
                 className="p-2 border bg-impact text-light text-center"
                 style={{ opacity: 0.99, margin: "0 auto" }}

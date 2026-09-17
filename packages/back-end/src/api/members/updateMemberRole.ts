@@ -1,96 +1,27 @@
-import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
 import { cloneDeep } from "lodash";
 import { updateMemberRoleValidator } from "shared/validators";
-import { accountFeatures } from "shared/enterprise";
-import {
-  Member,
-  OrganizationInterface,
-  ProjectMemberRole,
-} from "shared/types/organization";
-import {
-  orgHasPremiumFeature,
-  getLowestPlanPerFeature,
-} from "back-end/src/enterprise";
+import { Member, ProjectMemberRole } from "shared/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import {
+  assertMemberRoleInfoValid,
+  assertProjectRulesReferenceProjects,
+  assertRoleChangeAllowed,
+} from "back-end/src/services/organizations";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-export function validateRoleAndEnvs(
-  org: OrganizationInterface,
-  role: string,
-  limitAccessByEnvironment: boolean,
-  environments?: string[],
-): { memberIsValid: boolean; reason: string } {
-  try {
-    if (!isRoleValid(role, org)) {
-      throw new Error(`${role}) is not a valid role`);
-    }
-
-    const lowestPlanMap = getLowestPlanPerFeature(accountFeatures);
-
-    if (role === "noaccess" && !orgHasPremiumFeature(org, "no-access-role")) {
-      const planName = lowestPlanMap["no-access-role"];
-      throw new Error(
-        `Must have a ${planName} plan to gain access to the no-access role.`,
-      );
-    }
-
-    if (
-      role === "gbDefault_projectAdmin" &&
-      !orgHasPremiumFeature(org, "project-admin-role")
-    ) {
-      const planName = lowestPlanMap["project-admin-role"];
-      throw new Error(
-        `Must have a ${planName} plan to gain access to the project admin role.`,
-      );
-    }
-
-    if (limitAccessByEnvironment) {
-      if (environments?.length) {
-        if (!orgHasPremiumFeature(org, "advanced-permissions")) {
-          const planName = lowestPlanMap["advanced-permissions"];
-          throw new Error(
-            `Must have a ${planName} plan to restrict permissions by environment.`,
-          );
-        }
-
-        if (!roleSupportsEnvLimit(role, org)) {
-          throw new Error(
-            `${role} does not support restricting access to certain environments.`,
-          );
-        }
-
-        environments.forEach((env) => {
-          const environmentIds =
-            org.settings?.environments?.map((e) => e.id) || [];
-          if (!environmentIds.includes(env)) {
-            throw new Error(
-              `${env} is not a valid environment ID for this organization.`,
-            );
-          }
-        });
-      }
-    }
-  } catch (e) {
-    return {
-      memberIsValid: false,
-      reason: e.message || "Role information is not valid",
-    };
-  }
-
-  return {
-    memberIsValid: true,
-    reason: "",
-  };
-}
+// The API takes each extra rule's environment list as its limit.
+const normalizeExtraRules = (
+  roles: { role: string; environments: string[] }[] | undefined,
+) =>
+  roles?.map((extra) => ({
+    ...extra,
+    limitAccessByEnvironment: !!extra.environments.length,
+  }));
 
 export const updateMemberRole = createApiRequestHandler(
   updateMemberRoleValidator,
 )(async (req) => {
-  if (!req.context.permissions.canManageTeam()) {
-    req.context.permissions.throwPermissionError();
-  }
-
   const orgUser = req.context.org.members.find(
     (member) => member.id === req.params.id,
   );
@@ -111,47 +42,21 @@ export const updateMemberRole = createApiRequestHandler(
     ...orgUser,
     role: member.role || orgUser.role,
     environments: member.environments || orgUser.environments,
-    limitAccessByEnvironment: !!member.environments?.length,
+    limitAccessByEnvironment: member.environments
+      ? !!member.environments.length
+      : orgUser.limitAccessByEnvironment,
+    additionalRoles:
+      normalizeExtraRules(member.additionalRoles) ?? orgUser.additionalRoles,
   };
 
-  // First, check the global role data
-  const { memberIsValid, reason } = validateRoleAndEnvs(
-    req.context.org,
-    updatedMember.role,
-    updatedMember.limitAccessByEnvironment,
-    updatedMember.environments,
-  );
-
-  if (!memberIsValid) {
-    throw new Error(reason);
-  }
-
-  // Then, if member.projectRoles was passed in, we need to validate the each projectRole
   if (member.projectRoles?.length) {
-    if (!orgHasPremiumFeature(req.context.org, "advanced-permissions")) {
-      throw new Error(
-        "Your plan does not support providing users with project-level permissions.",
-      );
-    }
-    const updatedProjectRoles: ProjectMemberRole[] = [];
-    member.projectRoles.forEach((updatedProjectRole) => {
-      const { memberIsValid, reason } = validateRoleAndEnvs(
-        req.context.org,
-        updatedProjectRole.role,
-        updatedProjectRole.limitAccessByEnvironment || false,
-        updatedProjectRole.environments,
-      );
-
-      if (!memberIsValid) {
-        throw new Error(reason);
-      }
-
-      updatedProjectRoles.push({
-        ...updatedProjectRole,
-        limitAccessByEnvironment: !!updatedProjectRole.environments.length,
-      });
-    });
-
+    const updatedProjectRoles: ProjectMemberRole[] = member.projectRoles.map(
+      (projectRole) => ({
+        ...projectRole,
+        limitAccessByEnvironment: !!projectRole.environments.length,
+        additionalRoles: normalizeExtraRules(projectRole.additionalRoles),
+      }),
+    );
     updatedMember.projectRoles = updatedProjectRoles;
   }
 
@@ -159,6 +64,27 @@ export const updateMemberRole = createApiRequestHandler(
   if ("projectRoles" in member && !member.projectRoles?.length) {
     updatedMember.projectRoles = [];
   }
+
+  if (!req.context.permissions.canUpdateMemberRole(orgUser, updatedMember)) {
+    req.context.permissions.throwPermissionError();
+  }
+  if (
+    !req.context.permissions.canManageTeam() &&
+    req.params.id === req.context.userId
+  ) {
+    throw new Error("Cannot change your own role");
+  }
+
+  // Only gate a role change so existing assignments keep working
+  assertRoleChangeAllowed(req.context.org, orgUser.role, updatedMember.role);
+
+  // Same validation every member-role writer runs, internal or REST.
+  assertMemberRoleInfoValid(req.context.org, updatedMember);
+  await assertProjectRulesReferenceProjects(
+    req.context,
+    orgUser.projectRoles,
+    updatedMember.projectRoles,
+  );
 
   try {
     const updatedOrgMembers = cloneDeep(req.context.org.members);
@@ -196,6 +122,7 @@ export const updateMemberRole = createApiRequestHandler(
       role: updatedMember.role,
       environments: updatedMember.environments,
       limitAccessByEnvironment: updatedMember.limitAccessByEnvironment,
+      additionalRoles: updatedMember.additionalRoles,
       projectRoles: updatedMember.projectRoles,
     },
   };

@@ -103,7 +103,7 @@ const VariationIdWarning: FC<{
         {idModal && setVariationIds && (
           <FixVariationIds
             close={() => setIdModal(false)}
-            expected={definedVariations}
+            expected={variations.map((v) => v.id)}
             actual={returnedVariations}
             names={variations.map((v) => v.name)}
             setVariationIds={setVariationIds}
