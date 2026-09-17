@@ -34,6 +34,10 @@ import {
   EventLogRecordsQueryResponse,
   EventLogSummaryQueryParams,
   EventLogSummaryQueryResponse,
+  ExperimentDiagnosticsRecordsQueryParams,
+  ExperimentDiagnosticsRecordsQueryResponse,
+  ExperimentDiagnosticsSummaryQueryParams,
+  ExperimentDiagnosticsSummaryQueryResponse,
   FeatureEvalDiagnosticsQueryParams,
   FeatureEvalDiagnosticsQueryResponse,
   FeatureUsageAggregateRow,
@@ -264,6 +268,18 @@ export interface SourceIntegrationInterface<
   runEventLogRecordsQuery?(
     query: string,
   ): Promise<EventLogRecordsQueryResponse>;
+  getExperimentDiagnosticsSummaryQuery?(
+    params: ExperimentDiagnosticsSummaryQueryParams,
+  ): string;
+  runExperimentDiagnosticsSummaryQuery?(
+    query: string,
+  ): Promise<ExperimentDiagnosticsSummaryQueryResponse>;
+  getExperimentDiagnosticsRecordsQuery?(
+    params: ExperimentDiagnosticsRecordsQueryParams,
+  ): string;
+  runExperimentDiagnosticsRecordsQuery?(
+    query: string,
+  ): Promise<ExperimentDiagnosticsRecordsQueryResponse>;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
     query: string,

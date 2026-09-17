@@ -964,6 +964,48 @@ export type EventLogRecordsQueryResponse =
     truncated?: boolean;
   };
 
+export type ExperimentDiagnosticsSummaryQueryParams = {
+  experimentTrackingKey: string;
+  exposureQuerySql: string;
+  userIdType: string;
+  startDate: Date;
+  endDate: Date;
+  dimension?: string;
+};
+
+export type ExperimentDiagnosticsRecordsQueryParams =
+  ExperimentDiagnosticsSummaryQueryParams & {
+    userId?: string;
+    variationId?: string;
+    dimensions: string[];
+    dimensionFilters?: Record<string, string>;
+    limit: number;
+    offset: number;
+  };
+
+export type ExperimentDiagnosticsSummaryQueryResponseRows = {
+  day: string;
+  variation_id: string;
+  dimension_value?: string;
+  exposure_count: string;
+  user_count: string;
+}[];
+
+export type ExperimentDiagnosticsSummaryQueryResponse =
+  QueryResponse<ExperimentDiagnosticsSummaryQueryResponseRows>;
+
+export type ExperimentDiagnosticsRecordsQueryResponseRows = {
+  timestamp: string;
+  user_id: string | null;
+  variation_id: string;
+  [key: string]: unknown;
+}[];
+
+export type ExperimentDiagnosticsRecordsQueryResponse =
+  QueryResponse<ExperimentDiagnosticsRecordsQueryResponseRows> & {
+    truncated?: boolean;
+  };
+
 export interface TestQueryRow {
   [key: string]: unknown;
 }

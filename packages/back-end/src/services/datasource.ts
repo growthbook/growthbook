@@ -10,6 +10,10 @@ import {
   EventLogRecordsQueryResponse,
   EventLogSummaryQueryParams,
   EventLogSummaryQueryResponse,
+  ExperimentDiagnosticsRecordsQueryParams,
+  ExperimentDiagnosticsRecordsQueryResponse,
+  ExperimentDiagnosticsSummaryQueryParams,
+  ExperimentDiagnosticsSummaryQueryResponse,
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
   TestQueryResult,
@@ -397,6 +401,44 @@ export async function runEventLogRecordsQuery(
   const sql = integration.getEventLogRecordsQuery(params);
   const { rows, statistics, truncated } =
     await integration.runEventLogRecordsQuery(sql);
+  return { rows, statistics, truncated, sql };
+}
+
+export async function runExperimentDiagnosticsSummaryQuery(
+  integration: SourceIntegrationInterface,
+  params: ExperimentDiagnosticsSummaryQueryParams,
+): Promise<ExperimentDiagnosticsSummaryQueryResponse & { sql?: string }> {
+  if (
+    !integration.getExperimentDiagnosticsSummaryQuery ||
+    !integration.runExperimentDiagnosticsSummaryQuery
+  ) {
+    throw new Error(
+      "Datasource does not support experiment diagnostics queries.",
+    );
+  }
+
+  const sql = integration.getExperimentDiagnosticsSummaryQuery(params);
+  const { rows, statistics } =
+    await integration.runExperimentDiagnosticsSummaryQuery(sql);
+  return { rows, statistics, sql };
+}
+
+export async function runExperimentDiagnosticsRecordsQuery(
+  integration: SourceIntegrationInterface,
+  params: ExperimentDiagnosticsRecordsQueryParams,
+): Promise<ExperimentDiagnosticsRecordsQueryResponse & { sql?: string }> {
+  if (
+    !integration.getExperimentDiagnosticsRecordsQuery ||
+    !integration.runExperimentDiagnosticsRecordsQuery
+  ) {
+    throw new Error(
+      "Datasource does not support experiment diagnostics queries.",
+    );
+  }
+
+  const sql = integration.getExperimentDiagnosticsRecordsQuery(params);
+  const { rows, statistics, truncated } =
+    await integration.runExperimentDiagnosticsRecordsQuery(sql);
   return { rows, statistics, truncated, sql };
 }
 

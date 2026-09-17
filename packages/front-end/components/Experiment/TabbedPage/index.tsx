@@ -46,6 +46,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
+import DiagnosticsTab from "./DiagnosticsTab";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -59,6 +60,7 @@ const experimentTabs = [
   "explore",
   "dashboards",
   "health",
+  "diagnostics",
 ] as const;
 type ExperimentTabName = (typeof experimentTabs)[number];
 export type ExperimentTab =
@@ -741,6 +743,15 @@ export default function TabbedPage({
             });
           }}
         />
+      </div>
+      <div
+        className={
+          tab === "diagnostics" && !showDashboardView
+            ? "container-fluid pagecontents d-block pt-0"
+            : "d-none d-print-block"
+        }
+      >
+        <DiagnosticsTab experiment={experiment} />
       </div>
 
       {tab !== "dashboards" && !showDashboardView && (

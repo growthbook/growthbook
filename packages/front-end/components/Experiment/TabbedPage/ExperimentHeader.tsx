@@ -1322,6 +1322,17 @@ export default function ExperimentHeader({
                           ) : null}
                         </TabsTrigger>
                       )}
+                      {disableHealthTab ? (
+                        <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                          <TabsTrigger disabled value="diagnostics">
+                            Diagnostics
+                          </TabsTrigger>
+                        </DisabledHealthTabTooltip>
+                      ) : (
+                        <TabsTrigger value="diagnostics">
+                          Diagnostics
+                        </TabsTrigger>
+                      )}
                       {hasMultiplePhases ? (
                         <>
                           <div className="flex-1" />
