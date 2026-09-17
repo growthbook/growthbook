@@ -929,6 +929,7 @@ export async function getFeatureRuleEnvironmentsByIds(
 export async function createFeature(
   context: ReqContext | ApiReqContext,
   data: FeatureInterface,
+  { comment }: { comment?: string } = {},
 ) {
   const { org } = context;
 
@@ -985,6 +986,8 @@ export async function createFeature(
     toInterface(feature, context),
     context.auditUser,
     getEnvironmentIdsFromOrg(org),
+    undefined,
+    comment,
   );
 
   if (linkedExperiments.length > 0) {

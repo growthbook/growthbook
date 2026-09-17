@@ -640,7 +640,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         user: req.eventAudit,
         org: req.organization,
         changes: revisionChanges,
-        comment: "Created via REST API",
+        comment: req.body.comment ?? "Created via REST API",
         canBypassApprovalChecks: canBypass,
       });
 
