@@ -12,6 +12,7 @@ import {
   notifyExperimentEndingSoon,
   notifyExperimentStale,
   notifyExperimentUpdateFailed,
+  notifyAutoUpdate,
   notifySrm,
   notifyMultipleExposures,
   notifyGuardrailFailed,
@@ -300,6 +301,27 @@ describe("experiment alert producers", () => {
       { type: "ending-soon", triggered: true },
       { type: "stale", triggered: true },
     ]);
+  });
+
+  it("announces auto-updates being turned off every time, regardless of markers", async () => {
+    await notifyAutoUpdate({
+      context,
+      experiment: { ...experiment, pastNotifications: ["auto-update"] },
+      success: true,
+    });
+    await notifyAutoUpdate({ context, experiment, success: false });
+    expect(createEvent).toHaveBeenCalledTimes(2);
+    expect(createEvent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        event: "warning",
+        data: {
+          object: expect.objectContaining({
+            type: "auto-update",
+            success: false,
+          }),
+        },
+      }),
+    );
   });
 
   it.each(["query", "analysis", "no-queries"] as const)(

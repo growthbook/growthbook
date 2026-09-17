@@ -572,6 +572,10 @@ export const notifyGuardrailFailed = async ({
   });
 };
 
+// Sent by the scheduled refresh when a failure makes it turn automatic
+// updates off for the experiment. `success` is whether that write landed;
+// false means updates stay on despite the failure. Fires every time, alongside
+// the update-failed warning for the refresh itself.
 export const notifyAutoUpdate = ({
   context,
   experiment,
@@ -581,25 +585,18 @@ export const notifyAutoUpdate = ({
   experiment: ExperimentInterface;
   success: boolean;
 }) =>
-  memoizeNotification({
+  dispatchEvent({
     context,
     experiment,
-    type: "auto-update",
-    triggered: !success,
-    dispatch: () =>
-      dispatchEvent({
-        context,
-        experiment,
-        event: "warning",
-        data: {
-          object: {
-            type: "auto-update",
-            success,
-            experimentId: experiment.id,
-            experimentName: experiment.name,
-          },
-        },
-      }),
+    event: "warning",
+    data: {
+      object: {
+        type: "auto-update",
+        success,
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+      },
+    },
   });
 
 // Fires on every failed attempt of the scheduled-status-update job (not

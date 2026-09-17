@@ -1802,7 +1802,9 @@ const buildSlackMessageForExperimentWarningEvent = (
 
   switch (data.type) {
     case "auto-update":
-      detail = `Automatic snapshot creation ${data.success ? "succeeded" : "failed"}.`;
+      detail = data.success
+        ? "Automatic updates were turned off after a failed refresh."
+        : "Automatic updates could not be turned off after a failed refresh and remain on.";
       break;
 
     case "multiple-exposures": {

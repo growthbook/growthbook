@@ -120,6 +120,33 @@ describe("experiment alert messages", () => {
       });
     },
   );
+  it.each([
+    [true, "Automatic updates were turned off after a failed refresh."],
+    [
+      false,
+      "Automatic updates could not be turned off after a failed refresh and remain on.",
+    ],
+  ])(
+    "describes auto-updates being turned off (success: %s)",
+    async (success, detail) => {
+      const event = {
+        event: "experiment.warning",
+        data: {
+          object: {
+            type: "auto-update",
+            success,
+            experimentId: "exp-1",
+            experimentName: "Checkout",
+          },
+        },
+      } as NotificationEvent;
+      const message = await getSlackMessageForNotificationEvent(
+        event,
+        "event_test",
+      );
+      expect(message?.text).toBe(`Checkout: ${detail}`);
+    },
+  );
   it("tells the same stop story as the card, in plain text", async () => {
     const sample = notificationCardSamples.find(
       (s) => s.name === "stopped-winner",
