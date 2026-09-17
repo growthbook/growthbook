@@ -518,6 +518,58 @@ describe("validateRampPlanPatches", () => {
     });
   });
 
+  it("re-walks the cycle when only the scope changes and the rule already carries the gate", async () => {
+    loadFeatures.mockImplementation(async (_ctx, { ids }) =>
+      [
+        parent({
+          rules: [
+            {
+              type: "force",
+              id: "fr_parent",
+              description: "",
+              value: "true",
+              enabled: true,
+              allEnvironments: false,
+              environments: ["production"],
+              prerequisites: [{ id: "checkout_flag", condition: "{}" }],
+            },
+          ],
+        }),
+        feature,
+      ].filter((f) => ids.includes(f.id)),
+    );
+    // Stored: the gate lives in qa. The edit moves the rule to production
+    // without touching the prerequisites, which the walk must still see.
+    const gatedRule = {
+      id: "fr_gated",
+      allEnvironments: false,
+      environments: ["qa"],
+      ...prereqOnParent,
+    };
+    const target = {
+      ...feature,
+      rules: [{ ...gatedRule, type: "force", value: "true", enabled: true }],
+    } as unknown as FeatureInterface;
+    await expect(
+      run(
+        [{ ...prereqOnParent, environments: ["production"] }],
+        target,
+        gatedRule,
+        [
+          {
+            steps: [
+              {
+                actions: [
+                  { patch: { ...prereqOnParent, environments: ["qa"] } },
+                ],
+              },
+            ],
+          },
+        ],
+      ),
+    ).rejects.toThrow(/circular dependency/);
+  });
+
   it("checks only existence for a plan with no target feature", async () => {
     await expect(run([prereqOnParent], null)).resolves.toBeUndefined();
     loadFeatures.mockResolvedValue([]);

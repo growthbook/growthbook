@@ -230,8 +230,8 @@ export function collectRampPlanPatches(
 
 type RuleScope = Pick<
   RampPatchTargetingInput,
-  "allEnvironments" | "environments"
->;
+  "allEnvironments" | "environments" | "prerequisites"
+> & { id?: string };
 
 // One patch and where it lands: the flag whose rule it targets, and that
 // rule's current environment scope when the caller could resolve it.
@@ -374,7 +374,18 @@ export async function validateRampPlanPatches(
     );
 
     for (const { patch, changed, feature, rule } of checked) {
-      const prerequisites = changed.prerequisites ?? [];
+      // A scope change carries the rule's existing gates into new
+      // environments, so the cycle walk runs with the prerequisites that will
+      // apply there, and the target rule is taken out of the stored graph so
+      // those gates count as new edges.
+      const scopeChanged =
+        changed.environments !== undefined ||
+        (changed.allEnvironments ?? null) !== null;
+      const prerequisites =
+        changed.prerequisites ??
+        (scopeChanged
+          ? (patch.prerequisites ?? rule?.prerequisites ?? [])
+          : []);
       if (!prerequisites.length) continue;
       if (!feature) {
         // No flag to walk (a target-less schedule, or a target the caller
@@ -407,10 +418,13 @@ export async function validateRampPlanPatches(
           : { environments }),
         prerequisites,
       };
+      const others = (feature.rules ?? []).filter(
+        (r) => !scopeChanged || !rule?.id || r.id !== rule.id,
+      );
       await assertValidPrerequisiteParents(
         context,
-        { ...feature, rules: [...(feature.rules ?? []), patched] },
-        feature,
+        { ...feature, rules: [...others, patched] },
+        { ...feature, rules: others },
       );
     }
   } catch (e) {
