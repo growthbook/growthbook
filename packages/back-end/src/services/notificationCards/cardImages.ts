@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import satori from "satori";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
-import { formatPercentChange } from "shared/util";
 import { logger } from "back-end/src/util/logger";
 import {
   type MdRun,
@@ -206,7 +205,6 @@ const HUE: Record<CardTone, Hue> = {
 const VC = ["#3E63DD", "#12A594", "#F76808", "#E93D82"];
 
 const CARD_WIDTH = 1000;
-const VIOLIN_DOMAIN: [number, number] = [-20, 20];
 // Results rows: [circle, name, stat, interval, change].
 const RESULT_LAYOUT = {
   cols: [36, 200, 120, "flex", 120] as const,
@@ -417,9 +415,6 @@ function renderMarkdown(md: string, base: MdStyle): El {
   );
 }
 
-// Rows carry percents; the shared formatter takes fractions.
-const fmtPct = (percent: number): string => formatPercentChange(percent / 100);
-
 // ---------------------------------------------------------------------------
 // Charts — pure-shape SVG strings (no <text>; labels are drawn in Satori).
 // ---------------------------------------------------------------------------
@@ -575,9 +570,9 @@ function metricNameEl(name: string): El {
   });
 }
 
-function colHeader(statLabel: string): El {
+function colHeader(results: CardResults): El {
   // The number-circle and interval cells are intentionally label-less.
-  const labels = ["", "", statLabel, "", "Lift"];
+  const labels = ["", "", results.statLabel, "", results.changeLabel];
   return el(
     "div",
     {
@@ -622,26 +617,25 @@ const isGoodOutcome = (r: Pick<CardResultRow, "dir" | "good">): boolean =>
 const outcomeColor = (r: Pick<CardResultRow, "dir" | "good">): string =>
   isGoodOutcome(r) ? P.st.green : P.st.red;
 
-// Color for the stat cell. Rows that know their significance (frequentist
-// p-values, or bayesian rows the producer already judged) color by outcome
-// direction; otherwise fall back to the chance-to-win thresholds.
+// Color for the stat cell: significant rows take their outcome direction's
+// color, everything else stays muted.
 function statColor(r: CardResultRow): string {
   return r.sig ? outcomeColor(r) : P.muted;
 }
 
-// One variation's result. Means are intentionally omitted: the row is the
-// stat, the interval, and the change.
-function resultRowEl(r: CardResultRow): El {
+// One row's result. Means are intentionally omitted: the row is the stat, the
+// distribution, and the change.
+function resultRowEl(r: CardResultRow, axis: CardResults["axis"]): El {
   const intervalCell = el(
     "div",
     { display: "flex", flexDirection: "column", gap: 2 },
     [
-      r.vio
+      r.vio && axis
         ? svgImg(
             violinSvg(
               RESULT_LAYOUT.vioW,
               RESULT_LAYOUT.vioH,
-              VIOLIN_DOMAIN,
+              axis.domain,
               r.vio,
             ),
             RESULT_LAYOUT.vioW,
@@ -649,30 +643,26 @@ function resultRowEl(r: CardResultRow): El {
           )
         : null,
       // Axis labels (moved out of the SVG so resvg needs no fonts).
-      el(
-        "div",
-        {
-          display: "flex",
-          justifyContent: "space-between",
-          width: RESULT_LAYOUT.vioW,
-        },
-        [
-          txt(
-            fmtPct(VIOLIN_DOMAIN[0]),
-            { fontSize: RESULT_LAYOUT.axis, color: P.subtle },
-            true,
-          ),
-          txt("0", { fontSize: RESULT_LAYOUT.axis, color: P.subtle }, true),
-          txt(
-            fmtPct(VIOLIN_DOMAIN[1]),
-            { fontSize: RESULT_LAYOUT.axis, color: P.subtle },
-            true,
-          ),
-        ],
-      ),
-      r.ci
+      axis
+        ? el(
+            "div",
+            {
+              display: "flex",
+              justifyContent: "space-between",
+              width: RESULT_LAYOUT.vioW,
+            },
+            axis.labels.map((label) =>
+              txt(
+                label,
+                { fontSize: RESULT_LAYOUT.axis, color: P.subtle },
+                true,
+              ),
+            ),
+          )
+        : null,
+      r.interval
         ? txt(
-            `95% CI [${fmtPct(r.ci.lo)}, ${fmtPct(r.ci.hi)}]`,
+            r.interval,
             {
               fontSize: RESULT_LAYOUT.ci,
               color: P.subtle,
@@ -694,7 +684,7 @@ function resultRowEl(r: CardResultRow): El {
         color: P.text,
       }),
       txt(
-        r.ctw ?? "—",
+        r.stat ?? "—",
         { fontSize: RESULT_LAYOUT.stat, fontWeight: 600, color: statColor(r) },
         true,
       ),
@@ -760,8 +750,8 @@ function resultsEl(results: CardResults): El {
   return el("div", { display: "flex", flexDirection: "column", flexGrow: 1 }, [
     sectionLabel(results.sectionLabel),
     metricNameEl(results.title),
-    colHeader(results.statLabel),
-    ...results.rows.map((r) => resultRowEl(r)),
+    colHeader(results),
+    ...results.rows.map((r) => resultRowEl(r, results.axis)),
   ]);
 }
 

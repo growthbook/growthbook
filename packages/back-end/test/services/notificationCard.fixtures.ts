@@ -127,6 +127,7 @@ export const notificationCardSamples: {
             metricName: "Checkout conversion",
             snapshotId: "snp_final",
             statsEngine: "frequentist",
+            pValueThreshold: 0.05,
             differenceType: "relative",
             control: {
               variationId: "v0",

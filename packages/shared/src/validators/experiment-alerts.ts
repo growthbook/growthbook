@@ -46,6 +46,10 @@ export const experimentStoppedGoalMetric = z
     inverse: z.boolean().optional(),
     snapshotId: z.string(),
     statsEngine: z.enum(statsEngines),
+    // Frequentist analyses only: the threshold the results were judged at, so
+    // consumers can name the interval's level (1 - threshold). Absent on
+    // events recorded before this was captured.
+    pValueThreshold: z.number().gt(0).lt(1).optional(),
     differenceType: z.string(),
     control: z
       .object({

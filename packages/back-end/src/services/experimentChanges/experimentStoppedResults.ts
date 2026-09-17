@@ -189,6 +189,12 @@ export async function getStoppedGoalMetricResults(
         ...(metric?.inverse ? { inverse: true } : {}),
         snapshotId: snapshot.id,
         statsEngine: analysis.settings.statsEngine,
+        // The CIs above were widened at this threshold, so the payload carries
+        // it for consumers that name the interval's level. Bayesian credible
+        // intervals are reported at a fixed level, so it is frequentist-only.
+        ...(analysis.settings.statsEngine === "frequentist"
+          ? { pValueThreshold }
+          : {}),
         differenceType: analysis.settings.differenceType,
         control: {
           variationId: control.id,

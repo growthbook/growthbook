@@ -13,7 +13,10 @@ import {
   variationMarkdown,
 } from "back-end/src/services/experimentChanges/experimentStoppedSummary";
 import { escapeInlineMarkdown } from "back-end/src/services/notificationCards/markdown";
-import { confidenceLabel } from "back-end/src/services/notificationCards/statLabel";
+import {
+  confidenceLabel,
+  intervalLabel,
+} from "back-end/src/services/notificationCards/statLabel";
 import { formatExperimentFooter } from "back-end/src/services/notificationCards/producers/experimentFooter";
 import type {
   CardCallout,
@@ -21,6 +24,7 @@ import type {
   CardField,
   CardIcon,
   CardResultRow,
+  CardResults,
   CardTone,
   NotificationCardProducer,
 } from "back-end/src/services/notificationCards/types";
@@ -64,9 +68,12 @@ function goalRows(
   goalMetric: NonNullable<ExperimentStoppedNotificationPayload["goalMetric"]>,
 ): CardResultRow[] {
   return goalMetric.variations.map((v) => {
-    const ctw = formatConfidenceValue(goalMetric.statsEngine, v);
+    const value = formatConfidenceValue(goalMetric.statsEngine, v);
     // Unknown significance (e.g. the goal metric was deleted) stays muted.
-    const stat = { sig: v.significant ?? false, ...(ctw ? { ctw } : {}) };
+    const stat = {
+      sig: v.significant ?? false,
+      ...(value ? { stat: value } : {}),
+    };
     const base: CardResultRow = {
       v: v.variationName,
       i: v.variationIndex,
@@ -84,10 +91,38 @@ function goalRows(
         ? { vio: { c: upliftPct, s: Math.max(0.3, v.upliftStddev * 100) } }
         : {}),
       ...(v.ci
-        ? { ci: { lo: toPct(v.ci[0]), hi: toPct(v.ci[1]), pt: upliftPct } }
+        ? {
+            interval: `${intervalLabel(
+              goalMetric.statsEngine,
+              goalMetric.pValueThreshold,
+            )} [${formatLift(v.ci[0])}, ${formatLift(v.ci[1])}]`,
+          }
         : {}),
     };
   });
+}
+
+// One axis for every row's distribution, in lift percent. It spans at least
+// ±20% so ordinary lifts read the same from card to card, and widens to the
+// next multiple of ten when a row's interval or spread runs past that.
+function goalAxis(
+  goalMetric: NonNullable<ExperimentStoppedNotificationPayload["goalMetric"]>,
+): CardResults["axis"] {
+  const reach = goalMetric.variations.reduce((max, v) => {
+    const spread =
+      v.uplift !== undefined && v.upliftStddev !== undefined
+        ? Math.abs(toPct(v.uplift)) + 2 * toPct(v.upliftStddev)
+        : 0;
+    const bounds = v.ci
+      ? Math.max(Math.abs(toPct(v.ci[0])), Math.abs(toPct(v.ci[1])))
+      : 0;
+    return Math.max(max, spread, bounds);
+  }, 20);
+  const bound = Math.ceil(reach / 10) * 10;
+  return {
+    domain: [-bound, bound],
+    labels: [formatLift(-bound / 100), "0", formatLift(bound / 100)],
+  };
 }
 
 // The recorded outcome colors the card and picks its glyph.
@@ -159,7 +194,9 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
           sectionLabel: "Goal metric",
           title: data.goalMetric.metricName,
           statLabel: confidenceLabel(data.goalMetric.statsEngine),
+          changeLabel: "Lift",
           rows: goalRows(data.goalMetric),
+          axis: goalAxis(data.goalMetric),
         },
       },
     ],

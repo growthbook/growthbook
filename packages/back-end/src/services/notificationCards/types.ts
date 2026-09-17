@@ -59,19 +59,22 @@ export interface CardCallout {
 }
 
 export interface CardResultRow {
-  v: string; // variation name
-  i: number; // variation index (number circle)
-  ctw?: string; // "99.1%"
+  v: string; // row name
+  i: number; // row index (number circle)
+  stat?: string; // the headline stat, already formatted: "99.1%", "<0.001"
   chg?: string; // "+6.1%"
   dir?: "up" | "down"; // arrow: the sign of the change
-  // Whether the change is in the metric's desired direction (a drop in an
-  // inverse metric is good). Colors the stat and lift; defaults to `dir`.
+  // Whether the change is in the desired direction (a drop in an inverse
+  // metric is good). Colors the stat and change; defaults to `dir`.
   good?: boolean;
-  vio?: { c: number; s: number }; // violin center (lift %) + spread
-  ci?: { lo: number; hi: number; pt: number };
-  // Significance of the stat in `ctw` (chance to win, or p-value for
-  // frequentist tests). Colors the stat and lift together with `good`; an
-  // unknown significance renders muted.
+  // Distribution drawn against the section's axis: center and spread, in the
+  // same units as the axis domain.
+  vio?: { c: number; s: number };
+  // Caption under the distribution, already formatted and named by the
+  // producer: "95% Credible Interval [+6%, +14%]".
+  interval?: string;
+  // Significance of `stat`. Colors the stat and change together with `good`;
+  // an unknown significance renders muted.
   sig: boolean;
   muted?: boolean;
 }
@@ -80,8 +83,13 @@ export interface CardResultRow {
 export interface CardResults {
   sectionLabel: string; // caps label above the title, e.g. "Goal metric"
   title: string; // what the rows measure, e.g. the metric name
-  statLabel: string; // column header for `ctw`; the producer names the stat
+  statLabel: string; // column header for `stat`; the producer names the stat
+  changeLabel: string; // column header for `chg`, e.g. "Lift"
   rows: CardResultRow[];
+  // One axis shared by every row's distribution, so the rows read against each
+  // other: the numeric domain `vio` is measured in, plus the labels to print
+  // at its minimum, zero, and maximum. Omitted when no row has a distribution.
+  axis?: { domain: [number, number]; labels: [string, string, string] };
 }
 
 // A card body is an ordered list of sections, so a new card picks the sections

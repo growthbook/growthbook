@@ -239,17 +239,19 @@ describe("renderNotificationCard", () => {
               sectionLabel: "Goal metric",
               title: "Conversion",
               statLabel: "Chance to win",
+              changeLabel: "Lift",
+              axis: { domain: [-20, 20], labels: ["-20%", "0", "+20%"] },
               rows: [
                 expect.objectContaining({
                   v: "Treatment",
                   i: 1,
-                  ctw: "98.0%",
+                  stat: "98.0%",
                   sig: true,
                   chg: "+10%",
                   dir: "up",
                   good: true,
                   vio: { c: 10, s: 2 },
-                  ci: { lo: 6, hi: 14, pt: 10 },
+                  interval: "95% Credible Interval [+6%, +14%]",
                 }),
               ],
             },
@@ -302,6 +304,7 @@ describe("renderNotificationCard", () => {
           metricName: "Conversion",
           snapshotId: "snp-1",
           statsEngine: "frequentist",
+          pValueThreshold: 0.1,
           differenceType: "relative",
           control: {
             variationId: "v0",
@@ -336,11 +339,12 @@ describe("renderNotificationCard", () => {
               statLabel: "p-value",
               rows: [
                 expect.objectContaining({
-                  ctw: "<0.001",
+                  stat: "<0.001",
                   sig: true,
                   chg: "-8%",
                   dir: "down",
                   good: false,
+                  interval: "90% Confidence Interval [-12%, -4%]",
                 }),
               ],
             }),
@@ -348,6 +352,103 @@ describe("renderNotificationCard", () => {
         ],
       }),
       "dark",
+    );
+  });
+
+  it("names the interval without a level when the payload predates the threshold", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "lost",
+        enableTemporaryRollout: false,
+        goalMetric: {
+          metricId: "m1",
+          metricName: "Conversion",
+          snapshotId: "snp-1",
+          statsEngine: "frequentist",
+          differenceType: "relative",
+          control: { variationId: "v0", variationName: "Control", value: 0.05 },
+          variations: [
+            {
+              variationId: "v1",
+              variationName: "Treatment",
+              variationIndex: 1,
+              value: 0.046,
+              uplift: -0.08,
+              ci: [-0.12, -0.04],
+              pValue: 0.0004,
+              significant: true,
+            },
+          ],
+        },
+      }),
+      "light",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sections: expect.arrayContaining([
+          {
+            kind: "results",
+            results: expect.objectContaining({
+              rows: [
+                expect.objectContaining({
+                  interval: "Confidence Interval [-12%, -4%]",
+                }),
+              ],
+            }),
+          },
+        ]),
+      }),
+      "light",
+    );
+  });
+
+  it("widens the results axis when a lift runs past the default range", async () => {
+    await renderNotificationCard(
+      notification("experiment.status.stopped", {
+        type: "stopped",
+        experimentId: "exp-1",
+        experimentName: "Checkout",
+        results: "won",
+        enableTemporaryRollout: false,
+        goalMetric: {
+          metricId: "m1",
+          metricName: "Conversion",
+          snapshotId: "snp-1",
+          statsEngine: "bayesian",
+          differenceType: "relative",
+          control: { variationId: "v0", variationName: "Control", value: 0.05 },
+          variations: [
+            {
+              variationId: "v1",
+              variationName: "Treatment",
+              variationIndex: 1,
+              value: 0.072,
+              uplift: 0.44,
+              upliftStddev: 0.03,
+              ci: [0.38, 0.5],
+              chanceToWin: 0.99,
+              significant: true,
+            },
+          ],
+        },
+      }),
+      "light",
+    );
+    expect(renderCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sections: expect.arrayContaining([
+          {
+            kind: "results",
+            results: expect.objectContaining({
+              axis: { domain: [-50, 50], labels: ["-50%", "0", "+50%"] },
+            }),
+          },
+        ]),
+      }),
+      "light",
     );
   });
 
@@ -433,7 +534,7 @@ describe("renderNotificationCard", () => {
         s.kind === "results",
     );
     expect(results?.results.rows).toEqual([
-      { v: "Treatment", i: 1, sig: false, ctw: "50.0%" },
+      { v: "Treatment", i: 1, sig: false, stat: "50.0%" },
     ]);
   });
 
