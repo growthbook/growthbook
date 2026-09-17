@@ -1,10 +1,10 @@
-import express from "express";
-import { z } from "zod";
 import {
-  isEventWebhookWildcard,
-  notificationSettingsSchema,
+  slackNotificationPreviewBodySchema,
+  slackNotificationSettingsBodySchema,
   zodNotificationEventNamesEnum,
 } from "shared/validators";
+import express from "express";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawSlackIntegrationController from "./slack-integration.controller";
@@ -15,14 +15,19 @@ const slackIntegrationController = wrapController(
   rawSlackIntegrationController,
 );
 
-const eventNameOrWildcard = z
-  .string()
-  .refine(
-    (value) =>
-      zodNotificationEventNamesEnum.includes(value as never) ||
-      isEventWebhookWildcard(value),
-    { message: "Must be a valid event name or wildcard pattern" },
-  );
+router.post(
+  "/preview",
+  validateRequestMiddleware({ body: slackNotificationPreviewBodySchema }),
+  slackIntegrationController.postSlackPreview,
+);
+router.post(
+  "/:id/test",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string().min(1) }).strict(),
+    body: slackNotificationPreviewBodySchema,
+  }),
+  slackIntegrationController.postSlackTest,
+);
 
 router.get("/", slackIntegrationController.getSlackIntegrations);
 
@@ -40,16 +45,7 @@ router.put(
   "/oauth/:id",
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
-    body: z
-      .object({
-        enabled: z.boolean(),
-        events: z.array(eventNameOrWildcard).min(1),
-        projects: z.array(z.string()),
-        environments: z.array(z.string()),
-        tags: z.array(z.string()),
-        notificationSettings: notificationSettingsSchema.optional(),
-      })
-      .strict(),
+    body: slackNotificationSettingsBodySchema,
   }),
   slackIntegrationController.putSlackOAuthConnection,
 );
