@@ -29,6 +29,7 @@ import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { ReqContext } from "back-end/types/request";
 import {
+  assertValidBucketVersions,
   assertValidExperimentPhases,
   assertValidReleasedVariationId,
   determineNextDate,
@@ -820,6 +821,7 @@ export async function createExperiment({
   validateMetricOverrides(data.metricOverrides);
   assertValidExperimentPhases(data.phases ?? []);
   assertValidReleasedVariationId(data);
+  assertValidBucketVersions(data);
 
   const experimentToCreate = {
     id: uniqid("exp_"),
@@ -911,6 +913,7 @@ export async function updateExperiment({
     assertValidExperimentPhases(allChanges.phases, experiment.phases);
   }
   assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
+  assertValidBucketVersions({ ...experiment, ...allChanges }, experiment);
 
   const writeResult = await ExperimentModel.updateOne(
     {

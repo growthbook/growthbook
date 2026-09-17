@@ -2500,6 +2500,48 @@ export function assertValidReleasedVariationId(
   }
 }
 
+type BucketVersionFields = Pick<
+  ExperimentInterface,
+  "bucketVersion" | "minBucketVersion"
+>;
+
+// SDKs key sticky-bucket assignments by `bucketVersion` and exclude any user
+// holding an assignment for a version below `minBucketVersion`, so a minimum
+// above the current version excludes every user as soon as they have been
+// bucketed once. Both are counters the release flow only ever increments.
+// Only a write that introduces a bad value is rejected; stored values that are
+// already inconsistent are left alone on unrelated edits.
+export function assertValidBucketVersions(
+  updated: Partial<BucketVersionFields>,
+  existing?: Partial<BucketVersionFields>,
+): void {
+  const bucketVersion = updated.bucketVersion ?? 0;
+  const minBucketVersion = updated.minBucketVersion ?? 0;
+  if (
+    existing &&
+    (existing.bucketVersion ?? 0) === bucketVersion &&
+    (existing.minBucketVersion ?? 0) === minBucketVersion
+  ) {
+    return;
+  }
+
+  for (const [field, value] of [
+    ["bucketVersion", bucketVersion],
+    ["minBucketVersion", minBucketVersion],
+  ] as const) {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new BadRequestError(
+        `invalid_bucket_version: ${field} must be a non-negative integer`,
+      );
+    }
+  }
+  if (minBucketVersion > bucketVersion) {
+    throw new BadRequestError(
+      "invalid_bucket_version: minBucketVersion cannot be greater than bucketVersion",
+    );
+  }
+}
+
 // Assigns missing ids and keys, then checks both are unique. On an update
 // (`existing`), an omitted id keeps the stored one by key, else by position,
 // so linked feature rules keep pointing at the same variations.
