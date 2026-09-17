@@ -1,11 +1,11 @@
 import { getSnapshotAnalysis } from "shared/util";
 import {
   expandMetricGroups,
-  getLatestPhaseVariations,
   getMetricResultStatus,
   isFactMetric,
   isMetricGroupId,
   resolveSnapshotMetricIds,
+  resolveSnapshotVariation,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -114,10 +114,15 @@ export async function getStoppedGoalMetricResults(
     setAdjustedCIs(results, pValueThreshold);
     const dim = results[0];
 
-    // Results are indexed by the latest phase's variation list, which can be a
-    // subset or reordering of experiment.variations.
-    const variations = getLatestPhaseVariations(experiment);
-    const control = variations[0];
+    // Result columns follow the snapshot's variation keys, not the
+    // experiment's current order.
+    const variationAt = (column: number) =>
+      resolveSnapshotVariation(
+        experiment.variations,
+        snapshot.settings.variations,
+        column,
+      );
+    const control = variationAt(0)?.variation;
     const controlStats = dim?.variations[0]?.metrics?.[resultId];
     if (!dim || !control || !controlStats) return undefined;
 
@@ -137,29 +142,34 @@ export async function getStoppedGoalMetricResults(
           }).significant
         : undefined;
 
+    // Open CI bounds and saturated p-values come through as +-Infinity, which
+    // the payload schema rejects; leave those fields out.
+    const finite = (n: number | undefined): number | undefined =>
+      n !== undefined && Number.isFinite(n) ? n : undefined;
     const captured: ExperimentStoppedGoalMetric["variations"] = [];
-    for (let j = 1; j < variations.length; j++) {
-      const variation = variations[j];
+    for (let j = 1; j < dim.variations.length; j++) {
+      const resolved = variationAt(j);
       const stats = dim.variations[j]?.metrics?.[resultId];
-      if (!variation || !stats) continue;
+      if (!resolved || !stats) continue;
       const ci = stats.ciAdjusted ?? stats.ci;
-      const pValue = stats.pValueAdjusted ?? stats.pValue;
+      const uplift = finite(stats.expected);
+      const upliftStddev = finite(stats.uplift?.stddev);
+      const chanceToWin = finite(stats.chanceToWin);
+      const pValue = finite(stats.pValueAdjusted ?? stats.pValue);
       const significant = isSignificant(stats);
       captured.push({
-        variationId: variation.id,
-        variationName: variation.name,
+        variationId: resolved.variation.id,
+        variationName: resolved.variation.name,
         // Position in experiment.variations, matching experiment.winner.
-        variationIndex: variation.index,
+        variationIndex: resolved.index,
         users: stats.users,
         value: metricMean(stats),
-        ...(stats.expected !== undefined ? { uplift: stats.expected } : {}),
-        ...(stats.uplift?.stddev !== undefined
-          ? { upliftStddev: stats.uplift.stddev }
+        ...(uplift !== undefined ? { uplift } : {}),
+        ...(upliftStddev !== undefined ? { upliftStddev } : {}),
+        ...(ci && ci.every(Number.isFinite)
+          ? { ci: [ci[0], ci[1]] as [number, number] }
           : {}),
-        ...(ci ? { ci: [ci[0], ci[1]] as [number, number] } : {}),
-        ...(stats.chanceToWin !== undefined
-          ? { chanceToWin: stats.chanceToWin }
-          : {}),
+        ...(chanceToWin !== undefined ? { chanceToWin } : {}),
         ...(pValue !== undefined ? { pValue } : {}),
         ...(significant !== undefined ? { significant } : {}),
       });

@@ -7,6 +7,7 @@ import {
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getLatestPhaseVariations,
+  resolveSnapshotVariation,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -938,17 +939,13 @@ export const computeExperimentChanges = async ({
 
       if (winning === null) continue;
 
-      // Match by the snapshot's variation key so reordered variations resolve
-      // correctly; fall back to position for snapshots without variation keys.
-      const variationKey = currentSnapshot.settings.variations?.[i]?.id;
-      const variations = experiment.variations;
-      const variation =
-        (variationKey !== undefined
-          ? (variations.find((v) => v.key === variationKey) ??
-            variations.find((v) => v.id === variationKey))
-          : undefined) ?? variations[i];
-      if (!variation) continue;
-      const { id: variationId, name: variationName } = variation;
+      const resolved = resolveSnapshotVariation(
+        experiment.variations,
+        currentSnapshot.settings.variations,
+        i,
+      );
+      if (!resolved) continue;
+      const { id: variationId, name: variationName } = resolved.variation;
 
       experimentChanges.push({
         experimentId: experiment.id,
