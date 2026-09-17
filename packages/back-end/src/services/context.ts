@@ -757,6 +757,15 @@ export class ReqContextClass {
     return this._allProjectIds;
   }
 
+  private _targetingOptOutProjectIds: string[] | null = null;
+  public async getTargetingOptOutProjectIds(): Promise<string[]> {
+    if (this._targetingOptOutProjectIds === null) {
+      this._targetingOptOutProjectIds =
+        await this.models.projects.getTargetingOptOutIds();
+    }
+    return this._targetingOptOutProjectIds;
+  }
+
   // Tags can be created on the fly, so we cache which ones already exist
   private _tags: Set<string> | null = null;
   public async registerTags(tags: string[]) {

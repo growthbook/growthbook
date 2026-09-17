@@ -417,7 +417,9 @@ export async function assertValidProjectIds(
   label = "targeting",
 ): Promise<void> {
   if (!projectIds?.length) return;
-  const valid = new Set((await context.getProjects()).map((p) => p.id));
+  // Existence only, unfiltered by read access: authorization ran before this,
+  // and a targeting project already on the flag may be one the caller cannot read.
+  const valid = new Set(await context.getAllProjectIds());
   const missing = projectIds.filter((id) => id && !valid.has(id));
   if (missing.length) {
     throw new Error(
@@ -644,19 +646,21 @@ export async function assertValidHoldout(
 // schedule.
 export function validateRulesScheduleRules(
   rules: FeatureRule[],
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
   stored: FeatureRule[] = [],
 ): void {
   rules.forEach((rule, i) => {
     if (!rule.scheduleRules?.length) return;
+    const prior = findStoredRuleCounterpart(stored, rule);
     if (
-      !isScheduledRule(findStoredRuleCounterpart(stored, rule)) &&
+      !isScheduledRule(prior) &&
       !context.hasPremiumFeature("schedule-feature-flag")
     ) {
       context.throwPlanDoesNotAllowError(
         "This organization does not have access to schedule rules. Upgrade to Pro or Enterprise.",
       );
     }
+    if (isEqual(prior?.scheduleRules, rule.scheduleRules)) return;
     try {
       validateScheduleRules(rule.scheduleRules);
     } catch (error) {

@@ -1,6 +1,15 @@
-import { orgRequiresAnyReview, PermissionError } from "shared/util";
+import isEqual from "lodash/isEqual";
+import {
+  orgRequiresAnyReview,
+  PermissionError,
+  stringifyFeatureValue,
+} from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
-import type { RampScheduleInterface } from "shared/validators";
+import type {
+  RampScheduleInterface,
+  RampStep,
+  RampStepAction,
+} from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -73,12 +82,81 @@ function reviewIsOn(context: ReqContext | ApiReqContext): boolean {
 
 // Fields on a schedule update that change what the scheduler will apply.
 // Clearing a date (`null`) counts: it removes a reviewed start or cutoff.
-export function changesRampPlan(body: Record<string, unknown>): boolean {
-  return [
-    "steps",
-    "startActions",
-    "endActions",
-    "startDate",
-    "cutoffDate",
-  ].some((field) => field in body && body[field] !== undefined);
+const PLAN_FIELDS = [
+  "steps",
+  "startActions",
+  "endActions",
+  "startDate",
+  "cutoffDate",
+] as const;
+type PlanField = (typeof PLAN_FIELDS)[number];
+type StoredPlan = Partial<Pick<RampScheduleInterface, PlanField>>;
+
+// The step shape the API emits and accepts; the fields the scheduler reads.
+export function toApiRampStep(
+  step: Partial<RampStep> & Pick<RampStep, "interval">,
+) {
+  return {
+    interval: step.interval,
+    actions: step.actions ?? [],
+    approvalNotes: step.approvalNotes ?? undefined,
+    monitored: !!step.monitored,
+    holdConditions: step.holdConditions ?? undefined,
+  };
+}
+
+// An action's `force` in the string form it is stored and applied in.
+export function withStringForce<A extends RampStepAction>(action: A): A {
+  return action.patch &&
+    "force" in action.patch &&
+    action.patch.force !== undefined
+    ? {
+        ...action,
+        patch: {
+          ...action.patch,
+          force: stringifyFeatureValue(action.patch.force),
+        },
+      }
+    : action;
+}
+
+// So `false` echoed against a stored "false" is not a change.
+function comparableActions(actions: RampStepAction[] | null | undefined) {
+  return (actions ?? []).map(withStringForce);
+}
+
+// The shape GET emits for each field, so an echoed schedule compares equal to
+// the stored one whatever extra fields the document carries.
+function normalizePlanField(field: PlanField, value: unknown): unknown {
+  if (field === "startDate" || field === "cutoffDate") {
+    return value ? new Date(value as string | Date).toISOString() : null;
+  }
+  if (field === "steps") {
+    return ((value as RampStep[]) ?? []).map((s) => {
+      const step = toApiRampStep(s);
+      return { ...step, actions: comparableActions(step.actions) };
+    });
+  }
+  if (field === "startActions" || field === "endActions") {
+    return value ? comparableActions(value as RampStepAction[]) : null;
+  }
+  return value ?? null;
+}
+
+// With `stored`, only a field that differs from the stored plan counts, so a
+// GET → PUT echo is not a re-plan.
+export function changesRampPlan(
+  body: Record<string, unknown>,
+  stored?: StoredPlan,
+): boolean {
+  return PLAN_FIELDS.some(
+    (field) =>
+      field in body &&
+      body[field] !== undefined &&
+      (!stored ||
+        !isEqual(
+          normalizePlanField(field, body[field]),
+          normalizePlanField(field, stored[field]),
+        )),
+  );
 }

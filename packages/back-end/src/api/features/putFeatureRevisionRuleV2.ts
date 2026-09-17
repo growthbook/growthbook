@@ -1,6 +1,6 @@
 import isEqual from "lodash/isEqual";
 import {
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
   isScheduledRule,
@@ -40,6 +40,9 @@ import {
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  validateRampPlanPatches,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
 import {
@@ -73,6 +76,16 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   }
   // Same environment-id check as the add endpoint, before a draft is created.
   assertValidRuleEnvironments(req.context, [patch]);
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(inlineRampSchedule),
+      feature,
+      patch.allEnvironments !== undefined || patch.environments !== undefined
+        ? patch
+        : (feature.rules ?? []).find((r) => r.id === req.params.ruleId),
+    ),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -281,7 +294,11 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       validateRuleAttributes(
         changedAttributes,
         req.context,
-        getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+        getRuleAttributeScopeProjectIds(
+          feature,
+          revision.metadata,
+          updatedRule,
+        ) ?? undefined,
       );
     }
     if (
@@ -325,6 +342,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       resolvedRampAction = normalizeInlineRampSchedule(
         inlineRampSchedule,
         updatedRule.id,
+        feature,
       );
       updatedRule.scheduleRules = [];
       updatedRule.scheduleType = "none";
