@@ -440,10 +440,8 @@ export default function NotificationSubscriptionSettings({
                                 key={option.id}
                                 label={option.label}
                                 description={
-                                  (option.description ?? option.tooltip) ? (
-                                    <Text size="sm">
-                                      {option.description ?? option.tooltip}
-                                    </Text>
+                                  option.subtitle ? (
+                                    <Text size="sm">{option.subtitle}</Text>
                                   ) : undefined
                                 }
                                 value={notificationEventSelection(

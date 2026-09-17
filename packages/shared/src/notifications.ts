@@ -2,8 +2,10 @@ import type { NotificationEventName } from "../types/events/base-types";
 
 export interface NotificationEventMetadata {
   label: string;
+  // Full sentence for the generated webhook docs. The UI never shows it.
   description: string;
-  tooltip?: string;
+  // Optional line under the checkbox label in notification settings.
+  subtitle?: string;
   internal?: boolean;
   preview?: true;
   // A producer may still return text for unsupported event subtypes.
@@ -12,17 +14,18 @@ export interface NotificationEventMetadata {
 
 export const notificationEventMetadata = {
   "feature.created": {
-    label: "Feature created",
+    label: "Created",
     description: "Triggered when a feature is created",
     preview: true,
   },
   "feature.updated": {
-    label: "Feature updated",
+    label: "Updated",
     description: "Triggered when a feature is updated",
+    subtitle: "Any change, including publishes and metadata edits.",
     preview: true,
   },
   "feature.deleted": {
-    label: "Feature deleted",
+    label: "Deleted",
     description: "Triggered when a feature is deleted",
     preview: true,
   },
@@ -91,8 +94,6 @@ export const notificationEventMetadata = {
     label: "Ramp start approval requested",
     description:
       "Triggered when a feature ramp schedule is published but held at the start, awaiting an explicit start approval",
-    tooltip:
-      "The ramp schedule is published but waits for approval before starting.",
   },
   "feature.rampSchedule.actions.startApproved": {
     label: "Ramp start approved",
@@ -108,8 +109,8 @@ export const notificationEventMetadata = {
     label: "Draft edited",
     description:
       "Triggered when a draft revision is modified (rules, default value, toggles, prerequisites, metadata, etc.). The `change` field indicates the specific kind of mutation.",
+    subtitle: "Every edit to a draft.",
     preview: true,
-    tooltip: "Triggered when a draft revision is edited.",
   },
   "feature.revision.reviewRequested": {
     label: "Review requested",
@@ -146,32 +147,33 @@ export const notificationEventMetadata = {
     label: "Review request withdrawn",
     description:
       "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
-    tooltip: "A review request is withdrawn, returning the revision to draft.",
+    subtitle: "The author withdraws a review request. The draft stays open.",
   },
   "feature.revision.reviewRetracted": {
     label: "Review retracted",
     description:
       "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
-    tooltip: "A reviewer withdraws their verdict, updating the review status.",
+    subtitle: "A reviewer withdraws their own approval or change request.",
   },
   "feature.revision.publishScheduleChanged": {
     label: "Publish schedule changed",
     description:
       "Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.",
-    tooltip: "Scheduled publishing is set, rescheduled, or cancelled.",
+    subtitle: "A scheduled publish is set, moved, or cancelled.",
   },
   "feature.revision.rebased": {
     label: "Draft rebased",
     description:
       "Triggered when a draft revision is rebased onto the latest published version",
+    subtitle: "The draft is moved onto the latest live version.",
     preview: true,
   },
   "feature.revision.published": {
     label: "New version published",
     description:
       "Triggered when a draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author).",
+    subtitle: "A draft becomes the live version.",
     preview: true,
-    tooltip: "Triggered when a draft revision is published.",
   },
   "feature.revision.reverted": {
     label: "Reverted to previous version",
@@ -183,7 +185,8 @@ export const notificationEventMetadata = {
     label: "Scheduled publishing failed",
     description:
       "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
-    tooltip: "Publishing failed and won't be retried. The draft remains open.",
+    subtitle:
+      "A scheduled or automatic publish failed and won't retry. The draft stays open.",
   },
   "experiment.created": {
     label: "New experiment (draft)",
@@ -204,6 +207,8 @@ export const notificationEventMetadata = {
     label: "Warnings",
     description:
       "Triggered when a warning condition is detected on an experiment",
+    subtitle:
+      "SRM, multiple exposures, no data, underpowered results, or failed updates.",
     preview: true,
     supportsCard: true,
   },
@@ -211,15 +216,15 @@ export const notificationEventMetadata = {
     label: "Reached significance",
     description:
       "Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.",
-    preview: true,
-    tooltip:
+    subtitle:
       "A metric reaches significance. Use Sequential Testing to avoid peeking.",
+    preview: true,
   },
   "experiment.info.scheduled-status-update": {
     label: "Scheduled start or stop applied",
     description:
       "Triggered when a scheduled start or stop is automatically applied to an experiment, including the auto-ship outcome for a scheduled end.",
-    tooltip:
+    subtitle:
       "Includes the automatic ship outcome when an experiment ends on schedule.",
   },
   "experiment.decision.ship": {
@@ -246,86 +251,89 @@ export const notificationEventMetadata = {
   "savedGroup.updated": {
     label: "Updated",
     description: "Triggered when a saved group is updated",
+    subtitle: "Any change, including publishes and metadata edits.",
   },
   "savedGroup.deleted": {
     label: "Deleted",
     description: "Triggered when a saved group is deleted",
   },
   "savedGroup.revision.created": {
-    label: "Revision created",
+    label: "New draft revision",
     description:
       "Triggered when a new draft revision is created for a saved group",
   },
   "savedGroup.revision.updated": {
-    label: "Revision updated",
+    label: "Draft edited",
     description:
       "Triggered when a draft revision's proposed changes are modified (values, condition, archive, or metadata). The `change` field indicates the kind of mutation.",
-    tooltip: "Triggered when a draft revision is edited.",
+    subtitle: "Every edit to a draft.",
   },
   "savedGroup.revision.reviewRequested": {
-    label: "Revision review requested",
+    label: "Review requested",
     description: "Triggered when a draft revision is submitted for review",
   },
   "savedGroup.revision.approved": {
-    label: "Revision approved",
+    label: "Draft approved",
     description: "Triggered when a draft revision is approved by a reviewer",
   },
   "savedGroup.revision.changesRequested": {
-    label: "Revision changes requested",
+    label: "Changes requested",
     description:
       "Triggered when a reviewer requests changes on a draft revision",
   },
   "savedGroup.revision.commented": {
-    label: "Revision commented",
+    label: "Comment on draft",
     description: "Triggered when a comment is added to a draft revision",
   },
   "savedGroup.revision.discarded": {
-    label: "Revision discarded",
+    label: "Draft discarded",
     description: "Triggered when a draft revision is discarded",
   },
   "savedGroup.revision.rebased": {
-    label: "Revision rebased",
+    label: "Draft rebased",
     description:
       "Triggered when a draft revision is rebased onto the latest live state",
+    subtitle: "The draft is moved onto the latest live version.",
   },
   "savedGroup.revision.published": {
-    label: "Revision published",
+    label: "New version published",
     description:
       "Triggered when a draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context.",
-    tooltip: "Triggered when a draft revision is published.",
+    subtitle: "A draft becomes the live version.",
   },
   "savedGroup.revision.reverted": {
-    label: "Revision reverted",
+    label: "Reverted to previous version",
     description:
       "Triggered when a saved group is reverted to a previous published revision",
   },
   "savedGroup.revision.reopened": {
-    label: "Revision reopened",
+    label: "Discarded draft reopened",
     description: "Triggered when a discarded revision is reopened",
   },
   "savedGroup.revision.recalled": {
-    label: "Revision recalled",
+    label: "Review request withdrawn",
     description:
       "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
-    tooltip: "A review request is withdrawn, returning the revision to draft.",
+    subtitle: "The author withdraws a review request. The draft stays open.",
   },
   "savedGroup.revision.reviewRetracted": {
-    label: "Revision review retracted",
+    label: "Review retracted",
     description:
       "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
-    tooltip: "A reviewer withdraws their verdict, updating the review status.",
+    subtitle: "A reviewer withdraws their own approval or change request.",
   },
   "savedGroup.revision.publishScheduleChanged": {
-    label: "Revision publish schedule changed",
+    label: "Publish schedule changed",
     description:
       "Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.",
-    tooltip: "Scheduled publishing is set, rescheduled, or cancelled.",
+    subtitle: "A scheduled publish is set, moved, or cancelled.",
   },
   "savedGroup.revision.publishFailed": {
-    label: "Revision publish failed",
+    label: "Scheduled publishing failed",
     description:
       "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
-    tooltip: "Publishing failed and won't be retried. The draft remains open.",
+    subtitle:
+      "A scheduled or automatic publish failed and won't retry. The draft stays open.",
   },
   "constant.created": {
     label: "Created",
@@ -334,86 +342,89 @@ export const notificationEventMetadata = {
   "constant.updated": {
     label: "Updated",
     description: "Triggered when a constant is updated",
+    subtitle: "Any change, including publishes and metadata edits.",
   },
   "constant.deleted": {
     label: "Deleted",
     description: "Triggered when a constant is deleted",
   },
   "constant.revision.created": {
-    label: "Revision created",
+    label: "New draft revision",
     description:
       "Triggered when a new draft revision is created for a constant",
   },
   "constant.revision.updated": {
-    label: "Revision updated",
+    label: "Draft edited",
     description:
       "Triggered when a draft revision's proposed changes are modified (value, archive, or metadata). The `change` field indicates the kind of mutation.",
-    tooltip: "Triggered when a draft revision is edited.",
+    subtitle: "Every edit to a draft.",
   },
   "constant.revision.reviewRequested": {
-    label: "Revision review requested",
+    label: "Review requested",
     description: "Triggered when a draft revision is submitted for review",
   },
   "constant.revision.approved": {
-    label: "Revision approved",
+    label: "Draft approved",
     description: "Triggered when a draft revision is approved by a reviewer",
   },
   "constant.revision.changesRequested": {
-    label: "Revision changes requested",
+    label: "Changes requested",
     description:
       "Triggered when a reviewer requests changes on a draft revision",
   },
   "constant.revision.commented": {
-    label: "Revision commented",
+    label: "Comment on draft",
     description: "Triggered when a comment is added to a draft revision",
   },
   "constant.revision.discarded": {
-    label: "Revision discarded",
+    label: "Draft discarded",
     description: "Triggered when a draft revision is discarded",
   },
   "constant.revision.rebased": {
-    label: "Revision rebased",
+    label: "Draft rebased",
     description:
       "Triggered when a draft revision is rebased onto the latest live state",
+    subtitle: "The draft is moved onto the latest live version.",
   },
   "constant.revision.published": {
-    label: "Revision published",
+    label: "New version published",
     description:
       "Triggered when a draft revision is published. Overlaps with `constant.updated` but provides revision-specific context.",
-    tooltip: "Triggered when a draft revision is published.",
+    subtitle: "A draft becomes the live version.",
   },
   "constant.revision.reverted": {
-    label: "Revision reverted",
+    label: "Reverted to previous version",
     description:
       "Triggered when a constant is reverted to a previous published revision",
   },
   "constant.revision.reopened": {
-    label: "Revision reopened",
+    label: "Discarded draft reopened",
     description: "Triggered when a discarded revision is reopened",
   },
   "constant.revision.recalled": {
-    label: "Revision recalled",
+    label: "Review request withdrawn",
     description:
       "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
-    tooltip: "A review request is withdrawn, returning the revision to draft.",
+    subtitle: "The author withdraws a review request. The draft stays open.",
   },
   "constant.revision.reviewRetracted": {
-    label: "Revision review retracted",
+    label: "Review retracted",
     description:
       "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
-    tooltip: "A reviewer withdraws their verdict, updating the review status.",
+    subtitle: "A reviewer withdraws their own approval or change request.",
   },
   "constant.revision.publishScheduleChanged": {
-    label: "Revision publish schedule changed",
+    label: "Publish schedule changed",
     description:
       "Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.",
-    tooltip: "Scheduled publishing is set, rescheduled, or cancelled.",
+    subtitle: "A scheduled publish is set, moved, or cancelled.",
   },
   "constant.revision.publishFailed": {
-    label: "Revision publish failed",
+    label: "Scheduled publishing failed",
     description:
       "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
-    tooltip: "Publishing failed and won't be retried. The draft remains open.",
+    subtitle:
+      "A scheduled or automatic publish failed and won't retry. The draft stays open.",
   },
   "config.created": {
     label: "Created",
@@ -422,85 +433,88 @@ export const notificationEventMetadata = {
   "config.updated": {
     label: "Updated",
     description: "Triggered when a config is updated",
+    subtitle: "Any change, including publishes and metadata edits.",
   },
   "config.deleted": {
     label: "Deleted",
     description: "Triggered when a config is deleted",
   },
   "config.revision.created": {
-    label: "Revision created",
+    label: "New draft revision",
     description: "Triggered when a new draft revision is created for a config",
   },
   "config.revision.updated": {
-    label: "Revision updated",
+    label: "Draft edited",
     description:
       "Triggered when a draft revision's proposed changes are modified (value, schema, archive, or metadata). The `change` field indicates the kind of mutation.",
-    tooltip: "Triggered when a draft revision is edited.",
+    subtitle: "Every edit to a draft.",
   },
   "config.revision.reviewRequested": {
-    label: "Revision review requested",
+    label: "Review requested",
     description: "Triggered when a draft revision is submitted for review",
   },
   "config.revision.approved": {
-    label: "Revision approved",
+    label: "Draft approved",
     description: "Triggered when a draft revision is approved by a reviewer",
   },
   "config.revision.changesRequested": {
-    label: "Revision changes requested",
+    label: "Changes requested",
     description:
       "Triggered when a reviewer requests changes on a draft revision",
   },
   "config.revision.commented": {
-    label: "Revision commented",
+    label: "Comment on draft",
     description: "Triggered when a comment is added to a draft revision",
   },
   "config.revision.discarded": {
-    label: "Revision discarded",
+    label: "Draft discarded",
     description: "Triggered when a draft revision is discarded",
   },
   "config.revision.rebased": {
-    label: "Revision rebased",
+    label: "Draft rebased",
     description:
       "Triggered when a draft revision is rebased onto the latest live state",
+    subtitle: "The draft is moved onto the latest live version.",
   },
   "config.revision.published": {
-    label: "Revision published",
+    label: "New version published",
     description:
       "Triggered when a draft revision is published. Overlaps with `config.updated` but provides revision-specific context.",
-    tooltip: "Triggered when a draft revision is published.",
+    subtitle: "A draft becomes the live version.",
   },
   "config.revision.reverted": {
-    label: "Revision reverted",
+    label: "Reverted to previous version",
     description:
       "Triggered when a config is reverted to a previous published revision",
   },
   "config.revision.reopened": {
-    label: "Revision reopened",
+    label: "Discarded draft reopened",
     description: "Triggered when a discarded revision is reopened",
   },
   "config.revision.recalled": {
-    label: "Revision recalled",
+    label: "Review request withdrawn",
     description:
       "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
-    tooltip: "A review request is withdrawn, returning the revision to draft.",
+    subtitle: "The author withdraws a review request. The draft stays open.",
   },
   "config.revision.reviewRetracted": {
-    label: "Revision review retracted",
+    label: "Review retracted",
     description:
       "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
-    tooltip: "A reviewer withdraws their verdict, updating the review status.",
+    subtitle: "A reviewer withdraws their own approval or change request.",
   },
   "config.revision.publishScheduleChanged": {
-    label: "Revision publish schedule changed",
+    label: "Publish schedule changed",
     description:
       "Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.",
-    tooltip: "Scheduled publishing is set, rescheduled, or cancelled.",
+    subtitle: "A scheduled publish is set, moved, or cancelled.",
   },
   "config.revision.publishFailed": {
-    label: "Revision publish failed",
+    label: "Scheduled publishing failed",
     description:
       "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
-    tooltip: "Publishing failed and won't be retried. The draft remains open.",
+    subtitle:
+      "A scheduled or automatic publish failed and won't retry. The draft stays open.",
   },
   "user.login": {
     label: "User logged in",
@@ -561,7 +575,7 @@ interface NotificationEventGroup {
     | {
         id: string;
         label: string;
-        description?: string;
+        subtitle?: string;
         events: NotificationEventName[];
       }
   )[];
@@ -587,7 +601,7 @@ export const notificationCategoryGroups: Record<
         {
           id: "exp-decision",
           label: "Decision ready",
-          description: "Ready to ship, roll back, or review.",
+          subtitle: "Ready to ship, roll back, or review.",
           events: [
             "experiment.decision.ship",
             "experiment.decision.rollback",
@@ -622,7 +636,7 @@ export const notificationCategoryGroups: Record<
         {
           id: "feat-saferollout",
           label: "Safe rollout outcomes",
-          description: "Ready to ship, should roll back, or unhealthy.",
+          subtitle: "Ready to ship, should roll back, or unhealthy.",
           events: [
             "feature.saferollout.ship",
             "feature.saferollout.rollback",
@@ -655,7 +669,7 @@ export const notificationCategoryGroups: Record<
         {
           id: "feat-ramp",
           label: "Ramp schedule activity",
-          description:
+          subtitle:
             "Ramp schedule created, advanced, completed, or rolled back.",
           events: [
             "feature.rampSchedule.created",
@@ -677,11 +691,11 @@ export const notificationCategoryGroups: Record<
     {
       label: "Saved Group changes",
       options: [
+        "savedGroup.revision.published",
+        "savedGroup.revision.reverted",
         "savedGroup.created",
         "savedGroup.updated",
         "savedGroup.deleted",
-        "savedGroup.revision.published",
-        "savedGroup.revision.reverted",
       ],
     },
     {
@@ -694,11 +708,11 @@ export const notificationCategoryGroups: Record<
         "savedGroup.revision.changesRequested",
         "savedGroup.revision.commented",
         "savedGroup.revision.discarded",
-        "savedGroup.revision.rebased",
         "savedGroup.revision.reopened",
         "savedGroup.revision.recalled",
         "savedGroup.revision.reviewRetracted",
         "savedGroup.revision.publishScheduleChanged",
+        "savedGroup.revision.rebased",
         "savedGroup.revision.publishFailed",
       ],
     },
@@ -707,11 +721,11 @@ export const notificationCategoryGroups: Record<
     {
       label: "Constant changes",
       options: [
+        "constant.revision.published",
+        "constant.revision.reverted",
         "constant.created",
         "constant.updated",
         "constant.deleted",
-        "constant.revision.published",
-        "constant.revision.reverted",
       ],
     },
     {
@@ -724,11 +738,11 @@ export const notificationCategoryGroups: Record<
         "constant.revision.changesRequested",
         "constant.revision.commented",
         "constant.revision.discarded",
-        "constant.revision.rebased",
         "constant.revision.reopened",
         "constant.revision.recalled",
         "constant.revision.reviewRetracted",
         "constant.revision.publishScheduleChanged",
+        "constant.revision.rebased",
         "constant.revision.publishFailed",
       ],
     },
@@ -737,11 +751,11 @@ export const notificationCategoryGroups: Record<
     {
       label: "Config changes",
       options: [
+        "config.revision.published",
+        "config.revision.reverted",
         "config.created",
         "config.updated",
         "config.deleted",
-        "config.revision.published",
-        "config.revision.reverted",
       ],
     },
     {
@@ -754,11 +768,11 @@ export const notificationCategoryGroups: Record<
         "config.revision.changesRequested",
         "config.revision.commented",
         "config.revision.discarded",
-        "config.revision.rebased",
         "config.revision.reopened",
         "config.revision.recalled",
         "config.revision.reviewRetracted",
         "config.revision.publishScheduleChanged",
+        "config.revision.rebased",
         "config.revision.publishFailed",
       ],
     },
@@ -768,8 +782,7 @@ export const notificationCategoryGroups: Record<
 export interface NotificationEventOption {
   id: string;
   label: string;
-  description?: string;
-  tooltip?: string;
+  subtitle?: string;
   category: NotificationEventCategory;
   group: string;
   // All controlled events must be selected for the option to read as on.
@@ -795,7 +808,7 @@ export const notificationEventOptions: NotificationEventOption[] = (
         {
           id: option,
           label: metadata.label,
-          tooltip: metadata.tooltip ?? metadata.description,
+          subtitle: metadata.subtitle,
           category,
           group: group.label,
           events,
