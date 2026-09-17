@@ -1,11 +1,24 @@
 import { Flex } from "@radix-ui/themes";
+import {
+  PiCalendar,
+  PiChartBar,
+  PiChartLine,
+  PiCircle,
+  PiDivide,
+  PiFunnel,
+  PiHash,
+  PiPercent,
+  PiRepeat,
+  PiSigma,
+} from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
 import { Select, SelectGroup, SelectItem, SelectLabel } from "@/ui/Select";
 import Text from "@/ui/Text";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { FormMetricType } from "@/components/FactTables/MetricEditor/metricFormTranslation";
+import styles from "./MetricTypeSelect.module.scss";
 
-const TYPE_LABELS: Record<FormMetricType, string> = {
+export const TYPE_LABELS: Record<FormMetricType, string> = {
   proportion: "Simple proportion",
   threshold: "Threshold",
   retention: "Retention",
@@ -23,7 +36,7 @@ const TYPE_LABELS: Record<FormMetricType, string> = {
 // Descriptive copy adapted from [fmid].tsx's MetricType display and the one
 // Figma-confirmed string ("Row count"); the rest weren't individually pulled
 // from Figma - a cosmetic refinement for review, not a functional risk.
-const TYPE_DESCRIPTIONS: Record<FormMetricType, string> = {
+export const TYPE_DESCRIPTIONS: Record<FormMetricType, string> = {
   proportion:
     "Percent of experiment units who do something, e.g. sign up or click a button.",
   threshold:
@@ -31,7 +44,7 @@ const TYPE_DESCRIPTIONS: Record<FormMetricType, string> = {
   retention:
     "Percent of experiment units who are still active a set period after exposure.",
   funnel:
-    "Percent of experiment units who complete an ordered sequence of events.",
+    "The percent of people who completed every step of a sequence, in order — like signup → activation → purchase.",
   rowCount:
     "Adds up how many times this happened per person, e.g. total page views.",
   colSum: "Adds up a numeric column per person, e.g. total revenue.",
@@ -60,17 +73,29 @@ const GROUPS: { label: string; types: readonly FormMetricType[] }[] = [
   { label: "Special", types: ["ratio", "quantile", "dailyParticipation"] },
 ];
 
-type Gate =
-  | { kind: "commercial"; feature: CommercialFeature }
-  | { kind: "datasource"; suffix: string };
+const TYPE_ICONS = {
+  proportion: PiPercent,
+  threshold: PiChartBar,
+  retention: PiRepeat,
+  funnel: PiFunnel,
+  rowCount: PiHash,
+  colSum: PiSigma,
+  colMax: PiChartLine,
+  countDist: PiHash,
+  activeDays: PiCalendar,
+  ratio: PiDivide,
+  quantile: PiChartBar,
+  dailyParticipation: PiCalendar,
+} satisfies Record<FormMetricType, typeof PiPercent>;
 
-// Premium items are disabled (not silently swallowed on click, as today's
-// flat ButtonSelectField does) - a stricter, more accessible upgrade the
-// native Select's disabled state gives us for free. The commercial-gated
-// label is wrapped in PremiumTooltip (the app's standard upgrade-path
-// pattern) rather than a plain "(premium)" suffix - it renders a visible
-// premium badge regardless of whether hover works on a disabled item, so
-// the upgrade path survives even if a hover tooltip doesn't fire there.
+type Gate = { kind: "commercial" } | { kind: "datasource"; suffix: string };
+
+const PREMIUM_FEATURES: Partial<Record<FormMetricType, CommercialFeature>> = {
+  retention: "retention-metrics",
+  funnel: "funnel-metrics",
+  quantile: "quantile-metrics",
+};
+
 export default function MetricTypeSelect({
   value,
   onChange,
@@ -91,14 +116,10 @@ export default function MetricTypeSelect({
   // "premium" copy/upsell is factually wrong (and points at the wrong fix)
   // for a customer who already has the feature but is on the wrong warehouse.
   const gate: Partial<Record<FormMetricType, Gate>> = {
-    retention: !hasRetentionMetrics
-      ? { kind: "commercial", feature: "retention-metrics" }
-      : undefined,
-    funnel: !hasFunnelMetrics
-      ? { kind: "commercial", feature: "funnel-metrics" }
-      : undefined,
+    retention: !hasRetentionMetrics ? { kind: "commercial" } : undefined,
+    funnel: !hasFunnelMetrics ? { kind: "commercial" } : undefined,
     quantile: !hasQuantileMetrics
-      ? { kind: "commercial", feature: "quantile-metrics" }
+      ? { kind: "commercial" }
       : !quantileAvailableForDatasource
         ? {
             kind: "datasource",
@@ -110,7 +131,16 @@ export default function MetricTypeSelect({
   return (
     <Flex direction="column" gap="1">
       <Select
-        label="What are you measuring?"
+        aria-label="Metric type"
+        label={
+          <Flex direction="column" gap="1" mb="2">
+            <Text weight="semibold">Metric type</Text>
+            <Text size="sm" color="text-mid">
+              Description
+            </Text>
+          </Flex>
+        }
+        triggerClassName={styles.trigger}
         value={value}
         setValue={(v) => onChange(v as FormMetricType)}
       >
@@ -119,31 +149,43 @@ export default function MetricTypeSelect({
             <SelectLabel>{group.label}</SelectLabel>
             {group.types.map((type) => {
               const g = gate[type];
+              const Icon = TYPE_ICONS[type];
               return (
-                <SelectItem key={type} value={type} disabled={!!g}>
-                  {g?.kind === "commercial" ? (
-                    <PremiumTooltip commercialFeature={g.feature}>
-                      {TYPE_LABELS[type]}
-                    </PremiumTooltip>
-                  ) : (
-                    <>
-                      {TYPE_LABELS[type]}
-                      {g?.kind === "datasource" ? g.suffix : ""}
-                    </>
-                  )}
+                <SelectItem
+                  key={type}
+                  value={type}
+                  disabled={!!g}
+                  className={styles.item}
+                  textValue={TYPE_LABELS[type]}
+                >
+                  <span className={styles.option}>
+                    <span className={styles.icon} aria-hidden="true">
+                      <Icon size={20} className={styles.optionIcon} />
+                      <PiCircle size={16} className={styles.selectedIcon} />
+                    </span>
+                    <span className={styles.copy}>
+                      <Flex as="span" align="center" gap="2">
+                        <span className={styles.title}>
+                          {TYPE_LABELS[type]}
+                          {g?.kind === "datasource" ? g.suffix : ""}
+                        </span>
+                        {PREMIUM_FEATURES[type] && (
+                          <PaidFeatureBadge
+                            commercialFeature={PREMIUM_FEATURES[type]}
+                          />
+                        )}
+                      </Flex>
+                      <span className={styles.description}>
+                        {TYPE_DESCRIPTIONS[type]}
+                      </span>
+                    </span>
+                  </span>
                 </SelectItem>
               );
             })}
           </SelectGroup>
         ))}
       </Select>
-      {/* One description line below the selected type (spec) - keeping
-          SelectItem's children to a plain label avoids Select mirroring a
-          multi-line description into the closed trigger, where Radix has no
-          room for it and it would overflow or truncate. */}
-      <Text size="sm" color="text-mid" as="div">
-        {TYPE_DESCRIPTIONS[value]}
-      </Text>
     </Flex>
   );
 }
