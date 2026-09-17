@@ -29,14 +29,17 @@ import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import type { ApiFeatureEnvSettings } from "./postFeature";
-import { validateCustomFields, validateRuleAttributes } from "./validations";
+import {
+  assertValidFeatureRules,
+  validateCustomFields,
+  validateRuleAttributes,
+} from "./validations";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertConfigSchemaCompat,
   assertValidProjectId,
   assertValidProjectIds,
   assertUniqueRuleIds,
-  assertValidFeatureRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,

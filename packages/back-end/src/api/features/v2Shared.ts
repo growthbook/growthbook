@@ -24,12 +24,7 @@ import {
   getExperimentById,
   getExperimentsByIds,
 } from "back-end/src/models/ExperimentModel";
-import { assertFeatureValuesValid } from "back-end/src/services/features";
 import type { ApiFeatureEnvSettings } from "./postFeature";
-import {
-  assertValidRuleEnvironments,
-  validateChangedRuleReferences,
-} from "./validations";
 
 // A flag can't carry its own JSON schema while it's a config-backed ("Config
 // mode") flag — the config's schema is authoritative, so the two would conflict.
@@ -719,33 +714,4 @@ export function validateEnvRulesScheduleRules(
       }
     });
   }
-}
-
-// The rule-level checks every feature write runs, dashboard and REST alike:
-// environment and project ids, experiment references, condition and
-// saved-group references, prerequisite conditions, schedule rules. With
-// `stored`, a rule whose scope, references or experiment are unchanged is not
-// re-checked.
-export async function assertValidFeatureRules(
-  context: ReqContext | ApiReqContext,
-  rules: FeatureRule[],
-  stored: FeatureRule[] = [],
-): Promise<void> {
-  assertValidRuleEnvironments(context, rules);
-  await assertValidChangedRuleProjectIds(rules, stored, context);
-  await assertValidChangedRuleExperimentIds(rules, stored, context);
-  await validateChangedRuleReferences(rules, stored, context);
-  validateRulesScheduleRules(rules, context, stored);
-}
-
-// One rule written through a dashboard route: the checks above plus the
-// feature's own value schema, as the per-rule REST endpoints run them.
-export async function assertValidRuleWrite(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  rule: FeatureRule,
-  stored?: FeatureRule,
-): Promise<void> {
-  await assertValidFeatureRules(context, [rule], stored ? [stored] : []);
-  assertFeatureValuesValid(context, feature, { rules: [rule] });
 }

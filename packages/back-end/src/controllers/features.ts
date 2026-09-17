@@ -303,11 +303,7 @@ import {
   maybeAutoPublishFeatureRevision,
   parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
-import {
-  assertValidFeatureRules,
-  assertValidHoldout,
-  assertValidRuleWrite,
-} from "back-end/src/api/features/v2Shared";
+import { assertValidHoldout } from "back-end/src/api/features/v2Shared";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
@@ -318,7 +314,9 @@ import {
   rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
 import {
+  assertValidFeatureRules,
   assertValidRevisionRulePrerequisites,
+  assertValidRuleWrite,
   collectRampPlanPatches,
   rampPatchEntries,
   validatePrerequisiteConditions,

@@ -58,7 +58,11 @@ import {
 } from "back-end/src/services/featureRevisionEvents";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields, validateRuleAttributes } from "./validations";
+import {
+  assertValidFeatureRules,
+  validateCustomFields,
+  validateRuleAttributes,
+} from "./validations";
 import {
   canBypassReviewChecks,
   canUseRestApiBypassSetting,
@@ -76,7 +80,6 @@ import {
   composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
-  assertValidFeatureRules,
 } from "./v2Shared";
 
 export const updateFeatureV2 = createApiRequestHandler(
