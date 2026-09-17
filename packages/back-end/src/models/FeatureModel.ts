@@ -100,7 +100,6 @@ import {
   isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
-import { holdoutLinkageOwner } from "back-end/src/models/HoldoutModel";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -144,6 +143,7 @@ import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
+  holdoutLinkageOwner,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {

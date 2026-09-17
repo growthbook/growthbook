@@ -27,17 +27,8 @@ import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
   entityKey,
+  holdoutLinkageOwner,
 } from "back-end/src/events/bulkPublishCorrelation";
-
-// Owner key for a linkage write's deferred `config.newLinkage` event. Keyed by
-// the WRITE (holdout + the item whose publish caused it), not the holdout: a
-// release can link several items to one holdout, and rewinding one must not
-// silence the others' events.
-export const holdoutLinkageOwner = (
-  holdoutId: string,
-  itemKey?: string,
-): string =>
-  entityKey("holdout", itemKey ? `${holdoutId}:${itemKey}` : holdoutId);
 
 // Removing linkage can never announce new linkage; without this a removal's
 // pending event would absorb other owners' additions in the same landing.

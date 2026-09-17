@@ -28,11 +28,6 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import {
-  notifyExperimentCreated,
-  notifyExperimentStatusTransition,
-  notifyExperimentBanditWeightsTransition,
-} from "back-end/src/services/experimentNotifications";
 import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -2361,6 +2356,12 @@ const hasChangesForSDKPayloadRefresh = (
   return !isEqual(oldChanges, newChanges);
 };
 
+// Loaded on use: the notifications service imports this model, and a static
+// import here closes a module cycle that reaches SdkConnectionModel before it
+// has initialized.
+const loadExperimentNotifications = () =>
+  import("back-end/src/services/experimentNotifications");
+
 const onExperimentCreate = async ({
   context,
   experiment,
@@ -2372,9 +2373,13 @@ const onExperimentCreate = async ({
 
   // Off the request path: the alert reads snapshots and metrics and writes an
   // event, none of which the caller waits on.
-  notifyExperimentCreated({ context, experiment }).catch((error: unknown) =>
-    logger.error(error, "Failed to notify experiment creation"),
-  );
+  loadExperimentNotifications()
+    .then(({ notifyExperimentCreated }) =>
+      notifyExperimentCreated({ context, experiment }),
+    )
+    .catch((error: unknown) =>
+      logger.error(error, "Failed to notify experiment creation"),
+    );
 
   if (context.org.isVercelIntegration)
     await createVercelExperimentationItemFromExperiment({
@@ -2403,20 +2408,35 @@ const onExperimentUpdate = async ({
   // Alerts run off the request path, after the SDK payload refresh below is
   // queued: a stop or start must reach SDKs before Slack hears about it.
   const notifyAlerts = () => {
-    notifyExperimentStatusTransition({
-      context,
-      previous: oldExperiment,
-      experiment: newExperiment,
-    }).catch((error: unknown) =>
-      logger.error(error, "Failed to notify experiment status transition"),
-    );
-    notifyExperimentBanditWeightsTransition({
-      context,
-      previous: oldExperiment,
-      experiment: newExperiment,
-    }).catch((error: unknown) =>
-      logger.error(error, "Failed to notify bandit allocation change"),
-    );
+    loadExperimentNotifications()
+      .then((notifications) =>
+        Promise.all([
+          notifications
+            .notifyExperimentStatusTransition({
+              context,
+              previous: oldExperiment,
+              experiment: newExperiment,
+            })
+            .catch((error: unknown) =>
+              logger.error(
+                error,
+                "Failed to notify experiment status transition",
+              ),
+            ),
+          notifications
+            .notifyExperimentBanditWeightsTransition({
+              context,
+              previous: oldExperiment,
+              experiment: newExperiment,
+            })
+            .catch((error: unknown) =>
+              logger.error(error, "Failed to notify bandit allocation change"),
+            ),
+        ]),
+      )
+      .catch((error: unknown) =>
+        logger.error(error, "Failed to load experiment notifications"),
+      );
   };
 
   if (
