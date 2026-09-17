@@ -16,3 +16,17 @@
 .metricLabelLastWord {
   white-space: nowrap;
 }
+
+.metricDrilldownIcon {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  top: 1px;
+  margin-left: 4px;
+  cursor: pointer;
+  color: var(--color-text-low);
+
+  &:hover {
+    color: var(--violet-11);
+  }
+}
