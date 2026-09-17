@@ -63,7 +63,7 @@ export default function SlackEventPreview({
   return preview.image ? (
     <img
       src={preview.image}
-      alt="Sample results card preview"
+      alt="Sample notification card preview"
       style={{ display: "block", width: "100%", borderRadius: 10 }}
     />
   ) : (

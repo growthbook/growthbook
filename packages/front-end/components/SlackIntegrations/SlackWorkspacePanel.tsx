@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
-import { PiPlus } from "react-icons/pi";
+import { PiCaretDown, PiPlus } from "react-icons/pi";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
@@ -14,6 +14,11 @@ import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import SlackChannelSettings, {
   getSlackChannelLabel,
@@ -37,6 +42,7 @@ export default function SlackWorkspacePanel({
   onAddChannel,
   onSelectChannel,
   onSaved,
+  onDirtyChange,
 }: {
   workspace: SlackWorkspaceConnectionFrontEndInterface;
   channels: SlackOAuthIntegrationInterface[];
@@ -48,6 +54,7 @@ export default function SlackWorkspacePanel({
   onAddChannel: () => void;
   onSelectChannel: (id: string | null) => Promise<void>;
   onSaved: (channel?: SlackOAuthIntegrationInterface) => Promise<void>;
+  onDirtyChange: (teamId: string, dirty: boolean) => void;
 }) {
   const { projects } = useDefinitions();
   const { apiCall } = useAuth();
@@ -75,8 +82,12 @@ export default function SlackWorkspacePanel({
   const [pendingSelection, setPendingSelection] = useState<{
     channelId: string;
     urlChannelId: string | null;
-    previousUrlChannelId: string | null;
   } | null>(null);
+
+  useEffect(() => {
+    onDirtyChange(workspace.teamId, isDirty);
+    return () => onDirtyChange(workspace.teamId, false);
+  }, [workspace.teamId, isDirty, onDirtyChange]);
 
   useEffect(() => {
     if (formChannelId.current === (selected?.id ?? null)) return;
@@ -89,7 +100,6 @@ export default function SlackWorkspacePanel({
     const requestedChannelId = selectedChannelId ?? null;
     if (isSubmitting || lastRequestedChannelId.current === requestedChannelId)
       return;
-    const previousUrlChannelId = lastRequestedChannelId.current;
     lastRequestedChannelId.current = requestedChannelId;
     const requested = requestedChannelId
       ? channels.find((channel) => channel.id === requestedChannelId)
@@ -99,7 +109,6 @@ export default function SlackWorkspacePanel({
         setPendingSelection({
           channelId: requested.id,
           urlChannelId: requestedChannelId,
-          previousUrlChannelId,
         });
       } else setLocalChannelId(requested.id);
     }
@@ -133,7 +142,7 @@ export default function SlackWorkspacePanel({
     >
       <Frame px="0" py="0" mb="0" style={{ overflow: "clip" }}>
         <Box p="4" style={{ borderBottom: "1px solid var(--gray-a6)" }}>
-          <Flex justify="between" align="start" gap="4" wrap="wrap">
+          <Flex justify="between" align="center" gap="4" wrap="wrap">
             <Flex align="center" gap="3">
               <Flex
                 align="center"
@@ -154,130 +163,144 @@ export default function SlackWorkspacePanel({
                   <Heading as="h2" size="md" mb="0">
                     {name}
                   </Heading>
-                  <Badge
-                    label={needsReconnect ? "Reconnect needed" : "Connected"}
-                    color={needsReconnect ? "amber" : "green"}
-                    variant="soft"
-                  />
+                  {needsReconnect && (
+                    <Badge
+                      label="Reconnect needed"
+                      color="amber"
+                      variant="soft"
+                    />
+                  )}
                 </Flex>
               </Box>
             </Flex>
-            <Flex gap="2">
-              <Button
-                variant="outline"
-                color="gray"
-                size="sm"
-                onClick={onReconnect}
-                loading={connecting}
-              >
+            <DropdownMenu
+              menuPlacement="end"
+              disabled={connecting}
+              trigger={
+                <Button
+                  variant="ghost"
+                  color="gray"
+                  size="sm"
+                  aria-label={`Manage workspace ${name}`}
+                  loading={connecting}
+                  icon={<PiCaretDown aria-hidden />}
+                  iconPosition="right"
+                >
+                  Manage workspace
+                </Button>
+              }
+            >
+              <DropdownMenuItem onClick={onReconnect}>
                 Reconnect
-              </Button>
-              <Button
-                variant="outline"
-                color="red"
-                size="sm"
-                onClick={onDisconnect}
-              >
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem color="red" onClick={onDisconnect}>
                 Disconnect
-              </Button>
-            </Flex>
+              </DropdownMenuItem>
+            </DropdownMenu>
           </Flex>
         </Box>
-        <div className={styles.content}>
-          <Box p="3" className={styles.rail}>
-            <Flex justify="between" align="center" gap="2" mb="3">
-              <Text size="sm" color="text-mid" weight="semibold">
-                Channels
-              </Text>
-              <Button
-                variant="ghost"
-                color="gray"
-                size="sm"
-                aria-label={`Add channel to ${name}`}
-                onClick={onAddChannel}
-              >
-                <PiPlus />
-              </Button>
-            </Flex>
-            <Flex direction="column" gap="1">
-              {channels.map((channel) => {
-                const active = selected?.id === channel.id;
-                const enabled = active ? values.enabled : channel.enabled;
-                return (
-                  <Link
-                    key={channel.id}
-                    href={`/integrations/slack?channel=${encodeURIComponent(channel.id)}`}
-                    shallow
-                    underline="none"
-                    color="dark"
-                    aria-current={active ? "page" : undefined}
-                    aria-disabled={isSubmitting && !active}
-                    onClick={(event) => {
-                      if (active || isSubmitting) {
-                        event.preventDefault();
-                        return;
-                      }
-                      if (isDirty) {
-                        event.preventDefault();
-                        setPendingSelection({
-                          channelId: channel.id,
-                          urlChannelId: channel.id,
-                          previousUrlChannelId: selectedChannelId ?? null,
-                        });
-                        return;
-                      }
-                      setLocalChannelId(channel.id);
-                    }}
-                    style={{
-                      display: "block",
-                      padding: "var(--space-2) var(--space-3)",
-                      borderRadius: "var(--radius-2)",
-                      background: active ? "var(--violet-a3)" : undefined,
-                      opacity: enabled ? 1 : 0.6,
-                    }}
-                  >
-                    <Flex gap="2" align="center">
-                      <Text weight={active ? "semibold" : "medium"} truncate>
-                        {getSlackChannelLabel(channel)}
-                      </Text>
-                      {!enabled && (
-                        <Badge label="Disabled" color="gray" variant="soft" />
-                      )}
-                    </Flex>
-                    <span
+        <div className={channels.length > 0 ? styles.content : undefined}>
+          {channels.length > 0 && (
+            <Box px="3" pt="4" pb="3" className={styles.rail}>
+              <Flex justify="between" align="center" gap="2" mb="3">
+                <Text size="sm" color="text-mid" weight="semibold">
+                  Channels
+                </Text>
+                <Button
+                  variant="ghost"
+                  color="gray"
+                  size="sm"
+                  aria-label={`Add channel to ${name}`}
+                  onClick={onAddChannel}
+                >
+                  <PiPlus />
+                </Button>
+              </Flex>
+              <Flex direction="column" gap="1">
+                {channels.map((channel) => {
+                  const active = selected?.id === channel.id;
+                  const enabled = active ? values.enabled : channel.enabled;
+                  return (
+                    <Link
+                      key={channel.id}
+                      href={`/integrations/slack?channel=${encodeURIComponent(channel.id)}`}
+                      shallow
+                      underline="none"
+                      color="dark"
+                      aria-current={active ? "page" : undefined}
+                      aria-disabled={isSubmitting && !active}
+                      onClick={(event) => {
+                        if (active || isSubmitting) {
+                          event.preventDefault();
+                          return;
+                        }
+                        if (isDirty) {
+                          event.preventDefault();
+                          setPendingSelection({
+                            channelId: channel.id,
+                            urlChannelId: channel.id,
+                          });
+                          return;
+                        }
+                        setLocalChannelId(channel.id);
+                      }}
                       style={{
                         display: "block",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
+                        padding: "var(--space-2) var(--space-3)",
+                        borderRadius: "var(--radius-2)",
+                        background: active ? "var(--violet-a3)" : undefined,
+                        opacity: enabled ? 1 : 0.6,
                       }}
                     >
-                      <Text size="sm">
-                        {getSlackChannelSummary(
-                          active ? values : channel,
-                          projects,
+                      <Flex gap="2" align="center">
+                        <Text weight={active ? "semibold" : "medium"} truncate>
+                          {getSlackChannelLabel(channel)}
+                        </Text>
+                        {!enabled && (
+                          <Badge label="Disabled" color="gray" variant="soft" />
                         )}
-                      </Text>
-                    </span>
-                  </Link>
-                );
-              })}
-              <Button
-                variant="outline"
-                color="gray"
-                size="sm"
-                mt="3"
-                icon={<PiPlus />}
-                onClick={onAddChannel}
-                style={{
-                  width: "100%",
-                }}
-              >
-                Add channel
-              </Button>
-            </Flex>
-          </Box>
-          <Box p={{ initial: "3", sm: "5" }} style={{ minWidth: 0 }}>
+                      </Flex>
+                      <span
+                        style={{
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <Text size="sm">
+                          {getSlackChannelSummary(
+                            active ? values : channel,
+                            projects,
+                          )}
+                        </Text>
+                      </span>
+                    </Link>
+                  );
+                })}
+                <Button
+                  variant="outline"
+                  color="gray"
+                  size="sm"
+                  mt="3"
+                  icon={<PiPlus />}
+                  onClick={onAddChannel}
+                  style={{
+                    width: "100%",
+                  }}
+                >
+                  Add channel
+                </Button>
+              </Flex>
+            </Box>
+          )}
+          <Box
+            px={{ initial: "3", sm: "5" }}
+            pt="4"
+            pb={{ initial: "3", sm: "5" }}
+            style={{ minWidth: 0 }}
+          >
             {selected ? (
               <SlackChannelSettings
                 key={selected.id}
@@ -285,17 +308,15 @@ export default function SlackWorkspacePanel({
                 workspace={workspace}
                 form={form}
                 onDeleted={async () => {
+                  reset();
                   await onSelectChannel(null);
                   await onSaved();
                 }}
               />
             ) : (
               <Flex direction="column" align="start" gap="3">
-                <Heading as="h2" size="sm">
-                  Add a Channel
-                </Heading>
                 <Text color="text-mid">
-                  Add a channel to start receiving notifications from this
+                  Add a channel to start sending notifications to this Slack
                   workspace.
                 </Text>
                 <Button icon={<PiPlus />} onClick={onAddChannel}>
@@ -308,7 +329,7 @@ export default function SlackWorkspacePanel({
         {selected && (
           <Flex
             align="center"
-            justify="between"
+            justify="end"
             gap="3"
             px={{ initial: "3", sm: "5" }}
             py="3"
@@ -347,12 +368,11 @@ export default function SlackWorkspacePanel({
             yesText="Discard changes"
             noText="Keep editing"
             onCancel={() => {
+              // An empty URL would select the newly added channel instead.
+              const channelId = selected?.id ?? null;
               setPendingSelection(null);
-              if (
-                (selectedChannelId ?? null) !==
-                pendingSelection.previousUrlChannelId
-              ) {
-                void onSelectChannel(pendingSelection.previousUrlChannelId);
+              if ((selectedChannelId ?? null) !== channelId) {
+                void onSelectChannel(channelId);
               }
             }}
             onConfirm={async () => {

@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { NotificationFilters } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiImage } from "react-icons/pi";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import {
   notificationEventOptions,
   notificationCategories,
@@ -20,23 +20,22 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useFeaturesList, useEnvironments } from "@/services/features";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import Heading from "@/ui/Heading";
-import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import { Select, SelectItem } from "@/ui/Select";
+import NotificationSettingsCard from "./NotificationSettingsCard";
 
 export default function NotificationSubscriptionSettings({
   value,
   onChange,
-  cardEvents = [],
 }: {
   value: NotificationFilters;
   onChange: (value: NotificationFilters) => void;
-  cardEvents?: readonly string[];
 }) {
+  const categorySwitchId = useId();
   const { projects, tags, metrics, factMetrics } = useDefinitions();
   const { experiments } = useExperiments();
   const { features } = useFeaturesList();
@@ -118,21 +117,23 @@ export default function NotificationSubscriptionSettings({
 
   return (
     <>
-      <Frame mb="0">
+      <NotificationSettingsCard>
         <Heading as="h4" size="sm" mb="1">
           Scope
         </Heading>
         <Text as="p" color="text-mid" mb="3">
-          Limit which events send notifications. Leave a filter empty to include
-          everything; non-empty filters combine.
+          Events must match any selected value in each filter. Empty filters
+          include everything.
         </Text>
         <Grid
           columns={{ initial: "1", sm: "2" }}
-          gap="4"
+          gapX="4"
+          gapY="3"
           style={{ maxWidth: 620 }}
         >
           <MultiSelectField
             label="Projects"
+            containerStyle={{ marginBottom: 0 }}
             placeholder="All Projects"
             value={filterProjects}
             size="lg"
@@ -146,6 +147,7 @@ export default function NotificationSubscriptionSettings({
           />
           <MultiSelectField
             label="Environments"
+            containerStyle={{ marginBottom: 0 }}
             placeholder="All Environments"
             value={filterEnvironments}
             size="lg"
@@ -160,14 +162,14 @@ export default function NotificationSubscriptionSettings({
         </Grid>
         {showMoreFilters ? (
           <Box
-            mt="4"
+            mt="5"
+            pt="5"
             style={{
               maxWidth: 620,
-              paddingTop: "var(--space-4)",
               borderTop: "1px solid var(--gray-a4)",
             }}
           >
-            <Grid columns={{ initial: "1", sm: "2" }} gap="4">
+            <Grid columns={{ initial: "1", sm: "2" }} gapX="4" gapY="3">
               <Box>
                 <Text as="label" size="md" weight="semibold">
                   Tags
@@ -186,6 +188,7 @@ export default function NotificationSubscriptionSettings({
               <Box>
                 <MultiSelectField
                   label="Experiments"
+                  containerStyle={{ marginBottom: 0 }}
                   placeholder="All experiments"
                   value={filterExperiments}
                   options={experimentOptions}
@@ -197,6 +200,7 @@ export default function NotificationSubscriptionSettings({
               <Box>
                 <MultiSelectField
                   label="Metrics"
+                  containerStyle={{ marginBottom: 0 }}
                   placeholder="All metrics"
                   value={filterMetrics}
                   options={metricOptions}
@@ -204,13 +208,11 @@ export default function NotificationSubscriptionSettings({
                     setFilterMetrics(value);
                   }}
                 />
-                <Text as="p" size="sm" color="text-mid" mt="1">
-                  Posts updates associated with any of these metrics.
-                </Text>
               </Box>
               <Box>
                 <MultiSelectField
                   label="Feature Flags"
+                  containerStyle={{ marginBottom: 0 }}
                   placeholder="All feature flags"
                   value={filterFeatures}
                   options={featureOptions}
@@ -220,37 +222,38 @@ export default function NotificationSubscriptionSettings({
                 />
               </Box>
             </Grid>
-            <Button
-              variant="ghost"
-              color="gray"
-              size="sm"
-              mt="3"
-              onClick={() => {
-                onChange({
-                  ...value,
-                  tags: [],
-                  experimentIds: [],
-                  metricIds: [],
-                  featureIds: [],
-                });
-                setShowMoreFilters(false);
-              }}
-            >
-              − Remove all filters
-            </Button>
+            <Box mt="3">
+              <Button
+                variant="ghost"
+                color="gray"
+                size="sm"
+                onClick={() => {
+                  onChange({
+                    ...value,
+                    tags: [],
+                    experimentIds: [],
+                    metricIds: [],
+                    featureIds: [],
+                  });
+                  setShowMoreFilters(false);
+                }}
+              >
+                − Remove all filters
+              </Button>
+            </Box>
           </Box>
         ) : (
-          <Box>
+          <Box mt="3">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowMoreFilters(true)}
             >
-              + Add tag, experiment, metric or feature filter
+              + Add filters
             </Button>
           </Box>
         )}
-      </Frame>
+      </NotificationSettingsCard>
 
       {(Object.keys(notificationCategories) as NotificationEventCategory[]).map(
         (category) => {
@@ -258,11 +261,12 @@ export default function NotificationSubscriptionSettings({
             (option) => option.category === category,
           );
           const categoryEvents = options.flatMap((option) => option.events);
-          const selected = categoryEvents.some((event) =>
+          const selectedEventCount = categoryEvents.filter((event) =>
             events.some((subscription) =>
               matchesNotificationEvent(subscription, event),
             ),
-          );
+          ).length;
+          const selected = selectedEventCount > 0;
           const level = manualLevels.includes(category)
             ? "custom"
             : (presetLevels[category] ??
@@ -278,120 +282,131 @@ export default function NotificationSubscriptionSettings({
           };
           const expanded = expandedCategories.includes(category);
           const title = notificationCategories[category];
+          const switchId = `${categorySwitchId}-${category}`;
           return (
-            <Frame key={category} mb="0">
-              <Heading as="h4" size="sm" mb="2">
-                {title}
-              </Heading>
-              <Text as="p" color="text-mid" mb="4">
-                Choose notifications about {title.toLowerCase()}.
-              </Text>
-              <Checkbox
-                weight="medium"
-                label="Event notifications"
-                description={
-                  category === "experiment"
-                    ? "Launches, results, decisions, and health warnings."
-                    : category === "feature"
-                      ? "Published versions, safe rollouts, drafts, and reviews."
-                      : "Changes, drafts, and reviews."
-                }
-                value={selected}
-                setValue={(value) => {
-                  if (value) {
-                    const paused = pausedEvents[category];
-                    if (paused?.length) {
-                      setEvents([
-                        ...events.filter(
+            <NotificationSettingsCard key={category}>
+              <Flex align="center" justify="between" gap="3" mb="1">
+                <Heading as="h4" size="sm">
+                  <label htmlFor={switchId} style={{ margin: 0 }}>
+                    {title}
+                  </label>
+                </Heading>
+                <Switch
+                  id={switchId}
+                  size="lg"
+                  value={selected}
+                  onChange={(value) => {
+                    if (value) {
+                      const paused = pausedEvents[category];
+                      if (paused?.length) {
+                        setEvents([
+                          ...events.filter(
+                            (event) => !event.startsWith(`${category}.`),
+                          ),
+                          ...paused,
+                        ]);
+                      } else resetCategory();
+                    } else {
+                      setPausedEvents({
+                        ...pausedEvents,
+                        [category]: events.filter((event) =>
+                          event.startsWith(`${category}.`),
+                        ),
+                      });
+                      setEvents(
+                        events.filter(
                           (event) => !event.startsWith(`${category}.`),
                         ),
-                        ...paused,
-                      ]);
-                    } else resetCategory();
-                  } else {
-                    setPausedEvents({
-                      ...pausedEvents,
-                      [category]: events.filter((event) =>
-                        event.startsWith(`${category}.`),
-                      ),
-                    });
-                    setEvents(
-                      events.filter(
-                        (event) => !event.startsWith(`${category}.`),
-                      ),
-                    );
-                  }
-                }}
-              />
-              <Flex
-                align="center"
-                justify="between"
-                gap="3"
-                mt="3"
-                wrap="wrap"
-                style={{
-                  paddingLeft: "calc(16px + var(--space-2))",
-                  maxWidth: 620,
-                  opacity: selected ? 1 : 0.5,
-                }}
-              >
-                <Flex align="center" gap="3">
-                  <Text size="sm" weight="medium">
-                    Level
-                  </Text>
-                  <Box style={{ width: 180 }}>
-                    <Select
-                      aria-label={`${title} notification level`}
-                      value={level}
-                      disabled={!selected}
-                      setValue={(value) => {
-                        if (value === "custom") {
-                          setManualLevels([...manualLevels, category]);
-                          setExpandedCategories([
-                            ...expandedCategories,
-                            category,
-                          ]);
-                          return;
-                        }
-                        if (value !== "default" && value !== "all") return;
-                        setPresetLevels({
-                          ...presetLevels,
-                          [category]: value,
-                        });
-                        setEvents(
-                          applyNotificationLevel(events, category, value),
-                        );
-                        setManualLevels(
-                          manualLevels.filter((item) => item !== category),
-                        );
-                      }}
-                    >
-                      <SelectItem value="default">Default</SelectItem>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="custom">Custom</SelectItem>
-                    </Select>
-                  </Box>
-                </Flex>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={!selected}
-                  onClick={() =>
-                    setExpandedCategories(
-                      expanded
-                        ? expandedCategories.filter((item) => item !== category)
-                        : [...expandedCategories, category],
-                    )
-                  }
-                >
-                  {expanded ? "Hide events" : "Customize events ›"}
-                </Button>
+                      );
+                    }
+                  }}
+                />
               </Flex>
-              {selected && hasNotificationWildcard(events, category) && (
-                <Box
+              <Text as="p" color="text-mid" mb="0">
+                {category === "experiment"
+                  ? "Launches, results, decisions, and health warnings."
+                  : category === "feature"
+                    ? "Published versions, safe rollouts, drafts, and reviews."
+                    : "Changes, drafts, and reviews."}
+              </Text>
+              {selected && (
+                <Flex
+                  align="center"
+                  justify="between"
+                  gap="3"
                   mt="2"
-                  style={{ paddingLeft: "calc(16px + var(--space-2))" }}
+                  wrap="wrap"
                 >
+                  <Flex align="center" gap="3" wrap="wrap">
+                    <Text size="md" weight="medium">
+                      Notify about
+                    </Text>
+                    <Box style={{ width: 220 }}>
+                      <Select
+                        aria-label={`${title}: notify about`}
+                        value={level}
+                        setValue={(value) => {
+                          if (value === "custom") {
+                            setManualLevels([...manualLevels, category]);
+                            setExpandedCategories([
+                              ...expandedCategories,
+                              category,
+                            ]);
+                            return;
+                          }
+                          if (value !== "default" && value !== "all") return;
+                          setPresetLevels({
+                            ...presetLevels,
+                            [category]: value,
+                          });
+                          setEvents(
+                            applyNotificationLevel(events, category, value),
+                          );
+                          setManualLevels(
+                            manualLevels.filter((item) => item !== category),
+                          );
+                        }}
+                      >
+                        <SelectItem value="default">
+                          Recommended events
+                        </SelectItem>
+                        <SelectItem value="all">All events</SelectItem>
+                        <SelectItem value="custom">Custom selection</SelectItem>
+                      </Select>
+                    </Box>
+                    <Text size="sm" color="text-mid" whiteSpace="nowrap">
+                      {selectedEventCount} of {categoryEvents.length}
+                    </Text>
+                  </Flex>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    ml="auto"
+                    aria-expanded={expanded}
+                    icon={
+                      expanded ? (
+                        <PiCaretUp aria-hidden />
+                      ) : (
+                        <PiCaretDown aria-hidden />
+                      )
+                    }
+                    iconPosition="right"
+                    onClick={() =>
+                      setExpandedCategories(
+                        expanded
+                          ? expandedCategories.filter(
+                              (item) => item !== category,
+                            )
+                          : [...expandedCategories, category],
+                      )
+                    }
+                  >
+                    {expanded ? "Hide events" : "Show events"}
+                  </Button>
+                </Flex>
+              )}
+              {selected && hasNotificationWildcard(events, category) && (
+                <Box mt="2">
                   <HelperText status="info">
                     {events.includes(`${category}.*`)
                       ? "All current and future events in this category are included. Choosing another level replaces this with a fixed list of events."
@@ -400,12 +415,7 @@ export default function NotificationSubscriptionSettings({
                 </Box>
               )}
               {expanded && selected && (
-                <Flex
-                  direction="column"
-                  gap="5"
-                  mt="4"
-                  style={{ paddingLeft: "calc(16px + var(--space-2))" }}
-                >
+                <Flex direction="column" gap="4" mt="3">
                   {[...new Set(options.map((option) => option.group))].map(
                     (group) => (
                       <Box key={group}>
@@ -414,67 +424,26 @@ export default function NotificationSubscriptionSettings({
                           size="md"
                           weight="medium"
                           color="text-mid"
-                          mb="3"
+                          mb="2"
                         >
                           {group}
                         </Text>
                         <Grid
                           columns={{ initial: "1", sm: "2" }}
                           gapX="5"
-                          gapY="4"
+                          gapY="3"
                         >
                           {options
                             .filter((option) => option.group === group)
                             .map((option) => (
                               <Checkbox
                                 key={option.id}
-                                label={
-                                  option.events.some((event) =>
-                                    cardEvents.includes(event),
-                                  ) ? (
-                                    <Tooltip content="Can include an image card when the selected style and event data support it.">
-                                      <span
-                                        tabIndex={0}
-                                        style={{
-                                          display: "inline-flex",
-                                          alignItems: "center",
-                                          gap: "var(--space-1)",
-                                        }}
-                                      >
-                                        {option.label}
-                                        <PiImage
-                                          size={16}
-                                          aria-label="Image card available"
-                                          style={{
-                                            color: "var(--violet-11)",
-                                            flexShrink: 0,
-                                          }}
-                                        />
-                                      </span>
-                                    </Tooltip>
-                                  ) : option.tooltip ? (
-                                    <Tooltip content={option.tooltip}>
-                                      <span
-                                        tabIndex={0}
-                                        style={{
-                                          borderBottom:
-                                            "1px dotted var(--gray-8)",
-                                        }}
-                                      >
-                                        {option.label}
-                                      </span>
-                                    </Tooltip>
-                                  ) : (
-                                    option.label
-                                  )
-                                }
+                                label={option.label}
                                 description={
-                                  option.description ? (
-                                    <span
-                                      style={{ fontSize: "var(--font-size-1)" }}
-                                    >
-                                      {option.description}
-                                    </span>
+                                  (option.description ?? option.tooltip) ? (
+                                    <Text size="sm">
+                                      {option.description ?? option.tooltip}
+                                    </Text>
                                   ) : undefined
                                 }
                                 value={notificationEventSelection(
@@ -497,22 +466,6 @@ export default function NotificationSubscriptionSettings({
                       </Box>
                     ),
                   )}
-                  {options.some((option) =>
-                    option.events.some((event) => cardEvents.includes(event)),
-                  ) && (
-                    <Text as="div" size="md" color="text-mid">
-                      <PiImage
-                        size={16}
-                        aria-hidden
-                        style={{
-                          color: "var(--violet-11)",
-                          verticalAlign: "middle",
-                        }}
-                      />{" "}
-                      Image-marked events can include a results-card image when
-                      a card style is selected and the event supports it.
-                    </Text>
-                  )}
                   {hasNotificationWildcard(events, category) && (
                     <HelperText status="info">
                       Customizing an event covered by “all events” keeps the
@@ -521,7 +474,7 @@ export default function NotificationSubscriptionSettings({
                   )}
                 </Flex>
               )}
-            </Frame>
+            </NotificationSettingsCard>
           );
         },
       )}

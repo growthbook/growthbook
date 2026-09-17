@@ -9,7 +9,8 @@ import {
   SlackWorkspaceConnectionFrontEndInterface,
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiTrash, PiPaperPlaneTilt, PiX } from "react-icons/pi";
+import { PiCircleFill, PiX } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   notificationEventOptions,
   notificationCategories,
@@ -22,14 +23,19 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
-import Frame from "@/ui/Frame";
+import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
 import { Select, SelectItem, SelectGroup, SelectLabel } from "@/ui/Select";
 import NotificationSubscriptionSettings from "@/components/Notifications/NotificationSubscriptionSettings";
+import NotificationSettingsCard from "@/components/Notifications/NotificationSettingsCard";
 import SlackEventPreview from "./SlackEventPreview";
 import { SlackChannelFormValues } from "./slackChannelForm";
 
@@ -62,7 +68,7 @@ const CARD_FORMAT_LABELS: Record<
   },
   detailed: {
     label: "Detailed card",
-    description: "A larger image with event details and a results table.",
+    description: "A larger image with more event details.",
   },
 };
 
@@ -207,7 +213,7 @@ export default function SlackChannelSettings({
         >
           <Text as="p" mb="3">
             Posts a sample notification to {getSlackChannelLabel(integration)}{" "}
-            using the currently selected card style, without saving your
+            using the currently selected message format, without saving your
             settings or creating a real event.
           </Text>
           <Box mb="4">
@@ -240,50 +246,63 @@ export default function SlackChannelSettings({
       <Flex direction="column" gap="4">
         <Flex justify="between" align="start" gap="4" wrap="wrap">
           <Box>
-            <Heading as="h3" size="sm" mb="1">
+            <Heading as="h3" size="md" mb="1">
               {getSlackChannelLabel(integration)}
             </Heading>
             <Text color="text-mid">
               {getSlackWorkspaceLabel(workspace)}
               {integration.lastRunAt
-                ? ` · last run ${ago(integration.lastRunAt)}`
-                : " · no runs yet"}
+                ? ` · last delivery ${ago(integration.lastRunAt)}`
+                : " · no deliveries yet"}
             </Text>
           </Box>
-          <Flex align="center" gap="3" wrap="wrap">
-            <Checkbox
-              label="Enabled"
-              value={enabled}
-              setValue={(value) =>
-                form.setValue("enabled", value, { shouldDirty: true })
+          <Flex align="center" gap="3">
+            <Flex align="center" gap="2">
+              <PiCircleFill
+                size={8}
+                color={enabled ? "var(--green-9)" : "var(--gray-9)"}
+                aria-hidden
+              />
+              <Text weight="medium">{enabled ? "Active" : "Inactive"}</Text>
+            </Flex>
+            <DropdownMenu
+              menuPlacement="end"
+              trigger={
+                <Button
+                  variant="ghost"
+                  color="gray"
+                  size="sm"
+                  aria-label="Channel actions"
+                  style={{
+                    boxSizing: "border-box",
+                    width: 32,
+                    height: 32,
+                    padding: 0,
+                    borderRadius: "50%",
+                  }}
+                >
+                  <BsThreeDotsVertical size={18} aria-hidden />
+                </Button>
               }
-              weight="medium"
-            />
-            <Box
-              style={{
-                height: "var(--space-5)",
-                borderLeft: "1px solid var(--gray-a6)",
-              }}
-            />
-            <Button
-              variant="outline"
-              color="gray"
-              size="sm"
-              icon={<PiPaperPlaneTilt />}
-              onClick={() => setShowSendTest(true)}
             >
-              Send test
-            </Button>
-            <Button
-              variant="outline"
-              color="red"
-              size="sm"
-              aria-label="Delete channel connection"
-              title="Delete channel connection"
-              onClick={() => setConfirmingDelete(true)}
-            >
-              <PiTrash />
-            </Button>
+              <DropdownMenuItem
+                onClick={() =>
+                  form.setValue("enabled", !enabled, { shouldDirty: true })
+                }
+              >
+                {enabled ? "Disable notifications" : "Enable notifications"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowSendTest(true)}>
+                Send test
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                color="red"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                Delete channel
+              </DropdownMenuItem>
+            </DropdownMenu>
           </Flex>
         </Flex>
 
@@ -327,7 +346,6 @@ export default function SlackChannelSettings({
 
         <NotificationSubscriptionSettings
           value={filters}
-          cardEvents={cardNotificationEventNames}
           onChange={(filters) => {
             for (const name of notificationFiltersSchema.keyof().options) {
               form.setValue(name, filters[name], { shouldDirty: true });
@@ -338,23 +356,35 @@ export default function SlackChannelSettings({
         {events.length === 0 && (
           <Callout status="warning">
             Select at least one event before saving. To pause all notifications,
-            turn off Enabled at the top of this page.
+            choose Disable notifications from the channel actions menu, then
+            save your settings.
           </Callout>
         )}
 
-        <Frame mb="0">
-          <Heading as="h4" size="sm" mb="1">
-            Results Card
-          </Heading>
-          <Text as="p" color="text-mid" mb="3">
-            Choose a style for events that support image cards. Other
-            notifications use text.
-          </Text>
-          <Flex gap="6" align="start" wrap="wrap">
-            <Box style={{ flex: 1, minWidth: 220 }}>
+        <NotificationSettingsCard>
+          <Flex gap="3" align="start" wrap="wrap">
+            <Box style={{ flex: "1 1 240px", minWidth: 0 }}>
+              <Heading as="h4" size="sm" mb="1">
+                Message Format
+              </Heading>
+              <Text as="p" color="text-mid" mb="3">
+                Choose how notifications will be sent to this channel. For
+                events that do not support images, text will be used instead.
+              </Text>
               <Box style={{ maxWidth: 420 }}>
-                <Select
-                  label="Card style"
+                <RadioGroup
+                  gap="1"
+                  options={[
+                    {
+                      value: "text",
+                      label: "Text only",
+                      description: "Send every notification as a text message.",
+                    },
+                    ...notificationCardFormats.map((format) => ({
+                      value: format,
+                      ...CARD_FORMAT_LABELS[format],
+                    })),
+                  ]}
                   value={
                     notificationSettings.type === "text"
                       ? "text"
@@ -380,39 +410,50 @@ export default function SlackChannelSettings({
                       );
                     }
                   }}
-                >
-                  <SelectItem value="text">Text only</SelectItem>
-                  {notificationCardFormats.map((format) => (
-                    <SelectItem key={format} value={format}>
-                      {CARD_FORMAT_LABELS[format].label}
-                    </SelectItem>
-                  ))}
-                </Select>
-              </Box>{" "}
+                />
+              </Box>
             </Box>
-            <Box style={{ width: 420, maxWidth: "100%" }}>
-              <Text as="div" size="sm" weight="medium" color="text-mid" mb="2">
-                PREVIEW
-              </Text>
-              <SlackEventPreview
-                eventName={sampleEvent}
-                notificationSettings={notificationSettings}
-              />
-              <Box mt="3">
+            <Box
+              p="3"
+              style={{
+                flex: "1 1 420px",
+                minWidth: 0,
+                background: "var(--gray-a2)",
+                border: "1px solid var(--gray-a4)",
+                borderRadius: 0,
+              }}
+            >
+              <Heading as="h4" size="sm" mb="1">
+                Preview
+              </Heading>
+              <Box mb="4">
                 <Select
-                  label="Preview event"
+                  labelSize="sm"
+                  labelWeight="regular"
+                  size="sm"
+                  variant="surface"
                   value={sampleEvent}
                   setValue={selectSampleEvent}
                 >
                   {previewChoiceItems}
                 </Select>
               </Box>
-              <Text as="p" color="text-mid" size="sm" mt="2">
-                Sample data. Events without image support appear as text.
-              </Text>
+              <SlackEventPreview
+                eventName={sampleEvent}
+                notificationSettings={notificationSettings}
+              />
+              {notificationSettings.type === "image" &&
+                !cardNotificationEventNames.some(
+                  (event) => event === sampleEvent,
+                ) && (
+                  <Text as="p" color="text-mid" size="sm" mt="3">
+                    This event always uses text, regardless of the selected
+                    format.
+                  </Text>
+                )}
             </Box>
           </Flex>
-        </Frame>
+        </NotificationSettingsCard>
       </Flex>
     </>
   );

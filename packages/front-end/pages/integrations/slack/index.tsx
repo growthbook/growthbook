@@ -12,8 +12,10 @@ import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
+import { PiArrowClockwise } from "react-icons/pi";
 import LegacySlackIntegrationsPage from "@/components/SlackIntegrations/LegacySlackIntegrationsPage";
 import SlackWorkspacePanel from "@/components/SlackIntegrations/SlackWorkspacePanel";
+import useSlackNavigationGuard from "@/components/SlackIntegrations/useSlackNavigationGuard";
 import { SlackIntegrationsListViewContainer } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView";
 import SelectField from "@/components/Forms/SelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -100,16 +102,17 @@ function AddChannelModal({
 }) {
   const { apiCall } = useAuth();
   const [channels, setChannels] = useState<SlackChannelOption[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState("");
 
-  const fetchChannels = useCallback(
-    async (cursor?: string) => {
-      setLoading(true);
-      setLoadError(null);
-      try {
+  const fetchChannels = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const allChannels: SlackChannelOption[] = [];
+      let cursor: string | null = null;
+      do {
         const response = await apiCall<{
           channels: SlackChannelOption[];
           nextCursor: string | null;
@@ -118,22 +121,20 @@ function AddChannelModal({
             cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
           }`,
         );
-        setChannels((current) =>
-          cursor ? [...current, ...response.channels] : response.channels,
-        );
-        setNextCursor(response.nextCursor);
-      } catch (error) {
-        setLoadError(
-          error instanceof Error
-            ? error.message
-            : "Failed to load Slack channels.",
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [apiCall, teamId],
-  );
+        allChannels.push(...response.channels);
+        cursor = response.nextCursor;
+      } while (cursor);
+      setChannels(allChannels);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load Slack channels.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, teamId]);
 
   useEffect(() => {
     fetchChannels();
@@ -176,57 +177,59 @@ function AddChannelModal({
           {loadError}
         </Callout>
       )}
-      <SelectField
-        label="Channel"
-        placeholder={loading ? "Loading channels…" : "Search for a channel…"}
-        value={selected}
-        options={channels.map((channel) => ({
-          label: `#${channel.name}${channel.isPrivate ? " (private)" : ""}${
-            channel.alreadyConnected ? " — already connected" : ""
-          }`,
-          value: channel.id,
-        }))}
-        onChange={setSelected}
-        isSearchable
-        isOptionDisabled={(option) =>
-          "value" in option && connectedIds.has(option.value)
-        }
-        disabled={loading && channels.length === 0}
-      />
-      <Flex gap="3" align="center" mt="3">
+      <Text as="label" htmlFor="slack-channel" weight="semibold" mb="1">
+        Channel
+      </Text>
+      <Flex align="center" gap="2">
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          <SelectField
+            id="slack-channel"
+            containerStyle={{ marginBottom: 0 }}
+            placeholder={
+              loading ? "Loading channels…" : "Search for a channel…"
+            }
+            value={selected}
+            options={channels.map((channel) => ({
+              label: `#${channel.name}${channel.isPrivate ? " (private)" : ""}${
+                channel.alreadyConnected ? " — already connected" : ""
+              }`,
+              value: channel.id,
+            }))}
+            onChange={setSelected}
+            isSearchable
+            isOptionDisabled={(option) =>
+              "value" in option && connectedIds.has(option.value)
+            }
+            disabled={loading && channels.length === 0}
+          />
+        </Box>
         <Button
           variant="ghost"
           size="sm"
+          aria-label="Refresh channels"
+          title="Refresh channels"
           loading={loading}
+          style={{ flexShrink: 0, alignSelf: "stretch", height: "auto" }}
           onClick={() => fetchChannels()}
         >
-          Refresh
+          <PiArrowClockwise size={16} aria-hidden />
         </Button>
-        {nextCursor && (
-          <Button
-            variant="ghost"
-            size="sm"
-            loading={loading}
-            onClick={() => fetchChannels(nextCursor)}
-          >
-            Load more
-          </Button>
-        )}
       </Flex>
-      <Text as="p" size="sm" color="text-mid" mt="3" mb="0">
-        For a private channel, invite the GrowthBook app in Slack before
-        refreshing this list.
+      <Text as="p" size="sm" color="text-mid" mt="1" mb="0">
+        For private channels, invite the GrowthBook app in Slack, then refresh.
       </Text>
     </ModalStandard>
   );
 }
 
 const SlackWorkspacePage: NextPage = () => {
+  const navigationGuard = useSlackNavigationGuard();
   const permissionsUtils = usePermissionsUtil();
   const canManageIntegrations = permissionsUtils.canManageIntegrations();
   const router = useRouter();
   const { apiCall, orgId, organizations, setOrgId } = useAuth();
   const callbackProcessed = useRef(false);
+  const initialChannelResolved = useRef(false);
   const installInFlight = useRef(false);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -270,6 +273,32 @@ const SlackWorkspacePage: NextPage = () => {
   );
 
   const selectedChannelId = getQueryStringValue(router.query.channel);
+
+  useEffect(() => {
+    if (
+      !router.isReady ||
+      !data ||
+      initialChannelResolved.current ||
+      router.query.code ||
+      router.query.error
+    )
+      return;
+
+    initialChannelResolved.current = true;
+    const channels = workspaceGroups.flatMap((group) => group.channels);
+    if (channels.some((channel) => channel.id === selectedChannelId)) return;
+    const firstChannel = channels[0];
+    if (!firstChannel) return;
+
+    void router.replace(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, channel: firstChannel.id },
+      },
+      undefined,
+      { shallow: true, scroll: false },
+    );
+  }, [router, data, workspaceGroups, selectedChannelId]);
 
   const selectChannel = useCallback(
     async (channelId: string | null) => {
@@ -518,6 +547,16 @@ const SlackWorkspacePage: NextPage = () => {
 
   return (
     <Box p="5">
+      {navigationGuard.pendingHref && (
+        <ConfirmDialog
+          title="Leave without saving?"
+          content="You have unsaved Slack notification settings. Leaving this page discards them."
+          yesText="Leave page"
+          noText="Keep editing"
+          onConfirm={navigationGuard.confirmNavigation}
+          onCancel={navigationGuard.cancelNavigation}
+        />
+      )}
       {addChannelTeamId && (
         <AddChannelModal
           teamId={addChannelTeamId}
@@ -637,6 +676,7 @@ const SlackWorkspacePage: NextPage = () => {
                 onDisconnect={() => setDisconnectTeamId(group.teamId)}
                 onAddChannel={() => setAddChannelTeamId(group.teamId)}
                 onSelectChannel={selectChannel}
+                onDirtyChange={navigationGuard.setWorkspaceDirty}
                 onSaved={async (savedChannel) => {
                   if (savedChannel) {
                     await mutate(
