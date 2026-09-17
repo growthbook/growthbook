@@ -32,7 +32,6 @@ import {
 } from "back-end/src/events/handlers/utils";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { getExperimentUrl } from "back-end/src/util/appUrls";
-import { getEvent } from "back-end/src/models/EventModel";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import { getSrmText } from "back-end/src/services/experimentChanges/experimentSrmSummary";
@@ -51,6 +50,7 @@ export const getSlackMessageForNotificationEvent = async (
   event: NotificationEvent,
   eventId: string,
 ): Promise<SlackMessage | null> => {
+  const stored: StoredEvent = { id: eventId, data: event };
   let invalidEvent: never;
 
   switch (event.event) {
@@ -60,49 +60,49 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.created":
       return buildSlackMessageForFeatureCreatedEvent(
         event.data.object.id,
-        eventId,
+        stored,
       );
 
     case "feature.updated":
       return buildSlackMessageForFeatureUpdatedEvent(
         event.data.object.id,
-        eventId,
+        stored,
       );
 
     case "feature.deleted":
       return buildSlackMessageForFeatureDeletedEvent(
         event.data.object.id,
-        eventId,
+        stored,
       );
 
     case "feature.saferollout.ship":
       return buildSlackMessageForSafeRolloutShipEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "feature.saferollout.rollback":
       return buildSlackMessageForSafeRolloutRollbackEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "feature.saferollout.unhealthy":
       return buildSlackMessageForSafeRolloutUnhealthyEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "experiment.created":
       return await buildSlackMessageForExperimentCreatedEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "experiment.updated":
       return await buildSlackMessageForExperimentUpdatedEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "experiment.status.started":
@@ -134,7 +134,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "experiment.deleted":
       return await buildSlackMessageForExperimentDeletedEvent(
         event.data.object.name,
-        eventId,
+        stored,
       );
 
     case "experiment.decision.ship":
@@ -162,7 +162,7 @@ export const getSlackMessageForNotificationEvent = async (
       return buildSlackMessageForRampScheduleEvent(
         event.event,
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "feature.revision.created":
@@ -183,25 +183,25 @@ export const getSlackMessageForNotificationEvent = async (
       return buildSlackMessageForRevisionEvent(
         event.event,
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "savedGroup.created":
       return buildSlackMessageForSavedGroupCreatedEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "savedGroup.updated":
       return buildSlackMessageForSavedGroupUpdatedEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "savedGroup.deleted":
       return buildSlackMessageForSavedGroupDeletedEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "savedGroup.revision.created":
@@ -222,25 +222,25 @@ export const getSlackMessageForNotificationEvent = async (
       return buildSlackMessageForSavedGroupRevisionEvent(
         event.event,
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "constant.created":
       return buildSlackMessageForConstantCreatedEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "constant.updated":
       return buildSlackMessageForConstantUpdatedEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "constant.deleted":
       return buildSlackMessageForConstantDeletedEvent(
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "constant.revision.created":
@@ -261,17 +261,17 @@ export const getSlackMessageForNotificationEvent = async (
       return buildSlackMessageForConstantRevisionEvent(
         event.event,
         event.data.object,
-        eventId,
+        stored,
       );
 
     case "config.created":
-      return buildSlackMessageForConfigCreatedEvent(event.data.object, eventId);
+      return buildSlackMessageForConfigCreatedEvent(event.data.object, stored);
 
     case "config.updated":
-      return buildSlackMessageForConfigUpdatedEvent(event.data.object, eventId);
+      return buildSlackMessageForConfigUpdatedEvent(event.data.object, stored);
 
     case "config.deleted":
-      return buildSlackMessageForConfigDeletedEvent(event.data.object, eventId);
+      return buildSlackMessageForConfigDeletedEvent(event.data.object, stored);
 
     case "config.revision.created":
     case "config.revision.updated":
@@ -291,7 +291,7 @@ export const getSlackMessageForNotificationEvent = async (
       return buildSlackMessageForConfigRevisionEvent(
         event.event,
         event.data.object,
-        eventId,
+        stored,
       );
 
     default:
@@ -304,6 +304,7 @@ export const getSlackMessageForLegacyNotificationEvent = async (
   event: LegacyNotificationEvent,
   eventId: string,
 ): Promise<SlackMessage | null> => {
+  const stored: StoredEvent = { id: eventId, data: event };
   let invalidEvent: never;
 
   switch (event.event) {
@@ -313,31 +314,31 @@ export const getSlackMessageForLegacyNotificationEvent = async (
     case "feature.created":
       return buildSlackMessageForFeatureCreatedEvent(
         event.data.current.id,
-        eventId,
+        stored,
       );
 
     case "feature.updated":
       return buildSlackMessageForFeatureUpdatedEvent(
         event.data.current.id,
-        eventId,
+        stored,
       );
 
     case "feature.deleted":
       return buildSlackMessageForFeatureDeletedEvent(
         event.data.previous.id,
-        eventId,
+        stored,
       );
 
     case "experiment.created":
       return await buildSlackMessageForExperimentCreatedEvent(
         event.data.current,
-        eventId,
+        stored,
       );
 
     case "experiment.updated":
       return await buildSlackMessageForExperimentUpdatedEvent(
         event.data.current,
-        eventId,
+        stored,
       );
 
     case "experiment.warning":
@@ -346,7 +347,7 @@ export const getSlackMessageForLegacyNotificationEvent = async (
     case "experiment.deleted":
       return await buildSlackMessageForExperimentDeletedEvent(
         event.data.previous.name,
-        eventId,
+        stored,
       );
 
     case "webhook.test":
@@ -415,12 +416,17 @@ export const getFeatureUrlFormatted = (featureId: string): string =>
 export const getEventUrlFormatted = (eventId: string): string =>
   `\n• <${APP_ORIGIN}/events/${eventId}|View Event>`;
 
-export const getEventUserFormatted = async (eventId: string) => {
-  const event = await getEvent(eventId);
+// The stored event a message describes: its id for the event link, and the
+// payload the caller already holds, so builders never read it back.
+export type StoredEvent = {
+  id: string;
+  data: { user?: NotificationEvent["user"]; data?: Record<string, unknown> };
+};
 
-  if (!event || !event.data?.user) return "an unknown user";
-
-  const { user } = event.data;
+export const getEventUserFormatted = (
+  user: NotificationEvent["user"] | undefined,
+): string => {
+  if (!user) return "an unknown user";
 
   if (user.type === "system") return "an automated process";
 
@@ -437,11 +443,11 @@ export const getEventUserFormatted = async (eventId: string) => {
   return isApi ? `${label} (via API)` : `${label}`;
 };
 
-const buildSlackMessageForFeatureCreatedEvent = async (
+const buildSlackMessageForFeatureCreatedEvent = (
   featureId: string,
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
 
   const text = `The feature ${featureId} has been created by ${eventUser}`;
 
@@ -455,19 +461,18 @@ const buildSlackMessageForFeatureCreatedEvent = async (
           text:
             `The feature *${featureId}* has been created by ${eventUser}.` +
             getFeatureUrlFormatted(featureId) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
   };
 };
 
-const buildSlackMessageForFeatureUpdatedEvent = async (
+const buildSlackMessageForFeatureUpdatedEvent = (
   featureId: string,
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
-  const event = await getEvent(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
 
   let changeBlocks: KnownBlock[] = [];
 
@@ -515,7 +520,7 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
           text:
             `The feature *${featureId}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getFeatureUrlFormatted(featureId) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
       ...changeBlocks,
@@ -523,11 +528,11 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
   };
 };
 
-const buildSlackMessageForFeatureDeletedEvent = async (
+const buildSlackMessageForFeatureDeletedEvent = (
   featureId: string,
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
   const text = `The feature ${featureId} has been deleted by ${eventUser}.`;
 
   return {
@@ -539,7 +544,7 @@ const buildSlackMessageForFeatureDeletedEvent = async (
           type: "mrkdwn",
           text:
             `The feature *${featureId}* has been deleted by ${eventUser}.` +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -548,7 +553,7 @@ const buildSlackMessageForFeatureDeletedEvent = async (
 
 const buildSlackMessageForSafeRolloutShipEvent = (
   data: SafeRolloutDecisionNotificationPayload,
-  eventId: string,
+  event: StoredEvent,
 ): SlackMessage => {
   const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} is ready to ship to 100% of traffic.`;
   return {
@@ -561,7 +566,7 @@ const buildSlackMessageForSafeRolloutShipEvent = (
           text:
             text +
             getFeatureUrlFormatted(data.featureId) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -570,7 +575,7 @@ const buildSlackMessageForSafeRolloutShipEvent = (
 
 const buildSlackMessageForSafeRolloutRollbackEvent = (
   data: SafeRolloutDecisionNotificationPayload,
-  eventId: string,
+  event: StoredEvent,
 ): SlackMessage => {
   const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} has a failing guardrail and should be rolled back.`;
   return {
@@ -583,7 +588,7 @@ const buildSlackMessageForSafeRolloutRollbackEvent = (
           text:
             text +
             getFeatureUrlFormatted(data.featureId) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -592,7 +597,7 @@ const buildSlackMessageForSafeRolloutRollbackEvent = (
 
 const buildSlackMessageForSafeRolloutUnhealthyEvent = (
   data: SafeRolloutUnhealthyNotificationPayload,
-  eventId: string,
+  event: StoredEvent,
 ): SlackMessage => {
   const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} is failing a health check and may not be working as expected.`;
   return {
@@ -605,7 +610,7 @@ const buildSlackMessageForSafeRolloutUnhealthyEvent = (
           text:
             text +
             getFeatureUrlFormatted(data.featureId) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -625,7 +630,7 @@ type RampBasePayload = {
 const buildSlackMessageForRampScheduleEvent = (
   eventType: string,
   data: RampBasePayload & Partial<RampScheduleStepApprovalRequiredPayload>,
-  eventId: string,
+  event: StoredEvent,
 ): SlackMessage => {
   const name = `*${data.rampName}*`;
   const step = (data.currentStepIndex ?? -1) + 1;
@@ -672,7 +677,7 @@ const buildSlackMessageForRampScheduleEvent = (
       type: "section",
       text: {
         type: "mrkdwn",
-        text: text + getEventUrlFormatted(eventId),
+        text: text + getEventUrlFormatted(event.id),
       },
     },
   ];
@@ -722,7 +727,7 @@ const formatPublishFailedSuffix = (data: {
 const buildSlackMessageForRevisionEvent = (
   eventType: string,
   data: RevisionSlackData,
-  eventId: string,
+  event: StoredEvent,
 ): SlackMessage => {
   const feature = `*${data.featureId}*`;
   const version = `v${data.version}`;
@@ -790,7 +795,7 @@ const buildSlackMessageForRevisionEvent = (
           text:
             text +
             getFeatureUrlFormatted(data.featureId) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -804,11 +809,11 @@ const buildSlackMessageForRevisionEvent = (
 export const getSavedGroupUrlFormatted = (savedGroupId: string): string =>
   `\n• <${APP_ORIGIN}/saved-groups/${savedGroupId}|View Saved Group>`;
 
-const buildSlackMessageForSavedGroupCreatedEvent = async (
+const buildSlackMessageForSavedGroupCreatedEvent = (
   savedGroup: { id: string; name: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
   const text = `The saved group ${savedGroup.name} has been created by ${eventUser}.`;
 
   return {
@@ -821,19 +826,18 @@ const buildSlackMessageForSavedGroupCreatedEvent = async (
           text:
             `The saved group *${savedGroup.name}* has been created by ${eventUser}.` +
             getSavedGroupUrlFormatted(savedGroup.id) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
   };
 };
 
-const buildSlackMessageForSavedGroupUpdatedEvent = async (
+const buildSlackMessageForSavedGroupUpdatedEvent = (
   savedGroup: { id: string; name: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
-  const event = await getEvent(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
 
   let changeBlocks: KnownBlock[] = [];
   if (event?.data?.data && "changes" in event.data.data) {
@@ -874,7 +878,7 @@ const buildSlackMessageForSavedGroupUpdatedEvent = async (
           text:
             `The saved group *${savedGroup.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getSavedGroupUrlFormatted(savedGroup.id) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
       ...changeBlocks,
@@ -882,11 +886,11 @@ const buildSlackMessageForSavedGroupUpdatedEvent = async (
   };
 };
 
-const buildSlackMessageForSavedGroupDeletedEvent = async (
+const buildSlackMessageForSavedGroupDeletedEvent = (
   savedGroup: { id: string; name: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
   const text = `The saved group ${savedGroup.name} has been deleted by ${eventUser}.`;
 
   return {
@@ -898,7 +902,7 @@ const buildSlackMessageForSavedGroupDeletedEvent = async (
           type: "mrkdwn",
           text:
             `The saved group *${savedGroup.name}* has been deleted by ${eventUser}.` +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -920,7 +924,7 @@ type SavedGroupRevisionSlackData = {
 const buildSlackMessageForSavedGroupRevisionEvent = (
   eventType: string,
   data: SavedGroupRevisionSlackData,
-  eventId: string,
+  event: StoredEvent,
 ): SlackMessage => {
   const group = `*${data.baseSavedGroup.name}*`;
   const version = `v${data.version ?? "?"}`;
@@ -988,7 +992,7 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
           text:
             text +
             getSavedGroupUrlFormatted(data.baseSavedGroup.id) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -1003,11 +1007,11 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
 export const getConstantUrlFormatted = (constantKey: string): string =>
   `\n• <${APP_ORIGIN}/constants/${constantKey}|View Constant>`;
 
-const buildSlackMessageForConstantCreatedEvent = async (
+const buildSlackMessageForConstantCreatedEvent = (
   constant: { id: string; name: string; key: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
   const text = `The Constant ${constant.name} has been created by ${eventUser}.`;
   return {
     text,
@@ -1019,19 +1023,18 @@ const buildSlackMessageForConstantCreatedEvent = async (
           text:
             `The Constant *${constant.name}* has been created by ${eventUser}.` +
             getConstantUrlFormatted(constant.key) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
   };
 };
 
-const buildSlackMessageForConstantUpdatedEvent = async (
+const buildSlackMessageForConstantUpdatedEvent = (
   constant: { id: string; name: string; key: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
-  const event = await getEvent(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
 
   let changeBlocks: KnownBlock[] = [];
   if (event?.data?.data && "changes" in event.data.data) {
@@ -1073,7 +1076,7 @@ const buildSlackMessageForConstantUpdatedEvent = async (
           text:
             `The Constant *${constant.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getConstantUrlFormatted(constant.key) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
       ...changeBlocks,
@@ -1081,11 +1084,11 @@ const buildSlackMessageForConstantUpdatedEvent = async (
   };
 };
 
-const buildSlackMessageForConstantDeletedEvent = async (
+const buildSlackMessageForConstantDeletedEvent = (
   constant: { id: string; name: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
   const text = `The Constant ${constant.name} has been deleted by ${eventUser}.`;
   return {
     text,
@@ -1096,7 +1099,7 @@ const buildSlackMessageForConstantDeletedEvent = async (
           type: "mrkdwn",
           text:
             `The Constant *${constant.name}* has been deleted by ${eventUser}.` +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -1118,7 +1121,7 @@ type ConstantRevisionSlackData = {
 const buildSlackMessageForConstantRevisionEvent = (
   eventType: string,
   data: ConstantRevisionSlackData,
-  eventId: string,
+  event: StoredEvent,
 ): SlackMessage => {
   const name = `*${data.baseConstant.name}*`;
   const version = `v${data.version ?? "?"}`;
@@ -1186,7 +1189,7 @@ const buildSlackMessageForConstantRevisionEvent = (
           text:
             text +
             getConstantUrlFormatted(data.baseConstant.key) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -1201,11 +1204,11 @@ const buildSlackMessageForConstantRevisionEvent = (
 export const getConfigUrlFormatted = (configKey: string): string =>
   `\n• <${APP_ORIGIN}/configs/${configKey}|View Config>`;
 
-const buildSlackMessageForConfigCreatedEvent = async (
+const buildSlackMessageForConfigCreatedEvent = (
   config: { id: string; name: string; key: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
   const text = `The Config ${config.name} has been created by ${eventUser}.`;
   return {
     text,
@@ -1217,19 +1220,18 @@ const buildSlackMessageForConfigCreatedEvent = async (
           text:
             `The Config *${config.name}* has been created by ${eventUser}.` +
             getConfigUrlFormatted(config.key) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
   };
 };
 
-const buildSlackMessageForConfigUpdatedEvent = async (
+const buildSlackMessageForConfigUpdatedEvent = (
   config: { id: string; name: string; key: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
-  const event = await getEvent(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
 
   let changeBlocks: KnownBlock[] = [];
   if (event?.data?.data && "changes" in event.data.data) {
@@ -1271,7 +1273,7 @@ const buildSlackMessageForConfigUpdatedEvent = async (
           text:
             `The Config *${config.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getConfigUrlFormatted(config.key) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
       ...changeBlocks,
@@ -1279,11 +1281,11 @@ const buildSlackMessageForConfigUpdatedEvent = async (
   };
 };
 
-const buildSlackMessageForConfigDeletedEvent = async (
+const buildSlackMessageForConfigDeletedEvent = (
   config: { id: string; name: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
   const text = `The Config ${config.name} has been deleted by ${eventUser}.`;
   return {
     text,
@@ -1294,7 +1296,7 @@ const buildSlackMessageForConfigDeletedEvent = async (
           type: "mrkdwn",
           text:
             `The Config *${config.name}* has been deleted by ${eventUser}.` +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -1316,7 +1318,7 @@ type ConfigRevisionSlackData = {
 const buildSlackMessageForConfigRevisionEvent = (
   eventType: string,
   data: ConfigRevisionSlackData,
-  eventId: string,
+  event: StoredEvent,
 ): SlackMessage => {
   const name = `*${data.baseConfig.name}*`;
   const version = `v${data.version ?? "?"}`;
@@ -1384,7 +1386,7 @@ const buildSlackMessageForConfigRevisionEvent = (
           text:
             text +
             getConfigUrlFormatted(data.baseConfig.key) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
@@ -1403,11 +1405,11 @@ export const getExperimentUrlAndNameFormatted = (
   experimentName: string,
 ): string => `<${getExperimentUrl(experimentId)}|${experimentName}>`;
 
-const buildSlackMessageForExperimentCreatedEvent = async (
+const buildSlackMessageForExperimentCreatedEvent = (
   { id: experimentId, name: experimentName }: { id: string; name: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
   const isUnknownUser = eventUser === "an unknown user";
   const text = `The experiment ${experimentName} has been created ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
 
@@ -1421,19 +1423,18 @@ const buildSlackMessageForExperimentCreatedEvent = async (
           text:
             `The experiment *${experimentName}* has been created ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getExperimentUrlFormatted(experimentId) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
   };
 };
 
-const buildSlackMessageForExperimentUpdatedEvent = async (
+const buildSlackMessageForExperimentUpdatedEvent = (
   { id: experimentId, name: experimentName }: { id: string; name: string },
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
-  const event = await getEvent(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
 
   let changeBlocks: KnownBlock[] = [];
 
@@ -1640,7 +1641,7 @@ const buildSlackMessageForExperimentUpdatedEvent = async (
           text:
             `The experiment *${experimentName}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getExperimentUrlFormatted(experimentId) +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
       ...changeBlocks,
@@ -1663,11 +1664,11 @@ const buildSlackMessageForWebhookTestEvent = (
   ],
 });
 
-const buildSlackMessageForExperimentDeletedEvent = async (
+const buildSlackMessageForExperimentDeletedEvent = (
   experimentName: string,
-  eventId: string,
-): Promise<SlackMessage> => {
-  const eventUser = await getEventUserFormatted(eventId);
+  event: StoredEvent,
+): SlackMessage => {
+  const eventUser = getEventUserFormatted(event.data.user);
   const isUnknownUser = eventUser === "an unknown user";
   const text = `The experiment ${experimentName} has been deleted ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
 
@@ -1680,7 +1681,7 @@ const buildSlackMessageForExperimentDeletedEvent = async (
           type: "mrkdwn",
           text:
             `The experiment *${experimentName}* has been deleted ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
-            getEventUrlFormatted(eventId),
+            getEventUrlFormatted(event.id),
         },
       },
     ],
