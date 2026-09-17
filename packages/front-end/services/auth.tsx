@@ -323,8 +323,7 @@ export const AuthProvider: React.FC<{
           >
             <h3>Sign In Required</h3>
             <p>
-              You must sign in with your identity provider to continue. If that
-              keeps failing, cancel to sign in another way.
+              You must sign in with your Enterprise SSO provider to continue.
             </p>
           </Modal>,
         );
