@@ -31,7 +31,10 @@ export type ScopedRule = {
 
 // Parse operators, not substrings: IDs may also appear as ordinary targeting
 // values. Covers nested logical operators and both positive/negative membership.
-export function savedGroupIdsInTargeting(targeting: Targeting): Set<string> {
+export function savedGroupIdsInTargeting(
+  targeting: Targeting,
+  { ignoreInvalidCondition = false } = {},
+): Set<string> {
   const ids = new Set(targeting.savedGroups?.flatMap((s) => s.ids));
   const visit = (value: unknown): void => {
     if (!value || typeof value !== "object") return;
@@ -51,7 +54,8 @@ export function savedGroupIdsInTargeting(targeting: Targeting): Set<string> {
     try {
       visit(JSON.parse(targeting.condition));
     } catch {
-      throw new BadRequestError("Invalid targeting condition JSON");
+      if (!ignoreInvalidCondition)
+        throw new BadRequestError("Invalid targeting condition JSON");
     }
   }
   return ids;
@@ -199,10 +203,16 @@ export function savedGroupScopeChangeBreaksTargeting(
         }
       }
       if (group.type === "condition") {
-        for (const nested of savedGroupIdsInTargeting(group)) visit(nested);
+        for (const nested of savedGroupIdsInTargeting(group, {
+          ignoreInvalidCondition: true,
+        }))
+          visit(nested);
       }
     };
-    for (const id of savedGroupIdsInTargeting(targeting)) visit(id);
+    for (const id of savedGroupIdsInTargeting(targeting, {
+      ignoreInvalidCondition: true,
+    }))
+      visit(id);
     return denied;
   };
   const before = violations(previous);

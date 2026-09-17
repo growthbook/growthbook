@@ -200,6 +200,14 @@ describe("feature writes and publish validation", () => {
     },
   );
 
+  it("still rejects malformed conditions on the feature's own write", async () => {
+    const malformed = feature();
+    malformed.rules[0].condition = "{";
+    await expect(
+      assertFeatureSavedGroupScope(context, malformed),
+    ).rejects.toThrow("Invalid targeting condition JSON");
+  });
+
   it("rejects a rule write referencing another project's group", async () => {
     await expect(
       assertFeatureSavedGroupScope(context, feature({ project: "b" })),
@@ -686,6 +694,48 @@ describe("Saved Group re-scoping", () => {
     expect(getGroups).not.toHaveBeenCalled();
     expect(getAllFeaturesWithoutEditorFields).not.toHaveBeenCalled();
     expect(getRevisionsByStatus).not.toHaveBeenCalled();
+  });
+
+  it("ignores malformed legacy conditions on unrelated live flags and drafts", async () => {
+    const malformed = feature({
+      rules: [{ ...feature().rules[0], savedGroups: [], condition: "{" }],
+    });
+    jest
+      .mocked(getAllFeaturesWithoutEditorFields)
+      .mockResolvedValue([malformed]);
+    jest.mocked(getRevisionsByStatus).mockResolvedValue([
+      {
+        featureId: malformed.id,
+        version: 2,
+        rules: malformed.rules,
+        metadata: { project: "a" },
+      } as FeatureRevisionInterface,
+    ]);
+    await expect(narrow()).resolves.toBeUndefined();
+  });
+
+  it("still checks explicit group references next to a malformed condition", async () => {
+    const malformed = feature();
+    malformed.rules[0].condition = "{";
+    jest
+      .mocked(getAllFeaturesWithoutEditorFields)
+      .mockResolvedValue([malformed]);
+    await expect(narrow()).rejects.toThrow("existing Feature Flag references");
+  });
+
+  it("ignores a malformed legacy group branch while checking its valid siblings", async () => {
+    getGroups.mockResolvedValue([
+      group("group", ["a", "b"]),
+      group("broken", [], "{"),
+    ]);
+    const consumer = feature();
+    consumer.rules[0].savedGroups = [
+      { match: "all", ids: ["broken", "group"] },
+    ];
+    jest
+      .mocked(getAllFeaturesWithoutEditorFields)
+      .mockResolvedValue([consumer]);
+    await expect(narrow()).rejects.toThrow("existing Feature Flag references");
   });
 
   it("blocks condition edits that introduce an out-of-scope descendant", async () => {

@@ -42,7 +42,10 @@ import {
   reviewerKeyForEventUser,
 } from "shared/validators";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
-import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
+import {
+  featureForSavedGroupValidation,
+  Feature as SavedGroupScopeFeature,
+} from "back-end/src/util/savedGroupProjectScope.util";
 import { ConflictError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -1145,11 +1148,14 @@ export async function createRevision({
   canBypassApprovalChecks,
   revertedFrom,
   preInsertValidation,
+  savedGroupScopeBaseline,
 }: PrepareFeatureRevisionParams & {
   publish?: boolean;
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
   preInsertValidation?: (revision: FeatureRevisionInterface) => Promise<void>;
+  // Internal ramp restoration of persisted targeting; never request-supplied.
+  savedGroupScopeBaseline?: SavedGroupScopeFeature;
 }) {
   const prepared = await prepareFeatureRevision({
     context,
@@ -1168,7 +1174,7 @@ export async function createRevision({
   await assertFeatureSavedGroupScope(
     context,
     featureForSavedGroupValidation(feature, revision),
-    feature,
+    savedGroupScopeBaseline ? [feature, savedGroupScopeBaseline] : feature,
   );
 
   const requiresReview = checkIfRevisionNeedsReview({

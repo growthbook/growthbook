@@ -884,6 +884,11 @@ export const featureEntityHandler: EntityHandler = {
       comment: stepLabel,
       title: stepLabel,
       org: ctx.org,
+      // Start/rollback replay a persisted anchor or earlier step. As with the
+      // targeting validators above, scope must not prevent that restoration.
+      savedGroupScopeBaseline: judgeTargeting
+        ? undefined
+        : { ...feature, rules: updatedRules },
     });
 
     const forceResult: MergeResultChanges = { rules: updatedRules };
