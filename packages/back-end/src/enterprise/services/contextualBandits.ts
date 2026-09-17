@@ -1219,10 +1219,8 @@ export async function executeContextualBanditVariationChange(
     const survivors = basePreviousVisible
       .filter((v) => !removedSet.has(v.id))
       .map((v) => {
-        const prev = previousById.get(v.id);
-        const withStatus = prev?.status ? { ...v, status: prev.status } : v;
         const patch = updateMap.get(v.id);
-        return patch ? { ...withStatus, ...patch } : withStatus;
+        return patch ? { ...v, ...patch } : v;
       });
 
     const visibleAdds: ContextualBanditVariation[] = normalizedAdds.map((v) => {
