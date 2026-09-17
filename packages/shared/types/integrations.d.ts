@@ -621,6 +621,30 @@ export type FeatureEvalDiagnosticsQueryParams = {
   feature: string;
 };
 
+export type EventLogSummaryQueryParams = {
+  dateFrom: Date;
+  dateTo: Date;
+  clientKeys: string[];
+  search?: string;
+  limit: number;
+  offset: number;
+};
+
+export type EventLogRecordsQueryParams = {
+  dateFrom: Date;
+  dateTo: Date;
+  clientKeys: string[];
+  eventName?: string;
+  userId?: string;
+  environment?: string;
+  browser?: string;
+  os?: string;
+  country?: string;
+  sdk?: string;
+  limit: number;
+  offset: number;
+};
+
 export type PastExperimentParams = {
   from: Date;
   forceRefresh?: boolean;
@@ -906,6 +930,37 @@ export type UserExperimentExposuresQueryResponse =
   };
 export type FeatureEvalDiagnosticsQueryResponse =
   QueryResponse<FeatureEvalDiagnosticsQueryResponseRows> & {
+    truncated?: boolean;
+  };
+
+export type EventLogSummaryQueryResponseRows = {
+  event_name: string;
+  day: string;
+  day_count: string;
+  day_dau: string;
+}[];
+export type EventLogSummaryQueryResponse =
+  QueryResponse<EventLogSummaryQueryResponseRows>;
+
+export type EventLogRecordsQueryResponseRows = {
+  event_uuid: string;
+  timestamp: string;
+  event_name: string;
+  user_id: string | null;
+  device_id: string | null;
+  environment: string | null;
+  properties: Record<string, unknown>;
+  attributes: Record<string, unknown>;
+  url: string | null;
+  geo_country: string | null;
+  ua_browser: string | null;
+  ua_os: string | null;
+  ua_device_type: string | null;
+  sdk_language: string | null;
+  sdk_version: string | null;
+}[];
+export type EventLogRecordsQueryResponse =
+  QueryResponse<EventLogRecordsQueryResponseRows> & {
     truncated?: boolean;
   };
 

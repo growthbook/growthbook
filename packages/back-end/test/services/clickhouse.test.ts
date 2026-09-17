@@ -9,11 +9,12 @@ import {
 } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import {
-  listEventLogRecords,
-  listEventLogSummary,
   listSessionReplays,
   syncManagedWarehouseIdentifiers,
 } from "back-end/src/services/clickhouse";
+import { getEventLogSummaryQuery } from "back-end/src/integrations/sql/queries/event-log-summary-query";
+import { getEventLogRecordsQuery } from "back-end/src/integrations/sql/queries/event-log-records-query";
+import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
 import {
   dangerouslyGetFactTableByIdBypassPermission,
   dangerouslySyncManagedWarehouseFactTable,
@@ -143,94 +144,92 @@ describe("listSessionReplays", () => {
   });
 });
 
-describe("event logs", () => {
-  const context = {
-    org: { id: "org_test" },
-  } as unknown as ReqContext;
+describe("event log query generators", () => {
+  const tableConfig = {
+    eventsTable: "events",
+    experimentViewsTable: "experiment_views",
+    featureUsageTable: "feature_usage",
+  };
 
-  const datasource = {
-    id: "managed_warehouse",
-    organization: "org_test",
-    type: "growthbook_clickhouse",
-    settings: {},
-  } as unknown as GrowthbookClickhouseDataSource;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockGetGrowthbookDatasource.mockResolvedValue(datasource);
-  });
-
-  it("orders summary counts chronologically", async () => {
-    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
-    mockGetSourceIntegrationObject.mockReturnValue({ runQuery } as never);
-
-    await listEventLogSummary(context, {
-      dateFrom: "2026-08-01T00:00:00.000Z",
-      dateTo: "2026-08-02T00:00:00.000Z",
-      clientKeys: ["sdk-key"],
-      limit: 100,
-      offset: 0,
-    });
-
-    const query = runQuery.mock.calls[0][0] as string;
-    expect(query).toContain(
-      "arraySort(item -> item.1, groupArray((day, day_count)))",
+  it("summary query uses dialect date_trunc for daily grouping", () => {
+    const sql = getEventLogSummaryQuery(
+      clickHouseDialect,
+      {
+        dateFrom: new Date("2026-08-01T00:00:00.000Z"),
+        dateTo: new Date("2026-08-02T00:00:00.000Z"),
+        clientKeys: ["sdk-key"],
+        limit: 100,
+        offset: 0,
+      },
+      tableConfig,
     );
+
+    // Normalise whitespace so sql-formatter linebreaks don't break assertions
+    const norm = sql.replace(/\s+/g, " ");
+    expect(norm).toContain("__daily");
+    expect(norm).toContain("__top_events");
+    expect(norm).toContain("FROM events");
+    expect(norm).toContain("FROM experiment_views");
+    expect(norm).toContain("FROM feature_usage");
+    expect(norm).toContain("dateTrunc('day'");
   });
 
-  it("omits feature usage when filters cannot apply to that table", async () => {
-    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
-    mockGetSourceIntegrationObject.mockReturnValue({ runQuery } as never);
+  it("records query omits feature usage when filters cannot apply to that table", () => {
+    const sql = getEventLogRecordsQuery(
+      clickHouseDialect,
+      {
+        dateFrom: new Date("2026-08-01T00:00:00.000Z"),
+        dateTo: new Date("2026-08-02T00:00:00.000Z"),
+        clientKeys: ["sdk-key"],
+        userId: "user-1",
+        limit: 100,
+        offset: 0,
+      },
+      tableConfig,
+    );
 
-    await listEventLogRecords(context, {
-      dateFrom: "2026-08-01T00:00:00.000Z",
-      dateTo: "2026-08-02T00:00:00.000Z",
-      clientKeys: ["sdk-key"],
-      userId: "user-1",
-      limit: 100,
-      offset: 0,
-    });
-
-    const query = runQuery.mock.calls[0][0] as string;
-    expect(query).toContain("FROM events");
-    expect(query).toContain("FROM experiment_views");
-    expect(query).not.toContain("FROM feature_usage");
+    const norm = sql.replace(/\s+/g, " ");
+    expect(norm).toContain("FROM events");
+    expect(norm).toContain("FROM experiment_views");
+    expect(norm).not.toContain("feature_usage");
   });
 
-  it("returns no feature usage rows for unsupported filters", async () => {
-    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
-    mockGetSourceIntegrationObject.mockReturnValue({ runQuery } as never);
-
-    await expect(
-      listEventLogRecords(context, {
-        dateFrom: "2026-08-01T00:00:00.000Z",
-        dateTo: "2026-08-02T00:00:00.000Z",
+  it("records query returns empty result set for unsupported feature usage filters", () => {
+    const sql = getEventLogRecordsQuery(
+      clickHouseDialect,
+      {
+        dateFrom: new Date("2026-08-01T00:00:00.000Z"),
+        dateTo: new Date("2026-08-02T00:00:00.000Z"),
         clientKeys: ["sdk-key"],
         eventName: "Feature Evaluated",
         browser: "Chrome",
         limit: 100,
         offset: 0,
-      }),
-    ).resolves.toEqual([]);
-    expect(runQuery).not.toHaveBeenCalled();
+      },
+      tableConfig,
+    );
+
+    const norm = sql.replace(/\s+/g, " ");
+    expect(norm).toContain("WHERE 1 = 0");
   });
 
-  it("uses a stable hash for feature usage row IDs", async () => {
-    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
-    mockGetSourceIntegrationObject.mockReturnValue({ runQuery } as never);
+  it("records query generates a stable identifier for feature usage rows", () => {
+    const sql = getEventLogRecordsQuery(
+      clickHouseDialect,
+      {
+        dateFrom: new Date("2026-08-01T00:00:00.000Z"),
+        dateTo: new Date("2026-08-02T00:00:00.000Z"),
+        clientKeys: ["sdk-key"],
+        eventName: "Feature Evaluated",
+        limit: 100,
+        offset: 0,
+      },
+      tableConfig,
+    );
 
-    await listEventLogRecords(context, {
-      dateFrom: "2026-08-01T00:00:00.000Z",
-      dateTo: "2026-08-02T00:00:00.000Z",
-      clientKeys: ["sdk-key"],
-      eventName: "Feature Evaluated",
-      limit: 100,
-      offset: 0,
-    });
-
-    const query = runQuery.mock.calls[0][0] as string;
-    expect(query).toContain("cityHash64(");
-    expect(query).not.toContain("generateUUIDv4()");
+    const norm = sql.replace(/\s+/g, " ");
+    expect(norm).toContain("feature-usage-");
+    expect(norm).not.toContain("generateUUIDv4()");
   });
 });
 

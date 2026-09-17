@@ -1,11 +1,15 @@
 import type { EventLogSummaryItem, EventLogRecord } from "shared/validators";
+import type {
+  EventLogSummaryQueryResponseRows,
+  EventLogRecordsQueryResponseRows,
+} from "shared/types/integrations";
 import type { ReqContext } from "back-end/types/request";
+import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import {
-  listEventLogSummary,
-  listEventLogRecords,
-  EventLogSummaryRow,
-  EventLogRecordRow,
-} from "back-end/src/services/clickhouse";
+  getSourceIntegrationObject,
+  runEventLogSummaryQuery,
+  runEventLogRecordsQuery,
+} from "back-end/src/services/datasource";
 import { filterClientKeysByProject } from "back-end/src/services/session-replay";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 
@@ -60,16 +64,20 @@ export class EventLogModel {
     );
     if (clientKeys.length === 0) return [];
 
-    const rows = await listEventLogSummary(this.context, {
-      dateFrom: options.dateFrom.toISOString(),
-      dateTo: options.dateTo.toISOString(),
+    const datasource = await getGrowthbookDatasource(this.context);
+    if (!datasource) return [];
+
+    const integration = getSourceIntegrationObject(this.context, datasource);
+    const { rows } = await runEventLogSummaryQuery(integration, {
+      dateFrom: options.dateFrom,
+      dateTo: options.dateTo,
       clientKeys,
       search: options.search,
       limit: options.limit,
       offset: options.offset,
     });
 
-    return rows.map(toSummaryItem);
+    return aggregateSummaryRows(rows);
   }
 
   public async listRecords(options: {
@@ -111,9 +119,13 @@ export class EventLogModel {
     );
     if (clientKeys.length === 0) return [];
 
-    const rows = await listEventLogRecords(this.context, {
-      dateFrom: options.dateFrom.toISOString(),
-      dateTo: options.dateTo.toISOString(),
+    const datasource = await getGrowthbookDatasource(this.context);
+    if (!datasource) return [];
+
+    const integration = getSourceIntegrationObject(this.context, datasource);
+    const { rows } = await runEventLogRecordsQuery(integration, {
+      dateFrom: options.dateFrom,
+      dateTo: options.dateTo,
       clientKeys,
       eventName: options.eventName,
       userId: options.userId,
@@ -130,19 +142,61 @@ export class EventLogModel {
   }
 }
 
-function toSummaryItem(row: EventLogSummaryRow): EventLogSummaryItem {
-  return {
-    eventName: row.event_name,
-    totalCount: Number(row.total_count),
-    dauCount: Math.round(Number(row.dau_count)),
-    dailyCounts: (row.daily_counts ?? []).map(Number),
-  };
+/**
+ * Aggregates per-(event_name, day) rows into one EventLogSummaryItem per
+ * event name with a dailyCounts array sorted by day.
+ */
+function aggregateSummaryRows(
+  rows: EventLogSummaryQueryResponseRows,
+): EventLogSummaryItem[] {
+  const byEvent = new Map<
+    string,
+    {
+      totalCount: number;
+      dauSum: number;
+      dayCount: number;
+      days: Map<string, number>;
+    }
+  >();
+
+  for (const row of rows) {
+    let entry = byEvent.get(row.event_name);
+    if (!entry) {
+      entry = { totalCount: 0, dauSum: 0, dayCount: 0, days: new Map() };
+      byEvent.set(row.event_name, entry);
+    }
+    const count = Number(row.day_count) || 0;
+    entry.totalCount += count;
+    entry.dauSum += Number(row.day_dau) || 0;
+    entry.dayCount += 1;
+    entry.days.set(row.day, count);
+  }
+
+  // Build sorted daily counts and return items ordered by total_count desc
+  // (the SQL already orders by total_count desc, so insertion order is correct)
+  const items: EventLogSummaryItem[] = [];
+  for (const [eventName, entry] of byEvent) {
+    const sortedDays = Array.from(entry.days.entries()).sort(([a], [b]) =>
+      a.localeCompare(b),
+    );
+    items.push({
+      eventName,
+      totalCount: entry.totalCount,
+      dauCount:
+        entry.dayCount > 0 ? Math.round(entry.dauSum / entry.dayCount) : 0,
+      dailyCounts: sortedDays.map(([, count]) => count),
+    });
+  }
+
+  return items;
 }
 
-function toRecord(row: EventLogRecordRow): EventLogRecord {
+function toRecord(
+  row: EventLogRecordsQueryResponseRows[number],
+): EventLogRecord {
   return {
     eventUuid: row.event_uuid,
-    timestamp: normalizeClickHouseTimestamp(row.timestamp),
+    timestamp: normalizeTimestamp(row.timestamp),
     eventName: row.event_name,
     userId: row.user_id ?? null,
     deviceId: row.device_id ?? null,
@@ -165,7 +219,7 @@ function toRecord(row: EventLogRecordRow): EventLogRecord {
   };
 }
 
-function normalizeClickHouseTimestamp(value: string): string {
+function normalizeTimestamp(value: string): string {
   const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value);
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
   const date = new Date(hasTimezone ? normalized : `${normalized}Z`);

@@ -6,6 +6,10 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import {
+  EventLogRecordsQueryParams,
+  EventLogRecordsQueryResponse,
+  EventLogSummaryQueryParams,
+  EventLogSummaryQueryResponse,
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
   TestQueryResult,
@@ -361,6 +365,39 @@ export async function runFeatureEvalDiagnosticsQuery(
   } catch (e) {
     throw new SQLExecutionError(formatQueryExecutionErrorForApi(e), sql);
   }
+}
+
+export async function runEventLogSummaryQuery(
+  integration: SourceIntegrationInterface,
+  params: EventLogSummaryQueryParams,
+): Promise<EventLogSummaryQueryResponse & { sql?: string }> {
+  if (
+    !integration.getEventLogSummaryQuery ||
+    !integration.runEventLogSummaryQuery
+  ) {
+    throw new Error("Datasource does not support event log queries.");
+  }
+
+  const sql = integration.getEventLogSummaryQuery(params);
+  const { rows, statistics } = await integration.runEventLogSummaryQuery(sql);
+  return { rows, statistics, sql };
+}
+
+export async function runEventLogRecordsQuery(
+  integration: SourceIntegrationInterface,
+  params: EventLogRecordsQueryParams,
+): Promise<EventLogRecordsQueryResponse & { sql?: string }> {
+  if (
+    !integration.getEventLogRecordsQuery ||
+    !integration.runEventLogRecordsQuery
+  ) {
+    throw new Error("Datasource does not support event log queries.");
+  }
+
+  const sql = integration.getEventLogRecordsQuery(params);
+  const { rows, statistics, truncated } =
+    await integration.runEventLogRecordsQuery(sql);
+  return { rows, statistics, truncated, sql };
 }
 
 export async function testQuery(

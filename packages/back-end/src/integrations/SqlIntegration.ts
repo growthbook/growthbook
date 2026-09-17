@@ -74,6 +74,10 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
+  EventLogRecordsQueryParams,
+  EventLogRecordsQueryResponse,
+  EventLogSummaryQueryParams,
+  EventLogSummaryQueryResponse,
   FeatureEvalDiagnosticsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
@@ -1105,6 +1109,69 @@ export default abstract class SqlIntegration
           ...row,
         };
       }),
+      statistics,
+      truncated,
+    };
+  }
+
+  getEventLogSummaryQuery(_params: EventLogSummaryQueryParams): string {
+    throw new Error("Event log queries are not supported for this datasource.");
+  }
+
+  async runEventLogSummaryQuery(
+    query: string,
+  ): Promise<EventLogSummaryQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query, undefined, {
+      queryType: "eventLogSummary",
+    });
+    return {
+      rows: rows.map((row) => ({
+        event_name: String(row.event_name ?? ""),
+        day: String(row.day ?? ""),
+        day_count: String(row.day_count ?? "0"),
+        day_dau: String(row.day_dau ?? "0"),
+      })),
+      statistics,
+    };
+  }
+
+  getEventLogRecordsQuery(_params: EventLogRecordsQueryParams): string {
+    throw new Error("Event log queries are not supported for this datasource.");
+  }
+
+  async runEventLogRecordsQuery(
+    query: string,
+  ): Promise<EventLogRecordsQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query, undefined, {
+      queryType: "eventLogRecords",
+    });
+    const truncated = rows.length >= SQL_ROW_LIMIT;
+    return {
+      rows: rows.map((row) => ({
+        event_uuid: String(row.event_uuid ?? ""),
+        timestamp: String(row.timestamp ?? ""),
+        event_name: String(row.event_name ?? ""),
+        user_id: row.user_id != null ? String(row.user_id) : null,
+        device_id: row.device_id != null ? String(row.device_id) : null,
+        environment: row.environment != null ? String(row.environment) : null,
+        properties:
+          typeof row.properties === "object" && row.properties !== null
+            ? (row.properties as Record<string, unknown>)
+            : {},
+        attributes:
+          typeof row.attributes === "object" && row.attributes !== null
+            ? (row.attributes as Record<string, unknown>)
+            : {},
+        url: row.url != null ? String(row.url) : null,
+        geo_country: row.geo_country != null ? String(row.geo_country) : null,
+        ua_browser: row.ua_browser != null ? String(row.ua_browser) : null,
+        ua_os: row.ua_os != null ? String(row.ua_os) : null,
+        ua_device_type:
+          row.ua_device_type != null ? String(row.ua_device_type) : null,
+        sdk_language:
+          row.sdk_language != null ? String(row.sdk_language) : null,
+        sdk_version: row.sdk_version != null ? String(row.sdk_version) : null,
+      })),
       statistics,
       truncated,
     };

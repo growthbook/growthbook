@@ -6,6 +6,8 @@ import {
   ResponseJSON,
 } from "@clickhouse/client";
 import {
+  EventLogRecordsQueryParams,
+  EventLogSummaryQueryParams,
   FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
@@ -26,6 +28,8 @@ import { getFactTableTypeFromClickHouseType } from "back-end/src/util/warehouseC
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 import { clickHouseDialect } from "./dialects/clickhouse";
+import { getEventLogSummaryQuery as getEventLogSummaryQueryFromSql } from "./sql/queries/event-log-summary-query";
+import { getEventLogRecordsQuery as getEventLogRecordsQueryFromSql } from "./sql/queries/event-log-records-query";
 
 // Matches ClickHouse DateTime/DateTime64 column types with no explicit
 // timezone argument (e.g. "DateTime", "DateTime64(3)", "Nullable(DateTime64(3))").
@@ -213,6 +217,28 @@ export default class ClickHouse extends SqlIntegration {
       LIMIT 100`;
     }
     return super.getFeatureEvalDiagnosticsQuery(params);
+  }
+
+  getEventLogSummaryQuery(params: EventLogSummaryQueryParams): string {
+    if (this.datasource.type === "growthbook_clickhouse") {
+      return getEventLogSummaryQueryFromSql(this.getSqlDialect(), params, {
+        eventsTable: "events",
+        experimentViewsTable: "experiment_views",
+        featureUsageTable: "feature_usage",
+      });
+    }
+    return super.getEventLogSummaryQuery(params);
+  }
+
+  getEventLogRecordsQuery(params: EventLogRecordsQueryParams): string {
+    if (this.datasource.type === "growthbook_clickhouse") {
+      return getEventLogRecordsQueryFromSql(this.getSqlDialect(), params, {
+        eventsTable: "events",
+        experimentViewsTable: "experiment_views",
+        featureUsageTable: "feature_usage",
+      });
+    }
+    return super.getEventLogRecordsQuery(params);
   }
 
   async getFeatureUsage(
