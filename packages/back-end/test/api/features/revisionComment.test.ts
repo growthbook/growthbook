@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { createInitialRevision } from "back-end/src/models/FeatureRevisionModel";
 import { setupApp } from "../api.setup";
 
 // Feature create, update and toggle accept an optional `comment` for the
@@ -18,20 +20,16 @@ const org = {
   url: "",
   dateCreated: new Date(),
   members: [],
-  settings: {
-    environments: [{ id: "production" }],
-    restApiBypassesReviews: true,
-  },
+  settings: { environments: [{ id: "production" }] },
 } as unknown as OrganizationInterface;
 
-async function insertFeature() {
+async function insertFeature(context: ReqContextClass) {
   const now = new Date();
   await mongoose.connection.collection("features").insertOne({
     id: FLAG,
     organization: ORG_ID,
     owner: "",
     description: "",
-    project: "",
     valueType: "boolean",
     defaultValue: "false",
     version: 1,
@@ -43,21 +41,11 @@ async function insertFeature() {
     dateCreated: now,
     dateUpdated: now,
   });
-  await mongoose.connection.collection("featurerevisions").insertOne({
-    id: `frev_${FLAG}_1`,
-    organization: ORG_ID,
-    featureId: FLAG,
-    version: 1,
-    baseVersion: 0,
-    status: "published",
-    createdBy: { type: "api_key", apiKey: "key_admin" },
-    comment: "",
-    defaultValue: "false",
-    rules: [],
-    dateCreated: now,
-    dateUpdated: now,
-    datePublished: now,
-  });
+  const feature = await getFeature(context, FLAG);
+  if (!feature) throw new Error("seed feature missing");
+  await createInitialRevision(context, feature, context.auditUser, [
+    "production",
+  ]);
 }
 
 const revisionComment = async (featureId: string, version: number) =>
@@ -73,21 +61,21 @@ describe("revision comment on feature create, update and toggle", () => {
   const send = (path: string, body: unknown) =>
     request(app).post(path).send(body).set("Authorization", "Bearer foo");
 
+  let context: ReqContextClass;
   beforeEach(() => {
-    setReqContext(
-      new ReqContextClass({
-        org,
-        auditUser: { type: "api_key", apiKey: "key_admin" },
-        role: "admin",
-        req: { query: {}, headers: {}, body: {} } as unknown as Request,
-      }),
-    );
+    context = new ReqContextClass({
+      org,
+      auditUser: { type: "api_key", apiKey: "key_admin" },
+      role: "admin",
+      req: { query: {}, headers: {}, body: {} } as unknown as Request,
+    });
+    setReqContext(context);
   });
 
   describe.each([
-    ["v1", "/api/v1/features"],
-    ["v2", "/api/v2/features"],
-  ])("%s", (_version, base) => {
+    { label: "v1", base: "/api/v1/features" },
+    { label: "v2", base: "/api/v2/features" },
+  ])("$label", ({ base }) => {
     it("create records the comment on the initial revision", async () => {
       const res = await send(base, {
         id: FLAG,
@@ -100,6 +88,9 @@ describe("revision comment on feature create, update and toggle", () => {
       expect(await revisionComment(FLAG, 1)).toBe(
         "created by the deploy pipeline",
       );
+      expect(
+        await mongoose.connection.collection("features").findOne({ id: FLAG }),
+      ).not.toHaveProperty("comment");
     });
 
     it("create without a comment keeps the empty initial comment", async () => {
@@ -114,7 +105,7 @@ describe("revision comment on feature create, update and toggle", () => {
     });
 
     it("update records the comment on the revision it publishes", async () => {
-      await insertFeature();
+      await insertFeature(context);
       const res = await send(`${base}/${FLAG}`, {
         defaultValue: "true",
         comment: "flip default for launch",
@@ -124,14 +115,14 @@ describe("revision comment on feature create, update and toggle", () => {
     });
 
     it("update without a comment keeps the default comment", async () => {
-      await insertFeature();
+      await insertFeature(context);
       const res = await send(`${base}/${FLAG}`, { defaultValue: "true" });
       expect(res.status).toBe(200);
       expect(await revisionComment(FLAG, 2)).toBe("Created via REST API");
     });
 
     it("toggle records the comment on the published revision and still audits the reason", async () => {
-      await insertFeature();
+      await insertFeature(context);
       const res = await send(`${base}/${FLAG}/toggle`, {
         environments: { production: false },
         reason: "pause",
@@ -145,7 +136,7 @@ describe("revision comment on feature create, update and toggle", () => {
     });
 
     it("toggle without a comment keeps the default comment", async () => {
-      await insertFeature();
+      await insertFeature(context);
       const res = await send(`${base}/${FLAG}/toggle`, {
         environments: { production: false },
       });

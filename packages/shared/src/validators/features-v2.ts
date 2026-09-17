@@ -955,7 +955,7 @@ export const toggleFeatureV2Validator = {
       comment: z
         .string()
         .describe(
-          'Comment to record on the published revision. Defaults to "Created via REST API".',
+          'Comment to record on the revision this toggle publishes, when it changes any environment. Defaults to "Created via REST API". (`reason` is recorded in the audit log only.)',
         )
         .optional(),
       environments: z.record(

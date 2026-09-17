@@ -3991,8 +3991,9 @@ paths:
                   type: string
                 comment:
                   description: >-
-                    Comment to record on the published revision. Defaults to
-                    "Created via REST API".
+                    Comment to record on the revision this toggle publishes,
+                    when it changes any environment. Defaults to "Created via
+                    REST API". (`reason` is recorded in the audit log only.)
                   type: string
                 environments:
                   type: object
@@ -9815,8 +9816,9 @@ paths:
                   type: string
                 comment:
                   description: >-
-                    Comment to record on the published revision. Defaults to
-                    "Created via REST API".
+                    Comment to record on the revision this toggle publishes,
+                    when it changes any environment. Defaults to "Created via
+                    REST API". (`reason` is recorded in the audit log only.)
                   type: string
                 environments:
                   type: object
