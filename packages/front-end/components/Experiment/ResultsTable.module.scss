@@ -5,7 +5,9 @@
     border-radius 0.1s ease-in-out;
 
   &:hover {
-    box-shadow: var(--shadow-3);
+    box-shadow:
+      var(--shadow-4),
+      0 5px 32px rgba(0, 0, 0, 0.55);
 
     // Removes a default border from the last row of the table when hovering
     > :global(tr:last-of-type:not(.slice-expanded):not(.slice-expanded)) {
