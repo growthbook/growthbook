@@ -39,9 +39,8 @@ describe("memoizeNotification", () => {
     expect(setExperimentNotificationState).not.toHaveBeenCalledWith();
   });
 
-  it("calls the reset handler, not the dispatcher, when a sent notification clears", async () => {
+  it("clears the marker without dispatching when a sent notification ends", async () => {
     const dispatch = jest.fn();
-    const onReset = jest.fn();
     await expect(
       memoizeNotification({
         context: "da-context",
@@ -49,12 +48,10 @@ describe("memoizeNotification", () => {
         type: "foo",
         triggered: false,
         dispatch,
-        onReset,
       }),
     ).resolves.toBe(false);
 
     expect(dispatch).not.toHaveBeenCalled();
-    expect(onReset).toHaveBeenCalled();
     expect(setExperimentNotificationState).toHaveBeenCalledWith({
       type: "foo",
       triggered: false,

@@ -39,6 +39,10 @@ export const holdoutLinkageOwner = (
 ): string =>
   entityKey("holdout", itemKey ? `${holdoutId}:${itemKey}` : holdoutId);
 
+// Removing linkage can never announce new linkage; without this a removal's
+// pending event would absorb other owners' additions in the same landing.
+const NO_NEW_LINKAGE = { notifyNewLinkage: false } as const;
+
 // One deferred linkage event per owner within a landing: a publish that joins a
 // holdout writes the feature entry and the experiment entries separately, and
 // subscribers should hear about both in one event.
@@ -625,17 +629,25 @@ export class HoldoutModel extends BaseClass {
     holdoutId: string,
     experimentId: string,
   ) {
-    await this.mutateLinkage(holdoutId, ({ linkedExperiments }) => {
-      const { [experimentId]: _, ...rest } = linkedExperiments;
-      return { linkedExperiments: rest };
-    });
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedExperiments }) => {
+        const { [experimentId]: _, ...rest } = linkedExperiments;
+        return { linkedExperiments: rest };
+      },
+      NO_NEW_LINKAGE,
+    );
   }
 
   public async removeFeatureFromHoldout(holdoutId: string, featureId: string) {
-    await this.mutateLinkage(holdoutId, ({ linkedFeatures }) => {
-      const { [featureId]: _, ...rest } = linkedFeatures;
-      return { linkedFeatures: rest };
-    });
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedFeatures }) => {
+        const { [featureId]: _, ...rest } = linkedFeatures;
+        return { linkedFeatures: rest };
+      },
+      NO_NEW_LINKAGE,
+    );
   }
 
   /**
@@ -714,7 +726,7 @@ export class HoldoutModel extends BaseClass {
           Object.entries(linkedExperiments).filter(([id]) => !drop.has(id)),
         ),
       }),
-      { required: true },
+      { required: true, ...NO_NEW_LINKAGE },
     );
   }
 
@@ -742,39 +754,43 @@ export class HoldoutModel extends BaseClass {
     },
   ): Promise<boolean> {
     const drop = new Set(experimentIds ?? []);
-    const updated = await this.mutateLinkage(holdoutId, (holdout) => {
-      const linkedExperiments = Object.fromEntries(
-        Object.entries(holdout.linkedExperiments).filter(
-          ([id]) => !drop.has(id),
-        ),
-      );
-      const linkedFeatures = { ...holdout.linkedFeatures };
-      const liveEntry = featureId
-        ? holdout.linkedFeatures[featureId]
-        : undefined;
-      // Decided HERE, not before the write: the `dateAdded` comparison is only
-      // ownership if it describes the row being written. Deciding it against an
-      // earlier read and then replacing the whole map let a relink land in between
-      // and be deleted anyway — the exact ABA `dateAdded` was added to prevent,
-      // just moved from "which entry" to "which moment".
-      const ownsFeatureEntry =
-        expectFeatureEntry === undefined ||
-        (!!liveEntry &&
-          !!expectFeatureEntry &&
-          new Date(liveEntry.dateAdded).getTime() ===
-            expectFeatureEntry.dateAdded.getTime());
-      if (featureId && ownsFeatureEntry) delete linkedFeatures[featureId];
+    const updated = await this.mutateLinkage(
+      holdoutId,
+      (holdout) => {
+        const linkedExperiments = Object.fromEntries(
+          Object.entries(holdout.linkedExperiments).filter(
+            ([id]) => !drop.has(id),
+          ),
+        );
+        const linkedFeatures = { ...holdout.linkedFeatures };
+        const liveEntry = featureId
+          ? holdout.linkedFeatures[featureId]
+          : undefined;
+        // Decided HERE, not before the write: the `dateAdded` comparison is only
+        // ownership if it describes the row being written. Deciding it against an
+        // earlier read and then replacing the whole map let a relink land in between
+        // and be deleted anyway — the exact ABA `dateAdded` was added to prevent,
+        // just moved from "which entry" to "which moment".
+        const ownsFeatureEntry =
+          expectFeatureEntry === undefined ||
+          (!!liveEntry &&
+            !!expectFeatureEntry &&
+            new Date(liveEntry.dateAdded).getTime() ===
+              expectFeatureEntry.dateAdded.getTime());
+        if (featureId && ownsFeatureEntry) delete linkedFeatures[featureId];
 
-      if (
-        Object.keys(linkedExperiments).length ===
-          Object.keys(holdout.linkedExperiments).length &&
-        Object.keys(linkedFeatures).length ===
-          Object.keys(holdout.linkedFeatures).length
-      ) {
-        return null;
-      }
-      return { linkedFeatures, linkedExperiments };
-    });
+        if (
+          Object.keys(linkedExperiments).length ===
+            Object.keys(holdout.linkedExperiments).length &&
+          Object.keys(linkedFeatures).length ===
+            Object.keys(holdout.linkedFeatures).length
+        ) {
+          return null;
+        }
+        return { linkedFeatures, linkedExperiments };
+      },
+      NO_NEW_LINKAGE,
+    );
     return !!updated;
   }
 
@@ -790,7 +806,7 @@ export class HoldoutModel extends BaseClass {
         linkedFeatures[feature.id]
           ? null
           : { linkedFeatures: { ...linkedFeatures, [feature.id]: feature } },
-      { notifyNewLinkage: false },
+      NO_NEW_LINKAGE,
     );
   }
 

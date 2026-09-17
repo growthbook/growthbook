@@ -515,7 +515,7 @@ export const updateSlackOAuthIntegration = async ({
 
   await updateEventWebHook(
     { eventWebHookId: id, organizationId: context.org.id },
-    updates,
+    { ...updates, events: [...new Set(updates.events)] },
   );
 
   const updated = await getEventWebHookById(id, context.org.id);

@@ -43,10 +43,7 @@ router.put(
     body: z
       .object({
         enabled: z.boolean(),
-        events: z
-          .array(eventNameOrWildcard)
-          .min(1)
-          .transform((events) => [...new Set(events)]),
+        events: z.array(eventNameOrWildcard).min(1),
         projects: z.array(z.string()),
         environments: z.array(z.string()),
         tags: z.array(z.string()),

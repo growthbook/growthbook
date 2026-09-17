@@ -98,11 +98,7 @@ export async function getStoppedGoalMetricResults(
       results: analysis.results,
     });
     const [goalId] = goalIds;
-    const [resultId] = resolveSnapshotMetricIds({
-      metricIds: [goalId],
-      getExperimentMetricById: getMetric,
-      results: analysis.results,
-    });
+    const [resultId] = resolvedGoalIds;
     const metric = getMetric(goalId);
 
     // Judge significance the way the results table does: correct the

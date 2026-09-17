@@ -84,9 +84,7 @@ function goalRows(
   });
 }
 
-function buildCardData(
-  data: ExperimentStoppedNotificationPayload,
-): CardData & { banner: string } {
+function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
   const identity = {
     name: data.experimentName,
     key: data.experimentId,
@@ -115,14 +113,7 @@ function buildCardData(
     state,
     goal: data.goalMetric.metricName,
     statsEngine: data.goalMetric.statsEngine,
-    variants: [
-      data.goalMetric.control.variationName,
-      ...data.goalMetric.variations.map((v) => v.variationName),
-    ],
     rows: goalRows(data.goalMetric),
-    ...(data.winningVariationIndex !== undefined
-      ? { winningVariationIndex: data.winningVariationIndex }
-      : {}),
     ...(conclusion ? { conclusion: { text: conclusion } } : {}),
   };
 }

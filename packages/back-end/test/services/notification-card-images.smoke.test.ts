@@ -1,53 +1,18 @@
 import { buildNotificationCard } from "back-end/src/services/notificationCards/renderNotificationCard";
-import type { CardState } from "back-end/src/services/notificationCards/types";
-import { sampleCard } from "back-end/src/services/notificationCards/cardImages";
 import { renderCard } from "back-end/src/services/notificationCards/cardStyles";
 import { notificationCardSamples } from "./notificationCard.fixtures";
 
 const isPng = (png: Buffer) =>
   png.subarray(0, 8).toString("hex") === "89504e470d0a1a0a";
 
-const STATES: CardState[] = [
-  "started",
-  "running",
-  "winner",
-  "loser",
-  "stopped",
-  "warning",
-];
+const cardFor = (name: string) => {
+  const sample = notificationCardSamples.find((s) => s.name === name);
+  const card = sample && buildNotificationCard(sample.event);
+  if (!card) throw new Error(`Missing ${name} sample card`);
+  return card.data;
+};
 
-describe("renderCard", () => {
-  it.each(STATES)(
-    "renders a light PNG for the %s state",
-    async (state) => {
-      const png = await renderCard(sampleCard(state), "light");
-      expect(isPng(png)).toBe(true);
-      expect(png.length).toBeGreaterThan(2000);
-      expect(png.readUInt32BE(16)).toBe(2000);
-    },
-    30000,
-  );
-
-  it.each(STATES)(
-    "renders dark %s without changing concurrent light renders",
-    async (state) => {
-      const card = sampleCard(state);
-      const lightBefore = await renderCard(card, "light");
-      const [dark, light] = await Promise.all([
-        renderCard(card, "dark"),
-        renderCard(card, "light"),
-      ]);
-      expect(isPng(dark)).toBe(true);
-      expect(dark.readUInt32BE(16)).toBe(2000);
-      expect(dark.readUInt32BE(20)).toBe(light.readUInt32BE(20));
-      expect(dark.equals(light)).toBe(false);
-      expect(light.equals(lightBefore)).toBe(true);
-    },
-    30000,
-  );
-});
-
-describe("immutable event card rendering", () => {
+describe("notification card rendering", () => {
   it.each(notificationCardSamples)(
     "renders light and dark $name cards from the event payload",
     async ({ event }) => {
@@ -65,4 +30,16 @@ describe("immutable event card rendering", () => {
     },
     30000,
   );
+
+  it("renders dark without changing concurrent light renders", async () => {
+    const card = cardFor("stopped-winner");
+    const lightBefore = await renderCard(card, "light");
+    const [dark, light] = await Promise.all([
+      renderCard(card, "dark"),
+      renderCard(card, "light"),
+    ]);
+    expect(dark.readUInt32BE(20)).toBe(light.readUInt32BE(20));
+    expect(dark.equals(light)).toBe(false);
+    expect(light.equals(lightBefore)).toBe(true);
+  }, 30000);
 });

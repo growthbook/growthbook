@@ -90,28 +90,25 @@ const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
 };
 
 // Sends an alert once per streak: `dispatch` runs when the condition first
-// becomes true, `onReset` when it clears, and the marker in pastNotifications
-// remembers which. Returns whether `dispatch` ran.
+// becomes true, and the marker in pastNotifications is cleared when it ends.
+// Returns whether `dispatch` ran.
 export const memoizeNotification = async ({
   context,
   experiment,
   type,
   triggered,
   dispatch,
-  onReset,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   type: ExperimentNotification;
   triggered: boolean;
   dispatch: () => Promise<void>;
-  onReset?: () => Promise<void>;
 }): Promise<boolean> => {
   const alreadySent = experiment.pastNotifications?.includes(type) ?? false;
   if (triggered === alreadySent) return false;
 
   if (triggered) await dispatch();
-  else await onReset?.();
 
   await setExperimentNotificationState({
     context,
@@ -170,8 +167,9 @@ const getExperimentDurationDays = (
   const phase = experiment.phases[experiment.phases.length - 1];
   const start = getSafeDate(phase?.dateStarted);
   if (!start) return undefined;
+  // Complete days, but a phase that ran at all counts as one.
   return Math.max(
-    0,
+    1,
     daysBetween(start, getSafeDate(phase?.dateEnded) ?? new Date()),
   );
 };
@@ -327,17 +325,10 @@ export const notifyExperimentStale = async ({
   experiment: ExperimentInterface;
   staleAfterDays?: number;
 }) => {
-  // The current phase, like the duration in the stop payload: a restarted
-  // experiment is not stale on day one.
-  const phase = experiment.phases[experiment.phases.length - 1];
-  const startedAt = getSafeDate(phase?.dateStarted);
-  const daysRunning = startedAt
-    ? Math.max(0, daysBetween(startedAt, new Date()))
-    : 0;
+  // The current phase, so a restarted experiment is not stale on day one.
+  const daysRunning = getExperimentDurationDays(experiment) ?? 0;
   const triggered =
-    experiment.status === "running" &&
-    !!startedAt &&
-    daysRunning >= staleAfterDays;
+    experiment.status === "running" && daysRunning >= staleAfterDays;
 
   await memoizeNotification({
     context,
@@ -594,32 +585,20 @@ export const notifyAutoUpdate = ({
     experiment,
     type: "auto-update",
     triggered: !success,
-    dispatch: () => notifyAutoUpdateOutcome({ context, experiment, success }),
-    // Recovery is announced too, so the channel sees the streak end.
-    onReset: () => notifyAutoUpdateOutcome({ context, experiment, success }),
-  });
-
-const notifyAutoUpdateOutcome = ({
-  context,
-  experiment,
-  success,
-}: {
-  context: Context;
-  experiment: ExperimentInterface;
-  success: boolean;
-}) =>
-  dispatchEvent({
-    context,
-    experiment,
-    event: "warning",
-    data: {
-      object: {
-        type: "auto-update",
-        success,
-        experimentId: experiment.id,
-        experimentName: experiment.name,
-      },
-    },
+    dispatch: () =>
+      dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "auto-update",
+            success,
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      }),
   });
 
 // Fires on every failed attempt of the scheduled-status-update job (not

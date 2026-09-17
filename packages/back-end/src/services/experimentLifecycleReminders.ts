@@ -36,12 +36,20 @@ export async function checkExperimentLifecycleReminders(
   }
 
   for (const [organization, ids] of byOrganization) {
+    let context;
+    try {
+      context = await getContextForAgendaJobByOrgId(organization);
+    } catch (error) {
+      logger.error(
+        { error, organization },
+        "Failed to load organization for lifecycle reminders",
+      );
+      continue;
+    }
     for (let i = 0; i < ids.length; i += BATCH_SIZE) {
       const batch = ids.slice(i, i + BATCH_SIZE);
       let experiments;
-      let context;
       try {
-        context = await getContextForAgendaJobByOrgId(organization);
         experiments = await getExperimentsByIds(context, batch);
       } catch (error) {
         logger.error(

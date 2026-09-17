@@ -12,18 +12,12 @@ export interface NotificationCard {
   eventLabel: string;
 }
 
-// Producers turn an immutable event payload into card data with a banner.
+// Producers turn an immutable event payload into card data.
 export type NotificationCardProducer = (
   event: NotificationEvent,
-) => (CardData & { banner: string }) | null;
+) => CardData | null;
 
-export type CardState =
-  | "started"
-  | "running"
-  | "winner"
-  | "loser"
-  | "stopped"
-  | "warning";
+export type CardState = "started" | "winner" | "loser" | "stopped" | "warning";
 
 // The EVENT a card announces (distinct from the experiment's status), derived
 // from the card state: started fires while Running; won/lost/stopped once
@@ -33,8 +27,6 @@ export type CardEvent = "started" | "won" | "lost" | "stopped" | "warning";
 export interface CardGoalRow {
   v: string; // variation name
   i: number; // variation index (number circle)
-  ctrl?: string; // control mean, formatted
-  vr?: string; // variation mean, formatted
   ctw?: string; // "99.1%"
   chg?: string; // "+6.1%"
   dir?: "up" | "down"; // arrow: the sign of the change
@@ -49,16 +41,6 @@ export interface CardGoalRow {
   muted?: boolean;
 }
 
-export interface CardCiMetric {
-  name: string;
-  ctrl: string;
-  vr: string;
-  chg?: string;
-  dir?: "up" | "down";
-  ci: { lo: number; hi: number; pt: number };
-  sig?: boolean;
-}
-
 export interface CardTable {
   columns: string[];
   rows: string[][];
@@ -70,13 +52,11 @@ export interface CardIdentity {
   state: CardState;
   name: string;
   key: string;
-  tags?: string[];
   // Standard footer: "{units} units - {days} days", whichever parts are known.
   units?: number;
   durationDays?: number;
-  // Headline for a full-width banner in the card's state color. When set, the
-  // card drops the state badge.
-  banner?: string;
+  // Headline for the full-width banner in the card's state color.
+  banner: string;
 }
 
 // A labeled value, rendered as a small caps label with the value beneath it —
@@ -92,28 +72,12 @@ export interface EventCardData extends CardIdentity {
   table?: CardTable;
 }
 
-// Results card: adds snapshot-derived metric data. Not produced by any event
-// yet; kept for the upcoming stopped/won/lost cards.
+// Results card: the goal metric's per-variation results from the stop payload.
 export interface ExperimentCardData extends CardIdentity {
   goal: string;
-  variants: string[];
-  note?: string;
   rows: CardGoalRow[];
-  secondary?: CardCiMetric[];
-  guardrail?: CardCiMetric[];
-  // Shown above the conclusion for non-started states; and in the started body.
-  hypothesis?: string;
   // Completed experiments (won / lost / stopped) with a written analysis.
   conclusion?: { text: string };
-  // Orthogonal to state — an experiment can be Running or Won and still be
-  // flagged unhealthy. Renders a red banner under the header when unhealthy.
-  health?: { status: "healthy" | "unhealthy"; issues: [string, string][] };
-  // started-only
-  metrics?: { goal: string; secondary: string[]; guardrail: string[] };
-  // warning-only
-  srm?: string;
-  p?: string;
-  winningVariationIndex?: number;
   // Picks the stat column label: chance to win, or p-value for frequentist.
   statsEngine?: StatsEngine;
 }

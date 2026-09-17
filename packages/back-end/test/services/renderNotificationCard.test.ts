@@ -209,10 +209,8 @@ describe("renderNotificationCard", () => {
         state: "winner",
         banner: "Experiment Stopped - Winner",
         goal: "Conversion",
-        variants: ["Control", "Treatment"],
         units: 20000,
         durationDays: 21,
-        winningVariationIndex: 1,
         conclusion: { text: "Variation *Treatment* won." },
         rows: [
           expect.objectContaining({
