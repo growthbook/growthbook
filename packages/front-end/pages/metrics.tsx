@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { Box } from "@radix-ui/themes";
+import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/ui/LinkButton";
-import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
 import Button from "@/ui/Button";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -29,18 +30,22 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreateMetric = permissionsUtil.canCreateMetric({
-    projects: [project],
+  const [showLegacyModal, setShowLegacyModal] = useState(false);
+  const { disableLegacyMetricCreation } = useOrgSettings();
+  const canCreateFactMetric = permissionsUtil.canCreateFactMetric({
+    projects: project ? [project] : [],
   });
-
-  const [showNewModal, setShowNewModal] = React.useState(false);
+  const canCreateLegacyMetric =
+    !disableLegacyMetricCreation &&
+    permissionsUtil.canCreateMetric({ projects: project ? [project] : [] });
+  const canCreateMetric = canCreateFactMetric || canCreateLegacyMetric;
 
   return (
     <Box className="pagecontents container-fluid">
-      {showNewModal && (
+      {showLegacyModal && (
         <NewMetricModal
-          close={() => setShowNewModal(false)}
-          source={"metrics-empty-state"}
+          close={() => setShowLegacyModal(false)}
+          source="blank-state"
         />
       )}
       <CreateMetricFromTemplate />
@@ -70,12 +75,15 @@ const MetricsPage = (): React.ReactElement => {
                 body="You don't have permission to add metrics in this project."
                 shouldDisplay={!canCreateMetric}
               >
-                <Button
-                  disabled={!canCreateMetric}
-                  onClick={() => setShowNewModal(true)}
-                >
-                  Add Metric
-                </Button>
+                {canCreateFactMetric ? (
+                  <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
+                ) : canCreateLegacyMetric ? (
+                  <Button onClick={() => setShowLegacyModal(true)}>
+                    Add metric
+                  </Button>
+                ) : (
+                  <Button disabled>Add metric</Button>
+                )}
               </Tooltip>
             )}
           </Box>
