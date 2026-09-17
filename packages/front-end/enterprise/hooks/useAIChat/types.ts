@@ -44,6 +44,9 @@ export interface UseAIChatOptions {
   /** Maps backend tool names to user-facing labels for the status pill */
   toolStatusLabels?: Record<string, string>;
 
+  /** Labels shown while the model is still streaming a tool's arguments. */
+  toolPreparingLabels?: Record<string, string>;
+
   /**
    * Called for every parsed SSE event. Use this to react to domain-specific
    * events and manage your own artifact state.

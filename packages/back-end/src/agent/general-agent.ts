@@ -738,6 +738,7 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   temperature: 0.1,
   maxSteps: 30,
   maxConsecutiveToolErrors: 5,
+  terminalToolNames: ["askUser"],
 };
 
 // =============================================================================

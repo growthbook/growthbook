@@ -145,6 +145,9 @@ export interface AgentConfig<TParams = unknown> {
    * with a user-facing message. Defaults to 3.
    */
   maxConsecutiveToolErrors?: number;
+
+  /** Tool results that end the turn without another model step. */
+  terminalToolNames?: readonly string[];
 }
 
 // =============================================================================
@@ -778,6 +781,7 @@ async function processStream<TParams>(
     abortController,
     config.maxConsecutiveToolErrors,
     onStepPersist,
+    new Set(config.terminalToolNames),
   );
 
   try {

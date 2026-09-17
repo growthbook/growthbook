@@ -70,6 +70,10 @@ const TOOL_STATUS_LABELS: Record<string, string> = {
   wait: WAIT_LABEL,
 };
 
+const TOOL_PREPARING_LABELS: Record<string, string> = {
+  callApi: "Putting together an API request…",
+};
+
 interface AgentPanelProps {
   open: boolean;
   /** When true, the panel renders at a wider width to give the chat more focus. */
@@ -320,6 +324,7 @@ export default function AgentPanel({
     endpoint: "/agent/chat",
     buildRequestBody,
     toolStatusLabels: TOOL_STATUS_LABELS,
+    toolPreparingLabels: TOOL_PREPARING_LABELS,
     getConversationEndpoint: (cid) => `/agent/chat/${cid}`,
     getCancelEndpoint: (cid) => `/agent/chat/${cid}/cancel`,
     onSSEEvent: handleAgentSSEEvent,
@@ -619,6 +624,10 @@ export default function AgentPanel({
 
           {(loading || waitingForNextStep) && activeTurnItems.length === 0 && (
             <ThinkingBubble label="Thinking…" />
+          )}
+
+          {loading && waitingForNextStep && activeTurnItems.length > 0 && (
+            <ThinkingBubble label="Planning next step…" />
           )}
 
           {error && <ErrorBubble>{error}</ErrorBubble>}

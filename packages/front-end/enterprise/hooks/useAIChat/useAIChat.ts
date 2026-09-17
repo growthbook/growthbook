@@ -26,6 +26,7 @@ export function useAIChat({
   endpoint,
   buildRequestBody,
   toolStatusLabels = {},
+  toolPreparingLabels = {},
   onSSEEvent,
   conversationStorageKey,
   getConversationEndpoint,
@@ -83,6 +84,8 @@ export function useAIChat({
   onConversationLoadedRef.current = onConversationLoaded;
   const toolStatusLabelsRef = useRef(toolStatusLabels);
   toolStatusLabelsRef.current = toolStatusLabels;
+  const toolPreparingLabelsRef = useRef(toolPreparingLabels);
+  toolPreparingLabelsRef.current = toolPreparingLabels;
   const onSSEEventRef = useRef(onSSEEvent);
   onSSEEventRef.current = onSSEEvent;
   const onStreamAcceptedRef = useRef(onStreamAccepted);
@@ -423,6 +426,7 @@ export function useAIChat({
               activeTurnItemsRef.current,
               toolStatusLabelsRef.current,
               nextId,
+              toolPreparingLabelsRef.current,
             );
             if (result.activeTurnItems) setActive(result.activeTurnItems);
             if (result.waitingForNextStep !== undefined)
