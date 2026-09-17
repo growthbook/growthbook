@@ -2,7 +2,7 @@ import { FC } from "react";
 import { StylesConfig } from "react-select";
 import { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/ui/MultiSelectField";
+import MultiSelectField, { MultiSelectFieldSize } from "@/ui/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { findClosestRadixColor, TAG_COLORS_MAP } from "@/services/tags";
 import { RadixColor } from "@/ui/HelperText";
@@ -27,6 +27,7 @@ const TagsInput: FC<{
   prompt?: string;
   creatable?: boolean;
   customClassName?: string;
+  size?: MultiSelectFieldSize;
 }> = ({
   onChange,
   value,
@@ -36,6 +37,7 @@ const TagsInput: FC<{
   prompt = "Tags...",
   creatable = true,
   customClassName,
+  size,
 }) => {
   const { tags, getTagById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -119,7 +121,7 @@ const TagsInput: FC<{
 
   return (
     <MultiSelectField
-      legacyHeight
+      size={size}
       options={
         tagOptions.map((t) => {
           const fullTag = getTagById(t.id);

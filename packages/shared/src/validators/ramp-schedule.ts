@@ -22,7 +22,12 @@ export const featureRulePatch = z.object({
   prerequisites: z.array(featurePrerequisite).nullish(),
   allEnvironments: z.boolean().nullish(),
   environments: z.array(z.string()).nullish(),
-  force: z.unknown().optional().describe("Force value (any JSON type)"),
+  force: z
+    .unknown()
+    .optional()
+    .describe(
+      'Value to serve, in the string form rule values use ("false", "10", \'{"limit": 5}\'). A non-string JSON value is accepted and stored as its JSON text. Must be valid for the feature\'s value type.',
+    ),
   enabled: z.boolean().nullish(),
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
@@ -492,10 +497,28 @@ const apiRampStepCommon = {
   holdConditions: stepHoldConditions.optional(),
 };
 
-export const apiTemplateRampStep = z.object({
-  ...apiRampStepCommon,
-  actions: z.array(templateRampStepAction),
-});
+export const apiTemplateRampStep = z
+  .object({
+    ...apiRampStepCommon,
+    holdConditions: stepHoldConditions.strict().optional(),
+    actions: z.array(
+      templateRampStepAction
+        .extend({
+          patch: templateFeatureRulePatch
+            .extend({
+              force: z
+                .unknown()
+                .optional()
+                .describe(
+                  "Ignored: templates never carry force values. Accepted so a schedule's steps can be copied into a template.",
+                ),
+            })
+            .strict(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
 export type ApiTemplateRampStep = z.infer<typeof apiTemplateRampStep>;
 
 export const apiRampScheduleTemplateValidator = namedSchema(

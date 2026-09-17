@@ -146,6 +146,7 @@ export default function SqlQuerySection({
     exploreReady,
     setViewMode,
     markExploreSeen,
+    registerPreviewRunner,
   } = useSqlEditorContext();
 
   const [open, setOpen] = useState(true);
@@ -172,6 +173,11 @@ export default function SqlQuerySection({
       editorPanelRef.current?.resize(percent);
     }
   }, [localSql, resultsTarget, status]);
+
+  useEffect(() => {
+    registerPreviewRunner(previewQuery);
+    return () => registerPreviewRunner(null);
+  }, [previewQuery, registerPreviewRunner]);
 
   useEffect(() => {
     onOpenChange?.(open);
