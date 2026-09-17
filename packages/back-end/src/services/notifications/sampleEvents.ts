@@ -479,6 +479,13 @@ const sampleEvents = {
         experimentName: "Checkout CTA",
         experimentId: "exp_checkout_cta",
         threshold: 0.001,
+        // A 62/38 split on a 50/50 phase: clearly beyond the threshold.
+        pValue: 0.00042,
+        durationDays: 12,
+        variations: [
+          { name: "Control", users: 6213, weight: 0.5 },
+          { name: "Treatment", users: 3787, weight: 0.5 },
+        ],
       },
     },
   }),
