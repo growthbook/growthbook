@@ -2538,12 +2538,8 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
     let projects: string[] = [];
     let environments: string[] = [];
     let tags: string[] = [];
-    const featureId =
-      "targets" in schedule && schedule.entityType === "feature"
-        ? schedule.entityId
-        : undefined;
-    if ("targets" in schedule && featureId) {
-      const feature = await getFeature(ctx, featureId);
+    if ("targets" in schedule && schedule.entityType === "feature") {
+      const feature = await getFeature(ctx, schedule.entityId);
       if (feature) {
         projects = feature.project ? [feature.project] : [];
         tags = feature.tags ?? [];
@@ -2578,8 +2574,7 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
     await createEvent({
       context: ctx,
       object: "feature",
-      // objectId names the feature this event is about; the schedule id travels in the payload.
-      objectId: featureId,
+      objectId: schedule.id,
       event,
       data,
       projects,

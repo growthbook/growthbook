@@ -112,9 +112,6 @@ const eventWebHookSchema = new mongoose.Schema({
     required: false,
   },
   excludeBookkeepingUpdates: { type: Boolean, required: false },
-  experimentIds: { type: [String], required: false },
-  metricIds: { type: [String], required: false },
-  featureIds: { type: [String], required: false },
   dateCreated: {
     type: Date,
     required: true,
@@ -261,9 +258,6 @@ export const createEventWebHook = async ({
   headers,
   slack,
   notificationSettings,
-  experimentIds,
-  metricIds,
-  featureIds,
   excludeBookkeepingUpdates,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
@@ -287,9 +281,6 @@ export const createEventWebHook = async ({
     headers,
     slack,
     notificationSettings,
-    experimentIds,
-    metricIds,
-    featureIds,
     excludeBookkeepingUpdates,
     lastRunAt: null,
     lastState: "none",

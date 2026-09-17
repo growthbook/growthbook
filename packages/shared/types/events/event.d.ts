@@ -9,12 +9,6 @@ import {
   LegacyNotificationEvent,
 } from "./notification-events";
 
-export interface NotificationResourceRelationships {
-  experimentIds?: string[];
-  featureIds?: string[];
-  metricIds?: string[];
-}
-
 export interface BaseEventInterface<T, V> {
   id: string;
   version: V;
@@ -22,9 +16,6 @@ export interface BaseEventInterface<T, V> {
   dateCreated: Date;
   data: T;
   organizationId: string;
-  objectId?: string;
-  // Preserve relationships missing from a deleted resource's public payload.
-  relatedResources?: NotificationResourceRelationships;
 }
 
 export type EventInterface =

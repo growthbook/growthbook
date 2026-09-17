@@ -65,9 +65,6 @@ export const notificationFiltersSchema = z
     projects: z.array(z.string()),
     tags: z.array(z.string()),
     environments: z.array(z.string()),
-    experimentIds: z.array(z.string()).optional(),
-    metricIds: z.array(z.string()).optional(),
-    featureIds: z.array(z.string()).optional(),
   })
   .strict();
 

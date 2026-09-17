@@ -15,9 +15,6 @@ const subscription = {
   projects: [],
   tags: [],
   environments: [],
-  experimentIds: ["exp_1"],
-  metricIds: ["fact__revenue"],
-  featureIds: ["checkout"],
 };
 it("validates subscription criteria independently of delivery settings", () => {
   expect(notificationFiltersSchema.parse(subscription)).toEqual(subscription);
@@ -31,21 +28,12 @@ it("validates subscription criteria independently of delivery settings", () => {
 it.each([
   { events: [] },
   { events: ["experiment.notARealEvent"] },
-  { metricIds: "fact__revenue" },
+  { projects: "prj_1" },
 ])("rejects invalid criteria %j", (invalid) => {
   expect(
     notificationFiltersSchema.safeParse({ ...subscription, ...invalid })
       .success,
   ).toBe(false);
-});
-it("keeps resource filters optional for existing subscriptions", () => {
-  const existing = {
-    events: ["feature.*"],
-    projects: [],
-    tags: [],
-    environments: [],
-  };
-  expect(notificationFiltersSchema.parse(existing)).toEqual(existing);
 });
 
 it("composes filtering and delivery into a flat stored configuration", () => {

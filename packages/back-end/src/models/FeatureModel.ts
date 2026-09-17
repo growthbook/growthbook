@@ -1108,13 +1108,6 @@ export const createFeatureEvent = async <
       return {
         ...eventData,
         object: "feature",
-        ...(eventData.event === "deleted"
-          ? {
-              relatedResources: {
-                experimentIds: eventData.data.object.linkedExperiments || [],
-              },
-            }
-          : {}),
         data: {
           object: currentApiFeature,
         },

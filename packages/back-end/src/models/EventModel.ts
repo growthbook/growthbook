@@ -17,11 +17,7 @@ import {
   zodNotificationEventResources,
   eventData,
 } from "shared/validators";
-import {
-  EventInterface,
-  BaseEventInterface,
-  NotificationResourceRelationships,
-} from "shared/types/events/event";
+import { EventInterface, BaseEventInterface } from "shared/types/events/event";
 import { DiffResult } from "shared/types/events/diff";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
@@ -42,7 +38,6 @@ const eventSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  relatedResources: { type: Object, required: false },
   object: {
     type: String,
     required: true,
@@ -117,7 +112,6 @@ export const createEventWithPayload = async <
   payload,
   organizationId,
   objectId,
-  relatedResources,
   notify = true,
 }: {
   payload: Omit<
@@ -126,7 +120,6 @@ export const createEventWithPayload = async <
   >;
   organizationId: string;
   objectId?: string;
-  relatedResources?: NotificationResourceRelationships;
   // Save event history even when webhook and legacy Slack dispatch is skipped.
   notify?: boolean;
 }) => {
@@ -142,7 +135,6 @@ export const createEventWithPayload = async <
       organizationId,
       data: { ...payload, api_version: API_VERSION, created: Date.now() },
       ...(objectId ? { objectId } : {}),
-      ...(relatedResources ? { relatedResources } : {}),
     });
 
     const event = toInterface(doc) as BaseEventInterface<
@@ -236,7 +228,6 @@ export type CreateEventParams<
   context: ReqContext;
   object: Resource;
   objectId?: string;
-  relatedResources?: NotificationResourceRelationships;
   event: Event;
   data: CreateEventData<Resource, Event, Payload>;
   containsSecrets: boolean;
@@ -253,7 +244,6 @@ export const createEvent = async <
   context,
   object,
   objectId,
-  relatedResources,
   event,
   data,
   containsSecrets,
@@ -276,7 +266,6 @@ export const createEvent = async <
     organizationId: context.org.id,
     notify,
     ...(objectId ? { objectId } : {}),
-    ...(relatedResources ? { relatedResources } : {}),
   });
 
 /**

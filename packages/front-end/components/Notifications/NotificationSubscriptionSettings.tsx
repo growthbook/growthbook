@@ -1,7 +1,7 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useState } from "react";
 import { NotificationFilters } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretUp, PiMinus, PiPlus } from "react-icons/pi";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import {
   notificationEventOptions,
   notificationCategories,
@@ -16,8 +16,7 @@ import {
 } from "shared/notifications";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useExperiments } from "@/hooks/useExperiments";
-import { useFeaturesList, useEnvironments } from "@/services/features";
+import { useEnvironments } from "@/services/features";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
@@ -36,18 +35,13 @@ export default function NotificationSubscriptionSettings({
   onChange: (value: NotificationFilters) => void;
 }) {
   const categorySwitchId = useId();
-  const { projects, tags, metrics, factMetrics } = useDefinitions();
-  const { experiments } = useExperiments();
-  const { features } = useFeaturesList();
+  const { projects, tags } = useDefinitions();
   const environments = useEnvironments();
   const {
     events,
     projects: filterProjects,
     environments: filterEnvironments,
     tags: filterTags,
-    experimentIds: filterExperiments = [],
-    metricIds: filterMetrics = [],
-    featureIds: filterFeatures = [],
   } = value;
   const setEvents = (events: string[]) => onChange({ ...value, events });
   const setFilterProjects = (projects: string[]) =>
@@ -55,12 +49,6 @@ export default function NotificationSubscriptionSettings({
   const setFilterEnvironments = (environments: string[]) =>
     onChange({ ...value, environments });
   const setFilterTags = (tags: string[]) => onChange({ ...value, tags });
-  const setFilterExperiments = (experimentIds: string[]) =>
-    onChange({ ...value, experimentIds });
-  const setFilterMetrics = (metricIds: string[]) =>
-    onChange({ ...value, metricIds });
-  const setFilterFeatures = (featureIds: string[]) =>
-    onChange({ ...value, featureIds });
   const [presetLevels, setPresetLevels] = useState<
     Partial<
       Record<NotificationEventCategory, Exclude<NotificationLevel, "custom">>
@@ -75,45 +63,6 @@ export default function NotificationSubscriptionSettings({
   const [expandedCategories, setExpandedCategories] = useState<
     NotificationEventCategory[]
   >([]);
-  const [showMoreFilters, setShowMoreFilters] = useState(
-    filterTags.length +
-      filterExperiments.length +
-      filterMetrics.length +
-      filterFeatures.length >
-      0,
-  );
-  const experimentOptions = useMemo(() => {
-    const opts = experiments.map((e) => ({ label: e.name, value: e.id }));
-    const known = new Set(opts.map((o) => o.value));
-    return opts.concat(
-      filterExperiments
-        .filter((id) => !known.has(id))
-        .map((id) => ({ label: id, value: id })),
-    );
-  }, [experiments, filterExperiments]);
-
-  const metricOptions = useMemo(() => {
-    const opts = [...metrics, ...factMetrics].map((m) => ({
-      label: m.name,
-      value: m.id,
-    }));
-    const known = new Set(opts.map((o) => o.value));
-    return opts.concat(
-      filterMetrics
-        .filter((id) => !known.has(id))
-        .map((id) => ({ label: id, value: id })),
-    );
-  }, [metrics, factMetrics, filterMetrics]);
-
-  const featureOptions = useMemo(() => {
-    const opts = features.map((f) => ({ label: f.id, value: f.id }));
-    const known = new Set(opts.map((o) => o.value));
-    return opts.concat(
-      filterFeatures
-        .filter((id) => !known.has(id))
-        .map((id) => ({ label: id, value: id })),
-    );
-  }, [features, filterFeatures]);
 
   return (
     <>
@@ -159,107 +108,23 @@ export default function NotificationSubscriptionSettings({
               setFilterEnvironments(value);
             }}
           />
+          <Box>
+            <Text as="label" size="md" weight="semibold">
+              Tags
+            </Text>
+            <TagsInput
+              size="lg"
+              tagOptions={tags}
+              value={filterTags}
+              onChange={(value) => {
+                setFilterTags(value);
+              }}
+              autoFocus={false}
+              prompt="All Tags"
+              creatable={false}
+            />
+          </Box>
         </Grid>
-        {showMoreFilters ? (
-          <Box
-            mt="5"
-            pt="5"
-            style={{
-              maxWidth: 620,
-              borderTop: "1px solid var(--gray-a4)",
-            }}
-          >
-            <Grid columns={{ initial: "1", sm: "2" }} gapX="4" gapY="3">
-              <Box>
-                <Text as="label" size="md" weight="semibold">
-                  Tags
-                </Text>
-                <TagsInput
-                  size="lg"
-                  tagOptions={tags}
-                  value={filterTags}
-                  onChange={(value) => {
-                    setFilterTags(value);
-                  }}
-                  autoFocus={false}
-                  prompt="All Tags"
-                  creatable={false}
-                />
-              </Box>
-              <Box>
-                <MultiSelectField
-                  label="Experiments"
-                  containerStyle={{ marginBottom: 0 }}
-                  placeholder="All Experiments"
-                  size="lg"
-                  value={filterExperiments}
-                  options={experimentOptions}
-                  onChange={(value) => {
-                    setFilterExperiments(value);
-                  }}
-                />
-              </Box>
-              <Box>
-                <MultiSelectField
-                  label="Metrics"
-                  containerStyle={{ marginBottom: 0 }}
-                  placeholder="All Metrics"
-                  size="lg"
-                  value={filterMetrics}
-                  options={metricOptions}
-                  onChange={(value) => {
-                    setFilterMetrics(value);
-                  }}
-                />
-              </Box>
-              <Box>
-                <MultiSelectField
-                  label="Feature Flags"
-                  containerStyle={{ marginBottom: 0 }}
-                  placeholder="All Feature Flags"
-                  size="lg"
-                  value={filterFeatures}
-                  options={featureOptions}
-                  onChange={(value) => {
-                    setFilterFeatures(value);
-                  }}
-                />
-              </Box>
-            </Grid>
-            <Box mt="3">
-              <Button
-                variant="ghost"
-                color="gray"
-                size="sm"
-                icon={<PiMinus aria-hidden />}
-                onClick={() => {
-                  onChange({
-                    ...value,
-                    tags: [],
-                    experimentIds: [],
-                    metricIds: [],
-                    featureIds: [],
-                  });
-                  setShowMoreFilters(false);
-                }}
-              >
-                Remove all filters
-              </Button>
-            </Box>
-          </Box>
-        ) : (
-          <Box mt="3">
-            <Button
-              variant="ghost"
-              color="gray"
-              size="sm"
-              icon={<PiPlus aria-hidden />}
-              onClick={() => setShowMoreFilters(true)}
-            >
-              Add filters
-            </Button>
-          </Box>
-        )}
       </NotificationSettingsCard>
 
       {(Object.keys(notificationCategories) as NotificationEventCategory[]).map(

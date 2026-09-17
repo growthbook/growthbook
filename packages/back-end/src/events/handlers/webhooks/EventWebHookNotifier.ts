@@ -12,7 +12,7 @@ import { createEventWebHookLog } from "back-end/src/models/EventWebHookLogModel"
 import { logger } from "back-end/src/util/logger";
 import { deliverEventNotification } from "back-end/src/services/notifications/deliverEventNotification";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
-import { matchesNotificationFilters } from "back-end/src/events/notificationFilters";
+import { isBookkeepingExperimentUpdate } from "back-end/src/events/experimentUpdateNoise";
 import {
   EventWebHookErrorResult,
   EventWebHookSuccessResult,
@@ -111,20 +111,11 @@ export class EventWebHookNotifier implements Notifier {
 
     const method = eventWebHook.method || "POST";
     const context = getContextForAgendaJobByOrgObject(organization);
-    try {
-      if (
-        event.data.event !== "webhook.test" &&
-        !(await matchesNotificationFilters(context, event, eventWebHook))
-      )
-        return;
-    } catch (error) {
-      logger.error(
-        { error, eventId, eventWebHookId },
-        "EventWebHook: resource filtering failed",
-      );
-      await EventWebHookNotifier.retryJob(job);
-      throw error;
-    }
+    if (
+      eventWebHook.excludeBookkeepingUpdates &&
+      isBookkeepingExperimentUpdate(event)
+    )
+      return;
     const delivery = await deliverEventNotification({
       context,
       event,
