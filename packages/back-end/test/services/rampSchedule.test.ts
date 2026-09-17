@@ -20,7 +20,7 @@ import type {
   RampStepAction,
   SafeRolloutInterface,
 } from "shared/validators";
-import type { FeatureRule } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   isAwaitingApproval,
   isReadyForApproval,
@@ -28,6 +28,7 @@ import {
   startApprovalPending,
   resolveStartApproval,
 } from "shared/src/validators/ramp-schedule";
+import { getJSONValue } from "shared/src/sdk-versioning/sdk-payload";
 import {
   computeNextStepAt,
   computeAutoAdvanceTarget,
@@ -54,6 +55,11 @@ import {
   approveAndPublishStep,
   computeNextProcessAt,
   pauseSchedule,
+  normalizeRampActionsForceValues,
+  normalizeRampPlanForceValues,
+  rampStartValuesOf,
+  forceMatchesValueType,
+  remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -63,6 +69,12 @@ import {
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
   publishRevision: jest.fn(),
+}));
+
+// The fire-time targeting check imports the whole validations module graph;
+// this suite asserts only that it is asked, and when.
+jest.mock("back-end/src/api/features/validations", () => ({
+  validateRampPlanPatches: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
@@ -94,6 +106,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 
 // Pull in mocked module references AFTER the mock declarations.
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import { validateRampPlanPatches } from "back-end/src/api/features/validations";
 import {
   createRevision,
   getRevision,
@@ -344,6 +357,214 @@ describe("applyPatchToRule", () => {
     });
     expect(result.allEnvironments).toBe(false);
     expect(result.environments).toEqual(["production"]);
+  });
+});
+
+// A rule's `value` is a string; a ramp patch's `force` may arrive as any JSON
+// type (the schema allows it and older editors sent booleans/objects parsed
+// from the value field). Whatever arrives must land on the rule as its string
+// form, or the payload builder serves the wrong thing (boolean false -> true,
+// object -> null).
+describe("ramp force values are applied and stored as strings", () => {
+  const boolRule: FeatureRule = {
+    id: "r1",
+    type: "force",
+    value: "true",
+    enabled: true,
+    condition: "",
+  };
+
+  it("applyPatchToRule stores a force as the string the payload parses, and clears on undefined", () => {
+    const value = (rule: FeatureRule, force: unknown) =>
+      (applyPatchToRule(rule, { force }) as { value?: unknown }).value;
+    expect(value(boolRule, false)).toBe("false");
+    expect(getJSONValue("boolean", value(boolRule, false) as string)).toBe(
+      false,
+    );
+    expect(value({ ...boolRule, value: "{}" }, { limit: 5 })).toBe(
+      '{"limit":5}',
+    );
+    expect(value(boolRule, "false")).toBe("false");
+    expect(value(boolRule, undefined)).toBeUndefined();
+  });
+
+  it("normalizeRampActionsForceValues stringifies, validates against the feature, and leaves other actions alone", () => {
+    const feature = { valueType: "boolean" as const };
+    const actions: RampStepAction[] = [
+      {
+        targetType: "feature-rule",
+        targetId: "t1",
+        patch: { ruleId: "r1", force: false },
+      },
+      {
+        targetType: "feature-rule",
+        targetId: "t1",
+        patch: { ruleId: "r1", coverage: 0.5 },
+      },
+    ];
+    const out = normalizeRampActionsForceValues(actions, feature);
+    expect(out[0].patch.force).toBe("false");
+    expect(out[1]).toBe(actions[1]);
+    // Without a feature it only stringifies.
+    expect(
+      normalizeRampActionsForceValues(actions.slice(0, 1))[0].patch.force,
+    ).toBe("false");
+    // An action with no patch (unvalidated dashboard body) is left alone.
+    const noPatch = { targetType: "feature-rule" } as unknown as RampStepAction;
+    expect(normalizeRampActionsForceValues([noPatch], feature)[0]).toBe(
+      noPatch,
+    );
+  });
+
+  it("a start value echoing its target's rule or stored anchor is not judged; a typed one is", () => {
+    const feature = {
+      valueType: "boolean" as const,
+      rules: [{ id: "r1", type: "force", value: "True" }],
+    } as unknown as Pick<FeatureInterface, "valueType" | "rules">;
+    const stored: RampStepAction[] = [
+      { targetType: "feature-rule", targetId: "tgt_a", patch: { force: 1 } },
+    ];
+    const targets = [
+      { id: "tgt_a", ruleId: "r1" },
+      { id: "tgt_b", ruleId: "r2" },
+    ];
+    const known = rampStartValuesOf(feature, targets, stored);
+    expect([...known.get("tgt_a")!].sort()).toEqual(["1", "True"]);
+    expect(known.get("tgt_b")!.size).toBe(0);
+
+    const plan = (targetId: string, force: unknown) =>
+      ({
+        steps: [],
+        startActions: [
+          { targetType: "feature-rule", targetId, patch: { force } },
+        ],
+      }) as Pick<
+        RampScheduleInterface,
+        "steps" | "startActions" | "endActions"
+      >;
+    const opts = { knownStartValues: known };
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_a", "True"), feature, opts),
+    ).not.toThrow();
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_a", 1), feature, opts),
+    ).not.toThrow();
+    // Another target's legacy value is not an echo for this target.
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_b", "True"), feature, opts),
+    ).toThrow('Start value (action 1): Must be "true" or "false"');
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_a", "False"), feature, opts),
+    ).toThrow('Start value (action 1): Must be "true" or "false"');
+  });
+
+  it("normalizeRampActionsForceValues rejects a value the feature type does not accept", () => {
+    expect(() =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule",
+            targetId: "t1",
+            patch: { ruleId: "r1", force: "False" },
+          },
+        ],
+        { valueType: "boolean" },
+        "Step 1 value",
+      ),
+    ).toThrow('Step 1 value (action 1): Must be "true" or "false"');
+    expect(() =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule",
+            targetId: "t1",
+            patch: { ruleId: "r1", force: "ten" },
+          },
+        ],
+        { valueType: "number" },
+      ),
+    ).toThrow(/valid number/);
+  });
+
+  it("template values: a typed value that fits the feature is kept as its string form; a string that fits is kept; misfits are dropped", () => {
+    expect(forceMatchesValueType(false, "boolean")).toBe(true);
+    expect(forceMatchesValueType("false", "boolean")).toBe(true);
+    expect(forceMatchesValueType("nope", "boolean")).toBe(false);
+    expect(forceMatchesValueType("10", "number")).toBe(true);
+    expect(forceMatchesValueType(10, "boolean")).toBe(false);
+    const out = remapTemplateActions(
+      [
+        {
+          targetType: "feature-rule",
+          targetId: "template-target",
+          patch: { ruleId: "template-rule", coverage: 1, force: false },
+        },
+      ],
+      "t1",
+      "r1",
+      "boolean",
+    );
+    expect(out[0]).toEqual({
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch: { ruleId: "r1", coverage: 1, force: "false" },
+    });
+  });
+
+  it("normalizeRampActionsForceValues checks the value type only, never the feature's JSON schema, and can leave start anchors unjudged", () => {
+    const feature = {
+      valueType: "json" as const,
+      jsonSchema: {
+        schemaType: "schema" as const,
+        schema: JSON.stringify({
+          type: "object",
+          required: ["limit"],
+          properties: { limit: { type: "number" } },
+        }),
+        simple: { type: "object" as const, fields: [] },
+        date: new Date(),
+        enabled: true,
+      },
+    };
+    const mk = (force: unknown): RampStepAction => ({
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch: { ruleId: "r1", force },
+    });
+    // Fails the schema (no `limit`) but is valid JSON: accepted and stringified.
+    expect(
+      normalizeRampActionsForceValues([mk({ other: 1 })], feature)[0].patch
+        .force,
+    ).toBe('{"other":1}');
+    // Start anchors can be exempted from the type check entirely.
+    const plan = normalizeRampPlanForceValues(
+      { startActions: [mk("not json at all {")], steps: [] } as Pick<
+        RampScheduleInterface,
+        "steps" | "startActions" | "endActions"
+      >,
+      feature,
+      { validateStartActions: false },
+    );
+    expect(plan.startActions?.[0].patch.force).toBe("not json at all {");
+  });
+
+  it("normalizeRampPlanForceValues covers steps, startActions and endActions and leaves absent parts absent", () => {
+    const feature = { valueType: "number" as const };
+    const mk = (force: unknown): RampStepAction => ({
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch: { ruleId: "r1", force },
+    });
+    const out = normalizeRampPlanForceValues(
+      {
+        steps: [{ interval: 60, actions: [mk(1)] }],
+        endActions: [mk(2.5)],
+      } as Pick<RampScheduleInterface, "steps" | "endActions" | "startActions">,
+      feature,
+    );
+    expect(out.steps?.[0].actions[0].patch.force).toBe("1");
+    expect(out.endActions?.[0].patch.force).toBe("2.5");
+    expect("startActions" in out).toBe(false);
   });
 });
 
@@ -1569,6 +1790,113 @@ describe("featureEntityHandler.applyActions", () => {
     expect((patchedRule as { coverage?: number })?.coverage).toBe(0.5);
   });
 
+  it('applies a raw boolean force as the string "false" so the payload serves false', async () => {
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature([
+        {
+          id: RULE_ID,
+          uid: "ruid_" + RULE_ID,
+          allEnvironments: true,
+          type: "force" as const,
+          value: "true",
+          enabled: true,
+          condition: "",
+        },
+      ]),
+      valueType: "boolean" as const,
+      defaultValue: "false",
+    } as never);
+    const actions = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        // What older editors and REST callers send: a JSON boolean, not "false".
+        patch: { ruleId: RULE_ID, force: false as unknown },
+      },
+    ];
+    await featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
+      stepLabel: "Ramp [1 of 1]: Test",
+      user: { type: "system" },
+    });
+
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const patchedRule = (forceResult.rules ?? []).find(
+      (r: FeatureRule) => r.id === RULE_ID,
+    ) as FeatureRule & { value?: unknown };
+    expect(patchedRule.value).toBe("false");
+    expect(getJSONValue("boolean", patchedRule.value as string)).toBe(false);
+  });
+
+  it("never refuses at fire time: an anchor whose value fails the feature's current JSON schema (or is legacy text) is still applied, so a rollback cannot get stuck", async () => {
+    // The rule's pre-ramp value predates a schema that now requires `limit`.
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature([
+        {
+          id: RULE_ID,
+          uid: "ruid_" + RULE_ID,
+          allEnvironments: true,
+          type: "force" as const,
+          value: '{"limit":9}',
+          enabled: true,
+          condition: "",
+        },
+      ]),
+      valueType: "json" as const,
+      defaultValue: "{}",
+      jsonSchema: {
+        schemaType: "schema" as const,
+        schema: JSON.stringify({
+          type: "object",
+          required: ["limit"],
+          properties: { limit: { type: "number" } },
+        }),
+        simple: { type: "object" as const, fields: [] },
+        date: new Date(),
+        enabled: true,
+      },
+    } as never);
+    // Rollback to the captured anchor: `force` is the old stored text.
+    const rollback = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        patch: { ruleId: RULE_ID, coverage: 1, force: '{"old":true}' },
+      },
+    ];
+    await featureEntityHandler.applyActions(ctx, FEATURE_ID, rollback, {
+      stepLabel: "Ramp rolled back",
+      user: { type: "system" },
+    });
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const rules: FeatureRule[] =
+      mockPublishRevision.mock.calls[0][0].result.rules ?? [];
+    expect(
+      (rules.find((r) => r.id === RULE_ID) as { value?: unknown }).value,
+    ).toBe('{"old":true}');
+
+    // And a value the TYPE does not accept (legacy "True" on a boolean flag)
+    // is applied as-is rather than refused.
+    mockPublishRevision.mockClear();
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature(),
+      valueType: "boolean" as const,
+      defaultValue: "false",
+    } as never);
+    await featureEntityHandler.applyActions(
+      ctx,
+      FEATURE_ID,
+      [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, force: "True" },
+        },
+      ],
+      { stepLabel: "Ramp rolled back", user: { type: "system" } },
+    );
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+  });
+
   it("throws when the rule is not found (no env scope)", async () => {
     const actions = [
       {
@@ -1716,6 +2044,35 @@ describe("advanceStep — interval step", () => {
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("judges the step's stored targeting against the live rule before it lands", async () => {
+    const { ctx } = makeContext({ currentStepIndex: -1 });
+    await advanceStep(ctx as never, makeSchedule({ currentStepIndex: -1 }));
+    expect(validateRampPlanPatches).toHaveBeenCalledTimes(1);
+    expect(validateRampPlanPatches).toHaveBeenCalledWith(
+      ctx,
+      [
+        expect.objectContaining({
+          patch: expect.objectContaining({ ruleId: RULE_ID, coverage: 0.3 }),
+          rule: expect.objectContaining({ id: RULE_ID }),
+        }),
+      ],
+      {
+        stored: [
+          {
+            startActions: [
+              {
+                patch: expect.objectContaining({
+                  ruleId: RULE_ID,
+                  environments: ["production"],
+                }),
+              },
+            ],
+          },
+        ],
+      },
+    );
   });
 
   it("increments currentStepIndex", async () => {
@@ -2211,6 +2568,11 @@ describe("rollbackToStep", () => {
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  afterEach(() => {
+    // Rollbacks are never judged; refusing a retreat is worse than a stale step.
+    expect(validateRampPlanPatches).not.toHaveBeenCalled();
   });
 
   it("applies accumulated effective patch when rolling back — excludes steps after target", async () => {

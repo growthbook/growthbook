@@ -314,6 +314,15 @@ export function validateJSONFeatureValue(
   }
 }
 
+// Rule values are stored as strings ("false", "10", '{"a":1}'); the SDK
+// payload builder parses that string per the feature's value type. Anything
+// that can carry a value as a raw JSON type (a ramp patch's `force` is typed
+// that way) is brought to this form before it reaches a rule: strings pass
+// through, anything else becomes its JSON text.
+export function stringifyFeatureValue(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 export function validateFeatureValue(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   value: string,

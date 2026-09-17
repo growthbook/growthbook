@@ -7,6 +7,7 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
+  stringifyFeatureValue,
   validateFeatureValue,
   assertSchemaMatchesValueType,
   getValidation,
@@ -2069,6 +2070,16 @@ describe("validateJSONFeatureValue", () => {
       enabled: false,
     };
     expect(validateJSONFeatureValue(value, feature).valid).toEqual(true);
+  });
+});
+
+describe("stringifyFeatureValue", () => {
+  it("leaves strings alone and JSON-encodes everything else", () => {
+    expect(stringifyFeatureValue('{"limit": 5}')).toBe('{"limit": 5}');
+    expect(stringifyFeatureValue(false)).toBe("false");
+    expect(stringifyFeatureValue(10)).toBe("10");
+    expect(stringifyFeatureValue(null)).toBe("null");
+    expect(stringifyFeatureValue({ limit: 5 })).toBe('{"limit":5}');
   });
 });
 
