@@ -40,16 +40,25 @@ export function filterRowsForMetricDrilldown(
  * primary/active analysis.
  */
 
-export type AdjustmentEffectSize = "little" | "moderate" | "large";
+export type AdjustmentEffectSize = "small" | "moderate" | "large";
 
 export type SupplementalField = keyof NonNullable<
   SnapshotMetric["supplementalResults"]
 >;
 
-export interface AdjustmentImpact {
+export interface AdjustmentClassification {
+  effectSize: AdjustmentEffectSize;
+  /** Relative change in the lift estimate (fraction, e.g. 0.042 = 4.2%). */
+  relativeChange: number;
+  /** Statistical significance flipped between the primary and adjusted result. */
+  significanceChanged: boolean;
+  /** The sign of the lift estimate flipped. */
+  signFlipped: boolean;
+}
+
+export interface AdjustmentImpact extends AdjustmentClassification {
   field: SupplementalField;
   label: string;
-  effectSize: AdjustmentEffectSize;
 }
 
 const MODERATE_EFFECT_THRESHOLD = 0.01; // 1%
@@ -63,16 +72,23 @@ const ADJUSTMENTS: { field: SupplementalField; label: string }[] = [
 ];
 
 const SEVERITY_RANK: Record<AdjustmentEffectSize, number> = {
-  little: 0,
+  small: 0,
   moderate: 1,
   large: 2,
 };
 
-function maxSeverity(
-  a: AdjustmentEffectSize,
-  b: AdjustmentEffectSize,
-): AdjustmentEffectSize {
-  return SEVERITY_RANK[a] >= SEVERITY_RANK[b] ? a : b;
+/**
+ * Returns true when `a` should be surfaced ahead of `b`: higher severity, or
+ * equal severity with a larger relative change in the estimate.
+ */
+function isMoreSevere(
+  a: AdjustmentClassification,
+  b: AdjustmentClassification,
+): boolean {
+  if (SEVERITY_RANK[a.effectSize] !== SEVERITY_RANK[b.effectSize]) {
+    return SEVERITY_RANK[a.effectSize] > SEVERITY_RANK[b.effectSize];
+  }
+  return a.relativeChange > b.relativeChange;
 }
 
 function classifyPair({
@@ -85,23 +101,31 @@ function classifyPair({
   altLift: number;
   primarySignificant: boolean;
   altSignificant: boolean;
-}): AdjustmentEffectSize {
-  // A change in statistical significance is always material.
-  if (primarySignificant !== altSignificant) return "large";
+}): AdjustmentClassification {
+  const significanceChanged = primarySignificant !== altSignificant;
 
   const denominator = Math.max(Math.abs(primaryLift), Math.abs(altLift));
-  // Both estimates are effectively zero: rely on the significance check above.
-  if (denominator === 0) return "little";
-
-  const relativeChange = Math.abs(primaryLift - altLift) / denominator;
+  const relativeChange =
+    denominator === 0 ? 0 : Math.abs(primaryLift - altLift) / denominator;
   const signFlipped =
     Math.sign(primaryLift) !== Math.sign(altLift) &&
     primaryLift !== 0 &&
     altLift !== 0;
 
-  if (signFlipped || relativeChange >= LARGE_EFFECT_THRESHOLD) return "large";
-  if (relativeChange >= MODERATE_EFFECT_THRESHOLD) return "moderate";
-  return "little";
+  let effectSize: AdjustmentEffectSize;
+  if (
+    significanceChanged ||
+    signFlipped ||
+    relativeChange >= LARGE_EFFECT_THRESHOLD
+  ) {
+    effectSize = "large";
+  } else if (relativeChange >= MODERATE_EFFECT_THRESHOLD) {
+    effectSize = "moderate";
+  } else {
+    effectSize = "small";
+  }
+
+  return { effectSize, relativeChange, significanceChanged, signFlipped };
 }
 
 /**
@@ -131,12 +155,11 @@ export function classifyAdjustmentImpact({
   ciUpper: number;
   ciLower: number;
   pValueThreshold: number;
-}): AdjustmentEffectSize | null {
+}): AdjustmentClassification | null {
   const baseline = row.variations[baselineRow];
   if (!baseline) return null;
 
-  let hasComparison = false;
-  let worst: AdjustmentEffectSize = "little";
+  let worst: AdjustmentClassification | null = null;
 
   row.variations.forEach((primaryStats, index) => {
     if (index === baselineRow) return;
@@ -144,8 +167,6 @@ export function classifyAdjustmentImpact({
 
     const supplemental = primaryStats.supplementalResults?.[field];
     if (!supplemental) return;
-
-    hasComparison = true;
 
     // Overlay the supplemental result on both the variation and the
     // baseline, mirroring how the detailed comparison tables are built.
@@ -179,18 +200,19 @@ export function classifyAdjustmentImpact({
       stats: altStats,
     });
 
-    worst = maxSeverity(
-      worst,
-      classifyPair({
-        primaryLift: primaryStats.expected ?? 0,
-        altLift: altStats.expected ?? 0,
-        primarySignificant,
-        altSignificant,
-      }),
-    );
+    const classification = classifyPair({
+      primaryLift: primaryStats.expected ?? 0,
+      altLift: altStats.expected ?? 0,
+      primarySignificant,
+      altSignificant,
+    });
+
+    if (!worst || isMoreSevere(classification, worst)) {
+      worst = classification;
+    }
   });
 
-  return hasComparison ? worst : null;
+  return worst;
 }
 
 /**
@@ -210,15 +232,19 @@ export function getAdjustmentImpactSummary(args: {
 }): AdjustmentImpact[] {
   const summary: AdjustmentImpact[] = [];
   ADJUSTMENTS.forEach(({ field, label }) => {
-    const effectSize = classifyAdjustmentImpact({ ...args, field });
-    if (effectSize !== null) {
-      summary.push({ field, label, effectSize });
+    const classification = classifyAdjustmentImpact({ ...args, field });
+    if (classification !== null) {
+      summary.push({ field, label, ...classification });
     }
   });
 
-  // Surface the most impactful adjustments first (large -> small -> none).
-  // Ties preserve the order defined in ADJUSTMENTS (stable sort).
-  return summary.sort(
-    (a, b) => SEVERITY_RANK[b.effectSize] - SEVERITY_RANK[a.effectSize],
-  );
+  // Surface the most impactful adjustments first (large -> moderate -> small).
+  // Ties break by the larger relative change in the estimate; equal changes
+  // preserve the order defined in ADJUSTMENTS (stable sort).
+  return summary.sort((a, b) => {
+    if (SEVERITY_RANK[a.effectSize] !== SEVERITY_RANK[b.effectSize]) {
+      return SEVERITY_RANK[b.effectSize] - SEVERITY_RANK[a.effectSize];
+    }
+    return b.relativeChange - a.relativeChange;
+  });
 }

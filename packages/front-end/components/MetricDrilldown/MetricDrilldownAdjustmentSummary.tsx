@@ -11,10 +11,10 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { RadixColor } from "@/ui/HelperText";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { ExperimentTableRow } from "@/services/experiments";
 import {
   AdjustmentEffectSize,
+  AdjustmentImpact,
   getAdjustmentImpactSummary,
   SupplementalField,
 } from "./helpers";
@@ -37,10 +37,24 @@ const EFFECT_SIZE_DISPLAY: Record<
   AdjustmentEffectSize,
   { label: string; color: RadixColor }
 > = {
-  little: { label: "Little effect", color: "gray" },
-  moderate: { label: "Moderate effect", color: "blue" },
+  small: { label: "Small effect", color: "gray" },
+  moderate: { label: "Moderate effect", color: "amber" },
   large: { label: "Large effect", color: "orange" },
 };
+
+function formatAdjustmentDelta({
+  relativeChange,
+  significanceChanged,
+  signFlipped,
+}: Pick<
+  AdjustmentImpact,
+  "relativeChange" | "significanceChanged" | "signFlipped"
+>): string {
+  const parts = [`${(relativeChange * 100).toFixed(1)}% estimate change`];
+  if (signFlipped) parts.push("sign flip");
+  if (significanceChanged) parts.push("significance change");
+  return parts.join(" · ");
+}
 
 const MetricDrilldownAdjustmentSummary: FC<
   MetricDrilldownAdjustmentSummaryProps
@@ -92,18 +106,28 @@ const MetricDrilldownAdjustmentSummary: FC<
       <Heading as="h4" size="md" weight="medium" mb="3">
         Summary
       </Heading>
-      <Flex align="center" gap="1" mb="2">
-        <Text size="sm" color="text-low">
-          How much each adjustment changed this metric&apos;s result.
-        </Text>
-        <Tooltip body="An effect is large when statistical significance changes, the sign of the lift flips, or the lift changes by at least 10%; an effect is small when the estimate changes by at least 1%." />
-      </Flex>
-      <Flex direction="column" gap="2">
-        {summary.map(({ field, label, effectSize }) => {
-          const display = EFFECT_SIZE_DISPLAY[effectSize];
-          return (
-            <Flex key={field} align="center" gap="3">
-              <Box style={{ width: 160 }}>
+      <Text as="p" size="sm" color="text-low" mb="2">
+        How much each adjustment changed this metric&apos;s result.
+      </Text>
+      <Flex direction="row" gap="5" wrap="wrap">
+        {summary.map(
+          ({
+            field,
+            label,
+            effectSize,
+            relativeChange,
+            significanceChanged,
+            signFlipped,
+          }) => {
+            const display = EFFECT_SIZE_DISPLAY[effectSize];
+            return (
+              <Flex
+                key={field}
+                direction="column"
+                align="start"
+                gap="1"
+                style={{ minWidth: 120 }}
+              >
                 {onAdjustmentClick ? (
                   <Link
                     size="sm"
@@ -117,11 +141,18 @@ const MetricDrilldownAdjustmentSummary: FC<
                     {label}
                   </Text>
                 )}
-              </Box>
-              <Badge label={display.label} color={display.color} />
-            </Flex>
-          );
-        })}
+                <Badge label={display.label} color={display.color} />
+                <Text size="sm" color="text-low">
+                  {formatAdjustmentDelta({
+                    relativeChange,
+                    significanceChanged,
+                    signFlipped,
+                  })}
+                </Text>
+              </Flex>
+            );
+          },
+        )}
       </Flex>
     </Box>
   );
