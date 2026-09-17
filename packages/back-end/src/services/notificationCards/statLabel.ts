@@ -20,8 +20,8 @@ export const intervalLabel = (
   statsEngine: StatsEngine,
   pValueThreshold?: number,
 ): string => {
-  if (statsEngine !== "frequentist") return "95% CI";
+  if (statsEngine !== "frequentist") return "95% Credible Interval";
   return pValueThreshold === undefined
-    ? "95% CI"
-    : `${levelFormatter.format(1 - pValueThreshold)} CI`;
+    ? "Confidence Interval"
+    : `${levelFormatter.format(1 - pValueThreshold)} Confidence Interval`;
 };
