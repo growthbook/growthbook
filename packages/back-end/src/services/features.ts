@@ -3331,9 +3331,7 @@ export function validateFeatureRuleValues(
   }
 }
 
-// Enforce JSON-schema validation for a feature's default value and/or rule
-// values. Validation is on by default; an explicit `?skipSchemaValidation=true`
-// opts out (see context.canSkipSchemaValidationFor("feature")). Pass the EFFECTIVE feature —
+// Enforce value types even when schema validation is skipped. Pass the EFFECTIVE feature —
 // i.e. one already carrying the inbound/draft `jsonSchema`, `valueType`, so a
 // request that changes the schema validates against the new schema.
 export function assertFeatureValuesValid(
@@ -3341,12 +3339,14 @@ export function assertFeatureValuesValid(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
-  if (context.canSkipSchemaValidationFor("feature")) return;
+  const valueFeature = context.canSkipSchemaValidationFor("feature")
+    ? { valueType: feature.valueType }
+    : feature;
   if (values.defaultValue !== undefined) {
-    validateFeatureValue(feature, values.defaultValue, "Default value");
+    validateFeatureValue(valueFeature, values.defaultValue, "Default value");
   }
   for (const rule of values.rules ?? []) {
-    validateFeatureRuleValues(feature, rule);
+    validateFeatureRuleValues(valueFeature, rule);
   }
 }
 
@@ -3388,6 +3388,7 @@ export function assertFeatureValuesValidForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
+  assertFeatureValuesValid(context, { valueType: feature.valueType }, values);
   if (context.canSkipSchemaValidationFor("feature")) return;
 
   const errors = collectFeatureValueErrorsForPublish(feature, values);

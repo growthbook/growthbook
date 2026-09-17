@@ -47,6 +47,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { normalizeFeatureJSONValues } from "back-end/src/util/featureValues";
 import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
@@ -934,10 +935,10 @@ export async function createFeature(
 
   const linkedExperiments = getLinkedExperiments(data);
 
-  const featureToCreate = buildFeatureUpdate({
-    ...data,
-    linkedExperiments,
-  });
+  const featureToCreate = normalizeFeatureJSONValues(
+    { valueType: data.valueType },
+    buildFeatureUpdate({ ...data, linkedExperiments }),
+  );
 
   if (Array.isArray(featureToCreate.rules)) {
     const { rules: dedupedRules, collisions } = ensureUniqueRuleIds(
@@ -1367,14 +1368,30 @@ export async function updateFeature(
     // set-then-fetch, so its `dateUpdated` may already be a rival's, and
     // reading ownership from it says "still ours" at the moment it isn't.
     onStamped?: (stamp: Date) => void;
+    // Internal failed-write recovery only: restore the exact pre-image.
+    isCompensation?: boolean;
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
   const allUpdates = {
+    ...(updates.valueType !== undefined &&
+    updates.valueType !== feature.valueType
+      ? { defaultValue: feature.defaultValue, rules: feature.rules }
+      : {}),
     ...updates,
     // Strictly after the guarded token, even inside the same millisecond.
     dateUpdated: ourStamp,
   };
+  // Recovery must restore the exact pre-image, including legacy values.
+  if (!options?.isCompensation) {
+    Object.assign(
+      allUpdates,
+      normalizeFeatureJSONValues(
+        { valueType: updates.valueType ?? feature.valueType },
+        allUpdates,
+      ),
+    );
+  }
   // Used only for hooks and linkedExperiment derivation; the post-write value
   // is re-read from Mongo below. The holdout $unset is modeled here so callers
   // pass the TRUE pre-image and hooks still see a holdout-only change.
@@ -3605,7 +3622,10 @@ export function computeProposedFeatureForValidation(
     : feature;
   const proposedFeature: FeatureInterface = {
     ...base,
-    ...changes,
+    ...normalizeFeatureJSONValues(
+      { valueType: changes.valueType ?? base.valueType },
+      changes,
+    ),
     dateUpdated: new Date(),
   };
   proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
@@ -3760,6 +3780,7 @@ async function restorePublishedFeatureDoc(
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
         onStamped,
+        isCompensation: true,
       });
       return;
     } catch (e) {
