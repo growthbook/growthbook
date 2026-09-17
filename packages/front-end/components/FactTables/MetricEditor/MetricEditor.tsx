@@ -229,13 +229,10 @@ export default function MetricEditor({
     <Grid columns={{ initial: "1", md: "2fr 1fr" }} gap="4">
       <Flex direction="column" gap="4">
         <Frame>
-          <Heading as="h4" size="sm" mb="1">
-            Metric Type
-          </Heading>
-          {canEdit && (
-            <Text color="text-mid" as="div" mb="3">
-              Choose what kind of number this metric produces.
-            </Text>
+          {!canEdit && (
+            <Heading as="h4" size="sm" mb="3">
+              Metric Type
+            </Heading>
           )}
           {canEdit ? (
             <MetricTypeSelect
