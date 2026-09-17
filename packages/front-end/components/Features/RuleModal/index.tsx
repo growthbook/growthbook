@@ -9,6 +9,7 @@ import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getDefaultHashAttribute,
   filterEnvironmentsByFeature,
   generateVariationId,
   isProjectListValidForProject,
@@ -1085,11 +1086,10 @@ export default function RuleModal({
       // When auto-promoting to rollout, ensure hashAttribute has a sensible value
       if (targetType === "rollout") {
         if (!form.getValues("hashAttribute")) {
-          const defaultHash =
-            attributeSchema?.find((a) => a.hashAttribute)?.property ||
-            attributeSchema?.[0]?.property ||
-            "id";
-          form.setValue("hashAttribute", defaultHash);
+          form.setValue(
+            "hashAttribute",
+            getDefaultHashAttribute(attributeSchema),
+          );
         }
       }
     }

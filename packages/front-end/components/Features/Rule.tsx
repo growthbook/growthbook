@@ -9,6 +9,8 @@ import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getDefaultHashAttribute,
+  rampPlanBucketsOnDefault,
   rampTargetRuleIds,
   rampControlFootprint,
   stemRuleId,
@@ -568,6 +570,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           featureRuleContext
         />,
       );
+      // A plan written outside the rule editor can ramp a force rule's
+      // coverage; the step turns it into a rollout. Say what it will bucket on
+      // and where to change that before the step fires.
+      if (
+        rule.type === "force" &&
+        rampPlanBucketsOnDefault(rampSchedule, rule.id)
+      ) {
+        ruleTags.push(
+          <Badge
+            key="ramp-hash"
+            color="amber"
+            variant="soft"
+            label={`Ramp will bucket on "${getDefaultHashAttribute(settings.attributeSchema)}" · edit the rule to choose`}
+          />,
+        );
+      }
     }
 
     if (useDummyData && hasMonitoringStatusRow) {

@@ -387,7 +387,7 @@ async function validateRuleModalRampPatches(
   context: ReqContext,
   plan: InlineRampScheduleCreate | InlineRampScheduleUpdate,
   feature: FeatureInterface,
-  rule: Pick<FeatureRule, "allEnvironments" | "environments"> | null,
+  rule: FeatureRule | null,
   stored: unknown[],
 ): Promise<void> {
   await validateRampPlanPatches(

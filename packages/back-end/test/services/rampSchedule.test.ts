@@ -283,7 +283,7 @@ describe("applyPatchToRule", () => {
     condition: "",
   };
 
-  it("promotes a force rule to a rollout when coverage lands, given a hash attribute", () => {
+  it("promotes a force rule to a rollout when partial coverage lands", () => {
     const force: FeatureRule = {
       id: "r2",
       type: "force",
@@ -297,14 +297,19 @@ describe("applyPatchToRule", () => {
       coverage: 0.5,
       hashAttribute: "user_id",
     });
-    // A plan from before the write-time check: bucket on the org's default.
+    // No hash attribute anywhere: the organization's default.
     expect(applyPatchToRule(force, { coverage: 0.5 }, "device")).toMatchObject({
       type: "rollout",
       hashAttribute: "device",
     });
-    // Full coverage or no coverage: a force rule stays a force rule.
+    // Full or no coverage never promotes.
     expect(applyPatchToRule(force, { coverage: 1 }).type).toBe("force");
     expect(applyPatchToRule(force, { condition: "{}" }).type).toBe("force");
+    // A plan's hash attribute never re-buckets a rollout; clearing coverage on
+    // one (a promoted rule's start anchor) means full coverage.
+    expect(
+      applyPatchToRule(base, { coverage: null, hashAttribute: "user_id" }),
+    ).toMatchObject({ type: "rollout", coverage: 1, hashAttribute: "id" });
   });
 
   it("applies coverage patch", () => {
@@ -2083,6 +2088,7 @@ describe("advanceStep — interval step", () => {
         }),
       ],
       {
+        coverageHash: false,
         stored: [
           {
             startActions: [

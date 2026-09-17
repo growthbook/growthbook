@@ -168,7 +168,8 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     req.context,
     rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
       type: ruleInput.type,
-      hashAttribute: (ruleInput as { hashAttribute?: string }).hashAttribute,
+      hashAttribute:
+        ruleInput.type === "rollout" ? ruleInput.hashAttribute : undefined,
       environments: [environment],
     }),
   );

@@ -24,6 +24,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  getDefaultHashAttribute,
   featureHasEnvironment,
   filterEnvironmentsByFeature,
   generateVariationId,
@@ -1044,13 +1045,7 @@ export function getDefaultRuleValue({
   /** Safe default hash version for new rules — pass `hasSDKWithNoBucketingV2 ? 1 : 2` at the call site. Defaults to 1 (safest). */
   defaultHashVersion?: 1 | 2;
 }): FeatureRule | NewExperimentRefRule | safeRolloutFields {
-  const hashAttributes =
-    attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
-    [];
-
-  const hashAttribute = hashAttributes.includes("id")
-    ? "id"
-    : hashAttributes[0] || "id";
+  const hashAttribute = getDefaultHashAttribute(attributeSchema);
   let defaultDataSource = settings?.defaultDataSource;
   if (datasources && !defaultDataSource && datasources.length === 1) {
     defaultDataSource = datasources[0].id;

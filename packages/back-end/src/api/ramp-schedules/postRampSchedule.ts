@@ -333,22 +333,6 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
-  // Body and template patches alike, on the rule they will land on. The start
-  // actions derived from the rule below are its own state and are not judged.
-  await validateRampPlanPatches(
-    req.context,
-    hasTarget
-      ? rampPatchEntriesForTargets(
-          [
-            ...resolvedSteps.flatMap((s) => s.actions),
-            ...(resolvedEndActions ?? []),
-          ],
-          [{ id: targetId!, entityId: feature!.id, ruleId: body.ruleId }],
-          () => feature,
-        )
-      : rampPatchEntries(collectRampPlanPatches(body), null),
-  );
-
   const resolvedStartActions: RampStepAction[] | undefined = (() => {
     if (body.startActions !== undefined) {
       return body.startActions.map((a) =>
@@ -368,6 +352,33 @@ export const postRampSchedule = createApiRequestHandler(
     }
     return undefined;
   })();
+
+  // Body and template patches alike, on the rule they will land on. Start
+  // actions derived from the rule (none in the body) are its own state and
+  // are not judged.
+  await validateRampPlanPatches(
+    req.context,
+    hasTarget
+      ? rampPatchEntriesForTargets(
+          [
+            ...(body.startActions !== undefined
+              ? (resolvedStartActions ?? [])
+              : []),
+            ...resolvedSteps.flatMap((s) => s.actions),
+            ...(resolvedEndActions ?? []),
+          ],
+          [
+            {
+              id: targetId!,
+              entityId: feature!.id,
+              ruleId: body.ruleId,
+              environment: body.environment ?? null,
+            },
+          ],
+          () => feature,
+        )
+      : rampPatchEntries(collectRampPlanPatches(body), null),
+  );
 
   // startActions derived from the live rule (none in the body) are its own
   // value and are only stringified; everything else is checked.

@@ -13,7 +13,7 @@ import {
   validateRulesReferences,
 } from "back-end/src/api/features/validations";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
@@ -704,17 +704,43 @@ describe("validateRampPlanPatches", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("refuses a coverage plan on a force rule unless the rule or the plan carries a hash attribute", async () => {
+  it("warns about a partial-coverage plan on a force rule that nothing gives a hash attribute", async () => {
     const forceRule = { id: "fr_force", type: "force" };
-    await expect(run([{ coverage: 0.5 }], feature, forceRule)).rejects.toThrow(
-      /^Invalid ramp schedule patch: Rule "fr_force" is a force rule without a hash attribute/,
+    const warned = run([{ coverage: 0.5 }], feature, forceRule);
+    await expect(warned).rejects.toThrow(SoftWarningError);
+    await expect(warned).rejects.toThrow(
+      /Rule "fr_force" on "checkout_flag" is a force rule with no hash attribute.*bucketed on "id"/,
     );
+    await expect(
+      validateRampPlanPatches(
+        { ...ctx, ignoreWarnings: true } as ApiReqContext,
+        rampPatchEntries([{ coverage: 0.5 }], feature, forceRule),
+      ),
+    ).resolves.toBeUndefined();
     await expect(
       run([{ coverage: 0.5, hashAttribute: "id" }], feature, forceRule),
     ).resolves.toBeUndefined();
-    // A start action in the same plan may carry it for every step.
+    // An earlier patch in the plan may carry it; a later one does not help the
+    // step that fires first.
     await expect(
       run([{ hashAttribute: "id" }, { coverage: 0.5 }], feature, forceRule),
+    ).resolves.toBeUndefined();
+    await expect(
+      run([{ coverage: 0.5 }, { hashAttribute: "id" }], feature, forceRule),
+    ).rejects.toThrow(SoftWarningError);
+    // A plan that already ramped this rule was acknowledged when stored.
+    await expect(
+      run([{ coverage: 0.5 }], feature, forceRule, [
+        {
+          steps: [
+            { actions: [{ patch: { ruleId: "fr_force", coverage: 0.25 } }] },
+          ],
+        },
+      ]),
+    ).resolves.toBeUndefined();
+    // Full coverage never promotes; a rollout rule already has its attribute.
+    await expect(
+      run([{ coverage: 1 }], feature, forceRule),
     ).resolves.toBeUndefined();
     await expect(
       run([{ coverage: 0.5 }], feature, {

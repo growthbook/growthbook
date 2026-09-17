@@ -219,18 +219,21 @@ describe("ramp schedule patch references", () => {
     );
   });
 
-  it("ramps a force rule's coverage only when the plan carries a hash attribute", async () => {
-    const put = (patch: Record<string, unknown>) =>
+  it("warns before ramping a force rule's coverage on the default hash attribute", async () => {
+    const put = (body: Record<string, unknown>) =>
       request(app)
         .put(
           `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
         )
-        .send({ steps: [step(patch)] })
+        .send(body)
         .set("Authorization", "Bearer foo");
-    const bare = await put({ coverage: 0.5 });
-    expect(bare.body.message).toMatch(/force rule without a hash attribute/);
-    expect(bare.status).toBe(400);
-    const hashed = await put({ coverage: 0.5, hashAttribute: "id" });
+    const warned = await put({ steps: [step({ coverage: 0.5 })] });
+    expect(warned.status).toBe(422);
+    expect(warned.body.warnings?.[0]).toMatch(/bucketed on "id"/);
+    expect(await draftRampActions()).toEqual([]);
+    const hashed = await put({
+      steps: [step({ coverage: 0.5, hashAttribute: "id" })],
+    });
     expect(hashed.body.message).toBeUndefined();
     expect(hashed.status).toBe(200);
   });

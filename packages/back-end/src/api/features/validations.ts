@@ -12,6 +12,7 @@ import {
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
 import {
+  getDefaultHashAttribute,
   findStoredRuleCounterpart,
   stemRuleId,
   validateCondition,
@@ -36,7 +37,11 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
 import type { ReqContext } from "back-end/types/request";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  NotFoundError,
+  SoftWarningError,
+} from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
@@ -351,6 +356,48 @@ function changedRampPatchTargeting(
 
 const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 
+// The payload reads coverage only on rollout rules, so a partial-coverage step
+// promotes a force rule when it fires. Without a hash attribute from the rule
+// or from an earlier patch in the plan it buckets on the organization's default;
+// the caller acknowledges that (ignoreWarnings) or chooses one first.
+function assertRampCoverageHashAcknowledged(
+  context: ReqContext | ApiReqContext,
+  entries: RampPatchEntry[],
+  stored: RampPatchTargetingInput[],
+): void {
+  if (context.ignoreWarnings) return;
+  const sameRule = (a: RampPatchEntry, b: RampPatchEntry) =>
+    (a.feature?.id ?? null) === (b.feature?.id ?? null) &&
+    (a.rule?.id ?? null) === (b.rule?.id ?? null);
+  entries.forEach((entry, i) => {
+    const { patch, rule, feature } = entry;
+    if ((patch.coverage ?? 1) >= 1 || rule?.type !== "force") return;
+    if (rule.hashAttribute) return;
+    // Acknowledged when the stored plan already ramped this rule's coverage.
+    if (
+      stored.some(
+        (s) =>
+          (s.ruleId ?? null) === (rule.id ?? null) && (s.coverage ?? 1) < 1,
+      )
+    ) {
+      return;
+    }
+    if (
+      entries
+        .slice(0, i + 1)
+        .some((e) => sameRule(e, entry) && e.patch.hashAttribute)
+    ) {
+      return;
+    }
+    const fallback = getDefaultHashAttribute(
+      context.org.settings?.attributeSchema,
+    );
+    const where = feature ? `"${rule.id}" on "${feature.id}"` : `"${rule.id}"`;
+    const message = `Rule ${where} is a force rule with no hash attribute; when this ramp reaches partial coverage it becomes a rollout bucketed on "${fallback}". Set hashAttribute on the rule or in the plan to choose another.`;
+    throw new SoftWarningError(message, [message]);
+  });
+}
+
 // The rule endpoints' checks (`assertValidRuleEnvironments`,
 // `validateRulesReferences`, `assertValidPrerequisiteParents`) applied to ramp
 // patch targeting. `stored` are the plans this write replaces; as with
@@ -360,7 +407,13 @@ const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 export async function validateRampPlanPatches(
   context: ReqContext | ApiReqContext,
   entries: RampPatchEntry[],
-  { stored = [] }: { stored?: unknown[] } = {},
+  // coverageHash: warn about a partial-coverage step on a force rule that
+  // nothing gives a hash attribute; off when a stored plan fires, since that
+  // was settled when it was written.
+  {
+    stored = [],
+    coverageHash = true,
+  }: { stored?: unknown[]; coverageHash?: boolean } = {},
 ): Promise<void> {
   const storedPatches = stored.flatMap((plan) => collectRampPlanPatches(plan));
   const checked = entries
@@ -372,22 +425,8 @@ export async function validateRampPlanPatches(
     .filter(({ changed }) => hasRampPatchTargeting(changed));
 
   try {
-    // The payload reads coverage only on rollout rules: a partial coverage
-    // step promotes a force rule when it fires, which needs a hash attribute
-    // from the rule or from the plan.
-    for (const { patch, rule } of entries) {
-      if ((patch.coverage ?? 1) >= 1 || rule?.type !== "force") continue;
-      const supplied =
-        rule.hashAttribute ||
-        entries.some(
-          (e) =>
-            (e.rule?.id ?? null) === (rule.id ?? null) && e.patch.hashAttribute,
-        );
-      if (!supplied) {
-        throw new BadRequestError(
-          `Rule "${rule.id}" is a force rule without a hash attribute; set hashAttribute on the rule or in the plan before ramping its coverage`,
-        );
-      }
+    if (coverageHash) {
+      assertRampCoverageHashAcknowledged(context, entries, storedPatches);
     }
     if (!checked.length) return;
 

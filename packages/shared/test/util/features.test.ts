@@ -7,6 +7,7 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
+  getDefaultHashAttribute,
   stringifyFeatureValue,
   validateFeatureValue,
   assertSchemaMatchesValueType,
@@ -1054,6 +1055,21 @@ describe("scheduled / deferred publish helpers", () => {
     autoPublishOnApproval: true,
     scheduledPublishAt: future,
     ...over,
+  });
+
+  describe("getDefaultHashAttribute", () => {
+    it("prefers a marked id, then the first marked attribute, then id", () => {
+      const attr = (property: string, hashAttribute?: boolean) =>
+        ({ property, datatype: "string", hashAttribute }) as never;
+      expect(
+        getDefaultHashAttribute([attr("device", true), attr("id", true)]),
+      ).toBe("id");
+      expect(getDefaultHashAttribute([attr("device", true), attr("id")])).toBe(
+        "device",
+      );
+      expect(getDefaultHashAttribute([attr("id")])).toBe("id");
+      expect(getDefaultHashAttribute(undefined)).toBe("id");
+    });
   });
 
   describe("isScheduledPublishPending", () => {

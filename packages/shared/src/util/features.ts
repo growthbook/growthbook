@@ -564,6 +564,46 @@ export function expandSparseToFull(
   return serializeExtendsObject(mergedRefs, ownKeys);
 }
 
+// Whether a ramp plan will turn `ruleId` (a force rule) into a rollout bucketed
+// on the organization's default: a partial-coverage patch for the rule with no
+// patch for it naming a hash attribute.
+export function rampPlanBucketsOnDefault(
+  plan: {
+    startActions?: { patch?: RampRulePatch }[] | null;
+    steps?: { actions?: { patch?: RampRulePatch }[] | null }[] | null;
+    endActions?: { patch?: RampRulePatch }[] | null;
+  },
+  ruleId: string,
+): boolean {
+  const patches = [
+    ...(plan.startActions ?? []),
+    ...(plan.steps ?? []).flatMap((s) => s.actions ?? []),
+    ...(plan.endActions ?? []),
+  ]
+    .map((a) => a.patch)
+    .filter((p): p is RampRulePatch => !!p && (p.ruleId ?? ruleId) === ruleId);
+  return (
+    patches.some((p) => (p.coverage ?? 1) < 1) &&
+    !patches.some((p) => p.hashAttribute)
+  );
+}
+type RampRulePatch = {
+  ruleId?: string | null;
+  coverage?: number | null;
+  hashAttribute?: string | null;
+};
+
+// The attribute a new rollout buckets on when none is chosen: `id` when it is
+// marked as a hash attribute, else the first marked one, else `id`.
+export function getDefaultHashAttribute(
+  attributeSchema: SDKAttributeSchema | undefined,
+): string {
+  const marked = (attributeSchema ?? [])
+    .filter((a) => a.hashAttribute)
+    .map((a) => a.property);
+  return marked.includes("id") ? "id" : marked[0] || "id";
+}
+
 // Validate the values a revert restores against the value type / JSON schema
 // that will be live afterward. Returns one warning per value that no longer
 // parses/validates; callers surface these as a bypassable soft warning.

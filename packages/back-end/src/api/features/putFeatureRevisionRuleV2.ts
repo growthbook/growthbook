@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import pick from "lodash/pick";
 import {
   getRuleAttributeScopeProjectIds,
   getConfigBackingKey,
@@ -76,14 +77,18 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   }
   // Same environment-id check as the add endpoint, before a draft is created.
   assertValidRuleEnvironments(req.context, [patch]);
+  const liveRule = (feature.rules ?? []).find(
+    (r) => r.id === req.params.ruleId,
+  );
   await validateRampPlanPatches(
     req.context,
     rampPatchEntries(
       collectRampPlanPatches(inlineRampSchedule),
       feature,
+      // The patch's scope where it sets one, on the rule it lands on.
       patch.allEnvironments !== undefined || patch.environments !== undefined
-        ? patch
-        : (feature.rules ?? []).find((r) => r.id === req.params.ruleId),
+        ? { ...pick(liveRule, ["type", "hashAttribute", "id"]), ...patch }
+        : liveRule,
     ),
   );
 

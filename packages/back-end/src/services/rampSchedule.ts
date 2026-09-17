@@ -1,5 +1,4 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import type { OrganizationInterface } from "shared/types/organization";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import {
@@ -20,6 +19,7 @@ import {
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import {
+  getDefaultHashAttribute,
   MergeResultChanges,
   filterEnvironmentsByFeature,
   getApplicableEnvIds,
@@ -419,6 +419,8 @@ interface EntityHandler {
       user: EventUser;
       environment?: string | null;
       judgeTargeting?: boolean;
+      // Collects what the step changed beyond its patches, for the step event.
+      notes?: string[];
     },
   ): Promise<void>;
 }
@@ -646,18 +648,15 @@ export function normalizeRampPlanForceValues<
 
 // Apply a patch to a rule. Uses "in" checks so injected undefined values clear the field.
 // null clears most fields, but force allows null (valid JSON feature value).
-function defaultHashAttribute(org: OrganizationInterface): string {
-  return (
-    org.settings?.attributeSchema?.find((a) => a.hashAttribute)?.property ??
-    "id"
-  );
+function stepReason(notes: string[]): { reason?: string } {
+  return notes.length ? { reason: notes.join(" ") } : {};
 }
 
 export function applyPatchToRule(
   existing: FeatureRule,
   patch: Omit<FeatureRulePatch, "ruleId">,
-  // Bucketing attribute for a force rule the patch promotes when neither the
-  // rule nor the plan names one (plans written since the check carry it).
+  // A force rule the patch gives partial coverage becomes a rollout, bucketing
+  // on the rule's or plan's hash attribute, else `defaultHashAttribute`.
   defaultHashAttribute = "id",
 ): FeatureRule {
   const updated = { ...existing };
@@ -697,11 +696,9 @@ export function applyPatchToRule(
   if ("enabled" in patch) {
     updated.enabled = patch.enabled ?? undefined;
   }
-  if ("hashAttribute" in patch && patch.hashAttribute) {
-    (updated as { hashAttribute?: string }).hashAttribute = patch.hashAttribute;
-  }
-  // The payload reads coverage only on rollout rules: a partial coverage step
-  // promotes a force rule, as the rule modal does.
+  // The payload reads coverage only on rollout rules: partial coverage on a
+  // force rule promotes it, as the rule modal does. A plan's hash attribute
+  // only names what the promotion buckets on; it never re-buckets a rollout.
   if (
     updated.type === "force" &&
     (patch.coverage ?? null) !== null &&
@@ -711,10 +708,17 @@ export function applyPatchToRule(
       ...updated,
       type: "rollout",
       coverage: patch.coverage as number,
-      hashAttribute:
-        (updated as { hashAttribute?: string }).hashAttribute ??
-        defaultHashAttribute,
+      hashAttribute: patch.hashAttribute || defaultHashAttribute,
     } as FeatureRule;
+  }
+  // A promoted rule's start anchor carries no coverage; replaying it means
+  // full coverage, not a rollout with none.
+  if (
+    updated.type === "rollout" &&
+    "coverage" in patch &&
+    patch.coverage == null
+  ) {
+    (updated as { coverage?: number }).coverage = 1;
   }
   return updated;
 }
@@ -821,7 +825,7 @@ export function resolveRampStartState({
 
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
-    const { stepLabel, user, environment, judgeTargeting } = opts;
+    const { stepLabel, user, environment, judgeTargeting, notes } = opts;
 
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
@@ -852,6 +856,7 @@ export const featureEntityHandler: EntityHandler = {
       // The effective patch replays the start anchor too; only what the step
       // changes on the live rule is judged.
       await validateRampPlanPatches(ctx, entries, {
+        coverageHash: false,
         stored: entries.map(({ rule }) => ({
           startActions: [
             { patch: { ...getStartPatchForRule(rule), ruleId: rule.id } },
@@ -883,11 +888,23 @@ export const featureEntityHandler: EntityHandler = {
         const idx = updatedRules.indexOf(target);
         // A value the feature's type rejects is logged, never refused:
         // rollbacks and restarts re-apply the rule's own earlier value.
+        const defaultHashAttribute = getDefaultHashAttribute(
+          ctx.org.settings?.attributeSchema,
+        );
         const patched = applyPatchToRule(
           target,
           patchFields,
-          defaultHashAttribute(ctx.org),
+          defaultHashAttribute,
         );
+        if (
+          target.type === "force" &&
+          patched.type === "rollout" &&
+          !("hashAttribute" in patchFields && patchFields.hashAttribute)
+        ) {
+          const note = `Rule ${target.id} became a rollout bucketed on "${defaultHashAttribute}" (no hash attribute was set; edit the rule to change it)`;
+          logger.warn({ featureId: feature.id, ruleId: target.id }, note);
+          notes?.push(note);
+        }
         if ("force" in patchFields && patchFields.force !== undefined) {
           const value = (patched as { value?: string }).value ?? "";
           try {
@@ -1162,9 +1179,10 @@ async function executeStepActions(
   // judgeTargeting: stored step or end patches are checked before they land.
   // Rollbacks are not: refusing a retreat is worse than replaying a stale step.
   opts: { fromStepIndex?: number; judgeTargeting?: boolean } = {},
-): Promise<void> {
+): Promise<string[]> {
+  const notes: string[] = [];
   const ruleActions = actions.filter((a) => a.targetType === "feature-rule");
-  if (!ruleActions.length) return;
+  if (!ruleActions.length) return notes;
 
   const byEntity = new Map<
     string,
@@ -1234,6 +1252,7 @@ async function executeStepActions(
         user,
         environment: group.environment,
         judgeTargeting: opts.judgeTargeting,
+        notes,
       });
     } catch (e) {
       if ((e as Error).message?.startsWith("Feature not found:")) {
@@ -1255,6 +1274,7 @@ async function executeStepActions(
       throw e;
     }
   }
+  return notes;
 }
 
 // Build an `enabled` patch for each active feature target. `enabled: false`
@@ -1446,10 +1466,13 @@ export async function advanceStep(
       patch,
     }),
   );
-  await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions, {
-    judgeTargeting: true,
-    fromStepIndex: schedule.currentStepIndex,
-  });
+  const notes = await executeStepActions(
+    ctx,
+    schedule,
+    nextStepIndex,
+    effectiveActions,
+    { judgeTargeting: true, fromStepIndex: schedule.currentStepIndex },
+  );
 
   // `nextStepAt` is the time gate. Steps without an interval (pure approval /
   // instant gates) have no time gate, so nextStepAt is null. For instant
@@ -1513,7 +1536,9 @@ export async function advanceStep(
         previousStatus: schedule.status,
         // Distinguishes automatic catch-up jumps from user-initiated
         // jumpSchedule jumps in the timeline/audit view.
-        ...(isJump ? { reason: "Automatic catch-up of overdue steps" } : {}),
+        ...stepReason(
+          isJump ? ["Automatic catch-up of overdue steps", ...notes] : notes,
+        ),
       },
     ),
   });
