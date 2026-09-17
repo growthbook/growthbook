@@ -94,11 +94,15 @@ jest.mock("back-end/src/util/secrets", () => ({
 
 // Pull in mocked module references AFTER the mock declarations.
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
-import { createRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { createEvent } from "back-end/src/models/EventModel";
 import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
+const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
 const mockPublishRevision = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
@@ -2297,6 +2301,49 @@ describe("rollbackToStep", () => {
     await rollbackToStep(ctx as never, schedule, -1);
 
     expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
+
+  it("restores a missing anchor from the activating revision before rolling back to -1", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      targets: [
+        {
+          id: TARGET_ID,
+          entityType: "feature",
+          entityId: FEATURE_ID,
+          ruleId: RULE_ID,
+          status: "active",
+          activatingRevisionVersion: 4,
+        },
+      ],
+    });
+    // The activating revision holds the rule at its pre-ramp 5%; the live
+    // feature (10%) is already at a ramp step and must not be used.
+    mockGetRevision.mockResolvedValue(
+      makeRevision({
+        version: 4,
+        rules: [{ ...makeFeature().rules[0], coverage: 0.05 }],
+      }) as never,
+    );
+    const { ctx, updateById } = makeContext({ currentStepIndex: 1 });
+
+    await rollbackToStep(ctx as never, schedule, -1);
+
+    expect(mockGetRevision).toHaveBeenCalledWith(
+      expect.objectContaining({ featureId: FEATURE_ID, version: 4 }),
+    );
+    const [, healed] = updateById.mock.calls[0];
+    expect(healed.startActions).toEqual([
+      expect.objectContaining({
+        targetId: TARGET_ID,
+        patch: expect.objectContaining({ ruleId: RULE_ID, coverage: 0.05 }),
+      }),
+    ]);
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const patched = (forceResult.rules ?? []).find(
+      (r: FeatureRule) => r.id === RULE_ID,
+    );
+    expect((patched as { coverage?: number })?.coverage).toBe(0.05);
   });
 
   it("sets status to rolled-back for full rollback (targetStepIndex=-1)", async () => {

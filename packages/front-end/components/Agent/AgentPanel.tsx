@@ -55,6 +55,7 @@ import {
 import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
+import { resolveAgentInternalHref } from "./agentLinkUtils";
 
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
@@ -62,6 +63,12 @@ const CALL_API_LABEL = "Calling GrowthBook API…";
 const ASK_USER_LABEL = "Asking you a question…";
 const LOAD_SKILL_LABEL = "Loading skill…";
 const WAIT_LABEL = "Waiting…";
+
+function resolveAgentPanelInternalHref(href: string): string | null {
+  const currentOrigin =
+    typeof window === "undefined" ? null : window.location.origin;
+  return resolveAgentInternalHref(href, currentOrigin);
+}
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
@@ -218,12 +225,6 @@ export default function AgentPanel({
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
-  }, []);
-
-  // Relative links in agent replies navigate the underlying page in-app
-  // (the panel stays open) instead of opening a new tab.
-  const navigateInApp = useCallback((href: string) => {
-    void routerRef.current?.push(href);
   }, []);
 
   const { mutate } = useSWRConfig();
@@ -574,7 +575,6 @@ export default function AgentPanel({
             <PersistedTurn
               key={idx}
               turn={turn}
-              onInternalLinkClick={navigateInApp}
               toolDetailsOpenRef={toolDetailsOpenRef}
               feedbackMap={feedbackMap}
               onFeedbackSubmit={handleFeedbackSubmit}
@@ -596,7 +596,6 @@ export default function AgentPanel({
               <ActiveTurnItemRow
                 item={item}
                 displayedTextMap={displayedTextMap}
-                onInternalLinkClick={navigateInApp}
                 toolDetailsOpenRef={toolDetailsOpenRef}
               />
             );
@@ -702,12 +701,10 @@ function activeItemsToSteps(
 function ActiveTurnItemRow({
   item,
   displayedTextMap,
-  onInternalLinkClick,
   toolDetailsOpenRef,
 }: {
   item: ActiveTurnItem;
   displayedTextMap: Map<string, string>;
-  onInternalLinkClick?: (href: string) => void;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
 }) {
   if (item.kind === "tool-status") {
@@ -748,7 +745,7 @@ function ActiveTurnItemRow({
     if (!displayed) return null;
     return (
       <AssistantBubble>
-        <Markdown onInternalLinkClick={onInternalLinkClick}>
+        <Markdown resolveInternalHref={resolveAgentPanelInternalHref}>
           {displayed}
         </Markdown>
       </AssistantBubble>
@@ -767,14 +764,12 @@ function ActiveTurnItemRow({
  */
 function PersistedTurn({
   turn,
-  onInternalLinkClick,
   toolDetailsOpenRef,
   feedbackMap,
   onFeedbackSubmit,
   feedbackTrackingEventName,
 }: {
   turn: MessageTurn;
-  onInternalLinkClick?: (href: string) => void;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
   feedbackMap: Record<string, FeedbackState>;
   onFeedbackSubmit: (
@@ -844,7 +839,7 @@ function PersistedTurn({
 
       {hasReply && (
         <AssistantBubble>
-          <Markdown onInternalLinkClick={onInternalLinkClick}>
+          <Markdown resolveInternalHref={resolveAgentPanelInternalHref}>
             {replyContent}
           </Markdown>
         </AssistantBubble>

@@ -14,8 +14,8 @@ import {
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import {
-  assessApprovalCoverage,
-  assessRequiredApproverTeams,
+  assessGoverningApprovalCoverage,
+  assessRequiredApproverTeamsByProject,
   bypassApprovalPermission,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -76,9 +76,16 @@ export type FeatureMergePlan = {
     satisfied: boolean;
     unmet: { id: string; name: string }[][];
   };
+  requiredProjectApprovers: RequiredProjectApprovers;
   rebaseRequired: boolean;
   /** The governance explanation when rebaseRequired (for error copy). */
   rebaseBlockReason: string | null;
+};
+
+// Targeting projects still owed a covering approval from one of their own reviewers.
+export type RequiredProjectApprovers = {
+  satisfied: boolean;
+  unmet: { id: string; name: string }[];
 };
 
 export type RevisionApprovalState = {
@@ -89,7 +96,8 @@ export type RevisionApprovalState = {
     satisfied: boolean;
     unmet: { id: string; name: string }[][];
   };
-  /** Approved, covered, and every named team has signed. */
+  requiredProjectApprovers: RequiredProjectApprovers;
+  /** Approved, covered, every named team has signed, and every governing project too. */
   satisfied: boolean;
 };
 
@@ -172,30 +180,33 @@ export async function assessRevisionApproval({
     }),
     liveRampScheduleEnvs,
   });
-  const { hasCoveringApproval, uncoveredApprovers } = assessApprovalCoverage({
+  const approvers = (revision.reviews ?? [])
+    .filter((r) => r.status === "approved")
+    .map((r) => r.userId)
+    .filter((id): id is string => !!id)
+    .map((id) => ({
+      id,
+      roleInfo: context.org.members.find((m) => m.id === id) ?? null,
+    }));
+  const coverage = assessGoverningApprovalCoverage({
     org: context.org,
     teams: context.teams,
     model: "feature",
     projects: feature.project ? [feature.project] : [],
+    approverProjects: reviewRequirement.approverProjects ?? [],
     footprint: reviewFootprint,
-    approvers: (revision.reviews ?? [])
-      .filter((r) => r.status === "approved")
-      .map((r) => r.userId)
-      .filter((id): id is string => !!id)
-      .map((id) => ({
-        id,
-        roleInfo: context.org.members.find((m) => m.id === id) ?? null,
-      })),
+    approvers,
   });
+  const { hasCoveringApproval, uncoveredApprovers } = coverage;
+  const requiredProjectApprovers = await nameProjects(
+    context,
+    coverage.requiredProjects,
+  );
 
-  const coveringApproverIds = (revision.reviews ?? [])
-    .filter((r) => r.status === "approved")
-    .map((r) => r.userId)
-    .filter((id): id is string => !!id)
-    .filter((id) => !uncoveredApprovers.includes(id));
-  const requiredTeams = assessRequiredApproverTeams({
-    rules: reviewRequirement.rules,
-    coveringApproverIds,
+  const requiredTeams = assessRequiredApproverTeamsByProject({
+    governing: reviewRequirement.governing ?? [],
+    primaryProject: feature.project ?? "",
+    coverage,
     org: context.org,
     teams: context.teams,
   });
@@ -204,14 +215,32 @@ export async function assessRevisionApproval({
     !requiresReview ||
     (revision.status === "approved" &&
       hasCoveringApproval &&
-      requiredTeams.satisfied);
+      requiredTeams.satisfied &&
+      requiredProjectApprovers.satisfied);
 
   return {
     requiresReview,
     uncoveredApprovers,
     hasCoveringApproval,
     requiredApproverTeams: requiredTeams,
+    requiredProjectApprovers,
     satisfied,
+  };
+}
+
+// Named for the refusal message; a publisher may lack read access to a
+// targeting project, in which case the id has to do.
+async function nameProjects(
+  context: Context,
+  { satisfied, unmet }: { satisfied: boolean; unmet: string[] },
+): Promise<RequiredProjectApprovers> {
+  if (!unmet.length) return { satisfied, unmet: [] };
+  const names = new Map(
+    (await context.getProjects()).map((p) => [p.id, p.name] as const),
+  );
+  return {
+    satisfied,
+    unmet: unmet.map((id) => ({ id, name: names.get(id) ?? id })),
   };
 }
 
@@ -282,6 +311,7 @@ export async function planFeatureRevisionMerge({
     uncoveredApprovers,
     hasCoveringApproval,
     requiredApproverTeams: requiredTeams,
+    requiredProjectApprovers,
   } = await assessRevisionApproval({
     context,
     feature,
@@ -311,6 +341,7 @@ export async function planFeatureRevisionMerge({
     uncoveredApprovers,
     hasCoveringApproval,
     requiredApproverTeams: requiredTeams,
+    requiredProjectApprovers,
     rebaseRequired: !!rebaseGovernance?.rebaseRequired,
     rebaseBlockReason: rebaseGovernance?.rebaseRequired
       ? rebaseGovernance.blockReason
@@ -402,6 +433,23 @@ export async function collectFeaturePublishGates({
         messages: plan.requiredApproverTeams.unmet.map(
           (teams) =>
             `Requires approval from ${teams.map((t) => t.name).join(" or ")}.`,
+        ),
+        requiresPermission: bypassApprovalPermission("feature"),
+        resolution: {
+          action: "request-review",
+          method: "POST",
+          path: `/features/${feature.id}/revisions/${version}/request-review`,
+        },
+      }),
+    );
+  }
+
+  if (plan.requiresReview && !plan.requiredProjectApprovers.satisfied) {
+    gates.push(
+      makeBlockingGate({
+        type: "required-project-approvers-missing",
+        messages: plan.requiredProjectApprovers.unmet.map(
+          (p) => `Requires approval from a reviewer in the ${p.name} Project.`,
         ),
         requiresPermission: bypassApprovalPermission("feature"),
         resolution: {
