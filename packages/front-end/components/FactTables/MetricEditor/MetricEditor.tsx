@@ -38,6 +38,8 @@ import {
 } from "@/components/FactTables/MetricEditor/metricFormTranslation";
 
 const UNREPRESENTABLE_REASON_COPY: Record<UnrepresentableReason, string> = {
+  "retention-lookback-window":
+    "its lookback window is relative to the experiment end, which is not supported here",
   "sketch-aggregation":
     "it uses an HLL or KLL sketch aggregation, which isn't supported here",
   "quantile-event-count-column":
@@ -98,7 +100,13 @@ export default function MetricEditor({
   );
 
   const formTypeResult = formTypeFromStored(
-    { metricType, numerator, denominator, quantileSettings },
+    {
+      metricType,
+      numerator,
+      denominator,
+      quantileSettings,
+      windowSettings: form.watch("windowSettings"),
+    },
     factTable,
   );
 
@@ -160,6 +168,21 @@ export default function MetricEditor({
     );
     // Datasource is derived from the fact table, not selected directly (spec).
     if (newFactTable) form.setValue("datasource", newFactTable.datasource);
+    if (
+      metricType === "ratio" &&
+      (!denominator?.factTableId ||
+        denominator.factTableId === numerator.factTableId)
+    ) {
+      form.setValue(
+        "denominator",
+        onFactTableChange(
+          denominator ?? { factTableId: "", column: "$$count", rowFilters: [] },
+          newFactTableId,
+          newFactTable,
+          hasCountDistinctHLL,
+        ),
+      );
+    }
   }
 
   const isFunnel = formType === "funnel";
