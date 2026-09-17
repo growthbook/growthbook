@@ -20,6 +20,7 @@ const helpers: SqlDialect = {
   dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
   dateDiff: (a, b) => `datediff(day, ${a}, ${b})`,
   dateDiffMs: (a, b) => `(EXTRACT(EPOCH FROM (${b} - ${a})) * 1000)`,
+  concatStrings: (parts) => parts.join(" || "),
   addIntervalSeconds: (col, sign, amount) =>
     `${col} ${sign} INTERVAL '${amount} seconds'`,
   percentileApprox: (col, q) => `APPROX_PERCENTILE(${col}, ${q})`,
