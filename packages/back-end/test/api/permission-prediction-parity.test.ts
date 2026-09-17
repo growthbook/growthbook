@@ -283,3 +283,30 @@ describe("a relocating draft is predicted against the destination", () => {
     ).toBe(true);
   });
 });
+
+describe("metric creation permission atoms", () => {
+  it.each([
+    [true, false],
+    [false, true],
+    [false, false],
+    [true, true],
+  ])(
+    "keeps legacy=%s and fact=%s independent",
+    (createMetrics, manageFactMetrics) => {
+      const permissions = new Permissions({
+        global: {
+          permissions: { createMetrics, manageFactMetrics },
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      });
+      expect(permissions.canCreateMetric({ projects: ["prj_web"] })).toBe(
+        createMetrics,
+      );
+      expect(permissions.canCreateFactMetric({ projects: ["prj_web"] })).toBe(
+        manageFactMetrics,
+      );
+    },
+  );
+});

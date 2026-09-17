@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  Permissions,
   archiveFootprintForControl,
   featurePublishFootprint,
   revertFootprint,
@@ -344,5 +345,22 @@ describe("the cancel footprint is the entity's own scope, unwidened", () => {
 
   it("a Constant answers unbound when no environment override changes", () => {
     expect(constantPublishEnvironments()).toEqual(NO_ENVIRONMENT_BINDING);
+  });
+});
+
+describe("metric creation has no environment footprint", () => {
+  it("allows Fact Metric creation across environments when its project atom is granted", () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: { manageFactMetrics: true, createMetrics: false },
+        limitAccessByEnvironment: true,
+        environments: ["dev"],
+      },
+      projects: {},
+    });
+    expect(permissions.canCreateFactMetric({ projects: ["prj_web"] })).toBe(
+      true,
+    );
+    expect(permissions.canCreateMetric({ projects: ["prj_web"] })).toBe(false);
   });
 });
