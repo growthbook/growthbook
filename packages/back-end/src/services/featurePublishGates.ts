@@ -46,6 +46,7 @@ import {
 } from "back-end/src/services/archiveDependentsGuard";
 import { collectFeatureMoveDependentsGate } from "back-end/src/services/moveDependentsGuard";
 import { MergeConflictError } from "back-end/src/util/errors";
+import { pendingScheduleGate } from "back-end/src/revisions/pendingScheduleGuard";
 import {
   PublishGate,
   hookResultsToGates,
@@ -473,6 +474,9 @@ export async function collectFeaturePublishGates({
   );
 
   if (!includeValidationGates) return gates;
+
+  const scheduleGate = pendingScheduleGate(revision);
+  if (scheduleGate) gates.push(scheduleGate);
 
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(

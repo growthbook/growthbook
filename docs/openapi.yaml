@@ -4053,8 +4053,10 @@ paths:
 
 
         If the restored values no longer match the Feature Flag's current value
-        type or JSON schema, the API returns 422 with `warnings`. Send
-        `"ignoreWarnings": true` to acknowledge those warnings and continue.
+        type or JSON schema, or restoring an archived state would archive a flag
+        that live flags or experiments still depend on, the API returns 422 with
+        `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings
+        and continue.
       deprecated: true
       tags:
         - features
@@ -5585,7 +5587,12 @@ paths:
                                       type: string
                                   - type: 'null'
                               force:
-                                description: Force value (any JSON type)
+                                description: >-
+                                  Value to serve, in the string form rule values
+                                  use ("false", "10", '{"limit": 5}'). A
+                                  non-string JSON value is accepted and stored
+                                  as its JSON text. Must be valid for the
+                                  feature's value type.
                               enabled:
                                 anyOf:
                                   - type: boolean
@@ -5690,7 +5697,13 @@ paths:
                                             type: string
                                         - type: 'null'
                                     force:
-                                      description: Force value (any JSON type)
+                                      description: >-
+                                        Value to serve, in the string form rule
+                                        values use ("false", "10", '{"limit":
+                                        5}'). A non-string JSON value is
+                                        accepted and stored as its JSON text.
+                                        Must be valid for the feature's value
+                                        type.
                                     enabled:
                                       anyOf:
                                         - type: boolean
@@ -5801,7 +5814,12 @@ paths:
                                       type: string
                                   - type: 'null'
                               force:
-                                description: Force value (any JSON type)
+                                description: >-
+                                  Value to serve, in the string form rule values
+                                  use ("false", "10", '{"limit": 5}'). A
+                                  non-string JSON value is accepted and stored
+                                  as its JSON text. Must be valid for the
+                                  feature's value type.
                               enabled:
                                 anyOf:
                                   - type: boolean
@@ -6217,7 +6235,12 @@ paths:
                                       type: string
                                   - type: 'null'
                               force:
-                                description: Force value (any JSON type)
+                                description: >-
+                                  Value to serve, in the string form rule values
+                                  use ("false", "10", '{"limit": 5}'). A
+                                  non-string JSON value is accepted and stored
+                                  as its JSON text. Must be valid for the
+                                  feature's value type.
                               enabled:
                                 anyOf:
                                   - type: boolean
@@ -6322,7 +6345,13 @@ paths:
                                             type: string
                                         - type: 'null'
                                     force:
-                                      description: Force value (any JSON type)
+                                      description: >-
+                                        Value to serve, in the string form rule
+                                        values use ("false", "10", '{"limit":
+                                        5}'). A non-string JSON value is
+                                        accepted and stored as its JSON text.
+                                        Must be valid for the feature's value
+                                        type.
                                     enabled:
                                       anyOf:
                                         - type: boolean
@@ -6433,7 +6462,12 @@ paths:
                                       type: string
                                   - type: 'null'
                               force:
-                                description: Force value (any JSON type)
+                                description: >-
+                                  Value to serve, in the string form rule values
+                                  use ("false", "10", '{"limit": 5}'). A
+                                  non-string JSON value is accepted and stored
+                                  as its JSON text. Must be valid for the
+                                  feature's value type.
                               enabled:
                                 anyOf:
                                   - type: boolean
@@ -6897,7 +6931,11 @@ paths:
                                   type: string
                               - type: 'null'
                           force:
-                            description: Force value (any JSON type)
+                            description: >-
+                              Value to serve, in the string form rule values use
+                              ("false", "10", '{"limit": 5}'). A non-string JSON
+                              value is accepted and stored as its JSON text.
+                              Must be valid for the feature's value type.
                           enabled:
                             anyOf:
                               - type: boolean
@@ -7001,7 +7039,12 @@ paths:
                                         type: string
                                     - type: 'null'
                                 force:
-                                  description: Force value (any JSON type)
+                                  description: >-
+                                    Value to serve, in the string form rule
+                                    values use ("false", "10", '{"limit": 5}').
+                                    A non-string JSON value is accepted and
+                                    stored as its JSON text. Must be valid for
+                                    the feature's value type.
                                 enabled:
                                   anyOf:
                                     - type: boolean
@@ -7112,7 +7155,11 @@ paths:
                                   type: string
                               - type: 'null'
                           force:
-                            description: Force value (any JSON type)
+                            description: >-
+                              Value to serve, in the string form rule values use
+                              ("false", "10", '{"limit": 5}'). A non-string JSON
+                              value is accepted and stored as its JSON text.
+                              Must be valid for the feature's value type.
                           enabled:
                             anyOf:
                               - type: boolean
@@ -9809,8 +9856,10 @@ paths:
 
 
         If the restored values no longer match the Feature Flag's current value
-        type or JSON schema, the API returns 422 with `warnings`. Send
-        `"ignoreWarnings": true` to acknowledge those warnings and continue.
+        type or JSON schema, or restoring an archived state would archive a flag
+        that live flags or experiments still depend on, the API returns 422 with
+        `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings
+        and continue.
       tags:
         - features-v2
       parameters:
@@ -11275,7 +11324,12 @@ paths:
                                       type: string
                                   - type: 'null'
                               force:
-                                description: Force value (any JSON type)
+                                description: >-
+                                  Value to serve, in the string form rule values
+                                  use ("false", "10", '{"limit": 5}'). A
+                                  non-string JSON value is accepted and stored
+                                  as its JSON text. Must be valid for the
+                                  feature's value type.
                               enabled:
                                 anyOf:
                                   - type: boolean
@@ -11380,7 +11434,13 @@ paths:
                                             type: string
                                         - type: 'null'
                                     force:
-                                      description: Force value (any JSON type)
+                                      description: >-
+                                        Value to serve, in the string form rule
+                                        values use ("false", "10", '{"limit":
+                                        5}'). A non-string JSON value is
+                                        accepted and stored as its JSON text.
+                                        Must be valid for the feature's value
+                                        type.
                                     enabled:
                                       anyOf:
                                         - type: boolean
@@ -11491,7 +11551,12 @@ paths:
                                       type: string
                                   - type: 'null'
                               force:
-                                description: Force value (any JSON type)
+                                description: >-
+                                  Value to serve, in the string form rule values
+                                  use ("false", "10", '{"limit": 5}'). A
+                                  non-string JSON value is accepted and stored
+                                  as its JSON text. Must be valid for the
+                                  feature's value type.
                               enabled:
                                 anyOf:
                                   - type: boolean
@@ -11932,7 +11997,12 @@ paths:
                                       type: string
                                   - type: 'null'
                               force:
-                                description: Force value (any JSON type)
+                                description: >-
+                                  Value to serve, in the string form rule values
+                                  use ("false", "10", '{"limit": 5}'). A
+                                  non-string JSON value is accepted and stored
+                                  as its JSON text. Must be valid for the
+                                  feature's value type.
                               enabled:
                                 anyOf:
                                   - type: boolean
@@ -12037,7 +12107,13 @@ paths:
                                             type: string
                                         - type: 'null'
                                     force:
-                                      description: Force value (any JSON type)
+                                      description: >-
+                                        Value to serve, in the string form rule
+                                        values use ("false", "10", '{"limit":
+                                        5}'). A non-string JSON value is
+                                        accepted and stored as its JSON text.
+                                        Must be valid for the feature's value
+                                        type.
                                     enabled:
                                       anyOf:
                                         - type: boolean
@@ -12148,7 +12224,12 @@ paths:
                                       type: string
                                   - type: 'null'
                               force:
-                                description: Force value (any JSON type)
+                                description: >-
+                                  Value to serve, in the string form rule values
+                                  use ("false", "10", '{"limit": 5}'). A
+                                  non-string JSON value is accepted and stored
+                                  as its JSON text. Must be valid for the
+                                  feature's value type.
                               enabled:
                                 anyOf:
                                   - type: boolean
@@ -12622,7 +12703,11 @@ paths:
                                   type: string
                               - type: 'null'
                           force:
-                            description: Force value (any JSON type)
+                            description: >-
+                              Value to serve, in the string form rule values use
+                              ("false", "10", '{"limit": 5}'). A non-string JSON
+                              value is accepted and stored as its JSON text.
+                              Must be valid for the feature's value type.
                           enabled:
                             anyOf:
                               - type: boolean
@@ -12726,7 +12811,12 @@ paths:
                                         type: string
                                     - type: 'null'
                                 force:
-                                  description: Force value (any JSON type)
+                                  description: >-
+                                    Value to serve, in the string form rule
+                                    values use ("false", "10", '{"limit": 5}').
+                                    A non-string JSON value is accepted and
+                                    stored as its JSON text. Must be valid for
+                                    the feature's value type.
                                 enabled:
                                   anyOf:
                                     - type: boolean
@@ -12837,7 +12927,11 @@ paths:
                                   type: string
                               - type: 'null'
                           force:
-                            description: Force value (any JSON type)
+                            description: >-
+                              Value to serve, in the string form rule values use
+                              ("false", "10", '{"limit": 5}'). A non-string JSON
+                              value is accepted and stored as its JSON text.
+                              Must be valid for the feature's value type.
                           enabled:
                             anyOf:
                               - type: boolean
@@ -13019,7 +13113,11 @@ paths:
                             type: string
                         - type: 'null'
                     force:
-                      description: Force value (any JSON type)
+                      description: >-
+                        Value to serve, in the string form rule values use
+                        ("false", "10", '{"limit": 5}'). A non-string JSON value
+                        is accepted and stored as its JSON text. Must be valid
+                        for the feature's value type.
                     enabled:
                       anyOf:
                         - type: boolean
@@ -32544,7 +32642,12 @@ paths:
                                         type: string
                                     - type: 'null'
                                 force:
-                                  description: Force value (any JSON type)
+                                  description: >-
+                                    Value to serve, in the string form rule
+                                    values use ("false", "10", '{"limit": 5}').
+                                    A non-string JSON value is accepted and
+                                    stored as its JSON text. Must be valid for
+                                    the feature's value type.
                                 enabled:
                                   anyOf:
                                     - type: boolean
@@ -32656,7 +32759,11 @@ paths:
                                   type: string
                               - type: 'null'
                           force:
-                            description: Force value (any JSON type)
+                            description: >-
+                              Value to serve, in the string form rule values use
+                              ("false", "10", '{"limit": 5}'). A non-string JSON
+                              value is accepted and stored as its JSON text.
+                              Must be valid for the feature's value type.
                           enabled:
                             anyOf:
                               - type: boolean
@@ -32749,7 +32856,11 @@ paths:
                                   type: string
                               - type: 'null'
                           force:
-                            description: Force value (any JSON type)
+                            description: >-
+                              Value to serve, in the string form rule values use
+                              ("false", "10", '{"limit": 5}'). A non-string JSON
+                              value is accepted and stored as its JSON text.
+                              Must be valid for the feature's value type.
                           enabled:
                             anyOf:
                               - type: boolean
@@ -55416,7 +55527,12 @@ paths:
                                         type: string
                                     - type: 'null'
                                 force:
-                                  description: Force value (any JSON type)
+                                  description: >-
+                                    Value to serve, in the string form rule
+                                    values use ("false", "10", '{"limit": 5}').
+                                    A non-string JSON value is accepted and
+                                    stored as its JSON text. Must be valid for
+                                    the feature's value type.
                                 enabled:
                                   anyOf:
                                     - type: boolean
@@ -55535,7 +55651,11 @@ paths:
                                   type: string
                               - type: 'null'
                           force:
-                            description: Force value (any JSON type)
+                            description: >-
+                              Value to serve, in the string form rule values use
+                              ("false", "10", '{"limit": 5}'). A non-string JSON
+                              value is accepted and stored as its JSON text.
+                              Must be valid for the feature's value type.
                           enabled:
                             anyOf:
                               - type: boolean
@@ -55628,7 +55748,11 @@ paths:
                                   type: string
                               - type: 'null'
                           force:
-                            description: Force value (any JSON type)
+                            description: >-
+                              Value to serve, in the string form rule values use
+                              ("false", "10", '{"limit": 5}'). A non-string JSON
+                              value is accepted and stored as its JSON text.
+                              Must be valid for the feature's value type.
                           enabled:
                             anyOf:
                               - type: boolean
@@ -59016,7 +59140,12 @@ components:
                                     type: string
                                 - type: 'null'
                             force:
-                              description: Force value (any JSON type)
+                              description: >-
+                                Value to serve, in the string form rule values
+                                use ("false", "10", '{"limit": 5}'). A
+                                non-string JSON value is accepted and stored as
+                                its JSON text. Must be valid for the feature's
+                                value type.
                             enabled:
                               anyOf:
                                 - type: boolean
@@ -59121,7 +59250,12 @@ components:
                                           type: string
                                       - type: 'null'
                                   force:
-                                    description: Force value (any JSON type)
+                                    description: >-
+                                      Value to serve, in the string form rule
+                                      values use ("false", "10", '{"limit":
+                                      5}'). A non-string JSON value is accepted
+                                      and stored as its JSON text. Must be valid
+                                      for the feature's value type.
                                   enabled:
                                     anyOf:
                                       - type: boolean
@@ -59232,7 +59366,12 @@ components:
                                     type: string
                                 - type: 'null'
                             force:
-                              description: Force value (any JSON type)
+                              description: >-
+                                Value to serve, in the string form rule values
+                                use ("false", "10", '{"limit": 5}'). A
+                                non-string JSON value is accepted and stored as
+                                its JSON text. Must be valid for the feature's
+                                value type.
                             enabled:
                               anyOf:
                                 - type: boolean
@@ -59432,7 +59571,12 @@ components:
                                     type: string
                                 - type: 'null'
                             force:
-                              description: Force value (any JSON type)
+                              description: >-
+                                Value to serve, in the string form rule values
+                                use ("false", "10", '{"limit": 5}'). A
+                                non-string JSON value is accepted and stored as
+                                its JSON text. Must be valid for the feature's
+                                value type.
                             enabled:
                               anyOf:
                                 - type: boolean
@@ -59537,7 +59681,12 @@ components:
                                           type: string
                                       - type: 'null'
                                   force:
-                                    description: Force value (any JSON type)
+                                    description: >-
+                                      Value to serve, in the string form rule
+                                      values use ("false", "10", '{"limit":
+                                      5}'). A non-string JSON value is accepted
+                                      and stored as its JSON text. Must be valid
+                                      for the feature's value type.
                                   enabled:
                                     anyOf:
                                       - type: boolean
@@ -59648,7 +59797,12 @@ components:
                                     type: string
                                 - type: 'null'
                             force:
-                              description: Force value (any JSON type)
+                              description: >-
+                                Value to serve, in the string form rule values
+                                use ("false", "10", '{"limit": 5}'). A
+                                non-string JSON value is accepted and stored as
+                                its JSON text. Must be valid for the feature's
+                                value type.
                             enabled:
                               anyOf:
                                 - type: boolean
@@ -60461,7 +60615,12 @@ components:
                                     type: string
                                 - type: 'null'
                             force:
-                              description: Force value (any JSON type)
+                              description: >-
+                                Value to serve, in the string form rule values
+                                use ("false", "10", '{"limit": 5}'). A
+                                non-string JSON value is accepted and stored as
+                                its JSON text. Must be valid for the feature's
+                                value type.
                             enabled:
                               anyOf:
                                 - type: boolean
@@ -60566,7 +60725,12 @@ components:
                                           type: string
                                       - type: 'null'
                                   force:
-                                    description: Force value (any JSON type)
+                                    description: >-
+                                      Value to serve, in the string form rule
+                                      values use ("false", "10", '{"limit":
+                                      5}'). A non-string JSON value is accepted
+                                      and stored as its JSON text. Must be valid
+                                      for the feature's value type.
                                   enabled:
                                     anyOf:
                                       - type: boolean
@@ -60677,7 +60841,12 @@ components:
                                     type: string
                                 - type: 'null'
                             force:
-                              description: Force value (any JSON type)
+                              description: >-
+                                Value to serve, in the string form rule values
+                                use ("false", "10", '{"limit": 5}'). A
+                                non-string JSON value is accepted and stored as
+                                its JSON text. Must be valid for the feature's
+                                value type.
                             enabled:
                               anyOf:
                                 - type: boolean
@@ -60877,7 +61046,12 @@ components:
                                     type: string
                                 - type: 'null'
                             force:
-                              description: Force value (any JSON type)
+                              description: >-
+                                Value to serve, in the string form rule values
+                                use ("false", "10", '{"limit": 5}'). A
+                                non-string JSON value is accepted and stored as
+                                its JSON text. Must be valid for the feature's
+                                value type.
                             enabled:
                               anyOf:
                                 - type: boolean
@@ -60982,7 +61156,12 @@ components:
                                           type: string
                                       - type: 'null'
                                   force:
-                                    description: Force value (any JSON type)
+                                    description: >-
+                                      Value to serve, in the string form rule
+                                      values use ("false", "10", '{"limit":
+                                      5}'). A non-string JSON value is accepted
+                                      and stored as its JSON text. Must be valid
+                                      for the feature's value type.
                                   enabled:
                                     anyOf:
                                       - type: boolean
@@ -61093,7 +61272,12 @@ components:
                                     type: string
                                 - type: 'null'
                             force:
-                              description: Force value (any JSON type)
+                              description: >-
+                                Value to serve, in the string form rule values
+                                use ("false", "10", '{"limit": 5}'). A
+                                non-string JSON value is accepted and stored as
+                                its JSON text. Must be valid for the feature's
+                                value type.
                             enabled:
                               anyOf:
                                 - type: boolean
@@ -67635,7 +67819,11 @@ components:
                           type: string
                       - type: 'null'
                   force:
-                    description: Force value (any JSON type)
+                    description: >-
+                      Value to serve, in the string form rule values use
+                      ("false", "10", '{"limit": 5}'). A non-string JSON value
+                      is accepted and stored as its JSON text. Must be valid for
+                      the feature's value type.
                   enabled:
                     anyOf:
                       - type: boolean
@@ -67769,7 +67957,11 @@ components:
                                 type: string
                             - type: 'null'
                         force:
-                          description: Force value (any JSON type)
+                          description: >-
+                            Value to serve, in the string form rule values use
+                            ("false", "10", '{"limit": 5}'). A non-string JSON
+                            value is accepted and stored as its JSON text. Must
+                            be valid for the feature's value type.
                         enabled:
                           anyOf:
                             - type: boolean
@@ -67871,7 +68063,11 @@ components:
                           type: string
                       - type: 'null'
                   force:
-                    description: Force value (any JSON type)
+                    description: >-
+                      Value to serve, in the string form rule values use
+                      ("false", "10", '{"limit": 5}'). A non-string JSON value
+                      is accepted and stored as its JSON text. Must be valid for
+                      the feature's value type.
                   enabled:
                     anyOf:
                       - type: boolean
@@ -78377,7 +78573,11 @@ components:
                     type: string
                 - type: 'null'
             force:
-              description: Force value (any JSON type)
+              description: >-
+                Value to serve, in the string form rule values use ("false",
+                "10", '{"limit": 5}'). A non-string JSON value is accepted and
+                stored as its JSON text. Must be valid for the feature's value
+                type.
             enabled:
               anyOf:
                 - type: boolean
@@ -78506,7 +78706,11 @@ components:
                           type: string
                       - type: 'null'
                   force:
-                    description: Force value (any JSON type)
+                    description: >-
+                      Value to serve, in the string form rule values use
+                      ("false", "10", '{"limit": 5}'). A non-string JSON value
+                      is accepted and stored as its JSON text. Must be valid for
+                      the feature's value type.
                   enabled:
                     anyOf:
                       - type: boolean
