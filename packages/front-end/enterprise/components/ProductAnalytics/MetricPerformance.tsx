@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { PiArrowClockwise } from "react-icons/pi";
 import { FactMetricInterface } from "shared/types/fact-table";
 import {
   ExplorationConfig,
@@ -7,7 +8,7 @@ import {
 } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { isFactFunnelMetric } from "shared/experiments";
-import { datetime } from "shared/dates";
+import { ago, datetime } from "shared/dates";
 import {
   deriveFunnelUnit,
   funnelSettingsToFunnelDataset,
@@ -23,6 +24,9 @@ import Button from "@/ui/Button";
 import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 
+// Match the default dashboard stale interval.
+const PREVIEW_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
+
 function PerformanceChart() {
   const {
     exploration,
@@ -34,6 +38,21 @@ function PerformanceChart() {
     managedWarehouseUnavailable,
     handleSubmit,
   } = useExplorerContext();
+  const [now, setNow] = useState(() => Date.now());
+  const lastQueried =
+    exploration?.status === "success"
+      ? (exploration.runStarted ?? exploration.dateCreated)
+      : null;
+  useEffect(() => {
+    if (!lastQueried) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, [lastQueried]);
+  const isStale =
+    lastQueried !== null &&
+    now - new Date(lastQueried).getTime() >= PREVIEW_STALE_AFTER_MS;
+
   if (managedWarehouseUnavailable) {
     return (
       <Text color="text-mid">
@@ -55,6 +74,39 @@ function PerformanceChart() {
     );
   return (
     <Flex direction="column" gap="2" minHeight="0">
+      {lastQueried && (
+        <Flex
+          align="center"
+          gap="2"
+          pb="3"
+          mb="2"
+          style={{ borderBottom: "1px solid var(--gray-a6)" }}
+        >
+          <Text size="sm" color={isStale ? undefined : "text-low"}>
+            <span
+              title={datetime(lastQueried)}
+              style={isStale ? { color: "var(--amber-9)" } : undefined}
+            >
+              {isStale
+                ? `Last queried: ${datetime(lastQueried)}`
+                : `Updated ${ago(lastQueried)}`}
+            </span>
+          </Text>
+          {!isStale && (
+            <Button
+              size="sm"
+              variant="ghost"
+              color="gray"
+              aria-label="Refresh preview"
+              title="Refresh preview"
+              disabled={loading || !isSubmittable}
+              onClick={() => handleSubmit({ force: true })}
+            >
+              <PiArrowClockwise size={14} />
+            </Button>
+          )}
+        </Flex>
+      )}
       <Text size="sm" color="text-mid">
         Last 7 days
       </Text>
@@ -70,25 +122,29 @@ function PerformanceChart() {
           Daily metric values (UTC). Today is partial.
         </Text>
       )}
-      {exploration?.status === "success" && (
-        <Flex direction="column" gap="1">
-          <Text size="sm" color="text-mid">
-            Last queried:{" "}
-            {datetime(exploration.runStarted ?? exploration.dateCreated)}
-          </Text>
-          <Text size="sm" color="text-mid">
-            Newer data may be available. Refresh to update.
-          </Text>
+      {(isStale || !lastQueried || error) && (
+        <Flex
+          direction="column"
+          gap="2"
+          mt="2"
+          pt="3"
+          style={{ borderTop: "1px solid var(--gray-a6)" }}
+        >
+          {isStale && (
+            <Text size="sm" color="text-mid">
+              Newer data may be available. Refresh to update.
+            </Text>
+          )}
+          <Button
+            size="sm"
+            disabled={loading || !isSubmittable}
+            onClick={() => handleSubmit({ force: true })}
+            icon={<PiArrowClockwise />}
+          >
+            {error || exploration?.status === "error" ? "Retry" : "Refresh"}
+          </Button>
         </Flex>
       )}
-      <Button
-        size="sm"
-        variant="soft"
-        disabled={loading || !isSubmittable}
-        onClick={() => handleSubmit({ force: true })}
-      >
-        Refresh
-      </Button>
     </Flex>
   );
 }
