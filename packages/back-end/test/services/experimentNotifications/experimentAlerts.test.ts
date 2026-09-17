@@ -496,7 +496,7 @@ describe("experiment alert producers", () => {
     });
     expect(createEvent).toHaveBeenCalledTimes(1);
     const args = jest.mocked(createEvent).mock.calls[0][0];
-    expect(args.event).toBe("metric.guardrailFailure");
+    expect(args.event).toBe("guardrailFailed");
     expect(args.data).toMatchObject({
       object: {
         failedMetrics: [

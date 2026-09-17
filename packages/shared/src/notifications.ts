@@ -237,7 +237,7 @@ export const notificationEventMetadata = {
     description:
       "Triggered when a running experiment has been active for a long time without a decision.",
   },
-  "experiment.metric.guardrailFailure": {
+  "experiment.guardrailFailed": {
     label: "Guardrail failing",
     description:
       "Triggered when a running experiment has a failing guardrail metric.",
@@ -672,7 +672,7 @@ export const notificationCategoryGroups: Record<
     },
     {
       label: "Health & warnings",
-      options: ["experiment.warning", "experiment.metric.guardrailFailure"],
+      options: ["experiment.warning", "experiment.guardrailFailed"],
     },
     {
       label: "Schedules",

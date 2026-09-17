@@ -10,7 +10,7 @@ type AlertName =
   | "experiment.status.stopped"
   | "experiment.status.endingSoon"
   | "experiment.status.stale"
-  | "experiment.metric.guardrailFailure"
+  | "experiment.guardrailFailed"
   | "experiment.bandit.weightsChanged";
 
 type AlertEvent = Extract<NotificationEvent, { event: AlertName }>;
@@ -31,7 +31,7 @@ export function buildExperimentAlertMessage(event: AlertEvent): SlackMessage {
     case "experiment.status.stale":
       detail = `Running for ${event.data.object.daysRunning} days. Review whether to stop or extend it.`;
       break;
-    case "experiment.metric.guardrailFailure":
+    case "experiment.guardrailFailed":
       detail = `Failing guardrails: ${event.data.object.failedMetrics.map((m) => `${m.name} (${m.variationName})`).join(", ")}.`;
       break;
     case "experiment.bandit.weightsChanged":

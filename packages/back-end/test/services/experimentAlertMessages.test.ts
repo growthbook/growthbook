@@ -51,7 +51,7 @@ describe("experiment alert messages", () => {
       "Scheduled to end soon at 2026-09-14T00:00:00Z.",
     ],
     [
-      "experiment.metric.guardrailFailure",
+      "experiment.guardrailFailed",
       {
         type: "guardrail-failed",
         failedMetrics: [

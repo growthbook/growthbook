@@ -41,7 +41,7 @@
 | **[experiment.status.stopped](#experiment-status-stopped)**                                                   | Triggered when an experiment stops, including its result and any temporary rollout.                                                                                                                                                                                                                                           |
 | **[experiment.status.endingSoon](#experiment-status-endingsoon)**                                             | Triggered when a running experiment is nearing its scheduled end date.                                                                                                                                                                                                                                                        |
 | **[experiment.status.stale](#experiment-status-stale)**                                                       | Triggered when a running experiment has been active for a long time without a decision.                                                                                                                                                                                                                                       |
-| **[experiment.metric.guardrailFailure](#experiment-metric-guardrailfailure)**                                 | Triggered when a running experiment has a failing guardrail metric.                                                                                                                                                                                                                                                           |
+| **[experiment.guardrailFailed](#experiment-guardrailfailed)**                                                 | Triggered when a running experiment has a failing guardrail metric.                                                                                                                                                                                                                                                           |
 | **[experiment.bandit.weightsChanged](#experiment-bandit-weightschanged)**                                     | Triggered when a multi-armed bandit materially changes variation weights.                                                                                                                                                                                                                                                     |
 | **[experiment.info.significance](#experiment-info-significance)**                                             | Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.                                                                                                       |
 | **[experiment.info.scheduled-status-update](#experiment-info-scheduled-status-update)**                       | Triggered when a scheduled start or stop is automatically applied to an experiment, including the auto-ship outcome for a scheduled end.                                                                                                                                                                                      |
@@ -3336,7 +3336,7 @@ Triggered when a running experiment has been active for a long time without a de
 
 </Accordion>
 
-### experiment.metric.guardrailFailure
+### experiment.guardrailFailed
 
 Triggered when a running experiment has a failing guardrail metric.
 
@@ -3344,7 +3344,7 @@ Triggered when a running experiment has a failing guardrail metric.
 
 ```typescript
 {
-    event: "experiment.metric.guardrailFailure";
+    event: "experiment.guardrailFailed";
     object: "experiment";
     api_version: string;
     created: number;

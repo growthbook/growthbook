@@ -109,7 +109,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "experiment.status.stopped":
     case "experiment.status.endingSoon":
     case "experiment.status.stale":
-    case "experiment.metric.guardrailFailure":
+    case "experiment.guardrailFailed":
     case "experiment.bandit.weightsChanged":
       return buildExperimentAlertMessage(event);
 

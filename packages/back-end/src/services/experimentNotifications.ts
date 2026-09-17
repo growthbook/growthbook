@@ -558,7 +558,7 @@ export const notifyGuardrailFailed = async ({
       await dispatchEvent({
         context,
         experiment,
-        event: "metric.guardrailFailure",
+        event: "guardrailFailed",
         data: {
           object: {
             type: "guardrail-failed",

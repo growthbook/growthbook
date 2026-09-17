@@ -268,7 +268,7 @@ export const notificationEvents = {
     "status.stale": {
       schema: experimentStaleNotificationPayload,
     },
-    "metric.guardrailFailure": {
+    guardrailFailed: {
       schema: experimentGuardrailFailedNotificationPayload,
     },
     "bandit.weightsChanged": {
