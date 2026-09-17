@@ -281,7 +281,7 @@ describe("rampPatchEntriesForTargets", () => {
 });
 
 describe("collectRampPlanPatches", () => {
-  it("gathers step, start, end and startState patches and skips malformed entries", () => {
+  it("gathers step, start, end, startState and endPatch patches and skips malformed entries", () => {
     expect(
       collectRampPlanPatches({
         steps: [
@@ -292,12 +292,14 @@ describe("collectRampPlanPatches", () => {
         startActions: [{ patch: { condition: "{}" } }],
         endActions: [{ patch: { enabled: false } }, {}],
         startState: { coverage: 0 },
+        endPatch: { environments: ["qa"] },
       }),
     ).toEqual([
       { condition: "{}" },
       { coverage: 0.1 },
       { enabled: false },
       { coverage: 0 },
+      { environments: ["qa"] },
     ]);
     expect(collectRampPlanPatches(undefined)).toEqual([]);
     expect(collectRampPlanPatches({})).toEqual([]);
@@ -467,6 +469,13 @@ describe("validateRampPlanPatches", () => {
           allEnvironments: true,
         }),
       ).resolves.toBeUndefined();
+      // `allEnvironments: false` alone keeps the rule's list.
+      await expect(
+        run([{ ...prereqOnParent, allEnvironments: false }], feature, {
+          allEnvironments: false,
+          environments: ["qa"],
+        }),
+      ).resolves.toBeUndefined();
     });
 
     it("rejects it where the rule and the parent's gate share an environment", async () => {
@@ -556,6 +565,15 @@ describe("validateRampPlanPatches", () => {
         stored,
       ),
     ).rejects.toThrow(/circular dependency/);
+    // Clearing the gate in the same step leaves nothing to walk.
+    await expect(
+      run(
+        [{ prerequisites: null, environments: ["production"] }],
+        target,
+        gatedRule,
+        stored,
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it("checks only existence for a plan with no target feature", async () => {
@@ -573,8 +591,15 @@ describe("validateRampPlanPatches", () => {
       savedGroups: [{ match: "all" as const, ids: ["grp_gone"] }],
     };
     const stored = [{ steps: [{ actions: [{ patch: stale }] }] }];
-    // A pure echo, and an edit of another field, leave the stale group alone.
+    // A pure echo, and an edit of another field, leave the stale group alone;
+    // so does the same patch without a ruleId, or with an env-suffixed one.
     await expect(run([stale], feature, null, stored)).resolves.toBeUndefined();
+    await expect(
+      run([{ ...stale, ruleId: undefined }], feature, null, stored),
+    ).resolves.toBeUndefined();
+    await expect(
+      run([{ ...stale, ruleId: "fr_1__production" }], feature, null, stored),
+    ).resolves.toBeUndefined();
     expect(getAll).not.toHaveBeenCalled();
     await expect(
       run(

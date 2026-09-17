@@ -2046,10 +2046,33 @@ describe("advanceStep — interval step", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
-  it("judges the step's stored targeting before it lands", async () => {
+  it("judges the step's stored targeting against the live rule before it lands", async () => {
     const { ctx } = makeContext({ currentStepIndex: -1 });
     await advanceStep(ctx as never, makeSchedule({ currentStepIndex: -1 }));
     expect(validateRampPlanPatches).toHaveBeenCalledTimes(1);
+    expect(validateRampPlanPatches).toHaveBeenCalledWith(
+      ctx,
+      [
+        expect.objectContaining({
+          patch: expect.objectContaining({ ruleId: RULE_ID, coverage: 0.3 }),
+          rule: expect.objectContaining({ id: RULE_ID }),
+        }),
+      ],
+      {
+        stored: [
+          {
+            startActions: [
+              {
+                patch: expect.objectContaining({
+                  ruleId: RULE_ID,
+                  environments: ["production"],
+                }),
+              },
+            ],
+          },
+        ],
+      },
+    );
   });
 
   it("increments currentStepIndex", async () => {
@@ -2548,7 +2571,7 @@ describe("rollbackToStep", () => {
   });
 
   afterEach(() => {
-    // Rollbacks replay the rule's own earlier state; never judged.
+    // Rollbacks are never judged; refusing a retreat is worse than a stale step.
     expect(validateRampPlanPatches).not.toHaveBeenCalled();
   });
 

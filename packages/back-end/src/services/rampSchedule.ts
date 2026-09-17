@@ -807,17 +807,27 @@ export const featureEntityHandler: EntityHandler = {
       const { validateRampPlanPatches } = await import(
         "back-end/src/api/features/validations"
       );
-      await validateRampPlanPatches(
-        ctx,
-        actions.flatMap((action) => {
-          if (action.targetType !== "feature-rule") return [];
-          const { ruleId, ...patch } = action.patch;
-          return resolveRampTargets(
-            { ruleId, environment: environment ?? null },
-            updatedRules,
-          ).map((rule) => ({ patch, feature, rule }));
-        }),
-      );
+      const entries = actions.flatMap((action) => {
+        if (action.targetType !== "feature-rule") return [];
+        const { ruleId, ...patch } = action.patch;
+        return resolveRampTargets(
+          { ruleId, environment: environment ?? null },
+          updatedRules,
+        ).map((rule) => ({
+          patch: { ...patch, ruleId: rule.id },
+          feature,
+          rule,
+        }));
+      });
+      // The effective patch replays the start anchor too; only what the step
+      // changes on the live rule is judged.
+      await validateRampPlanPatches(ctx, entries, {
+        stored: entries.map(({ rule }) => ({
+          startActions: [
+            { patch: { ...getStartPatchForRule(rule), ruleId: rule.id } },
+          ],
+        })),
+      });
     }
 
     for (const action of actions) {
@@ -1114,8 +1124,8 @@ async function executeStepActions(
   actions: RampStepAction[],
   // fromStepIndex: position before a catch-up jump, so the published
   // revision's label shows the folded range instead of a normal single advance.
-  // judgeTargeting: stored step or end patches are checked before they land;
-  // start anchors and rollbacks replay the rule's own earlier state and are not.
+  // judgeTargeting: stored step or end patches are checked before they land.
+  // Rollbacks are not: refusing a retreat is worse than replaying a stale step.
   opts: { fromStepIndex?: number; judgeTargeting?: boolean } = {},
 ): Promise<void> {
   const ruleActions = actions.filter((a) => a.targetType === "feature-rule");

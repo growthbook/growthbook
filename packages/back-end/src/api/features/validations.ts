@@ -11,7 +11,11 @@ import {
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
-import { findStoredRuleCounterpart, validateCondition } from "shared/util";
+import {
+  findStoredRuleCounterpart,
+  stemRuleId,
+  validateCondition,
+} from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
@@ -206,6 +210,7 @@ type RampPlanInput = {
   startActions?: RampPlanAction[] | null;
   endActions?: RampPlanAction[] | null;
   startState?: unknown;
+  endPatch?: unknown;
 };
 
 // Every action in a ramp plan body, stored schedule or revision ramp action
@@ -220,15 +225,18 @@ export function collectRampPlanActions(plan: unknown): RampPlanAction[] {
   ].filter((a) => !!a?.patch && typeof a.patch === "object");
 }
 
-// The patches of those actions plus `startState`. Start actions derived from
-// the rule's current state are not caller-supplied and must not be passed here.
+// The patches of those actions plus a bare `startState` or template
+// `endPatch`. Start actions derived from the rule's current state are not
+// caller-supplied and must not be passed here.
 export function collectRampPlanPatches(
   plan: unknown,
 ): RampPatchTargetingInput[] {
-  const patches = collectRampPlanActions(plan).map((a) => a.patch);
-  const startState = (plan as RampPlanInput | null | undefined)?.startState;
-  if (startState && typeof startState === "object") patches.push(startState);
-  return patches as RampPatchTargetingInput[];
+  const { startState, endPatch } = (plan ?? {}) as RampPlanInput;
+  return [
+    ...collectRampPlanActions(plan).map((a) => a.patch),
+    startState,
+    endPatch,
+  ].filter((p): p is RampPatchTargetingInput => !!p && typeof p === "object");
 }
 
 type RuleScope = Pick<
@@ -298,15 +306,20 @@ function hasRampPatchTargeting(p: RampPatchTargetingInput): boolean {
 
 // The fields of `patch` that no stored patch for the same rule already holds
 // with an equal value; fields that merely echo stored content come back unset.
-// Environment scope is compared as the (allEnvironments, environments) pair and
-// kept whole, since it also scopes the prerequisite check.
+// A patch without a `ruleId` (single-target bodies, revision actions) is
+// compared against every stored patch. Environment scope is compared as the
+// (allEnvironments, environments) pair and kept whole, since it also scopes
+// the prerequisite check.
 function changedRampPatchTargeting(
   patch: RampPatchTargetingInput,
   stored: RampPatchTargetingInput[],
 ): RampPatchTargetingInput {
-  const prior = stored.filter(
-    (s) => (s.ruleId ?? null) === (patch.ruleId ?? null),
-  );
+  const key = (id: string | null | undefined) => (id ? stemRuleId(id) : null);
+  const ruleKey = key(patch.ruleId);
+  const prior = stored.filter((s) => {
+    const storedKey = key(s.ruleId);
+    return ruleKey === null || storedKey === null || storedKey === ruleKey;
+  });
   const echoed = <K extends keyof RampPatchTargetingInput>(...keys: K[]) =>
     prior.some((s) =>
       keys.every((k) => isEqual(s[k] ?? null, patch[k] ?? null)),
@@ -380,11 +393,12 @@ export async function validateRampPlanPatches(
       const scopeChanged =
         changed.environments !== undefined ||
         (changed.allEnvironments ?? null) !== null;
+      const landing =
+        patch.prerequisites === undefined
+          ? (rule?.prerequisites ?? [])
+          : (patch.prerequisites ?? []);
       const prerequisites =
-        changed.prerequisites ??
-        (scopeChanged
-          ? (patch.prerequisites ?? rule?.prerequisites ?? [])
-          : []);
+        changed.prerequisites !== undefined || scopeChanged ? landing : [];
       if (!prerequisites.length) continue;
       if (!feature) {
         // No flag to walk (a target-less schedule, or a target the caller
@@ -392,14 +406,22 @@ export async function validateRampPlanPatches(
         await assertValidExperimentPrerequisites(context, prerequisites);
         continue;
       }
-      // Judged as one more rule on the flag, in the scope the patch sets, else
-      // the target rule's, else every environment. A missing `environments`
-      // list means every environment (`ruleAppliesToEnv`), so it stays unset.
+      // Judged as one more rule on the flag, in the scope the patch leaves
+      // (`applyPatchToRule`: `allEnvironments: false` alone keeps the rule's
+      // list), else the target rule's, else every environment. A missing
+      // `environments` list means every environment (`ruleAppliesToEnv`), so
+      // it stays unset.
       const patchSetsScope =
         patch.environments !== undefined ||
         (patch.allEnvironments ?? null) !== null;
       const scope: RuleScope = patchSetsScope
-        ? patch
+        ? {
+            allEnvironments: patch.allEnvironments,
+            environments:
+              patch.environments === undefined && !patch.allEnvironments
+                ? rule?.environments
+                : patch.environments,
+          }
         : (rule ?? { allEnvironments: true });
       const environments = scope.environments ?? undefined;
       const patched: FeatureRule = {
