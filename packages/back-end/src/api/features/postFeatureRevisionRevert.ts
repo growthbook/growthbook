@@ -14,12 +14,14 @@ import {
   checkIfRevisionNeedsReview,
   getRevertTargetArchived,
   getRevertTargetHoldout,
+  getRevertValueValidationWarnings,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
+import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import type { ApiReqContext } from "back-end/types/api";
@@ -33,6 +35,7 @@ import {
   BadRequestError,
   InternalServerError,
   NotFoundError,
+  SoftWarningError,
 } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -396,6 +399,18 @@ export async function revertFeatureRevision(
     context.permissions.throwPermissionError();
   }
 
+  // Same soft warning the dashboard revert and `POST /features/{id}/revert`
+  // raise: restored values the current schema / value type can no longer read
+  // are a bypassable 422 (ignoreWarnings) rather than a blind publish.
+  const valueWarnings = getRevertValueValidationWarnings(feature, changes);
+  if (valueWarnings.length && !context.ignoreWarnings) {
+    throw new SoftWarningError(
+      "Reverting to this revision restores values that no longer pass validation:\n" +
+        valueWarnings.join("\n"),
+      valueWarnings,
+    );
+  }
+
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
   // calls should behave like dashboard actions), FlagsBypassApprovals, or the
   // org-wide "reverts bypass approval" setting. That last one was missing here
@@ -456,6 +471,11 @@ export async function revertFeatureRevision(
       : [];
 
   await assertFeatureMoveDependentsGuard(context, feature, changes.metadata);
+  // A revert restoring an archived state is the same out-of-service flip the
+  // direct archive endpoint guards.
+  if (changes.archived === true && !feature.archived) {
+    await assertFeatureArchiveDependentsGuard(context, feature);
+  }
   const { revision: publishedRevision, updatedFeature } =
     await createAndPublishRevision({
       context,
