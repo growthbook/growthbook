@@ -810,7 +810,7 @@ export class RampScheduleModel extends BaseClass {
         {
           knownStartValues: rampStartValuesOf(
             feature,
-            schedule.targets.map((t) => t.ruleId),
+            schedule.targets,
             schedule.startActions,
           ),
         },

@@ -533,7 +533,7 @@ export function normalizeRampActionsForceValues<
   actions: A[],
   feature?: RampForceFeature | null,
   label = "Ramp value",
-  isEcho: (force: string) => boolean = () => false,
+  isEcho: (force: string, action: A) => boolean = () => false,
 ): A[] {
   return actions.map((action, i) => {
     if (action.targetType !== undefined && action.targetType !== "feature-rule")
@@ -542,7 +542,7 @@ export function normalizeRampActionsForceValues<
     if (!patch || !("force" in patch) || patch.force === undefined)
       return action;
     let force = stringifyFeatureValue(patch.force);
-    if (feature && !isEcho(force)) {
+    if (feature && !isEcho(force, action)) {
       try {
         force = validateFeatureValue(
           { valueType: feature.valueType },
@@ -557,28 +557,37 @@ export function normalizeRampActionsForceValues<
   });
 }
 
-// The start values a schedule may legitimately echo without being judged: the
-// targeted rules' own current values and the anchor already stored. Anything
-// else in `startActions` is the caller's and is checked like a step value.
+// The start values each target may echo without being judged: its rule's own
+// current value and its stored anchor, keyed by target id. Anything else in
+// `startActions` is the caller's and is checked like a step value. "t1" is
+// the single-target sentinel the REST body may use.
 export function rampStartValuesOf(
   feature: Pick<FeatureInterface, "rules"> | null | undefined,
-  ruleIds: (string | null | undefined)[],
+  targets: { id: string; ruleId?: string | null }[],
   stored?: RampStepAction[] | null,
-): Set<string> {
-  const stems = new Set(ruleIds.filter(Boolean).map((id) => stemRuleId(id!)));
-  const values = new Set<string>();
-  for (const rule of feature?.rules ?? []) {
-    const { value } = rule as { value?: unknown };
-    if (value !== undefined && stems.has(stemRuleId(rule.id))) {
-      values.add(stringifyFeatureValue(value));
+): Map<string, Set<string>> {
+  const known = new Map<string, Set<string>>();
+  for (const target of targets) {
+    const values = new Set<string>();
+    for (const rule of feature?.rules ?? []) {
+      const { value } = rule as { value?: unknown };
+      if (
+        value !== undefined &&
+        target.ruleId &&
+        stemRuleId(rule.id) === stemRuleId(target.ruleId)
+      ) {
+        values.add(stringifyFeatureValue(value));
+      }
     }
-  }
-  for (const action of stored ?? []) {
-    if (action.patch.force !== undefined) {
-      values.add(stringifyFeatureValue(action.patch.force));
+    for (const action of stored ?? []) {
+      if (action.targetId === target.id && action.patch.force !== undefined) {
+        values.add(stringifyFeatureValue(action.patch.force));
+      }
     }
+    known.set(target.id, values);
   }
-  return values;
+  if (targets.length === 1) known.set("t1", known.get(targets[0].id)!);
+  return known;
 }
 
 // Same, over a whole plan. Absent parts stay absent. `startActions` are the
@@ -597,7 +606,7 @@ export function normalizeRampPlanForceValues<
   feature?: RampForceFeature | null,
   opts: {
     validateStartActions?: boolean;
-    knownStartValues?: Set<string>;
+    knownStartValues?: Map<string, Set<string>>;
   } = {},
 ): P {
   const out = { ...plan };
@@ -620,7 +629,10 @@ export function normalizeRampPlanForceValues<
       plan.startActions,
       opts.validateStartActions === false ? undefined : feature,
       "Start value",
-      (force) => opts.knownStartValues?.has(force) ?? false,
+      (force, action) =>
+        opts.knownStartValues
+          ?.get((action as { targetId?: string }).targetId ?? "")
+          ?.has(force) ?? false,
     ) as P["startActions"];
   }
   if (plan.endActions) {

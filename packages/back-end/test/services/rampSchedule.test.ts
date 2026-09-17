@@ -464,22 +464,27 @@ describe("ramp force values are applied and stored as strings", () => {
     ).toThrow('Start value (action 1): Must be "true" or "false"');
   });
 
-  it("a start value echoing the rule's own or the stored anchor is not judged; a typed one is", () => {
+  it("a start value echoing its target's rule or stored anchor is not judged; a typed one is", () => {
     const feature = {
       valueType: "boolean" as const,
       rules: [{ id: "r1", type: "force", value: "True" }],
     } as unknown as Pick<FeatureInterface, "valueType" | "rules">;
     const stored: RampStepAction[] = [
-      { targetType: "feature-rule", targetId: "t1", patch: { force: 1 } },
+      { targetType: "feature-rule", targetId: "tgt_a", patch: { force: 1 } },
     ];
-    const known = rampStartValuesOf(feature, ["r1", null], stored);
-    expect([...known].sort()).toEqual(["1", "True"]);
+    const targets = [
+      { id: "tgt_a", ruleId: "r1" },
+      { id: "tgt_b", ruleId: "r2" },
+    ];
+    const known = rampStartValuesOf(feature, targets, stored);
+    expect([...known.get("tgt_a")!].sort()).toEqual(["1", "True"]);
+    expect(known.get("tgt_b")!.size).toBe(0);
 
-    const plan = (force: unknown) =>
+    const plan = (targetId: string, force: unknown) =>
       ({
         steps: [],
         startActions: [
-          { targetType: "feature-rule", targetId: "t1", patch: { force } },
+          { targetType: "feature-rule", targetId, patch: { force } },
         ],
       }) as Pick<
         RampScheduleInterface,
@@ -487,13 +492,17 @@ describe("ramp force values are applied and stored as strings", () => {
       >;
     const opts = { knownStartValues: known };
     expect(() =>
-      normalizeRampPlanForceValues(plan("True"), feature, opts),
+      normalizeRampPlanForceValues(plan("tgt_a", "True"), feature, opts),
     ).not.toThrow();
     expect(() =>
-      normalizeRampPlanForceValues(plan(1), feature, opts),
+      normalizeRampPlanForceValues(plan("tgt_a", 1), feature, opts),
     ).not.toThrow();
+    // Another target's legacy value is not an echo for this target.
     expect(() =>
-      normalizeRampPlanForceValues(plan("False"), feature, opts),
+      normalizeRampPlanForceValues(plan("tgt_b", "True"), feature, opts),
+    ).toThrow('Start value (action 1): Must be "true" or "false"');
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_a", "False"), feature, opts),
     ).toThrow('Start value (action 1): Must be "true" or "false"');
   });
 

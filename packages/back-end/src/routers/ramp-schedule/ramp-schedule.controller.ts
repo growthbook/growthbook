@@ -150,10 +150,7 @@ export const postRampSchedule = async (
   Object.assign(
     body,
     normalizeRampPlanForceValues(body, feature, {
-      knownStartValues: rampStartValuesOf(
-        feature,
-        (body.targets ?? []).map((t) => t.ruleId),
-      ),
+      knownStartValues: rampStartValuesOf(feature, body.targets ?? []),
     }),
   );
 
@@ -313,7 +310,7 @@ export const putRampSchedule = async (
           {
             knownStartValues: rampStartValuesOf(
               feature,
-              fresh.targets.map((t) => t.ruleId),
+              fresh.targets,
               fresh.startActions,
             ),
           },
