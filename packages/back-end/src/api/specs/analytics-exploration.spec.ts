@@ -5,12 +5,14 @@ import {
   apiFactTableExplorationValidator,
   apiDataSourceExplorationValidator,
   apiSqlExplorationValidator,
-  metricExplorationConfigValidator,
   apiFunnelExplorationValidator,
+  apiJourneyExplorationValidator,
+  metricExplorationConfigValidator,
   funnelExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
   sqlExplorationConfigValidator,
+  journeyExplorationConfigValidator,
   explorationCacheQuerySchema,
   apiBaseSchema,
   apiQueryValidator,
@@ -269,6 +271,15 @@ export const postFunnelExplorationEndpoint = makeExplorationEndpoint(
   },
 );
 
+export const postJourneyExplorationEndpoint = makeExplorationEndpoint(
+  apiJourneyExplorationValidator,
+  journeyExplorationConfigValidator,
+  {
+    pathFragment: "/journey-exploration",
+    operationId: "postJourneyExploration",
+    summary: "Run a User Journey based visualization",
+  },
+);
 export const getProductAnalyticsExplorationEndpoint = {
   pathFragment: "/explorations/:id",
   verb: "get" as const,
@@ -306,6 +317,7 @@ export const analyticsExplorationApiSpec = {
     postDataSourceExplorationEndpoint,
     postSqlExplorationEndpoint,
     postFunnelExplorationEndpoint,
+    postJourneyExplorationEndpoint,
     searchProductAnalyticsResourcesEndpoint,
     getProductAnalyticsColumnsEndpoint,
     getProductAnalyticsColumnValuesEndpoint,
