@@ -794,8 +794,21 @@ function standardBody(exp: ExperimentCardData): El {
 // The main learning, featured near the top: soft status-hue background, a caps
 // CONCLUSION label, then the conclusion text.
 function conclusionEl(exp: ExperimentCardData): El | null {
-  if (!exp.conclusion?.text) return null;
+  const { text, rollout } = exp.conclusion ?? {};
+  if (!text && !rollout) return null;
   const hue = HUE[exp.state];
+  const section = (label: string, markdown: string, first: boolean) => [
+    txt(label, {
+      fontSize: 12,
+      fontWeight: 600,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase",
+      color: P.st[hue],
+      marginBottom: 6,
+      ...(first ? {} : { marginTop: 16 }),
+    }),
+    renderMarkdown(markdown, { ...PROSE_STYLE, fontSize: 20, lineHeight: 1.4 }),
+  ];
   return el(
     "div",
     {
@@ -806,19 +819,8 @@ function conclusionEl(exp: ExperimentCardData): El | null {
       borderBottom: `1px solid ${P.border}`,
     },
     [
-      txt("Conclusion", {
-        fontSize: 12,
-        fontWeight: 600,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        color: P.st[hue],
-        marginBottom: 6,
-      }),
-      renderMarkdown(exp.conclusion.text, {
-        ...PROSE_STYLE,
-        fontSize: 20,
-        lineHeight: 1.4,
-      }),
+      ...(text ? section("Conclusion", text, true) : []),
+      ...(rollout ? section("Temporary Rollout", rollout, !text) : []),
     ],
   );
 }

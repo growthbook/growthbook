@@ -77,8 +77,9 @@ export interface EventCardData extends CardIdentity {
 export interface ExperimentCardData extends CardIdentity {
   goal: string;
   rows: CardGoalRow[];
-  // Completed experiments (won / lost / stopped) with a written analysis.
-  conclusion?: { text: string };
+  // Completed experiments (won / lost / stopped): the written analysis and,
+  // when one is active, the variation a temporary rollout serves.
+  conclusion?: { text?: string; rollout?: string };
   // Picks the stat column label: chance to win, or p-value for frequentist.
   statsEngine?: StatsEngine;
 }

@@ -8,6 +8,7 @@ import {
   formatLift,
   getExperimentStoppedConclusion,
   getExperimentStoppedLabel,
+  getExperimentStoppedRollout,
   variationMarkdown,
 } from "back-end/src/services/experimentChanges/experimentStoppedSummary";
 import { escapeInlineMarkdown } from "back-end/src/services/notificationCards/markdown";
@@ -107,13 +108,21 @@ function buildCardData(data: ExperimentStoppedNotificationPayload): CardData {
         ? "loser"
         : "stopped";
   const conclusion = getExperimentStoppedConclusion(data);
+  const rollout = getExperimentStoppedRollout(data);
   return {
     ...identity,
     state,
     goal: data.goalMetric.metricName,
     statsEngine: data.goalMetric.statsEngine,
     rows: goalRows(data.goalMetric),
-    ...(conclusion ? { conclusion: { text: conclusion } } : {}),
+    ...(conclusion || rollout
+      ? {
+          conclusion: {
+            ...(conclusion ? { text: conclusion } : {}),
+            ...(rollout ? { rollout } : {}),
+          },
+        }
+      : {}),
   };
 }
 

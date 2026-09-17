@@ -78,8 +78,8 @@ export function getExperimentStoppedOutcome(
 export const variationMarkdown = (name: string): string =>
   `Variation *${escapeInlineMarkdown(name)}*`;
 
-// Markdown conclusion: "Variation *X* won. <reason> Temporary rollout:
-// Variation *X*." Undefined when there is nothing to say.
+// Markdown conclusion: "Variation *X* won. <reason>". Undefined when there is
+// nothing to say.
 export function getExperimentStoppedConclusion(
   data: ExperimentStoppedNotificationPayload,
 ): string | undefined {
@@ -88,13 +88,19 @@ export function getExperimentStoppedConclusion(
       ? `${variationMarkdown(data.winningVariationName)} won.`
       : undefined,
     data.reason ? escapeInlineMarkdown(data.reason) : undefined,
-    data.enableTemporaryRollout && data.releasedVariationName
-      ? `Temporary rollout: ${variationMarkdown(data.releasedVariationName)}.`
-      : undefined,
   ]
     .filter(Boolean)
     .join(" ");
   return text || undefined;
+}
+
+// "Variation *X*" for the variation a temporary rollout is serving.
+export function getExperimentStoppedRollout(
+  data: ExperimentStoppedNotificationPayload,
+): string | undefined {
+  return data.enableTemporaryRollout && data.releasedVariationName
+    ? variationMarkdown(data.releasedVariationName)
+    : undefined;
 }
 
 // "Experiment Stopped - Winner. Variation X won. <reason> Temporary rollout:
@@ -103,6 +109,7 @@ export function getExperimentStoppedText(
   data: ExperimentStoppedNotificationPayload,
 ): string {
   const conclusion = getExperimentStoppedConclusion(data);
+  const rollout = getExperimentStoppedRollout(data);
   const outcome = getExperimentStoppedOutcome(data);
   const goal = data.goalMetric;
   const confidence =
@@ -116,6 +123,7 @@ export function getExperimentStoppedText(
   return [
     `${getExperimentStoppedLabel(data)}.`,
     conclusion ? markdownToPlainText(conclusion) : undefined,
+    rollout ? `Temporary rollout: ${markdownToPlainText(rollout)}.` : undefined,
     lift,
   ]
     .filter(Boolean)
