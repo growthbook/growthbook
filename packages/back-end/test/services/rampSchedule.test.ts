@@ -20,7 +20,7 @@ import type {
   RampStepAction,
   SafeRolloutInterface,
 } from "shared/validators";
-import type { FeatureRule } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   isAwaitingApproval,
   isReadyForApproval,
@@ -58,6 +58,7 @@ import {
   pauseSchedule,
   normalizeRampActionsForceValues,
   normalizeRampPlanForceValues,
+  rampStartValuesOf,
   forceMatchesValueType,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
@@ -460,6 +461,39 @@ describe("ramp force values are applied and stored as strings", () => {
         >,
         { valueType: "boolean" },
       ),
+    ).toThrow('Start value (action 1): Must be "true" or "false"');
+  });
+
+  it("a start value echoing the rule's own or the stored anchor is not judged; a typed one is", () => {
+    const feature = {
+      valueType: "boolean" as const,
+      rules: [{ id: "r1", type: "force", value: "True" }],
+    } as unknown as Pick<FeatureInterface, "valueType" | "rules">;
+    const stored: RampStepAction[] = [
+      { targetType: "feature-rule", targetId: "t1", patch: { force: 1 } },
+    ];
+    const known = rampStartValuesOf(feature, ["r1", null], stored);
+    expect([...known].sort()).toEqual(["1", "True"]);
+
+    const plan = (force: unknown) =>
+      ({
+        steps: [],
+        startActions: [
+          { targetType: "feature-rule", targetId: "t1", patch: { force } },
+        ],
+      }) as Pick<
+        RampScheduleInterface,
+        "steps" | "startActions" | "endActions"
+      >;
+    const opts = { knownStartValues: known };
+    expect(() =>
+      normalizeRampPlanForceValues(plan("True"), feature, opts),
+    ).not.toThrow();
+    expect(() =>
+      normalizeRampPlanForceValues(plan(1), feature, opts),
+    ).not.toThrow();
+    expect(() =>
+      normalizeRampPlanForceValues(plan("False"), feature, opts),
     ).toThrow('Start value (action 1): Must be "true" or "false"');
   });
 

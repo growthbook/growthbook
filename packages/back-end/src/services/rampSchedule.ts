@@ -27,6 +27,7 @@ import {
   rampRuleEnvKey,
   rampTargetFootprint,
   rampTargetRuleIds,
+  stemRuleId,
   stringifyFeatureValue,
   unanchoredRampTargets,
   validateFeatureValue,
@@ -528,7 +529,12 @@ type RampForceFeature = Pick<FeatureInterface, "valueType">;
 // rollback anchors captured from the live rule, which are not caller input).
 export function normalizeRampActionsForceValues<
   A extends { targetType?: string; patch: { force?: unknown } },
->(actions: A[], feature?: RampForceFeature | null, label = "Ramp value"): A[] {
+>(
+  actions: A[],
+  feature?: RampForceFeature | null,
+  label = "Ramp value",
+  isEcho: (force: string) => boolean = () => false,
+): A[] {
   return actions.map((action, i) => {
     if (action.targetType !== undefined && action.targetType !== "feature-rule")
       return action;
@@ -536,7 +542,7 @@ export function normalizeRampActionsForceValues<
     if (!patch || !("force" in patch) || patch.force === undefined)
       return action;
     let force = stringifyFeatureValue(patch.force);
-    if (feature) {
+    if (feature && !isEcho(force)) {
       try {
         force = validateFeatureValue(
           { valueType: feature.valueType },
@@ -551,10 +557,34 @@ export function normalizeRampActionsForceValues<
   });
 }
 
+// The start values a schedule may legitimately echo without being judged: the
+// targeted rules' own current values and the anchor already stored. Anything
+// else in `startActions` is the caller's and is checked like a step value.
+export function rampStartValuesOf(
+  feature: Pick<FeatureInterface, "rules"> | null | undefined,
+  ruleIds: (string | null | undefined)[],
+  stored?: RampStepAction[] | null,
+): Set<string> {
+  const stems = new Set(ruleIds.filter(Boolean).map((id) => stemRuleId(id!)));
+  const values = new Set<string>();
+  for (const rule of feature?.rules ?? []) {
+    const { value } = rule as { value?: unknown };
+    if (value !== undefined && stems.has(stemRuleId(rule.id))) {
+      values.add(stringifyFeatureValue(value));
+    }
+  }
+  for (const action of stored ?? []) {
+    if (action.patch.force !== undefined) {
+      values.add(stringifyFeatureValue(action.patch.force));
+    }
+  }
+  return values;
+}
+
 // Same, over a whole plan. Absent parts stay absent. `startActions` are the
-// rollback anchor: routes where they are captured from the live rule rather
-// than typed by the caller pass `validateStartActions: false` so an existing
-// rule value is only stringified, never judged.
+// rollback anchor: `validateStartActions: false` only stringifies them (the
+// anchor was derived by the server), and `knownStartValues` exempts values
+// that echo the rule's own (see rampStartValuesOf) while judging the rest.
 export function normalizeRampPlanForceValues<
   A extends { targetType?: string; patch: { force?: unknown } },
   P extends {
@@ -565,7 +595,10 @@ export function normalizeRampPlanForceValues<
 >(
   plan: P,
   feature?: RampForceFeature | null,
-  opts: { validateStartActions?: boolean } = {},
+  opts: {
+    validateStartActions?: boolean;
+    knownStartValues?: Set<string>;
+  } = {},
 ): P {
   const out = { ...plan };
   if (plan.steps) {
@@ -587,6 +620,7 @@ export function normalizeRampPlanForceValues<
       plan.startActions,
       opts.validateStartActions === false ? undefined : feature,
       "Start value",
+      (force) => opts.knownStartValues?.has(force) ?? false,
     ) as P["startActions"];
   }
   if (plan.endActions) {

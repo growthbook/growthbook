@@ -36,6 +36,7 @@ import {
   getRampAutoUpdatePreference,
   getRampMonitoringMode,
   normalizeRampPlanForceValues,
+  rampStartValuesOf,
   runLockedRampScheduleAction,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
@@ -795,9 +796,9 @@ export class RampScheduleModel extends BaseClass {
     await assertCanEditRampScheduleConfig(this.context, schedule, updates);
 
     // Rule values are strings; bring any raw JSON `force` in the new plan to
-    // that form and reject a step/end value the feature's type does not
-    // accept. startActions are the rollback anchor (usually the rule's own
-    // earlier value, echoed back): stringified only, as on the dashboard PUT.
+    // that form and reject a value the feature's type does not accept. A
+    // start value echoing the rule's own or the stored anchor is not judged.
+    const feature = this.getForeignRefs(schedule, false).feature;
     Object.assign(
       updates,
       normalizeRampPlanForceValues(
@@ -805,8 +806,14 @@ export class RampScheduleModel extends BaseClass {
           RampScheduleInterface,
           "steps" | "startActions" | "endActions"
         >,
-        this.getForeignRefs(schedule, false).feature,
-        { validateStartActions: false },
+        feature,
+        {
+          knownStartValues: rampStartValuesOf(
+            feature,
+            schedule.targets.map((t) => t.ruleId),
+            schedule.startActions,
+          ),
+        },
       ),
     );
 

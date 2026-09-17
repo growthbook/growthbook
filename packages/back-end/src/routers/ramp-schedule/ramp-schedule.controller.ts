@@ -29,6 +29,7 @@ import {
   startSchedule,
   assertCanControlRampSchedule,
   assertCanEditRampScheduleConfig,
+  rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
@@ -139,9 +140,9 @@ export const postRampSchedule = async (
   }
 
   // Rule values are strings; bring any raw JSON `force` in the plan to that
-  // form and reject a step/end value the feature's type does not accept.
-  // startActions here are the anchor the editor captured from the live rule,
-  // so they are only stringified.
+  // form and reject a value the feature's type does not accept. A start value
+  // echoing the targeted rule's own current value is the editor's anchor and
+  // is not judged.
   const feature =
     body.entityType === "feature" && body.entityId
       ? await getFeature(context, body.entityId)
@@ -149,7 +150,10 @@ export const postRampSchedule = async (
   Object.assign(
     body,
     normalizeRampPlanForceValues(body, feature, {
-      validateStartActions: false,
+      knownStartValues: rampStartValuesOf(
+        feature,
+        (body.targets ?? []).map((t) => t.ruleId),
+      ),
     }),
   );
 
@@ -306,7 +310,13 @@ export const putRampSchedule = async (
             "steps" | "startActions" | "endActions"
           >,
           feature,
-          { validateStartActions: false },
+          {
+            knownStartValues: rampStartValuesOf(
+              feature,
+              fresh.targets.map((t) => t.ruleId),
+              fresh.startActions,
+            ),
+          },
         ),
       );
 
