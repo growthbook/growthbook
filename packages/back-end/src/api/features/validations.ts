@@ -464,6 +464,25 @@ export async function validateRampPlanPatches(
   }
 }
 
+// Update form: only a rule whose environment scope differs from the stored
+// rule with the same id is checked, so a rule scoped to a since-deleted
+// environment can be posted back unchanged.
+export function assertValidChangedRuleEnvironments(
+  context: ReqContext | ApiReqContext,
+  inbound: FeatureRule[],
+  stored: FeatureRule[],
+): void {
+  const scope = (r: FeatureRule) =>
+    `${r.allEnvironments === true}|${[...(r.environments ?? [])].sort().join(",")}`;
+  assertValidRuleEnvironments(
+    context,
+    inbound.filter((rule) => {
+      const prior = findStoredRuleCounterpart(stored, rule);
+      return !prior || scope(prior) !== scope(rule);
+    }),
+  );
+}
+
 // Build a RevisionRampCreateAction from start/end dates (enable/disable).
 // `environment` is intentionally absent — new actions target by `ruleId` only.
 //
@@ -605,10 +624,8 @@ export async function validateChangedPhaseReferences(
       if (!conditionChanged && !groupsChanged) return [];
       return [
         {
-          condition: conditionChanged
-            ? (phase.condition ?? undefined)
-            : undefined,
-          savedGroups: groupsChanged ? (phase.savedGroups ?? undefined) : [],
+          condition: conditionChanged ? condition : undefined,
+          savedGroups: groupsChanged ? savedGroups : [],
         },
       ];
     }),
@@ -793,25 +810,14 @@ function checkPrerequisiteConditionKeys(
   return null;
 }
 
-// The rule-level checks every feature write runs, dashboard and REST alike:
-// environment and project ids, experiment references, condition and
-// saved-group references, prerequisite conditions, schedule rules. With
-// `stored`, a rule whose scope, references or experiment are unchanged is not
-// re-checked.
+// The rule-level checks every feature write runs, dashboard and REST alike.
+// With `stored`, only what differs from the stored rule is re-checked.
 export async function assertValidFeatureRules(
   context: ReqContext | ApiReqContext,
   rules: FeatureRule[],
   stored: FeatureRule[] = [],
 ): Promise<void> {
-  const scope = (r: FeatureRule) =>
-    `${r.allEnvironments === true}|${[...(r.environments ?? [])].sort().join(",")}`;
-  assertValidRuleEnvironments(
-    context,
-    rules.filter((rule) => {
-      const prior = findStoredRuleCounterpart(stored, rule);
-      return !prior || scope(prior) !== scope(rule);
-    }),
-  );
+  assertValidChangedRuleEnvironments(context, rules, stored);
   await assertValidChangedRuleProjectIds(rules, stored, context);
   await assertValidChangedRuleExperimentIds(rules, stored, context);
   await validateChangedRuleReferences(rules, stored, context);
