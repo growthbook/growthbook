@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { Box } from "@radix-ui/themes";
+import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -28,12 +30,24 @@ const MetricsPage = (): React.ReactElement => {
   );
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreateMetric = permissionsUtil.canCreateMetric({
-    projects: [project],
+  const [showLegacyModal, setShowLegacyModal] = useState(false);
+  const { disableLegacyMetricCreation } = useOrgSettings();
+  const canCreateFactMetric = permissionsUtil.canCreateFactMetric({
+    projects: project ? [project] : [],
   });
+  const canCreateLegacyMetric =
+    !disableLegacyMetricCreation &&
+    permissionsUtil.canCreateMetric({ projects: project ? [project] : [] });
+  const canCreateMetric = canCreateFactMetric || canCreateLegacyMetric;
 
   return (
     <Box className="pagecontents container-fluid">
+      {showLegacyModal && (
+        <NewMetricModal
+          close={() => setShowLegacyModal(false)}
+          source="blank-state"
+        />
+      )}
       <CreateMetricFromTemplate />
       <Box mb="4">
         <h1 style={{ margin: 0 }}>Metrics</h1>
@@ -61,8 +75,12 @@ const MetricsPage = (): React.ReactElement => {
                 body="You don't have permission to add metrics in this project."
                 shouldDisplay={!canCreateMetric}
               >
-                {canCreateMetric ? (
+                {canCreateFactMetric ? (
                   <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
+                ) : canCreateLegacyMetric ? (
+                  <Button onClick={() => setShowLegacyModal(true)}>
+                    Add metric
+                  </Button>
                 ) : (
                   <Button disabled>Add metric</Button>
                 )}

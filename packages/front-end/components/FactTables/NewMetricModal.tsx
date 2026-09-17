@@ -5,6 +5,7 @@ import {
   MetricInterface,
 } from "shared/types/metric";
 import { FactMetricInterface } from "shared/types/fact-table";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -144,6 +145,10 @@ function EditMetricModal({
 
 export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
   const { factTables, project, getDatasourceById } = useDefinitions();
+  const permissions = usePermissionsUtil();
+  const canCreateFactMetric = permissions.canCreateFactMetric({
+    projects: project ? [project] : [],
+  });
 
   const filteredFactTables = factTables
     .filter((f) => !datasource || f.datasource === datasource)
@@ -153,7 +158,7 @@ export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
   // - If there are no fact tables, default to legacy
   // - Otherwise, default to fact
   let defaultType: "fact" | "legacy" = "fact";
-  if (filteredFactTables.length === 0) {
+  if (filteredFactTables.length === 0 || !canCreateFactMetric) {
     defaultType = "legacy";
   }
 
@@ -185,9 +190,7 @@ export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
         edit={false}
         source={source}
         onClose={close}
-        switchToFact={() => {
-          setType("fact");
-        }}
+        switchToFact={canCreateFactMetric ? () => setType("fact") : undefined}
       />
     );
   }
