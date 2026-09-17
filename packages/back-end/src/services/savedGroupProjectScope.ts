@@ -45,8 +45,8 @@ export async function assertFeatureSavedGroupScope(
   for (const { rule, projects: delivery } of current) {
     // No stored counterpart means no exemption from the validation below.
     const prior = baselines.flatMap(({ counterparts, rules }) => {
-      const counterpart = counterparts.get(rule);
-      return rules.filter((r) => r.rule === counterpart);
+      const matched = counterparts.get(rule);
+      return rules.filter((r) => matched?.includes(r.rule));
     });
     for (const id of savedGroupIdsInTargeting(rule)) {
       let projects = delivery;

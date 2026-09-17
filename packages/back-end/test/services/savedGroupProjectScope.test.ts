@@ -7,6 +7,10 @@ import {
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SavedGroupInterface } from "shared/types/saved-group";
+import {
+  flattenV1ToV2Rules,
+  V1FeatureRule,
+} from "back-end/src/util/flattenRules";
 import { unclearedGates } from "back-end/src/revisions/publishGates";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -448,6 +452,51 @@ describe("feature writes and publish validation", () => {
       ...existing,
       rules: [{ ...existing.rules[0], id: "rule", value: "false" }],
     };
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, existing),
+    ).resolves.toBeUndefined();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
+  });
+
+  it("preserves references when a v1 value edit splits a shared rule into separate environments", async () => {
+    const existing = feature({ project: "b" });
+    existing.rules[0].allEnvironments = true;
+    const legacy = existing.rules[0] as unknown as V1FeatureRule;
+    const proposed = {
+      ...existing,
+      rules: flattenV1ToV2Rules(
+        { production: [{ ...legacy, value: "false" }], dev: [legacy] },
+        {
+          applicableEnvs: ["production", "dev"],
+        },
+      ),
+    };
+    expect(proposed.rules).toHaveLength(2);
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, existing),
+    ).resolves.toBeUndefined();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
+  });
+
+  it("preserves references when a v1 value edit merges retired environment siblings", async () => {
+    const legacy = feature().rules[0] as unknown as V1FeatureRule;
+    const options = { applicableEnvs: ["production", "dev"] };
+    const existing = feature({
+      project: "b",
+      rules: flattenV1ToV2Rules(
+        { production: [{ ...legacy, value: "false" }], dev: [legacy] },
+        options,
+      ),
+    });
+    const proposed = {
+      ...existing,
+      rules: flattenV1ToV2Rules(
+        { production: [legacy], dev: [legacy] },
+        options,
+      ),
+    };
+    expect(existing.rules).toHaveLength(2);
+    expect(proposed.rules).toHaveLength(1);
     await expect(
       assertFeatureSavedGroupScope(context, proposed, existing),
     ).resolves.toBeUndefined();

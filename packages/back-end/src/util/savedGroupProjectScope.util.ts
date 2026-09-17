@@ -2,6 +2,7 @@ import {
   findStoredRuleCounterpart,
   getRuleTargetingProjectIds,
   isSavedGroupAvailableForProjects,
+  isMigrationSuffixedRuleId,
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -103,15 +104,15 @@ export function featureForSavedGroupValidation(
   };
 }
 
-// Reserve exact identities first, then permit only unambiguous, one-to-one
-// legacy ID normalization. An added sibling must not borrow the exemption of
-// a rule that remains in the proposed array, regardless of array order.
+// Reserve exact identities first: added siblings cannot borrow the exemption
+// of a rule that remains in place. Retired legacy siblings can merge, or split
+// into disjoint subsets of their former environments, during v1 normalization.
 export function savedGroupScopeRuleCounterparts(
   stored: Feature["rules"],
   proposed: Feature["rules"],
-): Map<Feature["rules"][number], Feature["rules"][number]> {
+): Map<Feature["rules"][number], Feature["rules"][number][]> {
   type Rule = Feature["rules"][number];
-  const matches = new Map<Rule, Rule>();
+  const matches = new Map<Rule, Rule[]>();
   const storedById = new Map(stored.filter((r) => r.id).map((r) => [r.id, r]));
   const proposedIdCounts = new Map<string, number>();
   for (const rule of proposed) {
@@ -119,12 +120,13 @@ export function savedGroupScopeRuleCounterparts(
   }
   for (const rule of proposed) {
     const exact = storedById.get(rule.id);
-    if (exact && proposedIdCounts.get(rule.id) === 1) matches.set(rule, exact);
+    if (exact && proposedIdCounts.get(rule.id) === 1)
+      matches.set(rule, [exact]);
   }
-  const reserved = new Set(matches.values());
+  const reserved = new Set([...matches.values()].flat());
   const remaining = stored.filter((r) => !reserved.has(r));
   const candidates = new Map<Rule, Rule[]>();
-  const uses = new Map<Rule, number>();
+  const uses = new Map<Rule, Rule[]>();
   for (const rule of proposed) {
     if (matches.has(rule)) continue;
     const eligible = remaining.filter((previous) =>
@@ -132,12 +134,33 @@ export function savedGroupScopeRuleCounterparts(
     );
     candidates.set(rule, eligible);
     for (const previous of eligible) {
-      uses.set(previous, (uses.get(previous) ?? 0) + 1);
+      uses.set(previous, [...(uses.get(previous) ?? []), rule]);
     }
   }
+  const unambiguous = new Set<Rule>();
+  for (const [previous, replacements] of uses) {
+    const seenEnvironments = new Set<string>();
+    const isPartition = replacements.every(
+      (rule) =>
+        isMigrationSuffixedRuleId(rule.id) &&
+        !rule.allEnvironments &&
+        !!rule.environments?.length &&
+        rule.environments.every((env) => {
+          if (seenEnvironments.has(env)) return false;
+          seenEnvironments.add(env);
+          return (
+            previous.allEnvironments || previous.environments?.includes(env)
+          );
+        }),
+    );
+    if (replacements.length === 1 || isPartition) unambiguous.add(previous);
+  }
   for (const [rule, eligible] of candidates) {
-    if (eligible.length === 1 && uses.get(eligible[0]) === 1) {
-      matches.set(rule, eligible[0]);
+    if (
+      eligible.length &&
+      eligible.every((previous) => unambiguous.has(previous))
+    ) {
+      matches.set(rule, eligible);
     }
   }
   return matches;
