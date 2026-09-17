@@ -14,14 +14,16 @@ import {
   checkIfRevisionNeedsReview,
   getRevertTargetArchived,
   getRevertTargetHoldout,
-  getRevertValueValidationWarnings,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
-import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
-import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
+import {
+  assertCanRevertArchived,
+  assertRevertLandingGuards,
+  assertRevertValuesReadable,
+} from "back-end/src/services/revertGuards";
 import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
 import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import type { ApiReqContext } from "back-end/types/api";
@@ -35,7 +37,6 @@ import {
   BadRequestError,
   InternalServerError,
   NotFoundError,
-  SoftWarningError,
 } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -49,7 +50,6 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -182,21 +182,7 @@ export async function revertFeatureRevision(
   const targetArchived = getRevertTargetArchived(targetRevision);
   if (targetArchived !== (feature.archived ?? false)) {
     if (isPublish) {
-      if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
-        context.permissions.throwPermissionError();
-      }
-      // Restoring an archived state still takes the flag out of service, so it
-      // carries the same delete-class gate as archiving it any other way.
-      // Revert authority covers the restoration, not the elevation.
-      if (
-        isArchiveTransition({
-          proposed: targetArchived,
-          current: feature.archived,
-        }) &&
-        !context.permissions.canDeleteFeature(feature, allEnabledEnvs)
-      ) {
-        context.permissions.throwPermissionError();
-      }
+      assertCanRevertArchived(context, feature, targetArchived, allEnabledEnvs);
     }
     changes.archived = targetArchived;
   }
@@ -399,17 +385,7 @@ export async function revertFeatureRevision(
     context.permissions.throwPermissionError();
   }
 
-  // Same soft warning the dashboard revert and `POST /features/{id}/revert`
-  // raise: restored values the current schema / value type can no longer read
-  // are a bypassable 422 (ignoreWarnings) rather than a blind publish.
-  const valueWarnings = getRevertValueValidationWarnings(feature, changes);
-  if (valueWarnings.length && !context.ignoreWarnings) {
-    throw new SoftWarningError(
-      "Reverting to this revision restores values that no longer pass validation:\n" +
-        valueWarnings.join("\n"),
-      valueWarnings,
-    );
-  }
+  assertRevertValuesReadable(context, feature, changes);
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
   // calls should behave like dashboard actions), FlagsBypassApprovals, or the
@@ -470,12 +446,7 @@ export async function revertFeatureRevision(
         ]
       : [];
 
-  await assertFeatureMoveDependentsGuard(context, feature, changes.metadata);
-  // A revert restoring an archived state is the same out-of-service flip the
-  // direct archive endpoint guards.
-  if (changes.archived === true && !feature.archived) {
-    await assertFeatureArchiveDependentsGuard(context, feature);
-  }
+  await assertRevertLandingGuards(context, feature, changes);
   const { revision: publishedRevision, updatedFeature } =
     await createAndPublishRevision({
       context,
