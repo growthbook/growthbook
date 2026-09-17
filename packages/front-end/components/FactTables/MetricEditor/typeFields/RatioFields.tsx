@@ -30,21 +30,13 @@ const RATIO_SHAPES: readonly RatioShape[] = [
   "users",
 ];
 
-// Denominator's fact table override is a plain always-visible select here,
-// not the design's read-only-value-plus-Edit-action treatment - a smaller,
-// deliberate simplification for this pass, left for a later visual pass.
-//
-// `extra` is a single optional slot for the denominator's fact-table
-// override, rendered between Shape/Column and Row filters - only the
-// denominator caller passes it, so the numerator caller never receives
-// props it wouldn't use.
 function RatioPart({
   label,
   value,
   onChange,
   factTable,
   hasCountDistinctHLL,
-  extra,
+  before,
   canEdit = true,
 }: {
   label: string;
@@ -52,7 +44,7 @@ function RatioPart({
   onChange: (value: ColumnRef) => void;
   factTable: FactTableDefinition | null;
   hasCountDistinctHLL: boolean;
-  extra?: ReactNode;
+  before?: ReactNode;
   canEdit?: boolean;
 }) {
   const shape = shapeFromColumnRef(value) ?? "sum";
@@ -95,8 +87,10 @@ function RatioPart({
         {label}
       </Text>
       <Flex direction="column" gap="2">
+        {before}
         <Flex gap="2" align="end" wrap="wrap">
           <ShapeSelect
+            label="Aggregation"
             value={shape}
             shapes={RATIO_SHAPES}
             factTable={factTable}
@@ -117,7 +111,6 @@ function RatioPart({
             onChange={(column) => onChange({ ...value, column })}
           />
         </Flex>
-        {extra}
         {factTable && (
           <RowFilterInput
             factTable={factTable}
@@ -135,6 +128,7 @@ function RatioPart({
 // when its shape isn't "users", and Row filters per part - unlike every
 // other type, which shares one Row filters section after the type block.
 export default function RatioFields({
+  numeratorFactTableSelect,
   numerator,
   onNumeratorChange,
   denominator,
@@ -145,6 +139,7 @@ export default function RatioFields({
   hasCountDistinctHLL,
   canEdit = true,
 }: {
+  numeratorFactTableSelect: ReactNode;
   numerator: ColumnRef;
   onNumeratorChange: (value: ColumnRef) => void;
   denominator: ColumnRef;
@@ -169,6 +164,7 @@ export default function RatioFields({
     <Flex direction="column" gap="3">
       <RatioPart
         label="Numerator"
+        before={numeratorFactTableSelect}
         value={numerator}
         onChange={onNumeratorChange}
         factTable={factTable}
@@ -182,27 +178,32 @@ export default function RatioFields({
         factTable={denominatorFactTable}
         hasCountDistinctHLL={hasCountDistinctHLL}
         canEdit={canEdit}
-        extra={
+        before={
           canEdit && denominatorShape !== "users" ? (
-            <Select
-              label="Fact table"
-              value={denominator.factTableId}
-              setValue={(factTableId) =>
-                onDenominatorChange(
-                  onFactTableChange(
-                    denominator,
-                    getFactTableById(factTableId),
-                    { hasCountDistinctHLL: () => hasCountDistinctHLL },
-                  ),
-                )
-              }
-            >
-              {availableFactTables.map((ft) => (
-                <SelectItem key={ft.id} value={ft.id}>
-                  {ft.name}
-                </SelectItem>
-              ))}
-            </Select>
+            <Flex align="center" gap="2" wrap="wrap">
+              <Text color="text-mid">Fact table:</Text>
+              <Select
+                aria-label="Denominator fact table"
+                variant="ghost"
+                style={{ fontWeight: 600 }}
+                value={denominator.factTableId}
+                setValue={(factTableId) =>
+                  onDenominatorChange(
+                    onFactTableChange(
+                      denominator,
+                      getFactTableById(factTableId),
+                      { hasCountDistinctHLL: () => hasCountDistinctHLL },
+                    ),
+                  )
+                }
+              >
+                {availableFactTables.map((ft) => (
+                  <SelectItem key={ft.id} value={ft.id}>
+                    {ft.name}
+                  </SelectItem>
+                ))}
+              </Select>
+            </Flex>
           ) : undefined
         }
       />
