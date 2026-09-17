@@ -34,10 +34,18 @@ export default function FilterSummary({
         <Flex direction="column" gap="1" pl="3">
           {rowFilters.map((rf, i) => (
             <Text key={i} size="sm" color="text-mid" as="div">
-              {factTable?.columns.find((c) => c.column === rf.column)?.name ||
-                rf.column}{" "}
-              {operatorLabelMap[rf.operator] || rf.operator}{" "}
-              {rf.values?.join(", ")}
+              {rf.operator === "saved_filter" ? (
+                (factTable?.filters.find(
+                  (filter) => filter.id === rf.values?.[0],
+                )?.name ?? "Deleted saved filter")
+              ) : (
+                <>
+                  {factTable?.columns.find((c) => c.column === rf.column)
+                    ?.name || rf.column}{" "}
+                  {operatorLabelMap[rf.operator] || rf.operator}{" "}
+                  {rf.values?.join(", ")}
+                </>
+              )}
             </Text>
           ))}
         </Flex>

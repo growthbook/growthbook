@@ -5,6 +5,7 @@ import {
   FactTableDefinition,
   MetricQuantileSettings,
 } from "shared/types/fact-table";
+import { quantileSettingsValidator } from "shared/validators";
 import RadioGroup from "@/ui/RadioGroup";
 import { Select, SelectItem } from "@/ui/Select";
 import TextField from "@/ui/TextField";
@@ -177,6 +178,11 @@ export default function QuantileFields({
             step={0.001}
             min={0.001}
             max={0.999}
+            error={
+              quantileSettingsValidator.safeParse(quantileSettings).success
+                ? undefined
+                : "Enter a percentile greater than 0 and less than 1."
+            }
             value={quantileSettings.quantile}
             onChange={(e) =>
               onQuantileSettingsChange({
