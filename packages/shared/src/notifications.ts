@@ -824,12 +824,16 @@ const eventsInCategory = (category: NotificationEventCategory) =>
     .filter((option) => option.category === category)
     .flatMap((option) => option.events);
 
+// Recommended = an event that changes what end users are served, or says a
+// served experience is failing or a decision is ready. Drafts, reviews,
+// reminders, per-metric stats, and anything a publish already implies stay out.
 export const notificationCategoryPresets: Record<
   NotificationEventCategory,
   Record<Exclude<NotificationLevel, "custom">, NotificationEventName[]>
 > = {
   experiment: {
     default: [
+      "experiment.deleted",
       "experiment.decision.ship",
       "experiment.decision.rollback",
       "experiment.decision.review",
@@ -840,12 +844,9 @@ export const notificationCategoryPresets: Record<
   feature: {
     default: [
       "feature.revision.published",
-      "feature.revision.reverted",
       "feature.saferollout.ship",
       "feature.saferollout.rollback",
       "feature.saferollout.unhealthy",
-      "feature.revision.reviewRequested",
-      "feature.revision.changesRequested",
     ],
     all: eventsInCategory("feature"),
   },

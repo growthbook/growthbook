@@ -222,6 +222,7 @@ it.each(["config", "constant", "savedGroup"] as const)(
 
 it("keeps the current Default memberships explicit", () => {
   expect(notificationEventsForLevel("experiment", "default")).toEqual([
+    "experiment.deleted",
     "experiment.decision.ship",
     "experiment.decision.rollback",
     "experiment.decision.review",
@@ -229,12 +230,9 @@ it("keeps the current Default memberships explicit", () => {
   ]);
   expect(notificationEventsForLevel("feature", "default")).toEqual([
     "feature.revision.published",
-    "feature.revision.reverted",
     "feature.saferollout.ship",
     "feature.saferollout.rollback",
     "feature.saferollout.unhealthy",
-    "feature.revision.reviewRequested",
-    "feature.revision.changesRequested",
   ]);
   for (const category of ["config", "constant", "savedGroup"] as const) {
     expect(notificationEventsForLevel(category, "default")).toEqual([
