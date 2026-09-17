@@ -19,10 +19,9 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 
 export function isContextualBanditRefRuleSkipped(
-  cb: ApiContextualBanditInterface | undefined,
+  cb: ApiContextualBanditInterface,
   isDraft: boolean,
 ): boolean {
-  if (!cb) return true;
   if (cb.archived) return true;
   if (cb.status === "stopped") return true;
   if (cb.status === "draft") return !isDraft;

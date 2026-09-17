@@ -308,6 +308,7 @@ function isRuleSkipped({
 
   if (
     rule.type === "contextual-bandit-ref" &&
+    linkedContextualBandit &&
     isContextualBanditRefRuleSkipped(linkedContextualBandit, isDraft)
   ) {
     return true;
