@@ -1684,6 +1684,12 @@ const postFeatureBody = z
       )
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
+    comment: z
+      .string()
+      .describe(
+        "Comment to record on the feature's initial revision. Defaults to an empty comment.",
+      )
+      .optional(),
     ...publishOverrideBodyFields,
   })
   .strict();
@@ -1754,6 +1760,12 @@ const updateFeatureBody = z
       .nullable()
       .describe(
         "Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.\n",
+      )
+      .optional(),
+    comment: z
+      .string()
+      .describe(
+        'Comment to record on the revision this update publishes, when it publishes one. Defaults to "Created via REST API".',
       )
       .optional(),
     ...publishOverrideBodyFields,
@@ -1892,6 +1904,12 @@ export const toggleFeatureValidator = {
   bodySchema: z
     .object({
       reason: z.string().optional(),
+      comment: z
+        .string()
+        .describe(
+          'Comment to record on the published revision. Defaults to "Created via REST API".',
+        )
+        .optional(),
       environments: z.record(
         z.string(),
         z.union([
