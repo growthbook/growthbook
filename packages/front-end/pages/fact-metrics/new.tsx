@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { FactMetricInterface } from "shared/types/fact-table";
+import { getSafeReturnUrl } from "@/services/returnUrl";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
@@ -14,10 +15,7 @@ export default function NewFactMetricPage() {
   const { project, ready, mutateDefinitions } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
-  const returnUrl =
-    typeof router.query.returnUrl === "string"
-      ? router.query.returnUrl
-      : "/metrics";
+  const returnUrl = getSafeReturnUrl(router.query.returnUrl);
 
   if (!ready || !router.isReady) return <LoadingOverlay />;
 
