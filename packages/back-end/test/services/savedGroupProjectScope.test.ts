@@ -1,17 +1,30 @@
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SavedGroupInterface } from "shared/types/saved-group";
+import { unclearedGates } from "back-end/src/revisions/publishGates";
+import { BadRequestError } from "back-end/src/util/errors";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
-  assertFeatureSavedGroupScope,
-  assertSavedGroupProjectScope,
   assertSavedGroupReferencesInScope,
   featureForSavedGroupValidation,
   savedGroupIdsInTargeting,
   savedGroupScopeChangeBreaksTargeting,
+} from "back-end/src/util/savedGroupProjectScope.util";
+import {
+  assertFeatureSavedGroupScope,
+  assertSavedGroupProjectScope,
+  collectSavedGroupScopeGate,
 } from "back-end/src/services/savedGroupProjectScope";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
-import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import {
+  getAllFeaturesWithoutEditorFields,
+  collectHoldoutChangeGates,
+  computeProposedFeatureForValidation,
+} from "back-end/src/models/FeatureModel";
+import {
+  collectFeaturePublishGates,
+  FeatureMergePlan,
+} from "back-end/src/services/featurePublishGates";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 
 jest.mock("back-end/src/services/organizations", () => ({
@@ -19,6 +32,8 @@ jest.mock("back-end/src/services/organizations", () => ({
 }));
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getAllFeaturesWithoutEditorFields: jest.fn(),
+  collectHoldoutChangeGates: jest.fn(),
+  computeProposedFeatureForValidation: jest.fn(),
 }));
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getRevisionsByStatus: jest.fn(),
@@ -146,15 +161,17 @@ describe("Saved Group project scope", () => {
 });
 
 describe("feature writes and publish validation", () => {
-  const getAll = jest.fn();
-  const scan = { models: { savedGroups: { getAll } } } as unknown as Context;
+  const getAllWithoutValues = jest.fn();
+  const scan = {
+    models: { savedGroups: { getAllWithoutValues } },
+  } as unknown as Context;
   const context = {
     org: { settings: { enforceSavedGroupProjectScope: true } },
     scanContextOverride: scan,
   } as unknown as Context;
   beforeEach(() => {
     jest.clearAllMocks();
-    getAll.mockResolvedValue([group("group", ["a"])]);
+    getAllWithoutValues.mockResolvedValue([group("group", ["a"])]);
   });
 
   it.each([undefined, false])(
@@ -169,7 +186,7 @@ describe("feature writes and publish validation", () => {
           feature({ project: "b" }),
         ),
       ).resolves.toBeUndefined();
-      expect(getAll).not.toHaveBeenCalled();
+      expect(getAllWithoutValues).not.toHaveBeenCalled();
     },
   );
 
@@ -214,7 +231,7 @@ describe("feature writes and publish validation", () => {
   });
 
   it("validates a diamond DAG against rule delivery, not parent group scopes or the owning Project", async () => {
-    getAll.mockResolvedValue([
+    getAllWithoutValues.mockResolvedValue([
       group("group", ["a", "b"], '{"$savedGroups":["left","right"]}'),
       group("left", ["b", "c"], '{"$savedGroups":"leaf"}'),
       group("right", [], '{"$savedGroups":"leaf"}'),
@@ -269,7 +286,7 @@ describe("feature writes and publish validation", () => {
         assertFeatureSavedGroupScope(context, proposed, existing),
       ).resolves.toBeUndefined();
     }
-    expect(getAll).not.toHaveBeenCalled();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
     // A new Feature Flag receives no baseline and must satisfy strict scope.
     await expect(
       assertFeatureSavedGroupScope(context, existing),
@@ -288,7 +305,7 @@ describe("feature writes and publish validation", () => {
   });
 
   it("checks only new references when editing a rule with a legacy reference", async () => {
-    getAll.mockResolvedValue([
+    getAllWithoutValues.mockResolvedValue([
       group("group", ["a"]),
       group("allowed", ["b"]),
       group("foreign", ["a"]),
@@ -351,11 +368,11 @@ describe("feature writes and publish validation", () => {
     await expect(
       assertFeatureSavedGroupScope(context, proposed, existing),
     ).resolves.toBeUndefined();
-    expect(getAll).not.toHaveBeenCalled();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
   });
 
   it("checks the full graph for a new root even if its descendant is already referenced", async () => {
-    getAll.mockResolvedValue([
+    getAllWithoutValues.mockResolvedValue([
       group("group", ["a"]),
       group("new-root", ["b"], '{"$savedGroups":"group"}'),
     ]);
@@ -388,7 +405,7 @@ describe("feature writes and publish validation", () => {
     await expect(
       assertFeatureSavedGroupScope(context, proposed, existing),
     ).resolves.toBeUndefined();
-    expect(getAll).not.toHaveBeenCalled();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
   });
 
   it("preserves references already stored in a draft when it is edited and published", async () => {
@@ -407,7 +424,7 @@ describe("feature writes and publish validation", () => {
     await expect(
       assertFeatureSavedGroupScope(context, edited, [live, storedDraft]),
     ).resolves.toBeUndefined();
-    expect(getAll).not.toHaveBeenCalled();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
   });
 
   it("rejects a merge that combines a stored draft reference with new live targeting Projects", async () => {
@@ -427,7 +444,7 @@ describe("Saved Group re-scoping", () => {
   const getGroups = jest.fn();
   const scan = {
     models: {
-      savedGroups: { getAll: getGroups },
+      savedGroups: { getAllWithoutValues: getGroups },
     },
   } as unknown as Context;
   const context = {
@@ -468,6 +485,19 @@ describe("Saved Group re-scoping", () => {
       expect(getAllFeaturesWithoutEditorFields).not.toHaveBeenCalled();
     },
   );
+
+  it("does not scan consumers when creating a condition group with nested references", async () => {
+    await expect(
+      assertSavedGroupProjectScope(
+        context,
+        group("new", ["b"], '{"$savedGroups":"foreign"}'),
+      ),
+    ).resolves.toBeUndefined();
+    expect(getContextForAgendaJobByOrgObject).not.toHaveBeenCalled();
+    expect(getGroups).not.toHaveBeenCalled();
+    expect(getAllFeaturesWithoutEditorFields).not.toHaveBeenCalled();
+    expect(getRevisionsByStatus).not.toHaveBeenCalled();
+  });
 
   it("blocks condition edits that introduce an out-of-scope descendant", async () => {
     getGroups.mockResolvedValue([
@@ -633,5 +663,88 @@ describe("Saved Group re-scoping", () => {
       ),
     ).resolves.toBeUndefined();
     expect(getContextForAgendaJobByOrgObject).not.toHaveBeenCalled();
+  });
+});
+
+describe("Saved Group project scope publish gates", () => {
+  it("returns a blocker that no publish override clears", async () => {
+    const gates = await collectSavedGroupScopeGate(async () => {
+      throw new BadRequestError("new Project exposure");
+    });
+    expect(gates).toEqual([
+      {
+        type: "saved-group-project-scope",
+        severity: "blocker",
+        messages: ["new Project exposure"],
+        override: null,
+        requiresPermission: null,
+        resolution: null,
+      },
+    ]);
+    expect(
+      unclearedGates(
+        gates,
+        {
+          ignoreWarnings: true,
+          skipSchemaValidation: true,
+          skipHooks: true,
+        },
+        () => true,
+      ),
+    ).toEqual(gates);
+  });
+
+  it("does not add gates for a valid or grandfathered reference", async () => {
+    await expect(collectSavedGroupScopeGate(async () => {})).resolves.toEqual(
+      [],
+    );
+  });
+
+  it("aggregates scope violations with other feature gates, including scheduled publishes", async () => {
+    const f = feature();
+    const revision = {
+      rules: f.rules,
+      version: 2,
+      status: "draft",
+    } as FeatureRevisionInterface;
+    const context = {
+      org: { settings: { enforceSavedGroupProjectScope: true } },
+      scanContextOverride: {
+        models: {
+          savedGroups: {
+            getAllWithoutValues: jest
+              .fn()
+              .mockResolvedValue([group("group", ["a"])]),
+          },
+        },
+      },
+    } as unknown as Parameters<typeof collectFeaturePublishGates>[0]["context"];
+    jest.mocked(collectHoldoutChangeGates).mockResolvedValue([]);
+    jest.mocked(computeProposedFeatureForValidation).mockReturnValue({
+      proposedFeature: feature({ targetingProjects: ["b"] }),
+      defaultToCheck: undefined,
+      rulesToCheck: [],
+    });
+    const gates = await collectFeaturePublishGates({
+      context,
+      feature: f,
+      revision,
+      plan: { rebaseRequired: true, requiresReview: false } as FeatureMergePlan,
+      includeValidationGates: false,
+    });
+    expect(gates.map((g) => g.type)).toEqual([
+      "stale-base",
+      "saved-group-project-scope",
+    ]);
+    expect(gates[1].override).toBeNull();
+  });
+
+  it("propagates infrastructure failures instead of turning them into blockers", async () => {
+    const error = new Error("database unavailable");
+    await expect(
+      collectSavedGroupScopeGate(async () => {
+        throw error;
+      }),
+    ).rejects.toBe(error);
   });
 });

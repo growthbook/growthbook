@@ -1,105 +1,27 @@
 import { isEqual } from "lodash";
-import {
-  findStoredRuleCounterpart,
-  getTargetingProjectIds,
-  isSavedGroupAvailableForProjects,
-  ruleProjectScope,
-} from "shared/util";
+import { findStoredRuleCounterpart } from "shared/util";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import type { FeatureInterface } from "shared/types/feature";
-import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import type { SavedGroupInterface } from "shared/types/saved-group";
 import type { Context } from "back-end/src/models/BaseModel";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-
-type Group = Pick<
-  SavedGroupInterface,
-  "id" | "type" | "condition" | "projects"
->;
-// Prerequisite conditions test the parent's value, not a user, so the SDK
-// evaluates them without Saved Groups. Only rule targeting is scanned.
-type Targeting = {
-  condition?: string;
-  savedGroups?: { ids: string[] }[];
-};
-type Feature = Pick<
-  FeatureInterface,
-  "project" | "targetingProjects" | "targetingAllProjects" | "rules"
->;
-type ProjectScope = string[] | null;
-type ScopedRule = {
-  rule: Feature["rules"][number];
-  projects: ProjectScope;
-};
-
-// Parse operators, not substrings: IDs may also appear as ordinary targeting
-// values. Covers nested logical operators and both positive/negative membership.
-export function savedGroupIdsInTargeting(targeting: Targeting): Set<string> {
-  const ids = new Set(targeting.savedGroups?.flatMap((s) => s.ids));
-  const visit = (value: unknown): void => {
-    if (!value || typeof value !== "object") return;
-    for (const [key, child] of Object.entries(value)) {
-      if (key === "$savedGroups") {
-        for (const id of Array.isArray(child) ? child : [child]) {
-          if (typeof id === "string") ids.add(id);
-        }
-      } else if (key === "$inGroup" || key === "$notInGroup") {
-        if (typeof child === "string") ids.add(child);
-      } else {
-        visit(child);
-      }
-    }
-  };
-  if (targeting.condition) {
-    try {
-      visit(JSON.parse(targeting.condition));
-    } catch {
-      throw new BadRequestError("Invalid targeting condition JSON");
-    }
-  }
-  return ids;
-}
-
-export function assertSavedGroupReferencesInScope(
-  targeting: Targeting,
-  projects: ProjectScope,
-  groups: Map<string, Group>,
-): void {
-  if (projects?.length === 0) return;
-  const visited = new Set<string>();
-  const visit = (id: string): void => {
-    if (visited.has(id)) return;
-    visited.add(id);
-    const group = groups.get(id);
-    if (!group)
-      throw new NotFoundError("A referenced Saved Group was not found.");
-    if (!isSavedGroupAvailableForProjects(group, projects)) {
-      throw new BadRequestError(
-        "A referenced Saved Group is not available in every Project targeted by this Feature Flag. Share the Saved Group with those Projects or remove the reference.",
-      );
-    }
-    if (group.type === "condition") {
-      for (const nested of savedGroupIdsInTargeting(group)) visit(nested);
-    }
-  };
-  for (const id of savedGroupIdsInTargeting(targeting)) visit(id);
-}
-
-function scopedRules(feature: Feature): ScopedRule[] {
-  const projects = getTargetingProjectIds(feature);
-  return (feature.rules ?? []).map((rule) => {
-    const ruleProjects = ruleProjectScope(rule);
-    // Match SDK delivery: intersect the rule's scope with the Feature Flag's
-    // primary/targeting Projects. Group-to-group scopes do not constrain it.
-    const delivery =
-      ruleProjects === null
-        ? projects
-        : projects === null
-          ? ruleProjects
-          : ruleProjects.filter((p) => projects.includes(p));
-    return { rule, projects: delivery };
-  });
-}
+import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import {
+  assertSavedGroupReferencesInScope,
+  featureForSavedGroupValidation,
+  savedGroupIdsInTargeting,
+  savedGroupScopeChangeBreaksTargeting,
+  scopedRules,
+  Feature,
+  Group,
+  ProjectScope,
+  ScopedRule,
+} from "back-end/src/util/savedGroupProjectScope.util";
+import { BadRequestError } from "back-end/src/util/errors";
+import {
+  gateOr5xx,
+  makeBlockingGate,
+  PublishGate,
+} from "back-end/src/revisions/publishGates";
 
 export async function assertFeatureSavedGroupScope(
   context: Context,
@@ -113,7 +35,7 @@ export async function assertFeatureSavedGroupScope(
   ).map((state) => ({ state, rules: scopedRules(state) }));
   if (baselines.some((baseline) => isEqual(current, baseline.rules))) return;
 
-  const toValidate: [Targeting, ProjectScope][] = [];
+  const toValidate: [{ savedGroups: { ids: string[] }[] }, ProjectScope][] = [];
   for (const { rule, projects: delivery } of current) {
     // No stored counterpart means no exemption from the validation below.
     const prior = baselines.flatMap(({ state, rules }) => {
@@ -144,59 +66,15 @@ export async function assertFeatureSavedGroupScope(
   // Scope is independent of the editor's read access: descendants can cross
   // Project boundaries. Existing route validators still enforce direct reads.
   // Errors deliberately do not reveal IDs from the org-wide graph.
-  const { getContextForAgendaJobByOrgObject } = await import("./organizations");
   const scan =
     context.scanContextOverride ??
     getContextForAgendaJobByOrgObject(context.org);
   const groups = new Map(
-    (await scan.models.savedGroups.getAll()).map((g) => [g.id, g]),
+    (await scan.models.savedGroups.getAllWithoutValues()).map((g) => [g.id, g]),
   );
   for (const [t, projects] of toValidate) {
     assertSavedGroupReferencesInScope(t, projects, groups);
   }
-}
-
-export function featureForSavedGroupValidation(
-  feature: Feature,
-  revision: Pick<FeatureRevisionInterface, "metadata" | "rules">,
-): Feature {
-  return { ...feature, ...revision.metadata, rules: revision.rules };
-}
-
-// Compare the full consumer DAG before and after a group change. Track each
-// denied Project separately so an existing violation in one Project cannot
-// hide a new violation in another. Unrelated legacy violations allow repair.
-export function savedGroupScopeChangeBreaksTargeting(
-  targeting: Targeting,
-  projects: ProjectScope,
-  proposed: Group,
-  groups: Map<string, Group>,
-  previous?: Group,
-): boolean {
-  const violations = (replacement?: Group): Set<string> => {
-    const denied = new Set<string>();
-    const visited = new Set<string>();
-    const visit = (id: string): void => {
-      if (visited.has(id)) return;
-      visited.add(id);
-      const group = id === proposed.id ? replacement : groups.get(id);
-      if (!group) return; // Existence is validated by the targeting validators.
-      if (group.projects?.length) {
-        for (const project of projects ?? [null]) {
-          if (project === null || !group.projects.includes(project)) {
-            denied.add(JSON.stringify([id, project]));
-          }
-        }
-      }
-      if (group.type === "condition") {
-        for (const nested of savedGroupIdsInTargeting(group)) visit(nested);
-      }
-    };
-    for (const id of savedGroupIdsInTargeting(targeting)) visit(id);
-    return denied;
-  };
-  const before = violations(previous);
-  return [...violations(proposed)].some((key) => !before.has(key));
 }
 
 export async function assertSavedGroupProjectScope(
@@ -205,14 +83,16 @@ export async function assertSavedGroupProjectScope(
   previous?: Group,
 ): Promise<void> {
   if (context.org.settings?.enforceSavedGroupProjectScope !== true) return;
+  // A newly allocated group ID cannot have existing consumers. Its nested
+  // graph is checked when a Feature Flag first references it.
+  if (!previous) return;
   const narrowsScope =
-    !!previous &&
     !!proposed.projects?.length &&
     (!previous.projects?.length ||
       previous.projects.some((p) => !proposed.projects!.includes(p)));
   const changesReferences =
     proposed.type === "condition" &&
-    proposed.condition !== previous?.condition &&
+    proposed.condition !== previous.condition &&
     savedGroupIdsInTargeting(proposed).size > 0;
   // Unused groups may cross their own Project boundaries. Only a change that
   // can invalidate a consumer needs an org-wide scan.
@@ -220,12 +100,11 @@ export async function assertSavedGroupProjectScope(
 
   // See consumers the caller cannot read. Bulk publish's overlay supplies the
   // whole proposed release, instead of intermediate state.
-  const { getContextForAgendaJobByOrgObject } = await import("./organizations");
   const scan =
     context.scanContextOverride ??
     getContextForAgendaJobByOrgObject(context.org);
   const groups = new Map<string, Group>(
-    (await scan.models.savedGroups.getAll()).map((g) => [g.id, g]),
+    (await scan.models.savedGroups.getAllWithoutValues()).map((g) => [g.id, g]),
   );
   const breaks = ({ rule, projects }: ScopedRule) =>
     savedGroupScopeChangeBreaksTargeting(
@@ -242,12 +121,6 @@ export async function assertSavedGroupProjectScope(
     );
   };
 
-  const { getAllFeaturesWithoutEditorFields } = await import(
-    "back-end/src/models/FeatureModel"
-  );
-  const { getRevisionsByStatus } = await import(
-    "back-end/src/models/FeatureRevisionModel"
-  );
   const features = await getAllFeaturesWithoutEditorFields(scan, {
     includeArchived: true,
   });
@@ -270,4 +143,24 @@ export async function assertSavedGroupProjectScope(
   }
   // Saved Group drafts have no evaluation scope of their own. Their proposed
   // graphs are checked at publication, against the then-current consumers.
+}
+
+// Strict scope is an org policy, so no per-publication override can clear it.
+// Only application rejections become gates; infrastructure failures stay 5xx.
+export async function collectSavedGroupScopeGate(
+  validate: () => Promise<void>,
+): Promise<PublishGate[]> {
+  try {
+    await validate();
+    return [];
+  } catch (error) {
+    return [
+      gateOr5xx(error, (message) =>
+        makeBlockingGate({
+          type: "saved-group-project-scope",
+          messages: [message],
+        }),
+      ),
+    ];
+  }
 }

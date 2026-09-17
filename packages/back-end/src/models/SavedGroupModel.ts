@@ -59,7 +59,7 @@ const BaseClass = MakeModelClass({
 });
 
 export class SavedGroupModel extends BaseClass<WriteOptions> {
-  // Substitutes proposed (unwritten) saved-group docs into getAll() reads so a
+  // Substitutes proposed (unwritten) saved-group docs into full and metadata reads so a
   // publish-time scan (the archive-dependents gate resolves saved-group →
   // saved-group condition references) sees the batch's combined end-state.
   // Only ever set on a dedicated plan-scoped scan context — never a request
@@ -228,7 +228,11 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
 
   public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
     const groups = await this._find({}, { projection: { values: 0 } });
-    return groups as SavedGroupWithoutValues[];
+    return overlayDocsById(
+      groups as SavedGroupWithoutValues[],
+      this.scanOverlay,
+      (group) => omit(group, "values"),
+    );
   }
 
   /**

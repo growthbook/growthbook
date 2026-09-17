@@ -41,10 +41,8 @@ import {
   RevisionReview,
   reviewerKeyForEventUser,
 } from "shared/validators";
-import {
-  assertFeatureSavedGroupScope,
-  featureForSavedGroupValidation,
-} from "back-end/src/services/savedGroupProjectScope";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import { ConflictError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
