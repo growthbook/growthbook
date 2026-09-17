@@ -1,5 +1,7 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { validateFeatureValue } from "shared/util";
+import isEqual from "lodash/isEqual";
 import { BadRequestError } from "./errors";
 
 type FeatureValues = Partial<Pick<FeatureInterface, "defaultValue" | "rules">>;
@@ -131,6 +133,15 @@ function normalizeJSONValue(value: string, label: string): string {
   }
 }
 
+function normalizeStoredJSONValue(value: string, label: string): string {
+  try {
+    return normalizeJSONValue(value, label);
+  } catch (e) {
+    if (!(e instanceof FeatureValueError)) throw e;
+    return value;
+  }
+}
+
 export function normalizeFeatureJSONValues<T extends FeatureValues>(
   feature: Pick<FeatureInterface, "valueType">,
   values: T,
@@ -140,6 +151,33 @@ export function normalizeFeatureJSONValues<T extends FeatureValues>(
   return mapChangedFeatureValues(values, normalizeJSONValue, previous);
 }
 
+// Published snapshots become merge bases, so retain the same repairs as the live write.
+export function getFeatureRevisionValueUpdatesForPublish(
+  feature: Pick<FeatureInterface, "valueType"> & FeatureValues,
+  revision: Pick<
+    FeatureRevisionInterface,
+    "metadata" | "defaultValue" | "rules"
+  >,
+): FeatureValues {
+  const valueType = revision.metadata?.valueType ?? feature.valueType;
+  if (valueType !== "json") return {};
+  // Validate the merged values at the publish gate; a stale snapshot can also
+  // carry legacy values that the merge leaves behind in favor of newer live ones.
+  const normalized = mapChangedFeatureValues(
+    { defaultValue: revision.defaultValue, rules: revision.rules },
+    normalizeStoredJSONValue,
+    valueType === feature.valueType ? feature : undefined,
+  );
+  return {
+    ...(normalized.defaultValue !== revision.defaultValue
+      ? { defaultValue: normalized.defaultValue }
+      : {}),
+    ...(!isEqual(normalized.rules, revision.rules)
+      ? { rules: normalized.rules }
+      : {}),
+  };
+}
+
 // Only for reconciling an already-persisted live revision. Keep unrecoverable
 // legacy values, and recognize repairs made when an older draft was published.
 export function getFeatureValuesForDriftRepair<T extends FeatureValues>(
@@ -147,16 +185,5 @@ export function getFeatureValuesForDriftRepair<T extends FeatureValues>(
   live: T,
 ): T {
   if (feature.valueType !== "json") return live;
-  return mapChangedFeatureValues(
-    live,
-    (value, label) => {
-      try {
-        return normalizeJSONValue(value, label);
-      } catch (e) {
-        if (!(e instanceof FeatureValueError)) throw e;
-        return value;
-      }
-    },
-    feature,
-  );
+  return mapChangedFeatureValues(live, normalizeStoredJSONValue, feature);
 }

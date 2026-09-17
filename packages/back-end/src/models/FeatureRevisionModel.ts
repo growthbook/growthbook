@@ -42,7 +42,10 @@ import {
   reviewerKeyForEventUser,
 } from "shared/validators";
 import { ConflictError } from "back-end/src/util/errors";
-import { normalizeFeatureJSONValues } from "back-end/src/util/featureValues";
+import {
+  getFeatureRevisionValueUpdatesForPublish,
+  normalizeFeatureJSONValues,
+} from "back-end/src/util/featureValues";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -1618,11 +1621,13 @@ export async function updateRevision(
 
 // Pure computation of the changes markRevisionAsPublished() will validate and persist
 export function computeRevisionPublishChanges(
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
 ): Partial<FeatureRevisionInterface> {
   return {
+    ...getFeatureRevisionValueUpdatesForPublish(feature, revision),
     status: "published",
     publishedBy: user,
     datePublished: new Date(),
@@ -1645,7 +1650,12 @@ export async function markRevisionAsPublished(
   // an approved (or otherwise in-flight) draft for the first time is a "publish".
   const action = revision.status === "published" ? "re-publish" : "publish";
 
-  const changes = computeRevisionPublishChanges(revision, user, comment);
+  const changes = computeRevisionPublishChanges(
+    feature,
+    revision,
+    user,
+    comment,
+  );
 
   await runValidateFeatureRevisionHooks({
     context,
@@ -1757,6 +1767,7 @@ function revisionClaimBaseline(revision: FeatureRevisionInterface): {
 // and published-hook dispatch are deferred to
 // emitFeatureRevisionPublishedSideEffects.
 export async function claimFeatureRevisionAsPublished(
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   user: EventUser,
   expected: { status: string; dateUpdated: Date },
@@ -1764,7 +1775,7 @@ export async function claimFeatureRevisionAsPublished(
 ): Promise<{ claimed: boolean; claimStamp: Date | null }> {
   return applyRevisionPublishClaim(
     revision,
-    computeRevisionPublishChanges(revision, user, comment),
+    computeRevisionPublishChanges(feature, revision, user, comment),
     expected,
   );
 }
@@ -1793,6 +1804,8 @@ export async function restoreFeatureRevisionAfterFailedBulkPublish(
   };
   const update = (withLockOthers: boolean) => ({
     $set: {
+      defaultValue: original.defaultValue,
+      rules: original.rules,
       status: original.status,
       publishedBy: original.publishedBy ?? null,
       datePublished: original.datePublished ?? null,

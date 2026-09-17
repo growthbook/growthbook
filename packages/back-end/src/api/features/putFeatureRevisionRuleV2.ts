@@ -248,9 +248,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values, whose schema lives on the config). Opt out with
     // ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, {
-      rules: [updatedRule as FeatureRule],
-    });
+    assertFeatureValuesValid(
+      req.context,
+      feature,
+      { rules: [updatedRule as FeatureRule] },
+      { rules: [oldRule] },
+    );
     // Config-backed rule values additionally validate against the backing
     // config's schema + invariants. Same check the publish path runs; a no-op
     // for non-config values.

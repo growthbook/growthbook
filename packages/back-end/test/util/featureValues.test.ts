@@ -1,7 +1,9 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { autoMerge } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import {
   FeatureValueError,
+  getFeatureRevisionValueUpdatesForPublish,
   getFeatureValuesForDriftRepair,
   normalizeFeatureJSONValues,
 } from "back-end/src/util/featureValues";
@@ -418,6 +420,57 @@ describe("schema validation overrides", () => {
     },
   );
 
+  it.each(ruleCases)(
+    "allows disabling a legacy %s rule but rejects a new invalid value",
+    (name, makeRule) => {
+      const rule = makeRule("{ not-an-object }");
+      const previous = { rules: [rule] };
+      for (const skip of [false, true]) {
+        expect(() =>
+          assertFeatureValuesValid(
+            context(skip),
+            jsonFeature,
+            { rules: [{ ...rule, enabled: false }] },
+            previous,
+          ),
+        ).not.toThrow();
+        expect(() =>
+          assertFeatureValuesValid(
+            context(skip),
+            jsonFeature,
+            { rules: [makeRule("{ another-invalid-object }")] },
+            previous,
+          ),
+        ).toThrow();
+      }
+    },
+  );
+
+  it("validates a changed rule while preserving a malformed sibling", () => {
+    const legacy: FeatureRule = {
+      ...baseRule,
+      type: "force",
+      value: "{ not-an-object }",
+    };
+    const rule = { ...legacy, id: "other", value: "{}" };
+    expect(() =>
+      assertFeatureValuesValid(
+        context(true),
+        jsonFeature,
+        { rules: [legacy, { ...rule, value: '{"answer":42}' }] },
+        { rules: [legacy, rule] },
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertFeatureValuesValid(
+        context(true),
+        jsonFeature,
+        { rules: [legacy, { ...rule, value: "{ another-invalid-object }" }] },
+        { rules: [legacy, rule] },
+      ),
+    ).toThrow("Rule #2");
+  });
+
   it("ignores carried-forward invalid values but still rejects changed values at publish", () => {
     const previous = { defaultValue: "{ not-an-object }" };
     expect(() =>
@@ -444,6 +497,96 @@ describe("schema validation overrides", () => {
         defaultValue: "{}",
       }),
     ).not.toThrow();
+  });
+});
+
+describe("published JSON snapshots", () => {
+  const rule = (value: string): FeatureRule => ({
+    ...baseRule,
+    type: "force",
+    value,
+  });
+  const feature = {
+    valueType: "json" as const,
+    defaultValue: "{}",
+    rules: [rule("{}")],
+  };
+
+  it("keeps repaired values from conflicting with a later description-only publish", () => {
+    const raw = {
+      version: 2,
+      defaultValue: "{ answer: 42 }",
+      rules: [rule("{ forced: 1 }")],
+      metadata: { valueType: "json" as const, description: "" },
+    };
+    const published = {
+      ...raw,
+      ...getFeatureRevisionValueUpdatesForPublish(feature, raw),
+    };
+    const liveValues = normalizeFeatureJSONValues(feature, raw, feature);
+    expect(published.defaultValue).toBe(liveValues.defaultValue);
+    expect(published.rules).toEqual(liveValues.rules);
+    const live = {
+      ...published,
+      version: 4,
+      metadata: { ...published.metadata, description: "Updated description" },
+    };
+    const draft = {
+      ...published,
+      version: 3,
+      rules: [rule('{"forced":2}')],
+    };
+    expect(autoMerge(live, raw, draft, ["production"], {}).success).toBe(false);
+    const merged = autoMerge(live, published, draft, ["production"], {});
+    expect(merged.success).toBe(true);
+    expect(merged.result.rules).toEqual(draft.rules);
+    // A genuine concurrent value change must still conflict.
+    expect(
+      autoMerge(
+        { ...live, rules: [rule('{"forced":3}')] },
+        published,
+        draft,
+        ["production"],
+        {},
+      ).success,
+    ).toBe(false);
+  });
+
+  it.each(["{ answer: 42 }", "{ not-an-object }"])(
+    "preserves inherited legacy values %s in the published snapshot",
+    (value) => {
+      const stored = { defaultValue: value, rules: [rule(value)] };
+      expect(
+        getFeatureRevisionValueUpdatesForPublish(
+          { ...feature, ...stored },
+          stored,
+        ),
+      ).toEqual({});
+    },
+  );
+
+  it("uses the revision's type when publishing a type change", () => {
+    const stored = { defaultValue: "{ answer: 42 }", rules: [] };
+    expect(
+      getFeatureRevisionValueUpdatesForPublish(
+        { ...feature, ...stored, valueType: "string" },
+        { ...stored, metadata: { valueType: "json" } },
+      ),
+    ).toEqual({ defaultValue: '{"answer": 42}' });
+    expect(
+      getFeatureRevisionValueUpdatesForPublish(feature, {
+        ...stored,
+        metadata: { valueType: "string" },
+      }),
+    ).toEqual({});
+  });
+
+  it("leaves unrepairable historical snapshot values for the merge gate to judge", () => {
+    expect(
+      getFeatureRevisionValueUpdatesForPublish(feature, {
+        defaultValue: "{ not-an-object }",
+      }),
+    ).toEqual({});
   });
 });
 

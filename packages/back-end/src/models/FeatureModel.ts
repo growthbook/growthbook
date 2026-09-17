@@ -1365,7 +1365,7 @@ export async function updateFeature(
     // Compensation uses it as the ownership token; the returned doc is a
     // set-then-fetch, so its `dateUpdated` may already be a rival's, and
     // reading ownership from it says "still ours" at the moment it isn't.
-    onStamped?: (stamp: Date) => void;
+    onStamped?: (stamp: Date, written: Partial<FeatureInterface>) => void;
     // Internal recovery only: restore values from an already-persisted snapshot.
     preserveStoredValues?: boolean;
   },
@@ -1481,7 +1481,10 @@ export async function updateFeature(
   // Only once Mongo has CONFIRMED the write: reporting earlier lets a CAS loser
   // claim ownership of a stamp live never carried, and its caller then skips
   // every rewind as "a rival took the feature".
-  options?.onStamped?.(ourStamp);
+  options?.onStamped?.(ourStamp, {
+    ...normalizedUpdates,
+    ...(options?.unsetHoldout ? { holdout: undefined } : {}),
+  });
 
   if (experimentsAdded.size > 0) {
     await Promise.all(
@@ -2128,7 +2131,7 @@ export async function applyRevisionChanges(
   // Reports the stamp the landing's guarded write PUT on the document, so the
   // caller's compensation owns the write rather than whatever a set-then-fetch
   // happened to read back.
-  onStamped?: (stamp: Date) => void,
+  onStamped?: (stamp: Date, written: Partial<FeatureInterface>) => void,
   // Reports the safe-rollout images this apply WROTE, for the same reason: read
   // back afterwards they are whatever the document holds by then, so a worker's
   // concurrent advance would be mistaken for ours and reversed.
@@ -3670,7 +3673,12 @@ export async function prevalidatePublishRevision({
     feature,
     revision: {
       ...revision,
-      ...computeRevisionPublishChanges(revision, context.auditUser, comment),
+      ...computeRevisionPublishChanges(
+        feature,
+        revision,
+        context.auditUser,
+        comment,
+      ),
     },
     original: revision,
   });
@@ -3708,7 +3716,7 @@ async function restorePublishedFeatureDoc(
   // Reports the stamp THIS restore put on the document: a restore advances
   // `dateUpdated`, and without re-pointing its token the caller reads its own
   // rollback as a concurrent owner and skips every remaining rewind.
-  onStamped?: (stamp: Date) => void,
+  onStamped?: (stamp: Date, written: Partial<FeatureInterface>) => void,
 ) {
   const { changes } = computeRevisionMergeChanges(
     context,

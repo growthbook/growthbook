@@ -3339,16 +3339,16 @@ export function assertFeatureValuesValid(
   context: ReqContext | ApiReqContext,
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
+  previous?: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
   const valueFeature = context.canSkipSchemaValidationFor("feature")
     ? { valueType: feature.valueType }
     : feature;
-  if (values.defaultValue !== undefined) {
-    validateFeatureValue(valueFeature, values.defaultValue, "Default value");
-  }
-  for (const rule of values.rules ?? []) {
-    validateFeatureRuleValues(valueFeature, rule);
-  }
+  mapChangedFeatureValues(
+    values,
+    (value, label) => validateFeatureValue(valueFeature, value, label),
+    previous,
+  );
 }
 
 // Publish-time safety net: re-validate the values a revision is about to make
