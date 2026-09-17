@@ -417,8 +417,6 @@ interface EntityHandler {
       stepLabel: string;
       user: EventUser;
       environment?: string | null;
-      // Stored step or end patches are judged before they land; start anchors
-      // and rollbacks replay the rule's own earlier state and are not.
       judgeTargeting?: boolean;
     },
   ): Promise<void>;
@@ -803,10 +801,9 @@ export const featureEntityHandler: EntityHandler = {
     }));
 
     if (judgeTargeting) {
-      // A patch whose condition no longer parses, or whose saved group,
-      // environment or prerequisite parent no longer exists, would serve
-      // everyone once landed; refuse the step instead. Lazy import: the
-      // validations module imports this one.
+      // A patch whose condition no longer parses or whose references are gone
+      // would serve everyone once landed; refuse the step instead. Lazy
+      // import: the validations module imports this one.
       const { validateRampPlanPatches } = await import(
         "back-end/src/api/features/validations"
       );
@@ -1117,9 +1114,8 @@ async function executeStepActions(
   actions: RampStepAction[],
   // fromStepIndex: position before a catch-up jump, so the published
   // revision's label shows the folded range instead of a normal single advance.
-  // judgeTargeting: the actions are stored step or end patches, so their
-  // targeting is checked before it lands; start anchors and rollbacks replay
-  // the rule's own earlier state and are not.
+  // judgeTargeting: stored step or end patches are checked before they land;
+  // start anchors and rollbacks replay the rule's own earlier state and are not.
   opts: { fromStepIndex?: number; judgeTargeting?: boolean } = {},
 ): Promise<void> {
   const ruleActions = actions.filter((a) => a.targetType === "feature-rule");

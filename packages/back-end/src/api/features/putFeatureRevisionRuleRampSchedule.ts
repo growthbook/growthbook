@@ -60,11 +60,9 @@ export async function setRuleRampSchedule(
     body;
   if (environment) assertValidEnvironment(context, environment);
 
-  // Patches the caller supplies are checked like a rule write; a patch that
-  // echoes the live schedule or the draft's pending action unchanged is not.
-  // For `version: "new"` this runs before the draft is created, so a refusal
-  // can't orphan one; for an existing draft it runs below, once the draft's
-  // copy of the rule and its pending action are known.
+  // Runs before the draft is created for `version: "new"` so a refusal can't
+  // orphan one; for an existing draft, below, once its rule and pending action
+  // are known.
   const checkPatches = (rule: FeatureRule | undefined, stored: unknown[]) =>
     validateRampPlanPatches(
       context,

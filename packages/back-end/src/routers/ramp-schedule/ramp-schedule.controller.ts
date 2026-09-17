@@ -2,10 +2,10 @@ import type { Response } from "express";
 import {
   RampScheduleInterface,
   isAwaitingStartApproval,
-  RampStepAction,
 } from "shared/validators";
 import { PermissionError, isRampScheduleServing } from "shared/util";
 import {
+  collectRampPlanActions,
   rampPatchEntriesForTargets,
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
@@ -45,19 +45,6 @@ import {
   changesRampPlan,
 } from "back-end/src/services/rampPlanReview";
 import { ConflictError } from "back-end/src/util/errors";
-
-// Every action a plan body carries, in the shape the validators read.
-function planActions(plan: {
-  steps?: { actions?: RampStepAction[] | null }[] | null;
-  startActions?: RampStepAction[] | null;
-  endActions?: RampStepAction[] | null;
-}): RampStepAction[] {
-  return [
-    ...(plan.startActions ?? []),
-    ...(plan.steps ?? []).flatMap((s) => s.actions ?? []),
-    ...(plan.endActions ?? []),
-  ];
-}
 
 type CreateBody = Pick<
   RampScheduleInterface,
@@ -174,7 +161,7 @@ export const postRampSchedule = async (
   await validateRampPlanPatches(
     context,
     rampPatchEntriesForTargets(
-      planActions(body),
+      collectRampPlanActions(body),
       body.targets ?? [],
       () => feature,
     ),
@@ -345,7 +332,7 @@ export const putRampSchedule = async (
       await validateRampPlanPatches(
         context,
         rampPatchEntriesForTargets(
-          planActions(updates),
+          collectRampPlanActions(updates),
           fresh.targets,
           () => feature,
         ),

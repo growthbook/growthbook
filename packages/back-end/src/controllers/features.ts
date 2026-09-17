@@ -339,28 +339,6 @@ function normalizeRampStepAction(a: {
 // values use, and a step or end value the flag's type rejects fails at save
 // rather than at publish. A start value echoing the rule's own is the
 // editor's anchor and is not judged.
-// The targeting a rule-editor plan carries (condition, saved groups,
-// environments, prerequisites) gets the rule endpoints' checks at save. Start
-// actions are the anchor the editor captured from the rule and are not judged;
-// stored plans this write replaces exempt unchanged fields.
-async function validateRuleModalRampPatches(
-  context: ReqContext,
-  plan: InlineRampScheduleCreate | InlineRampScheduleUpdate,
-  feature: FeatureInterface,
-  rule: Pick<FeatureRule, "allEnvironments" | "environments"> | null,
-  stored: unknown[],
-): Promise<void> {
-  await validateRampPlanPatches(
-    context,
-    rampPatchEntries(
-      collectRampPlanPatches({ ...plan, startActions: undefined }),
-      feature,
-      rule,
-    ),
-    { stored },
-  );
-}
-
 function normalizeRuleModalRampValues(
   plan: InlineRampScheduleCreate | InlineRampScheduleUpdate,
   feature: FeatureInterface,
@@ -377,6 +355,26 @@ function normalizeRuleModalRampValues(
         })),
       ),
     }),
+  );
+}
+
+// Same for the plan's targeting fields (condition, saved groups, environments,
+// prerequisites). Start actions are the editor's anchor and are not judged.
+async function validateRuleModalRampPatches(
+  context: ReqContext,
+  plan: InlineRampScheduleCreate | InlineRampScheduleUpdate,
+  feature: FeatureInterface,
+  rule: Pick<FeatureRule, "allEnvironments" | "environments"> | null,
+  stored: unknown[],
+): Promise<void> {
+  await validateRampPlanPatches(
+    context,
+    rampPatchEntries(
+      collectRampPlanPatches({ ...plan, startActions: undefined }),
+      feature,
+      rule,
+    ),
+    { stored },
   );
 }
 

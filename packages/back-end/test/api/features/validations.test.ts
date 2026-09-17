@@ -10,7 +10,7 @@ import {
   validateRulesReferences,
 } from "back-end/src/api/features/validations";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
@@ -294,8 +294,8 @@ describe("collectRampPlanPatches", () => {
         startState: { coverage: 0 },
       }),
     ).toEqual([
-      { coverage: 0.1 },
       { condition: "{}" },
+      { coverage: 0.1 },
       { enabled: false },
       { coverage: 0 },
     ]);
@@ -388,40 +388,22 @@ describe("validateRampPlanPatches", () => {
     expect(getAll).toHaveBeenCalledTimes(1);
   });
 
+  // Bad conditions, missing groups and unknown environments are asserted end
+  // to end in rampPatchReferences.test.ts.
   it.each([
-    [
-      "a condition that does not parse",
-      { condition: '{"country": ' },
-      BadRequestError,
-      /^Invalid ramp schedule patch: Invalid rule condition/,
-    ],
-    [
-      "a saved group that does not exist",
-      { savedGroups: [{ match: "any" as const, ids: ["grp_missing"] }] },
-      NotFoundError,
-      /^Invalid ramp schedule patch: Saved group "grp_missing" not found/,
-    ],
     [
       "$inGroup naming an unknown group",
       { condition: '{"id": {"$inGroup": "grp_missing"}}' },
-      BadRequestError,
-      /grp_missing/,
-    ],
-    [
-      "an environment the organization does not have",
-      { environments: ["prodution"] },
-      BadRequestError,
-      /^Invalid ramp schedule patch: Invalid environment: "prodution"/,
+      /^Invalid ramp schedule patch: .*grp_missing/,
     ],
     [
       "a prerequisite whose condition does not parse",
       { prerequisites: [{ id: "parent_flag", condition: "{" }] },
-      BadRequestError,
       /prerequisite/i,
     ],
-  ])("rejects %s", async (_label, patch, type, message) => {
+  ])("rejects %s", async (_label, patch, message) => {
     const result = run([patch]);
-    await expect(result).rejects.toThrow(type);
+    await expect(result).rejects.toThrow(BadRequestError);
     await expect(result).rejects.toThrow(message);
   });
 

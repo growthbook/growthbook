@@ -199,33 +199,36 @@ export type RampPatchTargetingInput = {
   environments?: string[] | null;
 };
 
+type RampPlanAction = { targetId?: string; patch?: unknown };
+
 type RampPlanInput = {
-  steps?: { actions?: { patch?: unknown }[] | null }[] | null;
-  startActions?: { patch?: unknown }[] | null;
-  endActions?: { patch?: unknown }[] | null;
+  steps?: { actions?: RampPlanAction[] | null }[] | null;
+  startActions?: RampPlanAction[] | null;
+  endActions?: RampPlanAction[] | null;
   startState?: unknown;
 };
 
-// Every caller-supplied patch in a ramp plan body, in any of the shapes the
-// REST routes accept (also reads a stored schedule or revision ramp action).
-// Start actions derived from the rule's current state are not caller-supplied
-// and must not be passed here.
+// Every action in a ramp plan body, stored schedule or revision ramp action
+// that carries a patch, in plan order.
+export function collectRampPlanActions(plan: unknown): RampPlanAction[] {
+  if (!plan || typeof plan !== "object") return [];
+  const { steps, startActions, endActions } = plan as RampPlanInput;
+  return [
+    ...(startActions ?? []),
+    ...(steps ?? []).flatMap((s) => s?.actions ?? []),
+    ...(endActions ?? []),
+  ].filter((a) => !!a?.patch && typeof a.patch === "object");
+}
+
+// The patches of those actions plus `startState`. Start actions derived from
+// the rule's current state are not caller-supplied and must not be passed here.
 export function collectRampPlanPatches(
-  // The request body (already schema-validated); read structurally.
-  body: unknown,
+  plan: unknown,
 ): RampPatchTargetingInput[] {
-  if (!body || typeof body !== "object") return [];
-  const plan = body as RampPlanInput;
-  const patches: unknown[] = [];
-  for (const step of plan.steps ?? []) {
-    for (const action of step?.actions ?? []) patches.push(action?.patch);
-  }
-  for (const action of plan.startActions ?? []) patches.push(action?.patch);
-  for (const action of plan.endActions ?? []) patches.push(action?.patch);
-  if (plan.startState !== undefined) patches.push(plan.startState);
-  return patches.filter(
-    (p): p is RampPatchTargetingInput => !!p && typeof p === "object",
-  );
+  const patches = collectRampPlanActions(plan).map((a) => a.patch);
+  const startState = (plan as RampPlanInput | null | undefined)?.startState;
+  if (startState && typeof startState === "object") patches.push(startState);
+  return patches as RampPatchTargetingInput[];
 }
 
 type RuleScope = Pick<
@@ -252,27 +255,25 @@ export type RampPatchTarget = {
 // the executor): each action lands on the rule its target names. The
 // executor applies a patch by its own `ruleId`, falling back to the target's.
 export function rampPatchEntriesForTargets(
-  actions: { targetId?: string; patch?: unknown }[],
+  actions: RampPlanAction[],
   targets: RampPatchTarget[],
   featureById: (id: string) => FeatureInterface | null | undefined,
 ): RampPatchEntry[] {
   const targetsById = new Map(targets.map((t) => [t.id, t]));
-  return actions
-    .filter((a) => !!a.patch && typeof a.patch === "object")
-    .map((a) => {
-      const patch = a.patch as RampPatchTargetingInput & { ruleId?: string };
-      const target = a.targetId ? targetsById.get(a.targetId) : undefined;
-      const feature = (target && featureById(target.entityId)) || null;
-      const ruleId = patch.ruleId ?? target?.ruleId;
-      const rule =
-        feature && ruleId
-          ? resolveRampTarget(
-              { ruleId, environment: target?.environment ?? null },
-              feature.rules ?? [],
-            )
-          : null;
-      return { patch, feature, rule };
-    });
+  return collectRampPlanActions({ steps: [{ actions }] }).map((a) => {
+    const patch = a.patch as RampPatchTargetingInput;
+    const target = a.targetId ? targetsById.get(a.targetId) : undefined;
+    const feature = (target && featureById(target.entityId)) || null;
+    const ruleId = patch.ruleId ?? target?.ruleId;
+    const rule =
+      feature && ruleId
+        ? resolveRampTarget(
+            { ruleId, environment: target?.environment ?? null },
+            feature.rules ?? [],
+          )
+        : null;
+    return { patch, feature, rule };
+  });
 }
 
 // Single-target plans (every route but the generated update): all patches
@@ -326,14 +327,12 @@ function changedRampPatchTargeting(
 
 const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 
-// Same checks the rule endpoints run (`assertValidRuleEnvironments`,
-// `validateRulesReferences`, `assertValidPrerequisiteParents`), applied to the
-// targeting fields of ramp patches at the time the plan is written. `stored`
-// are the plans this write replaces (the schedule, the revision's pending
-// action): as with `validateChangedRuleReferences`, a field that a stored patch
-// for the same rule already holds unchanged is not re-checked, so a GET -> PUT
-// round trip — or an edit to one field — of a plan that names a since-deleted
-// or unreadable group elsewhere still succeeds.
+// The rule endpoints' checks (`assertValidRuleEnvironments`,
+// `validateRulesReferences`, `assertValidPrerequisiteParents`) applied to ramp
+// patch targeting. `stored` are the plans this write replaces; as with
+// `validateChangedRuleReferences`, a field a stored patch for the same rule
+// already holds unchanged is not re-checked, so echoing a plan that names a
+// since-deleted group still succeeds.
 export async function validateRampPlanPatches(
   context: ReqContext | ApiReqContext,
   entries: RampPatchEntry[],
@@ -376,9 +375,8 @@ export async function validateRampPlanPatches(
 
     for (const { patch, changed, feature, rule } of checked) {
       // A scope change carries the rule's existing gates into new
-      // environments, so the cycle walk runs with the prerequisites that will
-      // apply there, and the target rule is taken out of the stored graph so
-      // those gates count as new edges.
+      // environments: walk with those, with the target rule removed from the
+      // stored graph so they count as new edges.
       const scopeChanged =
         changed.environments !== undefined ||
         (changed.allEnvironments ?? null) !== null;
@@ -394,12 +392,9 @@ export async function validateRampPlanPatches(
         await assertValidExperimentPrerequisites(context, prerequisites);
         continue;
       }
-      // Judged as one more rule on the flag. Cycles are per environment, so
-      // the rule takes the scope the patch sets (as `applyPatchToRule` will),
-      // else the target rule's current scope, else (rule not resolvable)
-      // every environment. An absent/null `environments` list without
-      // `allEnvironments` means every environment, as `ruleAppliesToEnv` reads
-      // it, so it is passed through unset rather than as `[]`.
+      // Judged as one more rule on the flag, in the scope the patch sets, else
+      // the target rule's, else every environment. A missing `environments`
+      // list means every environment (`ruleAppliesToEnv`), so it stays unset.
       const patchSetsScope =
         patch.environments !== undefined ||
         (patch.allEnvironments ?? null) !== null;

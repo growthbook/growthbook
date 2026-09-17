@@ -4,7 +4,6 @@ import { UpdateProps } from "shared/types/base-model";
 import {
   ApiRampScheduleInterface,
   RampScheduleInterface,
-  RampStep,
   RampStepAction,
   RampTarget,
   StepHoldConditions,
@@ -636,13 +635,14 @@ export class RampScheduleModel extends BaseClass {
     schedule: RampScheduleInterface,
     updates: Record<string, unknown>,
   ) {
-    const actions = [
-      ...((updates.startActions as RampStepAction[] | undefined) ?? []),
-      ...((updates.steps as RampStep[] | undefined) ?? []).flatMap(
-        (s) => s.actions ?? [],
-      ),
-      ...((updates.endActions as RampStepAction[] | undefined) ?? []),
-    ].filter((a) => !!a.patch && typeof a.patch === "object");
+    // Lazy: the validations module reaches back into this model through the
+    // request context, so a static import trips initialization.
+    const {
+      collectRampPlanActions,
+      rampPatchEntriesForTargets,
+      validateRampPlanPatches,
+    } = await import("back-end/src/api/features/validations");
+    const actions = collectRampPlanActions(updates);
     if (!actions.length) return;
     const featureIds = [
       ...new Set(
@@ -654,10 +654,6 @@ export class RampScheduleModel extends BaseClass {
       ),
     ];
     await context.populateForeignRefs({ feature: featureIds });
-    // Lazy: the validations module reaches back into this model through the
-    // request context, so a static import trips initialization.
-    const { rampPatchEntriesForTargets, validateRampPlanPatches } =
-      await import("back-end/src/api/features/validations");
     await validateRampPlanPatches(
       context,
       rampPatchEntriesForTargets(actions, schedule.targets, (id) =>
@@ -820,10 +816,7 @@ export class RampScheduleModel extends BaseClass {
     // Same publish-class gate as the dashboard PUT; canUpdate() alone passes
     // with draft access, which is right for name/monitoring edits only.
     await assertCanEditRampScheduleConfig(this.context, schedule, updates);
-    // Caller-supplied patches are checked like a rule write on the flag each
-    // action's target belongs to (a schedule can span several flags); a patch
-    // that echoes the stored plan unchanged is not. Kept inside the lock, after
-    // the permission gate, because targets are resolved against the in-lock
+    // In-lock, after the permission gate: targets resolve against the in-lock
     // document.
     await this.validateApiPlanPatches(req.context, schedule, updates);
 
