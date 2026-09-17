@@ -3,6 +3,7 @@ import {
   explorationConfigValidator,
   ProductAnalyticsExploration,
   ExplorationCacheQuery,
+  factMetricValidator,
 } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
@@ -34,6 +35,7 @@ import { ProductAnalyticsExplorationQueryRunner } from "back-end/src/queryRunner
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 /**
  * Cache lookup keys off query-defining fields (see AnalyticsExplorationModel.getConfigHashes)
@@ -144,7 +146,31 @@ export async function runProductAnalyticsExploration(
     if (!metricIds.length) {
       throw new BadRequestError("No metrics provided");
     }
-    const factMetrics = await context.models.factMetrics.getByIds(metricIds);
+    if (
+      dataset.values.some((value) => value.draftMetric) &&
+      (dataset.values.length !== 1 || metricIds[0] !== "fact__preview")
+    ) {
+      throw new BadRequestError(
+        "A draft preview must contain only fact__preview",
+      );
+    }
+    const factMetrics = await context.models.factMetrics.getByIds(
+      dataset.values
+        .filter((value) => !value.draftMetric)
+        .map((value) => value.metricId),
+    );
+    for (const value of dataset.values) {
+      if (!value.draftMetric) continue;
+      factMetrics.push(
+        factMetricValidator.parse({
+          ...value.draftMetric,
+          id: value.metricId,
+          organization: context.org.id,
+          dateCreated: new Date(0),
+          dateUpdated: new Date(0),
+        }),
+      );
+    }
     // `getByIds` just omits what it cannot find, and an id that resolves to
     // nothing contributes no datasource — which reads downstream as a mismatch.
     const foundIds = new Set(factMetrics.map((fm) => fm.id));
@@ -169,6 +195,18 @@ export async function runProductAnalyticsExploration(
       Array.from(factTableIds),
     );
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+
+    for (const value of dataset.values) {
+      if (!value.draftMetric) continue;
+      const metric = metricMap.get(value.metricId);
+      if (!metric) throw new NotFoundError("Draft metric not found");
+      await FactMetricModel.validateFactMetric(
+        metric,
+        null,
+        factTableMap,
+        context,
+      );
+    }
 
     // Populate datasource
     const datasourceIds = new Set(factMetrics.map((fm) => fm.datasource));

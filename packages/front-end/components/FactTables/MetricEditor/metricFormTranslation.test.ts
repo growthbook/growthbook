@@ -61,6 +61,22 @@ describe("columnsForShape", () => {
     expect(columnsForShape("sum", factTable)).not.toContain("user_id");
   });
 
+  it("excludes string identifiers from count-distinct choices", () => {
+    expect(
+      columnsForShape(
+        "distinct",
+        {
+          columns: [
+            { column: "account_id", datatype: "string" },
+            { column: "plan", datatype: "string" },
+          ],
+          userIdTypes: ["account_id"],
+        },
+        true,
+      ),
+    ).toEqual(["plan"]);
+  });
+
   it("excludes the fact table's configured timestamp column, not just the literal string 'timestamp'", () => {
     const customTimestampTable = {
       columns: [
@@ -788,28 +804,45 @@ describe("applyFormType", () => {
     expect(result.cappingSettings?.type).toBe("percentile");
   });
 
-  it("resets the delay to a neutral value when switching away from retention", () => {
-    const retentionState: MetricTypeSwitchState = {
-      metricType: "retention",
-      numerator: {
-        factTableId: "ft1",
-        column: "$$distinctUsers",
-        rowFilters: [],
-      },
-      windowSettings: {
-        type: "conversion",
-        windowUnit: "days",
-        windowValue: 3,
-        delayUnit: "days",
-        delayValue: 7,
-      },
-    };
-    const result = applyFormType(retentionState, "proportion", factTable);
-    expect(result.windowSettings).toMatchObject({
-      delayValue: 0,
-      delayUnit: "hours",
-    });
-  });
+  it.each([
+    "proportion",
+    "threshold",
+    "funnel",
+    "rowCount",
+    "colSum",
+    "colMax",
+    "countDist",
+    "activeDays",
+    "ratio",
+    "quantile",
+    "dailyParticipation",
+  ] as const)(
+    "clears the delay and conversion window when leaving retention for %s",
+    (nextType) => {
+      const retentionState: MetricTypeSwitchState = {
+        metricType: "retention",
+        numerator: {
+          factTableId: "ft1",
+          column: "$$distinctUsers",
+          rowFilters: [],
+        },
+        windowSettings: {
+          type: "conversion",
+          windowUnit: "days",
+          windowValue: 3,
+          delayUnit: "days",
+          delayValue: 7,
+        },
+      };
+      const result = applyFormType(retentionState, nextType, factTable);
+      expect(result.windowSettings).toMatchObject({
+        delayValue: 0,
+        delayUnit: "hours",
+        type: "",
+        windowValue: 0,
+      });
+    },
+  );
 
   it("seeds a non-zero delay when switching into retention with a zero delay", () => {
     const withZeroDelay = {

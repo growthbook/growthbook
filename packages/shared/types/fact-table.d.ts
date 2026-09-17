@@ -208,7 +208,6 @@ export type TestRowFiltersProps = z.infer<typeof testRowFiltersPropsValidator>;
 export type TestVirtualColumnProps = z.infer<
   typeof testVirtualColumnPropsValidator
 >;
-
 export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
 export type CreateColumnProps = z.infer<typeof createColumnPropsValidator>;
 export type CreateVirtualColumnProps = z.infer<

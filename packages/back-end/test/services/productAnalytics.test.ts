@@ -1,8 +1,12 @@
-import { ExplorationConfig } from "shared/validators";
+import {
+  ExplorationConfig,
+  draftExplorationMetricValidator,
+} from "shared/validators";
 import { FactTableInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -12,6 +16,10 @@ jest.mock("back-end/src/models/DataSourceModel", () => ({
 jest.mock("back-end/src/models/FactTableModel", () => ({
   getFactTable: jest.fn(),
   getFactTablesByIds: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/FactMetricModel", () => ({
+  FactMetricModel: { validateFactMetric: jest.fn() },
 }));
 
 const getDataSourceByIdMock = jest.mocked(getDataSourceById);
@@ -134,6 +142,114 @@ describe("runProductAnalyticsExploration funnel validation", () => {
     ).rejects.toThrow(
       'Funnel unit "user_id" must exist on every step\'s fact table',
     );
+    expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe("draft metric explorations", () => {
+  const draftMetric = draftExplorationMetricValidator.parse({
+    name: "Revenue per user",
+    description: "",
+    owner: "",
+    tags: [],
+    projects: [],
+    datasource: "ds_1",
+    inverse: false,
+    metricType: "mean",
+    numerator: {
+      factTableId: "ft_1",
+      column: "revenue",
+      aggregation: "sum",
+      rowFilters: [],
+    },
+    denominator: null,
+    funnelSettings: null,
+    quantileSettings: null,
+    cappingSettings: { type: "", value: 0 },
+    windowSettings: {
+      type: "conversion",
+      windowValue: 3,
+      windowUnit: "days",
+      delayValue: 0,
+      delayUnit: "hours",
+    },
+    priorSettings: { override: false, proper: false, mean: 0, stddev: 1 },
+    maxPercentChange: 0.5,
+    minPercentChange: 0.01,
+    minSampleSize: 100,
+    winRisk: 0.0025,
+    loseRisk: 0.0125,
+    regressionAdjustmentOverride: false,
+    regressionAdjustmentEnabled: false,
+    regressionAdjustmentDays: 14,
+  });
+  const config: ExplorationConfig = {
+    ...makeConfig(),
+    type: "metric",
+    chartType: "bigNumber",
+    dataset: {
+      type: "metric",
+      values: [
+        {
+          type: "metric",
+          metricId: "fact__preview",
+          name: "Revenue",
+          unit: "user_id",
+          denominatorUnit: null,
+          rowFilters: [],
+          draftMetric,
+        },
+      ],
+    },
+  };
+  const getByIds = jest.fn().mockResolvedValue([]);
+  const create = jest.fn();
+  const context = {
+    org: { id: "org_1" },
+    models: {
+      factMetrics: { getByIds },
+      analyticsExplorations: {
+        create,
+        getConfigHashes: jest.fn(() => {
+          throw new Error("query boundary");
+        }),
+      },
+    },
+  } as unknown as ReqContext;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getDataSourceByIdMock.mockResolvedValue({ id: "ds_1", type: "postgres" });
+    getFactTablesByIdsMock.mockResolvedValue([makeFactTable("ft_1")]);
+    jest.mocked(FactMetricModel.validateFactMetric).mockResolvedValue();
+  });
+
+  it("uses and validates the unsaved calculation without loading a saved metric", async () => {
+    await expect(
+      runProductAnalyticsExploration(context, config, { cache: "never" }),
+    ).rejects.toThrow("query boundary");
+    expect(getByIds).toHaveBeenCalledWith([]);
+    expect(FactMetricModel.validateFactMetric).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "fact__preview",
+        organization: "org_1",
+        metricType: "mean",
+        numerator: draftMetric.numerator,
+      }),
+      null,
+      expect.any(Map),
+      context,
+    );
+    expect(getFactTablesByIdsMock).toHaveBeenCalledWith(context, ["ft_1"]);
+  });
+
+  it("propagates metric validation failures before creating or running a query", async () => {
+    jest
+      .mocked(FactMetricModel.validateFactMetric)
+      .mockRejectedValueOnce(new Error("Could not find numerator fact table"));
+    await expect(
+      runProductAnalyticsExploration(context, config, { cache: "never" }),
+    ).rejects.toThrow("Could not find numerator fact table");
     expect(create).not.toHaveBeenCalled();
   });
 });
