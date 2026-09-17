@@ -1,3 +1,4 @@
+import { deflateSync, inflateSync, strFromU8, strToU8 } from "fflate";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type {
   ExplorationConfig,
@@ -162,8 +163,51 @@ export function getInitialConfigByBlockType(
   }
 }
 
+// `~` is not in either base64 alphabet, so its presence unambiguously marks the
+// compressed format and lets us keep decoding links shared before it existed.
+// It is also unreserved in a URL, so it survives without percent-encoding.
+const COMPRESSED_CONFIG_PREFIX = "~";
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  // Chunked because String.fromCharCode(...bytes) overflows the call stack on
+  // the payload sizes that made this compression necessary.
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function base64UrlToBytes(encoded: string): Uint8Array {
+  const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export function encodeExplorationConfig(config: ExplorationConfig): string {
-  return btoa(encodeURIComponent(JSON.stringify(config)));
+  const deflated = deflateSync(strToU8(JSON.stringify(config)), { level: 9 });
+  return COMPRESSED_CONFIG_PREFIX + bytesToBase64Url(deflated);
+}
+
+/**
+ * Parses an encoded `?config=` payload into untrusted JSON. Callers validate the
+ * result. Throws on a malformed payload.
+ */
+export function decodeExplorationConfigJson(encoded: string): unknown {
+  if (encoded.startsWith(COMPRESSED_CONFIG_PREFIX)) {
+    const deflated = base64UrlToBytes(
+      encoded.slice(COMPRESSED_CONFIG_PREFIX.length),
+    );
+    return JSON.parse(strFromU8(inflateSync(deflated)));
+  }
+  return JSON.parse(decodeURIComponent(atob(encoded)));
 }
 
 // ---- showAs inference & applicability ---------------------------------------

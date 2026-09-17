@@ -35,6 +35,7 @@ import {
 } from "shared/experiments";
 import {
   encodeExplorationConfig,
+  decodeExplorationConfigJson,
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   mapDatabaseTypeToEnum,
@@ -1584,7 +1585,7 @@ export type DecodeConfigResult =
 
 export function decodeExplorationConfig(encoded: string): DecodeConfigResult {
   try {
-    const parsed = JSON.parse(decodeURIComponent(atob(encoded)));
+    const parsed = decodeExplorationConfigJson(encoded);
     const config = explorationConfigValidator.parse(parsed);
     return { config, error: null };
   } catch {
