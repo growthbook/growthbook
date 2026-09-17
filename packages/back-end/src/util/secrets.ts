@@ -233,6 +233,65 @@ export const JOB_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "JOB_TIMEOUT_MS" },
 ); // Defaults to 2 hours
 
+export const GB_AGENDA_DEFAULT_LOCK_LIMIT = parseEnvInt(
+  process.env.GB_AGENDA_DEFAULT_LOCK_LIMIT,
+  5,
+  { min: 1, name: "GB_AGENDA_DEFAULT_LOCK_LIMIT" },
+);
+
+// Webhook delivery caps at 30s, so a short lifetime bounds how long a crash strands claimed jobs.
+const EVENT_QUEUE_LOCK_LIFETIME_MS = 2 * 60 * 1000;
+
+export const EVENT_QUEUE_CONFIG = {
+  processEvery: parseEnvInt(
+    process.env.GB_AGENDA_EVENT_POLL_INTERVAL_MS,
+    5000,
+    {
+      min: 100,
+      max: 60000,
+      name: "GB_AGENDA_EVENT_POLL_INTERVAL_MS",
+    },
+  ),
+  eventCreated: {
+    concurrency: parseEnvInt(
+      process.env.GB_AGENDA_EVENT_CREATED_CONCURRENCY,
+      5,
+      {
+        min: 1,
+        name: "GB_AGENDA_EVENT_CREATED_CONCURRENCY",
+      },
+    ),
+    lockLimit: parseEnvInt(
+      process.env.GB_AGENDA_EVENT_CREATED_LOCK_LIMIT,
+      GB_AGENDA_DEFAULT_LOCK_LIMIT,
+      {
+        min: 1,
+        name: "GB_AGENDA_EVENT_CREATED_LOCK_LIMIT",
+      },
+    ),
+    lockLifetime: EVENT_QUEUE_LOCK_LIFETIME_MS,
+  },
+  eventWebHook: {
+    concurrency: parseEnvInt(
+      process.env.GB_AGENDA_EVENT_WEBHOOK_CONCURRENCY,
+      5,
+      {
+        min: 1,
+        name: "GB_AGENDA_EVENT_WEBHOOK_CONCURRENCY",
+      },
+    ),
+    lockLimit: parseEnvInt(
+      process.env.GB_AGENDA_EVENT_WEBHOOK_LOCK_LIMIT,
+      GB_AGENDA_DEFAULT_LOCK_LIMIT,
+      {
+        min: 1,
+        name: "GB_AGENDA_EVENT_WEBHOOK_LOCK_LIMIT",
+      },
+    ),
+    lockLifetime: EVENT_QUEUE_LOCK_LIFETIME_MS,
+  },
+};
+
 export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
 export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
 

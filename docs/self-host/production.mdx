@@ -109,6 +109,26 @@ The most intensive part of GrowthBook is the stats engine and background jobs. I
 
 The "Jobs Server" `/stats` endpoint has no built-in authentication, so it should only be reachable on a private network. As defense-in-depth, set a shared secret with `PYTHON_SERVER_AUTH_TOKEN=<random secret>` on both the "Jobs Server" and the main instances — when set, the "Jobs Server" rejects any request to `/stats` that doesn't present it as a `Bearer` token.
 
+### Background job queues
+
+Background jobs run on the instances where `CRON_DISABLED` is not set. They are split across two queues so that short, high-volume work does not get stuck behind long-running jobs:
+
+- The **event queue** handles event fan-out and webhook delivery, which normally finish in milliseconds.
+- The **default queue** handles everything else, including experiment result refreshes that can run for tens of minutes.
+
+Each queue polls MongoDB on its own interval, and each job type has its own limit on how many jobs one instance may claim at a time (its lock limit) and run at a time (its concurrency). Raising the lock limit lets an instance drain a backlog without waiting for the next poll. The trade-off is that if that instance crashes hard, the jobs it had already claimed stay locked until their lock lifetime expires.
+
+| Variable                              | Default                        | Description                                                                            |
+| ------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------- |
+| `GB_AGENDA_DEFAULT_LOCK_LIMIT`        | `5`                            | Jobs of one type an instance may claim at a time, for every job without its own limit. |
+| `GB_AGENDA_EVENT_POLL_INTERVAL_MS`    | `5000`                         | How often the event queue checks MongoDB for new work. Accepts 100 to 60000.           |
+| `GB_AGENDA_EVENT_CREATED_CONCURRENCY` | `5`                            | Event fan-out jobs an instance runs at a time.                                         |
+| `GB_AGENDA_EVENT_CREATED_LOCK_LIMIT`  | `GB_AGENDA_DEFAULT_LOCK_LIMIT` | Event fan-out jobs an instance claims at a time.                                       |
+| `GB_AGENDA_EVENT_WEBHOOK_CONCURRENCY` | `5`                            | Webhook deliveries an instance has in flight at a time.                                |
+| `GB_AGENDA_EVENT_WEBHOOK_LOCK_LIMIT`  | `GB_AGENDA_DEFAULT_LOCK_LIMIT` | Webhook delivery jobs an instance claims at a time.                                    |
+
+The defaults match GrowthBook's behavior before the queues were split, so you only need to change them if webhook delivery falls behind. The lock limit is usually the more effective knob; setting it below the matching concurrency will cap that concurrency.
+
 ### MongoDB
 
 All application state is stored in MongoDB. A small GrowthBook deployment can run with shared CPU/RAM and under 512MB of storage. A very large deployment with 1,000 feature flags and experiments will take up around 5GB of storage and require at least 2GB of RAM and 2vCPUs.

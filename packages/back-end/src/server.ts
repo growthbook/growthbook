@@ -3,7 +3,7 @@ import "./init/dotenv";
 import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
-import { getAgendaInstance } from "./services/queueing";
+import { getAgendaInstance, getEventAgendaInstance } from "./services/queueing";
 import { uploadsInit } from "./init/uploads";
 import {
   initializeGrowthBookClient,
@@ -55,9 +55,16 @@ function onClose() {
     // Cleanup GrowthBook client
     destroyGrowthBookClient();
 
-    // Gracefully close Agenda
-    const agenda = getAgendaInstance();
-    await agenda.stop();
+    // allSettled: one failing unlock must not strand the other queue's locks or block exit.
+    const stopped = await Promise.allSettled([
+      getAgendaInstance().stop(),
+      getEventAgendaInstance().stop(),
+    ]);
+    stopped.forEach((result) => {
+      if (result.status === "rejected") {
+        logger.error(result.reason, "Error closing Agenda");
+      }
+    });
     logger.info("Agenda closed");
     process.exit(0);
   });

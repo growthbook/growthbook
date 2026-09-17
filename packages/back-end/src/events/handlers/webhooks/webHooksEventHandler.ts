@@ -47,11 +47,12 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     }
   })();
 
-  eventWebHooks.forEach((eventWebHook) => {
-    const notifier = new EventWebHookNotifier({
-      eventId: event.id,
-      eventWebHookId: eventWebHook.id,
-    });
-    notifier.enqueue();
-  });
+  await Promise.all(
+    eventWebHooks.map((eventWebHook) =>
+      new EventWebHookNotifier({
+        eventId: event.id,
+        eventWebHookId: eventWebHook.id,
+      }).enqueue(),
+    ),
+  );
 };
