@@ -55,6 +55,15 @@ describe("general agent system prompt", () => {
     expect(prompt).not.toContain("`feature-flags/references/flag-create`");
     expect(prompt).not.toContain("`feature-flags/references/flag-targeting`");
   });
+
+  it("reserves plain text for the final response", () => {
+    const prompt = _buildGeneralAgentSystemPrompt();
+
+    expect(prompt).toContain(
+      "Never emit plain text before or between tool calls",
+    );
+    expect(prompt).toContain("Only when no more tool calls are");
+  });
 });
 
 describe("coerceBody (callApi defensive parsing)", () => {

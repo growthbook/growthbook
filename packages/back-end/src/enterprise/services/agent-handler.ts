@@ -41,7 +41,6 @@ import {
 } from "back-end/src/enterprise/services/sse-utils";
 import {
   StreamProcessor,
-  getErrorMessage,
   type AgentEmit,
   type AgentStreamPart,
 } from "back-end/src/enterprise/services/stream-processor";
@@ -187,6 +186,8 @@ const activeStreamControllers = new Map<string, AbortController>();
 const SSE_KEEPALIVE_MS = 15_000;
 // Keep this below the client's 60-second stale-stream threshold.
 const DB_HEARTBEAT_MS = 30_000;
+const PUBLIC_STREAM_ERROR =
+  "The assistant ran into an unexpected error. Please try again.";
 
 // SSE pings keep the connection open; Mongo updates support reloads and
 // cancellation handled by another server instance.
@@ -812,12 +813,13 @@ async function processStream<TParams>(
           emit("reasoning-delta", { text: part.text });
           break;
         case "error": {
-          const errorMsg = getErrorMessage(
-            (part as ErrorPart).error,
-            "An error occurred",
-          );
-          emit("error", { message: errorMsg });
-          processor.setError(errorMsg);
+          const rawError = (part as ErrorPart).error;
+          logger.error(rawError, "AI agent model stream failed", {
+            conversationId: buffer.conversationId,
+            promptType: config.promptType,
+          });
+          emit("error", { message: PUBLIC_STREAM_ERROR });
+          processor.setError(PUBLIC_STREAM_ERROR);
           break;
         }
         case "file":
@@ -843,9 +845,12 @@ async function processStream<TParams>(
     }
   } catch (err) {
     if (!processor.isAborted && !abortController.signal.aborted) {
-      const errorMsg = getErrorMessage(err, "An error occurred");
-      emit("error", { message: errorMsg });
-      processor.setError(errorMsg);
+      logger.error(err, "AI agent stream processing failed", {
+        conversationId: buffer.conversationId,
+        promptType: config.promptType,
+      });
+      emit("error", { message: PUBLIC_STREAM_ERROR });
+      processor.setError(PUBLIC_STREAM_ERROR);
     }
   }
 

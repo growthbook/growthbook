@@ -60,7 +60,7 @@ export function useAIChat({
   const [loading, setLoading] = useState(false);
   /** True only while fetching historical messages for a conversation (not AI generation). */
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
-  /** True only while this tab is actively reading an SSE stream from `sendMessage`. */
+  /** True while this tab owns the request started by `sendMessage`. */
   const [isLocalStream, setIsLocalStream] = useState(false);
   const [waitingForNextStep, setWaitingForNextStep] = useState(false);
   const [isRemoteStream, setIsRemoteStream] = useState(false);
@@ -361,6 +361,7 @@ export function useAIChat({
       const controller = new AbortController();
       abortControllerRef.current = controller;
       userCancelledRef.current = false;
+      setIsLocalStream(true);
 
       let streamCompletedOk = false;
       const sendStartMs = Date.now();
@@ -398,7 +399,6 @@ export function useAIChat({
         }
 
         onStreamAcceptedRef.current?.();
-        setIsLocalStream(true);
 
         const reader = response.body?.getReader();
         if (!reader) {

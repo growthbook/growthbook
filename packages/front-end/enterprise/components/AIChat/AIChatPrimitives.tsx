@@ -9,28 +9,26 @@ import {
 import Text from "@/ui/Text";
 import aiChatStyles from "./AIChatPrimitives.module.scss";
 
-interface AssistantBubbleProps {
+export function AssistantBubble({
+  children,
+  variant = "message",
+}: {
   children: React.ReactNode;
-  wide?: boolean;
-}
-
-export function AssistantBubble({ children, wide }: AssistantBubbleProps) {
+  variant?: "message" | "artifact";
+}) {
   return (
     <Box
       style={{
-        borderRadius: "var(--radius-3)",
-        padding: "8px 12px",
+        borderRadius: variant === "artifact" ? "var(--radius-3)" : undefined,
+        padding: variant === "artifact" ? "8px 12px 12px" : "2px 0",
         alignSelf: "flex-start",
-        background: "var(--color-panel-solid)",
-        border: "1px solid var(--slate-a5)",
-        ...(wide
-          ? {
-              width: "min(920px, 100%)",
-              maxWidth: "100%",
-              minWidth: 0,
-              paddingBottom: 12,
-            }
-          : { maxWidth: "85%" }),
+        width: "min(920px, 100%)",
+        maxWidth: "100%",
+        minWidth: 0,
+        background:
+          variant === "artifact" ? "var(--color-panel-solid)" : undefined,
+        border:
+          variant === "artifact" ? "1px solid var(--slate-a5)" : undefined,
       }}
       className={aiChatStyles.bubble}
     >

@@ -147,14 +147,14 @@ export interface UseAIChatReturn {
       skills?: string[];
     },
   ) => void;
-  /** Cancels the active live stream. No-op unless `isLocalStream` is true. */
+  /** Cancels the request started by this tab. No-op unless `isLocalStream` is true. */
   cancelGeneration: () => void;
   newChat: () => void;
   loadConversation: (id: string) => Promise<void>;
   loading: boolean;
   /** True only while fetching historical messages for a conversation (not AI generation). */
   isLoadingConversation: boolean;
-  /** True only while this tab is actively reading an SSE stream from sendMessage. */
+  /** True while this tab owns the request started by sendMessage. */
   isLocalStream: boolean;
   waitingForNextStep: boolean;
   /** True when following a stream via polling (navigated away and back) rather

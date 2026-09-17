@@ -1,10 +1,22 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import {
+  PiArrowsInSimple,
+  PiArrowsOutSimple,
+  PiCaretRight,
+  PiChartLine,
+  PiChartLineUp,
+  PiFlag,
+  PiFlask,
+  PiPlus,
+  PiSparkle,
+  PiX,
+} from "react-icons/pi";
 import { useSWRConfig } from "swr";
 import type { AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
+import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -16,8 +28,6 @@ import {
   AssistantBubble,
   UserBubble,
   ErrorBubble,
-  ThinkingBubble,
-  AIAnalystLabel,
   ToolStatusIcon,
 } from "@/enterprise/components/AIChat/AIChatPrimitives";
 import CollapsedSteps, {
@@ -31,6 +41,7 @@ import {
 } from "@/enterprise/components/AIChat/AIChatFeedback";
 import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import MessageTokens from "@/enterprise/components/AIChat/MessageTokens";
+import { useAutoScroll } from "@/enterprise/components/AIChat/useAutoScroll";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import { extractExplorationResultData } from "@/enterprise/hooks/useAIChat/extractExplorationResultData";
 import ExplorationBubble, {
@@ -69,6 +80,19 @@ function resolveAgentPanelInternalHref(href: string): string | null {
     typeof window === "undefined" ? null : window.location.origin;
   return resolveAgentInternalHref(href, currentOrigin);
 }
+
+const STARTER_PROMPTS = [
+  {
+    prompt: "Help me understand and analyze my product metrics",
+    Icon: PiChartLine,
+  },
+  {
+    prompt: "Show me how my recently started experiments are going",
+    Icon: PiChartLineUp,
+  },
+  { prompt: "Help me create a Feature Flag", Icon: PiFlag },
+  { prompt: "Help me create an experiment", Icon: PiFlask },
+];
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   callApi: CALL_API_LABEL,
@@ -171,7 +195,6 @@ export default function AgentPanel({
   onToggleExpanded,
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
@@ -316,6 +339,7 @@ export default function AgentPanel({
     loadConversation,
     conversationId,
     loading,
+    isLoadingConversation,
     isLocalStream,
     waitingForNextStep,
     error,
@@ -352,6 +376,15 @@ export default function AgentPanel({
     },
   });
 
+  const { scrollContainerRef, messagesEndRef, handleScroll, resumeAutoScroll } =
+    useAutoScroll({
+      messages,
+      activeTurnItems,
+      displayedTextMap,
+      conversationId,
+      enabled: open,
+    });
+
   // Keep the feedback hook's ref in sync with the current conversation id.
   // The ref is only read inside event handlers, never during render.
   feedbackConversationIdRef.current = conversationId;
@@ -386,17 +419,6 @@ export default function AgentPanel({
     prevLoadingRef.current = loading;
   }, [loading, open, focusInput]);
 
-  const wasOpenRef = useRef(false);
-  useEffect(() => {
-    if (!open) {
-      wasOpenRef.current = false;
-      return;
-    }
-    const behavior = wasOpenRef.current ? "smooth" : "auto";
-    wasOpenRef.current = true;
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  }, [messages, activeTurnItems, open]);
-
   const trackMessageSent = useCallback(() => {
     track("AI Assistant Message Sent", {
       model: defaultAIModel,
@@ -416,6 +438,7 @@ export default function AgentPanel({
       const text = submission.text.trim();
       if (!text || loading) return;
       pendingSubmissionRef.current = submission;
+      resumeAutoScroll();
       resolveOnUserMessage();
       trackMessageSent();
       sendMessage(text, {
@@ -423,28 +446,45 @@ export default function AgentPanel({
         skills: submission.skills,
       });
     },
-    [input, loading, sendMessage, resolveOnUserMessage, trackMessageSent],
+    [
+      input,
+      loading,
+      sendMessage,
+      resumeAutoScroll,
+      resolveOnUserMessage,
+      trackMessageSent,
+    ],
+  );
+
+  const handleStarterPrompt = useCallback(
+    (prompt: string) => {
+      setInput(prompt);
+      focusInput(0);
+    },
+    [focusInput, setInput],
   );
 
   const handleAskOption = useCallback(
     (option: AskUserOption) => {
       if (loading || !resolveAsk()) return;
+      resumeAutoScroll();
       trackMessageSent();
       sendMessage(option.label);
     },
-    [resolveAsk, sendMessage, loading, trackMessageSent],
+    [resolveAsk, sendMessage, loading, resumeAutoScroll, trackMessageSent],
   );
 
   const handleConfirmAction = useCallback(
     (decision: "confirm" | "cancel") => {
       if (loading || !resolveConfirm(decision)) return;
       // The decision is a control signal — don't render it as a user bubble.
+      resumeAutoScroll();
       trackMessageSent();
       sendMessage(decision === "confirm" ? "Confirm" : "Cancel", {
         suppressUserMessage: true,
       });
     },
-    [resolveConfirm, sendMessage, loading, trackMessageSent],
+    [resolveConfirm, sendMessage, loading, resumeAutoScroll, trackMessageSent],
   );
 
   const handleNewChat = useCallback(() => {
@@ -475,19 +515,64 @@ export default function AgentPanel({
 
   if (!open) return null;
 
+  const latestActivityItem = [...visibleItems]
+    .reverse()
+    .find(
+      (item) =>
+        item.kind === "thinking" ||
+        (item.kind === "tool-status" &&
+          !(
+            item.status === "done" &&
+            item.toolResultData &&
+            chartDataFromRecord(item.toolResultData)
+          )),
+    );
+  const foldLatestActivity =
+    waitingForNextStep && latestActivityItem?.kind === "tool-status";
+  const activityItems = foldLatestActivity
+    ? [...collapsedItems, latestActivityItem]
+    : collapsedItems;
   const collapsedActiveSteps = activeItemsToSteps(
-    collapsedItems,
+    activityItems,
     displayedTextMap,
     toolDetailsOpenRef,
   );
+  const activeStatus = waitingForNextStep
+    ? {
+        key: "reviewing-results",
+        label: "Reviewing results…",
+        status: "running" as const,
+      }
+    : latestActivityItem?.kind === "tool-status"
+      ? {
+          key: latestActivityItem.toolCallId,
+          label: latestActivityItem.label || CALL_API_LABEL,
+          status: latestActivityItem.status,
+        }
+      : latestActivityItem?.kind === "thinking"
+        ? {
+            key: latestActivityItem.id,
+            label: "Thinking…",
+            status: "running" as const,
+          }
+        : loading && activeTurnItems.length === 0
+          ? {
+              key: "thinking",
+              label: "Thinking…",
+              status: "running" as const,
+            }
+          : null;
   const persistedTurns = groupMessagesByTurn(messages);
   const confirmationPending =
     confirmPrompt !== null && (!confirmPrompt.resolved || loading);
+  const interactionPending =
+    (askPrompt !== null && !askPrompt.resolved) || confirmationPending;
 
   return (
     <Box
       role="dialog"
       aria-label="GrowthBook AI assistant"
+      data-agent-panel="true"
       style={{
         position: "fixed",
         right: 0,
@@ -501,13 +586,13 @@ export default function AgentPanel({
         left: "auto",
         width: expanded
           ? `calc((100vw - ${sidebarCollapsed ? 0 : 240}px) * 0.9)`
-          : "min(440px, 100vw)",
+          : "min(400px, 100vw)",
         background: "var(--color-background)",
-        borderLeft: "1px solid var(--gray-a6)",
-        boxShadow: "var(--shadow-5)",
+        borderLeft: "1px solid var(--gray-a3)",
+        boxShadow: "-8px 0 24px var(--black-a4)",
         display: "flex",
         flexDirection: "column",
-        zIndex: 9000,
+        zIndex: 10001,
         transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
@@ -523,26 +608,24 @@ export default function AgentPanel({
         }}
       >
         <Flex align="center" gap="3">
-          {onToggleExpanded && (
-            <IconButton
-              variant="ghost"
-              size="1"
-              onClick={onToggleExpanded}
-              title={expanded ? "Collapse panel" : "Expand panel"}
-              aria-label={
-                expanded ? "Collapse agent panel" : "Expand agent panel"
-              }
-            >
-              {expanded ? (
-                <PiArrowLineRight size={16} />
-              ) : (
-                <PiArrowLineLeft size={16} />
-              )}
-            </IconButton>
-          )}
-          <AIAnalystLabel label="AI Assistant" mb="0" />
+          <Flex
+            align="center"
+            justify="center"
+            style={{
+              width: 32,
+              height: 32,
+              flexShrink: 0,
+              background: "var(--violet-a4)",
+              borderRadius: "999px",
+            }}
+          >
+            <PiSparkle size={16} color="var(--violet-11)" />
+          </Flex>
+          <Text size="md" weight="semibold">
+            AI Assistant
+          </Text>
         </Flex>
-        <Flex gap="4">
+        <Flex align="center" gap="3">
           <AgentChatHistory
             activeConversationId={conversationId}
             onSelect={handleSelectConversation}
@@ -554,8 +637,26 @@ export default function AgentPanel({
             title="Start new conversation"
             aria-label="Start new conversation"
           >
-            <PiPlus size={16} />
+            <PiPlus size={18} />
           </IconButton>
+          {onToggleExpanded && (
+            <IconButton
+              variant="ghost"
+              size="1"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={onToggleExpanded}
+              title={expanded ? "Minimize panel" : "Maximize panel"}
+              aria-label={
+                expanded ? "Minimize agent panel" : "Maximize agent panel"
+              }
+            >
+              {expanded ? (
+                <PiArrowsInSimple size={18} />
+              ) : (
+                <PiArrowsOutSimple size={18} />
+              )}
+            </IconButton>
+          )}
           <IconButton
             variant="ghost"
             size="1"
@@ -563,21 +664,93 @@ export default function AgentPanel({
             title="Close"
             aria-label="Close agent panel"
           >
-            <PiX size={16} />
+            <PiX size={18} />
           </IconButton>
         </Flex>
       </Flex>
 
       {/* Messages */}
-      <Box style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+      <Box
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        style={{ flex: 1, overflowY: "auto", padding: "20px" }}
+      >
         <Flex direction="column" gap="3">
-          {messages.length === 0 && !loading && (
-            <Text size="sm" color="text-low">
-              Hi! Ask me to find a metric, build a chart, list features, or run
-              an experiment query. I&apos;ll use the GrowthBook REST API to do
-              the work.
-            </Text>
-          )}
+          {messages.length === 0 &&
+            !loading &&
+            !isLoadingConversation &&
+            !error && (
+              <Flex
+                direction="column"
+                gap="5"
+                style={{
+                  alignSelf: "flex-start",
+                  width: expanded ? "100%" : "min(640px, 100%)",
+                }}
+              >
+                <Box
+                  p="4"
+                  style={{
+                    border: "1px solid var(--violet-a3)",
+                    borderRadius: "var(--radius-3)",
+                    background: "var(--gray-a2)",
+                  }}
+                >
+                  <Flex direction="column" gap="3">
+                    <Text size="md" weight="semibold">
+                      Hey there! 👋
+                    </Text>
+                    <Text size="md" color="text-mid">
+                      I&apos;m your AI analyst. I have access to your
+                      experiments, Feature Flags, metrics, and database schemas.
+                      Let me know what you&apos;d like to build or explore
+                      today!
+                    </Text>
+                  </Flex>
+                </Box>
+                <Flex direction="column" gap="2">
+                  <Text size="sm" weight="semibold" color="text-low">
+                    Suggestions
+                  </Text>
+                  <Grid columns={expanded ? "2" : "1"} gap="2">
+                    {STARTER_PROMPTS.map(({ prompt, Icon }) => (
+                      <Button
+                        key={prompt}
+                        variant="outline"
+                        color="gray"
+                        size="sm"
+                        icon={
+                          <Flex
+                            align="center"
+                            justify="center"
+                            style={{
+                              width: 26,
+                              height: 26,
+                              flexShrink: 0,
+                              borderRadius: "var(--radius-2)",
+                              background: "var(--violet-a4)",
+                              color: "var(--violet-11)",
+                            }}
+                          >
+                            <Icon size={16} />
+                          </Flex>
+                        }
+                        onClick={() => handleStarterPrompt(prompt)}
+                        className={aiChatStyles.suggestedPrompt}
+                      >
+                        <span className={aiChatStyles.suggestedPromptText}>
+                          {prompt}
+                        </span>
+                        <PiCaretRight
+                          className={aiChatStyles.suggestedPromptCaret}
+                          aria-hidden
+                        />
+                      </Button>
+                    ))}
+                  </Grid>
+                </Flex>
+              </Flex>
+            )}
 
           {persistedTurns.map((turn, idx) => (
             <PersistedTurn
@@ -587,22 +760,24 @@ export default function AgentPanel({
               feedbackMap={feedbackMap}
               onFeedbackSubmit={handleFeedbackSubmit}
               feedbackTrackingEventName="AI Assistant Feedback"
-              showFeedback={
-                !confirmationPending || idx < persistedTurns.length - 1
+              awaitingInteraction={
+                interactionPending && idx === persistedTurns.length - 1
               }
             />
           ))}
 
-          {/* Active turn — most recent item stays in full focus; older
-              completed items fade and roll up into the steps drawer. */}
-          {collapsedActiveSteps.length > 0 && (
+          {/* Active turn — completed work is grouped while the current status
+              updates in place. */}
+          {(collapsedActiveSteps.length > 0 || activeStatus) && (
             <CollapsedSteps
               count={collapsedActiveSteps.length}
               items={collapsedActiveSteps}
+              active={activeStatus}
             />
           )}
 
-          {visibleItems.map(({ item, phase }) => {
+          {visibleItems.map((item) => {
+            if (item === latestActivityItem) return null;
             const rendered = (
               <ActiveTurnItemRow
                 item={item}
@@ -612,22 +787,11 @@ export default function AgentPanel({
             );
             const key = item.kind === "tool-status" ? item.toolCallId : item.id;
             return (
-              <div
-                key={key}
-                className={`${aiChatStyles.activeTurnItemWrapper}${phase === "fading" ? ` ${aiChatStyles.collapsingItem}` : ""}`}
-              >
+              <div key={key} className={aiChatStyles.activeTurnItemWrapper}>
                 {rendered}
               </div>
             );
           })}
-
-          {(loading || waitingForNextStep) && activeTurnItems.length === 0 && (
-            <ThinkingBubble label="Thinking…" />
-          )}
-
-          {loading && waitingForNextStep && activeTurnItems.length > 0 && (
-            <ThinkingBubble label="Planning next step…" />
-          )}
 
           {error && <ErrorBubble>{error}</ErrorBubble>}
 
@@ -767,7 +931,7 @@ function ActiveTurnItemRow({
     );
   }
   if (item.kind === "thinking") {
-    return <ThinkingBubble label="Thinking…" />;
+    return null;
   }
   return null;
 }
@@ -783,7 +947,7 @@ function PersistedTurn({
   feedbackMap,
   onFeedbackSubmit,
   feedbackTrackingEventName,
-  showFeedback,
+  awaitingInteraction,
 }: {
   turn: MessageTurn;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
@@ -794,9 +958,12 @@ function PersistedTurn({
     comment: string,
   ) => void;
   feedbackTrackingEventName?: string;
-  showFeedback: boolean;
+  awaitingInteraction: boolean;
 }) {
-  const { preWork, replyContent, replyMessageId } = classifyTurn(turn.rest);
+  const { preWork, replyContent, replyMessageId, replyIsError } = classifyTurn(
+    turn.rest,
+    awaitingInteraction,
+  );
   const steps = preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef);
   const charts = preWork.flatMap((msg) => {
     if (msg.role !== "tool") return [];
@@ -854,7 +1021,9 @@ function PersistedTurn({
 
       {charts}
 
-      {hasReply && (
+      {hasReply && replyIsError && <ErrorBubble>{replyContent}</ErrorBubble>}
+
+      {hasReply && !replyIsError && (
         <AssistantBubble>
           <Markdown resolveInternalHref={resolveAgentPanelInternalHref}>
             {replyContent}
@@ -862,7 +1031,7 @@ function PersistedTurn({
         </AssistantBubble>
       )}
 
-      {showFeedback && hasReply && replyMessageId && (
+      {hasReply && !replyIsError && replyMessageId && (
         <AIChatFeedback
           messageId={replyMessageId}
           value={feedbackMap[replyMessageId] ?? { rating: null, comment: "" }}
