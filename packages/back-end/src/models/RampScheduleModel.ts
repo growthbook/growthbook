@@ -27,10 +27,6 @@ import {
   withStringForce,
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
-import {
-  rampPatchEntriesForTargets,
-  validateRampPlanPatches,
-} from "back-end/src/api/features/validations";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   appendRampEvent,
@@ -658,6 +654,10 @@ export class RampScheduleModel extends BaseClass {
       ),
     ];
     await context.populateForeignRefs({ feature: featureIds });
+    // Lazy: the validations module reaches back into this model through the
+    // request context, so a static import trips initialization.
+    const { rampPatchEntriesForTargets, validateRampPlanPatches } =
+      await import("back-end/src/api/features/validations");
     await validateRampPlanPatches(
       context,
       rampPatchEntriesForTargets(actions, schedule.targets, (id) =>

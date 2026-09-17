@@ -290,6 +290,7 @@ function hasRampPatchTargeting(p: RampPatchTargetingInput): boolean {
     (p.condition ?? null) !== null ||
     (p.savedGroups ?? null) !== null ||
     (p.prerequisites ?? null) !== null ||
+    (p.allEnvironments ?? null) !== null ||
     (p.environments ?? null) !== null
   );
 }

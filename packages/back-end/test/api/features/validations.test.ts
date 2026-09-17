@@ -550,22 +550,28 @@ describe("validateRampPlanPatches", () => {
       ...feature,
       rules: [{ ...gatedRule, type: "force", value: "true", enabled: true }],
     } as unknown as FeatureInterface;
+    const stored = [
+      {
+        steps: [
+          { actions: [{ patch: { ...prereqOnParent, environments: ["qa"] } }] },
+        ],
+      },
+    ];
     await expect(
       run(
         [{ ...prereqOnParent, environments: ["production"] }],
         target,
         gatedRule,
-        [
-          {
-            steps: [
-              {
-                actions: [
-                  { patch: { ...prereqOnParent, environments: ["qa"] } },
-                ],
-              },
-            ],
-          },
-        ],
+        stored,
+      ),
+    ).rejects.toThrow(/circular dependency/);
+    // Widening to every environment is a scope change too.
+    await expect(
+      run(
+        [{ ...prereqOnParent, allEnvironments: true }],
+        target,
+        gatedRule,
+        stored,
       ),
     ).rejects.toThrow(/circular dependency/);
   });
