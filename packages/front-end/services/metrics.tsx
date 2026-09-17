@@ -63,7 +63,6 @@ export function getInitialInlineFilters(
 export type CreateStandardFactMetricProps =
   CreateProps<StandardFactMetricInterface>;
 
-// Form-state shape backing the shared metric modal. Widens metricType to include
 // "funnel" so one form can author every metric type, and widens funnelSettings
 // to its real type (StandardFactMetricInterface's own funnelSettings is the
 // literal `null` - a discriminated-union member, not this form's concern) so
@@ -180,6 +179,59 @@ export function getDefaultFactMetricProps({
       }),
     metricAutoSlices: existing?.metricAutoSlices || [],
   };
+}
+
+// getDefaultFactMetricProps returns targetMDE/minPercentChange/maxPercentChange
+// as raw fractions (0.05) - the API's own unit. Every UI that edits a fact
+// metric shows these as whole percents (5) instead, so this is the one
+// adapter between the two: call it right after getDefaultFactMetricProps to
+// seed a form, and fromFactMetricFormValues (below) to undo it before
+// sending a payload back to the API. winRisk/loseRisk are excluded: neither
+// is displayed by MetricEditor's form, so they pass through unscaled.
+export function toFactMetricFormValues(
+  defaults: CreateFactMetricFormProps & { targetMDE: number },
+): CreateFactMetricFormProps {
+  return {
+    ...defaults,
+    targetMDE: defaults.targetMDE * 100,
+    minPercentChange: defaults.minPercentChange * 100,
+    maxPercentChange: defaults.maxPercentChange * 100,
+  };
+}
+
+// Inverse of toFactMetricFormValues, plus the submit-time normalization
+// FactMetricModal applies that applyFormType's type-switch resets don't
+// cover: resetting displayAsPercentage for types that don't use it, and
+// rejecting a capping type with no value.
+export function fromFactMetricFormValues(
+  values: CreateFactMetricFormProps,
+): CreateFactMetricFormProps {
+  const result = { ...values };
+  if (result.targetMDE) result.targetMDE = result.targetMDE / 100;
+  result.minPercentChange = result.minPercentChange / 100;
+  result.maxPercentChange = result.maxPercentChange / 100;
+
+  if (
+    result.metricType !== "ratio" &&
+    result.metricType !== "dailyParticipation"
+  ) {
+    result.displayAsPercentage = undefined;
+  } else if (
+    result.metricType === "dailyParticipation" &&
+    result.displayAsPercentage === undefined
+  ) {
+    result.displayAsPercentage = true;
+  }
+
+  if (result.cappingSettings?.type && !result.cappingSettings.value) {
+    throw new Error("Capped Value cannot be 0");
+  }
+
+  if (!result.datasource) {
+    throw new Error("Must select a Data Source");
+  }
+
+  return result;
 }
 
 export function getMetricConversionTitle(type: MetricType): string {
