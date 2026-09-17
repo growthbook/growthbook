@@ -18,6 +18,7 @@ import {
   dispatchRampEvent,
   ensureSafeRolloutForMonitoredRamp,
   jumpSchedule,
+  normalizeRampPlanForceValues,
   pauseSchedule,
   rollbackSchedule,
   restartSchedule,
@@ -28,6 +29,7 @@ import {
   startSchedule,
   assertCanControlRampSchedule,
   assertCanEditRampScheduleConfig,
+  rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
@@ -136,6 +138,21 @@ export const postRampSchedule = async (
       targets: body.targets,
     });
   }
+
+  // Rule values are strings; bring any raw JSON `force` in the plan to that
+  // form and reject a value the feature's type does not accept. A start value
+  // echoing the targeted rule's own current value is the editor's anchor and
+  // is not judged.
+  const feature =
+    body.entityType === "feature" && body.entityId
+      ? await getFeature(context, body.entityId)
+      : null;
+  Object.assign(
+    body,
+    normalizeRampPlanForceValues(body, feature, {
+      knownStartValues: rampStartValuesOf(feature, body.targets ?? []),
+    }),
+  );
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
 
@@ -274,6 +291,31 @@ export const putRampSchedule = async (
       // Publish-class gate for execution-field edits on an armable schedule
       // (monitoring carries its own assert above).
       await assertCanEditRampScheduleConfig(context, fresh, updates);
+
+      // Rule values are strings; bring any raw JSON `force` in the new plan to
+      // that form and reject a step/end value the feature's type does not
+      // accept (startActions are the captured anchor: stringified only).
+      const feature =
+        fresh.entityType === "feature"
+          ? await getFeature(context, fresh.entityId)
+          : null;
+      Object.assign(
+        updates,
+        normalizeRampPlanForceValues(
+          updates as Pick<
+            RampScheduleInterface,
+            "steps" | "startActions" | "endActions"
+          >,
+          feature,
+          {
+            knownStartValues: rampStartValuesOf(
+              feature,
+              fresh.targets,
+              fresh.startActions,
+            ),
+          },
+        ),
+      );
 
       const editedFields = Object.keys(updates).filter(
         (k) => k !== "nextProcessAt" && k !== "eventHistory",

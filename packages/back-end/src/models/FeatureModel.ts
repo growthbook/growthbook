@@ -80,6 +80,7 @@ import {
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
   mergeStepsForRunningSchedule,
+  normalizeRampActionsForceValues,
   remapTemplateActions,
   runLockedRampScheduleAction,
   startReadyScheduleNow,
@@ -2971,16 +2972,25 @@ async function createRampSchedulesForRevision(
     // Inject the generated targetId into every action and ensure targetType
     // is always set. Handles both correctly-typed actions and legacy drafts
     // that were stored without targetType.
+    // `force` is brought to the string form rule values are stored in and
+    // validated against the feature, so a plan staged with a raw JSON value
+    // (older UI drafts, REST callers) cannot put a non-string value on a rule.
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
-    ): RampStepAction => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch: {
-        ...a.patch,
-        ruleId: action.ruleId,
-      },
-    });
+    ): RampStepAction =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule" as const,
+            targetId,
+            patch: {
+              ...a.patch,
+              ruleId: action.ruleId,
+            },
+          },
+        ],
+        feature,
+      )[0];
 
     // Template is used as a fallback; explicit steps/endActions win.
     let template: RampScheduleTemplateInterface | undefined;
@@ -3028,13 +3038,17 @@ async function createRampSchedulesForRevision(
             holdConditions: step.holdConditions ?? undefined,
           }))
         : template
-          ? template.steps.map((s) => ({
+          ? template.steps.map((s, i) => ({
               interval: s.interval,
-              actions: remapTemplateActions(
-                s.actions,
-                targetId,
-                action.ruleId,
-                feature.valueType,
+              actions: normalizeRampActionsForceValues(
+                remapTemplateActions(
+                  s.actions,
+                  targetId,
+                  action.ruleId,
+                  feature.valueType,
+                ),
+                feature,
+                `Template step ${i + 1} value`,
               ),
               approvalNotes: s.approvalNotes ?? undefined,
               monitored: !!s.monitored,
@@ -3054,22 +3068,36 @@ async function createRampSchedulesForRevision(
           ? action.endActions.map(normalizeAction)
           : []
         : template?.endPatch && Object.keys(template.endPatch).length > 0
-          ? [
-              {
-                targetType: "feature-rule" as const,
-                targetId,
-                patch: {
-                  ruleId: action.ruleId,
-                  ...template.endPatch,
+          ? normalizeRampActionsForceValues<RampStepAction>(
+              [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId,
+                  patch: {
+                    ruleId: action.ruleId,
+                    ...template.endPatch,
+                  },
                 },
-              },
-            ]
+              ],
+              feature,
+              "End value",
+            )
           : [];
 
     // Like steps, empty startActions are "not provided": the rollback anchor
-    // is derived from the rule as published.
+    // is derived from the rule as published. A provided anchor is usually the
+    // rule's own earlier value captured by the editor, so its `force` is only
+    // stringified, not judged against the feature type.
     const explicitStartActions = Array.isArray(action.startActions)
-      ? action.startActions.map(normalizeAction)
+      ? normalizeRampActionsForceValues(
+          action.startActions.map(
+            (a): RampStepAction => ({
+              targetType: "feature-rule" as const,
+              targetId,
+              patch: { ...a.patch, ruleId: action.ruleId },
+            }),
+          ),
+        )
       : [];
     const startActionsExplicit = explicitStartActions.length > 0;
     const startActions: RampStepAction[] = startActionsExplicit

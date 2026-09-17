@@ -6,7 +6,10 @@ import {
   putFeatureRevisionRuleRampScheduleValidator,
 } from "shared/validators";
 import { getApplicableEnvIds } from "shared/util";
-import { resolveRampStartState } from "back-end/src/services/rampSchedule";
+import {
+  normalizeRampActionsForceValues,
+  resolveRampStartState,
+} from "back-end/src/services/rampSchedule";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -147,6 +150,18 @@ export async function setRuleRampSchedule(
     // anchor is derived at publish from the rule's coverage — and we warn if
     // that isn't 0% on create.
     const startStateProvided = scheduleInput.startState !== undefined;
+    // A `force` the caller puts in startState is their input and is checked
+    // like a step value; the rest of the anchor is the rule's current state.
+    const startState = scheduleInput.startState as
+      | { force?: unknown }
+      | undefined;
+    if (startState && startState.force !== undefined) {
+      startState.force = normalizeRampActionsForceValues(
+        [{ patch: { force: startState.force } }],
+        feature,
+        "Start value",
+      )[0].patch.force;
+    }
     const { startActions: resolvedStartActions, warning: startStateWarning } =
       resolveRampStartState({
         rule: match,
@@ -178,6 +193,11 @@ export async function setRuleRampSchedule(
     const action = normalizeInlineRampSchedule(
       scheduleInput as Parameters<typeof normalizeInlineRampSchedule>[0],
       canonicalRuleId,
+      feature,
+      // startActions merged from `startState` are the rule's current state
+      // (its `force`, if sent, was checked above); caller-sent startActions
+      // without a startState are their own input and are checked.
+      { validateStartActions: !startStateProvided },
     );
 
     // Replace any existing pending ramp action for this rule. Filter tolerant
