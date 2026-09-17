@@ -208,11 +208,13 @@ export type RetentionWindowChange =
   | { type: "end"; value: number }
   | { type: "mode"; value: "starting" | "between" };
 
-// No separate "mode" field in storage: windowValue > 0 IS "between" (spec).
+// Only conversion windows bound the interval relative to exposure.
 export function retentionModeFromWindow(
-  windowSettings: Pick<MetricWindowSettings, "windowValue">,
+  windowSettings: Pick<MetricWindowSettings, "type" | "windowValue">,
 ): "starting" | "between" {
-  return windowSettings.windowValue > 0 ? "between" : "starting";
+  return windowSettings.type === "conversion" && windowSettings.windowValue > 0
+    ? "between"
+    : "starting";
 }
 
 const HOURS_PER_UNIT: Record<MetricWindowSettings["delayUnit"], number> = {
@@ -291,7 +293,8 @@ export function onRetentionDelayOrModeChange(
   }
 
   if (change.type === "end") {
-    const windowValue = Math.max(1, change.value - ws.delayValue);
+    const windowValue =
+      change.value > ws.delayValue ? change.value - ws.delayValue : 1;
     return { ...ws, windowValue };
   }
 
@@ -364,7 +367,8 @@ export type UnrepresentableReason =
   | "sketch-aggregation"
   | "quantile-event-count-column"
   | "mean-on-distinct-users"
-  | "unsupported-aggregate-filter";
+  | "unsupported-aggregate-filter"
+  | "retention-lookback-window";
 
 export type FormTypeResult =
   | { representable: true; type: FormMetricType }
@@ -394,6 +398,7 @@ export function formTypeFromStored(
     metricType: FactMetricType;
     numerator: MinimalNumerator;
     denominator?: MinimalNumerator;
+    windowSettings?: Pick<MetricWindowSettings, "type">;
     quantileSettings?: {
       type: "unit" | "event";
       quantileEventCountColumn?: string;
@@ -418,6 +423,9 @@ export function formTypeFromStored(
   }
 
   if (metricType === "retention") {
+    if (metric.windowSettings?.type === "lookback") {
+      return { representable: false, reason: "retention-lookback-window" };
+    }
     if (
       numerator?.aggregateFilterColumn &&
       !isValidThresholdBasis(numerator.aggregateFilterColumn, factTable)

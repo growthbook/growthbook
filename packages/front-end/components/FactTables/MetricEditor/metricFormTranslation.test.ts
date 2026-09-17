@@ -247,7 +247,7 @@ describe("retention window reset rules", () => {
   };
   const starting = { ...between, windowValue: 0 };
 
-  it("derives mode from windowValue", () => {
+  it("derives mode from the active conversion window", () => {
     expect(retentionModeFromWindow(between)).toBe("between");
     expect(retentionModeFromWindow(starting)).toBe("starting");
   });
@@ -943,5 +943,39 @@ describe("gates", () => {
 
   it("THRESHOLD_SHAPES is exactly count and sum", () => {
     expect(THRESHOLD_SHAPES).toEqual(["count", "sum"]);
+  });
+});
+
+describe("stored retention window semantics", () => {
+  const windowSettings = {
+    type: "conversion" as const,
+    delayValue: 7,
+    delayUnit: "days" as const,
+    windowValue: 12,
+    windowUnit: "hours" as const,
+  };
+  it("ignores an inactive window's stored width", () => {
+    expect(retentionModeFromWindow({ ...windowSettings, type: "" })).toBe(
+      "starting",
+    );
+  });
+  it("preserves a positive fractional interval when editing its endpoint", () => {
+    expect(
+      retentionEnd(
+        onRetentionDelayOrModeChange(windowSettings, {
+          type: "end",
+          value: 7.5,
+        }),
+      ),
+    ).toBe(7.5);
+  });
+  it("does not reinterpret an experiment-end lookback as an exposure window", () => {
+    expect(
+      formTypeFromStored({
+        metricType: "retention",
+        numerator: null,
+        windowSettings: { type: "lookback" },
+      }),
+    ).toEqual({ representable: false, reason: "retention-lookback-window" });
   });
 });
