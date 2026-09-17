@@ -417,27 +417,38 @@ export default function LinkFeatureToContextualBanditModal({
         <>
           <FeatureKeyField keyField={form.register("id")} />
 
-          {showTags ? (
-            <TagsField
-              value={form.watch("tags") || []}
-              onChange={(tags) => form.setValue("tags", tags)}
-            />
-          ) : (
-            <Link onClick={() => setShowTags(true)}>+ tags</Link>
-          )}
-
-          {showDescription ? (
-            <div className="form-group">
-              <label>Description</label>
-              <MarkdownInput
-                value={form.watch("description") || ""}
-                setValue={(value) => form.setValue("description", value)}
-                autofocus={true}
+          <Flex direction="column" mt="3" mb="3">
+            {showTags && (
+              <TagsField
+                value={form.watch("tags") || []}
+                onChange={(tags) => form.setValue("tags", tags)}
+                autoFocus={!cb.tags?.length}
               />
-            </div>
-          ) : (
-            <Link onClick={() => setShowDescription(true)}>+ description</Link>
-          )}
+            )}
+            {showDescription && (
+              <div className="form-group" style={{ width: "100%" }}>
+                <label>Description</label>
+                <Box mt="1">
+                  <MarkdownInput
+                    value={form.watch("description") || ""}
+                    setValue={(value) => form.setValue("description", value)}
+                    autofocus={!cb.description}
+                  />
+                </Box>
+              </div>
+            )}
+
+            <Flex gap="4">
+              {!showTags && (
+                <Link onClick={() => setShowTags(true)}>+ tags</Link>
+              )}
+              {!showDescription && (
+                <Link onClick={() => setShowDescription(true)}>
+                  + description
+                </Link>
+              )}
+            </Flex>
+          </Flex>
 
           <ValueTypeField
             value={valueType}
