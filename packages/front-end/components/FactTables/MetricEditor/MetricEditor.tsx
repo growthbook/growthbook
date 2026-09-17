@@ -1,6 +1,5 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { UseFormReturn } from "react-hook-form";
-import { useEffect } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef } from "shared/types/fact-table";
 import { CreateFactMetricFormProps } from "@/services/metrics";
@@ -382,6 +381,7 @@ export default function MetricEditor({
 
             {formType === "ratio" && denominator && (
               <RatioFields
+                numeratorFactTableSelect={null}
                 numerator={numerator}
                 onNumeratorChange={(v: ColumnRef) =>
                   form.setValue("numerator", v)
