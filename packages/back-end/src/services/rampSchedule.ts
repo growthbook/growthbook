@@ -719,7 +719,7 @@ export function applyPatchToRule(
   if (
     updated.type === "rollout" &&
     "coverage" in patch &&
-    patch.coverage == null
+    (patch.coverage ?? null) === null
   ) {
     (updated as { coverage?: number }).coverage = 1;
   }
