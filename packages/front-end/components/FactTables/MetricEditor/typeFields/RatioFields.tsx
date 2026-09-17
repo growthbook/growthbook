@@ -6,6 +6,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 import DataList from "@/ui/DataList";
+import Badge from "@/ui/Badge";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import FactTableLink from "@/components/FactTables/MetricEditor/FactTableLink";
 import FilterSummary from "@/components/FactTables/MetricEditor/FilterSummary";
@@ -29,21 +30,13 @@ const RATIO_SHAPES: readonly RatioShape[] = [
   "users",
 ];
 
-// Denominator's fact table override is a plain always-visible select here,
-// not the design's read-only-value-plus-Edit-action treatment - a smaller,
-// deliberate simplification for this pass, left for a later visual pass.
-//
-// `extra` is a single optional slot for the denominator's fact-table
-// override, rendered between Shape/Column and Row filters - only the
-// denominator caller passes it, so the numerator caller never receives
-// props it wouldn't use.
 function RatioPart({
   label,
   value,
   onChange,
   factTable,
   hasCountDistinctHLL,
-  extra,
+  before,
   canEdit = true,
 }: {
   label: string;
@@ -51,7 +44,7 @@ function RatioPart({
   onChange: (value: ColumnRef) => void;
   factTable: FactTableDefinition | null;
   hasCountDistinctHLL: boolean;
-  extra?: ReactNode;
+  before?: ReactNode;
   canEdit?: boolean;
 }) {
   const shape = shapeFromColumnRef(value) ?? "sum";
@@ -59,34 +52,27 @@ function RatioPart({
   if (!canEdit) {
     const agg = aggregationForShape(shape);
     return (
-      <Frame p="3" mb="0">
-        <Text weight="semibold" size="sm" mb="2" as="div">
-          {label}
-        </Text>
+      <Frame p="4" mb="0">
+        <Badge label={label} color="violet" radius="small" mb="4" />
         <DataList
-          maxColumns={1}
+          columns={2}
+          mb="4"
           data={[
             {
-              label: "Fact Table",
+              label: "Fact table",
               value: <FactTableLink id={value.factTableId} />,
             },
             {
               label: "Value",
-              value: columnValueLabel(value.column, factTable),
+              value: (
+                <Text size="sm" color="text-mid">
+                  {columnValueLabel(value.column, factTable)}
+                  {agg ? ` - ${agg.toUpperCase()} per user` : ""}
+                </Text>
+              ),
             },
-            ...(agg
-              ? [
-                  {
-                    label: "Per-User Aggregation",
-                    value: agg.toUpperCase(),
-                  },
-                ]
-              : []),
           ]}
         />
-        <Text weight="semibold" size="sm" mt="2" as="div">
-          Row Filter
-        </Text>
         <FilterSummary
           rowFilters={value.rowFilters || []}
           factTable={factTable}
@@ -101,8 +87,10 @@ function RatioPart({
         {label}
       </Text>
       <Flex direction="column" gap="2">
+        {before}
         <Flex gap="2" align="end" wrap="wrap">
           <ShapeSelect
+            label="Aggregation"
             value={shape}
             shapes={RATIO_SHAPES}
             factTable={factTable}
@@ -121,7 +109,6 @@ function RatioPart({
             onChange={(column) => onChange({ ...value, column })}
           />
         </Flex>
-        {extra}
         {factTable && (
           <RowFilterInput
             factTable={factTable}
@@ -137,8 +124,9 @@ function RatioPart({
 // Ratio parts (spec): a Box per part, Shape (both sides also offer "Unique
 // users") + Column, denominator additionally offers a fact table override
 // when its shape isn't "users", and Row filters per part - unlike every
-// other type, which shares one Row Filters section after the type block.
+// other type, which shares one Row filters section after the type block.
 export default function RatioFields({
+  numeratorFactTableSelect,
   numerator,
   onNumeratorChange,
   denominator,
@@ -149,6 +137,7 @@ export default function RatioFields({
   hasCountDistinctHLL,
   canEdit = true,
 }: {
+  numeratorFactTableSelect: ReactNode;
   numerator: ColumnRef;
   onNumeratorChange: (value: ColumnRef) => void;
   denominator: ColumnRef;
@@ -173,6 +162,7 @@ export default function RatioFields({
     <Flex direction="column" gap="3">
       <RatioPart
         label="Numerator"
+        before={numeratorFactTableSelect}
         value={numerator}
         onChange={onNumeratorChange}
         factTable={factTable}
@@ -186,28 +176,33 @@ export default function RatioFields({
         factTable={denominatorFactTable}
         hasCountDistinctHLL={hasCountDistinctHLL}
         canEdit={canEdit}
-        extra={
+        before={
           canEdit && denominatorShape !== "users" ? (
-            <Select
-              label="Fact table"
-              value={denominator.factTableId}
-              setValue={(factTableId) =>
-                onDenominatorChange(
-                  onFactTableChange(
-                    denominator,
-                    factTableId,
-                    getFactTableById(factTableId),
-                    hasCountDistinctHLL,
-                  ),
-                )
-              }
-            >
-              {availableFactTables.map((ft) => (
-                <SelectItem key={ft.id} value={ft.id}>
-                  {ft.name}
-                </SelectItem>
-              ))}
-            </Select>
+            <Flex align="center" gap="2" wrap="wrap">
+              <Text color="text-mid">Fact table:</Text>
+              <Select
+                aria-label="Denominator fact table"
+                variant="ghost"
+                style={{ fontWeight: 600 }}
+                value={denominator.factTableId}
+                setValue={(factTableId) =>
+                  onDenominatorChange(
+                    onFactTableChange(
+                      denominator,
+                      factTableId,
+                      getFactTableById(factTableId),
+                      hasCountDistinctHLL,
+                    ),
+                  )
+                }
+              >
+                {availableFactTables.map((ft) => (
+                  <SelectItem key={ft.id} value={ft.id}>
+                    {ft.name}
+                  </SelectItem>
+                ))}
+              </Select>
+            </Flex>
           ) : undefined
         }
       />
