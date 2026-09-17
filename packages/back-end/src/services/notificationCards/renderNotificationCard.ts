@@ -1,4 +1,5 @@
 import type { NotificationEvent } from "shared/types/events/notification-events";
+import type { CardNotificationEventName } from "shared/notifications";
 import type { NotificationEventName } from "shared/types/events/base-types";
 import type { NotificationCardFormat } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
@@ -19,7 +20,9 @@ const PRODUCERS: Partial<
   "experiment.warning": buildExperimentSrmCard,
   "experiment.status.started": buildExperimentStartedCard,
   "experiment.status.stopped": buildExperimentStoppedCard,
-};
+} satisfies Record<CardNotificationEventName, NotificationCardProducer>;
+
+export const notificationCardEventNames = Object.keys(PRODUCERS);
 
 export function buildNotificationCard(
   event: NotificationEvent,

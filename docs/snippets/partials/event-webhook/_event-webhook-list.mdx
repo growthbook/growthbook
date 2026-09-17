@@ -48,9 +48,9 @@
 | **[experiment.decision.ship](#experiment-decision-ship)**                                                     | Triggered when an experiment is ready to ship a variation.                                                                                                                                                                                                                                                                    |
 | **[experiment.decision.rollback](#experiment-decision-rollback)**                                             | Triggered when an experiment should be rolled back to the control.                                                                                                                                                                                                                                                            |
 | **[experiment.decision.review](#experiment-decision-review)**                                                 | Triggered when an experiment has reached the desired power point, but the results may be ambiguous.                                                                                                                                                                                                                           |
-| **[holdout.created](#holdout-created)**                                                                       | Triggered after a holdout and its backing experiment are created successfully.                                                                                                                                                                                                                                                |
-| **[holdout.status.changed](#holdout-status-changed)**                                                         | Triggered when a holdout changes between draft, running, analysis period, and stopped after the transition is saved.                                                                                                                                                                                                          |
-| **[holdout.config.newLinkage](#holdout-config-newlinkage)**                                                   | Triggered when new Feature Flags or experiments are linked to a holdout. Contains only the newly added links.                                                                                                                                                                                                                 |
+| **[holdout.created](#holdout-created)**                                                                       | Triggered when a holdout is created.                                                                                                                                                                                                                                                                                          |
+| **[holdout.status.changed](#holdout-status-changed)**                                                         | Triggered when a holdout moves between its lifecycle stages, such as running or analysis.                                                                                                                                                                                                                                     |
+| **[holdout.config.newLinkage](#holdout-config-newlinkage)**                                                   | Triggered when feature flags or experiments are linked to a holdout.                                                                                                                                                                                                                                                          |
 | **[savedGroup.created](#savedgroup-created)**                                                                 | Triggered when a saved group is created                                                                                                                                                                                                                                                                                       |
 | **[savedGroup.updated](#savedgroup-updated)**                                                                 | Triggered when a saved group is updated                                                                                                                                                                                                                                                                                       |
 | **[savedGroup.deleted](#savedgroup-deleted)**                                                                 | Triggered when a saved group is deleted                                                                                                                                                                                                                                                                                       |
@@ -252,7 +252,7 @@ Triggered when a feature is updated
         changes?: {
             added: Record<string, unknown>;
             removed: Record<string, unknown>;
-            modified: Record<string, unknown>;
+            modified: unknown[];
         } | undefined;
     };
     user: {
@@ -2729,7 +2729,7 @@ Triggered when an experiment is updated
         changes?: {
             added: Record<string, unknown>;
             removed: Record<string, unknown>;
-            modified: Record<string, unknown>;
+            modified: unknown[];
         } | undefined;
     };
     user: {
@@ -3668,7 +3668,7 @@ Triggered when an experiment has reached the desired power point, but the result
 
 ### holdout.created
 
-Triggered after a holdout and its backing experiment are created successfully.
+Triggered when a holdout is created.
 
 <Accordion title="Payload">
 
@@ -3711,7 +3711,7 @@ Triggered after a holdout and its backing experiment are created successfully.
 
 ### holdout.status.changed
 
-Triggered when a holdout changes between draft, running, analysis period, and stopped after the transition is saved.
+Triggered when a holdout moves between its lifecycle stages, such as running or analysis.
 
 <Accordion title="Payload">
 
@@ -3756,7 +3756,7 @@ Triggered when a holdout changes between draft, running, analysis period, and st
 
 ### holdout.config.newLinkage
 
-Triggered when new Feature Flags or experiments are linked to a holdout. Contains only the newly added links.
+Triggered when feature flags or experiments are linked to a holdout.
 
 <Accordion title="Payload">
 
@@ -3914,7 +3914,7 @@ Triggered when a saved group is updated
         changes?: {
             added: Record<string, unknown>;
             removed: Record<string, unknown>;
-            modified: Record<string, unknown>;
+            modified: unknown[];
         } | undefined;
     };
     user: {
@@ -5987,7 +5987,7 @@ Triggered when a constant is updated
         changes?: {
             added: Record<string, unknown>;
             removed: Record<string, unknown>;
-            modified: Record<string, unknown>;
+            modified: unknown[];
         } | undefined;
     };
     user: {
@@ -8207,7 +8207,7 @@ Triggered when a config is updated
         changes?: {
             added: Record<string, unknown>;
             removed: Record<string, unknown>;
-            modified: Record<string, unknown>;
+            modified: unknown[];
         } | undefined;
     };
     user: {

@@ -319,7 +319,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     }
   }
 
-  // Multi-source pass — mirrors the main runner. Soft-skip any group whose
+  // Multi-source pass — mirrors the main runner. Soft-skip any metric whose
   // caches haven't all been built yet.
   const fanOut = planMetricFanOut(factMetrics);
   const multiSourceSubGroups = buildMultiSourceSubGroups<ExploratoryPipeline>({

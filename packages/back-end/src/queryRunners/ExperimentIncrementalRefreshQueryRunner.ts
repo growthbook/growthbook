@@ -1103,10 +1103,11 @@ const startExperimentIncrementalRefreshQueries = async (
     }
   }
 
-  // Multi-source pass: for every group of metrics that needs 2+ fact table
-  // caches joined (cross-FT ratios, multi-FT funnels, or both), schedule a
-  // single stats query. Metrics sharing the same sorted FT set are grouped
-  // together so they share one joined query.
+  // Multi-source pass: for metrics that need 2+ fact table caches joined
+  // (cross-FT ratios, multi-FT funnels, or both), schedule one stats query per
+  // set of cache tables. Metrics over the same FT set share a joined query
+  // only when they resolve to the same cache table for every FT; a fact table
+  // chunked into several caches yields one query per chunk combination in use.
   const multiSourceSubGroups = buildMultiSourceSubGroups<SourcePipeline>({
     multiSourceGroups: desiredFanOut.multiSourceGroups,
     metricSourceGroups,

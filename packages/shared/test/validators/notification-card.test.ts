@@ -1,3 +1,4 @@
+import { slackNotificationPreviewBodySchema } from "../../src/validators/event-webhook";
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
   notificationSettingsSchema,
@@ -42,5 +43,43 @@ describe("notification settings", () => {
     expect(parseNotificationSettings({ type: "text" })).toEqual({
       type: "text",
     });
+  });
+});
+
+describe("Slack preview and test requests", () => {
+  it.each([
+    { type: "text" },
+    { type: "image", cardFormat: "light" },
+    { type: "image", cardFormat: "dark" },
+  ])("uses notification settings for %j", (notificationSettings) => {
+    const request = { eventName: "experiment.warning", notificationSettings };
+    expect(slackNotificationPreviewBodySchema.parse(request)).toEqual(request);
+  });
+  it("reads a legacy format in a preview request", () => {
+    expect(
+      slackNotificationPreviewBodySchema.parse({
+        eventName: "experiment.warning",
+        notificationSettings: { type: "image", cardFormat: "compact" },
+      }),
+    ).toEqual({
+      eventName: "experiment.warning",
+      notificationSettings: { type: "image", cardFormat: "light" },
+    });
+  });
+  it.each([
+    { eventName: "experiment.warning", format: "none" },
+    {
+      eventName: "experiment.warning",
+      notificationSettings: { type: "image" },
+    },
+    {
+      eventName: "experiment.warning",
+      notificationSettings: { type: "text", cardFormat: "light" },
+    },
+    { eventName: "digest:scorecard", notificationSettings: { type: "text" } },
+  ])("rejects removed or inconsistent requests %j", (request) => {
+    expect(slackNotificationPreviewBodySchema.safeParse(request).success).toBe(
+      false,
+    );
   });
 });

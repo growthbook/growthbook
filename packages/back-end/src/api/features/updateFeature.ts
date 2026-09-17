@@ -1,4 +1,8 @@
 import {
+  assertTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
+import {
   getApplicableEnvIds,
   getRulesForEnvironment,
   normalizeTargetingInUpdates,
@@ -133,6 +137,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     await assertValidProjectId(project, req.context);
+    assertTargetingDestination({
+      permissions: req.context.permissions,
+      existing: feature,
+      proposed: withStagedTargeting(feature, {
+        project,
+        targetingAllProjects,
+        targetingProjects,
+      }),
+      optedOut: await req.context.getTargetingOptOutProjectIds(),
+    });
     await assertValidProjectIds(targetingProjects, req.context);
 
     // check if the custom fields are valid

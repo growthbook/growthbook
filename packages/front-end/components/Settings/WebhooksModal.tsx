@@ -9,6 +9,7 @@ import {
 } from "shared/types/webhook";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { SDKLanguage } from "shared/types/sdk-connection";
+import { CLOUD_EGRESS_IP } from "shared/constants";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
@@ -368,7 +369,7 @@ export function CreateSDKWebhookModal({
                   {isCloud() ? (
                     <>
                       {" "}
-                      from <code>52.70.79.40</code>
+                      from <code>{CLOUD_EGRESS_IP}</code>
                     </>
                   ) : (
                     ""
@@ -642,7 +643,7 @@ const EditSDKWebhooksModal: FC<{
             {isCloud() ? (
               <>
                 {" "}
-                from <code>52.70.79.40</code>
+                from <code>{CLOUD_EGRESS_IP}</code>
               </>
             ) : (
               ""

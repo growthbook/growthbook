@@ -17,6 +17,9 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 jest.mock("back-end/src/services/moveDependentsGuard", () => ({
   assertFeatureMoveDependentsGuard: jest.fn(),
 }));
+jest.mock("back-end/src/services/archiveDependentsGuard", () => ({
+  assertFeatureArchiveDependentsGuard: jest.fn(),
+}));
 jest.mock("back-end/src/services/features", () => ({
   getApiFeatureObj: jest.fn(),
   getSavedGroupMap: jest.fn(),
@@ -65,6 +68,7 @@ import {
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
@@ -77,18 +81,24 @@ const mockGetExperimentMap = getExperimentMapForFeature as jest.MockedFunction<
 const mockDispatchEvent = dispatchFeatureRevisionEvent as jest.MockedFunction<
   typeof dispatchFeatureRevisionEvent
 >;
+const mockArchiveDependentsGuard =
+  assertFeatureArchiveDependentsGuard as jest.MockedFunction<
+    typeof assertFeatureArchiveDependentsGuard
+  >;
 
 const ctx = {
   org: { id: "org_1", settings: {} },
   permissions: {
     canPublishFeature: jest.fn(() => true),
     canRevertFeature: jest.fn(() => true),
+    canDeleteFeature: jest.fn(() => true),
     canBypassFlagApprovalChecks: jest.fn(() => true),
     throwPermissionError: jest.fn(() => {
       throw new Error("forbidden");
     }),
   },
   hasPremiumFeature: jest.fn(() => true),
+  getTargetingOptOutProjectIds: jest.fn().mockResolvedValue([]),
   models: {
     safeRollout: {
       getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
@@ -400,6 +410,125 @@ describe("revertFeatureCore metadata-only revert authority floor", () => {
     expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);
     expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
       metadata: { description: "old description" },
+    });
+  });
+});
+
+describe("revertFeatureCore archived restore", () => {
+  // A published revision that predates full snapshots: it never recorded
+  // `archived`, and its content matches the live (now archived) flag.
+  const legacyTarget = {
+    version: 3,
+    status: "published",
+    defaultValue: "live-default",
+    rules: [],
+  } as never;
+
+  it("restores an active flag from a target that predates archived snapshots", async () => {
+    mockGetFeature.mockResolvedValue(makeFeature({ archived: true }));
+    mockGetRevision.mockResolvedValue(legacyTarget);
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6, status: "draft" } as never,
+      updatedFeature: makeFeature({ version: 6, archived: false }),
+    });
+
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);
+    expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
+      archived: false,
+    });
+    // Unarchiving returns the flag to service; only the archive direction is
+    // guarded for dependents.
+    expect(mockArchiveDependentsGuard).not.toHaveBeenCalled();
+  });
+
+  // Restoring a recorded archived state takes the flag out of service again, so
+  // it is delete-class like any other archive. The deny/allow pair pins both
+  // directions.
+  const archivedTarget = {
+    ...(legacyTarget as object),
+    archived: true,
+  } as never;
+
+  it("refuses to restore an archived state without delete authority", async () => {
+    mockGetFeature.mockResolvedValue(makeFeature({ archived: false }));
+    mockGetRevision.mockResolvedValue(archivedTarget);
+    (ctx.permissions.canDeleteFeature as jest.Mock).mockReturnValue(false);
+
+    try {
+      await expect(
+        revertFeatureCore(
+          ctx,
+          org,
+          eventAudit,
+          { id: "feat_1" },
+          { revision: 3 },
+          jest.fn(),
+          false,
+        ),
+      ).rejects.toThrow(/forbidden/);
+    } finally {
+      (ctx.permissions.canDeleteFeature as jest.Mock).mockReturnValue(true);
+    }
+    expect(mockCreateAndPublish).not.toHaveBeenCalled();
+  });
+
+  it("restores an archived state for a caller with delete authority", async () => {
+    mockGetFeature.mockResolvedValue(makeFeature({ archived: false }));
+    mockGetRevision.mockResolvedValue(archivedTarget);
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6, status: "draft" } as never,
+      updatedFeature: makeFeature({ version: 6, archived: true }),
+    });
+
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockArchiveDependentsGuard).toHaveBeenCalledTimes(1);
+    expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
+      archived: true,
+    });
+  });
+
+  it("leaves archived alone when the target's state already matches live", async () => {
+    mockGetFeature.mockResolvedValue(makeFeature({ archived: false }));
+    mockGetRevision.mockResolvedValue({
+      ...(legacyTarget as object),
+      defaultValue: "old-default",
+    } as never);
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6, status: "draft" } as never,
+      updatedFeature: makeFeature({ version: 6, defaultValue: "old-default" }),
+    });
+
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
+      defaultValue: "old-default",
     });
   });
 });
