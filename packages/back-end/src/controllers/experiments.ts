@@ -2845,7 +2845,11 @@ export async function putExperimentPhase(
     ? getValidDate(phase.dateEnded + ":00Z")
     : undefined;
 
-  await validateChangedPhaseReferences([phase], experiment.phases, context);
+  await validateChangedPhaseReferences(
+    [phase],
+    [experiment.phases[i]],
+    context,
+  );
   const phases = [...experiment.phases];
   phases[i] = {
     ...phases[i],
@@ -2984,7 +2988,7 @@ export async function postExperimentTargeting(
 
   await validateChangedPhaseReferences(
     [{ condition, savedGroups }],
-    experiment.phases,
+    experiment.phases.slice(-1),
     context,
   );
   const phases = [...experiment.phases];
@@ -3155,7 +3159,11 @@ export async function postExperimentPhase(
       getExperimentAttributeScopeProjects(context, experiment, linkedFeatures),
   );
 
-  await validateChangedPhaseReferences([data], experiment.phases, context);
+  await validateChangedPhaseReferences(
+    [data],
+    experiment.phases.slice(-1),
+    context,
+  );
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
   const phases = [...experiment.phases];

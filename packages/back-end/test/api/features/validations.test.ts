@@ -319,6 +319,15 @@ describe("validateChangedPhaseReferences", () => {
       ),
     ).resolves.toBeUndefined();
     expect(getAll).toHaveBeenCalledTimes(2);
+    // History is exempt for what any stored phase holds; the served (last)
+    // phase only for what the served stored phase holds.
+    const served = { condition: '{"country": "US"}' };
+    await expect(
+      validateChangedPhaseReferences([stale, served], [stale, served], ctx),
+    ).resolves.toBeUndefined();
+    await expect(
+      validateChangedPhaseReferences([served, stale], [stale, served], ctx),
+    ).rejects.toThrow(/grp_gone/);
     await expect(
       validateChangedPhaseReferences(
         [{ ...stale, savedGroups: [{ match: "all", ids: ["grp_known"] }] }],

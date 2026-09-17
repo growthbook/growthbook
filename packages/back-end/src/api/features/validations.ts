@@ -582,22 +582,27 @@ type PhaseTargeting = {
 };
 
 // Experiment phases carry a rule's condition and saved groups and reach the
-// payload the same way, so they get the rule reference checks. A phase whose
-// condition or saved groups a stored phase already holds is not re-checked.
+// payload the same way, so they get the rule reference checks. Only the last
+// phase is served: it is exempt only for what the last stored phase already
+// holds, while an earlier (historical) phase is exempt for what any stored
+// phase holds, so reordering history never re-validates it.
 export async function validateChangedPhaseReferences(
   phases: PhaseTargeting[],
   stored: PhaseTargeting[],
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
-  const conditions = new Set(stored.map((p) => p.condition || "{}"));
-  const groups = stored.map((p) => p.savedGroups ?? []);
+  const baseline = (i: number) =>
+    i === phases.length - 1 ? stored.slice(-1) : stored;
   await validateRulesReferences(
-    phases.flatMap((phase) => {
+    phases.flatMap((phase, i) => {
       const condition = phase.condition || "{}";
       const savedGroups = phase.savedGroups ?? [];
-      const conditionChanged = condition !== "{}" && !conditions.has(condition);
+      const conditionChanged =
+        condition !== "{}" &&
+        !baseline(i).some((s) => (s.condition || "{}") === condition);
       const groupsChanged =
-        savedGroups.length > 0 && !groups.some((g) => isEqual(g, savedGroups));
+        savedGroups.length > 0 &&
+        !baseline(i).some((s) => isEqual(s.savedGroups ?? [], savedGroups));
       if (!conditionChanged && !groupsChanged) return [];
       return [
         {
