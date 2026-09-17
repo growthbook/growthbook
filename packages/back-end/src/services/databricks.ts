@@ -40,22 +40,6 @@ export function buildDatabricksConnectionOptions(
     };
   }
 
-  if (conn.authType === "azure-entra") {
-    if (!conn.azureTenantId || !conn.oauthClientId || !conn.oauthClientSecret) {
-      throw new Error(
-        "Entra ID authentication requires a tenant ID, client ID, and secret.",
-      );
-    }
-
-    return {
-      ...shared,
-      authType: "databricks-oauth",
-      azureTenantId: conn.azureTenantId,
-      oauthClientId: conn.oauthClientId,
-      oauthClientSecret: conn.oauthClientSecret,
-    };
-  }
-
   if (!conn.token) {
     throw new Error(
       "Databricks personal access token authentication requires a token.",
