@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef, FunnelSettings } from "shared/types/fact-table";
@@ -69,6 +70,10 @@ export default function MetricEditor({
   const metricType = form.watch("metricType");
   const numerator = form.watch("numerator");
   const denominator = form.watch("denominator");
+  const denominatorTableOverridden = useRef(
+    !!denominator?.factTableId &&
+      denominator.factTableId !== numerator.factTableId,
+  );
   const quantileSettings = form.watch("quantileSettings");
   const datasourceId = form.watch("datasource");
   const datasource = getDatasourceById(datasourceId);
@@ -94,7 +99,15 @@ export default function MetricEditor({
   // with no way out). Ratio's denominator override is different: it has to
   // stay on the SAME datasource as the already-chosen numerator, since one
   // metric's query runs against one datasource.
-  const availableFactTables = factTables;
+  const overriddenDenominatorTable = denominatorTableOverridden.current
+    ? getFactTableById(denominator?.factTableId ?? "")
+    : null;
+  const availableFactTables =
+    metricType === "ratio" && overriddenDenominatorTable
+      ? factTables.filter(
+          (ft) => ft.datasource === overriddenDenominatorTable.datasource,
+        )
+      : factTables;
   const sameDatasourceFactTables = factTables.filter(
     (ft) => !datasourceId || ft.datasource === datasourceId,
   );
@@ -126,6 +139,7 @@ export default function MetricEditor({
   const formType = formTypeResult.type;
 
   function changeFormType(newFormType: FormMetricType) {
+    if (newFormType !== "ratio") denominatorTableOverridden.current = false;
     const result = applyFormType(
       {
         metricType,
@@ -168,11 +182,7 @@ export default function MetricEditor({
     );
     // Datasource is derived from the fact table, not selected directly (spec).
     if (newFactTable) form.setValue("datasource", newFactTable.datasource);
-    if (
-      metricType === "ratio" &&
-      (!denominator?.factTableId ||
-        denominator.factTableId === numerator.factTableId)
-    ) {
+    if (metricType === "ratio" && !denominatorTableOverridden.current) {
       form.setValue(
         "denominator",
         onFactTableChange(
@@ -302,9 +312,12 @@ export default function MetricEditor({
                   form.setValue("numerator", v)
                 }
                 denominator={denominator}
-                onDenominatorChange={(v: ColumnRef) =>
-                  form.setValue("denominator", v)
-                }
+                onDenominatorChange={(v: ColumnRef) => {
+                  if (v.factTableId !== denominator?.factTableId) {
+                    denominatorTableOverridden.current = true;
+                  }
+                  form.setValue("denominator", v);
+                }}
                 factTable={factTable}
                 availableFactTables={sameDatasourceFactTables}
                 getFactTableById={(id) => getFactTableById(id) ?? null}
@@ -332,7 +345,6 @@ export default function MetricEditor({
                 }}
                 datasource={datasourceId}
                 project={project}
-                initialFactTable={primaryFactTableId || undefined}
               />
             )}
 
