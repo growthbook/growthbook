@@ -441,13 +441,18 @@ const MetricsList = (): React.ReactElement => {
     ? !hasFactTables
     : !hasLegacyMetrics && !hasFactTables;
 
-  // Navigating straight to the new full page loses the old modal's in-place
-  // "Switch to legacy SQL" escape hatch (NewMetricModal defaults to fact type
-  // whenever fact tables exist, but still lets the user flip to MetricForm).
-  // Only skip the modal when that escape hatch wouldn't have been reachable
-  // anyway - no legacy metrics to switch from, or legacy creation disabled.
+  const canCreateFactMetric = permissionsUtil.canCreateFactMetric({
+    projects: project ? [project] : [],
+  });
+  const canCreateLegacyMetric =
+    !disableLegacyMetricCreation &&
+    permissionsUtil.canCreateMetric({ projects: project ? [project] : [] });
+  const canCreate =
+    (hasFactTables && canCreateFactMetric) || canCreateLegacyMetric;
   const skipModalForFactMetricCreation =
-    hasFactTables && (disableLegacyMetricCreation || !hasLegacyMetrics);
+    hasFactTables &&
+    canCreateFactMetric &&
+    (!canCreateLegacyMetric || !hasLegacyMetrics);
 
   //searching:
   const filterResults = useCallback(
@@ -570,18 +575,13 @@ const MetricsList = (): React.ReactElement => {
             />
             <Tooltip
               content="You don't have permission to add metrics in this project."
-              enabled={
-                !permissionsUtil.canCreateMetric({ projects: [project] })
-              }
+              enabled={!canCreate}
             >
-              {skipModalForFactMetricCreation &&
-              permissionsUtil.canCreateMetric({ projects: [project] }) ? (
+              {skipModalForFactMetricCreation ? (
                 <LinkButton href="/fact-metrics/new">Add metric</LinkButton>
               ) : (
                 <Button
-                  disabled={
-                    !permissionsUtil.canCreateMetric({ projects: [project] })
-                  }
+                  disabled={!canCreate}
                   onClick={() => setModalData({ mode: "new" })}
                 >
                   Add metric
