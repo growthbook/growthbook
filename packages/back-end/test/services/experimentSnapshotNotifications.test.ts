@@ -12,10 +12,15 @@ jest.mock("back-end/src/services/experimentNotifications", () => ({
   notifyExperimentUpdateFailed: jest.fn(),
 }));
 const context = { org: { id: "org" } } as Context;
-const experiment = { id: "exp", status: "running" } as ExperimentInterface;
+const experiment = {
+  id: "exp",
+  status: "running",
+  phases: [{}, {}],
+} as ExperimentInterface;
 const snapshot = {
   id: "snap",
   experiment: "exp",
+  phase: 1,
   type: "standard",
   status: "error",
   analyses: [],
@@ -82,6 +87,14 @@ it("does not notify cancellations or reset the existing failure period", async (
     context,
     snapshot,
     failureCause: "cancelled",
+  });
+  expect(notifyExperimentUpdateFailed).not.toHaveBeenCalled();
+});
+
+it("ignores failures from snapshots of earlier phases", async () => {
+  await notifySnapshotUpdateFailure({
+    context,
+    snapshot: { ...snapshot, phase: 0 },
   });
   expect(notifyExperimentUpdateFailed).not.toHaveBeenCalled();
 });

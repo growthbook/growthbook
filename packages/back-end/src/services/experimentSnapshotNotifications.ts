@@ -28,7 +28,10 @@ export async function notifySnapshotUpdateFailure({
 
   try {
     const experiment = await getExperimentById(context, snapshot.experiment);
-    if (!experiment) return;
+    // Mirror the success path: a snapshot for an older phase says nothing
+    // about the current phase, and alerting on it would also set the failure
+    // marker that only a latest-phase success can clear.
+    if (!experiment || snapshot.phase !== experiment.phases.length - 1) return;
     await notifyExperimentUpdateFailed({
       context,
       experiment,
