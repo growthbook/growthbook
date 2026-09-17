@@ -1,16 +1,16 @@
-import { isProjectListValidForProject } from "shared/util";
-import { Flex } from "@radix-ui/themes";
-import Button from "@/ui/Button";
-import MetricForm from "@/components/Metrics/MetricForm";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import { getSafeReturnUrl } from "@/services/returnUrl";
 import { useRouter } from "next/router";
 import { useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
+import { isProjectListValidForProject } from "shared/util";
 import { CommercialFeature } from "shared/enterprise";
+import { getSafeReturnUrl } from "@/services/returnUrl";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Heading from "@/ui/Heading";
+import Button from "@/ui/Button";
+import MetricForm from "@/components/Metrics/MetricForm";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -33,6 +33,8 @@ export default function NewFactMetricPage() {
     getFactMetricById,
     getFactTableById,
     factMetrics,
+    factTables,
+    datasources,
     metrics,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
@@ -136,8 +138,6 @@ export default function NewFactMetricPage() {
         ? "retention-metrics"
         : null;
 
-  const nameCollision =
-    !!template && factMetrics.some((f) => f.name === template.name);
   const hasDatasource = datasources.some(
     (d) =>
       isProjectListValidForProject(d.projects, project) &&
@@ -155,6 +155,9 @@ export default function NewFactMetricPage() {
         isProjectListValidForProject(m.projects, project) &&
         m.datasource !== demoDataSourceId,
     );
+
+  const nameCollision =
+    !!template && factMetrics.some((f) => f.name === template.name);
 
   return (
     <div className="pagecontents container-fluid">
