@@ -379,7 +379,7 @@ describe("renderNotificationCard", () => {
     );
     const [card] = jest.mocked(renderCard).mock.calls[0];
     expect("rows" in card ? card.rows : []).toEqual([
-      { v: "Treatment", i: 1, cn: undefined, vn: undefined, ctw: "50.0%" },
+      { v: "Treatment", i: 1, sig: false, ctw: "50.0%" },
     ]);
   });
 

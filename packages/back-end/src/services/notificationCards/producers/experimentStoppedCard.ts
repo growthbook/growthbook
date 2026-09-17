@@ -58,9 +58,8 @@ function goalRows(
 ): CardGoalRow[] {
   return goalMetric.variations.map((v) => {
     const ctw = formatConfidenceValue(goalMetric.statsEngine, v);
-    const stat = ctw
-      ? { ctw, ...(v.significant !== undefined ? { sig: v.significant } : {}) }
-      : {};
+    // Unknown significance (e.g. the goal metric was deleted) stays muted.
+    const stat = { sig: v.significant ?? false, ...(ctw ? { ctw } : {}) };
     const base: CardGoalRow = {
       v: v.variationName,
       i: v.variationIndex,

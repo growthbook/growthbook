@@ -526,15 +526,6 @@ function pctCell(
   ]);
 }
 
-function ctwColor(ctw?: string): string {
-  const n = ctw ? parseFloat(ctw) : NaN;
-  if (!isNaN(n)) {
-    if (n >= 95) return P.st.green;
-    if (n <= 5) return P.st.red;
-  }
-  return P.muted;
-}
-
 // A results-table row built from fixed-width flex cells (Satori has no grid).
 function gridRow(
   cells: (El | null)[],
@@ -638,9 +629,7 @@ const outcomeColor = (r: Pick<CardGoalRow, "dir" | "good">): string =>
 // p-values, or bayesian rows the producer already judged) color by outcome
 // direction; otherwise fall back to the chance-to-win thresholds.
 function statColor(r: CardGoalRow): string {
-  if (r.sig === undefined) return ctwColor(r.ctw);
-  if (!r.sig) return P.muted;
-  return outcomeColor(r);
+  return r.sig ? outcomeColor(r) : P.muted;
 }
 
 // One variation's result. Means are intentionally omitted: the row is the

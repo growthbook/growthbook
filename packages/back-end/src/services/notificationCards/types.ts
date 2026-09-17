@@ -36,8 +36,9 @@ export interface CardGoalRow {
   vio?: { c: number; s: number }; // violin center (lift %) + spread
   ci?: { lo: number; hi: number; pt: number };
   // Significance of the stat in `ctw` (chance to win, or p-value for
-  // frequentist tests). Drives the stat color together with `good`.
-  sig?: boolean;
+  // frequentist tests). Colors the stat and lift together with `good`; an
+  // unknown significance renders muted.
+  sig: boolean;
   muted?: boolean;
 }
 
