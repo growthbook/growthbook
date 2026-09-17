@@ -1,3 +1,4 @@
+import { quantileSettingsValidator } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import omit from "lodash/omit";
@@ -123,6 +124,12 @@ export default function MetricWorkspace({
     // Name field's `required` attribute (HTML5 constraint validation) never
     // runs - check it explicitly instead.
     if (!values.name.trim()) throw new Error("Name is required");
+    if (
+      values.metricType === "quantile" &&
+      !quantileSettingsValidator.safeParse(values.quantileSettings).success
+    ) {
+      throw new Error("Enter a percentile greater than 0 and less than 1.");
+    }
     const isFunnel = values.metricType === "funnel";
     if (isFunnel) validateFunnelSteps(values.funnelSettings);
 
