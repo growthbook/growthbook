@@ -180,6 +180,7 @@ import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
+import { assertPendingScheduleAcknowledged } from "back-end/src/revisions/pendingScheduleGuard";
 import {
   assertCanRevertArchived,
   assertRevertLandingGuards,
@@ -1806,6 +1807,9 @@ export async function postFeatureApproveAndPublish(
   ) {
     context.permissions.throwPermissionError();
   }
+  // Before the approval is written, so a declined warning leaves the revision
+  // untouched. Approving without publishing keeps the schedule.
+  assertPendingScheduleAcknowledged(context, revision);
   if (!adminOverride) {
     const governance = evaluatePublishGovernance({
       revisionStatus: "approved",
@@ -2410,6 +2414,7 @@ export async function postFeaturePublish(
   ) {
     context.permissions.throwPermissionError();
   }
+  assertPendingScheduleAcknowledged(context, revision);
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
       "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again.",
