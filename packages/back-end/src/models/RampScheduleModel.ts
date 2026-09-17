@@ -27,7 +27,10 @@ import {
   withStringForce,
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
-import { validateRampPlanPatches } from "back-end/src/api/features/validations";
+import {
+  rampPatchEntriesForTargets,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   appendRampEvent,
@@ -49,10 +52,7 @@ import {
   ConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
-import {
-  rampTargetsEquivalent,
-  resolveRampTarget,
-} from "back-end/src/util/flattenRules";
+import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { MakeModelClass } from "./BaseModel";
 
@@ -648,33 +648,21 @@ export class RampScheduleModel extends BaseClass {
       ...((updates.endActions as RampStepAction[] | undefined) ?? []),
     ].filter((a) => !!a.patch && typeof a.patch === "object");
     if (!actions.length) return;
-    const targetsById = new Map(schedule.targets.map((t) => [t.id, t]));
     const featureIds = [
       ...new Set(
         actions
-          .map((a) => targetsById.get(a.targetId)?.entityId)
+          .map(
+            (a) => schedule.targets.find((t) => t.id === a.targetId)?.entityId,
+          )
           .filter((id): id is string => !!id),
       ),
     ];
     await context.populateForeignRefs({ feature: featureIds });
     await validateRampPlanPatches(
       context,
-      actions.map((a) => {
-        const target = targetsById.get(a.targetId);
-        const feature =
-          (target && context.foreignRefs.feature.get(target.entityId)) || null;
-        // The executor applies a patch by its own `ruleId`, falling back to
-        // the target's.
-        const ruleId = a.patch.ruleId ?? target?.ruleId;
-        const rule =
-          feature && ruleId
-            ? resolveRampTarget(
-                { ruleId, environment: target?.environment ?? null },
-                feature.rules ?? [],
-              )
-            : null;
-        return { patch: a.patch, feature, rule };
-      }),
+      rampPatchEntriesForTargets(actions, schedule.targets, (id) =>
+        context.foreignRefs.feature.get(id),
+      ),
       { stored: [schedule] },
     );
   }

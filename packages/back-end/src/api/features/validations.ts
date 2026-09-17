@@ -27,9 +27,11 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
+import type { ReqContext } from "back-end/types/request";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import { ApiReqContext } from "back-end/types/api";
 
 export { inlineRampScheduleInput };
@@ -174,7 +176,7 @@ export function assertValidEnvironment(
 // Same check for the `environments` list a v2 rule is scoped to. A rule with
 // `allEnvironments: true` is skipped, since its list is discarded.
 export function assertValidRuleEnvironments(
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
   rules: { allEnvironments?: boolean; environments?: string[] }[],
 ): void {
   for (const rule of rules) {
@@ -239,6 +241,40 @@ export type RampPatchEntry = {
   rule?: RuleScope | null;
 };
 
+export type RampPatchTarget = {
+  id: string;
+  entityId: string;
+  ruleId?: string | null;
+  environment?: string | null;
+};
+
+// Multi-target plans (the generated update, the dashboard schedule routes,
+// the executor): each action lands on the rule its target names. The
+// executor applies a patch by its own `ruleId`, falling back to the target's.
+export function rampPatchEntriesForTargets(
+  actions: { targetId?: string; patch?: unknown }[],
+  targets: RampPatchTarget[],
+  featureById: (id: string) => FeatureInterface | null | undefined,
+): RampPatchEntry[] {
+  const targetsById = new Map(targets.map((t) => [t.id, t]));
+  return actions
+    .filter((a) => !!a.patch && typeof a.patch === "object")
+    .map((a) => {
+      const patch = a.patch as RampPatchTargetingInput & { ruleId?: string };
+      const target = a.targetId ? targetsById.get(a.targetId) : undefined;
+      const feature = (target && featureById(target.entityId)) || null;
+      const ruleId = patch.ruleId ?? target?.ruleId;
+      const rule =
+        feature && ruleId
+          ? resolveRampTarget(
+              { ruleId, environment: target?.environment ?? null },
+              feature.rules ?? [],
+            )
+          : null;
+      return { patch, feature, rule };
+    });
+}
+
 // Single-target plans (every route but the generated update): all patches
 // land on the same rule of the same flag.
 export function rampPatchEntries(
@@ -298,7 +334,7 @@ const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 // round trip — or an edit to one field — of a plan that names a since-deleted
 // or unreadable group elsewhere still succeeds.
 export async function validateRampPlanPatches(
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
   entries: RampPatchEntry[],
   { stored = [] }: { stored?: unknown[] } = {},
 ): Promise<void> {
@@ -456,7 +492,7 @@ export async function validateRuleReferences(
 // update, v1 and v2): the per-rule checks, with saved groups loaded once.
 export async function validateRulesReferences(
   rules: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">[],
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
 ): Promise<void> {
   if (!rules.length) return;
   const groupMap = await getSavedGroupMap(context);

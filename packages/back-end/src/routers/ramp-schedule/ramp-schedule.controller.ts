@@ -2,8 +2,13 @@ import type { Response } from "express";
 import {
   RampScheduleInterface,
   isAwaitingStartApproval,
+  RampStepAction,
 } from "shared/validators";
 import { PermissionError, isRampScheduleServing } from "shared/util";
+import {
+  rampPatchEntriesForTargets,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -40,6 +45,19 @@ import {
   changesRampPlan,
 } from "back-end/src/services/rampPlanReview";
 import { ConflictError } from "back-end/src/util/errors";
+
+// Every action a plan body carries, in the shape the validators read.
+function planActions(plan: {
+  steps?: { actions?: RampStepAction[] | null }[] | null;
+  startActions?: RampStepAction[] | null;
+  endActions?: RampStepAction[] | null;
+}): RampStepAction[] {
+  return [
+    ...(plan.startActions ?? []),
+    ...(plan.steps ?? []).flatMap((s) => s.actions ?? []),
+    ...(plan.endActions ?? []),
+  ];
+}
 
 type CreateBody = Pick<
   RampScheduleInterface,
@@ -152,6 +170,14 @@ export const postRampSchedule = async (
     normalizeRampPlanForceValues(body, feature, {
       knownStartValues: rampStartValuesOf(feature, body.targets ?? []),
     }),
+  );
+  await validateRampPlanPatches(
+    context,
+    rampPatchEntriesForTargets(
+      planActions(body),
+      body.targets ?? [],
+      () => feature,
+    ),
   );
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
@@ -315,6 +341,15 @@ export const putRampSchedule = async (
             ),
           },
         ),
+      );
+      await validateRampPlanPatches(
+        context,
+        rampPatchEntriesForTargets(
+          planActions(updates),
+          fresh.targets,
+          () => feature,
+        ),
+        { stored: [fresh] },
       );
 
       const editedFields = Object.keys(updates).filter(

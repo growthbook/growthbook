@@ -4,6 +4,7 @@ import {
   collectRampPlanPatches,
   normalizeInlineRampSchedule,
   rampPatchEntries,
+  rampPatchEntriesForTargets,
   validateRampPlanPatches,
   validateRuleAttributes,
   validateRulesReferences,
@@ -255,6 +256,30 @@ describe("assertValidRuleEnvironments", () => {
 // Ramp schedule patches carry the same targeting fields as a rule and are
 // written onto the live rule when a step fires, so a plan is checked with the
 // rule endpoints' helpers when it is written.
+describe("rampPatchEntriesForTargets", () => {
+  it("pairs each action with its target's flag and rule, by the patch's ruleId or the target's", () => {
+    const rule = { id: "r1", type: "force", environments: ["production"] };
+    const feature = { id: "f1", rules: [rule] } as unknown as FeatureInterface;
+    const targets = [
+      { id: "t1", entityId: "f1", ruleId: "r1" },
+      { id: "t2", entityId: "gone", ruleId: "r9" },
+    ];
+    const entries = rampPatchEntriesForTargets(
+      [
+        { targetId: "t1", patch: { coverage: 0.5 } },
+        { targetId: "t2", patch: { condition: "{}" } },
+        { targetId: "t1", patch: null },
+      ],
+      targets,
+      (id) => (id === "f1" ? feature : null),
+    );
+    expect(entries).toHaveLength(2);
+    expect(entries[0].feature).toBe(feature);
+    expect(entries[0].rule).toMatchObject({ id: "r1" });
+    expect(entries[1]).toMatchObject({ feature: null, rule: null });
+  });
+});
+
 describe("collectRampPlanPatches", () => {
   it("gathers step, start, end and startState patches and skips malformed entries", () => {
     expect(
