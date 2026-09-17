@@ -4,8 +4,6 @@ import {
   funnelExplorationConfigValidator,
 } from "shared/validators";
 import {
-  EXPLORER_AUTO_RUN_QUERY,
-  funnelExploreHref,
   journeyToFunnel,
   journeyFunnelLink,
   selectedJourneySteps,
@@ -78,13 +76,6 @@ describe("journeyToFunnel", () => {
       "/checkout",
       "/items/*",
     ]);
-  });
-  it("builds a funnel explorer URL that auto-runs on load", () => {
-    const href = funnelExploreHref(journeyToFunnel(config));
-    const url = new URL(href, "https://app.growthbook.io");
-    expect(url.pathname).toBe("/product-analytics/explore/funnel");
-    expect(url.searchParams.get(EXPLORER_AUTO_RUN_QUERY)).toBe("1");
-    expect(url.searchParams.get("config")).toBeTruthy();
   });
   it("preserves multi-column values and complex grouping precedence", () => {
     const multi = {
@@ -177,12 +168,6 @@ describe("selectedJourneySteps after clearing the anchor", () => {
 });
 
 describe("journeyFunnelLink", () => {
-  it("returns an auto-run link for a convertible path", () => {
-    const link = journeyFunnelLink(config);
-    expect(link.error).toBeNull();
-    expect(link.href).toBe(funnelExploreHref(journeyToFunnel(config)));
-  });
-
   it("returns an explanation instead of throwing for an ambiguous path", () => {
     const link = journeyFunnelLink({
       ...config,

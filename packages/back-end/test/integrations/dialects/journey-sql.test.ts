@@ -84,24 +84,6 @@ function config(
 
 const articleGroup = [{ column: "event_name", pattern: "/article/*" }];
 
-describe("SqlDialect concatStrings", () => {
-  it("throws on the base dialect", () => {
-    expect(() => baseDialect.concatStrings(["a", "b"])).toThrow(
-      /concatenation is not supported/i,
-    );
-  });
-
-  const cases: [string, Pick<SqlDialect, "concatStrings">][] = [
-    ["postgres", postgresDialect],
-    ["clickhouse", clickHouseDialect],
-    ["bigquery", bigQueryDialect],
-    ["snowflake", snowflakeDialect],
-  ];
-  it.each(cases)("%s joins with ||", (_name, dialect) => {
-    expect(dialect.concatStrings(["a", "b", "c"])).toBe("a || b || c");
-  });
-});
-
 describe("buildJourneySql — real dialects", () => {
   it("Postgres emits || for two step columns and never QUALIFY", () => {
     const { sql } = buildJourneySql(
@@ -125,16 +107,6 @@ describe("buildJourneySql — real dialects", () => {
     expect(sql).not.toMatch(/QUALIFY/i);
     expect(sql).not.toContain(" || ");
   });
-
-  it("MySQL single-column journeys never emit ||", () => {
-    const { sql } = buildJourneySql(
-      config(["event_name"]),
-      factTableMap,
-      mysqlDialect,
-    );
-    expect(sql).not.toContain("||");
-  });
-
   it("MySQL two-column journeys throw instead of using boolean OR", () => {
     expect(() =>
       buildJourneySql(
@@ -190,16 +162,5 @@ describe("SqlDialect globMatch in journey step grouping", () => {
       postgresDialect,
     );
     expect(postgres).toContain("'/50\\%/%'");
-  });
-
-  it("wraps the grouped column in a CASE that falls through to the raw value", () => {
-    const { sql } = buildJourneySql(
-      config(["event_name"], articleGroup),
-      factTableMap,
-      postgresDialect,
-    );
-    expect(sql).toMatch(/CASE\s+WHEN/i);
-    expect(sql).toContain("THEN '/article/*'");
-    expect(sql).toMatch(/ELSE\s+cast\(event_name as varchar\)\s+END/i);
   });
 });

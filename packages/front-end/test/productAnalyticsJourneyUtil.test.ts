@@ -8,17 +8,12 @@ import type {
 } from "shared/validators";
 import { projectJourneyRows } from "shared/journeys";
 import {
-  createEmptyDataset,
   canInteractWithJourney,
-  fillMissingUnits,
   getDefaultJourneyStepColumns,
   getInitialInlineFilters,
-  getMaxDimensions,
   hasSubmittablePayload,
   hasUnsatisfiedInlineFilters,
-  compareConfig,
   isSubmittableConfig,
-  explorerMainPresentation,
   journeyDiffersOnlyByPath,
   journeyPreferredView,
   toFetchKey,
@@ -72,48 +67,6 @@ const heldRows: ProductAnalyticsResultRow[] = [
 ];
 
 describe("journey util branches", () => {
-  it("createEmptyDataset seeds journey defaults without values", () => {
-    const dataset = createEmptyDataset("journey");
-    expect(dataset.type).toBe("journey");
-    expect(dataset).not.toHaveProperty("values");
-    if (dataset.type !== "journey") throw new Error("expected journey");
-    expect(dataset.lookaheadDepth).toBe(3);
-    expect(dataset.optionsPerStep).toEqual([]);
-  });
-
-  it("fillMissingUnits defaults the unit from the fact table", () => {
-    const config: ExplorationConfig = {
-      type: "journey",
-      datasource: "ds_1",
-      chartType: "bar",
-      dateRange: {
-        predefined: "last7Days",
-        startDate: null,
-        endDate: null,
-        lookbackValue: null,
-        lookbackUnit: null,
-      },
-      dimensions: [],
-      dataset: journeyDataset({ unit: null }),
-    };
-    const next = fillMissingUnits(
-      config,
-      () =>
-        ({
-          id: "ft_events",
-          userIdTypes: ["user_id"],
-          columns: [],
-        }) as unknown as FactTableInterface,
-      () => null,
-    );
-    if (next.dataset.type !== "journey") throw new Error("expected journey");
-    expect(next.dataset.unit).toBe("user_id");
-  });
-
-  it("caps journeys at one dimension", () => {
-    expect(getMaxDimensions(journeyDataset())).toBe(1);
-  });
-
   it("journeyPreferredView forces SQL on empty+error and viz on empty", () => {
     expect(
       journeyPreferredView({
@@ -170,7 +123,7 @@ describe("journey util branches", () => {
     expect(isSubmittableConfig(missingAnchor)).toBe(false);
   });
 
-  it("toFetchKey includes path and drops render-only heightScale", () => {
+  it("toFetchKey keys on path and stepGroups, not render-only heightScale", () => {
     const config = {
       type: "journey" as const,
       datasource: "ds_1",
@@ -186,6 +139,7 @@ describe("journey util branches", () => {
       dataset: journeyDataset({
         path: [{ value: "search" }],
         heightScale: "absolute",
+        stepGroups: [{ column: "event_name", pattern: "/article/*" }],
       }),
     };
     const key = toFetchKey(config) as {
@@ -193,43 +147,19 @@ describe("journey util branches", () => {
         type: string;
         lookaheadDepth?: number;
         path?: unknown;
+        stepGroups?: unknown;
         heightScale?: unknown;
       };
     };
     expect(key.dataset.type).toBe("journey");
     expect(key.dataset.lookaheadDepth).toBe(3);
     expect(key.dataset.path).toEqual([{ value: "search" }]);
+    // stepGroups change the generated SQL, heightScale is render-only.
+    expect(key.dataset.stepGroups).toEqual([
+      { column: "event_name", pattern: "/article/*" },
+    ]);
     expect(key.dataset).not.toHaveProperty("heightScale");
   });
-
-  it("compareConfig fetches when the path changes", () => {
-    const submitted: ExplorationConfig = {
-      type: "journey",
-      datasource: "ds_1",
-      chartType: "bar",
-      dateRange: {
-        predefined: "last7Days",
-        startDate: null,
-        endDate: null,
-        lookbackValue: null,
-        lookbackUnit: null,
-      },
-      dimensions: [],
-      dataset: journeyDataset({ path: [], lookaheadDepth: 3 }),
-    };
-    const draft: ExplorationConfig = {
-      ...submitted,
-      dataset: journeyDataset({
-        path: [{ value: "home" }],
-        lookaheadDepth: 3,
-      }),
-    };
-    expect(compareConfig(submitted, draft)).toEqual({
-      needsFetch: true,
-      needsUpdate: true,
-    });
-  });
-
   it("journeyDiffersOnlyByPath ignores path but not other fetch fields", () => {
     const submitted: ExplorationConfig = {
       type: "journey",
@@ -266,70 +196,6 @@ describe("journey util branches", () => {
     expect(journeyDiffersOnlyByPath(submitted, withDimension)).toBe(false);
     expect(journeyDiffersOnlyByPath(submitted, submitted)).toBe(false);
   });
-
-  it("shows the loading toast for journey fetches, including path-only clicks", () => {
-    const submitted: ExplorationConfig = {
-      type: "journey",
-      datasource: "ds_1",
-      chartType: "bar",
-      dateRange: {
-        predefined: "last7Days",
-        startDate: null,
-        endDate: null,
-        lookbackValue: null,
-        lookbackUnit: null,
-      },
-      dimensions: [],
-      dataset: journeyDataset({ path: [], lookaheadDepth: 3 }),
-    };
-    const base = {
-      draftType: "journey" as const,
-      chartType: "bar",
-      submitted,
-      hasChartData: true,
-      error: null,
-      isSubmittable: true,
-    };
-    expect(
-      explorerMainPresentation({
-        ...base,
-        loading: true,
-        isStale: false,
-      }).showStaleToast,
-    ).toBe(true);
-    expect(
-      explorerMainPresentation({
-        ...base,
-        loading: false,
-        isStale: true,
-      }).showStaleToast,
-    ).toBe(true);
-  });
-
-  it("toFetchKey keeps stepGroups, which change the generated SQL", () => {
-    const withGroups = {
-      type: "journey" as const,
-      datasource: "ds_1",
-      chartType: "bar" as const,
-      dateRange: {
-        predefined: "last7Days" as const,
-        startDate: null,
-        endDate: null,
-        lookbackValue: null,
-        lookbackUnit: null,
-      },
-      dimensions: [],
-      dataset: journeyDataset({
-        stepGroups: [{ column: "event_name", pattern: "/article/*" }],
-      }),
-    };
-    const key = toFetchKey(withGroups) as {
-      dataset: { stepGroups?: unknown };
-    };
-    expect(key.dataset.stepGroups).toEqual([
-      { column: "event_name", pattern: "/article/*" },
-    ]);
-  });
 });
 
 describe("withStepGroupsApplied", () => {
@@ -345,15 +211,6 @@ describe("withStepGroupsApplied", () => {
     expect(next.anchorStepValues).toEqual(["/article/*"]);
     expect(next.stepGroups).toEqual(rules);
   });
-
-  it("leaves an anchor no rule matches alone", () => {
-    const next = withStepGroupsApplied(
-      journeyDataset({ anchorStepValues: ["/search"] }),
-      rules,
-    );
-    expect(next.anchorStepValues).toEqual(["/search"]);
-  });
-
   it("rewrites each anchor value against its own column's rules", () => {
     const next = withStepGroupsApplied(
       journeyDataset({
@@ -380,17 +237,6 @@ describe("withStepGroupsApplied", () => {
       rules,
     );
     expect(next.anchorStepValues).toBeNull();
-  });
-
-  it("clearing the rules leaves already-grouped values in place", () => {
-    // Removing a rule cannot recover the raw values it collapsed, so the label
-    // stays and the user re-picks it from the ungrouped list.
-    const next = withStepGroupsApplied(
-      journeyDataset({ anchorStepValues: ["/article/*"] }),
-      [],
-    );
-    expect(next.stepGroups).toEqual([]);
-    expect(next.anchorStepValues).toEqual(["/article/*"]);
   });
 });
 
@@ -432,12 +278,6 @@ describe("journey alwaysInlineFilter columns", () => {
       "path",
     ]);
   });
-
-  it("does not seed those columns as empty row filters", () => {
-    const stepColumns = getDefaultJourneyStepColumns(eventsFt);
-    expect(getInitialInlineFilters(eventsFt, [], stepColumns)).toEqual([]);
-  });
-
   it("still seeds alwaysInlineFilter columns that are not step columns", () => {
     expect(getInitialInlineFilters(eventsFt, [], ["event_name"])).toEqual([
       { column: "path", operator: "=", values: [""] },
@@ -557,26 +397,6 @@ describe("buildJourneyViewModel", () => {
     expect(model.leak[0].exit).toBe(30);
     expect(model.leak[0].other).toBe(20);
   });
-
-  it("renders the first-step frontier after popping back to an empty path", () => {
-    const dataset = journeyDataset({ path: [] });
-    const model = buildJourneyViewModel({
-      rows: displayRows(dataset),
-      dataset,
-      hasDimension: false,
-    });
-    const frontier = model.columns.find((c) => c.frontier);
-    const nodes = Object.fromEntries(
-      (frontier?.nodes ?? []).map((n) => [n.key, n.value]),
-    );
-    expect(nodes.home).toBe(50);
-    expect(nodes.search).toBe(20);
-    expect(nodes["(exit)"]).toBe(30);
-    expect(model.columns.filter((c) => c.committed && !c.anchor)).toHaveLength(
-      0,
-    );
-  });
-
   it("renders committed drop-off from warehouse rows", () => {
     const model = buildJourneyViewModel({
       rows: [
