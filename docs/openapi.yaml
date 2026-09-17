@@ -47271,43 +47271,6 @@ paths:
                   type: string
                 hashAttribute:
                   type: string
-                variations:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      name:
-                        type: string
-                      description:
-                        type: string
-                        maxLength: 10000
-                      key:
-                        type: string
-                      screenshots:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            path:
-                              type: string
-                            width:
-                              type: number
-                            height:
-                              type: number
-                            description:
-                              type: string
-                              maxLength: 10000
-                          required:
-                            - path
-                          additionalProperties: false
-                    required:
-                      - id
-                      - name
-                      - key
-                      - screenshots
-                    additionalProperties: false
                 datasource:
                   type: string
                 contextualBanditQueryId:
@@ -47398,19 +47361,6 @@ paths:
                     additionalProperties: false
                 seed:
                   type: string
-                variationWeights:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      variationId:
-                        type: string
-                      weight:
-                        type: number
-                    required:
-                      - variationId
-                      - weight
-                    additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -47686,6 +47636,134 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/refresh' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/variations:
+    post:
+      operationId: updateContextualBanditVariations
+      summary: Add or remove Contextual Bandit variations
+      description: >-
+        Adds and/or removes variations on a Contextual Bandit. Send
+        `addVariations` and `removeVariationIds` independently; both are
+        optional. New arms must carry a `values` entry for each linked feature.
+        Running CBs publish the linked-feature updates; draft CBs stage them
+        until start. Under an approval flow, unapproved drafts leave the added
+        arm `pending` (zero weight, filtered from the SDK) until every linked
+        feature's draft is live. Removed arms are tombstoned; their ids can
+        never be re-added. Weights are reconciled server-side.
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                addVariations:
+                  description: >-
+                    New arms to add. Omit `id` to have the server generate one
+                    and `key` to have the server assign the next integer.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                      key:
+                        type: string
+                      screenshots:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            path:
+                              type: string
+                            width:
+                              type: number
+                            height:
+                              type: number
+                            description:
+                              type: string
+                              maxLength: 10000
+                          required:
+                            - path
+                          additionalProperties: false
+                      values:
+                        description: >-
+                          Value this new arm serves on each currently-linked
+                          feature, keyed by feature id. Required for every
+                          linked feature. Encode as a string for every
+                          `valueType` (`"true"`, `"5"`, `"{\"a\":1}"`), matching
+                          how `feature.defaultValue` is set.
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                    required:
+                      - name
+                    additionalProperties: false
+                removeVariationIds:
+                  description: >-
+                    Ids of active arms to remove. Removed arms are tombstoned in
+                    place and their ids can never be re-added.
+                  type: array
+                  items:
+                    type: string
+                updateVariations:
+                  description: >-
+                    Metadata edits to existing active arms. Only `name` and
+                    `description` may be changed; key, values, weights,
+                    screenshots, and status are preserved.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                    required:
+                      - id
+                    additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBandit:
+                    $ref: '#/components/schemas/ContextualBandit'
+                  featureDraftPublishFailures:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/featureDraftPublishFailures'
+                required:
+                  - contextualBandit
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/variations'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits/{id}/cancel:
     post:
@@ -72501,6 +72579,11 @@ components:
                 type: string
               description:
                 type: string
+              status:
+                type: string
+                enum:
+                  - active
+                  - pending
             required:
               - id
               - key
@@ -78737,6 +78820,20 @@ components:
             - locked
       required:
         - mode
+      additionalProperties: false
+    featureDraftPublishFailures:
+      type: object
+      properties:
+        featureId:
+          type: string
+        revisionVersion:
+          type: number
+        reason:
+          type: string
+      required:
+        - featureId
+        - revisionVersion
+        - reason
       additionalProperties: false
     columns:
       type: object
