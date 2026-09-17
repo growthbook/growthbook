@@ -2,9 +2,11 @@ import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { PiInfo } from "react-icons/pi";
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { ExperimentMetricDefinition } from "shared/experiments";
+import { MetricSnapshotSettings } from "shared/types/report";
 import { RowResults } from "@/services/experiments";
 import {
   formatPercent,
@@ -13,6 +15,7 @@ import {
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import Tooltip from "@/ui/Tooltip";
 import { useResultPopover } from "./useResultPopover";
 
 interface Props
@@ -44,6 +47,7 @@ interface Props
   additionalButton?: React.ReactNode;
   minSampleSize?: number;
   pValueAdjustmentEnabled?: boolean;
+  metricSnapshotSettings?: MetricSnapshotSettings;
 }
 
 export default function ChangeColumn({
@@ -60,6 +64,7 @@ export default function ChangeColumn({
   additionalButton,
   minSampleSize = 0,
   pValueAdjustmentEnabled,
+  metricSnapshotSettings,
   ...otherProps
 }: Props) {
   const _displayCurrency = useCurrency();
@@ -154,6 +159,23 @@ export default function ChangeColumn({
     </div>
   );
 
+  const priorUsed =
+    statsEngine === "bayesian" && !!metricSnapshotSettings?.properPrior;
+  const priorInfo = priorUsed ? (
+    <Tooltip content="This estimate is affected by usage of a Bayesian prior.">
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          color: "var(--color-text-low)",
+          cursor: "help",
+        }}
+      >
+        <PiInfo size={15} />
+      </span>
+    </Tooltip>
+  ) : null;
+
   if (!metric) {
     return <td {...otherProps} />;
   }
@@ -175,6 +197,7 @@ export default function ChangeColumn({
     <td className={clsx("results-change", className)} {...otherProps}>
       <Flex align="center" justify="end" gap="2">
         <Trigger>{changeContent}</Trigger>
+        {priorInfo}
         {additionalButton}
       </Flex>
     </td>
