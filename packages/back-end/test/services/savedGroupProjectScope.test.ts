@@ -1,3 +1,9 @@
+import {
+  autoMerge,
+  featureMetadataEnvelope,
+  fillRevisionFromFeature,
+  liveRevisionFromFeature,
+} from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SavedGroupInterface } from "shared/types/saved-group";
@@ -304,6 +310,46 @@ describe("feature writes and publish validation", () => {
     ).rejects.toThrow("not available");
   });
 
+  it.each([false, true])(
+    "rejects an added legacy-stem sibling regardless of order (new first: %s)",
+    async (newFirst) => {
+      const existing = feature({ project: "b" });
+      existing.rules[0].allEnvironments = true;
+      const added = {
+        ...existing.rules[0],
+        id: "rule__production",
+        value: "false",
+      };
+      await expect(
+        assertFeatureSavedGroupScope(
+          context,
+          {
+            ...existing,
+            rules: newFirst
+              ? [added, ...existing.rules]
+              : [...existing.rules, added],
+          },
+          existing,
+        ),
+      ).rejects.toThrow("not available");
+    },
+  );
+
+  it("rejects ambiguous legacy matches instead of exempting two added rules", async () => {
+    const existing = feature({ project: "b" });
+    existing.rules[0].allEnvironments = true;
+    const proposed = {
+      ...existing,
+      rules: ["rule__production", "rule__dev"].map((id) => ({
+        ...existing.rules[0],
+        id,
+      })),
+    };
+    await expect(
+      assertFeatureSavedGroupScope(context, proposed, existing),
+    ).rejects.toThrow("not available");
+  });
+
   it("checks only new references when editing a rule with a legacy reference", async () => {
     getAllWithoutValues.mockResolvedValue([
       group("group", ["a"]),
@@ -423,6 +469,100 @@ describe("feature writes and publish validation", () => {
     ).resolves.toBeUndefined();
     await expect(
       assertFeatureSavedGroupScope(context, edited, [live, storedDraft]),
+    ).resolves.toBeUndefined();
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
+  });
+
+  it.each([{ targetingAllProjects: true }, { targetingProjects: ["b"] }])(
+    "does not grandfather live targeting added after a sparse draft was stored (%j)",
+    async (expansion) => {
+      const original = feature({ rules: [] });
+      const metadata: FeatureRevisionInterface["metadata"] =
+        featureMetadataEnvelope(original);
+      // Simulate legacy persisted metadata: undefined defaults were omitted.
+      delete metadata.targetingAllProjects;
+      delete metadata.targetingProjects;
+      const base = { version: 1, defaultValue: "false", rules: [], metadata };
+      const draft = { ...base, version: 2, rules: feature().rules };
+      const live = feature({ ...expansion, version: 3, rules: [] });
+      const merge = autoMerge(
+        liveRevisionFromFeature(
+          { ...base, version: 3, metadata: featureMetadataEnvelope(live) },
+          live,
+        ),
+        fillRevisionFromFeature(base, live),
+        draft,
+        [],
+        {},
+      );
+      expect(merge.success).toBe(true);
+      if (!merge.success) throw new Error("Unexpected merge conflict");
+      expect(merge.result.rules).toEqual(draft.rules);
+      const merged = {
+        ...live,
+        ...merge.result.metadata,
+        rules: merge.result.rules ?? live.rules,
+      };
+      await expect(
+        assertFeatureSavedGroupScope(context, merged, [
+          live,
+          featureForSavedGroupValidation(live, draft),
+        ]),
+      ).rejects.toThrow("not available");
+    },
+  );
+
+  it("retains explicitly stored All Projects and additional Project exemptions", async () => {
+    for (const targeting of [
+      { targetingAllProjects: true },
+      { targetingProjects: ["b"] },
+    ]) {
+      const live = feature({ ...targeting, rules: [] });
+      const draft = {
+        metadata: featureMetadataEnvelope(live),
+        rules: feature().rules,
+      };
+      const stored = featureForSavedGroupValidation(live, draft);
+      await expect(
+        assertFeatureSavedGroupScope(
+          context,
+          {
+            ...stored,
+            rules: [{ ...stored.rules[0], value: "false" }],
+          },
+          stored,
+        ),
+      ).resolves.toBeUndefined();
+      await expect(
+        assertFeatureSavedGroupScope(
+          context,
+          { ...live, rules: stored.rules },
+          [live, stored],
+        ),
+      ).resolves.toBeUndefined();
+    }
+    expect(getAllWithoutValues).not.toHaveBeenCalled();
+  });
+
+  it("preserves a sparse draft's existing out-of-scope reference when its scope is unchanged", async () => {
+    const live = feature({ project: "b", rules: [] });
+    const draft = { metadata: { project: "b" }, rules: feature().rules };
+    const stored = featureForSavedGroupValidation(live, draft);
+    await expect(
+      assertFeatureSavedGroupScope(
+        context,
+        {
+          ...stored,
+          rules: [{ ...stored.rules[0], value: "false" }],
+        },
+        stored,
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertFeatureSavedGroupScope(context, { ...live, rules: stored.rules }, [
+        live,
+        stored,
+      ]),
     ).resolves.toBeUndefined();
     expect(getAllWithoutValues).not.toHaveBeenCalled();
   });
@@ -553,6 +693,38 @@ describe("Saved Group re-scoping", () => {
       .mocked(getAllFeaturesWithoutEditorFields)
       .mockResolvedValue([feature({ targetingProjects: ["c"] })]);
     await expect(narrow()).rejects.toThrow("existing Feature Flag references");
+  });
+
+  it("blocks narrowing a grandfathered group for an All Projects consumer", async () => {
+    jest
+      .mocked(getAllFeaturesWithoutEditorFields)
+      .mockResolvedValue([feature({ targetingAllProjects: true })]);
+    await expect(narrow()).rejects.toThrow("existing Feature Flag references");
+  });
+
+  it("detects lost coverage through a nested All Projects reference", async () => {
+    getGroups.mockResolvedValue([
+      group("root", [], '{"$savedGroups":"group"}'),
+      group("group", ["a", "b"]),
+    ]);
+    const f = feature({ targetingAllProjects: true });
+    f.rules[0].savedGroups = [{ match: "all", ids: ["root"] }];
+    jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue([f]);
+    await expect(narrow()).rejects.toThrow("existing Feature Flag references");
+  });
+
+  it("preserves an All Projects violation when only the group's condition changes", async () => {
+    jest
+      .mocked(getAllFeaturesWithoutEditorFields)
+      .mockResolvedValue([feature({ targetingAllProjects: true })]);
+    getGroups.mockResolvedValue([group("leaf", [])]);
+    await expect(
+      assertSavedGroupProjectScope(
+        context,
+        group("group", ["a", "b"], '{"$savedGroups":"leaf"}'),
+        group("group", ["a", "b"], '{"country":"US"}'),
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it("blocks re-scoping used by an unreadable, disabled or archived feature", async () => {

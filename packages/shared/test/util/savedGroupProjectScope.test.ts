@@ -1,4 +1,6 @@
+import type { FeatureInterface } from "../../types/feature";
 import {
+  featureMetadataEnvelope,
   getRuleTargetingProjectIds,
   isSavedGroupAvailableForProjects,
 } from "../../src/util";
@@ -71,5 +73,33 @@ describe("Saved Group scope shared by rule pickers and writes", () => {
     expect(isSavedGroupAvailableForProjects({ projects: ["b"] }, scope)).toBe(
       true,
     );
+  });
+});
+
+describe("stored revision targeting defaults", () => {
+  it("keeps false and empty targeting fields after persistence", () => {
+    const metadata = JSON.parse(
+      JSON.stringify(
+        featureMetadataEnvelope({ project: "a" } as FeatureInterface),
+      ),
+    );
+    expect(metadata).toMatchObject({
+      project: "a",
+      targetingAllProjects: false,
+      targetingProjects: [],
+    });
+  });
+
+  it("preserves explicit targeting in the metadata snapshot", () => {
+    const metadata = featureMetadataEnvelope({
+      project: "a",
+      targetingAllProjects: true,
+      targetingProjects: ["b"],
+    } as FeatureInterface);
+    expect(metadata).toMatchObject({
+      project: "a",
+      targetingAllProjects: true,
+      targetingProjects: ["b"],
+    });
   });
 });

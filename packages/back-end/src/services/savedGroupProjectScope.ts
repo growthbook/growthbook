@@ -1,5 +1,4 @@
 import { isEqual } from "lodash";
-import { findStoredRuleCounterpart } from "shared/util";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
@@ -10,6 +9,7 @@ import {
   featureForSavedGroupValidation,
   savedGroupIdsInTargeting,
   savedGroupScopeChangeBreaksTargeting,
+  savedGroupScopeRuleCounterparts,
   scopedRules,
   Feature,
   Group,
@@ -32,14 +32,20 @@ export async function assertFeatureSavedGroupScope(
   const current = scopedRules(feature);
   const baselines = (
     Array.isArray(previous) ? previous : previous ? [previous] : []
-  ).map((state) => ({ state, rules: scopedRules(state) }));
+  ).map((state) => ({
+    rules: scopedRules(state),
+    counterparts: savedGroupScopeRuleCounterparts(
+      state.rules ?? [],
+      feature.rules ?? [],
+    ),
+  }));
   if (baselines.some((baseline) => isEqual(current, baseline.rules))) return;
 
   const toValidate: [{ savedGroups: { ids: string[] }[] }, ProjectScope][] = [];
   for (const { rule, projects: delivery } of current) {
     // No stored counterpart means no exemption from the validation below.
-    const prior = baselines.flatMap(({ state, rules }) => {
-      const counterpart = findStoredRuleCounterpart(state.rules ?? [], rule);
+    const prior = baselines.flatMap(({ counterparts, rules }) => {
+      const counterpart = counterparts.get(rule);
       return rules.filter((r) => r.rule === counterpart);
     });
     for (const id of savedGroupIdsInTargeting(rule)) {

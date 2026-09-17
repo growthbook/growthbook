@@ -1,4 +1,5 @@
 import {
+  findStoredRuleCounterpart,
   getRuleTargetingProjectIds,
   isSavedGroupAvailableForProjects,
 } from "shared/util";
@@ -91,7 +92,55 @@ export function featureForSavedGroupValidation(
   feature: Feature,
   revision: Pick<FeatureRevisionInterface, "metadata" | "rules">,
 ): Feature {
-  return { ...feature, ...revision.metadata, rules: revision.rules };
+  return {
+    ...feature,
+    ...revision.metadata,
+    // Older snapshots omitted these fields when they were false/empty. They
+    // must not inherit new live targeting and turn it into a prior exposure.
+    targetingAllProjects: revision.metadata?.targetingAllProjects ?? false,
+    targetingProjects: revision.metadata?.targetingProjects ?? [],
+    rules: revision.rules,
+  };
+}
+
+// Reserve exact identities first, then permit only unambiguous, one-to-one
+// legacy ID normalization. An added sibling must not borrow the exemption of
+// a rule that remains in the proposed array, regardless of array order.
+export function savedGroupScopeRuleCounterparts(
+  stored: Feature["rules"],
+  proposed: Feature["rules"],
+): Map<Feature["rules"][number], Feature["rules"][number]> {
+  type Rule = Feature["rules"][number];
+  const matches = new Map<Rule, Rule>();
+  const storedById = new Map(stored.filter((r) => r.id).map((r) => [r.id, r]));
+  const proposedIdCounts = new Map<string, number>();
+  for (const rule of proposed) {
+    proposedIdCounts.set(rule.id, (proposedIdCounts.get(rule.id) ?? 0) + 1);
+  }
+  for (const rule of proposed) {
+    const exact = storedById.get(rule.id);
+    if (exact && proposedIdCounts.get(rule.id) === 1) matches.set(rule, exact);
+  }
+  const reserved = new Set(matches.values());
+  const remaining = stored.filter((r) => !reserved.has(r));
+  const candidates = new Map<Rule, Rule[]>();
+  const uses = new Map<Rule, number>();
+  for (const rule of proposed) {
+    if (matches.has(rule)) continue;
+    const eligible = remaining.filter((previous) =>
+      findStoredRuleCounterpart([previous], rule),
+    );
+    candidates.set(rule, eligible);
+    for (const previous of eligible) {
+      uses.set(previous, (uses.get(previous) ?? 0) + 1);
+    }
+  }
+  for (const [rule, eligible] of candidates) {
+    if (eligible.length === 1 && uses.get(eligible[0]) === 1) {
+      matches.set(rule, eligible[0]);
+    }
+  }
+  return matches;
 }
 
 // Compare the full consumer DAG before and after a group change. Track each
@@ -104,6 +153,13 @@ export function savedGroupScopeChangeBreaksTargeting(
   groups: Map<string, Group>,
   previous?: Group,
 ): boolean {
+  // For All Projects, compare the explicit scopes as well as an outside
+  // Project (null). The outside marker catches newly reached scoped groups;
+  // explicit Projects catch narrowing an already-grandfathered scoped group.
+  const projectsToCheck = projects ?? [
+    ...new Set([...(previous?.projects ?? []), ...(proposed.projects ?? [])]),
+    null,
+  ];
   const violations = (replacement?: Group): Set<string> => {
     const denied = new Set<string>();
     const visited = new Set<string>();
@@ -113,7 +169,7 @@ export function savedGroupScopeChangeBreaksTargeting(
       const group = id === proposed.id ? replacement : groups.get(id);
       if (!group) return; // Existence is validated by the targeting validators.
       if (group.projects?.length) {
-        for (const project of projects ?? [null]) {
+        for (const project of projectsToCheck) {
           if (project === null || !group.projects.includes(project)) {
             denied.add(JSON.stringify([id, project]));
           }
