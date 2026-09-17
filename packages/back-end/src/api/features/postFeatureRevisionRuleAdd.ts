@@ -167,6 +167,8 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
   await validateRampPlanPatches(
     req.context,
     rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
+      type: ruleInput.type,
+      hashAttribute: (ruleInput as { hashAttribute?: string }).hashAttribute,
       environments: [environment],
     }),
   );

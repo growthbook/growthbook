@@ -46,6 +46,11 @@ import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonito
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
+  collectRampPlanActions,
+  rampPatchEntriesForTargets,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
+import {
   assertRampPlanChangeAllowed,
   assertRampScheduleReplanAllowed,
   changesRampPlan,
@@ -637,6 +642,19 @@ export const addTargetRampSchedule = createApiRequestHandler({
       // the FRESH schedule's footprint. The pre-lock pass gave the clean refusal;
       // this one is what the attachment is actually built from.
       const newTarget = await resolveAttachment(fresh);
+      // The stored plan now lands on this rule too.
+      const feature = await getFeature(req.context, featureId);
+      await validateRampPlanPatches(
+        req.context,
+        rampPatchEntriesForTargets(
+          collectRampPlanActions(fresh).map((a) => ({
+            targetId: newTarget.id,
+            patch: { ...(a.patch as object), ruleId },
+          })),
+          [newTarget],
+          () => feature,
+        ),
+      );
 
       const isFirstTarget = fresh.targets.length === 0;
       const entityUpdate = fresh.entityId === "" ? { entityId: featureId } : {};

@@ -1,4 +1,5 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { OrganizationInterface } from "shared/types/organization";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import {
@@ -645,9 +646,19 @@ export function normalizeRampPlanForceValues<
 
 // Apply a patch to a rule. Uses "in" checks so injected undefined values clear the field.
 // null clears most fields, but force allows null (valid JSON feature value).
+function defaultHashAttribute(org: OrganizationInterface): string {
+  return (
+    org.settings?.attributeSchema?.find((a) => a.hashAttribute)?.property ??
+    "id"
+  );
+}
+
 export function applyPatchToRule(
   existing: FeatureRule,
   patch: Omit<FeatureRulePatch, "ruleId">,
+  // Bucketing attribute for a force rule the patch promotes when neither the
+  // rule nor the plan names one (plans written since the check carry it).
+  defaultHashAttribute = "id",
 ): FeatureRule {
   const updated = { ...existing };
   if ("coverage" in patch) {
@@ -685,6 +696,25 @@ export function applyPatchToRule(
   }
   if ("enabled" in patch) {
     updated.enabled = patch.enabled ?? undefined;
+  }
+  if ("hashAttribute" in patch && patch.hashAttribute) {
+    (updated as { hashAttribute?: string }).hashAttribute = patch.hashAttribute;
+  }
+  // The payload reads coverage only on rollout rules: a partial coverage step
+  // promotes a force rule, as the rule modal does.
+  if (
+    updated.type === "force" &&
+    (patch.coverage ?? null) !== null &&
+    (patch.coverage as number) < 1
+  ) {
+    return {
+      ...updated,
+      type: "rollout",
+      coverage: patch.coverage as number,
+      hashAttribute:
+        (updated as { hashAttribute?: string }).hashAttribute ??
+        defaultHashAttribute,
+    } as FeatureRule;
   }
   return updated;
 }
@@ -853,7 +883,11 @@ export const featureEntityHandler: EntityHandler = {
         const idx = updatedRules.indexOf(target);
         // A value the feature's type rejects is logged, never refused:
         // rollbacks and restarts re-apply the rule's own earlier value.
-        const patched = applyPatchToRule(target, patchFields);
+        const patched = applyPatchToRule(
+          target,
+          patchFields,
+          defaultHashAttribute(ctx.org),
+        );
         if ("force" in patchFields && patchFields.force !== undefined) {
           const value = (patched as { value?: string }).value ?? "";
           try {

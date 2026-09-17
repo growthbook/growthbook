@@ -205,6 +205,8 @@ export function assertValidRuleEnvironments(
 // the step fires, so they get the same checks a rule write gets.
 export type RampPatchTargetingInput = {
   ruleId?: string | null;
+  coverage?: number | null;
+  hashAttribute?: string | null;
   condition?: string | null;
   savedGroups?: FeatureRule["savedGroups"] | null;
   prerequisites?: FeaturePrerequisite[] | null;
@@ -250,8 +252,8 @@ export function collectRampPlanPatches(
 
 type RuleScope = Pick<
   RampPatchTargetingInput,
-  "allEnvironments" | "environments" | "prerequisites"
-> & { id?: string };
+  "allEnvironments" | "environments" | "prerequisites" | "hashAttribute"
+> & { id?: string; type?: string };
 
 // One patch and where it lands: the flag whose rule it targets, and that
 // rule's current environment scope when the caller could resolve it.
@@ -368,9 +370,27 @@ export async function validateRampPlanPatches(
       changed: changedRampPatchTargeting(entry.patch, storedPatches),
     }))
     .filter(({ changed }) => hasRampPatchTargeting(changed));
-  if (!checked.length) return;
 
   try {
+    // The payload reads coverage only on rollout rules: a partial coverage
+    // step promotes a force rule when it fires, which needs a hash attribute
+    // from the rule or from the plan.
+    for (const { patch, rule } of entries) {
+      if ((patch.coverage ?? 1) >= 1 || rule?.type !== "force") continue;
+      const supplied =
+        rule.hashAttribute ||
+        entries.some(
+          (e) =>
+            (e.rule?.id ?? null) === (rule.id ?? null) && e.patch.hashAttribute,
+        );
+      if (!supplied) {
+        throw new BadRequestError(
+          `Rule "${rule.id}" is a force rule without a hash attribute; set hashAttribute on the rule or in the plan before ramping its coverage`,
+        );
+      }
+    }
+    if (!checked.length) return;
+
     assertValidRuleEnvironments(
       context,
       checked.map(({ changed }) => ({

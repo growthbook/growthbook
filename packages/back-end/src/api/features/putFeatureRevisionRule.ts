@@ -216,6 +216,8 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   await validateRampPlanPatches(
     req.context,
     rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
+      ...(feature.rules ?? []).find((r) => r.id === req.params.ruleId),
+      ...(patch as { type?: string; hashAttribute?: string }),
       environments: [environment],
     }),
   );

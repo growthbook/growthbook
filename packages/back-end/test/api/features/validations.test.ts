@@ -704,6 +704,27 @@ describe("validateRampPlanPatches", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("refuses a coverage plan on a force rule unless the rule or the plan carries a hash attribute", async () => {
+    const forceRule = { id: "fr_force", type: "force" };
+    await expect(run([{ coverage: 0.5 }], feature, forceRule)).rejects.toThrow(
+      /^Invalid ramp schedule patch: Rule "fr_force" is a force rule without a hash attribute/,
+    );
+    await expect(
+      run([{ coverage: 0.5, hashAttribute: "id" }], feature, forceRule),
+    ).resolves.toBeUndefined();
+    // A start action in the same plan may carry it for every step.
+    await expect(
+      run([{ hashAttribute: "id" }, { coverage: 0.5 }], feature, forceRule),
+    ).resolves.toBeUndefined();
+    await expect(
+      run([{ coverage: 0.5 }], feature, {
+        ...forceRule,
+        type: "rollout",
+        hashAttribute: "id",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("checks only existence for a plan with no target feature", async () => {
     await expect(run([prereqOnParent], null)).resolves.toBeUndefined();
     loadFeatures.mockResolvedValue([]);

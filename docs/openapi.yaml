@@ -5586,6 +5586,15 @@ paths:
                                     items:
                                       type: string
                                   - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute users are bucketed on. A coverage
+                                  step promotes a force rule to a rollout, which
+                                  needs one; required there unless the rule
+                                  already has it.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                               force:
                                 description: >-
                                   Value to serve, in the string form rule values
@@ -5695,6 +5704,15 @@ paths:
                                         - type: array
                                           items:
                                             type: string
+                                        - type: 'null'
+                                    hashAttribute:
+                                      description: >-
+                                        Attribute users are bucketed on. A
+                                        coverage step promotes a force rule to a
+                                        rollout, which needs one; required there
+                                        unless the rule already has it.
+                                      anyOf:
+                                        - type: string
                                         - type: 'null'
                                     force:
                                       description: >-
@@ -5812,6 +5830,15 @@ paths:
                                   - type: array
                                     items:
                                       type: string
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute users are bucketed on. A coverage
+                                  step promotes a force rule to a rollout, which
+                                  needs one; required there unless the rule
+                                  already has it.
+                                anyOf:
+                                  - type: string
                                   - type: 'null'
                               force:
                                 description: >-
@@ -6234,6 +6261,15 @@ paths:
                                     items:
                                       type: string
                                   - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute users are bucketed on. A coverage
+                                  step promotes a force rule to a rollout, which
+                                  needs one; required there unless the rule
+                                  already has it.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                               force:
                                 description: >-
                                   Value to serve, in the string form rule values
@@ -6343,6 +6379,15 @@ paths:
                                         - type: array
                                           items:
                                             type: string
+                                        - type: 'null'
+                                    hashAttribute:
+                                      description: >-
+                                        Attribute users are bucketed on. A
+                                        coverage step promotes a force rule to a
+                                        rollout, which needs one; required there
+                                        unless the rule already has it.
+                                      anyOf:
+                                        - type: string
                                         - type: 'null'
                                     force:
                                       description: >-
@@ -6460,6 +6505,15 @@ paths:
                                   - type: array
                                     items:
                                       type: string
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute users are bucketed on. A coverage
+                                  step promotes a force rule to a rollout, which
+                                  needs one; required there unless the rule
+                                  already has it.
+                                anyOf:
+                                  - type: string
                                   - type: 'null'
                               force:
                                 description: >-
@@ -6930,6 +6984,15 @@ paths:
                                 items:
                                   type: string
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute users are bucketed on. A coverage step
+                              promotes a force rule to a rollout, which needs
+                              one; required there unless the rule already has
+                              it.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
                           force:
                             description: >-
                               Value to serve, in the string form rule values use
@@ -7037,6 +7100,15 @@ paths:
                                     - type: array
                                       items:
                                         type: string
+                                    - type: 'null'
+                                hashAttribute:
+                                  description: >-
+                                    Attribute users are bucketed on. A coverage
+                                    step promotes a force rule to a rollout,
+                                    which needs one; required there unless the
+                                    rule already has it.
+                                  anyOf:
+                                    - type: string
                                     - type: 'null'
                                 force:
                                   description: >-
@@ -7153,6 +7225,15 @@ paths:
                               - type: array
                                 items:
                                   type: string
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute users are bucketed on. A coverage step
+                              promotes a force rule to a rollout, which needs
+                              one; required there unless the rule already has
+                              it.
+                            anyOf:
+                              - type: string
                               - type: 'null'
                           force:
                             description: >-
@@ -11323,6 +11404,15 @@ paths:
                                     items:
                                       type: string
                                   - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute users are bucketed on. A coverage
+                                  step promotes a force rule to a rollout, which
+                                  needs one; required there unless the rule
+                                  already has it.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                               force:
                                 description: >-
                                   Value to serve, in the string form rule values
@@ -11432,6 +11522,15 @@ paths:
                                         - type: array
                                           items:
                                             type: string
+                                        - type: 'null'
+                                    hashAttribute:
+                                      description: >-
+                                        Attribute users are bucketed on. A
+                                        coverage step promotes a force rule to a
+                                        rollout, which needs one; required there
+                                        unless the rule already has it.
+                                      anyOf:
+                                        - type: string
                                         - type: 'null'
                                     force:
                                       description: >-
@@ -11549,6 +11648,15 @@ paths:
                                   - type: array
                                     items:
                                       type: string
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute users are bucketed on. A coverage
+                                  step promotes a force rule to a rollout, which
+                                  needs one; required there unless the rule
+                                  already has it.
+                                anyOf:
+                                  - type: string
                                   - type: 'null'
                               force:
                                 description: >-
@@ -11996,6 +12104,15 @@ paths:
                                     items:
                                       type: string
                                   - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute users are bucketed on. A coverage
+                                  step promotes a force rule to a rollout, which
+                                  needs one; required there unless the rule
+                                  already has it.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
                               force:
                                 description: >-
                                   Value to serve, in the string form rule values
@@ -12105,6 +12222,15 @@ paths:
                                         - type: array
                                           items:
                                             type: string
+                                        - type: 'null'
+                                    hashAttribute:
+                                      description: >-
+                                        Attribute users are bucketed on. A
+                                        coverage step promotes a force rule to a
+                                        rollout, which needs one; required there
+                                        unless the rule already has it.
+                                      anyOf:
+                                        - type: string
                                         - type: 'null'
                                     force:
                                       description: >-
@@ -12222,6 +12348,15 @@ paths:
                                   - type: array
                                     items:
                                       type: string
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute users are bucketed on. A coverage
+                                  step promotes a force rule to a rollout, which
+                                  needs one; required there unless the rule
+                                  already has it.
+                                anyOf:
+                                  - type: string
                                   - type: 'null'
                               force:
                                 description: >-
@@ -12702,6 +12837,15 @@ paths:
                                 items:
                                   type: string
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute users are bucketed on. A coverage step
+                              promotes a force rule to a rollout, which needs
+                              one; required there unless the rule already has
+                              it.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
                           force:
                             description: >-
                               Value to serve, in the string form rule values use
@@ -12809,6 +12953,15 @@ paths:
                                     - type: array
                                       items:
                                         type: string
+                                    - type: 'null'
+                                hashAttribute:
+                                  description: >-
+                                    Attribute users are bucketed on. A coverage
+                                    step promotes a force rule to a rollout,
+                                    which needs one; required there unless the
+                                    rule already has it.
+                                  anyOf:
+                                    - type: string
                                     - type: 'null'
                                 force:
                                   description: >-
@@ -12925,6 +13078,15 @@ paths:
                               - type: array
                                 items:
                                   type: string
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute users are bucketed on. A coverage step
+                              promotes a force rule to a rollout, which needs
+                              one; required there unless the rule already has
+                              it.
+                            anyOf:
+                              - type: string
                               - type: 'null'
                           force:
                             description: >-
@@ -13111,6 +13273,14 @@ paths:
                         - type: array
                           items:
                             type: string
+                        - type: 'null'
+                    hashAttribute:
+                      description: >-
+                        Attribute users are bucketed on. A coverage step
+                        promotes a force rule to a rollout, which needs one;
+                        required there unless the rule already has it.
+                      anyOf:
+                        - type: string
                         - type: 'null'
                     force:
                       description: >-
@@ -32641,6 +32811,15 @@ paths:
                                       items:
                                         type: string
                                     - type: 'null'
+                                hashAttribute:
+                                  description: >-
+                                    Attribute users are bucketed on. A coverage
+                                    step promotes a force rule to a rollout,
+                                    which needs one; required there unless the
+                                    rule already has it.
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
                                 force:
                                   description: >-
                                     Value to serve, in the string form rule
@@ -32758,6 +32937,15 @@ paths:
                                 items:
                                   type: string
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute users are bucketed on. A coverage step
+                              promotes a force rule to a rollout, which needs
+                              one; required there unless the rule already has
+                              it.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
                           force:
                             description: >-
                               Value to serve, in the string form rule values use
@@ -32854,6 +33042,15 @@ paths:
                               - type: array
                                 items:
                                   type: string
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute users are bucketed on. A coverage step
+                              promotes a force rule to a rollout, which needs
+                              one; required there unless the rule already has
+                              it.
+                            anyOf:
+                              - type: string
                               - type: 'null'
                           force:
                             description: >-
@@ -54797,6 +54994,15 @@ paths:
                                       items:
                                         type: string
                                     - type: 'null'
+                                hashAttribute:
+                                  description: >-
+                                    Attribute users are bucketed on. A coverage
+                                    step promotes a force rule to a rollout,
+                                    which needs one; required there unless the
+                                    rule already has it.
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
                                 enabled:
                                   anyOf:
                                     - type: boolean
@@ -55100,6 +55306,15 @@ paths:
                                     - type: array
                                       items:
                                         type: string
+                                    - type: 'null'
+                                hashAttribute:
+                                  description: >-
+                                    Attribute users are bucketed on. A coverage
+                                    step promotes a force rule to a rollout,
+                                    which needs one; required there unless the
+                                    rule already has it.
+                                  anyOf:
+                                    - type: string
                                     - type: 'null'
                                 enabled:
                                   anyOf:
@@ -55526,6 +55741,15 @@ paths:
                                       items:
                                         type: string
                                     - type: 'null'
+                                hashAttribute:
+                                  description: >-
+                                    Attribute users are bucketed on. A coverage
+                                    step promotes a force rule to a rollout,
+                                    which needs one; required there unless the
+                                    rule already has it.
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
                                 force:
                                   description: >-
                                     Value to serve, in the string form rule
@@ -55650,6 +55874,15 @@ paths:
                                 items:
                                   type: string
                               - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute users are bucketed on. A coverage step
+                              promotes a force rule to a rollout, which needs
+                              one; required there unless the rule already has
+                              it.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
                           force:
                             description: >-
                               Value to serve, in the string form rule values use
@@ -55746,6 +55979,15 @@ paths:
                               - type: array
                                 items:
                                   type: string
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute users are bucketed on. A coverage step
+                              promotes a force rule to a rollout, which needs
+                              one; required there unless the rule already has
+                              it.
+                            anyOf:
+                              - type: string
                               - type: 'null'
                           force:
                             description: >-
@@ -59139,6 +59381,15 @@ components:
                                   items:
                                     type: string
                                 - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute users are bucketed on. A coverage step
+                                promotes a force rule to a rollout, which needs
+                                one; required there unless the rule already has
+                                it.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                             force:
                               description: >-
                                 Value to serve, in the string form rule values
@@ -59248,6 +59499,15 @@ components:
                                       - type: array
                                         items:
                                           type: string
+                                      - type: 'null'
+                                  hashAttribute:
+                                    description: >-
+                                      Attribute users are bucketed on. A
+                                      coverage step promotes a force rule to a
+                                      rollout, which needs one; required there
+                                      unless the rule already has it.
+                                    anyOf:
+                                      - type: string
                                       - type: 'null'
                                   force:
                                     description: >-
@@ -59364,6 +59624,15 @@ components:
                                 - type: array
                                   items:
                                     type: string
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute users are bucketed on. A coverage step
+                                promotes a force rule to a rollout, which needs
+                                one; required there unless the rule already has
+                                it.
+                              anyOf:
+                                - type: string
                                 - type: 'null'
                             force:
                               description: >-
@@ -59570,6 +59839,15 @@ components:
                                   items:
                                     type: string
                                 - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute users are bucketed on. A coverage step
+                                promotes a force rule to a rollout, which needs
+                                one; required there unless the rule already has
+                                it.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                             force:
                               description: >-
                                 Value to serve, in the string form rule values
@@ -59679,6 +59957,15 @@ components:
                                       - type: array
                                         items:
                                           type: string
+                                      - type: 'null'
+                                  hashAttribute:
+                                    description: >-
+                                      Attribute users are bucketed on. A
+                                      coverage step promotes a force rule to a
+                                      rollout, which needs one; required there
+                                      unless the rule already has it.
+                                    anyOf:
+                                      - type: string
                                       - type: 'null'
                                   force:
                                     description: >-
@@ -59795,6 +60082,15 @@ components:
                                 - type: array
                                   items:
                                     type: string
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute users are bucketed on. A coverage step
+                                promotes a force rule to a rollout, which needs
+                                one; required there unless the rule already has
+                                it.
+                              anyOf:
+                                - type: string
                                 - type: 'null'
                             force:
                               description: >-
@@ -60614,6 +60910,15 @@ components:
                                   items:
                                     type: string
                                 - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute users are bucketed on. A coverage step
+                                promotes a force rule to a rollout, which needs
+                                one; required there unless the rule already has
+                                it.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                             force:
                               description: >-
                                 Value to serve, in the string form rule values
@@ -60723,6 +61028,15 @@ components:
                                       - type: array
                                         items:
                                           type: string
+                                      - type: 'null'
+                                  hashAttribute:
+                                    description: >-
+                                      Attribute users are bucketed on. A
+                                      coverage step promotes a force rule to a
+                                      rollout, which needs one; required there
+                                      unless the rule already has it.
+                                    anyOf:
+                                      - type: string
                                       - type: 'null'
                                   force:
                                     description: >-
@@ -60839,6 +61153,15 @@ components:
                                 - type: array
                                   items:
                                     type: string
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute users are bucketed on. A coverage step
+                                promotes a force rule to a rollout, which needs
+                                one; required there unless the rule already has
+                                it.
+                              anyOf:
+                                - type: string
                                 - type: 'null'
                             force:
                               description: >-
@@ -61045,6 +61368,15 @@ components:
                                   items:
                                     type: string
                                 - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute users are bucketed on. A coverage step
+                                promotes a force rule to a rollout, which needs
+                                one; required there unless the rule already has
+                                it.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
                             force:
                               description: >-
                                 Value to serve, in the string form rule values
@@ -61154,6 +61486,15 @@ components:
                                       - type: array
                                         items:
                                           type: string
+                                      - type: 'null'
+                                  hashAttribute:
+                                    description: >-
+                                      Attribute users are bucketed on. A
+                                      coverage step promotes a force rule to a
+                                      rollout, which needs one; required there
+                                      unless the rule already has it.
+                                    anyOf:
+                                      - type: string
                                       - type: 'null'
                                   force:
                                     description: >-
@@ -61270,6 +61611,15 @@ components:
                                 - type: array
                                   items:
                                     type: string
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute users are bucketed on. A coverage step
+                                promotes a force rule to a rollout, which needs
+                                one; required there unless the rule already has
+                                it.
+                              anyOf:
+                                - type: string
                                 - type: 'null'
                             force:
                               description: >-
@@ -67818,6 +68168,14 @@ components:
                         items:
                           type: string
                       - type: 'null'
+                  hashAttribute:
+                    description: >-
+                      Attribute users are bucketed on. A coverage step promotes
+                      a force rule to a rollout, which needs one; required there
+                      unless the rule already has it.
+                    anyOf:
+                      - type: string
+                      - type: 'null'
                   force:
                     description: >-
                       Value to serve, in the string form rule values use
@@ -67956,6 +68314,14 @@ components:
                               items:
                                 type: string
                             - type: 'null'
+                        hashAttribute:
+                          description: >-
+                            Attribute users are bucketed on. A coverage step
+                            promotes a force rule to a rollout, which needs one;
+                            required there unless the rule already has it.
+                          anyOf:
+                            - type: string
+                            - type: 'null'
                         force:
                           description: >-
                             Value to serve, in the string form rule values use
@@ -68061,6 +68427,14 @@ components:
                       - type: array
                         items:
                           type: string
+                      - type: 'null'
+                  hashAttribute:
+                    description: >-
+                      Attribute users are bucketed on. A coverage step promotes
+                      a force rule to a rollout, which needs one; required there
+                      unless the rule already has it.
+                    anyOf:
+                      - type: string
                       - type: 'null'
                   force:
                     description: >-
@@ -75205,6 +75579,14 @@ components:
                               items:
                                 type: string
                             - type: 'null'
+                        hashAttribute:
+                          description: >-
+                            Attribute users are bucketed on. A coverage step
+                            promotes a force rule to a rollout, which needs one;
+                            required there unless the rule already has it.
+                          anyOf:
+                            - type: string
+                            - type: 'null'
                         enabled:
                           anyOf:
                             - type: boolean
@@ -78572,6 +78954,14 @@ components:
                   items:
                     type: string
                 - type: 'null'
+            hashAttribute:
+              description: >-
+                Attribute users are bucketed on. A coverage step promotes a
+                force rule to a rollout, which needs one; required there unless
+                the rule already has it.
+              anyOf:
+                - type: string
+                - type: 'null'
             force:
               description: >-
                 Value to serve, in the string form rule values use ("false",
@@ -78704,6 +79094,14 @@ components:
                       - type: array
                         items:
                           type: string
+                      - type: 'null'
+                  hashAttribute:
+                    description: >-
+                      Attribute users are bucketed on. A coverage step promotes
+                      a force rule to a rollout, which needs one; required there
+                      unless the rule already has it.
+                    anyOf:
+                      - type: string
                       - type: 'null'
                   force:
                     description: >-

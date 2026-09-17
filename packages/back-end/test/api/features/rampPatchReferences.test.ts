@@ -35,8 +35,20 @@ function makeContext(): ReqContextClass {
 
 const now = () => new Date();
 const RULE = {
-  type: "force",
+  type: "rollout",
   id: "fr_ramped",
+  description: "",
+  value: "true",
+  coverage: 0,
+  hashAttribute: "id",
+  enabled: false,
+  allEnvironments: true,
+};
+// A force rule: a coverage ramp promotes it, so the plan must bring a hash
+// attribute.
+const FORCE_RULE = {
+  type: "force",
+  id: "fr_force",
   description: "",
   value: "true",
   enabled: false,
@@ -54,7 +66,7 @@ async function insertFeature(id: string): Promise<void> {
     version: 1,
     archived: false,
     tags: [],
-    rules: id === FLAG ? [RULE] : [],
+    rules: id === FLAG ? [RULE, FORCE_RULE] : [],
     environmentSettings: {
       production: { enabled: true, rules: [] },
       dev: { enabled: true, rules: [] },
@@ -80,7 +92,7 @@ async function insertRevisions(featureId: string): Promise<void> {
       createdBy: { type: "api_key", apiKey: "key_engineer" },
       comment: "",
       defaultValue: "false",
-      rules: [RULE],
+      rules: [RULE, FORCE_RULE],
       dateCreated: now(),
       dateUpdated: now(),
       ...(status === "published" ? { datePublished: now() } : {}),
@@ -207,6 +219,22 @@ describe("ramp schedule patch references", () => {
     );
   });
 
+  it("ramps a force rule's coverage only when the plan carries a hash attribute", async () => {
+    const put = (patch: Record<string, unknown>) =>
+      request(app)
+        .put(
+          `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+        )
+        .send({ steps: [step(patch)] })
+        .set("Authorization", "Bearer foo");
+    const bare = await put({ coverage: 0.5 });
+    expect(bare.body.message).toMatch(/force rule without a hash attribute/);
+    expect(bare.status).toBe(400);
+    const hashed = await put({ coverage: 0.5, hashAttribute: "id" });
+    expect(hashed.body.message).toBeUndefined();
+    expect(hashed.status).toBe(200);
+  });
+
   it("rejects an inline rampSchedule with a bad patch on v2 rule add", async () => {
     const res = await request(app)
       .post(`/api/v2/features/${FLAG}/revisions/2/rules`)
@@ -229,7 +257,7 @@ describe("ramp schedule patch references", () => {
     const revision = await mongoose.connection
       .collection("featurerevisions")
       .findOne({ featureId: FLAG, version: 2 });
-    expect(revision?.rules).toHaveLength(1);
+    expect(revision?.rules).toHaveLength(2);
   });
 
   it("rejects a bad patch on REST ramp-schedule create, with or without a target", async () => {

@@ -283,6 +283,30 @@ describe("applyPatchToRule", () => {
     condition: "",
   };
 
+  it("promotes a force rule to a rollout when coverage lands, given a hash attribute", () => {
+    const force: FeatureRule = {
+      id: "r2",
+      type: "force",
+      value: "true",
+      enabled: true,
+    };
+    expect(
+      applyPatchToRule(force, { coverage: 0.5, hashAttribute: "user_id" }),
+    ).toMatchObject({
+      type: "rollout",
+      coverage: 0.5,
+      hashAttribute: "user_id",
+    });
+    // A plan from before the write-time check: bucket on the org's default.
+    expect(applyPatchToRule(force, { coverage: 0.5 }, "device")).toMatchObject({
+      type: "rollout",
+      hashAttribute: "device",
+    });
+    // Full coverage or no coverage: a force rule stays a force rule.
+    expect(applyPatchToRule(force, { coverage: 1 }).type).toBe("force");
+    expect(applyPatchToRule(force, { condition: "{}" }).type).toBe("force");
+  });
+
   it("applies coverage patch", () => {
     const result = applyPatchToRule(base, { coverage: 0.5 });
     expect((result as { coverage?: number }).coverage).toBe(0.5);

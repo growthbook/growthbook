@@ -22,6 +22,12 @@ export const featureRulePatch = z.object({
   prerequisites: z.array(featurePrerequisite).nullish(),
   allEnvironments: z.boolean().nullish(),
   environments: z.array(z.string()).nullish(),
+  hashAttribute: z
+    .string()
+    .nullish()
+    .describe(
+      "Attribute users are bucketed on. A coverage step promotes a force rule to a rollout, which needs one; required there unless the rule already has it.",
+    ),
   force: z
     .unknown()
     .optional()
