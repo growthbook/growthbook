@@ -2,6 +2,9 @@ import {
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   holdsFeatureMoveDestination,
+  holdsTargetingDestination,
+  targetingRefusal,
+  withStagedTargeting,
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
@@ -59,6 +62,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { format } from "date-fns";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -196,6 +200,7 @@ export default function ReviewAndPublish({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envIds = environments.map((e) => e.id);
   const permissionsUtil = usePermissionsUtil();
+  const { targetingOptOutProjectIds: targetingOptOut } = useDefinitions();
   // Same shared predicate as the generic tab and both comment endpoints, so
   // Feature Flags can't drift from the other entities.
   const canCommentOnDraft = canCommentOnRevisionEntity(
@@ -702,8 +707,8 @@ export default function ReviewAndPublish({
   }, [revision, baseRevision, liveRevision, feature, envIds, settings]);
 
   // Against LIVE, filled, because a different base selects different rules.
-  const reviewRules = useMemo(() => {
-    if (!revision || !liveRevision) return [];
+  const reviewRequirement = useMemo(() => {
+    if (!revision || !liveRevision) return null;
     return getRevisionReviewRequirement({
       feature,
       baseRevision: {
@@ -714,7 +719,7 @@ export default function ReviewAndPublish({
       orgEnvironments: environments,
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
-    }).rules;
+    });
   }, [
     revision,
     liveRevision,
@@ -724,6 +729,19 @@ export default function ReviewAndPublish({
     hasCommercialFeature,
   ]);
 
+  const reviewRules = useMemo(
+    () => reviewRequirement?.rules ?? [],
+    [reviewRequirement],
+  );
+  const approverProjects = useMemo(
+    () => reviewRequirement?.approverProjects ?? [],
+    [reviewRequirement],
+  );
+  const governingRules = useMemo(
+    () => reviewRequirement?.governing ?? [],
+    [reviewRequirement],
+  );
+
   const {
     insufficientApprovers,
     insufficientApproverReasons,
@@ -731,6 +749,7 @@ export default function ReviewAndPublish({
     approvalsCoverFootprint,
     hasUncoveredApproval,
     requiredTeams,
+    requiredProjects,
   } = useApprovalCoverage({
     reviewers,
     footprint: reviewFootprint,
@@ -738,6 +757,8 @@ export default function ReviewAndPublish({
     model: "feature",
     projects: feature.project ? [feature.project] : [],
     reviewRules,
+    approverProjects,
+    governingRules,
   });
 
   // Fall back to all applicable environments until the merge footprint is known.
@@ -817,7 +838,11 @@ export default function ReviewAndPublish({
   const canReview =
     isInReviewCycle(revision?.status) &&
     createdBy?.id !== user?.id &&
-    permissionsUtil.canReviewFeatureDrafts(feature, reviewFootprint);
+    permissionsUtil.canReviewFeatureDrafts(
+      feature,
+      reviewFootprint,
+      approverProjects,
+    );
   // Advancing a draft takes draft authority, or revert/delete authority over a
   // draft that only does what they cover (or one the caller authored). The
   // client goes on provenance alone; the server re-verifies purity.
@@ -883,7 +908,13 @@ export default function ReviewAndPublish({
       feature,
       revision?.metadata?.project,
       affectedRevisionEnvs,
-    );
+    ) &&
+    holdsTargetingDestination({
+      permissions: permissionsUtil,
+      optedOut: targetingOptOut,
+      existing: feature,
+      proposed: withStagedTargeting(feature, revision?.metadata),
+    });
 
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
   // Arming on a draft rides request-review, so it needs draft authority too.
@@ -1705,6 +1736,20 @@ export default function ReviewAndPublish({
   // authority. Staging a change as a draft must not require an atom that landing
   // it directly doesn't. Provenance is all the client can see — the server
   // re-verifies purity.
+  // Separate so the blocker can name it: the fix differs (drop a Targeting
+  // Project, or find someone who may target it).
+  const stagedTargeting = withStagedTargeting(
+    feature,
+    mergeResult?.success ? mergeResult.result.metadata : undefined,
+  );
+  const stagedTargetingRefusal = targetingRefusal({
+    permissions: permissionsUtil,
+    optedOut: targetingOptOut,
+    existing: feature,
+    proposed: stagedTargeting,
+  });
+  const holdsStagedTargeting = stagedTargetingRefusal === null;
+  const stagedTargetingOptedOut = stagedTargetingRefusal?.cause === "opted-out";
   const hasPublishPermission =
     (permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
       (draftStagesRevert &&
@@ -1718,7 +1763,9 @@ export default function ReviewAndPublish({
       feature,
       mergeResult?.success ? mergeResult.result.metadata?.project : undefined,
       affectedRevisionEnvs,
-    );
+    ) &&
+    // Landing widens delivery to whatever the draft targets, same as the endpoint.
+    holdsStagedTargeting;
 
   // Publishing is currently blocked (merge conflict, required rebase/divergence,
   // ramp lockdown, or nothing to publish). Used to suppress the reviewer's
@@ -1793,6 +1840,7 @@ export default function ReviewAndPublish({
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
       feature,
       reviewFootprint,
+      approverProjects,
     ),
     // Recall is derived from this in the state machine, and revert/delete
     // authority may recall a review request on a draft they authored — so pass
@@ -2264,7 +2312,9 @@ export default function ReviewAndPublish({
       ? hasPublishPermission &&
         (adminPublish ||
           !requireReviews ||
-          (approvalsCoverFootprint && requiredTeams.satisfied))
+          (approvalsCoverFootprint &&
+            requiredTeams.satisfied &&
+            requiredProjects.satisfied))
       : true;
 
   // Shared by the no-changes empty state and the actions column kebab — the
@@ -2329,6 +2379,9 @@ export default function ReviewAndPublish({
     // Properly approved, but the rule's required team has not signed off.
     if (requireReviews && !adminPublish && !requiredTeams.satisfied)
       return { overridable: true };
+    // Or a targeting project's own reviewers have not.
+    if (requireReviews && !adminPublish && !requiredProjects.satisfied)
+      return { overridable: true };
     if (!adminPublish && !governance?.canPublish) return { overridable: true };
     if (!adminPublish && featureLockedByRamp) return { overridable: true };
     if (!adminPublish && featureLockedBySchedule) return { overridable: true };
@@ -2341,8 +2394,13 @@ export default function ReviewAndPublish({
     canAdminPublish &&
     mergeResult.success &&
     (blockInfo?.overridable || adminPublish);
+  // Also shown when a would-be bypasser lacks publish authority (a staged
+  // targeting or move destination), so the blocker can say why.
   const showPublishSection =
-    state.submitAction === "publish" || continueToPublish || adminCanBypassNow;
+    state.submitAction === "publish" ||
+    continueToPublish ||
+    adminCanBypassNow ||
+    (canAdminPublish && mergeResult.success && !hasPublishPermission);
 
   // Renders in every phase, so it must claim no status: an uncovered approval
   // can still stand after a later "changes requested" verdict.
@@ -2352,7 +2410,10 @@ export default function ReviewAndPublish({
       : `None of this draft's approvals cover everything it changes.`
     : null;
   const approvalGateUnmet =
-    requireReviews && (!requiredTeams.satisfied || hasUncoveredApproval);
+    requireReviews &&
+    (!requiredTeams.satisfied ||
+      !requiredProjects.satisfied ||
+      hasUncoveredApproval);
   // An approved draft warrants the band only while a gate is unmet — otherwise
   // the publish section already carries the state, and "Publishing is blocked"
   // would contradict an enabled CTA.
@@ -2645,6 +2706,7 @@ export default function ReviewAndPublish({
               }
               footprint={reviewFootprint}
               unmet={requiredTeams.unmet}
+              unmetProjects={requiredProjects.unmet}
               coverageMessage={coverageBlockMessage}
               showSelfApprovalNote={!!isBlockedContributor && canReview}
               canRecallReview={state.canRecallReview}
@@ -2800,24 +2862,16 @@ export default function ReviewAndPublish({
             {(() => {
               const continueLabel = "Continue to Publish →";
 
-              // A pending schedule must be canceled before a manual publish (one
-              // explicit path back to "approved"). An admin bypass override lets an
-              // admin publish now over someone else's pending schedule — but not
-              // over a schedule that was itself admin-armed (that reads as the
-              // intentional deferral, so it still blocks publish-now).
-              const scheduleBlocksPublish =
-                scheduledPending && (!adminPublish || scheduleArmedByAdmin);
+              // A pending schedule does not block publishing: the server answers
+              // with a warning the "Save anyway?" retry acknowledges, and the
+              // schedule is cancelled by the publish.
               const publishEnabled =
                 state.submitAction === "publish" &&
                 state.ctaEnabled &&
-                canDoPrimary &&
-                !scheduleBlocksPublish;
+                canDoPrimary;
 
               const continueEnabled =
-                continueToPublish &&
-                state.ctaEnabled &&
-                canDoPrimary &&
-                !scheduleBlocksPublish;
+                continueToPublish && state.ctaEnabled && canDoPrimary;
 
               const primaryFooterEnabled = continueToPublish
                 ? continueEnabled
@@ -2825,8 +2879,8 @@ export default function ReviewAndPublish({
 
               const primaryFooterLabel = continueToPublish
                 ? continueLabel
-                : scheduleBlocksPublish
-                  ? "Publish scheduled"
+                : scheduledPending
+                  ? "Publish now"
                   : onlyScheduledSelected
                     ? "Schedule to Start"
                     : "Publish";
@@ -3037,7 +3091,9 @@ export default function ReviewAndPublish({
                       {requireReviews &&
                         !adminPublish &&
                         state.submitAction === "publish" &&
-                        (!requiredTeams.satisfied || hasUncoveredApproval) && (
+                        (!requiredTeams.satisfied ||
+                          !requiredProjects.satisfied ||
+                          hasUncoveredApproval) && (
                           <Box mb="4">
                             <ApprovalStatusBand
                               phase="gated"
@@ -3047,6 +3103,7 @@ export default function ReviewAndPublish({
                                   ? []
                                   : requiredTeams.unmet
                               }
+                              unmetProjects={requiredProjects.unmet}
                               coverageMessage={coverageBlockMessage}
                             />
                           </Box>
@@ -3107,7 +3164,7 @@ export default function ReviewAndPublish({
                           <Checkbox
                             label="Acknowledge incomplete recommended items and continue"
                             weight="regular"
-                            disabled={!canDoPrimary || scheduleBlocksPublish}
+                            disabled={!canDoPrimary}
                             value={checklistAcknowledged}
                             setValue={(value) =>
                               setChecklistAcknowledged(!!value)
@@ -3116,26 +3173,19 @@ export default function ReviewAndPublish({
                         </Box>
                       )}
 
-                      {/* A live schedule blocks "publish now"; the scheduled
-                    status card above already explains this and offers
-                    Cancel/Change, so we hide the otherwise-dead disabled
-                    button. It reappears the moment the block clears (e.g. admin
-                    bypass toggled, or the experiments "continue" flow). */}
-                      {!(scheduleBlocksPublish && !continueToPublish) && (
-                        <Button
-                          onClick={primaryFooterEnabled ? doSubmit : undefined}
-                          loading={
-                            submitting &&
-                            (state.submitAction === "publish" ||
-                              continueToPublish)
-                          }
-                          disabled={!primaryFooterEnabled}
-                          icon={state.ctaLocked ? <PiLockSimple /> : undefined}
-                          style={{ width: "100%" }}
-                        >
-                          {primaryFooterLabel}
-                        </Button>
-                      )}
+                      <Button
+                        onClick={primaryFooterEnabled ? doSubmit : undefined}
+                        loading={
+                          submitting &&
+                          (state.submitAction === "publish" ||
+                            continueToPublish)
+                        }
+                        disabled={!primaryFooterEnabled}
+                        icon={state.ctaLocked ? <PiLockSimple /> : undefined}
+                        style={{ width: "100%" }}
+                      >
+                        {primaryFooterLabel}
+                      </Button>
 
                       {/* ── Uniform status displays for the publish state ──
                     All callouts use the same size, spacing, and chrome so
@@ -3147,8 +3197,11 @@ export default function ReviewAndPublish({
                           reads as a bug. */}
                         {!hasPublishPermission && (
                           <PermissionBlocker>
-                            You don&apos;t have permission to publish this
-                            draft.
+                            {holdsStagedTargeting
+                              ? "You don't have permission to publish this draft."
+                              : stagedTargetingOptedOut
+                                ? "One or more of the Projects this draft adds don't allow targeting from other Projects' Feature Flags. Remove them to publish."
+                                : "You don't have permission to target one or more of the Projects this draft adds. Remove them, or ask someone who can target them to publish."}
                           </PermissionBlocker>
                         )}
 

@@ -217,6 +217,9 @@ export function formatCurrency(
   return currencyFormatter.format(value);
 }
 export function formatDurationSeconds(value: number) {
+  if (value < 0) {
+    return "-" + formatDurationSeconds(-value);
+  }
   // < 1 second
   if (value < 1) {
     return Math.round(value * 1000) + "ms";
@@ -259,6 +262,11 @@ export function formatDurationSeconds(value: number) {
   }
 
   return f;
+}
+
+export function formatDurationMilliseconds(value: number) {
+  // Convert milliseconds to seconds and delegate to formatDurationSeconds
+  return formatDurationSeconds(value / 1000);
 }
 
 export function formatNumber(
@@ -318,6 +326,8 @@ export function getColumnFormatter(
       return formatCurrency;
     case "time:seconds":
       return formatDurationSeconds;
+    case "time:milliseconds":
+      return formatDurationMilliseconds;
     case "memory:bytes":
       return formatBytes;
     case "memory:kilobytes":

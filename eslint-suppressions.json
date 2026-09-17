@@ -1281,11 +1281,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Projects/ProjectModal.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Queries/AsyncQueriesModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1440,9 +1435,6 @@
   "packages/front-end/components/SchemaBrowser/SqlExplorerModal.tsx": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Search/SearchFilters.tsx": {
@@ -2152,6 +2144,11 @@
   "packages/stats-ts/test/statistics.test.ts": {
     "no-loss-of-precision": {
       "count": 1
+    }
+  },
+  "scripts/restore-lowertailcapping-dates.js": {
+    "no-undef": {
+      "count": 6
     }
   }
 }

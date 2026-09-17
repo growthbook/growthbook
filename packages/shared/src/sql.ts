@@ -1,8 +1,24 @@
 import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
-import { FormatDialect, SqlDialect, StringMatchFn } from "../types/sql";
+import {
+  FormatDialect,
+  GlobMatchFn,
+  SqlDialect,
+  StringMatchFn,
+} from "../types/sql";
 import { FormatError } from "../types/error";
 import { parseEnvInt } from "./util/numbers";
+
+/** Escaping and LIKE-clause behavior for one dialect. Shared by the string-match
+ *  and glob-match builders so a dialect configures both from one place. */
+type LikeMatchOptions = {
+  escapeStringLiteral: (s: string) => string;
+  escapeWildcards?: (s: string) => string;
+  emitEscapeClause: boolean;
+};
+
+const defaultEscapeWildcards = (value: string) =>
+  value.replace(/([%_\\])/g, "\\$1");
 
 /**
  * Creates a function that builds a string-match condition (LIKE or a warehouse-native equivalent).
@@ -12,19 +28,25 @@ import { parseEnvInt } from "./util/numbers";
  */
 export function createLikeStringMatchFn({
   escapeStringLiteral,
-  escapeWildcards = (value: string) => value.replace(/([%_\\])/g, "\\$1"),
+  escapeWildcards = defaultEscapeWildcards,
   emitEscapeClause,
-}: {
-  escapeStringLiteral: (s: string) => string;
-  escapeWildcards?: (s: string) => string;
-  emitEscapeClause: boolean;
-}): StringMatchFn {
+}: LikeMatchOptions): StringMatchFn {
   return (columnExpr, operator, value) => {
-    const pattern = escapeStringLiteral(escapeWildcards(value));
+    const isPattern =
+      operator === "matches_pattern" || operator === "not_matches_pattern";
+    const pattern = escapeStringLiteral(
+      isPattern
+        ? globToLikePattern(value, escapeWildcards)
+        : escapeWildcards(value),
+    );
     const escapeClause = emitEscapeClause
       ? ` ESCAPE '${escapeStringLiteral("\\")}'`
       : "";
     switch (operator) {
+      case "matches_pattern":
+        return `${columnExpr} LIKE '${pattern}'${escapeClause}`;
+      case "not_matches_pattern":
+        return `${columnExpr} NOT LIKE '${pattern}'${escapeClause}`;
       case "starts_with":
         return `${columnExpr} LIKE '${pattern}%'${escapeClause}`;
       case "ends_with":
@@ -37,7 +59,62 @@ export function createLikeStringMatchFn({
   };
 }
 
+/**
+ * Translates a user-facing wildcard pattern into a LIKE pattern. `*` matches any
+ * run of characters and `?` matches exactly one; everything else is literal.
+ *
+ * LIKE's own metacharacters are escaped in the literal chunks *before* the
+ * wildcards are substituted, so a pattern like `/reports/50%_*` matches a
+ * literal "50%_" followed by anything, rather than treating the `%` and `_` as
+ * wildcards of their own.
+ */
+export function globToLikePattern(
+  glob: string,
+  escapeWildcards: (s: string) => string = defaultEscapeWildcards,
+): string {
+  return glob
+    .split(/([*?])/)
+    .map((chunk) => {
+      if (chunk === "*") return "%";
+      if (chunk === "?") return "_";
+      return escapeWildcards(chunk);
+    })
+    .join("");
+}
+
+/**
+ * Creates a function that matches a column against a user-facing wildcard
+ * pattern (`*` any run, `?` one character).
+ */
+export function createGlobMatchFn({
+  escapeStringLiteral,
+  escapeWildcards = defaultEscapeWildcards,
+  emitEscapeClause,
+}: LikeMatchOptions): GlobMatchFn {
+  return (columnExpr, glob) => {
+    const pattern = escapeStringLiteral(
+      globToLikePattern(glob, escapeWildcards),
+    );
+    const escapeClause = emitEscapeClause
+      ? ` ESCAPE '${escapeStringLiteral("\\")}'`
+      : "";
+    return `${columnExpr} LIKE '${pattern}'${escapeClause}`;
+  };
+}
+
+/** Both LIKE matchers from one options object so escaping cannot drift. */
+export function createLikeMatchFns(options: LikeMatchOptions): {
+  stringMatch: StringMatchFn;
+  globMatch: GlobMatchFn;
+} {
+  return {
+    stringMatch: createLikeStringMatchFn(options),
+    globMatch: createGlobMatchFn(options),
+  };
+}
+
 export const SQL_ROW_LIMIT = 1000;
+export const ASK_ROW_LIMIT = 500;
 
 export const MAX_SQL_LENGTH_TO_FORMAT = parseEnvInt(
   process.env.MAX_SQL_LENGTH_TO_FORMAT,
@@ -70,11 +147,19 @@ export function format(
   }
 }
 
+/**
+ * Drop a terminating semicolon even when a trailing comment follows it, e.g.
+ * `SELECT 1;\n-- note`. `/;\s*$/` misses that case and the leftover `;` then
+ * fails multi-statement checks after the query is wrapped in a subquery.
+ */
+export function stripTrailingSemicolon(sql: string): string {
+  return sql.replace(/;(\s|--[^\n]*|\/\*[\s\S]*?\*\/)*$/, "").trim();
+}
+
 export function ensureLimit(sql: string, limit: number): string {
   if (limit <= 0) throw new Error("Limit must be a positive integer");
 
-  // Remove trailing semicolons and spaces
-  sql = sql.replace(/;\s*$/, "").trim();
+  sql = stripTrailingSemicolon(sql);
 
   // Case 1: Has both LIMIT and OFFSET clauses
   const limitOffsetMatch = sql.match(/LIMIT\s+(\d+)\s+OFFSET\s+(\d+)$/i);
@@ -123,6 +208,63 @@ export function isReadOnlySQL(sql: string) {
   return !!strippedSql.match(/^\s*(with|select|explain|show|describe|desc)\b/i);
 }
 
+const MAX_AGENT_SQL_LENGTH = 100_000;
+
+const DML_DDL_DENY_LIST =
+  /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|MERGE|GRANT|REVOKE|CALL|EXEC|EXECUTE)\b/i;
+
+const DIALECT_ESCAPE_HATCHES =
+  /\b(INTO\s+OUTFILE|INTO\s+DUMPFILE|COPY\s+.{1,200}\s+TO|pg_read_file|pg_read_binary_file|LOAD_FILE|EXECUTE\s+IMMEDIATE)\b|(?<!\w)(file|url|s3)\s*\(/i;
+
+/**
+ * Stricter read-only SQL guard for agent-generated queries. Unlike
+ * `isReadOnlySQL` (first-keyword only), this scans the entire stripped
+ * statement for DML/DDL keywords, multi-statement boundaries, and
+ * dialect-specific escape hatches. Throws on violation.
+ */
+export function assertSafeReadOnlySQL(sql: string): void {
+  if (sql.length > MAX_AGENT_SQL_LENGTH) {
+    throw new Error(
+      `Query exceeds the ${MAX_AGENT_SQL_LENGTH}-character safety limit`,
+    );
+  }
+
+  const { strippedSql, parseError } = stripCommentsAndStrings(sql, true);
+
+  if (parseError) {
+    throw new Error(
+      "Query has unterminated string or comment — cannot verify safety",
+    );
+  }
+
+  // First keyword must be SELECT or WITH
+  if (!/^\s*(SELECT|WITH)\b/i.test(strippedSql)) {
+    throw new Error("Only SELECT and WITH queries are allowed");
+  }
+
+  // Single statement only
+  if (strippedSql.includes(";")) {
+    throw new Error("Multi-statement queries are not allowed");
+  }
+
+  // Dialect-specific escape hatches (checked before generic SELECT INTO)
+  const escapeMatch = strippedSql.match(DIALECT_ESCAPE_HATCHES);
+  if (escapeMatch) {
+    throw new Error(`Disallowed expression: ${escapeMatch[0].trim()}`);
+  }
+
+  // SELECT INTO (but not INTO OUTFILE/DUMPFILE — caught above)
+  if (/\bSELECT\s+.*\bINTO\b/i.test(strippedSql)) {
+    throw new Error("SELECT INTO is not allowed");
+  }
+
+  // DML/DDL deny-list anywhere in the stripped SQL
+  const dmlMatch = strippedSql.match(DML_DDL_DENY_LIST);
+  if (dmlMatch) {
+    throw new Error(`Disallowed keyword: ${dmlMatch[0].toUpperCase()}`);
+  }
+}
+
 export function usesBackslashStringEscapes(
   dialect: Pick<SqlDialect, "escapeStringLiteral">,
 ): boolean {
@@ -137,7 +279,7 @@ export function isMultiStatementSQL(sql: string, backslashEscapes: boolean) {
   if (parseError) {
     // Parse failed, so string boundaries are unknown. Stay conservative and
     // treat any non-trailing semicolon as a statement separator.
-    return sql.replace(/;\s*$/, "").includes(";");
+    return stripTrailingSemicolon(sql).includes(";");
   }
   // Otherwise, search the stripped SQL for semicolons
   else {

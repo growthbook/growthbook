@@ -8,7 +8,7 @@ import {
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
-  assertExposureQueriesTargetingAttributeColumnsValid,
+  assertContextualAttributesValid,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
   ContextualBanditInterface,
   contextualBanditValidator,
@@ -281,23 +281,20 @@ export class ContextualBanditModel extends BaseClass {
       }
     }
 
-    const targetingAttributeColumns =
-      doc.targetingAttributeColumns ?? doc.contextualAttributes;
-    if ((targetingAttributeColumns?.length ?? 0) === 0) {
-      throw new Error(
-        "A contextual bandit must declare at least one contextual attribute.",
+    if (
+      !previousDoc ||
+      !isEqual(doc.contextualAttributes, previousDoc.contextualAttributes)
+    ) {
+      if ((doc.contextualAttributes?.length ?? 0) === 0) {
+        throw new Error(
+          "A contextual bandit must declare at least one contextual attribute.",
+        );
+      }
+      assertContextualAttributesValid(
+        this.context.org.settings?.attributeSchema,
+        doc,
       );
     }
-    assertExposureQueriesTargetingAttributeColumnsValid(
-      this.context.org.settings?.attributeSchema,
-      [
-        {
-          id: doc.id,
-          name: doc.name,
-          targetingAttributeColumns,
-        },
-      ],
-    );
   }
 
   public override async handleApiList(
@@ -342,7 +339,6 @@ export class ContextualBanditModel extends BaseClass {
         id: generateVariationId(),
         screenshots: [],
       })),
-      targetingAttributeColumns: body.contextualAttributes,
       contextualAttributes: body.contextualAttributes,
       status: "draft" as const,
       currentLeafWeights: [],
@@ -359,9 +355,6 @@ export class ContextualBanditModel extends BaseClass {
         (out as Record<string, unknown>)[field] = body[field];
       }
     }
-    if (body.contextualAttributes !== undefined) {
-      out.targetingAttributeColumns = body.contextualAttributes;
-    }
     return out as Parameters<typeof this.updateById>[1];
   }
 
@@ -377,6 +370,19 @@ export class ContextualBanditModel extends BaseClass {
     existing: ContextualBanditInterface,
     updated?: Partial<ContextualBanditInterface>,
   ): boolean {
+    // A status change turns the bandit's published rule on or off in SDK
+    // payloads, so it needs the same run permission the start/stop endpoints
+    // check; other edits only need the update permission.
+    if (
+      updated?.status !== undefined &&
+      updated.status !== existing.status &&
+      !this.context.permissions.canRunContextualBandit(
+        existing,
+        this.context.org.settings?.environments?.map((e) => e.id) ?? [],
+      )
+    ) {
+      return false;
+    }
     return this.context.permissions.canUpdateContextualBandit(
       existing,
       updated ?? existing,

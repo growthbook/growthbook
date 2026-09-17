@@ -18,6 +18,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention } from "shared/ai-chat";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import HelperText from "@/ui/HelperText";
 import {
   collectMentions,
   collectSkills,
@@ -43,6 +44,8 @@ import TokenHoverCard, {
   readHoveredToken,
   type HoveredToken,
 } from "./TokenHoverCard";
+import DictationButton from "./DictationButton";
+import { useDictation } from "./useDictation";
 import SuggestionList, {
   SUGGESTION_LISTBOX_ID,
   suggestionOptionId,
@@ -117,7 +120,7 @@ function toRows(suggestion: ActiveSuggestion): SuggestionRow[] {
   }
   return suggestion.items.map((item) => ({
     key: item.id,
-    primary: item.label,
+    primary: item.title,
     secondary: item.description,
   }));
 }
@@ -152,6 +155,8 @@ function ChatComposer(
   const suggestionOpen = rows.length > 0;
 
   const hideCardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Read by the editor's Enter handler, which is configured before dictation exists.
+  const dictatingRef = useRef(false);
 
   const cancelHideCard = useCallback(() => {
     if (hideCardTimer.current) {
@@ -328,7 +333,9 @@ function ChatComposer(
         }
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
-          if (!loading && !disabled) onSend(readSubmission(view.state.doc));
+          if (!loading && !disabled && !dictatingRef.current) {
+            onSend(readSubmission(view.state.doc));
+          }
           return true;
         }
         return false;
@@ -374,7 +381,30 @@ function ChatComposer(
     onSend(readSubmission(editor.state.doc));
   }, [editor, onSend]);
 
-  const canSend = value.trim().length > 0 && !loading && !disabled;
+  // Dictated text lands at the cursor, so it can be edited before sending.
+  const dictation = useDictation(
+    useCallback(
+      (text: string) => {
+        if (!editor) return;
+        // Space off the character before the cursor: dictation can land mid-message.
+        const { from } = editor.state.selection;
+        const before = editor.state.doc.textBetween(
+          Math.max(0, from - 1),
+          from,
+        );
+        editor.commands.insertContent(/\S/.test(before) ? ` ${text}` : text);
+        editor.commands.focus();
+      },
+      [editor],
+    ),
+  );
+
+  // The transcript isn't in the editor yet, so sending now would truncate the message.
+  const dictating = dictation.busy;
+  dictatingRef.current = dictating;
+
+  const canSend =
+    value.trim().length > 0 && !loading && !disabled && !dictating;
   const isCompact = variant === "compact";
   const isHero = variant === "hero";
 
@@ -406,6 +436,28 @@ function ChatComposer(
     >
       <Icon size={16} />
     </Button>
+  );
+
+  // Typing dismisses a stale dictation error.
+  const { clearError: clearDictationError } = dictation;
+  useEffect(() => {
+    clearDictationError();
+  }, [value, clearDictationError]);
+
+  // Compact only: there the mic and send are the same 30px button, so it's a swap.
+  const micIsPrimary = isCompact && !canSend && !isLocalStream;
+  const dictateButton = (
+    <DictationButton
+      dictation={dictation}
+      disabled={loading || disabled}
+      primary={micIsPrimary}
+    />
+  );
+  const buttons = (
+    <>
+      {dictateButton}
+      {!(micIsPrimary && dictation.available) && sendButton}
+    </>
   );
 
   const boxClasses = [
@@ -442,6 +494,13 @@ function ChatComposer(
           }
         />
       )}
+      {dictation.error && (
+        <div className={styles.dictateError} role="alert">
+          <HelperText status="error" size="sm">
+            {dictation.error}
+          </HelperText>
+        </div>
+      )}
       <EditorContent
         editor={editor}
         className={`${styles.editor}${loading || disabled ? ` ${styles.readOnly}` : ""}`}
@@ -450,9 +509,9 @@ function ChatComposer(
         onBlur={handleBlur}
       />
       {isHero ? (
-        <div className={styles.heroSendButton}>{sendButton}</div>
+        <div className={styles.heroSendButton}>{buttons}</div>
       ) : (
-        sendButton
+        buttons
       )}
     </div>
   );

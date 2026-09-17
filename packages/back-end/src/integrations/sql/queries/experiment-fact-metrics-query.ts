@@ -29,7 +29,6 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import {
   FunnelMetricForResolution,
   FunnelMetricSteps,
-  funnelStep0NeedsExposureWindow,
   getFunnelResolutionCTEs,
   getFunnelUserMetricAggColumns,
 } from "back-end/src/integrations/sql/ctes/funnel-resolution-cte";
@@ -478,7 +477,7 @@ export function getExperimentFactMetricsQuery(
   const funnelWorkingColumnNames = new Set(
     funnelMetrics.flatMap(({ metric, alias }) =>
       metric.funnelSettings.steps.map((_step, stepIndex) =>
-        stepIndex > 0 || funnelStep0NeedsExposureWindow(metric)
+        stepIndex > 0
           ? funnelStepArrayColumn(alias, stepIndex)
           : funnelStepResolvedTsColumn(alias, 0),
       ),

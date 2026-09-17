@@ -57,6 +57,7 @@ import {
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
+  SqlDialect,
   SqlIdentifierQuote,
   StringMatchFn,
   TemplateVariables,
@@ -118,11 +119,14 @@ export function isLegacyMetric(m: ExperimentMetricDefinition): boolean {
 }
 
 export function canInlineFilterColumn(
-  factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
+  factTable: Pick<
+    FactTableInterface,
+    "userIdTypes" | "userIdColumns" | "columns"
+  >,
   column: string,
 ): boolean {
   // If the column is one of the identifier columns, it is not eligible for prompting
-  if (factTable.userIdTypes.includes(column)) return false;
+  if (getFactTableIdColumns(factTable).includes(column)) return false;
 
   const dataType = getSelectedColumnDatatype({
     factTable,
@@ -1040,6 +1044,8 @@ export function getRowFilterSQL({
         ? `(${comparisonColumn} IN ${list})`
         : `(${comparisonColumn} NOT IN ${list})`;
     }
+    case "matches_pattern":
+    case "not_matches_pattern":
     case "starts_with":
     case "ends_with":
     case "contains":
@@ -1095,13 +1101,53 @@ export function getFactTableTemplateVariables(
   };
 }
 
-// The timestamp column in a fact table's SQL is configurable, defaulting to
-// `timestamp`. Query generation aliases it to `timestamp` when it first selects
-// from the fact table, so nothing downstream has to know the real name.
 export function getFactTableTimestampColumn(
   factTable: Pick<FactTableInterface, "timestampColumn"> | undefined | null,
 ): string {
   return factTable?.timestampColumn || "timestamp";
+}
+
+export function getFactTableIdColumn(
+  factTable: Pick<FactTableInterface, "userIdColumns"> | undefined | null,
+  idType: string,
+): string {
+  return factTable?.userIdColumns?.[idType] || idType;
+}
+
+export function getFactTableIdColumnExpression(
+  factTable:
+    | Pick<FactTableInterface, "userIdColumns" | "columns">
+    | undefined
+    | null,
+  idType: string,
+  dialect: Pick<SqlDialect, "jsonExtract" | "identifierQuote">,
+  alias = "",
+): string {
+  const column = getFactTableIdColumn(factTable, idType);
+  if (!factTable || column === idType) {
+    return alias ? `${alias}.${idType}` : idType;
+  }
+  // Use getColumnExpression to support virtual columns and JSON field paths
+  return getColumnExpression(
+    column,
+    factTable,
+    dialect.jsonExtract,
+    alias,
+    dialect.identifierQuote,
+  );
+}
+
+function getFactTableIdColumns(
+  factTable: Pick<FactTableInterface, "userIdTypes" | "userIdColumns">,
+): string[] {
+  return [
+    ...new Set(
+      factTable.userIdTypes.flatMap((idType) => [
+        idType,
+        getFactTableIdColumn(factTable, idType),
+      ]),
+    ),
+  ];
 }
 
 // TODO(sql): refactor to remove factTableMap
@@ -2924,7 +2970,7 @@ export function expandDerivedMetricsInMap({
             column &&
             !column.deleted &&
             (column.datatype === "string" || column.datatype === "boolean") &&
-            !factTable.userIdTypes.includes(column.column)
+            !getFactTableIdColumns(factTable).includes(column.column)
           );
         });
 
