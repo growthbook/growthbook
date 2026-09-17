@@ -16,6 +16,7 @@ import {
   dispatchRampEvent,
   dispatchAwaitingStartApproval,
   getStartActionsFromRules,
+  normalizeRampPlanForceValues,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -346,6 +347,18 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
+  // startActions derived from the live rule (none in the body) are its own
+  // value and are only stringified; everything else is checked.
+  const normalizedPlan = normalizeRampPlanForceValues(
+    {
+      steps: resolvedSteps,
+      startActions: resolvedStartActions,
+      endActions: resolvedEndActions,
+    },
+    hasTarget ? feature : undefined,
+    { validateStartActions: body.startActions !== undefined },
+  );
+
   const defaultName = `Ramp schedule \u2013 ${new Date().toLocaleDateString(
     "en-US",
     { month: "short", year: "numeric" },
@@ -370,9 +383,9 @@ export const postRampSchedule = createApiRequestHandler(
             },
           ]
         : [],
-      steps: resolvedSteps,
-      startActions: resolvedStartActions,
-      endActions: resolvedEndActions,
+      steps: normalizedPlan.steps,
+      startActions: normalizedPlan.startActions,
+      endActions: normalizedPlan.endActions,
     } as unknown as RampScheduleInterface);
   }
 
@@ -396,9 +409,9 @@ export const postRampSchedule = createApiRequestHandler(
           },
         ]
       : [],
-    startActions: resolvedStartActions,
-    steps: resolvedSteps,
-    endActions: resolvedEndActions,
+    startActions: normalizedPlan.startActions,
+    steps: normalizedPlan.steps ?? [],
+    endActions: normalizedPlan.endActions,
     startDate,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
     monitoringConfig: normalizeMonitoringConfig(

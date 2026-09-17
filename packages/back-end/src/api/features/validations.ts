@@ -15,6 +15,7 @@ import { findStoredRuleCounterpart, validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
+import { normalizeRampPlanForceValues } from "back-end/src/services/rampSchedule";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import {
@@ -32,10 +33,17 @@ export { inlineRampScheduleInput };
 
 type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 
-// targetId is a placeholder — real UUID is injected at publish time.
+type RampForceFeature = Pick<FeatureInterface, "valueType">;
+
+// targetId is a placeholder — real UUID is injected at publish time. `force`
+// values are brought to the string form rule values use (and validated against
+// the feature when given) so a draft plan reads back the way it will apply.
 function normalizeRevisionRampCreateAction(
   input: z.infer<typeof apiRevisionRampCreateAction>,
+  feature?: RampForceFeature,
+  opts?: { validateStartActions?: boolean },
 ): RevisionRampCreateAction {
+  input = normalizeRampPlanForceValues(input, feature, opts);
   const normalizeAction = (a: {
     targetId?: string;
     patch: Record<string, unknown>;
@@ -74,13 +82,19 @@ export const DRAFT_STATUSES = ACTIVE_DRAFT_STATUSES;
 export function normalizeInlineRampSchedule(
   input: InlineRampScheduleInput,
   ruleId: string,
+  feature?: RampForceFeature,
+  opts?: { validateStartActions?: boolean },
 ): RevisionRampCreateAction {
-  return normalizeRevisionRampCreateAction({
-    ...input,
-    mode: "create" as const,
-    ruleId,
-    steps: input.steps ?? [],
-  });
+  return normalizeRevisionRampCreateAction(
+    {
+      ...input,
+      mode: "create" as const,
+      ruleId,
+      steps: input.steps ?? [],
+    },
+    feature,
+    opts,
+  );
 }
 
 export function isDraftStatus(status: string): boolean {

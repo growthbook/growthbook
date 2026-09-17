@@ -104,6 +104,8 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
   PutFeatureRuleConflict,
+  InlineRampScheduleCreate,
+  InlineRampScheduleUpdate,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
@@ -311,6 +313,10 @@ import {
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
 import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
+import {
+  normalizeRampPlanForceValues,
+  rampStartValuesOf,
+} from "back-end/src/services/rampSchedule";
 
 function normalizeRampStepAction(a: {
   targetType?: string;
@@ -322,6 +328,29 @@ function normalizeRampStepAction(a: {
     targetId: a.targetId ?? "",
     patch: a.patch as RampStepAction["patch"],
   };
+}
+
+// A ramp plan staged from the rule editor: values become the string form rule
+// values use, and a step or end value the flag's type rejects fails at save
+// rather than at publish. A start value echoing the rule's own is the
+// editor's anchor and is not judged.
+function normalizeRuleModalRampValues(
+  plan: InlineRampScheduleCreate | InlineRampScheduleUpdate,
+  feature: FeatureInterface,
+  ruleId: string,
+): void {
+  Object.assign(
+    plan,
+    normalizeRampPlanForceValues(plan, feature, {
+      knownStartValues: rampStartValuesOf(
+        feature,
+        (plan.startActions ?? []).map((a) => ({
+          id: a.targetId ?? "",
+          ruleId,
+        })),
+      ),
+    }),
+  );
 }
 
 // Routes an envelope change through the revision system.
@@ -3513,6 +3542,7 @@ export async function postFeatureRule(
     rule.id
   ) {
     if (rampSchedulePayload.mode === "create") {
+      normalizeRuleModalRampValues(rampSchedulePayload, feature, rule.id);
       const createAction: RevisionRampCreateAction = {
         mode: "create",
         name: rampSchedulePayload.name,
@@ -4817,6 +4847,12 @@ export async function putFeatureRule(
     | RevisionRampDetachAction
     | undefined;
   if (rampSchedulePayload) {
+    if (
+      rampSchedulePayload.mode === "create" ||
+      rampSchedulePayload.mode === "update"
+    ) {
+      normalizeRuleModalRampValues(rampSchedulePayload, feature, ruleId);
+    }
     if (rampSchedulePayload.mode === "create") {
       const createAction: RevisionRampCreateAction = {
         mode: "create",

@@ -329,6 +329,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       resolvedRampAction = normalizeInlineRampSchedule(
         inlineRampSchedule,
         updatedRule.id,
+        feature,
       );
       updatedRule.scheduleRules = [];
       updatedRule.scheduleType = "none";
