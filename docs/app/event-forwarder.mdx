@@ -55,7 +55,7 @@ Key-pair authentication must be configured on the Snowflake datasource connectio
 
 ### Databricks
 
-The Databricks connection **must use Databricks OAuth (machine-to-machine) authentication** with a Databricks-issued client ID and secret. Personal access tokens and Azure Entra ID service principals keep working for queries, but the Event Forwarder writes through [Zerobus Ingest](https://docs.databricks.com/aws/en/ingestion/zerobus), which only accepts Databricks OAuth tokens. Switch the datasource connection to Databricks OAuth before enabling the Event Forwarder.
+The Databricks connection **must use Databricks OAuth (machine-to-machine) authentication** with a Databricks-issued client ID and secret. Personal access tokens keep working for queries, but the Event Forwarder writes through [Zerobus Ingest](https://docs.databricks.com/aws/en/ingestion/zerobus), which only accepts Databricks OAuth tokens. Switch the datasource connection to Databricks OAuth before enabling the Event Forwarder.
 
 Grant the service principal the following on the destination catalog and schema. GrowthBook creates the three Delta tables itself, so it also gets `SELECT` and `MODIFY` on them as their owner.
 

@@ -21,7 +21,7 @@ export type EventForwarderDatasourceParams =
   | undefined;
 
 export const DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE =
-  "Databricks event forwarder requires Databricks OAuth (machine-to-machine) authentication. Personal access tokens and Entra ID are supported for Databricks queries, but Zerobus ingestion requires a Databricks-issued OAuth client ID and secret.";
+  "Databricks event forwarder requires Databricks OAuth (machine-to-machine) authentication. Personal access tokens are supported for Databricks queries, but Zerobus ingestion requires a Databricks-issued OAuth client ID and secret.";
 
 export function databricksParamsSupportEventForwarder(
   params: Partial<Pick<DatabricksConnectionParams, "authType">> | undefined,

@@ -66,29 +66,13 @@ const DatabricksForm: FC<{
           value={authType}
           setValue={(value) => setParams({ authType: value })}
         >
-          <SelectItem value="oauth-m2m">
-            Databricks OAuth (machine-to-machine)
-          </SelectItem>
-          <SelectItem value="azure-entra">
-            Azure Entra ID service principal
-          </SelectItem>
+          <SelectItem value="oauth-m2m">OAuth (machine-to-machine)</SelectItem>
           <SelectItem value="pat">Personal access token</SelectItem>
         </Select>
       </div>
 
-      {authType === "oauth-m2m" || authType === "azure-entra" ? (
+      {authType === "oauth-m2m" ? (
         <>
-          {authType === "azure-entra" ? (
-            <div className="form-group col-md-12">
-              <TextField
-                label="Tenant ID"
-                name="azureTenantId"
-                required
-                value={params.azureTenantId || ""}
-                onChange={onParamChange}
-              />
-            </div>
-          ) : null}
           <div className="form-group col-md-12">
             <TextField
               label="Client ID"
