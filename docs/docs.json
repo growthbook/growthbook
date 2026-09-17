@@ -980,6 +980,7 @@
                   "api/ContextualBandits/operation/startContextualBandit",
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
+                  "api/ContextualBandits/operation/updateContextualBanditVariations",
                   "api/ContextualBandits/operation/cancelContextualBandit"
                 ]
               },
@@ -1056,6 +1057,7 @@
                   "api/AnalyticsExplorations/operation/postDataSourceExploration",
                   "api/AnalyticsExplorations/operation/postSqlExploration",
                   "api/AnalyticsExplorations/operation/postFunnelExploration",
+                  "api/AnalyticsExplorations/operation/postJourneyExploration",
                   "api/AnalyticsExplorations/operation/searchProductAnalyticsResources",
                   "api/AnalyticsExplorations/operation/getProductAnalyticsColumns",
                   "api/AnalyticsExplorations/operation/getProductAnalyticsColumnValues",

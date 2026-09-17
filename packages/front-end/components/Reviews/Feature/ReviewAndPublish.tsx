@@ -2862,24 +2862,16 @@ export default function ReviewAndPublish({
             {(() => {
               const continueLabel = "Continue to Publish →";
 
-              // A pending schedule must be canceled before a manual publish (one
-              // explicit path back to "approved"). An admin bypass override lets an
-              // admin publish now over someone else's pending schedule — but not
-              // over a schedule that was itself admin-armed (that reads as the
-              // intentional deferral, so it still blocks publish-now).
-              const scheduleBlocksPublish =
-                scheduledPending && (!adminPublish || scheduleArmedByAdmin);
+              // A pending schedule does not block publishing: the server answers
+              // with a warning the "Save anyway?" retry acknowledges, and the
+              // schedule is cancelled by the publish.
               const publishEnabled =
                 state.submitAction === "publish" &&
                 state.ctaEnabled &&
-                canDoPrimary &&
-                !scheduleBlocksPublish;
+                canDoPrimary;
 
               const continueEnabled =
-                continueToPublish &&
-                state.ctaEnabled &&
-                canDoPrimary &&
-                !scheduleBlocksPublish;
+                continueToPublish && state.ctaEnabled && canDoPrimary;
 
               const primaryFooterEnabled = continueToPublish
                 ? continueEnabled
@@ -2887,8 +2879,8 @@ export default function ReviewAndPublish({
 
               const primaryFooterLabel = continueToPublish
                 ? continueLabel
-                : scheduleBlocksPublish
-                  ? "Publish scheduled"
+                : scheduledPending
+                  ? "Publish now"
                   : onlyScheduledSelected
                     ? "Schedule to Start"
                     : "Publish";
@@ -3172,7 +3164,7 @@ export default function ReviewAndPublish({
                           <Checkbox
                             label="Acknowledge incomplete recommended items and continue"
                             weight="regular"
-                            disabled={!canDoPrimary || scheduleBlocksPublish}
+                            disabled={!canDoPrimary}
                             value={checklistAcknowledged}
                             setValue={(value) =>
                               setChecklistAcknowledged(!!value)
@@ -3181,26 +3173,19 @@ export default function ReviewAndPublish({
                         </Box>
                       )}
 
-                      {/* A live schedule blocks "publish now"; the scheduled
-                    status card above already explains this and offers
-                    Cancel/Change, so we hide the otherwise-dead disabled
-                    button. It reappears the moment the block clears (e.g. admin
-                    bypass toggled, or the experiments "continue" flow). */}
-                      {!(scheduleBlocksPublish && !continueToPublish) && (
-                        <Button
-                          onClick={primaryFooterEnabled ? doSubmit : undefined}
-                          loading={
-                            submitting &&
-                            (state.submitAction === "publish" ||
-                              continueToPublish)
-                          }
-                          disabled={!primaryFooterEnabled}
-                          icon={state.ctaLocked ? <PiLockSimple /> : undefined}
-                          style={{ width: "100%" }}
-                        >
-                          {primaryFooterLabel}
-                        </Button>
-                      )}
+                      <Button
+                        onClick={primaryFooterEnabled ? doSubmit : undefined}
+                        loading={
+                          submitting &&
+                          (state.submitAction === "publish" ||
+                            continueToPublish)
+                        }
+                        disabled={!primaryFooterEnabled}
+                        icon={state.ctaLocked ? <PiLockSimple /> : undefined}
+                        style={{ width: "100%" }}
+                      >
+                        {primaryFooterLabel}
+                      </Button>
 
                       {/* ── Uniform status displays for the publish state ──
                     All callouts use the same size, spacing, and chrome so

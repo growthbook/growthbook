@@ -7,9 +7,12 @@ import { Box, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import { Team, useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ProjectBadges from "@/components/ProjectBadges";
 import { useAuth } from "@/services/auth";
-import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
+import {
+  CollapsedRuleRows,
+  projectRuleRows,
+  ruleRows,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -36,7 +39,7 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
   const [permissionsTeamId, setPermissionsTeamId] = useState<string | null>(
     null,
   );
-  const { projects } = useDefinitions();
+  const { getProjectById } = useDefinitions();
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -61,9 +64,15 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
         <Table variant="surface" layout="fixed">
           <TableHeader>
             <TableRow>
-              <TableColumnHeader>Team Name</TableColumnHeader>
-              <TableColumnHeader>Description</TableColumnHeader>
-              <TableColumnHeader>Date Updated</TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teamName}>
+                Team Name
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teamDescription}>
+                Description
+              </TableColumnHeader>
+              <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.teamDate}>
+                Date Updated
+              </TableColumnHeader>
               <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.role}>
                 Role
               </TableColumnHeader>
@@ -105,25 +114,16 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                   </TableCell>
                   <TableCell>{date(t.dateUpdated)}</TableCell>
                   <TableCell>
-                    <RoleRuleLines scope={t} organization={organization} />
+                    <CollapsedRuleRows rows={ruleRows(t, organization)} />
                   </TableCell>
                   <TableCell>
-                    {t.projectRoles?.map((pr) => {
-                      const p = projects.find((p) => p.id === pr.project);
-                      if (!p?.name) return null;
-                      return (
-                        <div key={`project-tags-${p.id}`}>
-                          <ProjectBadges
-                            resourceType="team"
-                            projectIds={[p.id]}
-                          />{" "}
-                          <RoleRuleLines
-                            scope={pr}
-                            organization={organization}
-                          />
-                        </div>
-                      );
-                    })}
+                    <CollapsedRuleRows
+                      rows={projectRuleRows(
+                        t.projectRoles ?? [],
+                        getProjectById,
+                        organization,
+                      )}
+                    />
                   </TableCell>
                   <TableCell>{t.members?.length ?? 0}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>

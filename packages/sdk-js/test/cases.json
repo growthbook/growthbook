@@ -3127,6 +3127,298 @@
       true
     ],
     [
+      "$vgt - date-based version",
+      {
+        "version": {
+          "$vgt": "20260909.9.9"
+        }
+      },
+      {
+        "version": "20260910.1.1"
+      },
+      true
+    ],
+    [
+      "$vlt - oversized condition operand",
+      {
+        "version": {
+          "$vlt": "123456789"
+        }
+      },
+      {
+        "version": "1.0.0"
+      },
+      true
+    ],
+    [
+      "$veq - oversized on both sides",
+      {
+        "version": {
+          "$veq": "123456789"
+        }
+      },
+      {
+        "version": "123456789"
+      },
+      true
+    ],
+    [
+      "$vgt - oversized pre-release segment",
+      {
+        "version": {
+          "$vgt": "1.2.3-rc.123455"
+        }
+      },
+      {
+        "version": "1.2.3-rc.123456"
+      },
+      true
+    ],
+    [
+      "$vlte - oversized equal segments",
+      {
+        "version": {
+          "$vlte": "20260910.1.0"
+        }
+      },
+      {
+        "version": "20260910.1.0"
+      },
+      true
+    ],
+    [
+      "$vlt - absent attribute is below any release",
+      {
+        "version": {
+          "$vlt": "0.0.1"
+        }
+      },
+      {},
+      true
+    ],
+    [
+      "$vgt - absent attribute is not above a release",
+      {
+        "version": {
+          "$vgt": "0.0.1"
+        }
+      },
+      {},
+      false
+    ],
+    [
+      "$veq - absent attribute equals 0",
+      {
+        "version": {
+          "$veq": "0"
+        }
+      },
+      {},
+      true
+    ],
+    [
+      "$vne - absent attribute differs from a real version",
+      {
+        "version": {
+          "$vne": "1.2.3"
+        }
+      },
+      {},
+      true
+    ],
+    [
+      "$vgt - numeric attribute is stringified",
+      {
+        "version": {
+          "$vgt": "1.0.0"
+        }
+      },
+      {
+        "version": 2
+      },
+      true
+    ],
+    [
+      "$veq - numeric attribute equals numeric condition",
+      {
+        "version": {
+          "$veq": 2
+        }
+      },
+      {
+        "version": 2
+      },
+      true
+    ],
+    [
+      "$veq - float attribute splits on the decimal point",
+      {
+        "version": {
+          "$veq": "1.5"
+        }
+      },
+      {
+        "version": 1.5
+      },
+      true
+    ],
+    [
+      "$veq - empty string attribute is version 0",
+      {
+        "version": {
+          "$veq": "0"
+        }
+      },
+      {
+        "version": ""
+      },
+      true
+    ],
+    [
+      "$veq - boolean attribute is version 0",
+      {
+        "version": {
+          "$veq": "0"
+        }
+      },
+      {
+        "version": true
+      },
+      true
+    ],
+    [
+      "$veq - array attribute is version 0",
+      {
+        "version": {
+          "$veq": "0"
+        }
+      },
+      {
+        "version": ["1.0.0"]
+      },
+      true
+    ],
+    [
+      "$veq - null attribute is version 0",
+      {
+        "version": {
+          "$veq": "0"
+        }
+      },
+      {
+        "version": null
+      },
+      true
+    ],
+    [
+      "$veq - leading v is ignored",
+      {
+        "version": {
+          "$veq": "1.2.3"
+        }
+      },
+      {
+        "version": "v1.2.3"
+      },
+      true
+    ],
+    [
+      "$veq - v inside a pre-release tag is kept",
+      {
+        "version": {
+          "$veq": "1.2.3-dev"
+        }
+      },
+      {
+        "version": "1.2.3-dev"
+      },
+      true
+    ],
+    [
+      "$vne - 1.2.3-dev is not 1.2.3-de",
+      {
+        "version": {
+          "$vne": "1.2.3-de"
+        }
+      },
+      {
+        "version": "1.2.3-dev"
+      },
+      true
+    ],
+    [
+      "$veq - v inside a dotted pre-release is kept",
+      {
+        "version": {
+          "$veq": "1.0.0-alpha.v1"
+        }
+      },
+      {
+        "version": "1.0.0-alpha.v1"
+      },
+      true
+    ],
+    [
+      "$veq - empty middle segment",
+      {
+        "version": {
+          "$veq": "1..2"
+        }
+      },
+      {
+        "version": "1..2"
+      },
+      true
+    ],
+    [
+      "$vne - empty segment changes the part count",
+      {
+        "version": {
+          "$vne": "1.2"
+        }
+      },
+      {
+        "version": "1..2"
+      },
+      true
+    ],
+    [
+      "$veq - leading separator",
+      {
+        "version": {
+          "$veq": "-1.2.3"
+        }
+      },
+      {
+        "version": "-1.2.3"
+      },
+      true
+    ],
+    [
+      "$vne - non-ASCII digit is not the ASCII digit",
+      {
+        "version": {
+          "$vne": "1.2.3-3"
+        }
+      },
+      {
+        "version": "1.2.3-٣"
+      },
+      true
+    ],
+    [
+      "$veq - non-ASCII digits compare as a tag",
+      {
+        "version": {
+          "$veq": "١.٢.٣"
+        }
+      },
+      {
+        "version": "١.٢.٣"
+      },
+      true
+    ],
+    [
       "$or pass but second condition fail",
       {
         "$or": [{ "foo": 1 }, { "bar": 1 }],

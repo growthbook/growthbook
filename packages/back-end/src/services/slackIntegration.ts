@@ -4,14 +4,16 @@ import {
   randomBytes,
   timingSafeEqual,
 } from "node:crypto";
-import { z } from "zod";
-import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import { EventWebHookInterface } from "shared/types/event-webhook";
+import { defaultSlackNotificationEvents } from "shared/notifications";
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
+  SlackNotificationSettingsBody,
   SlackWorkspaceConnectionFrontEndInterface,
   SlackWorkspaceConnectionInterface,
 } from "shared/validators";
+import { z } from "zod";
+import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
+import { EventWebHookInterface } from "shared/types/event-webhook";
 import {
   APP_ORIGIN,
   JWT_SECRET,
@@ -49,7 +51,6 @@ const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
 const SLACK_OAUTH_SCOPE =
   "chat:write,files:write,channels:read,groups:read,channels:join,assistant:write,im:history,app_mentions:read,commands,links:read,links:write";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
-const DEFAULT_SLACK_EVENTS = ["experiment.*", "feature.*"];
 
 const slackOAuthStateSchema = z
   .object({
@@ -491,15 +492,7 @@ export const updateSlackOAuthIntegration = async ({
 }: {
   context: ReqContext;
   id: string;
-  updates: Pick<
-    EventWebHookInterface,
-    | "enabled"
-    | "events"
-    | "projects"
-    | "environments"
-    | "tags"
-    | "notificationSettings"
-  >;
+  updates: SlackNotificationSettingsBody;
 }): Promise<SlackOAuthIntegrationInterface | null> => {
   const eventWebHook = await getEventWebHookById(id, context.org.id);
   if (
@@ -602,7 +595,8 @@ const attachSlackOAuthCode = async ({
       url: slackOAuthResponse.incoming_webhook.url,
       organizationId: context.org.id,
       enabled: true,
-      events: DEFAULT_SLACK_EVENTS,
+      events: defaultSlackNotificationEvents,
+      excludeBookkeepingUpdates: true,
       projects: [],
       tags: [],
       environments: [],
@@ -876,7 +870,8 @@ export const addSlackChannelToWorkspace = async ({
       url: SLACK_WORKSPACE_PLACEHOLDER_URL,
       organizationId: context.org.id,
       enabled: true,
-      events: DEFAULT_SLACK_EVENTS,
+      events: defaultSlackNotificationEvents,
+      excludeBookkeepingUpdates: true,
       projects: [],
       tags: [],
       environments: [],
