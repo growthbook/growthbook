@@ -212,6 +212,22 @@ export const skipPaginationQueryField = {
 // raw query at the context layer, so any endpoint that honors them must declare
 // them here to keep them in the validated query (and in the API docs).
 // DEPRECATED aliases: the body forms below are canonical.
+// Which saved group format the `definition` field uses. Spread into every
+// endpoint that returns a feature definition, so a caller never has to
+// remember which operations honor the pin.
+//
+// The default is "v1" and must stay that way. A new format is a new value, not
+// a new meaning for an old one, so a caller pinning a version keeps getting
+// the same shape forever.
+export const savedGroupFormatQueryField = {
+  savedGroupFormat: z
+    .enum(["v1", "v2"])
+    .describe(
+      "Saved group format used in the `definition` field. `v1` (default) keeps `$inGroup` for ID Lists and inlines Condition Groups. `v2` uses a `$savedGroup` reference for every Saved Group. Neither form includes the group contents — fetch those from the Saved Groups endpoints.",
+    )
+    .optional(),
+};
+
 export const schemaValidationQueryFields = {
   skipSchemaValidation: booleanQueryField
     .describe(

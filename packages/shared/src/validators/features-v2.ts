@@ -10,6 +10,7 @@ import {
   skipPaginationQueryField,
   publishBypassedGatesField,
   readOnlyEcho,
+  savedGroupFormatQueryField,
 } from "./shared";
 import {
   ownerInputField,
@@ -824,6 +825,7 @@ export const listFeaturesV2Validator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
+      ...savedGroupFormatQueryField,
       ...paginationQueryFields,
       projectId: z.string().describe("Filter by project id").optional(),
       clientKey: z
@@ -855,7 +857,12 @@ export const listFeaturesV2Validator = {
 
 export const postFeatureV2Validator = {
   bodySchema: postFeatureBodyV2,
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z
+    .object({
+      ...savedGroupFormatQueryField,
+      ...schemaValidationQueryFields,
+    })
+    .strict(),
   paramsSchema: z.never(),
   responseSchema: featureV2ResponseSchema,
   summary: "Create a single feature",
@@ -889,6 +896,7 @@ export const getFeatureV2Validator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
+      ...savedGroupFormatQueryField,
       withRevisions: z
         .enum(["all", "drafts", "published", "none"])
         .describe(
@@ -912,7 +920,12 @@ export const getFeatureV2Validator = {
 
 export const updateFeatureV2Validator = {
   bodySchema: updateFeatureBodyV2,
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z
+    .object({
+      ...savedGroupFormatQueryField,
+      ...schemaValidationQueryFields,
+    })
+    .strict(),
   paramsSchema: idParams,
   responseSchema: featureV2UpdateResponseSchema,
   summary: "Partially update a feature",
@@ -974,7 +987,7 @@ export const toggleFeatureV2Validator = {
       ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...savedGroupFormatQueryField }).strict(),
   paramsSchema: idParams,
   responseSchema: featureV2ResponseSchema.extend({
     bypassedGates: publishBypassedGatesField,
@@ -997,7 +1010,7 @@ export const revertFeatureV2Validator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...savedGroupFormatQueryField }).strict(),
   paramsSchema: idParams,
   responseSchema: featureV2ResponseSchema.extend({
     bypassedGates: publishBypassedGatesField,

@@ -18,7 +18,13 @@ export const revertFeatureV2 = createApiRequestHandler(
     canUseRestApiBypassSetting(req),
   );
   return {
-    feature: await resolveOwnerEmail(getApiFeatureObjV2(data), req.context),
+    feature: await resolveOwnerEmail(
+      getApiFeatureObjV2({
+        ...data,
+        savedGroupFormat: req.query.savedGroupFormat,
+      }),
+      req.context,
+    ),
     ...(data.bypassedGates.length ? { bypassedGates: data.bypassedGates } : {}),
   };
 });

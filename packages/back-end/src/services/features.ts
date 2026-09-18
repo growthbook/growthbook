@@ -27,7 +27,6 @@ import {
   getConfigBackingPatch,
   getDependentFeatures,
   getSavedGroupsValuesFromGroupMap,
-  getSavedGroupsValuesFromInterfaces,
   getTargetingProjectIds,
   isDefined,
   namespacesToMap,
@@ -42,7 +41,10 @@ import {
 import {
   getConnectionSDKCapabilities,
   getPayloadAllowedKeys,
-  replaceSavedGroups,
+  getSavedGroupPayloadStrategy,
+  withoutUnsupportedSavedGroupCapabilities,
+  findAllReferencedSavedGroupIds,
+  SavedGroupPayloadStrategy,
   SDKCapability,
   buildConstantValueMap,
   ConstantValueMap,
@@ -58,9 +60,9 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
-import pickBy from "lodash/pickBy";
 import {
   GroupMap,
+  SavedGroupPayloadMap,
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/types/saved-group";
@@ -147,7 +149,7 @@ import {
   buildPayloadMetadata,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
-  getParsedCondition,
+  mergeConditionAndSavedGroups,
   pairedWeightsToPositional,
   buildPrerequisiteProjectReach,
   expandPayloadKeysForPrerequisites,
@@ -202,7 +204,7 @@ export function generateFeaturesPayload({
   capabilities,
   savedGroupReferencesEnabled,
   organization,
-  savedGroupsMap,
+  savedGroupStrategy,
   includeRuleIds,
   includeExperimentNames,
   cbMap,
@@ -234,7 +236,7 @@ export function generateFeaturesPayload({
   capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
-  savedGroupsMap?: Record<string, SavedGroupInterface>;
+  savedGroupStrategy?: SavedGroupPayloadStrategy;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
   cbMap?: Map<string, ContextualBanditInterface>;
@@ -275,7 +277,7 @@ export function generateFeaturesPayload({
       capabilities,
       savedGroupReferencesEnabled,
       organization,
-      savedGroupsMap,
+      savedGroupStrategy,
       includeRuleIds,
       includeExperimentNames,
       includeDraftExperimentRefs,
@@ -344,13 +346,29 @@ function buildHoldoutsMapForProjects(
 export function generateHoldoutsPayload({
   holdoutsMap,
   groupMap,
+  capabilities,
+  savedGroupReferencesEnabled,
+  savedGroupStrategy: providedSavedGroupStrategy,
 }: {
   holdoutsMap: Map<
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
   groupMap: GroupMap;
+  capabilities?: SDKCapability[];
+  savedGroupReferencesEnabled?: boolean;
+  savedGroupStrategy?: SavedGroupPayloadStrategy;
 }): Record<string, FeatureDefinition> {
+  // Holdouts share the payload's savedGroups map, so they need the same format
+  // as every other feature. No organization is passed here, so inlining is not
+  // available; getFeatureDefinitionsResponse handles that later.
+  const savedGroupStrategy =
+    providedSavedGroupStrategy ??
+    getSavedGroupPayloadStrategy({
+      capabilities,
+      savedGroupReferencesEnabled,
+      groupMap,
+    });
   const holdoutDefs: Record<string, FeatureDefinition> = {};
   holdoutsMap.forEach((holdoutWithExperiment) => {
     const exp = holdoutWithExperiment.holdoutExperiment;
@@ -373,11 +391,11 @@ export function generateHoldoutsPayload({
       meta: [{ key: "0" }, { key: "1" }],
     };
 
-    const condition = getParsedCondition(
-      groupMap,
-      mainPhase.condition,
-      mainPhase.savedGroups,
-    );
+    const condition = mergeConditionAndSavedGroups({
+      savedGroupStrategy,
+      condition: mainPhase.condition,
+      savedGroups: mainPhase.savedGroups,
+    });
     if (condition) {
       rule.condition = condition;
     }
@@ -417,7 +435,7 @@ export function generateAutoExperimentsPayload({
   capabilities,
   savedGroupReferencesEnabled,
   organization,
-  savedGroupsMap,
+  savedGroupStrategy: providedSavedGroupStrategy,
   includeExperimentNames,
 }: {
   visualExperiments: VisualExperiment[];
@@ -435,9 +453,17 @@ export function generateAutoExperimentsPayload({
   capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
-  savedGroupsMap?: Record<string, SavedGroupInterface>;
+  savedGroupStrategy?: SavedGroupPayloadStrategy;
   includeExperimentNames?: boolean;
 }): AutoExperimentWithMetadata[] {
+  const savedGroupStrategy =
+    providedSavedGroupStrategy ??
+    getSavedGroupPayloadStrategy({
+      capabilities,
+      savedGroupReferencesEnabled,
+      groupMap,
+      organization,
+    });
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
   const isValidSDKExperiment = (
     e: AutoExperimentWithMetadata | null,
@@ -480,15 +506,18 @@ export function generateAutoExperimentsPayload({
         ? variations.find((v) => v.id === e.releasedVariationId)
         : null;
 
-      const condition = getParsedCondition(
-        groupMap,
-        phase?.condition,
-        phase?.savedGroups,
-      );
+      const condition = mergeConditionAndSavedGroups({
+        savedGroupStrategy,
+        condition: phase?.condition,
+        savedGroups: phase?.savedGroups,
+      });
 
       const prerequisites = (phase?.prerequisites ?? [])
         ?.map((p) => {
-          const condition = getParsedCondition(groupMap, p.condition);
+          const condition = mergeConditionAndSavedGroups({
+            savedGroupStrategy,
+            condition: p.condition,
+          });
           if (!condition) return null;
           return {
             id: p.id,
@@ -604,20 +633,9 @@ export function generateAutoExperimentsPayload({
       );
       if (metadata) exp.metadata = metadata;
 
-      if (capabilities !== undefined && savedGroupsMap && organization) {
-        if (
-          !capabilities.includes("savedGroupReferences") ||
-          savedGroupReferencesEnabled === false
-        ) {
-          recursiveWalk(
-            exp.condition,
-            replaceSavedGroups(savedGroupsMap, organization),
-          );
-          recursiveWalk(
-            exp.parentConditions,
-            replaceSavedGroups(savedGroupsMap, organization),
-          );
-        }
+      if (capabilities !== undefined) {
+        savedGroupStrategy.finalizeCondition(exp.condition);
+        savedGroupStrategy.finalizeCondition(exp.parentConditions);
         const { removedExperimentKeys } = getPayloadAllowedKeys(capabilities);
         if (removedExperimentKeys.length) {
           return omit(exp, removedExperimentKeys) as AutoExperimentWithMetadata;
@@ -677,16 +695,28 @@ export async function getSavedGroupMap(
   return groupMap;
 }
 
-// Only produce the id lists which are used by at least one feature or experiment
-export function filterUsedSavedGroups(
-  savedGroups: SavedGroupsValues,
+/**
+ * Returns the ids of every saved group used by a feature or experiment, plus
+ * every group those groups reference.
+ */
+export function getUsedSavedGroupIds(
   features: Record<string, FeatureDefinition>,
   experimentsDefinitions: AutoExperiment[],
-) {
-  const usedGroupIds = new Set();
-  const addToUsedGroupIds: NodeHandler = (node) => {
-    if (node[0] === "$inGroup" || node[0] === "$notInGroup") {
-      usedGroupIds.add(node[1]);
+  groupMap: GroupMap,
+): Set<string> {
+  const seedIds = new Set<string>();
+  const addToUsedGroupIds: NodeHandler = ([key, value]) => {
+    if (
+      key === "$inGroup" ||
+      key === "$notInGroup" ||
+      key === "$savedGroup" ||
+      key === "$savedGroups"
+    ) {
+      // `$savedGroups` should already have been rewritten by now. Accept it
+      // anyway so a group is never dropped by mistake.
+      (Array.isArray(value) ? value : [value]).forEach((v) => {
+        if (typeof v === "string") seedIds.add(v);
+      });
     }
   };
   Object.values(features).forEach((feature) => {
@@ -703,9 +733,7 @@ export function filterUsedSavedGroups(
     recursiveWalk(experimentDefinition.parentConditions, addToUsedGroupIds);
   });
 
-  return pickBy(savedGroups, (_values, savedGroupId) =>
-    usedGroupIds.has(savedGroupId),
-  );
+  return findAllReferencedSavedGroupIds(seedIds, groupMap);
 }
 
 export function filterUsedContextualBandits(
@@ -1125,7 +1153,10 @@ export async function refreshSDKPayloadCache({
 
     return async () => {
       try {
-        const capabilities = getConnectionSDKCapabilities(connection);
+        const capabilities = withoutUnsupportedSavedGroupCapabilities(
+          getConnectionSDKCapabilities(connection),
+          connection,
+        );
         const environmentDoc = context.org?.settings?.environments?.find(
           (e) => e.id === env,
         );
@@ -1152,9 +1183,7 @@ export async function refreshSDKPayloadCache({
             includeRedirectExperiments: connection.includeRedirectExperiments,
             includeRuleIds: connection.includeRuleIds,
             hashSecureAttributes: connection.hashSecureAttributes,
-            savedGroupReferencesEnabled:
-              connection.savedGroupReferencesEnabled &&
-              capabilities.includes("savedGroupReferences"),
+            savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
             includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
             includeCustomFieldsInMetadata:
               connection.includeCustomFieldsInMetadata,
@@ -1210,6 +1239,7 @@ export type FeatureDefinitionsResponseArgs = {
   capabilities: SDKCapability[];
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
+  savedGroupStrategy?: SavedGroupPayloadStrategy;
   contextualBandits?: ContextualBanditDefinitions;
   organization: OrganizationInterface;
 };
@@ -1226,6 +1256,7 @@ export async function getFeatureDefinitionsResponse({
   usedSavedGroups,
   contextualBandits,
   savedGroupReferencesEnabled,
+  savedGroupStrategy: providedSavedGroupStrategy,
   organization,
 }: FeatureDefinitionsResponseArgs): Promise<{
   features: Record<string, FeatureDefinition>;
@@ -1233,7 +1264,7 @@ export async function getFeatureDefinitionsResponse({
   dateUpdated: Date | null;
   encryptedFeatures?: string;
   encryptedExperiments?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsValues | SavedGroupPayloadMap;
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
@@ -1249,31 +1280,45 @@ export async function getFeatureDefinitionsResponse({
     );
   }
 
-  // Inline saved groups: expand $inGroup to $in when not using savedGroupReferences.
-  // When called from buildSDKPayloadForConnection, getFeatureDefinition already expanded; this pass is a no-op.
+  // Worked out once and used for both parts below: whether the conditions
+  // still need inlining, and what shape the `savedGroups` field takes. Working
+  // them out separately is how they end up disagreeing, which would leave
+  // operators with nothing to look up.
+  const savedGroupStrategy =
+    providedSavedGroupStrategy ??
+    getSavedGroupPayloadStrategy({
+      capabilities,
+      savedGroupReferencesEnabled,
+      groupMap: new Map(usedSavedGroups.map((sg) => [sg.id, sg])),
+      organization,
+    });
+
+  // When called from buildSDKPayloadForConnection, getFeatureDefinition already
+  // inlined these; this pass is a no-op there. It exists for the other entry
+  // points into this function, which build their features elsewhere.
   if (
-    (!capabilities.includes("savedGroupReferences") ||
-      !savedGroupReferencesEnabled) &&
+    savedGroupStrategy.rendering === "inline" &&
     usedSavedGroups?.length > 0 &&
     organization
   ) {
-    const savedGroupsMap = Object.fromEntries(
-      usedSavedGroups.map((sg) => [sg.id, sg]),
-    );
+    // Safety net for an SDK that cannot look up references. Expand any
+    // `$savedGroups` that got this far, then inline the `$inGroup` operators it
+    // produced. Does nothing on the normal path, where neither is left.
+    const inlineSavedGroups = (condition: unknown) => {
+      recursiveWalk(
+        condition,
+        savedGroupStrategy.createSavedGroupsOperatorHandler(),
+      );
+      savedGroupStrategy.finalizeCondition(condition);
+    };
     for (const k in features) {
       if (features[k]?.rules) {
         for (const rule of features[k].rules ?? []) {
           if (rule.condition) {
-            recursiveWalk(
-              rule.condition,
-              replaceSavedGroups(savedGroupsMap, organization),
-            );
+            inlineSavedGroups(rule.condition);
           }
           if (rule.parentConditions) {
-            recursiveWalk(
-              rule.parentConditions,
-              replaceSavedGroups(savedGroupsMap, organization),
-            );
+            inlineSavedGroups(rule.parentConditions);
           }
         }
       }
@@ -1301,15 +1346,8 @@ export async function getFeatureDefinitionsResponse({
     );
   }
 
-  const savedGroupsValues = getSavedGroupsValuesFromInterfaces(
-    usedSavedGroups,
-    organization,
-  );
-
   const savedGroupsForPayload =
-    capabilities.includes("savedGroupReferences") && savedGroupReferencesEnabled
-      ? savedGroupsValues
-      : undefined;
+    savedGroupStrategy.buildSavedGroupsPayload(usedSavedGroups);
 
   const contextualBanditsForPayload = capabilities.includes("contextualBandits")
     ? contextualBandits
@@ -1576,10 +1614,6 @@ export async function buildSDKPayloadForConnection(
         )
       : await getAllURLRedirectExperiments(context, filteredExperimentMap);
 
-  const savedGroupsMap = Object.fromEntries(
-    data.savedGroups.map((sg) => [sg.id, sg]),
-  );
-
   const holdoutsMapForConnection = buildHoldoutsMapForProjects(
     data.holdoutsMap,
     projectList,
@@ -1608,6 +1642,14 @@ export async function buildSDKPayloadForConnection(
     );
   }
 
+  // One strategy for the whole payload, so every part uses the same format.
+  const savedGroupStrategy = getSavedGroupPayloadStrategy({
+    capabilities,
+    savedGroupReferencesEnabled,
+    groupMap: data.groupMap,
+    organization: context.org,
+  });
+
   const featureDefinitions = generateFeaturesPayload({
     features: filteredFeatures,
     environment,
@@ -1619,11 +1661,9 @@ export async function buildSDKPayloadForConnection(
     safeRolloutMap: data.safeRolloutMap,
     holdoutsMap: holdoutsMapForConnection,
     capabilities,
-    savedGroupReferencesEnabled:
-      !!savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
+    savedGroupReferencesEnabled,
     organization: context.org,
-    savedGroupsMap,
+    savedGroupStrategy,
     includeRuleIds,
     includeExperimentNames: connection.includeExperimentNames,
     includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
@@ -1642,6 +1682,7 @@ export async function buildSDKPayloadForConnection(
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
     holdoutsMap: holdoutsMapForConnection,
     groupMap: data.groupMap,
+    savedGroupStrategy,
   });
 
   const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -1654,11 +1695,9 @@ export async function buildSDKPayloadForConnection(
     environment,
     prereqStateCache,
     capabilities,
-    savedGroupReferencesEnabled:
-      !!savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
+    savedGroupReferencesEnabled,
     organization: context.org,
-    savedGroupsMap,
+    savedGroupStrategy,
     includeExperimentNames,
     includeProjectIdInMetadata,
     includeCustomFieldsInMetadata,
@@ -1678,13 +1717,13 @@ export async function buildSDKPayloadForConnection(
     ...holdoutsInUse,
   };
 
-  const savedGroupsInUse = filterUsedSavedGroups(
-    getSavedGroupsValuesFromGroupMap(data.groupMap),
+  const usedSavedGroupIds = getUsedSavedGroupIds(
     featuresWithHoldouts,
     experimentsDefinitions,
+    data.groupMap,
   );
-  const usedSavedGroups = data.savedGroups.filter(
-    (sg) => sg.id in savedGroupsInUse,
+  const usedSavedGroups = data.savedGroups.filter((sg) =>
+    usedSavedGroupIds.has(sg.id),
   );
 
   const contextualBanditsInUse = filterUsedContextualBandits(
@@ -1713,9 +1752,7 @@ export async function buildSDKPayloadForConnection(
     secureAttributeSalt,
     capabilities,
     usedSavedGroups,
-    savedGroupReferencesEnabled:
-      !!savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
+    savedGroupStrategy,
     contextualBandits: contextualBanditsInUse,
     organization: context.org,
   });
@@ -1727,7 +1764,7 @@ export type FeatureDefinitionSDKPayload = {
   dateUpdated: Date | null;
   encryptedFeatures?: string;
   encryptedExperiments?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsValues | SavedGroupPayloadMap;
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
@@ -2748,6 +2785,38 @@ export function toApiRevisionV2(
  * v2 feature API shape: top-level flat `rules` array + `environments[env]`
  * containing only `enabled` / `defaultValue` / `definition` (no rules).
  */
+/**
+ * Which saved group format a REST caller asked for in the `definition` field.
+ * `v1` keeps `$inGroup` for ID Lists and inlines Condition Groups. `v2` sends
+ * every group as a `$savedGroup` reference.
+ *
+ * Neither form ships the group contents. A caller resolving a reference has to
+ * fetch the groups separately, which is already true of `$inGroup` today.
+ */
+export type ApiSavedGroupFormat = "v1" | "v2";
+
+/**
+ * Builds the strategy behind an `ApiSavedGroupFormat`. `v1` is the default and
+ * never changes; a new format means a new enum value, not a new meaning for an
+ * old one.
+ *
+ * No organization is passed on purpose. Without it the strategy cannot inline,
+ * so a REST response can never fall back to embedding group values.
+ */
+function getApiSavedGroupStrategy(
+  format: ApiSavedGroupFormat | undefined,
+  groupMap: GroupMap,
+) {
+  return getSavedGroupPayloadStrategy({
+    capabilities:
+      format === "v2"
+        ? ["savedGroupReferences", "savedGroupReferencesV2"]
+        : ["savedGroupReferences"],
+    savedGroupReferencesEnabled: true,
+    groupMap,
+  });
+}
+
 export function getApiFeatureObjV2({
   feature,
   organization,
@@ -2757,6 +2826,7 @@ export function getApiFeatureObjV2({
   revisions,
   safeRolloutMap,
   rampScheduleMap,
+  savedGroupFormat,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
@@ -2766,7 +2836,12 @@ export function getApiFeatureObjV2({
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   rampScheduleMap?: Map<string, string>;
+  savedGroupFormat?: ApiSavedGroupFormat;
 }): ApiFeatureWithRevisionsV2 {
+  const savedGroupStrategy = getApiSavedGroupStrategy(
+    savedGroupFormat,
+    groupMap,
+  );
   // `baseConfig` (Config mode) is a discrete field; `defaultValueConfig` is the
   // default's own extension (a descendant it patches, else null) — the exposed
   // `defaultValue` is the override patch, never the raw `@config:` directive.
@@ -2786,6 +2861,7 @@ export function getApiFeatureObjV2({
       environment: env,
       safeRolloutMap,
       organization,
+      savedGroupStrategy,
     });
     featureEnvironments[env] = { enabled, defaultValue };
     if (definition) {
@@ -2913,6 +2989,7 @@ export function getApiFeatureObj({
   revision,
   revisions,
   safeRolloutMap,
+  savedGroupFormat,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
@@ -2921,7 +2998,12 @@ export function getApiFeatureObj({
   revision: FeatureRevisionInterface | null;
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  savedGroupFormat?: ApiSavedGroupFormat;
 }): ApiFeatureWithRevisions {
+  const savedGroupStrategy = getApiSavedGroupStrategy(
+    savedGroupFormat,
+    groupMap,
+  );
   // Scrub the internal `@config:` directive out of the exposed values and
   // surface config backing via `baseConfig`/`defaultValueConfig` instead
   // (mirrors the v2 REST shape; `@const:` refs are left intact). Shared by the
@@ -2960,6 +3042,7 @@ export function getApiFeatureObj({
       safeRolloutMap,
       namespaces: namespacesToMap(organization.settings?.namespaces),
       organization,
+      savedGroupStrategy,
     });
 
     featureEnvironments[env] = {
@@ -3020,6 +3103,7 @@ export function getApiFeatureObj({
         safeRolloutMap,
         namespaces: namespacesToMap(organization.settings?.namespaces),
         organization,
+        savedGroupStrategy,
       });
 
       environmentRules[env] = revRulesByEnv[env] ?? [];
@@ -3205,6 +3289,22 @@ export function applySavedGroupHashing(
         doHash: shouldHash(attribute),
       });
     }
+
+    // Condition groups are hashed here too. Previously their content was only
+    // hashed incidentally, by applyFeatureHashing walking the inlined tree —
+    // once they ship as their own payload entries that no longer happens.
+    if (group.type === "condition" && group.condition) {
+      try {
+        const condition = JSON.parse(group.condition);
+        group.condition = JSON.stringify(
+          hashStrings({ obj: condition, salt, attributes }),
+        );
+      } catch (e) {
+        // Leave an unparseable condition untouched. Throwing here would
+        // propagate out of payload generation and 500 the whole org's SDK
+        // endpoint; the group is dropped downstream instead.
+      }
+    }
   });
   return clonedGroups;
 }
@@ -3291,11 +3391,14 @@ any {
   }
 }
 
+/** Operators whose value is a saved group id, not an attribute value. */
+const SAVED_GROUP_ID_OPERATORS = ["$inGroup", "$notInGroup", "$savedGroup"];
+
 function shouldHash(attribute: SDKAttribute, operator?: string) {
   return !!(
     attribute?.datatype &&
     ["secureString", "secureString[]"].includes(attribute?.datatype ?? "") &&
-    (!operator || !["$inGroup", "$notInGroup"].includes(operator))
+    (!operator || !SAVED_GROUP_ID_OPERATORS.includes(operator))
   );
 }
 

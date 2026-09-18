@@ -392,8 +392,7 @@ export default function EditSavedGroupPage() {
     permissionsUtil.canRevisionAction("saved-group", "publish", savedGroup) &&
     (!approvalRequired || canAdminPublish);
 
-  const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
-    useLargeSavedGroupSupport();
+  const largeSavedGroupSupport = useLargeSavedGroupSupport();
 
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
@@ -1399,14 +1398,11 @@ export default function EditSavedGroupPage() {
               onReviewPublish={() => setTabAndScroll("review")}
               onEditDescription={() => setEditDescriptionModal(true)}
             />
-            {savedGroup.type === "list" && (
-              <LargeSavedGroupPerformanceWarning
-                hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-                unsupportedConnections={unsupportedConnections}
-                connections={connections}
-                openUpgradeModal={() => setUpgradeModal(true)}
-              />
-            )}
+            <LargeSavedGroupPerformanceWarning
+              {...largeSavedGroupSupport}
+              type={savedGroup.type === "condition" ? "condition" : "list"}
+              openUpgradeModal={() => setUpgradeModal(true)}
+            />
             {savedGroup.type === "condition" ? (
               <>
                 <Heading size="md" as="h2" mb="3">

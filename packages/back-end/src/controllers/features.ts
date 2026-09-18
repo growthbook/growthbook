@@ -61,6 +61,7 @@ import {
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
+  withoutUnsupportedSavedGroupCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
 import {
@@ -645,14 +646,18 @@ export async function getFeatureDefinitionsWithCache({
 
   // Generate if cache disabled, cache miss, or corrupt cache
   if (!defs) {
-    // Derive capabilities from languages/sdkVersion (or hardcode for legacy API keys)
-    const capabilities =
+    // Derive capabilities from languages/sdkVersion (or hardcode for legacy API keys).
+    // Filtered the same way as the cache-refresh path, so a remote-eval
+    // connection gets the same payload whether or not the cache was warm.
+    const capabilities = withoutUnsupportedSavedGroupCapabilities(
       params.languages[0] === "legacy"
         ? ["bucketingV2" as SDKCapability] // hardcoded for legacy API keys
         : getConnectionSDKCapabilities({
             languages: params.languages as SDKLanguage[],
             sdkVersion: params.sdkVersion,
-          });
+          }),
+      params,
+    );
 
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === params.environment,
