@@ -224,19 +224,22 @@ it("keeps the current Default memberships explicit", () => {
   expect(notificationEventsForLevel("experiment", "default")).toEqual([
     "experiment.status.started",
     "experiment.status.stopped",
-    "experiment.status.endingSoon",
-    "experiment.status.stale",
     "experiment.deleted",
     "experiment.decision.ship",
     "experiment.decision.rollback",
     "experiment.decision.review",
     "experiment.warning",
+    "experiment.guardrailFailed",
   ]);
   expect(notificationEventsForLevel("feature", "default")).toEqual([
     "feature.revision.published",
     "feature.saferollout.ship",
     "feature.saferollout.rollback",
     "feature.saferollout.unhealthy",
+  ]);
+  expect(notificationEventsForLevel("holdout", "default")).toEqual([
+    "holdout.status.changed",
+    "holdout.config.newLinkage",
   ]);
   for (const category of ["config", "constant", "savedGroup"] as const) {
     expect(notificationEventsForLevel(category, "default")).toEqual([
