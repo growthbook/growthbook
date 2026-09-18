@@ -8,7 +8,10 @@ import {
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
-import { featurePublishRefusal } from "back-end/src/revisions/featureDraftAuthority";
+import {
+  featurePublishRefusal,
+  mergeResultTouchesPayload,
+} from "back-end/src/revisions/featureDraftAuthority";
 import { logger } from "back-end/src/util/logger";
 import {
   applyHoldoutExperimentLinkage,
@@ -98,6 +101,7 @@ import type {
 type FeatureDesiredState = {
   mergeResult: MergeResultChanges;
   plan: FeatureMergePlan;
+  publishEnvironments: string[] | null;
   createdRampScheduleIds?: string[];
   updatedFeature?: FeatureInterface;
   // The stamp the apply's guarded write PUT on the feature document. Distinct
@@ -197,6 +201,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const desired: FeatureDesiredState = {
       mergeResult: plan.mergeResult,
       plan,
+      publishEnvironments: null,
     };
     return {
       desiredState: desired as unknown as Record<string, unknown>,
@@ -215,7 +220,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   }) {
     const feature = entity as unknown as FeatureInterface;
     const raw = rawRevision(revision);
-    const { plan } = desiredState as unknown as FeatureDesiredState;
+    const desired = desiredState as unknown as FeatureDesiredState;
+    const { plan } = desired;
     const gates: PublishGate[] = [];
 
     // Use caller context for footprint-aware landing authority.
@@ -228,6 +234,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // Same blind spot as the single publish: ramp reach is not in any rule diff.
       rampActions: raw.rampActions,
     });
+    desired.publishEnvironments = mergeResultTouchesPayload(plan.mergeResult)
+      ? envsToCheck
+      : null;
     const refusal = await featurePublishRefusal({
       context: callerContext,
       feature,
@@ -746,6 +755,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       finalRevision,
       "revision.published",
       bulkPublishFields(context),
+      desired.publishEnvironments === null
+        ? {}
+        : { environments: desired.publishEnvironments },
     );
     const revertedTo = draftRevertedFromVersion(finalRevision);
     if (revertedTo !== undefined) {

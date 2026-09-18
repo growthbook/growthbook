@@ -119,6 +119,7 @@ import {
   canRecallFeatureReview,
   canReopenFeatureDraft,
   holdsFeaturePublishAuthority,
+  mergeResultTouchesPayload,
   revertFootprint,
   stagingTargetingBase,
 } from "back-end/src/revisions/featureDraftAuthority";
@@ -2666,6 +2667,9 @@ export async function postFeaturePublish(
     publishedRevision,
     "revision.published",
     {},
+    mergeResultTouchesPayload(mergeResult.result)
+      ? { environments: envsToCheck }
+      : {},
   );
   // A revert that lands is ALSO a publish, so it owes both events — same rule
   // as the generic engine and the direct revert doors.
@@ -3070,6 +3074,16 @@ export async function postFeatureRevert(
       ? undefined
       : (draft) => assertCanAutoPublish(context, feature, draft),
   });
+  const publishEnvironments = mergeResultTouchesPayload(mergeChanges)
+    ? await getMergeResultPublishEnvs({
+        context,
+        feature,
+        filledLiveRules: liveRules,
+        result: mergeChanges,
+        environmentIds,
+        rampActions: newRevision.rampActions,
+      })
+    : null;
   const updatedFeature = await publishRevision({
     context,
     feature,
@@ -3113,6 +3127,7 @@ export async function postFeatureRevert(
     finalRevision,
     "revision.published",
     {},
+    publishEnvironments === null ? {} : { environments: publishEnvironments },
   );
 
   res.status(200).json({
@@ -6402,6 +6417,7 @@ export async function postFeatureArchive(
       publishedRevision,
       "revision.published",
       {},
+      { environments: archiveEnvs },
     );
   }
 

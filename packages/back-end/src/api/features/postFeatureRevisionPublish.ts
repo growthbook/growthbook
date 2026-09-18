@@ -30,7 +30,10 @@ import {
   evaluatePublishGates,
   PublishBlockedError,
 } from "back-end/src/revisions/publishGates";
-import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureDraftAuthority";
+import {
+  assertCanPublishFeatureRevision,
+  mergeResultTouchesPayload,
+} from "back-end/src/revisions/featureDraftAuthority";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function publishFeatureRevision(
@@ -297,6 +300,9 @@ export async function publishFeatureRevision(
     finalRevision,
     "revision.published",
     {},
+    mergeResultTouchesPayload(mergeChanges)
+      ? { environments: envsToCheck }
+      : {},
   );
   // A revert that lands is ALSO a publish, so it owes both events — same rule
   // as the generic engine and the direct revert doors.

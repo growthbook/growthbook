@@ -4417,6 +4417,7 @@ export async function createAndPublishRevision({
 }): Promise<{
   revision: FeatureRevisionInterface;
   updatedFeature: FeatureInterface;
+  publishEnvironments: string[] | null;
   /** True when a live approval requirement was stepped over, for the caller to report. */
   bypassedApproval: boolean;
 }> {
@@ -4491,11 +4492,22 @@ export async function createAndPublishRevision({
     },
   });
 
+  const mergeChanges = mergeForPublish(revision);
+  const publishEnvironments = mergeResultTouchesPayload(mergeChanges)
+    ? await getMergeResultPublishEnvs({
+        context,
+        feature,
+        filledLiveRules: feature.rules ?? [],
+        result: mergeChanges,
+        environmentIds: allEnvironments,
+        rampActions: revision.rampActions,
+      })
+    : null;
   const updatedFeature = await publishRevision({
     context,
     feature,
     revision,
-    result: mergeForPublish(revision),
+    result: mergeChanges,
     comment,
     // See postFeatureRevisionPublish.ts for the bypassLockdown policy rationale:
     // approval-bypass permission intentionally doubles as ramp-lockdown bypass.
@@ -4506,7 +4518,12 @@ export async function createAndPublishRevision({
   // Every other publish surface names its bypasses in the response; without
   // this a caller cannot tell a publish that needed no approval from one that
   // stepped over a live requirement.
-  return { revision, updatedFeature, bypassedApproval: requiresReview };
+  return {
+    revision,
+    updatedFeature,
+    publishEnvironments,
+    bypassedApproval: requiresReview,
+  };
 }
 
 function getLinkedExperiments(feature: FeatureInterface) {
