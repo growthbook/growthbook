@@ -32,10 +32,9 @@ export const featureRulePatch = z.object({
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 
-// The rule's pre-ramp state: the rollback anchor and the base every step
-// accumulates on, and the only place a plan names how a rule buckets. A
-// partial-coverage step turns a force rule into a rollout, which needs a hash
-// attribute (the rule's own, else this one). Steps cannot carry identity.
+// The rule's pre-ramp state: the rollback anchor, the base every step
+// accumulates on, and the only place a plan names how a rule buckets (a
+// partial-coverage step turns a force rule into a rollout).
 export const rampStartPatch = featureRulePatch.extend({
   hashAttribute: z
     .string()

@@ -409,10 +409,9 @@ function changedRampPatchTargeting(
 
 const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 
-// The payload reads coverage only on rollout rules, so a partial-coverage step
-// turns a force rule into one, which needs a hash attribute: the rule's own or
-// the plan's start anchor. There is no default worth guessing, so a plan that
-// brings neither is refused, at write and again when a stored one fires.
+// A partial-coverage step turns a force rule into a rollout, which needs a
+// hash attribute from the rule or the plan's start anchor. No default is
+// guessed: a plan that brings neither is refused at write and at fire time.
 function assertRampCoverageHashProvided(entries: RampPatchEntry[]): void {
   // A new rule has no id yet: its entries all share one scope object.
   const byRule = new Map<string | RuleScope, RampPatchEntry[]>();

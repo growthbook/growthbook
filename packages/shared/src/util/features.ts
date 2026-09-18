@@ -570,10 +570,9 @@ type RampRulePatch = {
   hashAttribute?: string | null;
 };
 
-// Whether a ramp plan ramps `ruleId`'s coverage without naming what it buckets
-// on: a partial-coverage patch for the rule and no patch for it carrying a hash
-// attribute. On a force rule with none of its own, such a plan cannot promote
-// the rule to a rollout, so writes refuse it and the engine refuses the step.
+// Whether a plan ramps `ruleId`'s coverage without a hash attribute in any of
+// its patches. On a force rule with none of its own, writes refuse such a plan
+// and the engine refuses the step.
 export function rampPlanLacksHashAttribute(
   plan: {
     startActions?: { patch?: RampRulePatch }[] | null;
