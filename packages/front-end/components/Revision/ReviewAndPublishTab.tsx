@@ -460,16 +460,8 @@ function ReviewAndPublishRevision<T>({
     revision.version,
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
+
   const scheduledPending = isScheduledPublishPending(revision);
-  const scheduleArmedByAdmin =
-    scheduledPending && !!revision.scheduledPublishBypassApproval;
-  // A pending dated schedule blocks "publish now": the schedule card already
-  // explains it and offers Cancel/Change, so (matching the feature tab) we hide
-  // the otherwise-dead Publish button. An admin can override a non-admin-armed
-  // schedule by checking the bypass box; an admin-armed schedule is
-  // cancel-and-re-arm only, so it always blocks.
-  const scheduleBlocksPublish =
-    scheduledPending && (!adminPublish || scheduleArmedByAdmin);
 
   // ── Reviewers: latest active verdict per user. Cycle membership is persisted
   // on each review (`stale` is set by the model at every cycle reset — submit,
@@ -1625,8 +1617,7 @@ function ReviewAndPublishRevision<T>({
                   </Box>
                 )}
 
-                {!scheduleBlocksPublish &&
-                  !publishBlockedReason &&
+                {!publishBlockedReason &&
                   (state.submitAction === "publish" ||
                     adminBypassAvailable) && (
                     <Button

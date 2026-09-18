@@ -1,6 +1,7 @@
 import cloneDeep from "lodash/cloneDeep";
 import {
   BANDIT_SRM_DIMENSION_NAME,
+  BAYESIAN_CREDIBLE_INTERVAL_ALPHA,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_TARGET_MDE,
@@ -95,6 +96,11 @@ export function getAnalysisSettingsForStatsEngine(
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   const pValueThresholdNumber =
     Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
+  // The threshold is a frequentist setting; Bayesian intervals stay at 95%.
+  const alpha =
+    settings.statsEngine === "bayesian"
+      ? BAYESIAN_CREDIBLE_INTERVAL_ALPHA
+      : pValueThresholdNumber;
 
   const analysisData: AnalysisSettingsForStatsEngine = {
     var_names: sortedVariations.map((v) => v.name),
@@ -108,7 +114,7 @@ export function getAnalysisSettingsForStatsEngine(
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,
     phase_length_days: phaseLengthDays,
-    alpha: pValueThresholdNumber,
+    alpha,
     max_dimensions:
       parseDimensionId(settings.dimensions[0] || "").kind === "date"
         ? 9999

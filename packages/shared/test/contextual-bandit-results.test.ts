@@ -1,5 +1,8 @@
 import type { ContextualBanditSnapshot } from "shared/types/stats";
-import { buildContextualBanditResultsView } from "../src/experiments/contextual-bandit-results";
+import {
+  buildContextualBanditResultsView,
+  resolveSnapshotVariations,
+} from "../src/experiments/contextual-bandit-results";
 
 const variations = [
   { id: "v0", name: "Control" },
@@ -231,5 +234,79 @@ describe("buildContextualBanditResultsView", () => {
     );
     expect(empty.leaves).toEqual([]);
     expect(empty.overall.variations.map((v) => v.users)).toEqual([0, 0]);
+  });
+});
+
+describe("resolveSnapshotVariations", () => {
+  it("returns frozen ids in order with names resolved from current variations", () => {
+    const resolved = resolveSnapshotVariations(
+      ["v0", "v1", "v2"],
+      [
+        { id: "v0", name: "Control" },
+        { id: "v1", name: "Treatment" },
+        { id: "v2", name: "Third" },
+      ],
+    );
+    expect(resolved).toEqual([
+      { id: "v0", name: "Control" },
+      { id: "v1", name: "Treatment" },
+      { id: "v2", name: "Third" },
+    ]);
+  });
+
+  it("keeps frozen order when the current list has been reordered", () => {
+    const resolved = resolveSnapshotVariations(
+      ["v0", "v1", "v2"],
+      [
+        { id: "v2", name: "Third" },
+        { id: "v0", name: "Control" },
+        { id: "v1", name: "Treatment" },
+      ],
+    );
+    expect(resolved.map((v) => v.id)).toEqual(["v0", "v1", "v2"]);
+    expect(resolved.map((v) => v.name)).toEqual([
+      "Control",
+      "Treatment",
+      "Third",
+    ]);
+  });
+
+  it("preserves a deactivated arm's name from current tombstoned variations", () => {
+    const resolved = resolveSnapshotVariations(
+      ["v0", "v1", "v2", "v3", "v4"],
+      [
+        { id: "v0", name: "Control" },
+        { id: "v1", name: "One" },
+        { id: "v2", name: "Two" },
+        { id: "v3", name: "Three" },
+        { id: "v5", name: "Five" },
+        { id: "v6", name: "Six" },
+        { id: "v4", name: "Four" },
+      ],
+    );
+    expect(resolved).toEqual([
+      { id: "v0", name: "Control" },
+      { id: "v1", name: "One" },
+      { id: "v2", name: "Two" },
+      { id: "v3", name: "Three" },
+      { id: "v4", name: "Four" },
+    ]);
+  });
+
+  it("leaves name undefined when an id is not in the current list", () => {
+    const resolved = resolveSnapshotVariations(
+      ["v0", "vGone"],
+      [{ id: "v0", name: "Control" }],
+    );
+    expect(resolved).toEqual([
+      { id: "v0", name: "Control" },
+      { id: "vGone", name: undefined },
+    ]);
+  });
+
+  it("returns an empty list for empty frozen ids", () => {
+    expect(
+      resolveSnapshotVariations([], [{ id: "v0", name: "Control" }]),
+    ).toEqual([]);
   });
 });

@@ -29,11 +29,13 @@ export function ExplorerRowFilterInput({
   setValue,
   columnSource,
   children,
+  showSqlFilter = true,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   columnSource: FilterColumnSource;
   children?: ReactNode;
+  showSqlFilter?: boolean;
 }) {
   const nextIdRef = useRef(0);
   const assignId = () => nextIdRef.current++;
@@ -88,6 +90,7 @@ export function ExplorerRowFilterInput({
         />
       ))}
       <RowFilterActions
+        showSqlFilter={showSqlFilter}
         onAdd={(filter) =>
           replaceLocal([...localFilters, withLocalChrome(filter, assignId())])
         }
