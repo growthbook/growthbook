@@ -1,5 +1,6 @@
 import type { ToolSet } from "ai";
 import type { ApiReqContext } from "back-end/types/api";
+import type { PageStructureNode } from "back-end/src/api/visual-editor-ai/domDigest";
 import { generateImageTool, type ImageTurnState } from "./generateImage";
 import { searchImageLibraryTool } from "./searchImageLibrary";
 import { getDesignTokensTool } from "./getDesignTokens";
@@ -10,10 +11,7 @@ import {
   findElementsTool,
   getInnerHTMLTool,
 } from "./clientSideTools";
-import {
-  findElementsServerTool,
-  type PageStructureNode,
-} from "./findElementsServer";
+import { findElementsServerTool } from "./findElementsServer";
 import type { ClientJob } from "./clientJob";
 
 // Per-turn cap on image generations. Each image is a paid provider

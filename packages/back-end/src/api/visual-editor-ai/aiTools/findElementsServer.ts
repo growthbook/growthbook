@@ -1,18 +1,6 @@
 import { tool as aiTool } from "ai";
 import { z } from "zod";
-
-// One node of the page's structural snapshot (mirrors structureNodeSchema in
-// postAIEdit.ts). Captured client-side with a durable selector precomputed
-// per node.
-export interface PageStructureNode {
-  selector: string;
-  parentSelector?: string;
-  tag: string;
-  id?: string;
-  classes?: string[];
-  role?: string;
-  label?: string;
-}
+import type { PageStructureNode } from "back-end/src/api/visual-editor-ai/domDigest";
 
 const inputSchema = z.object({
   query: z
@@ -24,12 +12,9 @@ const inputSchema = z.object({
   limit: z.number().int().min(1).max(25).optional(),
 });
 
-// Server-side element finder over the in-request page-structure snapshot.
-// Unlike the client-bounced DOM tools (which can't resume reliably on Cloud),
-// this reads data already in the request, so it runs in a single generation
-// pass on Cloud too. It lets the model locate containers that the curated
-// page-elements catalog never lists (sections, layout wrappers) — e.g. to
-// move or reorder a whole section.
+// Server-side finder over the in-request page-structure snapshot. Unlike
+// the client-bounced DOM tools, this reads data already in the request, so
+// it runs in a single generation pass on Cloud too.
 export function findElementsServerTool(nodes: PageStructureNode[]) {
   return aiTool({
     description:

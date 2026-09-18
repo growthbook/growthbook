@@ -21,11 +21,16 @@ import {
 import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
 import {
+  type DomDigest,
+  domDigestSchema,
+} from "back-end/src/api/visual-editor-ai/domDigest";
+import {
   buildInsertJs,
   makeScopeToken,
   normalizeInsertPlacement,
   wrapWithScope,
 } from "back-end/src/api/visual-editor-ai/insertPrimitive";
+import { buildDigestFromEditorUrl } from "back-end/src/api/visual-editor-ai/serverPageDigest";
 
 // Output-token cap for the edit generation. Above the 8000 parsePrompt
 // default because an edit can REPLACE the variation's entire global CSS/JS
@@ -47,111 +52,6 @@ const elementContextSchema = z.object({
   computedStyles: z.record(z.string(), z.string()).optional(),
 });
 
-// One container in the page's structural snapshot (sections, layout
-// wrappers, ancestors of catalog headings), captured client-side with a
-// durable selector precomputed per node. Carried inside domDigest but NEVER
-// rendered into the prompt (formatDigest ignores it) — the `findElements`
-// tool reads it on demand, so it costs prompt tokens only when the model
-// actually needs to locate a container the curated catalog doesn't list
-// (e.g. "move the Trusted-by section"). The tool runs server-side over this
-// in-request data, so it works on Cloud with no client round-trip.
-const structureNodeSchema = z.object({
-  selector: z.string(),
-  // Durable selector of the nearest significant ancestor — lets the model
-  // build a sibling move (parentSelector + insertBefore) from one lookup.
-  parentSelector: z.string().optional(),
-  tag: z.string(),
-  id: z.string().optional(),
-  classes: z.array(z.string()).optional(),
-  role: z.string().optional(),
-  // Short trimmed text label for matching by visible content.
-  label: z.string().optional(),
-});
-
-// Compact element catalog from visual-editor/src/content_script/pageDigest.ts —
-// gives the LLM real selectors to pick from rather than guessing.
-const domDigestSchema = z.object({
-  url: z.string(),
-  title: z.string(),
-  // Page-structure entries (html, body, header, main, etc.) — always-valid
-  // targets for global styling requests.
-  structural: z
-    .array(
-      z.object({
-        selector: z.string(),
-        tag: z.string(),
-        note: z.string().optional(),
-      }),
-    )
-    .default([]),
-  headings: z
-    .array(
-      z.object({
-        selector: z.string(),
-        tag: z.string(),
-        text: z.string(),
-      }),
-    )
-    .default([]),
-  buttons: z
-    .array(
-      z.object({
-        selector: z.string(),
-        tag: z.string(),
-        text: z.string(),
-        href: z.string().optional(),
-      }),
-    )
-    .default([]),
-  links: z
-    .array(
-      z.object({
-        selector: z.string(),
-        text: z.string(),
-        href: z.string(),
-      }),
-    )
-    .default([]),
-  inputs: z
-    .array(
-      z.object({
-        selector: z.string(),
-        type: z.string(),
-        name: z.string().optional(),
-        placeholder: z.string().optional(),
-        label: z.string().optional(),
-      }),
-    )
-    .default([]),
-  images: z
-    .array(
-      z.object({
-        selector: z.string(),
-        alt: z.string().optional(),
-        src: z.string(),
-      }),
-    )
-    .default([]),
-  // On-demand container map for the `findElements` tool — not rendered into
-  // the prompt (formatDigest ignores it).
-  pageStructure: z.array(structureNodeSchema).max(400).optional(),
-  // Flat alternative to the typed arrays above; both may be populated.
-  elements: z
-    .array(
-      z.object({
-        selector: z.string(),
-        tag: z.string(),
-        text: z.string().optional(),
-        href: z.string().optional(),
-        src: z.string().optional(),
-        alt: z.string().optional(),
-        placeholder: z.string().optional(),
-      }),
-    )
-    .max(300)
-    .optional(),
-});
-
 // Capped at 12 turns + 4000 chars/turn to bound prompt size.
 const conversationTurnSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -164,6 +64,8 @@ const bodySchema = z
     elementContext: z.array(elementContextSchema).max(20).default([]),
     variationId: z.string(),
     visualChangesetId: z.string(),
+    // Optional. Agents without a browser can omit it; the server then
+    // fetches editorUrl. Best-effort: redirect / non-200 / CSR → no digest.
     domDigest: domDigestSchema.optional(),
     conversationHistory: z.array(conversationTurnSchema).max(12).optional(),
     // BCP-47 primary subtag (with optional region suffix). When non-English,
@@ -440,7 +342,7 @@ Bias toward action when grounded:
 
 // Bulleted text rather than JSON — fewer tokens, easier for LLMs to scan.
 // Selectors wrapped in backticks so the model treats them as opaque strings.
-const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
+const formatDigest = (digest: DomDigest): string => {
   const lines: string[] = [];
   const section = (label: string, items: string[]) => {
     if (items.length === 0) return;
@@ -514,9 +416,7 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
 
 // Every selector the model can legitimately reference, used by the
 // self-correct validation pass to detect hallucinations.
-const allDigestSelectors = (
-  digest: z.infer<typeof domDigestSchema>,
-): Set<string> => {
+const allDigestSelectors = (digest: DomDigest): Set<string> => {
   const out = new Set<string>();
   for (const s of digest.structural) out.add(s.selector);
   for (const h of digest.headings) out.add(h.selector);
@@ -551,7 +451,7 @@ const buildPrompt = ({
   }[];
   existingCss?: string;
   existingJs?: string;
-  domDigest?: z.infer<typeof domDigestSchema>;
+  domDigest?: DomDigest;
   conversationHistory?: z.infer<typeof conversationTurnSchema>[];
   retryHint?: string;
 }): string => {
@@ -608,15 +508,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     elementContext,
     variationId,
     visualChangesetId,
-    domDigest,
     conversationHistory,
     locale,
     persist,
   } = req.body;
-
-  // Carried inside domDigest (sent in the body, kept out of the prompt) and
-  // surfaced to the model only via the server-side findElements tool.
-  const pageStructure = domDigest?.pageStructure;
+  let domDigest = req.body.domDigest;
 
   const context = req.context;
   requireUserAuth(context);
@@ -653,21 +549,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     );
   }
 
-  logger.info(
-    {
-      orgId: req.organization.id,
-      userId: context.userId,
-      visualChangesetId,
-      variationId,
-      promptLength: prompt.length,
-      conversationTurns: conversationHistory?.length ?? 0,
-      elementContextCount: elementContext.length,
-      hasDomDigest: !!domDigest,
-      prompt,
-    },
-    "[visual-editor-ai/edit] user prompt",
-  );
-
   const currentChange = changeset.visualChanges.find(
     (vc) => vc.variation === variationId,
   );
@@ -680,6 +561,32 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       "variationId does not belong to the given changeset",
     );
   }
+
+  if (!domDigest && changeset.editorUrl) {
+    domDigest =
+      (await buildDigestFromEditorUrl(changeset.editorUrl)) ?? undefined;
+  }
+  const pageStructure = domDigest?.pageStructure;
+
+  logger.info(
+    {
+      orgId: req.organization.id,
+      userId: context.userId,
+      visualChangesetId,
+      variationId,
+      promptLength: prompt.length,
+      conversationTurns: conversationHistory?.length ?? 0,
+      elementContextCount: elementContext.length,
+      hasDomDigest: !!domDigest,
+      digestSource: req.body.domDigest
+        ? "client"
+        : domDigest
+          ? "server-fetch"
+          : "none",
+      prompt,
+    },
+    "[visual-editor-ai/edit] user prompt",
+  );
 
   // Selectors the LLM may reference without triggering a retry.
   // Picked elements are trusted even when not in the digest — the user
