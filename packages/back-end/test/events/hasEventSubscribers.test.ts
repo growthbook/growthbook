@@ -1,4 +1,5 @@
 import { setupApp } from "back-end/test/api/api.setup";
+import { getAgendaInstance } from "back-end/src/services/queueing";
 import { hasEventSubscribers } from "back-end/src/events/hasEventSubscribers";
 import {
   createEventWebHook,
@@ -27,6 +28,13 @@ jest.mock("back-end/src/models/SlackIntegrationModel", () => ({
 const { isReady } = setupApp();
 beforeEach(async () => {
   await isReady;
+});
+
+// This spec mocks neither notifier, so the definitions can only come from queueInit.
+it("registers the event notification jobs during queue init", () => {
+  expect(Object.keys(getAgendaInstance()._definitions)).toEqual(
+    expect.arrayContaining(["eventCreated", "eventWebHook"]),
+  );
 });
 
 const filters = {
