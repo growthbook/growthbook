@@ -222,7 +222,11 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
-              userIdType={form.watch("experimentAnalysisSettings.userIdType")}
+              userIdType={
+                form.watch(
+                  "experimentAnalysisSettings.exposureQueryIdentifierType",
+                ) ?? form.watch("experimentAnalysisSettings.userIdType")
+              }
               newUi={false}
               cutoffBounds={{
                 min: getValidDate(
@@ -436,6 +440,9 @@ export default function ConfigureReport({
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
               )}
+              exposureQueryIdentifierType={form.watch(
+                "experimentAnalysisSettings.exposureQueryIdentifierType",
+              )}
               project={experiment?.project}
               forceSingleGoalMetric={experiment?.type === "multi-armed-bandit"}
               noQuantileGoalMetrics={experiment?.type === "multi-armed-bandit"}
@@ -619,6 +626,9 @@ export default function ConfigureReport({
               datasource={form.watch("experimentAnalysisSettings.datasource")}
               exposureQueryId={form.watch(
                 "experimentAnalysisSettings.exposureQueryId",
+              )}
+              exposureQueryIdentifierType={form.watch(
+                "experimentAnalysisSettings.exposureQueryIdentifierType",
               )}
               project={experiment?.project}
               includeFacts={true}

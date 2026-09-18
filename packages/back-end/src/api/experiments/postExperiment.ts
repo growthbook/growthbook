@@ -1,4 +1,5 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { isProjectListValidForProject } from "shared/util";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
@@ -13,6 +14,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
+  PostExperimentApiPayload,
   toExperimentApiInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
@@ -51,6 +53,7 @@ const TEMPLATE_FIELDS_TO_TRANSLATE = [
   "targeting",
   "datasource",
   "exposureQueryId",
+  "exposureQueryIdentifierType",
   "goalMetrics",
   "segment",
   "skipPartialData",
@@ -68,6 +71,8 @@ function templateToPostExperimentDefaults(
     ...templateWithoutFieldsToTranslate,
     datasourceId: template.datasource || undefined,
     assignmentQueryId: template.exposureQueryId || undefined,
+    assignmentQueryIdentifierType:
+      template.exposureQueryIdentifierType || undefined,
     metrics: template.goalMetrics,
     segmentId: template.segment,
     inProgressConversions:
@@ -95,7 +100,16 @@ function templateToPostExperimentDefaults(
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req) => {
     const { owner: ownerEmail, templateId } = req.body;
-    let payload = req.body;
+    let payload: PostExperimentApiPayload = req.body;
+
+    // The assignmentQuery object supersedes the deprecated flat assignmentQueryId.
+    // They are mutually exclusive; when the object is present it is projected onto
+    // the internal flat fields the rest of the handler reads.
+    if (req.body.assignmentQuery && req.body.assignmentQueryId !== undefined) {
+      throw new Error(
+        "Cannot set assignmentQuery together with the deprecated assignmentQueryId",
+      );
+    }
 
     // Apply template defaults if a templateId is provided
     if (templateId) {
@@ -111,6 +125,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         );
       }
 
+      if (req.body.assignmentQuery !== undefined) {
+        throw new Error(
+          "assignmentQuery cannot be set when templateId is provided",
+        );
+      }
       if (req.body.assignmentQueryId !== undefined) {
         throw new Error(
           "assignmentQueryId cannot be set when templateId is provided",
@@ -120,6 +139,14 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       payload = {
         ...templateToPostExperimentDefaults(template),
         ...req.body,
+      };
+    }
+
+    if (payload.assignmentQuery) {
+      payload = {
+        ...payload,
+        assignmentQueryId: payload.assignmentQuery.id,
+        assignmentQueryIdentifierType: payload.assignmentQuery.identifierType,
       };
     }
 
@@ -153,14 +180,35 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
 
     // check for associated assignment query id
+    const assignmentQuery = datasource?.settings.queries?.exposure?.find(
+      (query) => query.id === payload.assignmentQueryId,
+    );
+    if (datasource && !assignmentQuery) {
+      throw new Error(
+        `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
+      );
+    }
+    const assignmentQueryIdentifierTypes = assignmentQuery?.userIdTypes?.length
+      ? assignmentQuery.userIdTypes
+      : assignmentQuery
+        ? [assignmentQuery.userIdType]
+        : [];
     if (
-      datasource &&
-      !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === payload.assignmentQueryId,
+      payload.assignmentQueryIdentifierType &&
+      !assignmentQueryIdentifierTypes.includes(
+        payload.assignmentQueryIdentifierType,
       )
     ) {
       throw new Error(
-        `Unrecognized assignment query ID: ${payload.assignmentQueryId}`,
+        `Identifier type "${payload.assignmentQueryIdentifierType}" is not declared by assignment query "${payload.assignmentQueryId}"`,
+      );
+    }
+    if (
+      assignmentQuery &&
+      !isProjectListValidForProject(assignmentQuery.projects, payload.project)
+    ) {
+      throw new Error(
+        `Assignment query "${payload.assignmentQueryId}" is not available for the experiment's project`,
       );
     }
 
@@ -261,6 +309,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         context: req.context,
         datasource,
         exposureQueryId: payload.assignmentQueryId,
+        exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
         dimensionIds: payload.precomputedUnitDimensionIds,
       });
     }

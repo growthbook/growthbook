@@ -284,6 +284,7 @@ export function reconcileEventForwarderManagedExposureQueries({
       // Empty id → the model mints a stable exq_; reconcile preserves it after.
       id: "",
       userIdType: userIdType.userIdType,
+      userIdTypes: [userIdType.userIdType],
       name,
       description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
       dimensions: [],

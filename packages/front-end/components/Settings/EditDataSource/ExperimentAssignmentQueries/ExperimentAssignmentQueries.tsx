@@ -22,6 +22,7 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
+import ProjectBadges from "@/components/ProjectBadges";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
@@ -176,9 +177,17 @@ export const ExperimentAssignmentQueries: FC<
                 <Flex gap="4">
                   <Box>
                     <strong className="font-weight-semibold">
-                      Identifier:{" "}
+                      Identifiers:{" "}
                     </strong>
-                    <code>{query.userIdType}</code>
+                    {(query.userIdTypes?.length
+                      ? query.userIdTypes
+                      : [query.userIdType]
+                    ).map((identifierType, index) => (
+                      <Fragment key={identifierType}>
+                        {index ? ", " : ""}
+                        <code>{identifierType}</code>
+                      </Fragment>
+                    ))}
                   </Box>
                   <Box>
                     <strong className="font-weight-semibold">
@@ -192,6 +201,18 @@ export const ExperimentAssignmentQueries: FC<
                     ))}
                     {!query.dimensions.length && (
                       <em className="text-muted">none</em>
+                    )}
+                  </Box>
+                  <Box>
+                    <strong className="font-weight-semibold">Projects: </strong>
+                    {query.projects?.length ? (
+                      <ProjectBadges
+                        resourceType="experiment assignment query"
+                        projectIds={query.projects}
+                        skipMargin
+                      />
+                    ) : (
+                      <em className="text-muted">all data source projects</em>
                     )}
                   </Box>
                 </Flex>

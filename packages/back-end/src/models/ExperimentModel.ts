@@ -141,6 +141,7 @@ const experimentSchema = new mongoose.Schema({
   datasource: String,
   userIdType: String,
   exposureQueryId: String,
+  exposureQueryIdentifierType: String,
   hashAttribute: String,
   fallbackAttribute: String,
   hashVersion: Number,
@@ -1357,6 +1358,41 @@ export async function deleteExperimentSegment(
       logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
+}
+
+/**
+ * Legacy experiments (no stored `exposureQueryIdentifierType`) implicitly analyze
+ * on their assignment query's first identifier. When that identifier changes, pin
+ * them to `identifierType` (the pre-edit one) so they don't silently repoint; if
+ * it was removed, the drift then surfaces as an outdated reason. Returns the
+ * number pinned.
+ */
+export async function pinLegacyExposureQueryIdentifierType({
+  organization,
+  datasource,
+  exposureQueryId,
+  identifierType,
+}: {
+  organization: string;
+  datasource: string;
+  exposureQueryId: string;
+  identifierType: string;
+}): Promise<number> {
+  if (!identifierType) return 0;
+  const res = await ExperimentModel.updateMany(
+    {
+      organization,
+      datasource,
+      exposureQueryId,
+      $or: [
+        { exposureQueryIdentifierType: { $exists: false } },
+        { exposureQueryIdentifierType: null },
+        { exposureQueryIdentifierType: "" },
+      ],
+    },
+    { $set: { exposureQueryIdentifierType: identifierType } },
+  );
+  return res.modifiedCount ?? 0;
 }
 
 export async function getExperimentsForActivityFeed(

@@ -15,10 +15,13 @@ import StringArrayField from "@/ui/StringArrayField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -31,6 +34,8 @@ type EditExperimentAssignmentQueryProps = {
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
 > = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
+  const { projects } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -55,24 +60,33 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   const form = useForm<ExposureQuery>({
     defaultValues:
       mode === "edit" && exposureQuery
-        ? cloneDeep<ExposureQuery>(exposureQuery)
+        ? {
+            ...cloneDeep<ExposureQuery>(exposureQuery),
+            userIdTypes: exposureQuery.userIdTypes?.length
+              ? exposureQuery.userIdTypes
+              : [exposureQuery.userIdType].filter(Boolean),
+          }
         : {
             description: "",
             id: uniqId("tbl_"),
             name: "",
             dimensions: [],
             query: defaultQuery,
-            userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
+            userIdType: defaultUserId ?? "",
+            userIdTypes: defaultUserId ? [defaultUserId] : [],
+            projects: [],
           },
   });
 
   // User-entered values
-  const userEnteredUserIdType = form.watch("userIdType");
+  const userEnteredUserIdTypes = form.watch("userIdTypes");
   const userEnteredQuery = form.watch("query");
   const userEnteredDimensions = form.watch("dimensions");
   const userEnteredHasNameCol = form.watch("hasNameCol");
 
   const handleSubmit = form.handleSubmit(async (value) => {
+    // Keep the deprecated scalar in sync with the first declared identifier.
+    value.userIdType = value.userIdTypes[0] ?? value.userIdType;
     await onSave(value);
 
     form.reset({
@@ -83,6 +97,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       description: "",
       hasNameCol: false,
       userIdType: undefined,
+      userIdTypes: [],
+      projects: [],
     });
   });
 
@@ -91,18 +107,52 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       "experiment_id",
       "variation_id",
       "timestamp",
-      userEnteredUserIdType,
+      ...userEnteredUserIdTypes,
       ...(userEnteredDimensions || []),
       ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
     ]);
-  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
+  }, [userEnteredUserIdTypes, userEnteredDimensions, userEnteredHasNameCol]);
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],
     [dataSource.settings.userIdTypes],
   );
 
-  const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
+  const saveEnabled = userEnteredUserIdTypes.length >= 1 && !!userEnteredQuery;
+
+  const userEnteredProjects = form.watch("projects") ?? [];
+  // Options are limited to the data source's own projects (unless it is in All
+  // Projects), enforcing EAQ.projects ⊆ datasource.projects.
+  const filteredProjects = projects.filter(
+    (project) =>
+      !dataSource.projects?.length ||
+      dataSource.projects.includes(project.id) ||
+      userEnteredProjects.includes(project.id),
+  );
+  const projectOptions = useProjectOptions(
+    () => permissionsUtil.canUpdateDataSourceSettings(dataSource),
+    userEnteredProjects,
+    filteredProjects.length ? filteredProjects : undefined,
+  );
+
+  // The first identifier is load-bearing (legacy experiments implicitly analyze
+  // on it), so warn when an edit removes or reorders it. Legacy experiments are
+  // pinned automatically on save; explicit ones on a removed identifier are flagged.
+  const savedUserIdTypes =
+    mode === "edit" && exposureQuery
+      ? exposureQuery.userIdTypes?.length
+        ? exposureQuery.userIdTypes
+        : [exposureQuery.userIdType].filter(Boolean)
+      : [];
+  const removedIdentifierTypes = savedUserIdTypes.filter(
+    (idType) => !userEnteredUserIdTypes.includes(idType),
+  );
+  const firstIdentifierChanged =
+    savedUserIdTypes.length > 0 &&
+    userEnteredUserIdTypes.length > 0 &&
+    savedUserIdTypes[0] !== userEnteredUserIdTypes[0];
+  const showIdentifierChangeWarning =
+    removedIdentifierTypes.length > 0 || firstIdentifierChanged;
 
   if (!exposureQuery && mode === "edit") {
     console.error(
@@ -260,17 +310,47 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
               />
-              <SelectField
-                size="legacy"
-                label="Identifier Type"
+              <MultiSelectField
+                legacyHeight
+                label="Identifier types"
                 options={identityTypes.map((i) => ({
                   value: i.userIdType,
                   label: i.userIdType,
                 }))}
                 required
-                value={form.watch("userIdType")}
-                onChange={(value) => form.setValue("userIdType", value)}
+                value={userEnteredUserIdTypes}
+                onChange={(value) => form.setValue("userIdTypes", value)}
               />
+              {showIdentifierChangeWarning && (
+                <Callout status="warning" mb="3">
+                  {removedIdentifierTypes.length > 0
+                    ? `Removing ${removedIdentifierTypes
+                        .map((idType) => `"${idType}"`)
+                        .join(
+                          ", ",
+                        )} changes how existing experiments are analyzed.`
+                    : "Reordering identifier types changes which one is analyzed by default."}{" "}
+                  Experiments set up before this change are repointed to the
+                  pre-edit identifier automatically; those with an explicit
+                  identifier that no longer exists are flagged for review.
+                </Callout>
+              )}
+              {projects.length > 0 && (
+                <MultiSelectField
+                  legacyHeight
+                  label={
+                    <>
+                      Projects{" "}
+                      <Tooltip body="Limit this assignment query to specific projects. Only projects within the data source's projects are available. Leave empty to make it available for all of the data source's projects." />
+                    </>
+                  }
+                  placeholder="All projects"
+                  value={userEnteredProjects}
+                  options={projectOptions}
+                  onChange={(value) => form.setValue("projects", value)}
+                  customClassName="label-overflow-ellipsis"
+                />
+              )}
               <div className="form-group">
                 <label className="mr-5">Query</label>
                 {userEnteredQuery === defaultQuery && (

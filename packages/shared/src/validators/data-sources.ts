@@ -28,10 +28,12 @@ export const apiDataSourceValidator = namedSchema(
           id: z.string(),
           name: z.string(),
           description: z.string().max(MAX_DESCRIPTION_LENGTH),
-          identifierType: z.string(),
+          identifierTypes: z.array(z.string()),
+          identifierType: z.string().meta({ deprecated: true }),
           sql: z.string(),
           includesNameColumns: z.boolean(),
           dimensionColumns: z.array(z.string()),
+          projects: z.array(z.string()),
         }),
       ),
       identifierJoinQueries: z.array(

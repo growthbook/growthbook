@@ -177,7 +177,9 @@ export interface ExposureQuery {
   id: string;
   name: string;
   description?: string;
+  /** @deprecated use userIdTypes; kept as userIdTypes[0] for legacy readers */
   userIdType: string;
+  userIdTypes: string[];
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
@@ -186,6 +188,8 @@ export interface ExposureQuery {
   error?: string;
   /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
+  /** Projects this query is scoped to. Empty = all of the data source's projects; when set, a subset of them. */
+  projects?: string[];
 }
 
 export interface FeatureUsageQuery {

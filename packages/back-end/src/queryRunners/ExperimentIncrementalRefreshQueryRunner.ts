@@ -416,9 +416,11 @@ const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Exposure query not found");
   }
 
+  const exposureUserIdType =
+    snapshotSettings.exposureQueryIdentifierType ?? exposureQuery.userIdType;
   const resolvedExposureQuery = {
     query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
+    userIdType: exposureUserIdType,
   };
 
   const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
@@ -812,7 +814,7 @@ const startExperimentIncrementalRefreshQueries = async (
         context,
         factTable,
         datasourceId: integration.datasource.id,
-        exposureUserIdType: exposureQuery.userIdType,
+        exposureUserIdType,
         regressionAdjustedMetrics,
         settings: snapshotSettings,
         activationMetric,
@@ -935,7 +937,7 @@ const startExperimentIncrementalRefreshQueries = async (
             // so the fallback window always matches the pre-aggregated path.
             alignLegacyScanToDailyGrain: (
               factTable?.aggregatedFactTableSettings?.idTypes ?? []
-            ).includes(exposureQuery.userIdType),
+            ).includes(exposureUserIdType),
           }),
           queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
         });

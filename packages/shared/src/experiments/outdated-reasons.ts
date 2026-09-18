@@ -6,6 +6,7 @@ export const EXPERIMENT_OUTDATED_REASON_LABELS = {
   skipPartialData: "In-progress conversion behavior changed",
   datasourceId: "Data source changed",
   exposureQueryId: "Experiment assignment query changed",
+  exposureQueryIdentifierType: "Experiment assignment identifier type changed",
   startDate: "Analysis start date changed",
   regressionAdjustmentEnabled: "CUPED settings changed",
 } as const;

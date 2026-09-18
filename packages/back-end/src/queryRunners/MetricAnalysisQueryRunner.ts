@@ -59,12 +59,29 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       );
     }
 
+    const populationExposureQueryIdentifierTypes = populationExposureQuery
+      ?.userIdTypes?.length
+      ? populationExposureQuery.userIdTypes
+      : populationExposureQuery
+        ? [populationExposureQuery.userIdType]
+        : [];
+    if (
+      populationExposureQuery &&
+      !populationExposureQueryIdentifierTypes.includes(
+        params.settings.userIdType,
+      )
+    ) {
+      throw new Error(
+        `Population exposure query "${populationExposureQuery.id}" does not declare identifier type "${params.settings.userIdType}"`,
+      );
+    }
+
     const paramsWithPopulation: MetricAnalysisParams = {
       ...params,
       populationExposureQuery: populationExposureQuery
         ? {
             query: populationExposureQuery.query,
-            userIdType: populationExposureQuery.userIdType,
+            userIdType: params.settings.userIdType,
           }
         : undefined,
     };
