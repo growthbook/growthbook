@@ -52,6 +52,7 @@ import {
   resolveRampStartState,
   applyRampStartActions,
   startReadyScheduleNow,
+  errorPauseRampSchedule,
   approveAndPublishStep,
   computeNextProcessAt,
   pauseSchedule,
@@ -4447,6 +4448,36 @@ describe("startReadyScheduleNow", () => {
 
     const [eventArgs] = mockCreateEvent.mock.calls[0];
     expect(eventArgs.objectId).toBe(schedule.id);
+  });
+
+  it("an error-pause records the reason on the schedule and dispatches rampSchedule.actions.errorPaused", async () => {
+    const { ctx, schedule, updateById } = makeStartNowCtx({
+      status: "running",
+      currentStepIndex: 0,
+    });
+    await errorPauseRampSchedule(ctx as never, schedule.id, "step refused");
+
+    expect(updateById).toHaveBeenCalledWith(
+      schedule.id,
+      expect.objectContaining({
+        status: "paused",
+        nextProcessAt: null,
+        eventHistory: expect.arrayContaining([
+          expect.objectContaining({
+            type: "error-paused",
+            reason: "step refused",
+          }),
+        ]),
+      }),
+    );
+    expect(mockCreateEvent).toHaveBeenCalledTimes(1);
+    const [eventArgs] = mockCreateEvent.mock.calls[0];
+    expect(eventArgs.event).toBe("rampSchedule.actions.errorPaused");
+    expect(eventArgs.data.object).toMatchObject({
+      rampScheduleId: schedule.id,
+      status: "paused",
+      reason: "step refused",
+    });
   });
 });
 

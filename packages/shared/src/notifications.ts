@@ -100,6 +100,12 @@ export const notificationEventMetadata = {
     description:
       "Triggered when a held ramp schedule's start is approved by a user",
   },
+  "feature.rampSchedule.actions.errorPaused": {
+    label: "Ramp schedule paused on error",
+    description:
+      "Triggered when a feature ramp schedule pauses because a step could not be applied, for example a plan the engine refuses; `reason` says why",
+    preview: true,
+  },
   "feature.revision.created": {
     label: "New draft revision",
     description: "Triggered when a new draft revision is created for a feature",
@@ -682,6 +688,7 @@ export const notificationCategoryGroups: Record<
             "feature.rampSchedule.actions.step.approvalRequired",
             "feature.rampSchedule.actions.awaitingStartApproval",
             "feature.rampSchedule.actions.startApproved",
+            "feature.rampSchedule.actions.errorPaused",
           ],
         },
       ],

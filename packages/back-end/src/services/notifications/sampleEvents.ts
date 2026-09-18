@@ -331,6 +331,18 @@ const sampleEvents = {
     object: "feature",
     data: { object: { ...sampleRamp(), targetStepIndex: 0 } },
   }),
+  "feature.rampSchedule.actions.errorPaused": () => ({
+    event: "feature.rampSchedule.actions.errorPaused",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRamp(),
+        status: "paused",
+        reason:
+          'Rule "fr_banner" on "checkout-banner" is a force rule with no hash attribute, so this ramp cannot control its coverage.',
+      },
+    },
+  }),
   "feature.rampSchedule.actions.step.approvalRequired": () => ({
     event: "feature.rampSchedule.actions.step.approvalRequired",
     object: "feature",

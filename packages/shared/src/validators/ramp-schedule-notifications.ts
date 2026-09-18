@@ -48,10 +48,20 @@ export type RampScheduleCompletedPayload = z.infer<
 export const rampScheduleRolledBackPayload = rampScheduleBaseNotificationPayload
   .extend({
     targetStepIndex: z.number().int(),
+    // Why it rolled back, when the engine did it (a guardrail, a restart).
+    reason: z.string().optional(),
   })
   .strict();
 export type RampScheduleRolledBackPayload = z.infer<
   typeof rampScheduleRolledBackPayload
+>;
+
+// The engine could not apply a step (a plan it now refuses, a structural
+// error) and paused the schedule where it stood.
+export const rampScheduleErrorPausedPayload =
+  rampScheduleBaseNotificationPayload.extend({ reason: z.string() }).strict();
+export type RampScheduleErrorPausedPayload = z.infer<
+  typeof rampScheduleErrorPausedPayload
 >;
 
 export const rampScheduleAwaitingStartApprovalPayload =

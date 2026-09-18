@@ -18,6 +18,7 @@ import {
   rampScheduleStepApprovalRequiredPayload,
   rampScheduleCompletedPayload,
   rampScheduleRolledBackPayload,
+  rampScheduleErrorPausedPayload,
   rampScheduleCreatedPayload,
   rampScheduleDeletedPayload,
   rampScheduleJumpedPayload,
@@ -182,6 +183,9 @@ export const notificationEvents = {
     },
     "rampSchedule.actions.startApproved": {
       schema: rampScheduleStartApprovedPayload,
+    },
+    "rampSchedule.actions.errorPaused": {
+      schema: rampScheduleErrorPausedPayload,
     },
     "revision.created": {
       schema: featureRevisionCreatedPayload,

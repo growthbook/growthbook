@@ -1755,6 +1755,7 @@ export async function rollbackToStep(
         currentStepIndex: updated.currentStepIndex,
         status: updated.status,
         targetStepIndex,
+        ...(reason ? { reason } : {}),
       },
     });
   }
@@ -2264,6 +2265,16 @@ export async function errorPauseRampSchedule(
       "Failed to sync SafeRollout after error-pausing schedule; SafeRollout may be temporarily diverged",
     );
   }
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.errorPaused", {
+    object: {
+      rampScheduleId: updated.id,
+      rampName: updated.name,
+      orgId: ctx.org.id,
+      currentStepIndex: updated.currentStepIndex,
+      status: updated.status,
+      reason,
+    },
+  });
 }
 
 export async function startSchedule(
