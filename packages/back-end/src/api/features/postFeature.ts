@@ -211,7 +211,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   addIdsToRules(feature.environmentSettings, feature.id);
   addIdsToFlatRules(feature.rules, feature.id);
 
-  await createFeature(req.context, feature);
+  await createFeature(req.context, feature, { comment: req.body.comment });
 
   await req.audit({
     event: "feature.create",
