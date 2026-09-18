@@ -13,6 +13,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Switch from "@/ui/Switch";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import {
   DropdownMenu,
@@ -37,6 +38,8 @@ export default function SlackWorkspacePanel({
   selectedChannelId,
   needsReconnect,
   connecting,
+  updatingAssistant,
+  onAssistantChange,
   onReconnect,
   onDisconnect,
   onAddChannel,
@@ -49,6 +52,8 @@ export default function SlackWorkspacePanel({
   selectedChannelId?: string;
   needsReconnect: boolean;
   connecting: boolean;
+  updatingAssistant: boolean;
+  onAssistantChange: (enabled: boolean) => Promise<void>;
   onReconnect: () => Promise<void>;
   onDisconnect: () => void;
   onAddChannel: () => void;
@@ -198,6 +203,16 @@ export default function SlackWorkspacePanel({
                 Disconnect
               </DropdownMenuItem>
             </DropdownMenu>
+          </Flex>
+          <Flex direction="column" gap="3" mt="4">
+            <Switch
+              size="sm"
+              label="AI assistant"
+              description="Answer direct messages and mentions in connected channels"
+              value={workspace.assistantEnabled === true}
+              disabled={updatingAssistant}
+              onChange={onAssistantChange}
+            />
           </Flex>
         </Box>
         <div className={channels.length > 0 ? styles.content : undefined}>

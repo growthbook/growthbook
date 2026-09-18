@@ -50,7 +50,7 @@ import {
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
 const SLACK_OAUTH_SCOPE =
-  "chat:write,files:write,channels:read,groups:read,channels:join,assistant:write,im:history,app_mentions:read,commands,links:read,links:write";
+  "chat:write,files:write,channels:read,groups:read,channels:join,assistant:write,im:history,app_mentions:read";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 
 const slackOAuthStateSchema = z
@@ -298,6 +298,7 @@ const slackWorkspaceConnectionToFrontEnd = (
   authedUserId: connection.authedUserId,
   scope: connection.scope,
   isEnterpriseInstall: connection.isEnterpriseInstall,
+  assistantEnabled: connection.assistantEnabled,
 });
 
 const upsertSlackWorkspaceConnection = async ({
@@ -473,6 +474,34 @@ export const listSlackOAuthConnections = async (
     slackConnections: connections.map(slackWorkspaceConnectionToFrontEnd),
     slackIntegrations: integrations,
   };
+};
+
+export const setSlackAssistantEnabled = async ({
+  context,
+  teamId,
+  enabled,
+}: {
+  context: ReqContext;
+  teamId?: string;
+  enabled: boolean;
+}): Promise<{ enabled: boolean }> => {
+  const connections = await context.models.slackWorkspaceConnections.getAll();
+  const target = teamId
+    ? connections.find((connection) => connection.teamId === teamId)
+    : connections.length === 1
+      ? connections[0]
+      : undefined;
+  if (!target) {
+    throw new Error(
+      connections.length > 1
+        ? "Multiple Slack workspaces are connected — specify which one."
+        : "No Slack workspace connection found.",
+    );
+  }
+  await context.models.slackWorkspaceConnections.update(target, {
+    assistantEnabled: enabled,
+  });
+  return { enabled };
 };
 
 export const getSlackOAuthIntegrationById = async ({

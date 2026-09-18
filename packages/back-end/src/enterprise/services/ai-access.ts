@@ -30,7 +30,11 @@ async function assertAIEnabled(context: ReqContext): Promise<void> {
 
   const { aiEnabled } = await getAISettingsForOrg(context);
   if (!aiEnabled) {
-    throw new NotFoundError("AI configuration not set or enabled");
+    throw new NotFoundError(
+      context.org.settings?.aiEnabled
+        ? "AI is enabled, but no usable AI provider API key is configured. An admin can add one in GrowthBook → Settings → AI & Prompts."
+        : "AI is disabled for this organization. An admin can enable AI in GrowthBook → Settings → General.",
+    );
   }
 }
 
@@ -73,6 +77,50 @@ async function runGate(
       ...(e instanceof AIUsageLimitError ? { retryAfter: e.retryAfter } : {}),
     });
     return false;
+  }
+}
+
+export type AIAccessResult =
+  | { ok: true }
+  | { ok: false; status: number; message: string; retryAfter?: number };
+
+export async function checkAIEnabled(
+  context: ReqContext,
+): Promise<AIAccessResult> {
+  try {
+    await assertAIEnabled(context);
+    return { ok: true };
+  } catch (e) {
+    const status =
+      e instanceof Error && "status" in e && typeof e.status === "number"
+        ? e.status
+        : 400;
+    return {
+      ok: false,
+      status,
+      message: e instanceof Error ? e.message : "AI access denied",
+    };
+  }
+}
+
+export async function checkAccessGates(
+  context: ReqContext,
+  target: AIUsageTarget = {},
+): Promise<AIAccessResult> {
+  try {
+    await assertAIAccess(context, target);
+    return { ok: true };
+  } catch (e) {
+    const status =
+      e instanceof Error && "status" in e && typeof e.status === "number"
+        ? e.status
+        : 400;
+    return {
+      ok: false,
+      status,
+      message: e instanceof Error ? e.message : "AI access denied",
+      ...(e instanceof AIUsageLimitError ? { retryAfter: e.retryAfter } : {}),
+    };
   }
 }
 

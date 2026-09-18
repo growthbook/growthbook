@@ -28,6 +28,7 @@ type SlackApiResponse = { ok: boolean; error?: string } & Record<
   string,
   unknown
 >;
+type SlackBlock = Record<string, unknown>;
 
 // node-fetch v2's AbortSignal type is narrower than the global implementation.
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
@@ -114,16 +115,23 @@ export async function postSlackMessageResult({
   channel,
   text,
   blocks,
+  threadTs,
 }: {
   token: string;
   channel: string;
   text: string;
   blocks?: unknown[];
+  threadTs?: string;
 }): Promise<{ ok: boolean; ts: string | null; error: string | null }> {
   const res = await slackApiCall<SlackApiResponse & { ts?: string }>(
     token,
     "chat.postMessage",
-    { channel, text, ...(blocks ? { blocks } : {}) },
+    {
+      channel,
+      text,
+      ...(blocks ? { blocks } : {}),
+      ...(threadTs ? { thread_ts: threadTs } : {}),
+    },
   );
   return {
     ok: !!res?.ok,
@@ -137,36 +145,70 @@ export async function postSlackMessage(args: {
   channel: string;
   text: string;
   blocks?: unknown[];
+  threadTs?: string;
 }): Promise<string | null> {
   return (await postSlackMessageResult(args)).ts;
 }
 
-/**
- * Upload a PNG as a private Slack file and share it into a channel. Slack's
- * external-upload flow keeps experiment data off public object storage.
- */
-// Uploads an image and shares it to the channel in one message. The share
-// message is `blocks` when given (so the caption can be a small context
-// footer), falling back to `initialComment` if Slack rejects them; a card must
-// never degrade to text over caption formatting. Sharing on upload matters:
-// referencing a private file from a later message fails until Slack finishes
-// processing it, and channel members may not be able to see it at all.
-export async function uploadSlackImageFile({
+export async function postSlackEphemeralMessage({
+  token,
+  channel,
+  user,
+  text,
+  blocks,
+  threadTs,
+}: {
+  token: string;
+  channel: string;
+  user: string;
+  text: string;
+  blocks?: SlackBlock[];
+  threadTs?: string;
+}): Promise<boolean> {
+  const res = await slackApiCall<SlackApiResponse>(
+    token,
+    "chat.postEphemeral",
+    {
+      channel,
+      user,
+      text,
+      ...(blocks ? { blocks } : {}),
+      ...(threadTs ? { thread_ts: threadTs } : {}),
+    },
+  );
+  return !!res?.ok;
+}
+
+export async function updateSlackMessage({
+  token,
+  channel,
+  ts,
+  text,
+  blocks,
+}: {
+  token: string;
+  channel: string;
+  ts: string;
+  text: string;
+  blocks?: SlackBlock[];
+}): Promise<boolean> {
+  const res = await slackApiCall<SlackApiResponse>(token, "chat.update", {
+    channel,
+    ts,
+    text,
+    ...(blocks ? { blocks } : {}),
+  });
+  return !!res?.ok;
+}
+
+async function uploadPrivateSlackFile({
   token,
   png,
   filename,
-  title,
-  channelId,
-  initialComment,
-  blocks,
 }: {
   token: string;
   png: Buffer;
   filename: string;
-  title?: string;
-  channelId: string;
-  initialComment?: string;
-  blocks?: unknown[];
 }): Promise<string | null> {
   const getRes = await slackApiGet<
     SlackApiResponse & { upload_url?: string; file_id?: string }
@@ -194,26 +236,105 @@ export async function uploadSlackImageFile({
     return null;
   }
 
+  return getRes.file_id;
+}
+
+async function shareSlackFileOnUpload({
+  token,
+  png,
+  filename,
+  title,
+  channelId,
+  caption,
+  captionBlocks,
+}: {
+  token: string;
+  png: Buffer;
+  filename: string;
+  title: string;
+  channelId: string;
+  caption: string;
+  captionBlocks?: unknown[];
+}): Promise<{ fileId: string; messageTs: string | null } | null> {
+  // Slack refuses to complete a file twice, so the channel share needs its own
+  // upload rather than re-completing the file already completed without one.
+  const fileId = await uploadPrivateSlackFile({ token, png, filename });
+  if (!fileId) return null;
   const complete = (share: Record<string, string>) =>
     slackApiCall<SlackApiResponse>(token, "files.completeUploadExternal", {
-      files: [{ id: getRes.file_id, title: title || filename }],
+      files: [{ id: fileId, title }],
       channel_id: channelId,
       ...share,
     });
-  let completeRes = await complete(
-    blocks
-      ? { blocks: JSON.stringify(blocks) }
-      : initialComment
-        ? { initial_comment: initialComment }
-        : {},
+  let completed = await complete(
+    captionBlocks
+      ? { blocks: JSON.stringify(captionBlocks) }
+      : { initial_comment: caption },
   );
-  if (!completeRes?.ok && blocks && initialComment) {
+  if (!completed?.ok && captionBlocks) {
     logger.warn(
-      `Slack rejected the card caption blocks (${completeRes?.error ?? "unknown error"}); sharing with a plain comment`,
+      `Slack rejected the card caption blocks (${completed?.error ?? "unknown error"}); sharing with a plain comment`,
     );
-    completeRes = await complete({ initial_comment: initialComment });
+    completed = await complete({ initial_comment: caption });
   }
-  return completeRes?.ok ? getRes.file_id : null;
+  return completed?.ok ? { fileId, messageTs: null } : null;
+}
+
+// The image rides in its own chat.postMessage so the delivery has a message
+// timestamp to pin the thread to.
+export async function postSlackImageMessage({
+  token,
+  png,
+  filename,
+  title,
+  channelId,
+  caption,
+  captionBlocks,
+}: {
+  token: string;
+  png: Buffer;
+  filename: string;
+  title?: string;
+  channelId: string;
+  caption: string;
+  captionBlocks?: unknown[];
+}): Promise<{ fileId: string; messageTs: string | null } | null> {
+  const fileTitle = title || filename;
+  const fileId = await uploadPrivateSlackFile({ token, png, filename });
+  if (!fileId) return null;
+
+  const completed = await slackApiCall<SlackApiResponse>(
+    token,
+    "files.completeUploadExternal",
+    { files: [{ id: fileId, title: fileTitle }] },
+  );
+  const posted = completed?.ok
+    ? await postSlackMessageResult({
+        token,
+        channel: channelId,
+        text: caption,
+        blocks: [
+          ...(captionBlocks ?? [
+            { type: "section", text: { type: "mrkdwn", text: caption } },
+          ]),
+          { type: "image", slack_file: { id: fileId }, alt_text: fileTitle },
+        ],
+      })
+    : null;
+  if (posted?.ok) return { fileId, messageTs: posted.ts };
+
+  logger.warn(
+    `Slack rejected the card message (${posted?.error ?? completed?.error ?? "unknown error"}); sharing the file on upload instead`,
+  );
+  return shareSlackFileOnUpload({
+    token,
+    png,
+    filename,
+    title: fileTitle,
+    channelId,
+    caption,
+    captionBlocks,
+  });
 }
 
 export async function getSlackConversationName({

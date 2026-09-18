@@ -66,9 +66,6 @@ const REQUIRED_SCOPES = [
   "assistant:write",
   "im:history",
   "app_mentions:read",
-  "commands",
-  "links:read",
-  "links:write",
 ];
 
 const getQueryStringValue = (value: string | string[] | undefined) =>
@@ -238,6 +235,9 @@ const SlackWorkspacePage: NextPage = () => {
   const [installing, setInstalling] = useState(false);
   const [addChannelTeamId, setAddChannelTeamId] = useState<string | null>(null);
   const [disconnectTeamId, setDisconnectTeamId] = useState<string | null>(null);
+  const [updatingAssistantTeamId, setUpdatingAssistantTeamId] = useState<
+    string | null
+  >(null);
 
   const {
     data,
@@ -623,10 +623,9 @@ const SlackWorkspacePage: NextPage = () => {
             <code>chat:write</code>, <code>files:write</code>,{" "}
             <code>channels:read</code>, <code>groups:read</code>,{" "}
             <code>channels:join</code>, <code>assistant:write</code>,{" "}
-            <code>im:history</code>, <code>app_mentions:read</code>,{" "}
-            <code>commands</code>, <code>links:read</code>, and{" "}
-            <code>links:write</code> bot scopes. A Slack signing secret is not
-            required for outgoing notifications.
+            <code>im:history</code>, and <code>app_mentions:read</code> bot
+            scopes. A Slack signing secret is not required for outgoing
+            notifications.
           </Callout>
         )}
 
@@ -672,6 +671,29 @@ const SlackWorkspacePage: NextPage = () => {
                 selectedChannelId={selectedChannelId}
                 needsReconnect={workspaceNeedsReconnect(group.workspace)}
                 connecting={connecting}
+                updatingAssistant={updatingAssistantTeamId !== null}
+                onAssistantChange={async (enabled) => {
+                  setUpdatingAssistantTeamId(group.teamId);
+                  setConnectError(null);
+                  try {
+                    await apiCall("/integrations/slack/assistant", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        teamId: group.teamId,
+                        enabled,
+                      }),
+                    });
+                    await mutate();
+                  } catch (error) {
+                    setConnectError(
+                      error instanceof Error
+                        ? error.message
+                        : "Could not update Slack settings",
+                    );
+                  } finally {
+                    setUpdatingAssistantTeamId(null);
+                  }
+                }}
                 onReconnect={() => connectToSlack(group.teamId)}
                 onDisconnect={() => setDisconnectTeamId(group.teamId)}
                 onAddChannel={() => setAddChannelTeamId(group.teamId)}

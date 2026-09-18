@@ -22,8 +22,10 @@ import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 import {
   isSlackWorkspacePlaceholderUrl,
   postSlackMessageResult,
-  uploadSlackImageFile,
+  postSlackImageMessage,
 } from "back-end/src/services/slack/slackWebApi";
+import { pinSlackNotificationThread } from "back-end/src/services/slack/slackThreadRouting";
+import { logger } from "back-end/src/util/logger";
 
 export async function deliverSlackNotification({
   context,
@@ -37,6 +39,7 @@ export async function deliverSlackNotification({
   result: EventWebHookResult;
   payload: Record<string, unknown>;
   deliveredAs: "card" | "text";
+  messageTs: string | null;
 } | null> {
   const getTextPayload = () =>
     !event.version
@@ -77,6 +80,7 @@ export async function deliverSlackMessage({
   result: EventWebHookResult;
   payload: Record<string, unknown>;
   deliveredAs: "card" | "text";
+  messageTs: string | null;
 } | null> {
   if (!isSlackWorkspacePlaceholderUrl(eventWebHook.url)) {
     const payload = await getTextPayload();
@@ -91,7 +95,7 @@ export async function deliverSlackMessage({
       method: eventWebHook.method || "POST",
       applySecrets,
     });
-    return { result, payload, deliveredAs: "text" };
+    return { result, payload, deliveredAs: "text", messageTs: null };
   }
   const teamId = eventWebHook.slack?.teamId;
   const connection = teamId
@@ -102,7 +106,7 @@ export async function deliverSlackMessage({
     : null;
   const channelId = eventWebHook.slack?.channelId;
 
-  if (!botToken || !channelId) {
+  if (!botToken || !channelId || !teamId) {
     const payload = await getTextPayload();
     if (!payload) return null;
     return {
@@ -114,13 +118,26 @@ export async function deliverSlackMessage({
       },
       payload,
       deliveredAs: "text",
+      messageTs: null,
     };
   }
 
+  const pinThread = async (messageTs: string | null) => {
+    if (!messageTs) return;
+    try {
+      await pinSlackNotificationThread(
+        { teamId, channelId, rootTs: messageTs },
+        context.org.id,
+      );
+    } catch (error) {
+      logger.error(error, "Could not pin the Slack notification thread");
+    }
+  };
+
   const card = await getCard();
   if (card) {
-    // The image carries the event, units, and days itself; the share message
-    // is the same small footer text messages get, minus the counts.
+    // The image carries the event, units, and days itself; the caption is the
+    // same small footer text messages get, minus the counts.
     const footer = {
       name: card.objectName,
       url: card.objectUrl,
@@ -144,20 +161,26 @@ export async function deliverSlackMessage({
         : []),
       alertFooterBlock(footer),
     ];
-    const fileId = await uploadSlackImageFile({
+    const posted = await postSlackImageMessage({
       token: botToken,
       png: card.png,
       filename: "notification-card.png",
       title: card.altText,
       channelId,
-      blocks,
-      initialComment: text,
+      caption: text,
+      captionBlocks: blocks,
     });
-    if (fileId) {
+    if (posted) {
+      await pinThread(posted.messageTs);
       return {
-        result: { result: "success", statusCode: 200, responseBody: fileId },
+        result: {
+          result: "success",
+          statusCode: 200,
+          responseBody: posted.fileId,
+        },
         payload: { text, blocks },
         deliveredAs: "card",
+        messageTs: posted.messageTs,
       };
     }
   }
@@ -171,6 +194,7 @@ export async function deliverSlackMessage({
     text: payload.text,
     blocks: payload.blocks,
   });
+  await pinThread(result.ts);
 
   return {
     result: result.ok
@@ -186,5 +210,6 @@ export async function deliverSlackMessage({
         },
     payload,
     deliveredAs: "text",
+    messageTs: result.ts,
   };
 }
