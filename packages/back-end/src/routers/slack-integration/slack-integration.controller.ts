@@ -18,6 +18,7 @@ import {
 } from "back-end/src/services/slack/slackSettingsPreview";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
+import { queueSlackAssistantAfterLink } from "back-end/src/jobs/slackAssistantTasks";
 import {
   getContextFromReq,
   getContextForUserIdInOrg,
@@ -372,6 +373,11 @@ export const postSlackLink = async (
       message: "You are not a member of the selected GrowthBook organization.",
     });
   await memberContext.models.slackUserLinks.linkCurrentUser(req.body.state);
+  await queueSlackAssistantAfterLink({
+    state: req.body.state,
+    organizationId: memberContext.org.id,
+    userId: memberContext.userId,
+  });
   return res.json({ linked: true });
 };
 

@@ -27,6 +27,11 @@ import {
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { postSlackAccountLink } from "back-end/src/services/slack/slackLinkRequests";
+
+jest.mock("back-end/src/services/slack/slackLinkRequests", () => ({
+  postSlackAccountLink: jest.fn().mockResolvedValue(true),
+}));
 
 jest.mock("back-end/src/enterprise/services/agent-handler", () => ({
   runAgentTurnToCompletion: jest.fn(),
@@ -142,6 +147,33 @@ beforeEach(() => {
       }) as unknown as Awaited<ReturnType<typeof resolveSlackAssistantTarget>>,
   );
 });
+
+it.each([
+  { status: 403, message: "Your plan does not support AI features." },
+  {
+    status: 404,
+    message:
+      "AI is enabled, but no usable AI provider API key is configured. An admin can add one in GrowthBook → Settings → AI & Prompts.",
+  },
+  { status: 429, message: "Over AI usage limits" },
+])(
+  "preserves the specific AI access failure ($status)",
+  async ({ status, message }) => {
+    jest
+      .mocked(runAgentTurnToCompletion)
+      .mockResolvedValue({ ok: false, status, message });
+    await handleSlackAssistantMention({
+      teamId: "T1",
+      channelId: "C1",
+      slackUserId: "U1",
+      text: "What experiments are running?",
+      messageTs: "123.456",
+    });
+    expect(postSlackMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ text: message.replace(/&/g, "&amp;") }),
+    );
+  },
+);
 
 it.each(["confirm", "cancel"] as const)(
   "offers fresh approval controls when a %s continuation parks another action",
@@ -409,6 +441,95 @@ it("continues the original question once after an authorized organization choice
     }),
   );
 });
+it("saves an unlinked user's original question and pinned organization with the private prompt", async () => {
+  jest.mocked(resolveSlackAssistantTarget).mockResolvedValueOnce({
+    ok: false,
+    reason: "not_linked",
+    botToken: "token",
+    message: "Link your account.",
+  });
+  const mention = {
+    teamId: "T1",
+    channelId: "C1",
+    slackUserId: "U1",
+    text: "What experiments are running?",
+    messageTs: "123.456",
+  };
+  await handleSlackAssistantMention(mention);
+  expect(postSlackAccountLink).toHaveBeenCalledWith({
+    mention,
+    token: "token",
+    text: "Link your account.",
+    organizationId: "org1",
+    resumeQuestion: true,
+  });
+  expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
+});
+
+describe("resuming after account linking", () => {
+  const resumeMention = () => ({
+    teamId: "T1",
+    channelId: "C1",
+    slackUserId: "U1",
+    text: "Original question",
+    messageTs: "123.456",
+    resumeAfterLink: {
+      organizationId: "org1",
+      userId: "user1",
+      linkId: "link1",
+      expiresAt: Date.now() + 60000,
+    },
+  });
+  it("resolves the consented organization and answers in the original thread", async () => {
+    jest.mocked(getSlackThread).mockResolvedValue(null);
+    jest
+      .mocked(runAgentTurnToCompletion)
+      .mockResolvedValue({
+        ok: true,
+        conversationId,
+        reply: "Answer",
+        pendingAction: null,
+      });
+    await handleSlackAssistantMention(resumeMention());
+    expect(resolveSlackAssistantTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "org1",
+        requireAssistantEnabled: true,
+      }),
+    );
+    expect(runAgentTurnToCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: { message: "Original question", conversationId },
+      }),
+    );
+    expect(postSlackMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ threadTs: "123.456" }),
+    );
+  });
+  it.each([
+    { expiresAt: 0 },
+    { userId: "another-user" },
+    { linkId: "replaced-link" },
+    { organizationId: "another-org" },
+  ])("does not resume an expired or replaced identity: %p", async (changed) => {
+    const mention = resumeMention();
+    mention.resumeAfterLink = { ...mention.resumeAfterLink, ...changed };
+    await handleSlackAssistantMention(mention);
+    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
+  });
+  it("does not resume when channel access or membership was revoked", async () => {
+    jest
+      .mocked(resolveSlackAssistantTarget)
+      .mockResolvedValueOnce({
+        ok: false,
+        reason: "organization_unavailable",
+        message: "Access removed.",
+      });
+    await handleSlackAssistantMention(resumeMention());
+    expect(runAgentTurnToCompletion).not.toHaveBeenCalled();
+  });
+});
+
 it("refreshes signed link consent on request even for already-linked users", async () => {
   await handleSlackAssistantMention({
     teamId: "T1",
@@ -417,10 +538,10 @@ it("refreshes signed link consent on request even for already-linked users", asy
     text: "link account",
     messageTs: "123.456",
   });
-  expect(postSlackEphemeralMessage).toHaveBeenCalledWith(
+  expect(postSlackAccountLink).toHaveBeenCalledWith(
     expect.objectContaining({
-      user: "U1",
-      text: expect.stringContaining("/integrations/slack/link?state="),
+      mention: expect.objectContaining({ slackUserId: "U1" }),
+      text: "Link or replace your account for a GrowthBook organization.",
     }),
   );
   expect(runAgentTurnToCompletion).not.toHaveBeenCalled();

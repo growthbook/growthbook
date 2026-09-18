@@ -17,7 +17,7 @@ import type {
   AmbiguousSlackTarget,
   ResolvedSlackTarget,
 } from "back-end/src/services/slack/slackIdentity";
-import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
+import { postSlackAccountLink } from "back-end/src/services/slack/slackLinkRequests";
 import {
   inferSlackOrganizationByName,
   parseSlackResourceReferences,
@@ -196,6 +196,8 @@ export async function handleSlackAssistantMention(
 ): Promise<void> {
   const { teamId, channelId, slackUserId, messageTs } = mention;
   const rootTs = mention.threadTs || messageTs;
+  const resume = mention.resumeAfterLink;
+  if (resume && Date.now() >= resume.expiresAt) return;
 
   logger.info(
     {
@@ -215,14 +217,10 @@ export async function handleSlackAssistantMention(
   ) {
     const token = await getSlackWorkspaceBotToken(teamId);
     if (token)
-      await postSlackEphemeralMessage({
+      await postSlackAccountLink({
+        mention,
         token,
-        channel: channelId,
-        user: slackUserId,
-        threadTs: mention.threadTs,
-        text:
-          "Link or replace your account for a GrowthBook organization: " +
-          buildSlackLinkUrl({ slackTeamId: teamId, slackUserId }),
+        text: "Link or replace your account for a GrowthBook organization.",
       });
     return;
   }
@@ -243,14 +241,29 @@ export async function handleSlackAssistantMention(
   const threadIdentity = { teamId, channelId, rootTs };
   const thread = await getSlackThread(threadIdentity);
   if (mention.requireActiveThread && thread?.status !== "selected") return;
+  if (
+    resume &&
+    thread?.status === "selected" &&
+    thread.organizationId !== resume.organizationId
+  )
+    return;
   let target = await resolveSlackAssistantTarget({
     requireAssistantEnabled: true,
     teamId,
     channelId,
     slackUserId,
     organizationId:
-      thread?.status === "selected" ? thread.organizationId : undefined,
+      thread?.status === "selected"
+        ? thread.organizationId
+        : resume?.organizationId,
   });
+  if (
+    resume &&
+    (!target.ok ||
+      target.userId !== resume.userId ||
+      target.linkId !== resume.linkId)
+  )
+    return;
   if (
     !target.ok &&
     target.reason === "ambiguous_org" &&
@@ -317,13 +330,23 @@ export async function handleSlackAssistantMention(
       // ephemerals create no "N replies" indicator, so it hides in a thread
       // that looks empty from the channel. Posting inline shows it where the
       // user is looking.
-      const posted = await postSlackEphemeralMessage({
-        token: target.botToken,
-        channel: channelId,
-        user: slackUserId,
-        text: target.message,
-        threadTs: mention.threadTs,
-      });
+      const posted =
+        target.reason === "not_linked"
+          ? await postSlackAccountLink({
+              mention,
+              token: target.botToken,
+              text: target.message,
+              organizationId:
+                thread?.status === "selected" ? thread.organizationId : null,
+              resumeQuestion: !!question,
+            })
+          : await postSlackEphemeralMessage({
+              token: target.botToken,
+              channel: channelId,
+              user: slackUserId,
+              text: target.message,
+              threadTs: mention.threadTs,
+            });
       // Ephemeral messages are visible only to the mentioning user and are
       // transient, so log whether Slack accepted the post — otherwise a
       // "nothing happened" report is impossible to distinguish from a missed
@@ -447,14 +470,7 @@ export async function handleSlackAssistantMention(
     });
 
     if (!result.ok) {
-      // A blocked access gate (no AI plan → 403, AI not enabled → 404) returns
-      // a terse internal string; give Slack users a clear, actionable message
-      // instead. Other failures (e.g. rate limit) keep their specific message.
-      const friendly =
-        result.status === 403 || result.status === 404
-          ? "The GrowthBook AI assistant isn't enabled for your organization, so I can't answer questions — but notifications will still post here. An admin can enable AI in *GrowthBook → Settings → General* (AI features)."
-          : result.message;
-      await finish(friendly);
+      await finish(result.message);
       return;
     }
     if (result.pendingAction) {

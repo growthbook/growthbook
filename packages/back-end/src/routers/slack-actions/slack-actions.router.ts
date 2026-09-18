@@ -14,11 +14,16 @@ import {
   slackOrganizationSelectionSchema,
   slackOrganizationSelectionValueSchema,
 } from "back-end/src/services/slack/slackThreadRouting";
+import {
+  captureSlackLinkInteraction,
+  slackLinkInteractionSchema,
+} from "back-end/src/services/slack/slackLinkRequests";
 
 const interactionPayloadSchema = z.object({
   team: z.object({ id: z.string().min(1) }),
   channel: z.object({ id: z.string().min(1) }),
   user: z.object({ id: z.string().min(1) }),
+  response_url: z.string().optional(),
   message: z.object({ ts: z.string().optional() }).optional(),
   actions: z
     .array(
@@ -90,6 +95,29 @@ const interactions = async (req: SlackRequest, res: Response) => {
     return res.status(400).json({ text: "Invalid Slack interaction payload." });
   const payload = parsedPayload.data;
   const action = payload.actions?.[0];
+
+  if (action?.action_id === "gb_link_account") {
+    const parsed = slackLinkInteractionSchema.safeParse({
+      nonce: action.value,
+      teamId: payload.team.id,
+      channelId: payload.channel.id,
+      slackUserId: payload.user.id,
+      responseUrl: payload.response_url,
+    });
+    if (!parsed.success)
+      return res
+        .status(400)
+        .json({ text: "Invalid Slack account-link action." });
+    try {
+      await captureSlackLinkInteraction(parsed.data);
+      return res.status(200).send("");
+    } catch (error) {
+      logger.error(error, "Could not save the Slack account-link callback");
+      return res
+        .status(503)
+        .json({ text: "Unable to accept this action. Please retry." });
+    }
+  }
 
   if (action?.action_id === "gb_select_organization") {
     let value: unknown;

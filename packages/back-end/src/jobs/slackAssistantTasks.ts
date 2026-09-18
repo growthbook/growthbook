@@ -3,6 +3,10 @@ import { logger } from "back-end/src/util/logger";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { postSlackEphemeralMessage } from "back-end/src/services/slack/slackWebApi";
 import {
+  completeSlackLinkRequest,
+  dismissSlackLinkPrompt,
+} from "back-end/src/services/slack/slackLinkRequests";
+import {
   claimSlackTask,
   getSlackTaskClaimAge,
   releaseSlackTask,
@@ -145,6 +149,26 @@ export async function queueSlackAssistantMention(
     { kind: "mention", mention },
     `mention:${slackTaskKey([mention.teamId, dedupeKey || mention.channelId + ":" + mention.messageTs])}`,
   );
+}
+
+export async function queueSlackAssistantAfterLink(
+  input: Parameters<typeof completeSlackLinkRequest>[0],
+): Promise<void> {
+  const request = await completeSlackLinkRequest(input);
+  if (!request?.linkedAccount) return;
+  if (request.resumeUntil && Date.now() < request.resumeUntil.getTime()) {
+    await queueSlackAssistantMention(
+      {
+        ...request.mention,
+        resumeAfterLink: {
+          ...request.linkedAccount,
+          expiresAt: request.resumeUntil.getTime(),
+        },
+      },
+      `link:${request._id}`,
+    );
+  }
+  await dismissSlackLinkPrompt(request);
 }
 
 export async function queueSlackAssistantConfirmation(

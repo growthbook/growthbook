@@ -153,7 +153,7 @@ it("never reroutes a selected thread: an unlinked pinned org asks for a link, lo
   if (unlinked.ok) throw new Error("Expected a failure");
   // The reader may not belong to the pinned organization, so it stays unnamed.
   expect(unlinked.message).not.toContain("org2");
-  expect(unlinked.message).toContain("/integrations/slack/link?state=");
+  expect(unlinked.message).toContain("Link it to take part here.");
   jest.mocked(getContextForUserIdInOrg).mockResolvedValue(null);
   expect(
     await resolveSlackAssistantTarget({ ...request, organizationId: "org1" }),

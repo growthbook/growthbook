@@ -30,6 +30,16 @@ GrowthBook account, and eligible connected organizations. Choose the organizatio
 before confirming. To replace a linked GrowthBook account, open a fresh private
 link while signed in to the replacement account and confirm that organization.
 
+The private **Link my account** button also sends an interaction callback. After
+successful consent, GrowthBook uses that callback to dismiss the prompt. A question
+that prompted linking resumes once in its original thread if linking and job
+execution happen within 10 minutes of the prompt. Later linking still connects the
+account, but the user must send the question again. The consent link itself expires
+after 15 minutes. Explicit `link account` requests do not start an assistant turn.
+Resumed questions recheck the selected organization, current access, and the exact
+account-link generation before running. Interactivity must be configured for
+prompt dismissal; older prompts containing plain links cannot be dismissed this way.
+
 The personal account menu's **My Slack links** page lists the current user's
 links in the selected organization and allows disconnecting them. These actions
 do not require integration-admin permission. Other organizations' links remain

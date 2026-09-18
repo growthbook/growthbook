@@ -21,6 +21,14 @@ export const slackAssistantMentionSchema = z.object({
   threadTs: z.string().optional(),
   botUserId: z.string().optional(),
   requireActiveThread: z.boolean().optional(),
+  resumeAfterLink: z
+    .object({
+      organizationId: z.string().min(1),
+      userId: z.string().min(1),
+      linkId: z.string().min(1),
+      expiresAt: z.number().finite(),
+    })
+    .optional(),
 });
 export type SlackAssistantMention = z.infer<typeof slackAssistantMentionSchema>;
 export const slackOrganizationSelectionValueSchema = z.strictObject({

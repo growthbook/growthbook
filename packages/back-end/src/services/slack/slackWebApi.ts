@@ -35,6 +35,47 @@ type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 
 const SLACK_FETCH_OPTS = { maxTimeMs: 15000, maxContentSize: 1024 * 256 };
 
+export const slackResponseUrlSchema = z.url().refine((value) => {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === "https:" &&
+    ["hooks.slack.com", "hooks.slack-gov.com"].includes(url.hostname) &&
+    !url.username &&
+    !url.password &&
+    !url.port &&
+    /^\/(actions|services)\//.test(url.pathname)
+  );
+});
+
+export async function deleteSlackEphemeralMessage(
+  responseUrl: string,
+): Promise<boolean> {
+  const parsed = slackResponseUrlSchema.safeParse(responseUrl);
+  if (!parsed.success) return false;
+  try {
+    const { responseWithoutBody } = await cancellableFetch(
+      parsed.data,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delete_original: true }),
+        redirect: "error",
+      },
+      { ...SLACK_FETCH_OPTS, maxTimeMs: 2000 },
+    );
+    return responseWithoutBody.ok;
+  } catch {
+    // Response URLs contain credentials, so never include the URL or error.
+    logger.warn("Could not dismiss a Slack account-link prompt");
+    return false;
+  }
+}
+
 function parseSlackResponse<T extends SlackApiResponse>(
   method: string,
   stringBody: string,

@@ -10,10 +10,7 @@ import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
 import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
-import {
-  buildSlackLinkUrl,
-  verifySlackLinkState,
-} from "back-end/src/services/slack/slackLink";
+import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
 import { isSlackDirectMessageChannel } from "back-end/src/services/slack/slackThreadRouting";
 import { decryptSlackBotToken } from "back-end/src/util/slackToken";
 
@@ -285,7 +282,8 @@ export async function resolveSlackAssistantTarget({
         ok: false,
         reason: "not_linked",
         botToken,
-        message: `This thread belongs to a GrowthBook organization your Slack account isn't linked to. Link it to take part here: ${buildSlackLinkUrl({ slackTeamId: teamId || "", slackUserId })}`,
+        message:
+          "This thread belongs to a GrowthBook organization your Slack account isn't linked to. Link it to take part here.",
       };
     }
     return {
@@ -317,7 +315,6 @@ export async function resolveSlackAssistantTarget({
         reason: "not_linked",
         botToken,
         message:
-          "Link your Slack account to the GrowthBook organization you want to use: " +
-          buildSlackLinkUrl({ slackTeamId: teamId || "", slackUserId }),
+          "Link your Slack account to the GrowthBook organization you want to use.",
       };
 }
