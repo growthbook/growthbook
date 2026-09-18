@@ -51,10 +51,6 @@ process.on("SIGINT", async () => {
   onClose();
 });
 function onClose() {
-  // server.close() leaves idle keep-alive sockets open, so without this it
-  // blocks until each hits keepAliveTimeout
-  server.closeIdleConnections();
-
   // stop Express server
   server.close(async () => {
     logger.info("HTTP server closed");
@@ -68,4 +64,8 @@ function onClose() {
     logger.info("Agenda closed");
     process.exit(0);
   });
+
+  // close() only reaps sockets that are already idle; one that goes idle after
+  // its in-flight request finishes would hold the server open for keepAliveTimeout
+  setInterval(() => server.closeIdleConnections(), 250).unref();
 }
