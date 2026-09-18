@@ -1,4 +1,5 @@
 import { DEFAULT_ENVIRONMENT_IDS } from "../util";
+import { getValidDate } from "../dates";
 import {
   AccountPlan,
   CommercialFeature,
@@ -37,12 +38,12 @@ export function planTierFor(plan: AccountPlan): LimitedPlanTier | null {
 // Free is deliberately unaffected — those limits predate the pro tier.
 export const PAID_PLAN_LIMITS_START_DATE = new Date("2026-09-12T00:00:00.000Z");
 
-// An unknown signup date grandfathers the org: never revoke on missing data.
-function signedUpBeforePaidPlanLimits(dateCreated?: Date | string): boolean {
-  if (dateCreated === undefined) return true;
-  const date = new Date(dateCreated);
-  if (isNaN(date.getTime())) return true;
-  return date < PAID_PLAN_LIMITS_START_DATE;
+// The epoch fallback makes a missing or unparseable date grandfather the org:
+// never revoke on data we can't read.
+function signedUpBeforePaidPlanLimits(
+  dateCreated?: Date | string | null,
+): boolean {
+  return getValidDate(dateCreated, new Date(0)) < PAID_PLAN_LIMITS_START_DATE;
 }
 
 type LimitsInput = {
@@ -51,7 +52,7 @@ type LimitsInput = {
   orgLimits?: OrgLimits;
   licenseLimits?: OrgLimits;
   planLimits?: OrgLimits;
-  orgDateCreated?: Date | string;
+  orgDateCreated?: Date | string | null;
 };
 
 function planAllows(

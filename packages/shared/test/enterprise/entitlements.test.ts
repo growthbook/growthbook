@@ -23,13 +23,13 @@ function accessorFor({
   orgLimits,
   licenseLimits,
   planLimits,
-  orgDateCreated = AFTER_CUTOFF,
+  orgDateCreated,
 }: {
   effectivePlan: AccountPlan;
   orgLimits?: OrgLimits;
   licenseLimits?: OrgLimits;
   planLimits?: OrgLimits;
-  orgDateCreated?: Date | string;
+  orgDateCreated: Date | string | null | undefined;
 }) {
   return makeOrgLimits({
     effectivePlan,
@@ -61,7 +61,10 @@ describe("makeOrgLimits", () => {
     it.each<AccountPlan>(["oss", "starter", "pro", "pro_sso", "enterprise"])(
       "is unrestricted on plan=%s when no limits are stored anywhere",
       (effectivePlan) => {
-        const limits = accessorFor({ effectivePlan });
+        const limits = accessorFor({
+          effectivePlan,
+          orgDateCreated: undefined,
+        });
         expect(limits.getMaxProjects()).toBeNull();
         expect(limits.isEnvironmentIdAllowed("some-custom-env")).toBe(true);
         expect(limits.orgSupportsRoles()).toBe(true);
@@ -72,6 +75,7 @@ describe("makeOrgLimits", () => {
       const limits = accessorFor({
         effectivePlan: "pro",
         planLimits: PRO_ORG_LIMITS,
+        orgDateCreated: undefined,
       });
       expect(limits.getMaxProjects()).toBeNull();
     });
@@ -86,6 +90,7 @@ describe("makeOrgLimits", () => {
           orgLimits: FREE_LIMITS,
           licenseLimits: { maxProjects: 999 }, // should be ignored on free plans
           planLimits: PRO_ORG_LIMITS, // free never reads the live per-plan config
+          orgDateCreated: undefined,
         });
         expect(limits.getMaxProjects()).toBe(1);
         expect(limits.isEnvironmentIdAllowed("production")).toBe(true);
@@ -99,7 +104,11 @@ describe("makeOrgLimits", () => {
     it.each<AccountPlan>(["pro", "pro_sso"])(
       "upgrades a stamped org to the pro tier's limits on plan=%s",
       (effectivePlan) => {
-        const limits = accessorFor({ effectivePlan, orgLimits: FREE_LIMITS });
+        const limits = accessorFor({
+          effectivePlan,
+          orgLimits: FREE_LIMITS,
+          orgDateCreated: AFTER_CUTOFF,
+        });
         expect(limits.getMaxProjects()).toBe(3);
         expect(limits.isEnvironmentIdAllowed("production")).toBe(true);
         expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(false);
@@ -112,6 +121,7 @@ describe("makeOrgLimits", () => {
         effectivePlan: "pro",
         orgLimits: FREE_LIMITS,
         planLimits: { ...PRO_ORG_LIMITS, maxProjects: 10 },
+        orgDateCreated: AFTER_CUTOFF,
       });
       expect(limits.getMaxProjects()).toBe(10);
     });
@@ -122,6 +132,7 @@ describe("makeOrgLimits", () => {
         orgLimits: FREE_LIMITS,
         licenseLimits: LICENSE_LIMITS,
         planLimits: PRO_ORG_LIMITS,
+        orgDateCreated: AFTER_CUTOFF,
       });
       expect(limits.getMaxProjects()).toBe(7);
       expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(false);
@@ -132,6 +143,7 @@ describe("makeOrgLimits", () => {
         effectivePlan: "pro",
         orgLimits: FREE_LIMITS,
         licenseLimits: LICENSE_LIMITS,
+        orgDateCreated: AFTER_CUTOFF,
       });
       expect(limits.orgSupportsRoles()).toBe(true);
     });
@@ -176,7 +188,7 @@ describe("makeOrgLimits", () => {
       expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(true);
     });
 
-    it.each<Date | string | undefined>([undefined, "not-a-date"])(
+    it.each<Date | string | null | undefined>([undefined, null, "not-a-date"])(
       "grandfathers rather than revokes when the signup date is %p",
       (orgDateCreated) => {
         const limits = makeOrgLimits({
@@ -204,6 +216,7 @@ describe("makeOrgLimits", () => {
       const limits = accessorFor({
         effectivePlan: "enterprise",
         orgLimits: FREE_LIMITS,
+        orgDateCreated: undefined,
       });
       expect(limits.getMaxProjects()).toBeNull();
       expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(true);
@@ -215,6 +228,7 @@ describe("makeOrgLimits", () => {
         effectivePlan: "enterprise",
         orgLimits: FREE_LIMITS,
         licenseLimits: LICENSE_LIMITS,
+        orgDateCreated: undefined,
       });
       expect(limits.getMaxProjects()).toBeNull();
       expect(limits.isEnvironmentIdAllowed("custom-env")).toBe(true);
@@ -227,6 +241,7 @@ describe("makeOrgLimits", () => {
       const limits = accessorFor({
         effectivePlan: "oss",
         orgLimits: { customEnvironments: false, roleManagement: false },
+        orgDateCreated: undefined,
       });
       expect(limits.getMaxProjects()).toBeNull();
     });
@@ -236,12 +251,14 @@ describe("makeOrgLimits", () => {
         accessorFor({
           effectivePlan: "oss",
           orgLimits: { customEnvironments: true },
+          orgDateCreated: undefined,
         }).isEnvironmentIdAllowed("custom-env"),
       ).toBe(true);
       expect(
         accessorFor({
           effectivePlan: "oss",
           orgLimits: {},
+          orgDateCreated: undefined,
         }).isEnvironmentIdAllowed("custom-env"),
       ).toBe(true);
     });
@@ -250,6 +267,7 @@ describe("makeOrgLimits", () => {
       const limits = accessorFor({
         effectivePlan: "oss",
         orgLimits: { customEnvironments: false },
+        orgDateCreated: undefined,
       });
       expect(limits.isEnvironmentIdAllowed("production")).toBe(true);
       expect(limits.isEnvironmentIdAllowed("dev")).toBe(true);

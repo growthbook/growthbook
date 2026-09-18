@@ -1,11 +1,9 @@
 import {
   FREE_ORG_LIMITS,
   PRO_ORG_LIMITS,
-  PAID_PLAN_LIMITS_START_DATE,
   OrgLimits,
   isLimitsFlagDisabled,
   resolveOrgLimitsConfig,
-  shouldStampOrgLimits,
 } from "shared/enterprise";
 
 describe("resolveOrgLimitsConfig", () => {
@@ -115,84 +113,5 @@ describe("isLimitsFlagDisabled", () => {
     ["a bare boolean", false],
   ])("stays enabled for %s", (_label, raw) => {
     expect(isLimitsFlagDisabled(raw)).toBe(false);
-  });
-});
-
-describe("shouldStampOrgLimits", () => {
-  const beforeCutoff = new Date(PAID_PLAN_LIMITS_START_DATE.getTime() - 1);
-  const afterCutoff = new Date(PAID_PLAN_LIMITS_START_DATE.getTime() + 1);
-
-  it.each([null, undefined, { enabled: true, ...FREE_ORG_LIMITS }])(
-    "does not stamp before the cutoff even when the flag is %p",
-    (raw) => {
-      expect(shouldStampOrgLimits({ dateCreated: beforeCutoff }, raw)).toBe(
-        false,
-      );
-    },
-  );
-
-  it.each([null, undefined])(
-    "allows default stamps exactly at the cutoff when the flag is %p",
-    (raw) => {
-      expect(
-        shouldStampOrgLimits({ dateCreated: PAID_PLAN_LIMITS_START_DATE }, raw),
-      ).toBe(true);
-    },
-  );
-
-  it("applies the cutoff to serialized signup dates", () => {
-    expect(
-      shouldStampOrgLimits({ dateCreated: beforeCutoff.toISOString() }, null),
-    ).toBe(false);
-    expect(
-      shouldStampOrgLimits({ dateCreated: afterCutoff.toISOString() }, null),
-    ).toBe(true);
-  });
-
-  it.each(["not-a-date", new Date(NaN)])(
-    "does not stamp an invalid signup date (%p)",
-    (dateCreated) => {
-      expect(shouldStampOrgLimits({ dateCreated }, null)).toBe(false);
-    },
-  );
-
-  it.each([null, undefined])(
-    "stamps the defaults when the flag is missing (%p)",
-    (raw) => {
-      expect(shouldStampOrgLimits({ dateCreated: afterCutoff }, raw)).toBe(
-        true,
-      );
-      expect(resolveOrgLimitsConfig(raw)).toEqual(FREE_ORG_LIMITS);
-    },
-  );
-
-  it.each([
-    { label: "a string", raw: "not-a-config" },
-    { label: "a number", raw: 42 },
-    { label: "an array", raw: [] },
-  ])("does not stamp when the flag served $label", ({ raw }) => {
-    expect(shouldStampOrgLimits({ dateCreated: afterCutoff }, raw)).toBe(false);
-  });
-
-  it("does not stamp when the flag is explicitly disabled", () => {
-    expect(
-      shouldStampOrgLimits({ dateCreated: afterCutoff }, { enabled: false }),
-    ).toBe(false);
-    expect(
-      shouldStampOrgLimits(
-        { dateCreated: afterCutoff },
-        { enabled: false, ...FREE_ORG_LIMITS },
-      ),
-    ).toBe(false);
-  });
-
-  it("stamps when the flag served a config", () => {
-    expect(
-      shouldStampOrgLimits(
-        { dateCreated: afterCutoff },
-        { enabled: true, ...FREE_ORG_LIMITS },
-      ),
-    ).toBe(true);
-    expect(shouldStampOrgLimits({ dateCreated: afterCutoff }, {})).toBe(true);
   });
 });

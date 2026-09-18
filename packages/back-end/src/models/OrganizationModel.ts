@@ -202,7 +202,7 @@ export async function createOrganization({
   restrictLoginMethod?: string;
 }) {
   // TODO: sanitize fields
-  const org = {
+  const doc = await OrganizationModel.create({
     ownerEmail: email,
     demographicData,
     name,
@@ -271,14 +271,9 @@ export async function createOrganization({
     getStartedChecklistItems: [],
     isVercelIntegration,
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
-  };
-
-  const stampedLimits = await getStampedOrgLimits(org);
-  const doc = await OrganizationModel.create({
-    ...org,
     // Cloud stamps from the pricing-phase-1-limits flag; self-hosted uses defaults
     // so the limits for future orgs can be tuned without a deploy.
-    ...(stampedLimits ? { limits: stampedLimits } : {}),
+    limits: await getStampedOrgLimits(),
   });
   return toInterface(doc);
 }
