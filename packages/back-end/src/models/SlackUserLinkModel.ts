@@ -1,18 +1,20 @@
 import { slackUserLinkSchema, SlackUserLinkInterface } from "shared/validators";
+import { getCollection } from "back-end/src/util/mongo.util";
 import {
-  getCollection,
-  isDuplicateKeyError,
-} from "back-end/src/util/mongo.util";
-import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
-import { parseSlackUserLink } from "back-end/src/services/slack/slackUserLink";
+  SLACK_USER_LINK_COLLECTION,
+  parseSlackUserLink,
+  prepareSlackUserLinkStorage,
+  linkSlackUser,
+  unlinkSlackUser,
+} from "back-end/src/services/slack/slackUserLink";
 import { MakeModelClass } from "./BaseModel";
 
-const COLLECTION_NAME = "slackuserlinks";
 const BaseClass = MakeModelClass({
   schema: slackUserLinkSchema,
-  collectionName: COLLECTION_NAME,
+  collectionName: SLACK_USER_LINK_COLLECTION,
   pKey: ["slackTeamId", "slackUserId"] as const,
-  globallyUniquePrimaryKeys: true,
+  globallyUniquePrimaryKeys: false,
+  indexesToRemove: ["slackTeamId_1_slackUserId_1"],
 });
 
 export class SlackUserLinkModel extends BaseClass {
@@ -21,7 +23,6 @@ export class SlackUserLinkModel extends BaseClass {
       !!this.context.userId && doc.growthbookUserId === this.context.userId
     );
   }
-  // Generic CRUD must not bypass proof of Slack identity ownership.
   protected canCreate() {
     return false;
   }
@@ -31,83 +32,40 @@ export class SlackUserLinkModel extends BaseClass {
   protected canDelete(doc: SlackUserLinkInterface) {
     return this.canRead(doc);
   }
-
-  protected migrate(doc: unknown): SlackUserLinkInterface {
+  protected migrate(doc: unknown) {
     return parseSlackUserLink(doc);
   }
 
-  // Like API-key authentication, inbound Slack identity lookup precedes org
-  // resolution. This lookup grants no access; callers must recheck membership.
-  public static async dangerousFindBySlackIdentity(identity: {
+  // Authentication lookup only. Each returned link still requires a current membership check.
+  public static async dangerousFindAllBySlackIdentity(identity: {
     slackTeamId: string;
     slackUserId: string;
-  }): Promise<SlackUserLinkInterface | null> {
+  }): Promise<SlackUserLinkInterface[]> {
     const query = slackUserLinkSchema
       .pick({ slackTeamId: true, slackUserId: true })
       .parse(identity);
-    const doc = await getCollection(COLLECTION_NAME).findOne(query);
-    return doc ? parseSlackUserLink(doc) : null;
+    const docs = await getCollection(SLACK_USER_LINK_COLLECTION)
+      .find(query)
+      .toArray();
+    return docs.map(parseSlackUserLink);
   }
 
-  public async linkCurrentUser(state: string): Promise<void> {
-    const identity = verifySlackLinkState(state);
-    if (
-      !identity ||
-      !this.context.userId ||
-      !this.context.org.members.some(
-        (member) => member.id === this.context.userId,
-      )
-    ) {
-      throw new Error(
-        "A valid Slack consent link and signed-in account are required.",
-      );
-    }
-    const workspace = await getCollection("slackworkspaceconnections").findOne({
-      teamId: identity.slackTeamId,
-      organization: this.context.org.id,
-    });
-    if (!workspace) {
-      throw new Error(
-        "This Slack workspace is not connected to your organization.",
-      );
-    }
-    const now = new Date();
-    const link = slackUserLinkSchema.parse({
-      ...identity,
-      growthbookUserId: this.context.userId,
-      // Audit context only: the identity is shared across connected orgs.
-      organization: this.context.org.id,
-      dateCreated: now,
-      dateUpdated: now,
-    });
-    // A consented relink may originate in a different org. Keep the global
-    // pair unique and derive the replacement account solely from this context.
-    const collection = this._dangerousGetCollection();
-    // BaseModel starts index creation asynchronously; await the global identity
-    // constraint before accepting the first link on a fresh installation.
-    await collection.createIndex(
-      { slackTeamId: 1, slackUserId: 1 },
-      { unique: true },
-    );
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        await collection.updateOne(
-          identity,
-          {
-            $set: {
-              growthbookUserId: link.growthbookUserId,
-              organization: link.organization,
-              dateUpdated: now,
-            },
-            $setOnInsert: { dateCreated: now },
-            $unset: { organizationId: "" },
-          },
-          { upsert: true },
-        );
-        return;
-      } catch (error) {
-        if (!isDuplicateKeyError(error) || attempt === 2) throw error;
-      }
-    }
+  public async getCurrentUserLinks(): Promise<SlackUserLinkInterface[]> {
+    if (!this.context.userId) return [];
+    await prepareSlackUserLinkStorage();
+    return this._find({ growthbookUserId: this.context.userId });
+  }
+
+  public linkCurrentUser(state: string): Promise<void> {
+    return linkSlackUser(this.context, state);
+  }
+
+  public unlinkCurrentUser(
+    identity: Pick<
+      SlackUserLinkInterface,
+      "slackTeamId" | "slackUserId" | "linkId"
+    >,
+  ): Promise<boolean> {
+    return unlinkSlackUser(this.context, identity);
   }
 }

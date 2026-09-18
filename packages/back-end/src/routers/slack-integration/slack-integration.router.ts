@@ -1,5 +1,7 @@
 import {
   slackNotificationPreviewBodySchema,
+  slackLinkBodySchema,
+  slackAccountLinkSchema,
   slackNotificationSettingsBodySchema,
   zodNotificationEventNamesEnum,
 } from "shared/validators";
@@ -86,11 +88,24 @@ router.post(
 );
 
 router.post(
-  "/link",
+  "/link/consent",
   validateRequestMiddleware({
-    body: z.object({ state: z.string().min(1) }).strict(),
+    body: z.strictObject({ state: z.string().min(1) }),
   }),
+  slackIntegrationController.postSlackLinkConsent,
+);
+router.post(
+  "/link",
+  validateRequestMiddleware({ body: slackLinkBodySchema }),
   slackIntegrationController.postSlackLink,
+);
+router.get("/links", slackIntegrationController.getMySlackLinks);
+router.delete(
+  "/links",
+  validateRequestMiddleware({
+    body: slackAccountLinkSchema.omit({ teamName: true }).strict(),
+  }),
+  slackIntegrationController.deleteMySlackLink,
 );
 
 // Channel management for workspace-level installs. Registered before /:id so

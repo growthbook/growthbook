@@ -2,7 +2,10 @@ import {
   SlackWorkspaceConnectionInterface,
   slackWorkspaceConnectionSchema,
 } from "shared/validators";
-import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
+import {
+  getCollection,
+  isDuplicateKeyError,
+} from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -18,6 +21,16 @@ type SlackWorkspaceConnectionFields = Omit<
 >;
 
 export class SlackWorkspaceConnectionModel extends BaseClass {
+  // Used before org resolution for signed Slack events and account consent.
+  public static async dangerousGetAllForTeam(
+    teamId: string,
+  ): Promise<SlackWorkspaceConnectionInterface[]> {
+    const docs = await getCollection("slackworkspaceconnections")
+      .find({ teamId })
+      .toArray();
+    return docs.map((doc) => slackWorkspaceConnectionSchema.strip().parse(doc));
+  }
+
   protected canCreate(): boolean {
     return this.context.permissions.canManageIntegrations();
   }

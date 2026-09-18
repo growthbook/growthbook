@@ -23,18 +23,52 @@ login. Requests run with their current organization permissions. Mutations requi
 confirmation from the conversation owner. Notification delivery is independent of
 the assistant switch.
 
-## Account-link storage
+## Account links and organization routing
 
-Slack user links use BaseModel with a globally unique workspace/user pair. The
-stored organization is audit context, not an authorization boundary for that
-identity. A narrow static lookup resolves identity before an organization is
-known; each assistant request still resolves the destination organization and
-checks current membership and permissions. Authenticated relinking verifies the
-signed Slack consent token and a real workspace connection before updating that
-same global pair. Generic create/update operations are disabled so they cannot
-bypass consent. Ordinary model reads/deletes retain BaseModel's organization
-scope. Existing Mongoose records using `organizationId` remain readable and are
-normalized when relinked.
+Users consent separately for each GrowthBook organization. Send `link account`
+to GrowthBook in a DM, or mention the bot with that text in a channel, to get a
+private signed link. The consent page shows the Slack workspace/user, signed-in
+GrowthBook account, and eligible connected organizations. Choose the organization
+before confirming. To replace a linked GrowthBook account, open a fresh private
+link while signed in to the replacement account and confirm that organization.
+
+The personal account menu's **My Slack links** page lists the current user's
+links in the selected organization and allows disconnecting them. These actions
+do not require integration-admin permission. Other organizations' links remain
+unchanged. Every replacement creates a new link identifier, so older conversations
+and pending approvals cannot be reused, even when relinking to the same account.
+A signed consent token can be used once per organization; retrying an already
+successful consent is idempotent. A failed or subsequently disconnected consent
+requires a fresh private link.
+
+Workspace OAuth connections are authoritative for linking and DMs, including a
+fresh installation with no notification channels. Deleting the final notification
+channel leaves workspace linking and DMs available. Channel requests still require
+an exact channel subscription in the selected organization.
+
+An unambiguous eligible organization with the assistant enabled is chosen automatically. When a DM or channel
+has multiple eligible linked organizations, the assistant posts a private clickable
+organization picker and continues the original question after a valid choice.
+The choice persists in `slackassistantthreads` for the team/channel/thread. Later
+messages and approvals use that organization. Losing a link, membership, or channel
+connection never redirects an existing thread to another organization. Each Slack
+participant has a separate conversation bound to their Slack identity, GrowthBook
+account, organization, and current link identifier. Picker responses are bound to
+the requester and pending question; stale, duplicate, or mismatched responses do
+not start another turn. Membership, configuration, and permissions are checked again
+when acting. To use a different organization, start a new thread.
+
+`slackuserlinks` has an organization-scoped unique workspace/user key. Legacy
+records using `organizationId` are normalized only into that recorded organization,
+never copied across organizations. Before linking or listing personal links, the
+storage helper awaits normalization, creation of the scoped unique index, and
+removal of `slackTeamId_1_slackUserId_1`. BaseModel also removes that obsolete index
+during initialization. Legacy records without a link identifier get a stable
+identifier derived from their stored identity and update time until replaced.
+Old approval buttons from before thread routing was introduced are rejected and
+require a new proposal. Deploy matching application versions together; an older
+worker must not recreate the obsolete global index or use the former global-link
+semantics during a rolling upgrade.
 
 ## Queue recovery
 

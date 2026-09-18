@@ -15,7 +15,7 @@ describe("slackLink signed state", () => {
 
   it("round-trips the team + user ids", () => {
     const url = buildSlackLinkUrl({ slackTeamId: "T123", slackUserId: "U456" });
-    expect(verifySlackLinkState(stateFromUrl(url))).toEqual({
+    expect(verifySlackLinkState(stateFromUrl(url))).toMatchObject({
       slackTeamId: "T123",
       slackUserId: "U456",
     });
@@ -34,4 +34,23 @@ describe("slackLink signed state", () => {
     expect(verifySlackLinkState("onlyonepart")).toBeNull();
     expect(verifySlackLinkState("")).toBeNull();
   });
+});
+
+it("rejects appended data and expired consent, including future timestamps", () => {
+  jest.useFakeTimers();
+  try {
+    jest.setSystemTime(new Date("2026-09-17T00:00:00Z"));
+    const state = stateFromUrl(
+      buildSlackLinkUrl({ slackTeamId: "T1", slackUserId: "U1" }),
+    );
+    expect(verifySlackLinkState(`${state}.extra`)).toBeNull();
+    jest.advanceTimersByTime(15 * 60 * 1000);
+    expect(verifySlackLinkState(state)).not.toBeNull();
+    jest.advanceTimersByTime(1);
+    expect(verifySlackLinkState(state)).toBeNull();
+    jest.setSystemTime(new Date("2026-09-16T23:59:59Z"));
+    expect(verifySlackLinkState(state)).toBeNull();
+  } finally {
+    jest.useRealTimers();
+  }
 });

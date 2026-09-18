@@ -4,15 +4,20 @@ import {
   getSlackTaskClaimAge,
   releaseSlackTask,
 } from "back-end/src/services/slack/slackTaskSafety";
-import { handleSlackAssistantMention } from "back-end/src/services/slack/slackAssistant";
+import {
+  handleSlackAssistantMention,
+  handleSlackOrganizationSelection,
+} from "back-end/src/services/slack/slackAssistant";
 import addSlackAssistantJobs, {
   queueSlackAssistantMention,
   queueSlackAssistantConfirmation,
+  queueSlackOrganizationSelection,
 } from "back-end/src/jobs/slackAssistantTasks";
 
 jest.mock("back-end/src/services/slack/slackAssistant", () => ({
   handleSlackAssistantMention: jest.fn(),
   handleSlackAssistantConfirmation: jest.fn(),
+  handleSlackOrganizationSelection: jest.fn(),
 }));
 jest.mock("back-end/src/services/slack/slackUnfurl", () => ({
   handleSlackLinkShared: jest.fn(),
@@ -127,4 +132,33 @@ test("deduplicates redeliveries but lets a fresh approval click retry preflight"
   });
   expect(unique.mock.calls[0]).toEqual(unique.mock.calls[1]);
   expect(unique.mock.calls[2]).not.toEqual(unique.mock.calls[1]);
+});
+
+test("queues organization choices durably and serializes them with their original thread", async () => {
+  const selection = {
+    teamId: "team",
+    channelId: "channel",
+    slackUserId: "user",
+    selectionId: "picker",
+    organizationId: "org1",
+    threadTs: "123.456",
+    interactionTs: "123.789",
+  };
+  await queueSlackOrganizationSelection(selection);
+  await queueSlackOrganizationSelection(selection);
+  expect(unique.mock.calls[0]).toEqual(unique.mock.calls[1]);
+  const process = agenda.define.mock.calls[0][1];
+  await process({
+    attrs: { data: { kind: "organization", selection } },
+    schedule,
+    save,
+  });
+  const selectionLock = jest.mocked(claimSlackTask).mock.calls[0][0];
+  await process({
+    attrs: { data: { kind: "mention", mention } },
+    schedule,
+    save,
+  });
+  expect(jest.mocked(claimSlackTask).mock.calls[1][0]).toBe(selectionLock);
+  expect(handleSlackOrganizationSelection).toHaveBeenCalledWith(selection);
 });

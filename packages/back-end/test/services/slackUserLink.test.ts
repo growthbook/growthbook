@@ -8,7 +8,7 @@ const identity = {
   dateUpdated: new Date("2026-09-02"),
 };
 
-it("preserves the global identity and timestamps in old Mongoose records", () => {
+it("scopes old Mongoose records to their recorded organization", () => {
   expect(
     parseSlackUserLink({
       ...identity,
@@ -16,16 +16,24 @@ it("preserves the global identity and timestamps in old Mongoose records", () =>
       _id: "mongo-id",
       __v: 0,
     }),
-  ).toEqual({ ...identity, organization: "org1" });
+  ).toMatchObject({
+    ...identity,
+    organization: "org1",
+    linkId: expect.any(String),
+  });
 });
-it("prefers the current audit organization over the old field", () => {
+it("prefers the current organization over the old field", () => {
   expect(
     parseSlackUserLink({
       ...identity,
       organization: "org2",
       organizationId: "org1",
     }),
-  ).toEqual({ ...identity, organization: "org2" });
+  ).toMatchObject({
+    ...identity,
+    organization: "org2",
+    linkId: expect.any(String),
+  });
 });
 it.each([
   { growthbookUserId: "" },

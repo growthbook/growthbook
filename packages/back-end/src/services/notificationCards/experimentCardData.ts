@@ -1,6 +1,8 @@
 import { getSnapshotAnalysis } from "shared/util";
+import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import {
   type ExperimentMetricInterface,
+  expandMetricGroups,
   parseFunnelStepMetricId,
   parseSliceMetricId,
   isFactFunnelMetric,
@@ -9,6 +11,7 @@ import {
 import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   SnapshotMetric,
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -16,6 +19,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricsByIds } from "back-end/src/services/experiments";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getSignificanceSettingsForProject } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import type {
   CardCiMetric,
@@ -29,8 +33,6 @@ import type {
 // snapshot's default analysis; `expected`/`ci` are fractional relative
 // uplift (matching the front-end results graph), so we scale to % for the card.
 
-const SRM_P_THRESHOLD = 0.001; // matches the default health-check threshold
-const SIG_THRESHOLD = 0.05;
 const MAX_SECONDARY = 3;
 const MAX_GUARDRAIL = 3;
 
@@ -103,24 +105,35 @@ function relCi(m: SnapshotMetric): [number, number] | undefined {
   return ci ? [ci[0] * 100, ci[1] * 100] : undefined;
 }
 
-function isSignificant(m: SnapshotMetric): boolean {
-  const p = m.pValueAdjusted ?? m.pValue;
-  if (p !== undefined) return p < SIG_THRESHOLD;
-  if (m.chanceToWin !== undefined) {
-    return m.chanceToWin >= 0.95 || m.chanceToWin <= 0.05;
+function isSignificant(
+  m: SnapshotMetric,
+  statsEngine: ExperimentSnapshotAnalysisSettings["statsEngine"] | undefined,
+  {
+    pValueThreshold,
+    ciUpper,
+    ciLower,
+  }: Awaited<ReturnType<typeof getSignificanceSettingsForProject>>,
+): boolean {
+  if (statsEngine === "bayesian") {
+    return (
+      m.chanceToWin !== undefined &&
+      (m.chanceToWin > ciUpper || m.chanceToWin < ciLower)
+    );
   }
-  return false;
+  const p = m.pValueAdjusted ?? m.pValue;
+  return p !== undefined && p < pValueThreshold;
 }
 
 function deriveState(
   experiment: ExperimentInterface,
   srmPValue: number | undefined,
+  srmThreshold: number,
 ): CardState {
   if (experiment.status === "draft") return "started";
   if (
     experiment.status === "running" &&
     srmPValue !== undefined &&
-    srmPValue < SRM_P_THRESHOLD
+    srmPValue < srmThreshold
   ) {
     return "warning";
   }
@@ -144,15 +157,16 @@ export async function buildExperimentCardData(
   if (!experiment) return null;
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
-  const goalId = experiment.goalMetrics[0];
-  const secondaryIds = (experiment.secondaryMetrics || []).slice(
-    0,
-    experiment.status === "draft" ? undefined : MAX_SECONDARY,
-  );
-  const guardrailIds = (experiment.guardrailMetrics || []).slice(
-    0,
-    experiment.status === "draft" ? undefined : MAX_GUARDRAIL,
-  );
+  const metricGroups = await context.models.metricGroups.getAll();
+  const goalId = expandMetricGroups(experiment.goalMetrics, metricGroups)[0];
+  const secondaryIds = expandMetricGroups(
+    experiment.secondaryMetrics || [],
+    metricGroups,
+  ).slice(0, experiment.status === "draft" ? undefined : MAX_SECONDARY);
+  const guardrailIds = expandMetricGroups(
+    experiment.guardrailMetrics || [],
+    metricGroups,
+  ).slice(0, experiment.status === "draft" ? undefined : MAX_GUARDRAIL);
   const baseId = (id: string): string =>
     parseSliceMetricId(parseFunnelStepMetricId(id).baseMetricId).baseMetricId;
   const ids = [
@@ -227,10 +241,22 @@ export async function buildExperimentCardData(
     logger.warn(e, "Notification card: failed to load snapshot");
   }
   const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
+  const significanceSettings = await getSignificanceSettingsForProject(
+    context,
+    experiment.project,
+  );
+  const significanceThresholds = {
+    ...significanceSettings,
+    pValueThreshold:
+      analysis?.settings.pValueThreshold ??
+      significanceSettings.pValueThreshold,
+  };
+  const srmThreshold =
+    context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
   const dim = analysis?.results?.[0];
   const srmPValue = dim?.srm;
 
-  const state = deriveState(experiment, srmPValue);
+  const state = deriveState(experiment, srmPValue, srmThreshold);
 
   const goalRows: CardGoalRow[] = [];
   if (dim && goalId) {
@@ -285,7 +311,11 @@ export async function buildExperimentCardData(
         hi: ci ? ci[1] : upliftPct,
         pt: upliftPct,
       },
-      sig: isSignificant(vm),
+      sig: isSignificant(
+        vm,
+        analysis?.settings.statsEngine,
+        significanceThresholds,
+      ),
     };
   };
 
@@ -325,7 +355,7 @@ export async function buildExperimentCardData(
   if (
     state !== "warning" &&
     srmPValue !== undefined &&
-    srmPValue < SRM_P_THRESHOLD
+    srmPValue < srmThreshold
   ) {
     healthIssues.push([
       "Sample Ratio Mismatch",
@@ -366,7 +396,7 @@ export async function buildExperimentCardData(
     ...(healthIssues.length
       ? { health: { status: "unhealthy" as const, issues: healthIssues } }
       : {}),
-    ...(srm ? { srm, p: `p < ${SRM_P_THRESHOLD}` } : {}),
+    ...(srm ? { srm, p: `p < ${srmThreshold}` } : {}),
     ...(state === "warning"
       ? {
           note: "Sample Ratio Mismatch — traffic is not splitting as configured. Results are unreliable until fixed.",

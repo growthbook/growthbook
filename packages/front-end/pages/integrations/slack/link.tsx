@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/router";
+import useSWR from "swr";
 import { Box, Flex } from "@radix-ui/themes";
+import type { SlackLinkConsent } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -8,153 +10,198 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import RadioGroup from "@/ui/RadioGroup";
+import Link from "@/ui/Link";
 
-// Slack account-link consent page. The bot sends an unlinked user here with a
-// signed `state`; confirming (while logged in to GrowthBook) records "this
-// Slack user IS this GrowthBook account", so the assistant acts as them without
-// trusting the spoofable Slack profile email.
-//
-// Auth-gated (no preAuth flag), so an unauthenticated visitor logs in first.
-// Users in multiple orgs pick which one to link before confirming.
-
-type Status = "confirming" | "linking" | "done" | "error";
-
-function getQueryValue(v: string | string[] | undefined): string {
-  return Array.isArray(v) ? v[0] || "" : v || "";
-}
-
-const SlackLinkPage = () => {
+export default function SlackLinkPage() {
   const router = useRouter();
-  const { apiCall, orgId } = useAuth();
+  const { apiCall, orgId, setOrgId } = useAuth();
   const { name, email } = useUser();
-
-  const state = getQueryValue(router.query.state);
-
-  const [status, setStatus] = useState<Status>("confirming");
-  const [errorMsg, setErrorMsg] = useState<string>("");
-  const inFlightRef = useRef(false);
+  const state =
+    typeof router.query.state === "string" ? router.query.state : "";
+  // POST keeps the consent token out of API query strings and access logs.
+  const { data, error, mutate } = useSWR<SlackLinkConsent, Error>(
+    state && orgId ? ["slack-link-consent", state, orgId, email] : null,
+    () =>
+      apiCall("/integrations/slack/link/consent", {
+        method: "POST",
+        body: JSON.stringify({ state }),
+      }),
+  );
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [linkedOrg, setLinkedOrg] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const inFlight = useRef(false);
+  const selected =
+    data?.organizations.find((org) => org.id === selectedOrgId) ??
+    (data?.organizations.length === 1 ? data.organizations[0] : null);
 
   const onConfirm = async () => {
-    if (inFlightRef.current || !state) return;
-    inFlightRef.current = true;
-    setStatus("linking");
+    if (inFlight.current) return;
+    if (!selected) {
+      setSubmitError("Choose the organization you want to link.");
+      return;
+    }
+    inFlight.current = true;
+    setSaving(true);
+    setSubmitError(null);
     try {
       await apiCall("/integrations/slack/link", {
         method: "POST",
-        body: JSON.stringify({ state }),
+        body: JSON.stringify({ state, organizationId: selected.id }),
       });
-      setStatus("done");
+      setLinkedOrg({ id: selected.id, name: selected.name });
+      void mutate();
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : String(e));
-      setStatus("error");
+      setSubmitError(
+        e instanceof Error ? e.message : "Could not link your Slack account.",
+      );
     } finally {
-      inFlightRef.current = false;
+      inFlight.current = false;
+      setSaving(false);
     }
   };
 
-  const ready = !!orgId;
-
   return (
-    <Flex align="center" justify="center" px="4" style={{ minHeight: "70vh" }}>
-      <Box style={{ maxWidth: 520, width: "100%" }}>
-        {!state && (
-          <Callout status="error">
-            Missing link token. Mention the GrowthBook bot in Slack again to get
-            a fresh link.
-          </Callout>
-        )}
-
-        {state && !ready && (
-          <Flex direction="column" align="center" gap="3">
-            <LoadingSpinner />
-            <Text as="p" color="text-mid" align="center">
-              Loading your organizations…
-            </Text>
-          </Flex>
-        )}
-
-        {state && ready && status === "confirming" && (
-          <Flex direction="column" gap="4">
-            <Box>
-              <Heading as="h1" size="lg" mb="2">
-                Link your Slack account
-              </Heading>
-              <Text as="p" color="text-mid">
-                The GrowthBook Slack bot wants to link your Slack identity to
-                your GrowthBook account so it can answer as you, with your
-                permissions.
-              </Text>
-            </Box>
-
-            <Box
-              p="4"
-              style={{
-                border: "1px solid var(--slate-a5)",
-                borderRadius: 8,
-                background: "var(--color-panel-solid)",
-              }}
-            >
-              <Text size="sm" color="text-mid" as="p" mb="1">
-                Linking as
-              </Text>
-              <Heading as="h2" size="md" mb="2">
-                {name ? `${name} (${email})` : email || "your account"}
-              </Heading>
-              <Text size="sm" color="text-mid" as="p">
-                This links your identity, not one organization. In each Slack
-                channel the bot answers within the organization that channel is
-                connected to — and only if you&rsquo;re a member of it.
-              </Text>
-            </Box>
-
-            <Flex gap="3" align="center">
-              <Button onClick={onConfirm}>Link my account</Button>
-            </Flex>
-          </Flex>
-        )}
-
-        {state && ready && status === "linking" && (
-          <Flex direction="column" align="center" gap="3">
-            <LoadingSpinner />
-            <Heading as="h1" size="md" align="center" mb="0">
-              Linking…
-            </Heading>
-          </Flex>
-        )}
-
-        {state && status === "done" && (
-          <Flex direction="column" align="center" gap="3">
-            <Heading as="h1" size="lg" align="center" mb="0">
-              You&rsquo;re linked
-            </Heading>
-            <Text as="p" color="text-mid" align="center">
-              Your Slack account is now linked to GrowthBook. You can close this
-              tab and go back to Slack.
-            </Text>
-          </Flex>
-        )}
-
-        {state && status === "error" && (
-          <Flex direction="column" align="center" gap="3">
-            <Heading as="h1" size="lg" align="center" mb="0">
-              Couldn&rsquo;t link
-            </Heading>
+    <Flex
+      align="center"
+      justify="center"
+      px="4"
+      py="6"
+      style={{ minHeight: "70vh" }}
+    >
+      <Box style={{ maxWidth: 560, width: "100%" }}>
+        <Flex direction="column" gap="4">
+          <Heading as="h1" size="lg">
+            Link Your Slack Account
+          </Heading>
+          {!state ? (
             <Callout status="error">
-              {errorMsg || "Something went wrong linking your Slack account."}
+              Missing link token. Send &quot;link account&quot; to GrowthBook in
+              Slack for a fresh link.
             </Callout>
-            <Button
-              onClick={() => {
-                setErrorMsg("");
-                setStatus("confirming");
-              }}
-            >
-              Try again
-            </Button>
-          </Flex>
-        )}
+          ) : linkedOrg ? (
+            <>
+              <Callout status="success">
+                Your Slack account is linked to {linkedOrg.name} as {email}. You
+                can return to Slack.
+              </Callout>
+              <Link
+                href={`/account/slack?org=${encodeURIComponent(linkedOrg.id)}`}
+                onClick={() => setOrgId?.(linkedOrg.id)}
+              >
+                Manage my Slack links
+              </Link>
+              {(data?.organizations.length ?? 0) > 1 && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setLinkedOrg(null);
+                    setSelectedOrgId(null);
+                  }}
+                >
+                  Link another organization
+                </Button>
+              )}
+            </>
+          ) : error ? (
+            <Callout status="error">{error.message}</Callout>
+          ) : !data ? (
+            <LoadingSpinner />
+          ) : (
+            <>
+              <Text as="p">
+                Link Slack user {data.slackUserId} in {data.teamName} to your
+                GrowthBook account. The assistant will use your permissions in
+                the organization you select.
+              </Text>
+              <Box
+                p="4"
+                style={{ border: "1px solid var(--slate-a5)", borderRadius: 8 }}
+              >
+                <Text as="p" size="sm" color="text-mid">
+                  GrowthBook account
+                </Text>
+                <Text as="p" weight="semibold">
+                  {name ? `${name} (${email})` : email}
+                </Text>
+                <Text as="p" size="sm" color="text-mid">
+                  To use a different account, sign out and reopen this link.
+                </Text>
+              </Box>
+              {data.organizations.length === 0 ? (
+                <Callout status="warning">
+                  Your account is not a member of an organization connected to
+                  this Slack workspace.
+                </Callout>
+              ) : (
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void onConfirm();
+                  }}
+                >
+                  <Flex direction="column" gap="4">
+                    <fieldset
+                      disabled={saving}
+                      style={{ border: 0, padding: 0, margin: 0 }}
+                    >
+                      <legend>
+                        <Text weight="semibold" mb="2">
+                          GrowthBook organization
+                        </Text>
+                      </legend>
+                      <RadioGroup
+                        value={selected?.id || ""}
+                        setValue={(id) => {
+                          setSelectedOrgId(id);
+                          setSubmitError(null);
+                        }}
+                        options={data.organizations.map((org) => ({
+                          value: org.id,
+                          label: org.name,
+                          description:
+                            org.linkedAccount === "other"
+                              ? "Linked to another GrowthBook account"
+                              : org.linkedAccount === "current"
+                                ? "Linked to this account"
+                                : "Not linked",
+                        }))}
+                      />
+                    </fieldset>
+                    <Text as="p" size="sm" color="text-mid">
+                      Each organization requires a separate link. Linking here
+                      leaves your links in other organizations unchanged.
+                    </Text>
+                    {selected?.linkedAccount && (
+                      <Callout status="warning">
+                        This replaces your existing link in {selected.name}.
+                        Approvals from the previous link will no longer work.
+                      </Callout>
+                    )}
+                    {submitError && (
+                      <div role="alert">
+                        <Callout status="error">{submitError}</Callout>
+                      </div>
+                    )}
+                    <Button type="submit" disabled={saving}>
+                      {saving
+                        ? "Linking…"
+                        : selected?.linkedAccount
+                          ? "Replace linked account"
+                          : "Link my account"}
+                    </Button>
+                  </Flex>
+                </form>
+              )}
+            </>
+          )}
+        </Flex>
       </Box>
     </Flex>
   );
-};
-
-export default SlackLinkPage;
+}

@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { z } from "zod";
 import bodyParser from "body-parser";
 import express, { Request, Response } from "express";
 import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
@@ -11,8 +12,30 @@ import { logger } from "back-end/src/util/logger";
 import {
   queueSlackAssistantMention,
   queueSlackAssistantConfirmation,
+  queueSlackOrganizationSelection,
   queueSlackLinkUnfurl,
 } from "back-end/src/jobs/slackAssistantTasks";
+import {
+  slackOrganizationSelectionSchema,
+  slackOrganizationSelectionValueSchema,
+} from "back-end/src/services/slack/slackThreadRouting";
+
+const interactionPayloadSchema = z.object({
+  team: z.object({ id: z.string().min(1) }),
+  channel: z.object({ id: z.string().min(1) }),
+  user: z.object({ id: z.string().min(1) }),
+  message: z.object({ ts: z.string().optional() }).optional(),
+  actions: z
+    .array(
+      z.object({
+        action_id: z.string(),
+        action_ts: z.string().optional(),
+        value: z.string().optional(),
+        selected_option: z.object({ value: z.string() }).optional(),
+      }),
+    )
+    .optional(),
+});
 
 type SlackRequest = Request & {
   rawBody?: string;
@@ -154,19 +177,49 @@ const interactions = async (req: SlackRequest, res: Response) => {
     return res.status(401).json({ text: "Invalid Slack signature." });
   }
 
-  let payload: {
-    team?: { id?: string };
-    channel?: { id?: string };
-    user?: { id?: string };
-    message?: { ts?: string };
-    actions?: { action_id?: string; action_ts?: string; value?: string }[];
-  };
+  let input: unknown;
   try {
-    payload = JSON.parse(req.body.payload || "{}");
+    input = JSON.parse(req.body.payload || "{}");
   } catch {
     return res.status(400).json({ text: "Invalid Slack interaction payload." });
   }
+  const parsedPayload = interactionPayloadSchema.safeParse(input);
+  if (!parsedPayload.success)
+    return res.status(400).json({ text: "Invalid Slack interaction payload." });
+  const payload = parsedPayload.data;
   const action = payload.actions?.[0];
+
+  if (action?.action_id === "gb_select_organization") {
+    let value: unknown;
+    try {
+      value = JSON.parse(action.selected_option?.value || "{}");
+    } catch {
+      return res.status(400).json({ text: "Invalid organization choice." });
+    }
+    const parsed = slackOrganizationSelectionValueSchema.safeParse(value);
+    if (!parsed.success || !action.action_ts)
+      return res
+        .status(400)
+        .json({ text: "Missing organization choice identity." });
+    const selection = slackOrganizationSelectionSchema.parse({
+      teamId: payload.team.id,
+      channelId: payload.channel.id,
+      slackUserId: payload.user.id,
+      selectionId: parsed.data.s,
+      organizationId: parsed.data.o,
+      threadTs: parsed.data.t,
+      interactionTs: action.action_ts,
+    });
+    try {
+      await queueSlackOrganizationSelection(selection);
+      return res.status(200).send("");
+    } catch (error) {
+      logger.error(error, "Failed to enqueue Slack organization choice");
+      return res
+        .status(503)
+        .json({ text: "Unable to accept this choice. Please retry." });
+    }
+  }
 
   // Assistant mutation confirm/cancel — replay the parked action async.
   if (
@@ -232,6 +285,11 @@ const interactions = async (req: SlackRequest, res: Response) => {
     });
   }
 
+  if (!target.eventWebHookId)
+    return res.json({
+      response_type: "ephemeral",
+      text: "This conversation has no notification subscription to snooze.",
+    });
   await target.context.models.slackNotificationSnoozes.snoozeExperiment({
     eventWebHookId: target.eventWebHookId,
     experimentId,

@@ -2,6 +2,9 @@ import {
   SlackNotificationPreviewBody,
   SlackNotificationSettingsBody,
   SlackWorkspaceConnectionFrontEndInterface,
+  SlackLinkBody,
+  SlackLinkConsent,
+  SlackAccountLink,
 } from "shared/validators";
 import type { Response } from "express";
 import {
@@ -20,8 +23,10 @@ import {
   getContextForUserIdInOrg,
 } from "back-end/src/services/organizations";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
-import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
-import { getSlackWorkspaceOrganizationIds } from "back-end/src/services/slack/slackIdentity";
+import {
+  getSlackLinkConsent,
+  getSlackAccountLinks,
+} from "back-end/src/services/slack/slackIdentity";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
 import {
   addSlackChannelToWorkspace,
@@ -347,35 +352,45 @@ export const postSlackDisconnect = async (
   return res.json(result);
 };
 
-export const postSlackLink = async (
+export const postSlackLinkConsent = async (
   req: AuthRequest<{ state: string }>,
+  res: Response<SlackLinkConsent>,
+) =>
+  res.json(await getSlackLinkConsent(getContextFromReq(req), req.body.state));
+
+export const postSlackLink = async (
+  req: AuthRequest<SlackLinkBody>,
   res: Response<{ linked: boolean } | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const parsed = verifySlackLinkState(req.body.state);
-  if (!parsed) {
-    return res.status(400).json({
-      message:
-        "This link is invalid or expired. Mention the bot again to get a fresh link.",
+  const organization = await findOrganizationById(req.body.organizationId);
+  const memberContext = organization
+    ? await getContextForUserIdInOrg(organization, context.userId)
+    : null;
+  if (!memberContext)
+    return res.status(403).json({
+      message: "You are not a member of the selected GrowthBook organization.",
     });
-  }
-  const orgIds = await getSlackWorkspaceOrganizationIds(parsed.slackTeamId);
-  for (const organizationId of orgIds) {
-    const organization = await findOrganizationById(organizationId);
-    if (!organization) continue;
-    const memberContext = await getContextForUserIdInOrg(
-      organization,
-      context.userId,
-    );
-    if (!memberContext) continue;
-    await memberContext.models.slackUserLinks.linkCurrentUser(req.body.state);
-    return res.json({ linked: true });
-  }
-  return res.status(400).json({
-    message:
-      "Your GrowthBook account isn't a member of an organization connected to this Slack workspace.",
-  });
+  await memberContext.models.slackUserLinks.linkCurrentUser(req.body.state);
+  return res.json({ linked: true });
 };
+
+export const getMySlackLinks = async (
+  req: AuthRequest,
+  res: Response<{ links: SlackAccountLink[] }>,
+) => res.json({ links: await getSlackAccountLinks(getContextFromReq(req)) });
+
+export const deleteMySlackLink = async (
+  req: AuthRequest<
+    Pick<SlackAccountLink, "slackTeamId" | "slackUserId" | "linkId">
+  >,
+  res: Response<{ unlinked: boolean }>,
+) =>
+  res.json({
+    unlinked: await getContextFromReq(
+      req,
+    ).models.slackUserLinks.unlinkCurrentUser(req.body),
+  });
 
 export const postSlackAssistant = async (
   req: AuthRequest<{ teamId?: string; enabled: boolean }>,

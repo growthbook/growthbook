@@ -12,6 +12,8 @@ import {
 import {
   handleSlackAssistantMention,
   handleSlackAssistantConfirmation,
+  handleSlackOrganizationSelection,
+  SlackOrganizationSelection,
   SlackAssistantMention,
   SlackAssistantConfirmation,
 } from "back-end/src/services/slack/slackAssistant";
@@ -22,12 +24,13 @@ import {
 
 const SLACK_ASSISTANT_JOB_NAME = "slackAssistantTask";
 
-// One job type with a discriminated payload serves all three interaction
+// One job type with a discriminated payload serves the interaction
 // kinds. `dedupeKey` + job.unique stops a Slack re-delivery from spawning a
 // second pending job.
 type SlackAssistantTaskData = { dedupeKey?: string } & (
   | { kind: "mention"; mention: SlackAssistantMention }
   | { kind: "confirmation"; confirmation: SlackAssistantConfirmation }
+  | { kind: "organization"; selection: SlackOrganizationSelection }
   | { kind: "unfurl"; event: SlackLinkShared }
 );
 
@@ -41,13 +44,17 @@ const processSlackAssistantTask = async (job: SlackAssistantJob) => {
       ? data.mention
       : data.kind === "confirmation"
         ? data.confirmation
-        : data.event;
+        : data.kind === "organization"
+          ? data.selection
+          : data.event;
   const rootTs =
     data.kind === "mention"
       ? data.mention.threadTs || data.mention.messageTs
       : data.kind === "confirmation"
         ? data.confirmation.threadTs || ""
-        : data.event.messageTs;
+        : data.kind === "organization"
+          ? data.selection.threadTs
+          : data.event.messageTs;
   const lockKey = `thread:${slackTaskKey([task.teamId, task.channelId, rootTs])}`;
   if (!(await claimSlackTask(lockKey))) {
     const age = await getSlackTaskClaimAge(lockKey);
@@ -82,6 +89,9 @@ const processSlackAssistantTask = async (job: SlackAssistantJob) => {
         return;
       case "confirmation":
         await handleSlackAssistantConfirmation(data.confirmation);
+        return;
+      case "organization":
+        await handleSlackOrganizationSelection(data.selection);
         return;
       case "unfurl":
         await handleSlackLinkShared(data.event);
@@ -170,4 +180,11 @@ export async function queueSlackLinkUnfurl(
     { kind: "unfurl", event },
     `unfurl:${slackTaskKey([event.teamId, dedupeKey || event.channelId + ":" + event.messageTs])}`,
   );
+}
+
+export async function queueSlackOrganizationSelection(
+  selection: SlackOrganizationSelection,
+): Promise<void> {
+  const dedupeKey = `organization:${slackTaskKey([selection.teamId, selection.channelId, selection.slackUserId, selection.selectionId, selection.interactionTs])}`;
+  await enqueue({ kind: "organization", selection }, dedupeKey);
 }

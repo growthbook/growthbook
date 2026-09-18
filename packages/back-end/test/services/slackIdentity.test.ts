@@ -1,62 +1,40 @@
-import { selectCandidateWebhooks } from "back-end/src/services/slack/slackIdentity";
+import { selectCandidateWorkspaces } from "back-end/src/services/slack/slackIdentity";
 
-type W = { id: string; organizationId: string; slack?: { channelId?: string } };
-
-const wh = (id: string, org: string, channelId?: string): W => ({
-  id,
-  organizationId: org,
-  slack: channelId ? { channelId } : {},
+const connections = [{ organization: "org1" }, { organization: "org2" }];
+const webhooks = [
+  { id: "wh1", organizationId: "org1", slack: { channelId: "C_ONE" } },
+  { id: "wh2", organizationId: "org2", slack: { channelId: "C_TWO" } },
+];
+it("uses exact channel bindings", () => {
+  expect(selectCandidateWorkspaces(connections, webhooks, "C_TWO")).toEqual([
+    { connection: connections[1], eventWebHookId: "wh2" },
+  ]);
 });
-
-describe("selectCandidateWebhooks", () => {
-  it("prefers webhooks bound to the exact channel the mention came from", () => {
-    const webhooks = [
-      wh("a", "org1", "C_ONE"),
-      wh("b", "org2", "C_TWO"),
-      wh("c", "org3", "C_THREE"),
-    ];
-    const out = selectCandidateWebhooks(webhooks, "C_TWO");
-    expect(out.map((w) => w.organizationId)).toEqual(["org2"]);
-  });
-
-  it.each(["C_OTHER", "G_PRIVATE", "G_GROUPDM", "", "U_USER", "D_INVALID"])(
-    "rejects an unbound conversation %s even when only one organization is available",
-    (channel) => {
-      expect(
-        selectCandidateWebhooks([wh("a", "org1", "C_ONE")], channel),
-      ).toEqual([]);
-    },
-  );
-
-  it("considers all organizations for an actual direct message", () => {
-    const webhooks = [wh("a", "org1", "C_ONE"), wh("b", "org2", "C_TWO")];
-    expect(selectCandidateWebhooks(webhooks, "D12345")).toHaveLength(2);
-  });
-
-  it("dedupes to one representative webhook per org", () => {
-    // Same org connected to two channels, plus a second org.
-    const webhooks = [
-      wh("a", "org1", "C_ONE"),
-      wh("b", "org1", "C_TWO"),
-      wh("c", "org2", "C_THREE"),
-    ];
-    const out = selectCandidateWebhooks(webhooks, "D12345");
-    expect(out).toHaveLength(2);
-    expect(new Set(out.map((w) => w.organizationId))).toEqual(
-      new Set(["org1", "org2"]),
+it.each(["C_OTHER", "G_PRIVATE", "G_GROUPDM", "", "U_USER", "D_INVALID"])(
+  "rejects unbound conversation %s",
+  (channel) => {
+    expect(selectCandidateWorkspaces(connections, webhooks, channel)).toEqual(
+      [],
     );
-  });
-
-  it("keeps the channel-matched webhook when one org connects multiple channels", () => {
-    const webhooks = [wh("a", "org1", "C_ONE"), wh("b", "org1", "C_TWO")];
-    const out = selectCandidateWebhooks(webhooks, "C_TWO");
-    expect(out).toHaveLength(1);
-    expect(out[0]?.id).toBe("b");
-  });
-
-  it("returns the single webhook unchanged for the common one-org case", () => {
-    const webhooks = [wh("a", "org1", "C_ONE")];
-    expect(selectCandidateWebhooks(webhooks, "C_ONE")).toHaveLength(1);
-    expect(selectCandidateWebhooks(webhooks, "C_ELSEWHERE")).toHaveLength(0);
-  });
+  },
+);
+it("routes real DMs from workspace connections even with no channels", () => {
+  expect(selectCandidateWorkspaces(connections, [], "D123")).toEqual(
+    connections.map((connection) => ({ connection, eventWebHookId: null })),
+  );
+});
+it("does not treat a leftover channel subscription as a workspace connection", () => {
+  expect(selectCandidateWorkspaces([], webhooks, "C_ONE")).toEqual([]);
+});
+it("keeps the exact channel webhook when one org has multiple subscriptions", () => {
+  expect(
+    selectCandidateWorkspaces(
+      connections,
+      [
+        webhooks[0],
+        { id: "wh3", organizationId: "org1", slack: { channelId: "C_THREE" } },
+      ],
+      "C_THREE",
+    ),
+  ).toEqual([{ connection: connections[0], eventWebHookId: "wh3" }]);
 });

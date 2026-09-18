@@ -7,7 +7,25 @@ import {
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
-import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
+import {
+  resolveSlackAssistantTarget,
+  getSlackWorkspaceBotToken,
+} from "back-end/src/services/slack/slackIdentity";
+import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
+import {
+  SlackAssistantMention,
+  SlackOrganizationSelection,
+  getSlackThread,
+  pinSlackThreadOrganization,
+  saveSlackOrganizationPicker,
+  consumeSlackOrganizationSelection,
+  slackConversationId,
+  slackOrganizationPickerBlocks,
+} from "back-end/src/services/slack/slackThreadRouting";
+export type {
+  SlackAssistantMention,
+  SlackOrganizationSelection,
+} from "back-end/src/services/slack/slackThreadRouting";
 import {
   postSlackMessage,
   postSlackEphemeralMessage,
@@ -18,27 +36,6 @@ import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
 import { buildExperimentCardData } from "back-end/src/services/notificationCards/experimentCardData";
 import { renderExperimentCard } from "back-end/src/services/notificationCards/experimentCards";
 import { postExperimentCardImage } from "back-end/src/services/slack/cardDelivery";
-
-export interface SlackAssistantMention {
-  teamId: string;
-  channelId: string;
-  /** Slack id of the user who mentioned the bot. */
-  slackUserId: string;
-  /** Raw message text (still contains the <@bot> mention). */
-  text: string;
-  /** ts of the message that mentioned the bot. */
-  messageTs: string;
-  /** thread_ts when the mention was already inside a thread. */
-  threadTs?: string;
-  /** The bot's own user id, used to strip the leading mention from `text`. */
-  botUserId?: string;
-  /**
-   * When true (a non-mention thread message), only respond if this user already
-   * has an assistant conversation in this thread — and stay silent otherwise
-   * (no "link your account" / help nags). @mentions leave this false.
-   */
-  requireActiveThread?: boolean;
-}
 
 const THINKING_TEXT = "_Thinking…_";
 
@@ -51,18 +48,6 @@ function stripBotMention(text: string, botUserId?: string): string {
   // Strip a leading mention of anyone, just in case the bot id wasn't passed.
   t = t.replace(/^\s*<@[^>]+>\s*/, " ");
   return t.replace(/\s+/g, " ").trim();
-}
-
-/** Stable per-(thread, user, org) conversation id so a thread keeps its context. */
-function conversationIdFor(
-  teamId: string,
-  organizationId: string,
-  channelId: string,
-  rootTs: string,
-  userId: string,
-) {
-  const safeTs = rootTs.replace(/[^a-zA-Z0-9]/g, "");
-  return `conv_slack_${teamId}_${organizationId}_${channelId}_${safeTs}_${userId}`;
 }
 
 /**
@@ -89,13 +74,60 @@ export async function handleSlackAssistantMention(
     "Slack assistant: handling mention",
   );
 
-  // Resolve the workspace + channel + user to a single org and a
-  // permission-scoped context (or a routing/access failure we can surface).
-  const target = await resolveSlackAssistantTarget({
+  const question = stripBotMention(mention.text, mention.botUserId);
+  if (
+    !mention.requireActiveThread &&
+    question.toLowerCase() === "link account"
+  ) {
+    const token = await getSlackWorkspaceBotToken(teamId);
+    if (token)
+      await postSlackEphemeralMessage({
+        token,
+        channel: channelId,
+        user: slackUserId,
+        threadTs: mention.threadTs,
+        text:
+          "Link or replace your account for a GrowthBook organization: " +
+          buildSlackLinkUrl({ slackTeamId: teamId, slackUserId }),
+      });
+    return;
+  }
+  const threadIdentity = { teamId, channelId, rootTs };
+  const thread = await getSlackThread(threadIdentity);
+  if (mention.requireActiveThread && thread?.status !== "selected") return;
+  let target = await resolveSlackAssistantTarget({
+    requireAssistantEnabled: true,
     teamId,
     channelId,
     slackUserId,
+    organizationId:
+      thread?.status === "selected" ? thread.organizationId : undefined,
   });
+  if (
+    !target.ok &&
+    target.reason === "ambiguous_org" &&
+    !mention.requireActiveThread
+  ) {
+    const picker = await saveSlackOrganizationPicker(mention, target.choices);
+    if (picker.status === "pending") {
+      await postSlackEphemeralMessage({
+        token: target.botToken,
+        channel: channelId,
+        user: slackUserId,
+        text: target.message,
+        blocks: slackOrganizationPickerBlocks(picker),
+        threadTs: mention.threadTs,
+      });
+      return;
+    }
+    target = await resolveSlackAssistantTarget({
+      requireAssistantEnabled: true,
+      teamId,
+      channelId,
+      slackUserId,
+      organizationId: picker.organizationId,
+    });
+  }
   if (!target.ok) {
     // Non-mention thread messages stay silent on any failure — don't nag.
     if (mention.requireActiveThread) {
@@ -172,7 +204,6 @@ export async function handleSlackAssistantMention(
     return;
   }
 
-  const question = stripBotMention(mention.text, mention.botUserId);
   if (!question) {
     if (mention.requireActiveThread) return;
     await reply(
@@ -181,13 +212,25 @@ export async function handleSlackAssistantMention(
     return;
   }
 
-  const conversationId = conversationIdFor(
-    teamId,
+  const pinned = await pinSlackThreadOrganization(
+    threadIdentity,
     target.organizationId,
-    channelId,
-    rootTs,
-    target.userId,
   );
+  if (
+    pinned.status !== "selected" ||
+    pinned.organizationId !== target.organizationId
+  ) {
+    throw new Error(
+      "The Slack thread organization changed. Please send your question again.",
+    );
+  }
+  const conversationId = slackConversationId({
+    ...threadIdentity,
+    organizationId: target.organizationId,
+    slackUserId,
+    userId: target.userId,
+    linkId: target.linkId,
+  });
 
   // Thread-follow: only respond to a non-mention message if this user already
   // has an assistant conversation in this thread. Otherwise stay silent — we
@@ -402,10 +445,27 @@ export async function handleSlackAssistantConfirmation({
   threadTs,
   buttonsMessageTs,
 }: SlackAssistantConfirmation): Promise<void> {
+  const thread = threadTs
+    ? await getSlackThread({ teamId, channelId, rootTs: threadTs })
+    : null;
+  if (thread?.status !== "selected") {
+    const token = await getSlackWorkspaceBotToken(teamId);
+    if (token)
+      await postSlackEphemeralMessage({
+        token,
+        channel: channelId,
+        user: slackUserId,
+        threadTs,
+        text: "This approval is no longer available. Ask me for a new proposal.",
+      });
+    return;
+  }
   const target = await resolveSlackAssistantTarget({
+    requireAssistantEnabled: true,
     teamId,
     channelId,
     slackUserId,
+    organizationId: thread.organizationId,
   });
   if (!target.ok) {
     if (target.botToken) {
@@ -425,13 +485,15 @@ export async function handleSlackAssistantConfirmation({
   if (
     !threadTs ||
     conversationId !==
-      conversationIdFor(
+      slackConversationId({
         teamId,
-        target.organizationId,
         channelId,
-        threadTs,
-        target.userId,
-      )
+        rootTs: threadTs,
+        organizationId: target.organizationId,
+        slackUserId,
+        userId: target.userId,
+        linkId: target.linkId,
+      })
   ) {
     await postSlackEphemeralMessage({
       token,
@@ -476,6 +538,25 @@ export async function handleSlackAssistantConfirmation({
       context: target.context,
       config: slackAgentConfig,
       beforeResolvePendingAction: async () => {
+        const current = await resolveSlackAssistantTarget({
+          requireAssistantEnabled: true,
+          teamId,
+          channelId,
+          slackUserId,
+          organizationId: thread.organizationId,
+        });
+        if (
+          !current.ok ||
+          !current.assistantEnabled ||
+          current.linkId !== target.linkId ||
+          current.userId !== target.userId ||
+          current.context.getPermissionsFingerprint() !==
+            target.context.getPermissionsFingerprint()
+        ) {
+          throw new Error(
+            "Your Slack account link or GrowthBook access changed. Please request a new proposal.",
+          );
+        }
         // A preflight failure leaves the action and its buttons available. Once
         // dispatch can begin, retain this claim even if its outcome is uncertain.
         if (
@@ -557,4 +638,32 @@ export async function handleSlackAssistantConfirmation({
       threadTs,
     });
   }
+}
+
+export async function handleSlackOrganizationSelection(
+  selection: SlackOrganizationSelection,
+): Promise<void> {
+  const target = await resolveSlackAssistantTarget({
+    requireAssistantEnabled: true,
+    teamId: selection.teamId,
+    channelId: selection.channelId,
+    slackUserId: selection.slackUserId,
+    organizationId: selection.organizationId,
+  });
+  const mention =
+    target.ok && target.assistantEnabled
+      ? await consumeSlackOrganizationSelection(selection, target.linkId)
+      : null;
+  if (!mention) {
+    if (target.botToken)
+      await postSlackEphemeralMessage({
+        token: target.botToken,
+        channel: selection.channelId,
+        user: selection.slackUserId,
+        threadTs: selection.threadTs,
+        text: "This organization choice is no longer available to you. Send your question again to get current choices.",
+      });
+    return;
+  }
+  await handleSlackAssistantMention(mention);
 }
