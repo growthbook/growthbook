@@ -1,5 +1,12 @@
+import { useState } from "react";
+import { Flex } from "@radix-ui/themes";
+import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
 import { FactMetricInterface } from "shared/types/fact-table";
+import Button from "@/ui/Button";
+import MetricForm from "@/components/Metrics/MetricForm";
+import { useUser } from "@/services/UserContext";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { getSafeReturnUrl } from "@/services/returnUrl";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -12,8 +19,19 @@ import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspac
 
 export default function NewFactMetricPage() {
   const router = useRouter();
-  const { project, ready, mutateDefinitions } = useDefinitions();
+  const {
+    project,
+    ready,
+    mutateDefinitions,
+    factTables,
+    datasources,
+    metrics,
+  } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
+
+  const { settings } = useUser();
+  const { demoDataSourceId } = useDemoDataSourceProject();
+  const [showLegacyForm, setShowLegacyForm] = useState(false);
 
   const returnUrl = getSafeReturnUrl(router.query.returnUrl);
 
@@ -24,8 +42,36 @@ export default function NewFactMetricPage() {
     managedBy: "",
   });
 
+  const hasDatasource = datasources.some(
+    (d) =>
+      isProjectListValidForProject(d.projects, project) &&
+      d.properties?.queryLanguage === "sql",
+  );
+  const hasFactTable = factTables.some((t) =>
+    isProjectListValidForProject(t.projects, project),
+  );
+  const showLegacySwitch =
+    !settings.disableLegacyMetricCreation &&
+    permissionsUtil.canCreateMetric({ projects: project ? [project] : [] }) &&
+    metrics.some(
+      (m) =>
+        isProjectListValidForProject(m.projects, project) &&
+        m.datasource !== demoDataSourceId,
+    );
+
   return (
     <div className="pagecontents container-fluid">
+      {showLegacyForm && (
+        <MetricForm
+          current={{
+            projects: project ? [project] : [],
+          }}
+          edit={false}
+          source="metric-editor"
+          onClose={() => setShowLegacyForm(false)}
+          switchToFact={() => setShowLegacyForm(false)}
+        />
+      )}
       <PageHead
         breadcrumb={[
           { display: "Metrics", href: "/metrics" },
@@ -40,6 +86,16 @@ export default function NewFactMetricPage() {
           You don&apos;t have permission to create Fact Metrics in this Project.{" "}
           <Link href="/metrics">Back to all metrics</Link>
         </Callout>
+      ) : !hasDatasource ? (
+        <Callout status="info">
+          Connect a data source to create a metric.{" "}
+          <Link href="/datasources">Connect data source</Link>
+        </Callout>
+      ) : !hasFactTable ? (
+        <Callout status="info">
+          Create a fact table to define your metric.{" "}
+          <Link href="/fact-tables">Go to fact tables</Link>
+        </Callout>
       ) : (
         <MetricWorkspace
           existing={null}
@@ -50,6 +106,13 @@ export default function NewFactMetricPage() {
           }
           onCancel={() => router.push(returnUrl)}
         />
+      )}
+      {showLegacySwitch && (
+        <Flex mt="3">
+          <Button variant="ghost" onClick={() => setShowLegacyForm(true)}>
+            Use legacy SQL metric form
+          </Button>
+        </Flex>
       )}
     </div>
   );
