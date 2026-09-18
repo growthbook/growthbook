@@ -377,7 +377,7 @@ You can also use these strategies in your own manual SDK integration.
 
 We are unable to offer specific guidance about how to configure or connect to your key-val store because the details vary heavily by vendor. For inspiration, you can see how we've addressed key-val implementation with Cloudflare Workers in our [Cloudflare docs](/lib/edge/cloudflare#payload-caching-with-cloudflare-kv-store).
 
-### Configuring an SDK Webhook
+### Configuring an SDK Webhook {#configuring-a-sdk-webhook}
 
 For key-val stored payloads (1), we eliminate network requests from edge to GrowthBook by using a GrowthBook SDK Webhook to push the SDK payload to the key-val store on change.
 
