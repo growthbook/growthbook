@@ -1,3 +1,4 @@
+import { Socket } from "net";
 import "./init/aliases";
 import "./init/dotenv";
 import "./instrumentation";
@@ -24,6 +25,49 @@ const server = app.listen(app.get("port"), () => {
   // Boot-time operational check (real server only; not exercised by tests, which
   // import app directly). Self-contained and warn-only.
   void uploadsInit();
+});
+
+// pino-http only logs on response finish, so a connection that dies mid-request
+// leaves no trace here even though the load balancer records it as a 502.
+server.on("request", (req, res) => {
+  const start = Date.now();
+  res.on("close", () => {
+    if (res.writableFinished) return;
+    logger.warn(
+      {
+        method: req.method,
+        url: req.url,
+        headersSent: res.headersSent,
+        readableAborted: req.readableAborted,
+        elapsedMs: Date.now() - start,
+        traceId: req.headers["x-amzn-trace-id"],
+        remoteAddress: req.socket.remoteAddress,
+      },
+      "Response closed before finishing",
+    );
+  });
+});
+
+server.on("clientError", (err, socket) => {
+  const code = (err as NodeJS.ErrnoException).code;
+  const bytesWritten = socket instanceof Socket ? socket.bytesWritten : 0;
+  logger.warn(
+    {
+      err,
+      code,
+      remoteAddress:
+        socket instanceof Socket ? socket.remoteAddress : undefined,
+    },
+    "Client error before request was handled",
+  );
+  // Registering this listener suppresses Node's default response, so mirror it:
+  // it replies only on an untouched socket, and uses 431 for oversized headers.
+  if (code === "ECONNRESET" || !socket.writable || bytesWritten > 0) return;
+  if (code === "HPE_HEADER_OVERFLOW") {
+    socket.end("HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n");
+    return;
+  }
+  socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
 });
 
 export default server;
