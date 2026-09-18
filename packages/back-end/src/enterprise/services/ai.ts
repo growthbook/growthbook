@@ -50,6 +50,11 @@ import {
 } from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
 import { AIUsageOutcome, trackAIUsage } from "back-end/src/services/growthbook";
+import {
+  addCompletionUsage,
+  completionUsageFromSdk,
+  estimateAICompletionUsd,
+} from "back-end/src/services/aiCost";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const usesOwnAIKey = (
@@ -358,8 +363,7 @@ export const simpleCompletion = async ({
   };
 
   let numTokensUsed: number | undefined;
-  let inputTokensUsed: number | undefined;
-  let outputTokensUsed: number | undefined;
+  let sdkUsage: Parameters<typeof completionUsageFromSdk>[0];
   let result: string;
 
   if (returnType === "json" && jsonSchema) {
@@ -371,15 +375,16 @@ export const simpleCompletion = async ({
     });
     numTokensUsed = objectResponse.usage?.totalTokens;
     result = JSON.stringify(objectResponse.output);
-    inputTokensUsed = objectResponse.usage?.inputTokens;
-    outputTokensUsed = objectResponse.usage?.outputTokens;
+    sdkUsage = objectResponse.usage;
   } else {
     const textResponse = await generateText(generateOptions);
     numTokensUsed = textResponse.usage?.totalTokens;
     result = textResponse.text;
-    inputTokensUsed = textResponse.usage?.inputTokens;
-    outputTokensUsed = textResponse.usage?.outputTokens;
+    sdkUsage = textResponse.usage;
   }
+
+  const usage = completionUsageFromSdk(sdkUsage);
+  const spendUsd = await estimateAICompletionUsd(model, usage);
 
   if (IS_CLOUD) {
     if (!ownKey) {
@@ -393,8 +398,8 @@ export const simpleCompletion = async ({
       organization: context.org.id,
       type,
       model,
-      numPromptTokensUsed: inputTokensUsed,
-      numCompletionTokensUsed: outputTokensUsed,
+      numPromptTokensUsed: usage.inputTokens,
+      numCompletionTokensUsed: usage.outputTokens,
       temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
@@ -406,8 +411,11 @@ export const simpleCompletion = async ({
     type,
     model,
     provider: getProviderFromModel(model),
-    numPromptTokensUsed: inputTokensUsed,
-    numCompletionTokensUsed: outputTokensUsed,
+    numPromptTokensUsed: usage.inputTokens,
+    numCompletionTokensUsed: usage.outputTokens,
+    numCacheReadTokens: usage.cacheReadTokens,
+    numCacheWriteTokens: usage.cacheWriteTokens,
+    spendUsd,
     usedDefaultPrompt: isDefaultPrompt,
     usedOwnKey: ownKey,
   });
@@ -457,24 +465,27 @@ export const streamingChatCompletion = async ({
     : undefined;
 
   const recordUsage = async ({
-    inputTokens,
-    outputTokens,
+    usage,
     totalTokens,
     outcome,
   }: {
-    inputTokens?: number;
-    outputTokens?: number;
+    usage?: ReturnType<typeof completionUsageFromSdk>;
     totalTokens?: number;
     outcome: AIUsageOutcome;
   }) => {
+    const buckets = usage ?? {};
+    const spendUsd = await estimateAICompletionUsd(model, buckets);
     trackAIUsage({
       organizationId: context.org.id,
       userId: context.userId,
       type,
       model,
       provider: getProviderFromModel(model),
-      numPromptTokensUsed: inputTokens,
-      numCompletionTokensUsed: outputTokens,
+      numPromptTokensUsed: buckets.inputTokens,
+      numCompletionTokensUsed: buckets.outputTokens,
+      numCacheReadTokens: buckets.cacheReadTokens,
+      numCacheWriteTokens: buckets.cacheWriteTokens,
+      spendUsd,
       usedDefaultPrompt: isDefaultPrompt,
       usedOwnKey: ownKey,
       outcome,
@@ -496,16 +507,15 @@ export const streamingChatCompletion = async ({
       organization: context.org.id,
       type,
       model,
-      numPromptTokensUsed: inputTokens,
-      numCompletionTokensUsed: outputTokens,
+      numPromptTokensUsed: buckets.inputTokens,
+      numCompletionTokensUsed: buckets.outputTokens,
       temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
   };
 
   type TerminalUsage = {
-    inputTokens?: number;
-    outputTokens?: number;
+    usage?: ReturnType<typeof completionUsageFromSdk>;
     totalTokens?: number;
     outcome: AIUsageOutcome;
   };
@@ -536,8 +546,7 @@ export const streamingChatCompletion = async ({
       // onFinish's `usage` is only the last step; totalUsage covers the run.
       if (terminalUsage?.outcome !== "aborted") {
         terminalUsage = {
-          inputTokens: totalUsage.inputTokens,
-          outputTokens: totalUsage.outputTokens,
+          usage: completionUsageFromSdk(totalUsage),
           totalTokens: totalUsage.totalTokens,
           outcome: streamErrored ? "error" : "success",
         };
@@ -545,14 +554,15 @@ export const streamingChatCompletion = async ({
     },
     onAbort: ({ steps }) => {
       const usage = steps.reduce(
-        (acc, step) => ({
-          inputTokens: acc.inputTokens + (step.usage?.inputTokens ?? 0),
-          outputTokens: acc.outputTokens + (step.usage?.outputTokens ?? 0),
-          totalTokens: acc.totalTokens + (step.usage?.totalTokens ?? 0),
-        }),
-        { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        (acc, step) =>
+          addCompletionUsage(acc, completionUsageFromSdk(step.usage)),
+        completionUsageFromSdk(undefined),
       );
-      terminalUsage = { ...usage, outcome: "aborted" };
+      const totalTokens = steps.reduce(
+        (sum, step) => sum + (step.usage?.totalTokens ?? 0),
+        0,
+      );
+      terminalUsage = { usage, totalTokens, outcome: "aborted" };
     },
     onError: ({ error }) => {
       logger.error(error, "streamingChatCompletion: stream error");
@@ -863,15 +873,21 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     }
   }
 
+  const usage = completionUsageFromSdk(response.usage);
+  const spendUsd = await estimateAICompletionUsd(model, usage);
+
   trackAIUsage({
     organizationId: context.org.id,
     userId: context.userId,
     type,
     model,
     provider: getProviderFromModel(model),
-    numPromptTokensUsed: response.usage?.inputTokens,
-    numCompletionTokensUsed: response.usage?.outputTokens,
+    numPromptTokensUsed: usage.inputTokens,
+    numCompletionTokensUsed: usage.outputTokens,
     numRetriedTokensUsed: retriedTokens,
+    numCacheReadTokens: usage.cacheReadTokens,
+    numCacheWriteTokens: usage.cacheWriteTokens,
+    spendUsd,
     usedDefaultPrompt: isDefaultPrompt,
     usedOwnKey: ownKey,
   });
