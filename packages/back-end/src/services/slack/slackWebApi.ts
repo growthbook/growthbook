@@ -246,6 +246,7 @@ async function shareSlackFileOnUpload({
   title,
   channelId,
   caption,
+  captionBlocks,
 }: {
   token: string;
   png: Buffer;
@@ -253,20 +254,29 @@ async function shareSlackFileOnUpload({
   title: string;
   channelId: string;
   caption: string;
+  captionBlocks?: unknown[];
 }): Promise<{ fileId: string; messageTs: string | null } | null> {
   // Slack refuses to complete a file twice, so the channel share needs its own
   // upload rather than re-completing the file already completed without one.
   const fileId = await uploadPrivateSlackFile({ token, png, filename });
   if (!fileId) return null;
-  const completed = await slackApiCall<SlackApiResponse>(
-    token,
-    "files.completeUploadExternal",
-    {
+  const complete = (share: Record<string, string>) =>
+    slackApiCall<SlackApiResponse>(token, "files.completeUploadExternal", {
       files: [{ id: fileId, title }],
       channel_id: channelId,
-      initial_comment: caption,
-    },
+      ...share,
+    });
+  let completed = await complete(
+    captionBlocks
+      ? { blocks: JSON.stringify(captionBlocks) }
+      : { initial_comment: caption },
   );
+  if (!completed?.ok && captionBlocks) {
+    logger.warn(
+      `Slack rejected the card caption blocks (${completed?.error ?? "unknown error"}); sharing with a plain comment`,
+    );
+    completed = await complete({ initial_comment: caption });
+  }
   return completed?.ok ? { fileId, messageTs: null } : null;
 }
 
@@ -323,6 +333,7 @@ export async function postSlackImageMessage({
     title: fileTitle,
     channelId,
     caption,
+    captionBlocks,
   });
 }
 

@@ -187,6 +187,40 @@ describe("Slack Web API", () => {
     expect(slackApiBody("files.completeUploadExternal")).toEqual({
       files: [{ id: "F456", title: "experiment-card.png" }],
       channel_id: "C123",
+      blocks: JSON.stringify([{ type: "context", elements: [] }]),
+    });
+  });
+
+  it("shares with a plain comment when Slack also rejects the caption blocks", async () => {
+    cancellableFetch
+      .mockResolvedValueOnce(uploadUrlResponse("F123"))
+      .mockResolvedValueOnce(slackResponse({ ok: true }))
+      .mockResolvedValueOnce(
+        slackResponse({ ok: false, error: "invalid_blocks" }),
+      )
+      .mockResolvedValueOnce(uploadUrlResponse("F456"))
+      .mockResolvedValueOnce(
+        slackResponse({ ok: false, error: "invalid_blocks" }),
+      )
+      .mockResolvedValueOnce(slackResponse({ ok: true }));
+    fetch
+      .mockResolvedValueOnce({ ok: true, status: 200 })
+      .mockResolvedValueOnce({ ok: true, status: 200 });
+
+    await expect(
+      postSlackImageMessage({
+        token: "xoxb-token",
+        png: Buffer.from("png"),
+        filename: "experiment-card.png",
+        channelId: "C123",
+        caption: "footer",
+        captionBlocks: [{ type: "context", elements: [] }],
+      }),
+    ).resolves.toEqual({ fileId: "F456", messageTs: null });
+
+    expect(slackApiBody("files.completeUploadExternal")).toEqual({
+      files: [{ id: "F456", title: "experiment-card.png" }],
+      channel_id: "C123",
       initial_comment: "footer",
     });
   });
