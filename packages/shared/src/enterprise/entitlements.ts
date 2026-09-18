@@ -74,6 +74,8 @@ function resolve({
 
   if (!orgLimits) return null;
 
+  // These orgs were stamped when Pro still included unlimited projects and
+  // custom environments. Keep those entitlements when they use a paid plan.
   if (signedUpBeforePaidPlanLimits(orgDateCreated)) return null;
 
   const tier = planTierFor(effectivePlan);
