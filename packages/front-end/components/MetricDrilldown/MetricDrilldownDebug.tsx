@@ -9,7 +9,7 @@ import {
   FrequentistVariationResponseIndividual,
   BaselineResponse,
 } from "shared/types/stats";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -18,6 +18,7 @@ import { ExperimentTableRow } from "@/services/experiments";
 import EmptyState from "@/components/EmptyState";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import Heading from "@/ui/Heading";
 import MetricDrilldownAdjustmentSummary from "./MetricDrilldownAdjustmentSummary";
 import { SupplementalField } from "./helpers";
 
@@ -351,12 +352,8 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       </Box>
 
       {varianceReductionRows.length > 0 && (
-        <div
-          className="mt-4"
-          ref={sectionRefs.variance}
-          style={sectionStyle("variance")}
-        >
-          <Heading size="4" weight="medium" mb="3">
+        <Box mt="4" ref={sectionRefs.variance} style={sectionStyle("variance")}>
+          <Heading as="h4" size="md" weight="medium" mb="3">
             Variance Reduction Comparison
           </Heading>
           <ResultsTable
@@ -394,16 +391,12 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutateInPlace}
           />
-        </div>
+        </Box>
       )}
 
       {priorRows.length > 0 && (
-        <div
-          className="mt-4"
-          ref={sectionRefs.prior}
-          style={sectionStyle("prior")}
-        >
-          <Heading size="4" weight="medium" mb="3">
+        <Box mt="4" ref={sectionRefs.prior} style={sectionStyle("prior")}>
+          <Heading as="h4" size="md" weight="medium" mb="3">
             Prior Comparison
           </Heading>
           <ResultsTable
@@ -441,16 +434,12 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutateInPlace}
           />
-        </div>
+        </Box>
       )}
 
       {cappingRows.length > 0 && (
-        <div
-          className="mt-4"
-          ref={sectionRefs.capping}
-          style={sectionStyle("capping")}
-        >
-          <Heading size="4" weight="medium" mb="3">
+        <Box mt="4" ref={sectionRefs.capping} style={sectionStyle("capping")}>
+          <Heading as="h4" size="md" weight="medium" mb="3">
             Capping Comparison
           </Heading>
           <ResultsTable
@@ -488,7 +477,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutateInPlace}
           />
-        </div>
+        </Box>
       )}
     </>
   );
