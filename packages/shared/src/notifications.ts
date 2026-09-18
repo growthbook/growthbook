@@ -895,9 +895,6 @@ const eventsInCategory = (category: NotificationEventCategory) =>
     .filter((option) => option.category === category)
     .flatMap((option) => option.events);
 
-// Recommended = an event that changes what end users are served, or says a
-// served experience is failing or a decision is ready. Drafts, reviews,
-// reminders, per-metric stats, and anything a publish already implies stay out.
 export const notificationCategoryPresets: Record<
   NotificationEventCategory,
   Record<Exclude<NotificationLevel, "custom">, NotificationEventName[]>
