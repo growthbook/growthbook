@@ -117,6 +117,7 @@ export default function ConnectPage() {
       includeVisualExperiments: capabilities.includes("visualEditorJS"),
       includeRedirectExperiments: capabilities.includes("redirects"),
       includeRuleIds: true,
+      includeExperimentIds: false,
       includeProjectIdInMetadata: false,
       includeCustomFieldsInMetadata: false,
       allowedCustomFieldsInMetadata: [],

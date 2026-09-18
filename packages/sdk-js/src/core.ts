@@ -367,6 +367,7 @@ export function evalFeature<V = unknown>(
       if (rule.meta) exp.meta = rule.meta;
       if (rule.ranges) exp.ranges = rule.ranges;
       if (rule.name) exp.name = rule.name;
+      if (rule.experimentId) exp.id = rule.experimentId;
       if (rule.phase) exp.phase = rule.phase;
       if (rule.seed) exp.seed = rule.seed;
       if (rule.hashVersion) exp.hashVersion = rule.hashVersion;
