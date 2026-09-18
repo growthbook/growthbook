@@ -11,31 +11,57 @@ import {
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
-import { findStoredRuleCounterpart, validateCondition } from "shared/util";
+import {
+  findStoredRuleCounterpart,
+  stemRuleId,
+  validateCondition,
+} from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { getSavedGroupMap } from "back-end/src/services/features";
+import {
+  assertFeatureValuesValid,
+  getSavedGroupMap,
+} from "back-end/src/services/features";
+import { normalizeRampPlanForceValues } from "back-end/src/services/rampSchedule";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import { configCheckedRuleValues } from "back-end/src/services/configValidation";
+import {
+  assertValidExperimentPrerequisites,
+  assertValidPrerequisiteParents,
+} from "back-end/src/services/prerequisiteParents";
 import {
   createRevision,
   discardRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
+import type { ReqContext } from "back-end/types/request";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { resolveRampTarget } from "back-end/src/util/flattenRules";
 import { ApiReqContext } from "back-end/types/api";
+import {
+  assertValidChangedRuleExperimentIds,
+  assertValidChangedRuleProjectIds,
+  validateRulesScheduleRules,
+} from "./v2Shared";
 
 export { inlineRampScheduleInput };
 
 type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 
-// targetId is a placeholder — real UUID is injected at publish time.
+type RampForceFeature = Pick<FeatureInterface, "valueType">;
+
+// targetId is a placeholder — real UUID is injected at publish time. `force`
+// values are brought to the string form rule values use (and validated against
+// the feature when given) so a draft plan reads back the way it will apply.
 function normalizeRevisionRampCreateAction(
   input: z.infer<typeof apiRevisionRampCreateAction>,
+  feature?: RampForceFeature,
+  opts?: { validateStartActions?: boolean },
 ): RevisionRampCreateAction {
+  input = normalizeRampPlanForceValues(input, feature, opts);
   const normalizeAction = (a: {
     targetId?: string;
     patch: Record<string, unknown>;
@@ -74,13 +100,19 @@ export const DRAFT_STATUSES = ACTIVE_DRAFT_STATUSES;
 export function normalizeInlineRampSchedule(
   input: InlineRampScheduleInput,
   ruleId: string,
+  feature?: RampForceFeature,
+  opts?: { validateStartActions?: boolean },
 ): RevisionRampCreateAction {
-  return normalizeRevisionRampCreateAction({
-    ...input,
-    mode: "create" as const,
-    ruleId,
-    steps: input.steps ?? [],
-  });
+  return normalizeRevisionRampCreateAction(
+    {
+      ...input,
+      mode: "create" as const,
+      ruleId,
+      steps: input.steps ?? [],
+    },
+    feature,
+    opts,
+  );
 }
 
 export function isDraftStatus(status: string): boolean {
@@ -157,7 +189,7 @@ export function assertValidEnvironment(
 // Same check for the `environments` list a v2 rule is scoped to. A rule with
 // `allEnvironments: true` is skipped, since its list is discarded.
 export function assertValidRuleEnvironments(
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
   rules: { allEnvironments?: boolean; environments?: string[] }[],
 ): void {
   for (const rule of rules) {
@@ -166,6 +198,290 @@ export function assertValidRuleEnvironments(
       assertValidEnvironment(context, environment);
     }
   }
+}
+
+// The targeting fields a ramp schedule patch (step, start or end action, or
+// `startState`) may carry. The ramp engine writes them onto the live rule when
+// the step fires, so they get the same checks a rule write gets.
+export type RampPatchTargetingInput = {
+  ruleId?: string | null;
+  condition?: string | null;
+  savedGroups?: FeatureRule["savedGroups"] | null;
+  prerequisites?: FeaturePrerequisite[] | null;
+  allEnvironments?: boolean | null;
+  environments?: string[] | null;
+};
+
+type RampPlanAction = { targetId?: string; patch?: unknown };
+
+type RampPlanInput = {
+  steps?: { actions?: RampPlanAction[] | null }[] | null;
+  startActions?: RampPlanAction[] | null;
+  endActions?: RampPlanAction[] | null;
+  startState?: unknown;
+  endPatch?: unknown;
+};
+
+// Every action in a ramp plan body, stored schedule or revision ramp action
+// that carries a patch, in plan order.
+export function collectRampPlanActions(plan: unknown): RampPlanAction[] {
+  if (!plan || typeof plan !== "object") return [];
+  const { steps, startActions, endActions } = plan as RampPlanInput;
+  return [
+    ...(startActions ?? []),
+    ...(steps ?? []).flatMap((s) => s?.actions ?? []),
+    ...(endActions ?? []),
+  ].filter((a) => !!a?.patch && typeof a.patch === "object");
+}
+
+// The patches of those actions plus a bare `startState` or template
+// `endPatch`. Start actions derived from the rule's current state are not
+// caller-supplied and must not be passed here.
+export function collectRampPlanPatches(
+  plan: unknown,
+): RampPatchTargetingInput[] {
+  const { startState, endPatch } = (plan ?? {}) as RampPlanInput;
+  return [
+    ...collectRampPlanActions(plan).map((a) => a.patch),
+    startState,
+    endPatch,
+  ].filter((p): p is RampPatchTargetingInput => !!p && typeof p === "object");
+}
+
+type RuleScope = Pick<
+  RampPatchTargetingInput,
+  "allEnvironments" | "environments" | "prerequisites"
+> & { id?: string };
+
+// One patch and where it lands: the flag whose rule it targets, and that
+// rule's current environment scope when the caller could resolve it.
+export type RampPatchEntry = {
+  patch: RampPatchTargetingInput;
+  feature: FeatureInterface | null;
+  rule?: RuleScope | null;
+};
+
+export type RampPatchTarget = {
+  id: string;
+  entityId: string;
+  ruleId?: string | null;
+  environment?: string | null;
+};
+
+// Multi-target plans (the generated update, the dashboard schedule routes,
+// the executor): each action lands on the rule its target names. The
+// executor applies a patch by its own `ruleId`, falling back to the target's.
+export function rampPatchEntriesForTargets(
+  actions: RampPlanAction[],
+  targets: RampPatchTarget[],
+  featureById: (id: string) => FeatureInterface | null | undefined,
+): RampPatchEntry[] {
+  const targetsById = new Map(targets.map((t) => [t.id, t]));
+  return collectRampPlanActions({ steps: [{ actions }] }).map((a) => {
+    const patch = a.patch as RampPatchTargetingInput;
+    const target = a.targetId ? targetsById.get(a.targetId) : undefined;
+    const feature = (target && featureById(target.entityId)) || null;
+    const ruleId = patch.ruleId ?? target?.ruleId;
+    const rule =
+      feature && ruleId
+        ? resolveRampTarget(
+            { ruleId, environment: target?.environment ?? null },
+            feature.rules ?? [],
+          )
+        : null;
+    return { patch, feature, rule };
+  });
+}
+
+// Single-target plans (every route but the generated update): all patches
+// land on the same rule of the same flag.
+export function rampPatchEntries(
+  patches: RampPatchTargetingInput[],
+  feature: FeatureInterface | null,
+  rule?: RuleScope | null,
+): RampPatchEntry[] {
+  return patches.map((patch) => ({ patch, feature, rule }));
+}
+
+function hasRampPatchTargeting(p: RampPatchTargetingInput): boolean {
+  return (
+    (p.condition ?? null) !== null ||
+    (p.savedGroups ?? null) !== null ||
+    (p.prerequisites ?? null) !== null ||
+    (p.allEnvironments ?? null) !== null ||
+    (p.environments ?? null) !== null
+  );
+}
+
+// The fields of `patch` that no stored patch for the same rule already holds
+// with an equal value; fields that merely echo stored content come back unset.
+// A patch without a `ruleId` (single-target bodies, revision actions) is
+// compared against every stored patch. Environment scope is compared as the
+// (allEnvironments, environments) pair and kept whole, since it also scopes
+// the prerequisite check.
+function changedRampPatchTargeting(
+  patch: RampPatchTargetingInput,
+  stored: RampPatchTargetingInput[],
+): RampPatchTargetingInput {
+  const key = (id: string | null | undefined) => (id ? stemRuleId(id) : null);
+  const ruleKey = key(patch.ruleId);
+  const prior = stored.filter((s) => {
+    const storedKey = key(s.ruleId);
+    return ruleKey === null || storedKey === null || storedKey === ruleKey;
+  });
+  const echoed = <K extends keyof RampPatchTargetingInput>(...keys: K[]) =>
+    prior.some((s) =>
+      keys.every((k) => isEqual(s[k] ?? null, patch[k] ?? null)),
+    );
+  return {
+    ruleId: patch.ruleId,
+    ...(echoed("condition") ? {} : { condition: patch.condition }),
+    ...(echoed("savedGroups") ? {} : { savedGroups: patch.savedGroups }),
+    ...(echoed("prerequisites") ? {} : { prerequisites: patch.prerequisites }),
+    ...(echoed("allEnvironments", "environments")
+      ? {}
+      : {
+          allEnvironments: patch.allEnvironments,
+          environments: patch.environments,
+        }),
+  };
+}
+
+const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
+
+// The rule endpoints' checks (`assertValidRuleEnvironments`,
+// `validateRulesReferences`, `assertValidPrerequisiteParents`) applied to ramp
+// patch targeting. `stored` are the plans this write replaces; as with
+// `validateChangedRuleReferences`, a field a stored patch for the same rule
+// already holds unchanged is not re-checked, so echoing a plan that names a
+// since-deleted group still succeeds.
+export async function validateRampPlanPatches(
+  context: ReqContext | ApiReqContext,
+  entries: RampPatchEntry[],
+  { stored = [] }: { stored?: unknown[] } = {},
+): Promise<void> {
+  const storedPatches = stored.flatMap((plan) => collectRampPlanPatches(plan));
+  const checked = entries
+    .filter(({ patch }) => hasRampPatchTargeting(patch))
+    .map((entry) => ({
+      ...entry,
+      changed: changedRampPatchTargeting(entry.patch, storedPatches),
+    }))
+    .filter(({ changed }) => hasRampPatchTargeting(changed));
+  if (!checked.length) return;
+
+  try {
+    assertValidRuleEnvironments(
+      context,
+      checked.map(({ changed }) => ({
+        allEnvironments: changed.allEnvironments ?? undefined,
+        environments: changed.environments ?? undefined,
+      })),
+    );
+
+    await validateRulesReferences(
+      checked
+        .filter(
+          ({ changed }) =>
+            (changed.condition ?? null) !== null ||
+            (changed.savedGroups ?? null) !== null ||
+            (changed.prerequisites ?? null) !== null,
+        )
+        .map(({ changed }) => ({
+          condition: changed.condition ?? undefined,
+          savedGroups: changed.savedGroups ?? undefined,
+          prerequisites: changed.prerequisites ?? undefined,
+        })),
+      context,
+    );
+
+    for (const { patch, changed, feature, rule } of checked) {
+      // A scope change carries the rule's existing gates into new
+      // environments: walk with those, with the target rule removed from the
+      // stored graph so they count as new edges.
+      const scopeChanged =
+        changed.environments !== undefined ||
+        (changed.allEnvironments ?? null) !== null;
+      const landing =
+        patch.prerequisites === undefined
+          ? (rule?.prerequisites ?? [])
+          : (patch.prerequisites ?? []);
+      const prerequisites =
+        changed.prerequisites !== undefined || scopeChanged ? landing : [];
+      if (!prerequisites.length) continue;
+      if (!feature) {
+        // No flag to walk (a target-less schedule, or a target the caller
+        // cannot read): the new parents must at least exist and be live.
+        await assertValidExperimentPrerequisites(context, prerequisites);
+        continue;
+      }
+      // Judged as one more rule on the flag, in the scope the patch leaves
+      // (`applyPatchToRule`: `allEnvironments: false` alone keeps the rule's
+      // list), else the target rule's, else every environment. A missing
+      // `environments` list means every environment (`ruleAppliesToEnv`), so
+      // it stays unset.
+      const patchSetsScope =
+        patch.environments !== undefined ||
+        (patch.allEnvironments ?? null) !== null;
+      const scope: RuleScope = patchSetsScope
+        ? {
+            allEnvironments: patch.allEnvironments,
+            environments:
+              patch.environments === undefined && !patch.allEnvironments
+                ? rule?.environments
+                : patch.environments,
+          }
+        : (rule ?? { allEnvironments: true });
+      const environments = scope.environments ?? undefined;
+      const patched: FeatureRule = {
+        type: "force",
+        id: "ramp-schedule-patch",
+        description: "",
+        value: "",
+        enabled: true,
+        allEnvironments: scope.allEnvironments === true,
+        ...(scope.allEnvironments === true || environments === undefined
+          ? {}
+          : { environments }),
+        prerequisites,
+      };
+      const others = (feature.rules ?? []).filter(
+        (r) => !scopeChanged || !rule?.id || r.id !== rule.id,
+      );
+      await assertValidPrerequisiteParents(
+        context,
+        { ...feature, rules: [...others, patched] },
+        { ...feature, rules: others },
+      );
+    }
+  } catch (e) {
+    if (e instanceof NotFoundError) {
+      throw new NotFoundError(RAMP_PATCH_ERROR_PREFIX + e.message);
+    }
+    if (e instanceof BadRequestError) {
+      throw new BadRequestError(RAMP_PATCH_ERROR_PREFIX + e.message);
+    }
+    throw e;
+  }
+}
+
+// Update form: only a rule whose environment scope differs from the stored
+// rule with the same id is checked, so a rule scoped to a since-deleted
+// environment can be posted back unchanged.
+export function assertValidChangedRuleEnvironments(
+  context: ReqContext | ApiReqContext,
+  inbound: FeatureRule[],
+  stored: FeatureRule[],
+): void {
+  const scope = (r: FeatureRule) =>
+    `${r.allEnvironments === true}|${[...(r.environments ?? [])].sort().join(",")}`;
+  assertValidRuleEnvironments(
+    context,
+    inbound.filter((rule) => {
+      const prior = findStoredRuleCounterpart(stored, rule);
+      return !prior || scope(prior) !== scope(rule);
+    }),
+  );
 }
 
 // Build a RevisionRampCreateAction from start/end dates (enable/disable).
@@ -236,7 +552,7 @@ export async function validateRuleReferences(
 // update, v1 and v2): the per-rule checks, with saved groups loaded once.
 export async function validateRulesReferences(
   rules: Pick<FeatureRule, "condition" | "savedGroups" | "prerequisites">[],
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
 ): Promise<void> {
   if (!rules.length) return;
   const groupMap = await getSavedGroupMap(context);
@@ -253,7 +569,7 @@ export async function validateRulesReferences(
 export async function validateChangedRuleReferences(
   inbound: FeatureRule[],
   stored: FeatureRule[],
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
 ): Promise<void> {
   await validateRulesReferences(
     inbound.flatMap((rule) => {
@@ -272,6 +588,45 @@ export async function validateChangedRuleReferences(
           condition: conditionChanged ? rule.condition : undefined,
           savedGroups: savedGroupsChanged ? rule.savedGroups : [],
           prerequisites: prerequisitesChanged ? rule.prerequisites : undefined,
+        },
+      ];
+    }),
+    context,
+  );
+}
+
+type PhaseTargeting = {
+  condition?: string | null;
+  savedGroups?: FeatureRule["savedGroups"] | null;
+};
+
+// Experiment phases carry a rule's condition and saved groups and reach the
+// payload the same way, so they get the rule reference checks. Only the last
+// phase is served: it is exempt only for what the last stored phase already
+// holds, while an earlier (historical) phase is exempt for what any stored
+// phase holds, so reordering history never re-validates it.
+export async function validateChangedPhaseReferences(
+  phases: PhaseTargeting[],
+  stored: PhaseTargeting[],
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  const baseline = (i: number) =>
+    i === phases.length - 1 ? stored.slice(-1) : stored;
+  await validateRulesReferences(
+    phases.flatMap((phase, i) => {
+      const condition = phase.condition || "{}";
+      const savedGroups = phase.savedGroups ?? [];
+      const conditionChanged =
+        condition !== "{}" &&
+        !baseline(i).some((s) => (s.condition || "{}") === condition);
+      const groupsChanged =
+        savedGroups.length > 0 &&
+        !baseline(i).some((s) => isEqual(s.savedGroups ?? [], savedGroups));
+      if (!conditionChanged && !groupsChanged) return [];
+      return [
+        {
+          condition: conditionChanged ? condition : undefined,
+          savedGroups: groupsChanged ? savedGroups : [],
         },
       ];
     }),
@@ -310,7 +665,7 @@ function validateRuleReferencesWithGroups(
 // parents themselves are checked by assertValidPrerequisiteParents.
 export async function validatePrerequisiteReferences(
   prerequisites: FeaturePrerequisite[],
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
 ): Promise<void> {
   const savedGroupIds = new Set(
     (await context.models.savedGroups.getAll()).map((sg) => sg.id),
@@ -333,7 +688,7 @@ export async function validatePrerequisiteReferences(
 // Per-rule endpoints: the revision's rules before and after the change, with
 // the revision's own prerequisites list when it has one.
 export async function assertValidRevisionRulePrerequisites(
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: Pick<FeatureRevisionInterface, "prerequisites">,
   rules: { before: FeatureRule[]; after: FeatureRule[] },
@@ -454,4 +809,45 @@ function checkPrerequisiteConditionKeys(
     }
   }
   return null;
+}
+
+// The rule-level checks every feature write runs, dashboard and REST alike.
+// With `stored`, only what differs from the stored rule is re-checked.
+export async function assertValidFeatureRules(
+  context: ReqContext | ApiReqContext,
+  rules: FeatureRule[],
+  stored: FeatureRule[] = [],
+): Promise<void> {
+  assertValidChangedRuleEnvironments(context, rules, stored);
+  await assertValidChangedRuleProjectIds(rules, stored, context);
+  await assertValidChangedRuleExperimentIds(rules, stored, context);
+  await validateChangedRuleReferences(rules, stored, context);
+  validateRulesScheduleRules(rules, context, stored);
+}
+
+// One rule written through a dashboard route: the checks above plus the
+// feature's own value schema, when the write changes the rule's values.
+export async function assertValidRuleWrite(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  rule: FeatureRule,
+  stored?: FeatureRule,
+): Promise<void> {
+  await assertValidFeatureRules(context, [rule], stored ? [stored] : []);
+  if (
+    !stored ||
+    !isEqual(configCheckedRuleValues(stored), configCheckedRuleValues(rule))
+  ) {
+    assertFeatureValuesValid(context, feature, { rules: [rule] });
+  }
+}
+
+// The flag as the draft would publish it: a schema staged on the revision
+// replaces the live one when values are judged.
+export function withStagedSchema(
+  feature: FeatureInterface,
+  revision: Pick<FeatureRevisionInterface, "metadata"> | null | undefined,
+): FeatureInterface {
+  const jsonSchema = revision?.metadata?.jsonSchema;
+  return jsonSchema ? { ...feature, jsonSchema } : feature;
 }
