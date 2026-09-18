@@ -11,6 +11,7 @@ import {
   computeHoldoutExperimentLinkageDelta,
   getApplicableEnvIds,
   getExperimentIdsFromRules,
+  getRulesForEnvironment,
   liveRevisionFromFeature,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
@@ -57,6 +58,7 @@ import {
 import {
   getMergeResultPublishEnvs,
   addIdsToFlatRules,
+  assertFeatureValuesValidForPublish,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
@@ -79,6 +81,7 @@ import {
   ensureSafeRolloutForMonitoredRamp,
   getStartActionsFromRules,
   mergeStepsForRunningSchedule,
+  normalizeRampActionsForceValues,
   remapTemplateActions,
   runLockedRampScheduleAction,
   startReadyScheduleNow,
@@ -759,6 +762,63 @@ export async function migrateDraft(
   return null;
 }
 
+// Features whose legacy inline `experiment` rules currently allocate traffic
+// inside a namespace: not archived, and in at least one enabled environment an
+// enabled experiment rule with the namespace enabled — the same rules the
+// namespaces settings page counts as usage. Referential-integrity check for
+// namespace deletes / re-hashing, so deliberately NOT filtered by the caller's
+// project read access. Both storage shapes are matched (flat `rules` and the
+// pre-migration `environmentSettings.<env>.rules`) and normalized on read.
+//
+// An org environment id containing a "." would not match the dotted
+// `environmentSettings.<env>.rules` path, so that branch silently skips it.
+// That only affects unmigrated docs, and the flat `rules` branch still covers
+// every migrated one.
+export async function countFeaturesWithExperimentRuleInNamespace(
+  context: ReqContext | ApiReqContext,
+  namespaceId: string,
+): Promise<number> {
+  const environments = context.environments;
+  const ruleMatch = {
+    $elemMatch: {
+      type: "experiment",
+      "namespace.enabled": true,
+      "namespace.name": namespaceId,
+    },
+  };
+  const docs = await FeatureModel.find({
+    organization: context.org.id,
+    archived: { $ne: true },
+    $or: [
+      { rules: ruleMatch },
+      ...environments.map((env) => ({
+        [`environmentSettings.${env}.rules`]: ruleMatch,
+      })),
+    ],
+  }).lean<LegacyFeatureInterface[]>();
+
+  return docs
+    .map((raw) =>
+      migrateRawFeatureToV2(
+        omit(raw, ["__v", "_id"]) as LegacyFeatureInterface,
+        context,
+      ),
+    )
+    .filter((f) =>
+      environments.some(
+        (env) =>
+          f.environmentSettings?.[env]?.enabled &&
+          getRulesForEnvironment(f.rules ?? [], env).some(
+            (r) =>
+              r.enabled &&
+              r.type === "experiment" &&
+              r.namespace?.enabled &&
+              r.namespace.name === namespaceId,
+          ),
+      ),
+    ).length;
+}
+
 // jsonSchema is projected out of the list loaders; fetch the enabled ones
 // separately for value validation. Results are merged onto features that
 // already passed the read-permission filter, so none is applied here.
@@ -869,6 +929,7 @@ export async function getFeatureRuleEnvironmentsByIds(
 export async function createFeature(
   context: ReqContext | ApiReqContext,
   data: FeatureInterface,
+  { comment }: { comment?: string } = {},
 ) {
   const { org } = context;
 
@@ -925,6 +986,8 @@ export async function createFeature(
     toInterface(feature, context),
     context.auditUser,
     getEnvironmentIdsFromOrg(org),
+    undefined,
+    comment,
   );
 
   if (linkedExperiments.length > 0) {
@@ -2913,16 +2976,25 @@ async function createRampSchedulesForRevision(
     // Inject the generated targetId into every action and ensure targetType
     // is always set. Handles both correctly-typed actions and legacy drafts
     // that were stored without targetType.
+    // `force` is brought to the string form rule values are stored in and
+    // validated against the feature, so a plan staged with a raw JSON value
+    // (older UI drafts, REST callers) cannot put a non-string value on a rule.
     const normalizeAction = (
       a: RevisionRampCreateAction["steps"][number]["actions"][number],
-    ): RampStepAction => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch: {
-        ...a.patch,
-        ruleId: action.ruleId,
-      },
-    });
+    ): RampStepAction =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule" as const,
+            targetId,
+            patch: {
+              ...a.patch,
+              ruleId: action.ruleId,
+            },
+          },
+        ],
+        feature,
+      )[0];
 
     // Template is used as a fallback; explicit steps/endActions win.
     let template: RampScheduleTemplateInterface | undefined;
@@ -2970,13 +3042,17 @@ async function createRampSchedulesForRevision(
             holdConditions: step.holdConditions ?? undefined,
           }))
         : template
-          ? template.steps.map((s) => ({
+          ? template.steps.map((s, i) => ({
               interval: s.interval,
-              actions: remapTemplateActions(
-                s.actions,
-                targetId,
-                action.ruleId,
-                feature.valueType,
+              actions: normalizeRampActionsForceValues(
+                remapTemplateActions(
+                  s.actions,
+                  targetId,
+                  action.ruleId,
+                  feature.valueType,
+                ),
+                feature,
+                `Template step ${i + 1} value`,
               ),
               approvalNotes: s.approvalNotes ?? undefined,
               monitored: !!s.monitored,
@@ -2996,31 +3072,53 @@ async function createRampSchedulesForRevision(
           ? action.endActions.map(normalizeAction)
           : []
         : template?.endPatch && Object.keys(template.endPatch).length > 0
-          ? [
-              {
-                targetType: "feature-rule" as const,
-                targetId,
-                patch: {
-                  ruleId: action.ruleId,
-                  ...template.endPatch,
+          ? normalizeRampActionsForceValues<RampStepAction>(
+              [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId,
+                  patch: {
+                    ruleId: action.ruleId,
+                    ...template.endPatch,
+                  },
                 },
-              },
-            ]
+              ],
+              feature,
+              "End value",
+            )
           : [];
 
-    const startActions: RampStepAction[] =
-      action.startActions !== undefined
-        ? Array.isArray(action.startActions)
-          ? action.startActions.map(normalizeAction)
-          : []
-        : getStartActionsFromRules({
-            rules: result.rules ?? feature.rules ?? [],
-            targetId,
-            ruleId: action.ruleId,
-            environment: action.environment,
-          });
+    // Like steps, empty startActions are "not provided": the rollback anchor
+    // is derived from the rule as published. A provided anchor is usually the
+    // rule's own earlier value captured by the editor, so its `force` is only
+    // stringified, not judged against the feature type.
+    const explicitStartActions = Array.isArray(action.startActions)
+      ? normalizeRampActionsForceValues(
+          action.startActions.map(
+            (a): RampStepAction => ({
+              targetType: "feature-rule" as const,
+              targetId,
+              patch: { ...a.patch, ruleId: action.ruleId },
+            }),
+          ),
+        )
+      : [];
+    const startActionsExplicit = explicitStartActions.length > 0;
+    const startActions: RampStepAction[] = startActionsExplicit
+      ? explicitStartActions
+      : getStartActionsFromRules({
+          rules: result.rules ?? feature.rules ?? [],
+          targetId,
+          ruleId: action.ruleId,
+          environment: action.environment,
+        });
 
     if (action.mode === "create") {
+      if (!startActions.length) {
+        throw new Error(
+          `Ramp target rule "${action.ruleId}" not found in the published revision`,
+        );
+      }
       // Guard against duplicate schedules: if the revision is re-published or
       // an older revision is published while a live schedule already targets
       // this rule, skip the create rather than producing a second schedule
@@ -3060,7 +3158,7 @@ async function createRampSchedulesForRevision(
             activatingRevisionVersion: revision.version,
           },
         ],
-        startActions: startActions.length > 0 ? startActions : undefined,
+        startActions,
         steps,
         endActions: endActions.length > 0 ? endActions : undefined,
         startDate: startDate ?? undefined,
@@ -3131,11 +3229,7 @@ async function createRampSchedulesForRevision(
         edited.push(key);
       };
       set(updateAction.name !== undefined, "name", updateAction.name);
-      set(
-        updateAction.startActions !== undefined,
-        "startActions",
-        startActions.length > 0 ? startActions : undefined,
-      );
+      set(startActionsExplicit, "startActions", startActions);
       set(stepsExplicit, "steps", steps);
       set(
         updateAction.endActions !== undefined,
@@ -3261,9 +3355,9 @@ async function createRampSchedulesForRevision(
           } else {
             set(stepsExplicit, "steps", steps);
             set(
-              canEditStartActions && updateAction.startActions !== undefined,
+              canEditStartActions && startActionsExplicit,
               "startActions",
-              startActions.length > 0 ? startActions : undefined,
+              startActions,
             );
             // Start strategy is a pre-start decision — only editable while the
             // ramp hasn't crossed into step 0. Toggling it on re-arms the
@@ -3552,6 +3646,7 @@ export async function prevalidatePublishRevision({
   result,
   comment,
   skipValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3559,6 +3654,7 @@ export async function prevalidatePublishRevision({
   result: MergeResultChanges;
   comment?: string;
   skipValidation?: boolean;
+  skipValueSchemaNet?: boolean;
 }) {
   const { proposedFeature, defaultToCheck, rulesToCheck } =
     computeProposedFeatureForValidation(context, feature, revision, result);
@@ -3567,6 +3663,12 @@ export async function prevalidatePublishRevision({
   // stale (a config's schema/invariants may tighten between draft and publish),
   // and auto-publish paths don't pass through a REST handler's own net.
   if (defaultToCheck !== undefined || rulesToCheck.length) {
+    if (!skipValueSchemaNet) {
+      assertFeatureValuesValidForPublish(context, proposedFeature, {
+        defaultValue: defaultToCheck,
+        rules: rulesToCheck,
+      });
+    }
     await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
       defaultValue: defaultToCheck,
       rules: rulesToCheck,
@@ -3680,6 +3782,7 @@ export async function collectPublishRevisionBlockers({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3688,6 +3791,7 @@ export async function collectPublishRevisionBlockers({
   comment?: string;
   bypassLockdown?: boolean;
   skipPrevalidateValidation?: boolean;
+  skipValueSchemaNet?: boolean;
 }): Promise<Error[]> {
   // Errors, not messages: SoftWarningError (422 + warnings) and BadRequestError
   // (400) reach the caller as themselves rather than a generic 500.
@@ -3726,6 +3830,7 @@ export async function collectPublishRevisionBlockers({
       result,
       comment,
       skipValidation: skipPrevalidateValidation,
+      skipValueSchemaNet,
     }),
   );
 
@@ -3798,6 +3903,7 @@ export async function publishRevision({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -3808,6 +3914,10 @@ export async function publishRevision({
   // Set when this exact revision was already validated — as publish gates by the
   // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
+  // Set by the ramp engine: a step value is judged by type only and never
+  // refused, so rollbacks can re-apply the rule's own earlier values. The
+  // config-backed net below is unchanged; it has always run on ramp publishes.
+  skipValueSchemaNet?: boolean;
 }) {
   // One deduped SDK refresh per landing (feature applies are multi-step: ramp
   // schedules, the feature document, holdout linkage), flushed on success and
@@ -3821,6 +3931,7 @@ export async function publishRevision({
       comment,
       bypassLockdown,
       skipPrevalidateValidation,
+      skipValueSchemaNet,
     }),
   );
 }
@@ -3833,6 +3944,7 @@ async function publishRevisionInner({
   comment,
   bypassLockdown,
   skipPrevalidateValidation,
+  skipValueSchemaNet,
 }: Parameters<typeof publishRevision>[0]) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
@@ -3876,6 +3988,7 @@ async function publishRevisionInner({
     comment,
     bypassLockdown,
     skipPrevalidateValidation,
+    skipValueSchemaNet,
   });
   if (blockers.length === 1) {
     throw blockers[0];

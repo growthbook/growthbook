@@ -1,15 +1,13 @@
 import {
   validateFeatureValue,
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   normalizeTargetingProjects,
 } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  getApiCreateEnabledEnvironments,
-  getEnabledEnvironments,
-} from "back-end/src/util/features";
+import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
 import {
   resolveOwnerEmail,
   resolveOwnerForCreate,
@@ -29,22 +27,19 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import {
-  assertValidRuleEnvironments,
+  assertValidFeatureRules,
   validateCustomFields,
   validateRuleAttributes,
-  validateRulesReferences,
 } from "./validations";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertConfigSchemaCompat,
   assertValidProjectId,
   assertValidProjectIds,
-  assertValidRuleProjectIds,
   assertUniqueRuleIds,
-  assertValidRuleExperimentIds,
-  validateRulesScheduleRules,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -97,7 +92,6 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     }
 
     await assertValidProjectId(req.body.project, req.context);
-    await assertValidProjectIds(req.body.targetingProjects, req.context);
 
     await validateCustomFields(
       req.body.customFields,
@@ -149,7 +143,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       validateRuleAttributes(
         rule as Parameters<typeof validateRuleAttributes>[0],
         req.context,
-        getAttributeScopeProjectIds(feature) ?? undefined,
+        getRuleAttributeScopeProjectIds(feature, undefined, rule) ?? undefined,
       );
     }
 
@@ -157,14 +151,8 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       mapV2ApiRuleToFeatureRule(rule),
     );
     assertUniqueRuleIds(feature.rules);
-    assertValidRuleEnvironments(req.context, feature.rules);
-    await assertValidRuleProjectIds(feature.rules, req.context);
-    await assertValidRuleExperimentIds(feature.rules, req.context);
-    // Same condition / saved-group reference checks the per-rule endpoints
-    // run; the payload builder silently drops a condition it cannot parse and
-    // unknown group ids, which widens the rule's audience.
-    await validateRulesReferences(feature.rules, req.context);
-    validateRulesScheduleRules(feature.rules, req.context);
+    await assertValidFeatureRules(req.context, feature.rules);
+    await assertValidPrerequisiteParents(req.context, feature);
 
     // Config backing comes through dedicated fields — reject a raw `@config:`
     // in the default value, validate the fields, then compose the stored value
@@ -232,22 +220,17 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       baseConfig: feature.baseConfig,
     });
 
-    const enabledOnCreate = Array.from(
-      getEnabledEnvironments(
-        feature,
-        orgEnvs.map((e) => e.id),
-      ),
-    );
     // The environments a new flag starts enabled in are its whole live footprint,
     // so gating those on publish is the only control needed — and a flag enabling
     // none is in no payload at all, leaving create authority sufficient. Approval
     // doesn't apply: there's no prior state to review a new flag against.
-    if (
-      enabledOnCreate.length &&
-      !req.context.permissions.canPublishFeature(feature, enabledOnCreate)
-    ) {
-      req.context.permissions.throwPermissionError();
-    }
+    await assertCanCreateFeatureInState({
+      context: req.context,
+      feature,
+      environmentIds: orgEnvs.map((e) => e.id),
+    });
+    // After the gate so an unreadable id cannot be probed for existence.
+    await assertValidProjectIds(req.body.targetingProjects, req.context);
 
     // AFTER every authorization: tags are a persistent org-level side effect, and
     // writing them first meant a request that then 403'd had already mutated tag
@@ -258,7 +241,9 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
 
     addIdsToFlatRules(feature.rules, feature.id);
 
-    await createFeature(req.context, feature);
+    await createFeature(req.context, feature, {
+      comment: req.body.comment,
+    });
 
     await req.audit({
       event: "feature.create",

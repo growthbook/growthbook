@@ -26,6 +26,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   createFeature: jest.fn(),
   updateFeature: jest.fn(),
   createAndPublishRevision: jest.fn(),
+  getAllFeaturesWithoutEditorFields: jest.fn(async () => []),
 }));
 
 jest.mock("back-end/src/models/TagModel", () => ({
@@ -35,6 +36,7 @@ jest.mock("back-end/src/models/TagModel", () => ({
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentMapForFeature: jest.fn(),
+  getAllExperimentsForStaleGraph: jest.fn(async () => []),
 }));
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
@@ -141,6 +143,7 @@ describe("features API", () => {
       models: defaultModels(),
       permissions: defaultPermissions(),
       getProjects: async () => [{ id: "project" }],
+      getTargetingOptOutProjectIds: async () => [],
       getUserByEmail: jest.fn().mockResolvedValue(null),
       getUsersByIds: jest.fn().mockResolvedValue([]),
       ...overrides,

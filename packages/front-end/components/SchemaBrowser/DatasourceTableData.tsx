@@ -91,13 +91,19 @@ export default function DatasourceSchema({
   const expandedColumns = useMemo(() => {
     const out: { columnName: string; dataType: string; jsonField?: boolean }[] =
       [];
+    // A warehouse that materializes JSON sub-fields as native subcolumns
+    // already reports them here, so the expansion below would list them twice.
+    const seen = new Set((table?.columns || []).map((c) => c.columnName));
     for (const column of table?.columns || []) {
       out.push({ columnName: column.columnName, dataType: column.dataType });
       const jsonFields = jsonFieldsByColumn[column.columnName];
       if (jsonFields) {
         for (const [field, data] of Object.entries(jsonFields)) {
+          const columnName = `${column.columnName}.${field}`;
+          if (seen.has(columnName)) continue;
+          seen.add(columnName);
           out.push({
-            columnName: `${column.columnName}.${field}`,
+            columnName,
             dataType: data.datatype,
             jsonField: true,
           });
@@ -272,14 +278,16 @@ export default function DatasourceSchema({
           <tbody>
             {filteredColumns.length > 0 ? (
               <>
-                {filteredColumns?.map((column) => {
+                {filteredColumns?.map((column, i) => {
                   const insertDisabledReason = columnInsertDisabledReason(
                     sql,
                     currentTable.path,
                     column.columnName,
                   );
                   return (
-                    <tr key={`${table.tableName}:${column.columnName}`}>
+                    // Index-suffixed: a duplicate name would otherwise give two
+                    // rows one key, and React strands them on filter updates.
+                    <tr key={`${table.tableName}:${column.columnName}:${i}`}>
                       <td className="pl-3">
                         <div className={actionStyles.row}>
                           <span

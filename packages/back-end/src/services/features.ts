@@ -22,7 +22,7 @@ import {
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
   getApplicableEnvIds,
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
   getDependentFeatures,
@@ -53,7 +53,10 @@ import {
   featurePublishFootprint,
   holdoutEnvsForChange,
 } from "shared/permissions";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getActiveVariations,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
 import {
@@ -72,20 +75,22 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
-  RevisionRampAction,
-  HoldoutInterface,
-  ContextualBanditInterface,
-  SdkConnectionCacheAuditContext,
   ApiEventUser,
-  apiFeatureRevisionValidator,
-  ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
+  ApiFeatureEnvironmentV2,
+  apiFeatureRevisionV2Validator,
+  apiFeatureRevisionValidator,
   ApiFeatureRule,
   ApiFeatureRuleV2,
-  apiFeatureRevisionV2Validator,
+  ApiFeatureWithRevisions,
   ApiFeatureWithRevisionsV2,
-  ApiFeatureEnvironmentV2,
+  ContextualBanditInterface,
+  EventUser,
+  HoldoutInterface,
   resolveSavedGroupsInput,
+  reviewerKeyForEventUser,
+  RevisionRampAction,
+  SdkConnectionCacheAuditContext,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -114,6 +119,8 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   getReviewAuthorityFootprint,
   governingReviewProjectsForFeature,
+  getRevisionReviewRequirement,
+  liveRevisionFromFeature,
   type ReviewAuthorityFootprint,
 } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
@@ -130,6 +137,7 @@ import {
   getAllFeaturesWithoutEditorFields,
 } from "back-end/src/models/FeatureModel";
 import {
+  getAllExperimentsForStaleGraph,
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
   getAllVisualExperiments,
@@ -719,12 +727,13 @@ export function filterUsedContextualBandits(
   usedIds.forEach((id) => {
     const cb = cbMap.get(id);
     if (!cb) return;
+    const activeVariations = getActiveVariations(cb.variations);
     map[id] = {
       banditVersion: cb.banditVersion,
       contexts: (cb.currentLeafWeights ?? []).map((lw) => ({
         leafId: lw.leafId,
         condition: lw.condition,
-        weights: pairedWeightsToPositional(lw.weights, cb.variations),
+        weights: pairedWeightsToPositional(lw.weights, activeVariations),
       })),
     };
   });
@@ -851,20 +860,44 @@ export async function getFeaturesDependingOnAsPrerequisite(
 // Block deleting a feature that live features still list as a prerequisite —
 // deletion would dangle their gate and drop them from the SDK payload. Matches
 // the copy style of assertConstantArchivable / assertSavedGroupDeletable.
+// Unarchived experiments whose latest phase gates on `featureId`. Projected
+// loader — reads only id/status/phases.prerequisites.
+export async function getExperimentsDependingOnAsPrerequisite(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<string[]> {
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
+  const experiments = await getAllExperimentsForStaleGraph(scanContext);
+  return experiments
+    .filter((e) =>
+      e.phases.slice(-1)[0]?.prerequisites?.some((p) => p.id === featureId),
+    )
+    .map((e) => e.id);
+}
+
 export async function assertFeatureDeletable(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<void> {
-  const dependents = await getFeaturesDependingOnAsPrerequisite(
-    context,
-    featureId,
-  );
-  if (!dependents.length) return;
+  const [features, experiments] = await Promise.all([
+    getFeaturesDependingOnAsPrerequisite(context, featureId),
+    getExperimentsDependingOnAsPrerequisite(context, featureId),
+  ]);
+  if (!features.length && !experiments.length) return;
   // Count only — the dependent scan is org-wide (so a dependent in a project
   // the caller can't read still blocks), so naming ids would disclose
-  // cross-project features. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
+  // cross-project resources. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
+  const parts = [
+    [features.length, "live Feature Flag(s)"],
+    [experiments.length, "Experiment(s)"],
+  ]
+    .filter(([n]) => n)
+    .map(([n, label]) => `${n} ${label}`)
+    .join(" and ");
   throw new BadRequestError(
-    `Cannot delete Feature Flag: it is still used as a prerequisite by ${dependents.length} live Feature Flag(s). Remove these references first.`,
+    `Cannot delete Feature Flag: it is still used as a prerequisite by ${parts}. Remove these references first.`,
   );
 }
 
@@ -3391,9 +3424,14 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   const valFeature = context.canSkipSchemaValidationFor("feature")
     ? { ...feature, jsonSchema: undefined }
     : feature;
-  const attributeScope =
-    getAttributeScopeProjectIds(attributeScopeEntity ?? feature) ?? undefined;
-  return rules.map((r) => {
+  return rules.map((r, ruleIndex) => {
+    const ruleLabel = `Rule ${ruleIndex + 1}`;
+    const attributeScope =
+      getRuleAttributeScopeProjectIds(
+        attributeScopeEntity ?? feature,
+        undefined,
+        r,
+      ) ?? undefined;
     // Opt-in attribute registration check (org-level setting). Only validate
     // fields that changed so pre-existing violations don't block unrelated edits.
     const ruleWithAttrs = r as {
@@ -3447,9 +3485,13 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           enabled: r.enabled != null ? r.enabled : true,
           description: r.description ?? "",
           experimentId: r.experimentId,
-          variations: r.variations.map((v) => ({
+          variations: r.variations.map((v, i) => ({
             variationId: v.variationId,
-            value: validateFeatureValue(valFeature, v.value),
+            value: validateFeatureValue(
+              valFeature,
+              v.value,
+              `${ruleLabel} variation ${i + 1}`,
+            ),
           })),
           ...(r.sparse !== undefined && { sparse: r.sparse }),
           ...(r.prerequisites && { prerequisites: r.prerequisites }),
@@ -3465,7 +3507,11 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         // Validate each variation value against the schema (previously skipped).
         if (Array.isArray(values)) {
           values.forEach((v: { value: string }, i) =>
-            validateFeatureValue(valFeature, v.value, `Variation ${i + 1}`),
+            validateFeatureValue(
+              valFeature,
+              v.value,
+              `${ruleLabel} variation ${i + 1}`,
+            ),
           );
         }
         const experimentRule: ExperimentRule = {
@@ -3496,7 +3542,11 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           allEnvironments: false,
           type: r.type,
           description: r.description ?? "",
-          value: validateFeatureValue(valFeature, r.value),
+          value: validateFeatureValue(
+            valFeature,
+            r.value,
+            `${ruleLabel} value`,
+          ),
           condition: r.condition,
           savedGroups: resolveSavedGroupsInput(r) ?? [],
           enabled: r.enabled != null ? r.enabled : true,
@@ -3516,7 +3566,11 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           coverage: r.coverage,
           description: r.description ?? "",
           hashAttribute: r.hashAttribute,
-          value: validateFeatureValue(valFeature, r.value),
+          value: validateFeatureValue(
+            valFeature,
+            r.value,
+            `${ruleLabel} value`,
+          ),
           condition: r.condition,
           savedGroups: resolveSavedGroupsInput(r) ?? [],
           enabled: r.enabled != null ? r.enabled : true,
@@ -3624,6 +3678,20 @@ function prerequisiteListsDiffer(
   return false;
 }
 
+const logCyclicPrerequisite = (
+  prereqFeature: FeatureInterface,
+  environment: string,
+) => {
+  logger.warn(
+    {
+      organization: prereqFeature.organization,
+      feature: prereqFeature.id,
+      environment,
+    },
+    "Cyclic prerequisite detected during SDK payload generation; features and rules gated on it are omitted",
+  );
+};
+
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
 export const reduceFeaturesWithPrerequisites = (
   features: FeatureInterface[],
@@ -3656,6 +3724,9 @@ export const reduceFeaturesWithPrerequisites = (
             undefined,
             true,
           );
+          if (state.state === "cyclic") {
+            logCyclicPrerequisite(prereqFeature, environment);
+          }
         }
         prereqStateCache[prereq.id] = state;
       }
@@ -3800,6 +3871,9 @@ const getInlinePrerequisitesReductionInfo = (
           undefined,
           true,
         );
+        if (state.state === "cyclic") {
+          logCyclicPrerequisite(prereqFeature, environment);
+        }
       }
       prereqStateCache[pc.id] = state;
     }
@@ -3925,6 +3999,59 @@ export async function getFeatureReviewFootprint({
       settings: context.org.settings,
     }),
   });
+}
+
+// Targeting projects whose own reviewers this draft needs, judged against live
+// the way the review panel judges it.
+// Who may retract a verdict on a draft: anyone who could review it now, or the
+// verdict's own author even after the draft or their role moved them out of
+// its reviewer set.
+export async function assertCanUndoFeatureReview({
+  context,
+  feature,
+  revision,
+  user,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  user: EventUser;
+}): Promise<void> {
+  const ownVerdict = (revision.reviews ?? []).some(
+    (r) => r.userId === reviewerKeyForEventUser(user),
+  );
+  if (ownVerdict) return;
+  if (
+    !context.permissions.canReviewFeatureDrafts(
+      feature,
+      await getFeatureReviewFootprint({ context, feature, revision }),
+      await getFeatureReviewApproverProjects({ context, feature, revision }),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+}
+
+export async function getFeatureReviewApproverProjects({
+  context,
+  feature,
+  revision,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+}): Promise<string[]> {
+  const live = await getLiveRevisionForFeature(context, feature);
+  return (
+    getRevisionReviewRequirement({
+      feature,
+      baseRevision: { ...live, ...liveRevisionFromFeature(live, feature) },
+      revision,
+      orgEnvironments: getEnvironments(context.org),
+      settings: context.org.settings,
+      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+    }).approverProjects ?? []
+  );
 }
 
 export async function getLiveAndBaseRevisionsForFeature({
@@ -4126,6 +4253,8 @@ export async function assertCanAutoPublish(
     requiresReview &&
     !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
   ) {
-    context.permissions.throwPermissionError();
+    context.permissions.throwPermissionError(
+      "This change requires approval before it can be published. Save it as a draft and request a review.",
+    );
   }
 }

@@ -25,6 +25,7 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
 import { validateCustomFields, validateRulesReferences } from "./validations";
 import {
   assertValidProjectId,
@@ -108,7 +109,6 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   }
 
   await assertValidProjectId(req.body.project, req.context);
-  await assertValidProjectIds(req.body.targetingProjects, req.context);
 
   await validateCustomFields(
     req.body.customFields,
@@ -164,6 +164,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   await assertValidRuleProjectIds(feature.rules, req.context);
   await assertValidRuleExperimentIds(feature.rules, req.context);
   await validateRulesReferences(feature.rules, req.context);
+  await assertValidPrerequisiteParents(req.context, feature);
 
   const jsonSchema = parseApiJsonSchema(
     req.context.org,
@@ -187,13 +188,19 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   });
 
   // ensure default value matches value type
-  feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+  feature.defaultValue = validateFeatureValue(
+    feature,
+    feature.defaultValue,
+    "Default value",
+  );
 
-  assertCanCreateFeatureInState({
+  await assertCanCreateFeatureInState({
     context: req.context,
     feature,
     environmentIds: featurePublishEnvironmentIds(req.context.org, feature),
   });
+  // After the gate so an unreadable id cannot be probed for existence.
+  await assertValidProjectIds(req.body.targetingProjects, req.context);
 
   // AFTER every authorization: tags are a persistent org-level side effect, and
   // writing them first meant a request that then 403'd had already mutated tag state.
@@ -204,7 +211,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   addIdsToRules(feature.environmentSettings, feature.id);
   addIdsToFlatRules(feature.rules, feature.id);
 
-  await createFeature(req.context, feature);
+  await createFeature(req.context, feature, { comment: req.body.comment });
 
   await req.audit({
     event: "feature.create",

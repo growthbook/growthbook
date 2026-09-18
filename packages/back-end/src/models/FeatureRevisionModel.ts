@@ -850,7 +850,11 @@ const SPARSE_REVISION_PROJECTION = {
   environmentsEnabled: 0,
   prerequisites: 0,
   archived: 0,
-  metadata: 0,
+  // Keep the small envelope fields: the approval inbox derives who may review
+  // a draft from its staged project and targeting.
+  "metadata.description": 0,
+  "metadata.jsonSchema": 0,
+  "metadata.customFields": 0,
   baseVersion: 0,
   datePublished: 0,
   publishedBy: 0,
@@ -939,6 +943,7 @@ export async function createInitialRevision(
   user: EventUser | null,
   environments: string[],
   date?: Date,
+  comment?: string,
 ) {
   const rules: FeatureRule[] = (feature.rules ?? [])
     .filter(isPlausibleFeatureRule)
@@ -962,7 +967,7 @@ export async function createInitialRevision(
     baseVersion: 0,
     status: "published",
     publishedBy: user,
-    comment: "",
+    comment: comment ?? "",
     defaultValue: feature.defaultValue,
     rules,
     environmentsEnabled,

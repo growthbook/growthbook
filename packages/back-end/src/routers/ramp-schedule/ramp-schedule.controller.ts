@@ -4,6 +4,11 @@ import {
   isAwaitingStartApproval,
 } from "shared/validators";
 import { PermissionError, isRampScheduleServing } from "shared/util";
+import {
+  collectRampPlanActions,
+  rampPatchEntriesForTargets,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -18,6 +23,7 @@ import {
   dispatchRampEvent,
   ensureSafeRolloutForMonitoredRamp,
   jumpSchedule,
+  normalizeRampPlanForceValues,
   pauseSchedule,
   rollbackSchedule,
   restartSchedule,
@@ -28,11 +34,16 @@ import {
   startSchedule,
   assertCanControlRampSchedule,
   assertCanEditRampScheduleConfig,
+  rampStartValuesOf,
 } from "back-end/src/services/rampSchedule";
 import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import {
+  assertRampScheduleReplanAllowed,
+  changesRampPlan,
+} from "back-end/src/services/rampPlanReview";
 import { ConflictError } from "back-end/src/util/errors";
 
 type CreateBody = Pick<
@@ -126,6 +137,35 @@ export const postRampSchedule = async (
   }
 
   const body = req.body;
+  if (body.targets?.length) {
+    await assertRampScheduleReplanAllowed(context, {
+      entityId: body.entityId,
+      targets: body.targets,
+    });
+  }
+
+  // Rule values are strings; bring any raw JSON `force` in the plan to that
+  // form and reject a value the feature's type does not accept. A start value
+  // echoing the targeted rule's own current value is the editor's anchor and
+  // is not judged.
+  const feature =
+    body.entityType === "feature" && body.entityId
+      ? await getFeature(context, body.entityId)
+      : null;
+  Object.assign(
+    body,
+    normalizeRampPlanForceValues(body, feature, {
+      knownStartValues: rampStartValuesOf(feature, body.targets ?? []),
+    }),
+  );
+  await validateRampPlanPatches(
+    context,
+    rampPatchEntriesForTargets(
+      collectRampPlanActions(body),
+      body.targets ?? [],
+      () => feature,
+    ),
+  );
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
 
@@ -209,6 +249,9 @@ export const putRampSchedule = async (
           `Cannot update: schedule changed to "${fresh.status}" while the request was in flight`,
         );
       }
+      if (fresh.targets.length && changesRampPlan(body, fresh)) {
+        await assertRampScheduleReplanAllowed(context, fresh);
+      }
       const updates: Record<string, unknown> = {};
       if (body.name !== undefined) updates.name = body.name;
       if (body.startActions !== undefined)
@@ -261,6 +304,40 @@ export const putRampSchedule = async (
       // Publish-class gate for execution-field edits on an armable schedule
       // (monitoring carries its own assert above).
       await assertCanEditRampScheduleConfig(context, fresh, updates);
+
+      // Rule values are strings; bring any raw JSON `force` in the new plan to
+      // that form and reject a step/end value the feature's type does not
+      // accept (startActions are the captured anchor: stringified only).
+      const feature =
+        fresh.entityType === "feature"
+          ? await getFeature(context, fresh.entityId)
+          : null;
+      Object.assign(
+        updates,
+        normalizeRampPlanForceValues(
+          updates as Pick<
+            RampScheduleInterface,
+            "steps" | "startActions" | "endActions"
+          >,
+          feature,
+          {
+            knownStartValues: rampStartValuesOf(
+              feature,
+              fresh.targets,
+              fresh.startActions,
+            ),
+          },
+        ),
+      );
+      await validateRampPlanPatches(
+        context,
+        rampPatchEntriesForTargets(
+          collectRampPlanActions(updates),
+          fresh.targets,
+          () => feature,
+        ),
+        { stored: [fresh] },
+      );
 
       const editedFields = Object.keys(updates).filter(
         (k) => k !== "nextProcessAt" && k !== "eventHistory",

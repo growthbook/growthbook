@@ -9,7 +9,7 @@ import {
 } from "shared/validators";
 import type { FeatureRule, SafeRolloutRule } from "shared/validators";
 import {
-  getAttributeScopeProjectIds,
+  getRuleAttributeScopeProjectIds,
   getEffectiveRevisionHoldout,
 } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
@@ -46,11 +46,16 @@ import {
   assertValidRuleEnvironments,
   resolveOrCreateRevision,
   validateRuleAttributes,
+  assertValidRevisionRulePrerequisites,
   validatePrerequisiteConditions,
   validateRuleReferences,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  validateRampPlanPatches,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
 import {
+  assertRuleVariationsMatchExperiment,
   assertNoRawConfigExtends,
   assertValidRuleConfigKeys,
   composeConfigBacking,
@@ -75,6 +80,14 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     rampSchedule: inlineRampSchedule,
   });
   const ruleInput = req.body.rule as RuleCreateInputV2;
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(inlineRampSchedule),
+      feature,
+      ruleInput,
+    ),
+  );
 
   // Capture config-backing inputs before the experiment-ref variation backfill
   // below rewrites `ruleInput.variations` (which would otherwise drop `config`).
@@ -154,6 +167,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           value: v.value,
         }));
       }
+      assertRuleVariationsMatchExperiment(ruleInput, experiment);
 
       // Legacy revisions store holdout sparsely, so absence carries the
       // feature's holdout forward. Linking writes are deferred until after
@@ -231,7 +245,8 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     validateRuleAttributes(
       rule,
       req.context,
-      getAttributeScopeProjectIds(feature, revision.metadata) ?? undefined,
+      getRuleAttributeScopeProjectIds(feature, revision.metadata, rule) ??
+        undefined,
     );
     await validateRuleReferences(rule, req.context);
 
@@ -290,7 +305,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     }
 
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id)
+      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, feature)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       if (usesLegacyScheduling) {
@@ -321,6 +336,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     const newRules: FeatureRule[] = [...baseRules, stampedRule];
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: baseRules,
+      after: newRules,
+    });
 
     if (resolvedRampAction) {
       const existing = revision.rampActions ?? [];
