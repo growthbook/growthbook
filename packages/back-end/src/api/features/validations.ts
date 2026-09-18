@@ -12,8 +12,7 @@ import {
 import isEqual from "lodash/isEqual";
 import { z } from "zod";
 import {
-  rampPlanBucketsOnDefault,
-  getDefaultHashAttribute,
+  rampPlanLacksHashAttribute,
   findStoredRuleCounterpart,
   stemRuleId,
   validateCondition,
@@ -38,11 +37,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
 import type { ReqContext } from "back-end/types/request";
-import {
-  BadRequestError,
-  NotFoundError,
-  SoftWarningError,
-} from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
@@ -123,6 +118,29 @@ export function normalizeInlineRampSchedule(
 
 export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);
+}
+
+// The rule a per-rule write lands on, as staged: the draft's copy when the
+// version names an existing draft (a rule may exist only there), else live.
+// Read without creating a draft, so a refusal cannot orphan one.
+export async function stagedRule(
+  context: ApiReqContext,
+  feature: FeatureInterface,
+  version: number | "new",
+  ruleId: string,
+): Promise<FeatureRule | undefined> {
+  const draft =
+    version === "new"
+      ? null
+      : await getRevision({
+          context,
+          organization: context.org.id,
+          featureId: feature.id,
+          feature,
+          version,
+        });
+  const byId = (r: FeatureRule) => r.id === ruleId;
+  return draft?.rules?.find(byId) ?? (feature.rules ?? []).find(byId);
 }
 
 // Resolves an existing revision, or creates a blank draft on `version: "new"`.
@@ -358,49 +376,36 @@ function changedRampPatchTargeting(
 const RAMP_PATCH_ERROR_PREFIX = "Invalid ramp schedule patch: ";
 
 // The payload reads coverage only on rollout rules, so a partial-coverage step
-// promotes a force rule when it fires. Without a hash attribute from the rule
-// or the plan it buckets on the organization's default; the caller acknowledges
-// that (ignoreWarnings) or chooses one first.
-function assertRampCoverageHashAcknowledged(
-  context: ReqContext | ApiReqContext,
-  entries: RampPatchEntry[],
-  stored: RampPatchTargetingInput[],
-): void {
-  if (context.ignoreWarnings) return;
-  const byRule = new Map<string, RampPatchEntry[]>();
+// turns a force rule into one, which needs a hash attribute: the rule's own or
+// the plan's start anchor. There is no default worth guessing, so a plan that
+// brings neither is refused, at write and again when a stored one fires.
+function assertRampCoverageHashProvided(entries: RampPatchEntry[]): void {
+  // A new rule has no id yet: its entries all share one scope object.
+  const byRule = new Map<string | RuleScope, RampPatchEntry[]>();
   for (const entry of entries) {
-    const key = `${entry.feature?.id ?? ""}\0${entry.rule?.id ?? ""}`;
+    if (!entry.rule) continue;
+    const key = entry.rule.id
+      ? `${entry.feature?.id ?? ""}\0${entry.rule.id}`
+      : entry.rule;
     byRule.set(key, [...(byRule.get(key) ?? []), entry]);
   }
   for (const group of byRule.values()) {
-    const { rule, feature } = group[0];
-    if (rule?.type !== "force" || rule.hashAttribute || !rule.id) continue;
-    // Acknowledged when the stored plan already ramped this rule's coverage.
-    // Rule ids are generated per rule, so a stored patch's id names one rule
-    // across the flags a schedule spans.
-    if (
-      stored.some(
-        (s) => (s.ruleId ?? null) === rule.id && (s.coverage ?? 1) < 1,
-      )
-    ) {
-      continue;
-    }
+    const rule = group[0].rule as RuleScope;
+    if (rule.type !== "force" || rule.hashAttribute) continue;
+    const ruleId = rule.id ?? "";
     const plan = {
       steps: [
-        {
-          actions: group.map((e) => ({
-            patch: { ...e.patch, ruleId: rule.id },
-          })),
-        },
+        { actions: group.map((e) => ({ patch: { ...e.patch, ruleId } })) },
       ],
     };
-    if (!rampPlanBucketsOnDefault(plan, rule.id)) continue;
-    const fallback = getDefaultHashAttribute(
-      context.org.settings?.attributeSchema,
+    if (!rampPlanLacksHashAttribute(plan, ruleId)) continue;
+    const feature = group[0].feature;
+    const where = rule.id
+      ? `Rule "${rule.id}"${feature ? ` on "${feature.id}"` : ""}`
+      : "The rule";
+    throw new BadRequestError(
+      `${where} is a force rule with no hash attribute, so this ramp cannot control its coverage. Set hashAttribute on the rule, or in the ramp's start state (startState.hashAttribute / startActions).`,
     );
-    const where = feature ? `"${rule.id}" on "${feature.id}"` : `"${rule.id}"`;
-    const message = `Rule ${where} is a force rule with no hash attribute; when this ramp reaches partial coverage it becomes a rollout bucketed on "${fallback}". Set hashAttribute on the rule or in the plan to choose another.`;
-    throw new SoftWarningError(message, [message]);
   }
 }
 
@@ -413,13 +418,7 @@ function assertRampCoverageHashAcknowledged(
 export async function validateRampPlanPatches(
   context: ReqContext | ApiReqContext,
   entries: RampPatchEntry[],
-  // coverageHash: warn about a partial-coverage step on a force rule that
-  // nothing gives a hash attribute; off when a stored plan fires, since that
-  // was settled when it was written.
-  {
-    stored = [],
-    coverageHash = true,
-  }: { stored?: unknown[]; coverageHash?: boolean } = {},
+  { stored = [] }: { stored?: unknown[] } = {},
 ): Promise<void> {
   const storedPatches = stored.flatMap((plan) => collectRampPlanPatches(plan));
   const checked = entries
@@ -431,9 +430,7 @@ export async function validateRampPlanPatches(
     .filter(({ changed }) => hasRampPatchTargeting(changed));
 
   try {
-    if (coverageHash) {
-      assertRampCoverageHashAcknowledged(context, entries, storedPatches);
-    }
+    assertRampCoverageHashProvided(entries);
     if (!checked.length) return;
 
     assertValidRuleEnvironments(

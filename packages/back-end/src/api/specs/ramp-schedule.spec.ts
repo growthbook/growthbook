@@ -6,6 +6,7 @@ import {
   featureRulePatch,
   paginationQueryFields,
   rampMonitoringConfig,
+  rampStartPatch,
   stepHoldConditions,
 } from "shared/validators";
 import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
@@ -34,6 +35,16 @@ const postBodyAction = z.object({
     .optional()
     .describe("Auto-injected when featureId+ruleId+environment are provided"),
   patch: postBodyPatch,
+});
+
+// Start actions alone carry bucketing identity (hashAttribute, seed, hashVersion).
+const postBodyStartAction = postBodyAction.extend({
+  patch: rampStartPatch
+    .partial({ ruleId: true })
+    .extend({ ruleId: postBodyPatch.shape.ruleId })
+    .describe(
+      "The rule's pre-ramp state, and the only place a plan sets hashAttribute, seed or hashVersion. Applied on rollback to start and as the base every step accumulates on.",
+    ),
 });
 
 const postBodyStep = z.object({
@@ -84,10 +95,10 @@ const createBodySchema = z
         "Ordered ramp steps. When `featureId`+`ruleId` are provided,\n`targetId` and `patch.ruleId` in actions are auto-injected — only\nsupply the patch fields you want to change.\n",
       ),
     startActions: z
-      .array(postBodyAction)
+      .array(postBodyStartAction)
       .optional()
       .describe(
-        "Actions that restore controlled rules to their pre-ramp state. When omitted for an attached rule, the server captures the current published rule state.",
+        "Actions that restore controlled rules to their pre-ramp state. When omitted for an attached rule, the server captures the current published rule state. A partial-coverage step on a force rule needs `patch.hashAttribute` here unless the rule has one.",
       ),
     endActions: z
       .array(postBodyAction)
@@ -157,6 +168,10 @@ const putBodyAction = z
   })
   .strict();
 
+const putBodyStartAction = putBodyAction.extend({
+  patch: rampStartPatch.strict().optional(),
+});
+
 const putBodyStep = z
   .object({
     interval: z
@@ -181,7 +196,7 @@ const putBodyStep = z
 const updateBodySchema = z.object({
   name: z.string().optional(),
   steps: z.array(putBodyStep).optional(),
-  startActions: z.array(putBodyAction).optional(),
+  startActions: z.array(putBodyStartAction).optional(),
   endActions: z.array(putBodyAction).optional(),
   startDate: z.string().datetime().optional().nullable(),
   cutoffDate: z.string().datetime().optional().nullable(),

@@ -4,8 +4,10 @@ import {
   apiRampScheduleInterface,
   experimentHealthAction,
   featureRulePatch,
+  rampStartPatch,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
+  RampStartAction,
   RampStepAction,
   stepHoldConditions,
   isAwaitingStartApproval,
@@ -42,7 +44,11 @@ const postBodyAction = z
     patch: featureRulePatch.partial({ ruleId: true }).strict(),
   })
   .strict();
-type PostBodyAction = z.infer<typeof postBodyAction>;
+// Start actions alone carry bucketing identity (hashAttribute, seed, hashVersion).
+const postBodyStartAction = postBodyAction.extend({
+  patch: rampStartPatch.partial({ ruleId: true }).strict(),
+});
+type PostBodyStartAction = z.infer<typeof postBodyStartAction>;
 
 function normalizeMonitoringConfig(
   monitoringConfig:
@@ -87,7 +93,7 @@ const postRampScheduleValidator = {
       ruleId: z.string().optional(),
       environment: z.string().optional(),
       steps: z.array(postBodyStep).optional(),
-      startActions: z.array(postBodyAction).optional(),
+      startActions: z.array(postBodyStartAction).optional(),
       endActions: z.array(postBodyAction).optional(),
       startDate: z.string().datetime().optional().nullable(),
       cutoffDate: z.string().datetime().optional().nullable(),
@@ -156,20 +162,22 @@ const postRampScheduleValidator = {
     }),
 };
 
-function normalizeAction(action: PostBodyAction): RampStepAction {
+// A step action is a start action without identity fields, so both shapes
+// pass through here; the schemas already keep identity off step patches.
+function normalizeAction(action: PostBodyStartAction): RampStartAction {
   return {
     targetType: "feature-rule" as const,
     targetId: action.targetId ?? "",
-    patch: action.patch as RampStepAction["patch"],
+    patch: action.patch as RampStartAction["patch"],
   };
 }
 
 // Overrides targetId/ruleId from the top-level shorthand fields.
 function injectTarget(
-  action: PostBodyAction,
+  action: PostBodyStartAction,
   targetId: string,
   ruleId: string,
-): RampStepAction {
+): RampStartAction {
   return {
     targetType: "feature-rule" as const,
     targetId,
@@ -333,7 +341,7 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
-  const resolvedStartActions: RampStepAction[] | undefined = (() => {
+  const resolvedStartActions: RampStartAction[] | undefined = (() => {
     if (body.startActions !== undefined) {
       return body.startActions.map((a) =>
         hasTarget

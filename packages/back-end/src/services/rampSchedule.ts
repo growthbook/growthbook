@@ -3,7 +3,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import {
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
-  FeatureRulePatch,
+  RampStartAction,
+  RampStartPatch,
   LockdownConfig,
   RampEvent,
   RampEventType,
@@ -19,7 +20,6 @@ import {
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import {
-  getDefaultHashAttribute,
   MergeResultChanges,
   filterEnvironmentsByFeature,
   getApplicableEnvIds,
@@ -475,14 +475,14 @@ export function computeEffectivePatch(
     "steps" | "endActions" | "startActions"
   >,
   stepIndex: number,
-): Map<string, FeatureRulePatch> {
+): Map<string, RampStartPatch> {
   // startActions represent the rule's initial state (targeting conditions,
   // coverage, environments, etc.) captured at schedule creation time. They form
   // the base layer — step patches are sparse overlays that only specify fields
   // they change (typically just coverage). Without seeding from startActions,
   // any field present only in startActions (e.g. condition, savedGroups) would
   // never be applied when advancing into step 0.
-  const byTarget = new Map<string, FeatureRulePatch>();
+  const byTarget = new Map<string, RampStartPatch>();
 
   const merge = (act: RampStepAction) => {
     if (act.targetType !== "feature-rule") return;
@@ -493,7 +493,7 @@ export function computeEffectivePatch(
         (existing as Record<string, unknown>)[k] = v;
       }
     } else {
-      byTarget.set(act.targetId, { ruleId, ...fields } as FeatureRulePatch);
+      byTarget.set(act.targetId, { ruleId, ...fields } as RampStartPatch);
     }
   };
 
@@ -650,10 +650,7 @@ export function normalizeRampPlanForceValues<
 // null clears most fields, but force allows null (valid JSON feature value).
 export function applyPatchToRule(
   existing: FeatureRule,
-  patch: Omit<FeatureRulePatch, "ruleId">,
-  // A force rule the patch gives partial coverage becomes a rollout, bucketing
-  // on the rule's or plan's hash attribute, else `defaultHashAttribute`.
-  defaultHashAttribute = "id",
+  patch: Omit<RampStartPatch, "ruleId">,
 ): FeatureRule {
   const updated = { ...existing };
   if ("coverage" in patch) {
@@ -692,44 +689,59 @@ export function applyPatchToRule(
   if ("enabled" in patch) {
     updated.enabled = patch.enabled ?? undefined;
   }
-  // The payload reads coverage only on rollout rules: partial coverage on a
-  // force rule promotes it, as the rule modal does. A plan's hash attribute
-  // only names what the promotion buckets on; it never re-buckets a rollout.
+  // The payload reads coverage only on rollout rules, so a force rule the
+  // ramp buckets (an anchor naming a hash attribute, or partial coverage on a
+  // rule that already has one) becomes a rollout, as the rule modal does.
+  // Without a hash attribute anywhere the engine refuses the step beforehand.
+  const identity = updated as {
+    hashAttribute?: string;
+    seed?: string;
+    hashVersion?: 1 | 2;
+    coverage?: number;
+  };
+  const hashAttribute = patch.hashAttribute || identity.hashAttribute;
+  const partialCoverage =
+    (patch.coverage ?? null) !== null && (patch.coverage as number) < 1;
   if (
     updated.type === "force" &&
-    (patch.coverage ?? null) !== null &&
-    (patch.coverage as number) < 1
+    hashAttribute &&
+    (patch.hashAttribute || partialCoverage)
   ) {
     return {
       ...updated,
       type: "rollout",
-      coverage: patch.coverage as number,
-      hashAttribute:
-        patch.hashAttribute ||
-        (updated as { hashAttribute?: string }).hashAttribute ||
-        defaultHashAttribute,
+      coverage: identity.coverage ?? 1,
+      hashAttribute,
+      seed: patch.seed || identity.seed || updated.id,
+      hashVersion: patch.hashVersion ?? identity.hashVersion ?? 2,
     } as FeatureRule;
   }
-  // A promoted rule's start anchor carries no coverage; replaying it means
-  // full coverage, not a rollout with none.
-  if (
-    updated.type === "rollout" &&
-    "coverage" in patch &&
-    (patch.coverage ?? null) === null
-  ) {
-    (updated as { coverage?: number }).coverage = 1;
+  if (updated.type === "rollout") {
+    if (patch.hashAttribute) identity.hashAttribute = patch.hashAttribute;
+    if (patch.seed) identity.seed = patch.seed;
+    if ((patch.hashVersion ?? null) !== null) {
+      identity.hashVersion = patch.hashVersion as 1 | 2;
+    }
+    // A promoted rule's start anchor carries no coverage; replaying it means
+    // full coverage, not a rollout with none.
+    if ("coverage" in patch && (patch.coverage ?? null) === null) {
+      identity.coverage = 1;
+    }
   }
   return updated;
 }
 
 export function getStartPatchForRule(
   rule: FeatureRule,
-): Omit<FeatureRulePatch, "ruleId"> {
+): Omit<RampStartPatch, "ruleId"> {
   const ruleState = rule as FeatureRule & {
     coverage?: number;
     value?: unknown;
+    hashAttribute?: string;
+    seed?: string;
+    hashVersion?: 1 | 2;
   };
-  const patch: Omit<FeatureRulePatch, "ruleId"> = {
+  const patch: Omit<RampStartPatch, "ruleId"> = {
     coverage: ruleState.coverage ?? null,
     condition: ruleState.condition ?? null,
     savedGroups: ruleState.savedGroups ?? null,
@@ -741,6 +753,12 @@ export function getStartPatchForRule(
 
   if ("value" in ruleState) {
     patch.force = ruleState.value;
+  }
+  // A rollout's bucketing is part of its anchor; a force rule has none to copy.
+  if (rule.type === "rollout") {
+    patch.hashAttribute = ruleState.hashAttribute ?? null;
+    patch.seed = ruleState.seed ?? null;
+    patch.hashVersion = ruleState.hashVersion ?? null;
   }
 
   return patch;
@@ -789,9 +807,9 @@ export function resolveRampStartState({
 }: {
   rule: FeatureRule;
   ruleId: string;
-  startState?: Partial<Omit<FeatureRulePatch, "ruleId">>;
+  startState?: Partial<Omit<RampStartPatch, "ruleId">>;
   isCreate: boolean;
-}): { startActions?: RampStepAction[]; warning?: string } {
+}): { startActions?: RampStartAction[]; warning?: string } {
   if (startState !== undefined) {
     const patch = { ...getStartPatchForRule(rule), ...startState };
     return {
@@ -855,7 +873,6 @@ export const featureEntityHandler: EntityHandler = {
       // The effective patch replays the start anchor too; only what the step
       // changes on the live rule is judged.
       await validateRampPlanPatches(ctx, entries, {
-        coverageHash: false,
         stored: entries.map(({ rule }) => ({
           startActions: [
             { patch: { ...getStartPatchForRule(rule), ruleId: rule.id } },
@@ -885,25 +902,14 @@ export const featureEntityHandler: EntityHandler = {
 
       for (const target of targets) {
         const idx = updatedRules.indexOf(target);
+        const patched = applyPatchToRule(target, patchFields);
+        if (target.type === "force" && patched.type === "rollout") {
+          notes?.push(
+            `Rule ${target.id} became a rollout bucketed on "${(patched as { hashAttribute?: string }).hashAttribute}"`,
+          );
+        }
         // A value the feature's type rejects is logged, never refused:
         // rollbacks and restarts re-apply the rule's own earlier value.
-        const defaultHashAttribute = getDefaultHashAttribute(
-          ctx.org.settings?.attributeSchema,
-        );
-        const patched = applyPatchToRule(
-          target,
-          patchFields,
-          defaultHashAttribute,
-        );
-        if (
-          target.type === "force" &&
-          patched.type === "rollout" &&
-          !("hashAttribute" in patchFields && patchFields.hashAttribute)
-        ) {
-          const note = `Rule ${target.id} became a rollout bucketed on "${defaultHashAttribute}" (no hash attribute was set; edit the rule to change it)`;
-          logger.warn({ featureId: feature.id, ruleId: target.id }, note);
-          notes?.push(note);
-        }
         if ("force" in patchFields && patchFields.force !== undefined) {
           const value = (patched as { value?: string }).value ?? "";
           try {

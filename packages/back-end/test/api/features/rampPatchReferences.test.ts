@@ -44,8 +44,8 @@ const RULE = {
   enabled: false,
   allEnvironments: true,
 };
-// A force rule: a coverage ramp promotes it, so the plan must bring a hash
-// attribute.
+// Force rules: a coverage ramp promotes them, so the rule or the plan's start
+// state must bring a hash attribute. The second exists only in the draft.
 const FORCE_RULE = {
   type: "force",
   id: "fr_force",
@@ -54,6 +54,7 @@ const FORCE_RULE = {
   enabled: false,
   allEnvironments: true,
 };
+const DRAFT_FORCE_RULE = { ...FORCE_RULE, id: "fr_draft_force" };
 
 async function insertFeature(id: string): Promise<void> {
   await mongoose.connection.collection("features").insertOne({
@@ -92,7 +93,10 @@ async function insertRevisions(featureId: string): Promise<void> {
       createdBy: { type: "api_key", apiKey: "key_engineer" },
       comment: "",
       defaultValue: "false",
-      rules: [RULE, FORCE_RULE],
+      rules:
+        status === "draft"
+          ? [RULE, FORCE_RULE, DRAFT_FORCE_RULE]
+          : [RULE, FORCE_RULE],
       dateCreated: now(),
       dateUpdated: now(),
       ...(status === "published" ? { datePublished: now() } : {}),
@@ -219,23 +223,78 @@ describe("ramp schedule patch references", () => {
     );
   });
 
-  it("warns before ramping a force rule's coverage on the default hash attribute", async () => {
-    const put = (body: Record<string, unknown>) =>
-      request(app)
-        .put(
-          `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
-        )
-        .send(body)
-        .set("Authorization", "Bearer foo");
-    const warned = await put({ steps: [step({ coverage: 0.5 })] });
-    expect(warned.status).toBe(422);
-    expect(warned.body.warnings?.[0]).toMatch(/bucketed on "id"/);
-    expect(await draftRampActions()).toEqual([]);
-    const hashed = await put({
-      steps: [step({ coverage: 0.5, hashAttribute: "id" })],
+  describe("a coverage ramp on a force rule with no hash attribute", () => {
+    const NO_HASH = /is a force rule with no hash attribute/;
+    const auth = (r: request.Test) => r.set("Authorization", "Bearer foo");
+
+    it("is refused on the per-rule attach unless the start state names one; steps cannot", async () => {
+      const put = (body: Record<string, unknown>) =>
+        auth(
+          request(app)
+            .put(
+              `/api/v2/features/${FLAG}/revisions/2/rules/${FORCE_RULE.id}/ramp-schedule`,
+            )
+            .send(body),
+        );
+      const refused = await put({ steps: [step({ coverage: 0.5 })] });
+      expect(refused.body.message).toMatch(NO_HASH);
+      expect(refused.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+      const onStep = await put({
+        steps: [step({ coverage: 0.5, hashAttribute: "id" })],
+      });
+      expect(onStep.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+      const anchored = await put({
+        steps: [step({ coverage: 0.5 })],
+        startState: { hashAttribute: "id" },
+      });
+      expect(anchored.body.message).toBeUndefined();
+      expect(anchored.status).toBe(200);
+      expect(await draftRampActions()).toHaveLength(1);
     });
-    expect(hashed.body.message).toBeUndefined();
-    expect(hashed.status).toBe(200);
+
+    it("is refused on v2 rule add, where the rule has no id yet", async () => {
+      const add = (rampSchedule: Record<string, unknown>) =>
+        auth(
+          request(app)
+            .post(`/api/v2/features/${FLAG}/revisions/2/rules`)
+            .send({
+              rule: {
+                type: "force",
+                value: "true",
+                allEnvironments: true,
+                enabled: false,
+              },
+              rampSchedule,
+            }),
+        );
+      const refused = await add({ steps: [step({ coverage: 0.5 })] });
+      expect(refused.body.message).toMatch(NO_HASH);
+      expect(refused.status).toBe(400);
+      const anchored = await add({
+        steps: [step({ coverage: 0.5 })],
+        startActions: [{ patch: { hashAttribute: "id" } }],
+      });
+      expect(anchored.body.message).toBeUndefined();
+      expect(anchored.status).toBe(200);
+    });
+
+    it("is refused on v2 rule update for a rule that exists only in the draft", async () => {
+      const res = await auth(
+        request(app)
+          .put(
+            `/api/v2/features/${FLAG}/revisions/2/rules/${DRAFT_FORCE_RULE.id}`,
+          )
+          .send({
+            rule: { enabled: true },
+            rampSchedule: { steps: [step({ coverage: 0.5 })] },
+          }),
+      );
+      expect(res.body.message).toMatch(NO_HASH);
+      expect(res.status).toBe(400);
+      expect(await draftRampActions()).toEqual([]);
+    });
   });
 
   it("rejects an inline rampSchedule with a bad patch on v2 rule add", async () => {
@@ -260,7 +319,7 @@ describe("ramp schedule patch references", () => {
     const revision = await mongoose.connection
       .collection("featurerevisions")
       .findOne({ featureId: FLAG, version: 2 });
-    expect(revision?.rules).toHaveLength(2);
+    expect(revision?.rules).toHaveLength(3);
   });
 
   it("rejects a bad patch on REST ramp-schedule create, with or without a target", async () => {

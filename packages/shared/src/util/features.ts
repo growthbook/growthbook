@@ -570,10 +570,11 @@ type RampRulePatch = {
   hashAttribute?: string | null;
 };
 
-// Whether a ramp plan will turn `ruleId` (a force rule) into a rollout bucketed
-// on the organization's default: a partial-coverage patch for the rule with no
-// patch for it naming a hash attribute.
-export function rampPlanBucketsOnDefault(
+// Whether a ramp plan ramps `ruleId`'s coverage without naming what it buckets
+// on: a partial-coverage patch for the rule and no patch for it carrying a hash
+// attribute. On a force rule with none of its own, such a plan cannot promote
+// the rule to a rollout, so writes refuse it and the engine refuses the step.
+export function rampPlanLacksHashAttribute(
   plan: {
     startActions?: { patch?: RampRulePatch }[] | null;
     steps?: { actions?: { patch?: RampRulePatch }[] | null }[] | null;
@@ -588,11 +589,9 @@ export function rampPlanBucketsOnDefault(
   ]
     .map((a) => a.patch)
     .filter((p): p is RampRulePatch => !!p && (p.ruleId ?? ruleId) === ruleId);
-  // The first partial-coverage patch promotes; only it and the patches before
-  // it can name the attribute.
-  const first = patches.findIndex((p) => (p.coverage ?? 1) < 1);
   return (
-    first !== -1 && !patches.slice(0, first + 1).some((p) => p.hashAttribute)
+    patches.some((p) => (p.coverage ?? 1) < 1) &&
+    !patches.some((p) => p.hashAttribute)
   );
 }
 

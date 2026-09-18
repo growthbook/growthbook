@@ -9,8 +9,7 @@ import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  getDefaultHashAttribute,
-  rampPlanBucketsOnDefault,
+  rampPlanLacksHashAttribute,
   rampTargetRuleIds,
   rampControlFootprint,
   stemRuleId,
@@ -571,28 +570,26 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         />,
       );
       // A plan written outside the rule editor can ramp a force rule's
-      // coverage; the step turns it into a rollout. Say what it will bucket on
-      // and where to change that before the step fires.
+      // coverage, which turns it into a rollout. That needs a hash attribute
+      // from the rule or the plan; without one the engine refuses the step.
       if (
         rule.type === "force" &&
-        rampPlanBucketsOnDefault(rampSchedule, rule.id)
+        rampPlanLacksHashAttribute(rampSchedule, rule.id)
       ) {
-        const bucketsOn = getDefaultHashAttribute(settings.attributeSchema);
         ruleTags.push(
           <Tooltip
             key="ramp-hash"
             body={
               <p>
                 Neither this rule nor its ramp names a hash attribute, so the
-                first partial-coverage step turns the rule into a rollout
-                bucketed on <strong>{bucketsOn}</strong>. Edit the rule to
-                choose a different one.
+                ramp will pause at its first partial-coverage step. Edit the
+                rule to choose one.
               </p>
             }
             style={{ display: "inline-flex", alignItems: "center" }}
           >
             <Badge
-              label={`Ramp will bucket on "${bucketsOn}"`}
+              label="Ramp needs a hash attribute"
               color="amber"
               variant="soft"
             />

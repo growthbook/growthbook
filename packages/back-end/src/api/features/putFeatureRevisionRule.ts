@@ -44,6 +44,7 @@ import {
   resolveOrCreateRevision,
   collectRampPlanPatches,
   rampPatchEntries,
+  stagedRule,
   validateRampPlanPatches,
 } from "./validations";
 import {
@@ -218,7 +219,12 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     req.context,
     rampPatchEntries(collectRampPlanPatches(inlineRampSchedule), feature, {
       ...pick(
-        (feature.rules ?? []).find((r) => r.id === req.params.ruleId),
+        await stagedRule(
+          req.context,
+          feature,
+          req.params.version,
+          req.params.ruleId,
+        ),
         ["id", "type", "hashAttribute"],
       ),
       ...pick(patch, ["type", "hashAttribute"]),

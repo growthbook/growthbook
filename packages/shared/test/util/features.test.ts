@@ -7,7 +7,7 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
-  rampPlanBucketsOnDefault,
+  rampPlanLacksHashAttribute,
   getDefaultHashAttribute,
   stringifyFeatureValue,
   validateFeatureValue,
@@ -1058,31 +1058,37 @@ describe("scheduled / deferred publish helpers", () => {
     ...over,
   });
 
-  describe("rampPlanBucketsOnDefault", () => {
-    it("is true only when the first partial-coverage patch and those before it name no hash attribute", () => {
+  describe("rampPlanLacksHashAttribute", () => {
+    it("is true when a patch for the rule sets partial coverage and none names a hash attribute", () => {
       const plan = (patches: Record<string, unknown>[]) => ({
         steps: patches.map((patch) => ({ actions: [{ patch }] })),
       });
-      expect(rampPlanBucketsOnDefault(plan([{ coverage: 0.5 }]), "r1")).toBe(
+      expect(rampPlanLacksHashAttribute(plan([{ coverage: 0.5 }]), "r1")).toBe(
         true,
       );
       expect(
-        rampPlanBucketsOnDefault(
+        rampPlanLacksHashAttribute(
           plan([{ coverage: 0.5 }, { hashAttribute: "id" }]),
           "r1",
         ),
-      ).toBe(true);
+      ).toBe(false);
       expect(
-        rampPlanBucketsOnDefault(
-          plan([{ hashAttribute: "id" }, { coverage: 0.5 }]),
+        rampPlanLacksHashAttribute(
+          {
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            ...plan([{ coverage: 0.5 }]),
+          },
           "r1",
         ),
       ).toBe(false);
-      expect(rampPlanBucketsOnDefault(plan([{ coverage: 1 }]), "r1")).toBe(
+      expect(rampPlanLacksHashAttribute(plan([{ coverage: 1 }]), "r1")).toBe(
         false,
       );
       expect(
-        rampPlanBucketsOnDefault(plan([{ ruleId: "r2", coverage: 0.5 }]), "r1"),
+        rampPlanLacksHashAttribute(
+          plan([{ ruleId: "r2", coverage: 0.5 }]),
+          "r1",
+        ),
       ).toBe(false);
     });
   });

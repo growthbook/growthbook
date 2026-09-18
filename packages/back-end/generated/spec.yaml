@@ -5602,15 +5602,6 @@ paths:
                                     items:
                                       type: string
                                   - type: 'null'
-                              hashAttribute:
-                                description: >-
-                                  Attribute a force rule buckets on once a
-                                  partial-coverage step promotes it to a
-                                  rollout; without one the rule's, else the
-                                  organization's default, is used.
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
                               force:
                                 description: >-
                                   Value to serve, in the string form rule values
@@ -5621,6 +5612,33 @@ paths:
                               enabled:
                                 anyOf:
                                   - type: boolean
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
                                   - type: 'null'
                             additionalProperties: false
                         required:
@@ -5720,15 +5738,6 @@ paths:
                                         - type: array
                                           items:
                                             type: string
-                                        - type: 'null'
-                                    hashAttribute:
-                                      description: >-
-                                        Attribute a force rule buckets on once a
-                                        partial-coverage step promotes it to a
-                                        rollout; without one the rule's, else
-                                        the organization's default, is used.
-                                      anyOf:
-                                        - type: string
                                         - type: 'null'
                                     force:
                                       description: >-
@@ -5846,15 +5855,6 @@ paths:
                                   - type: array
                                     items:
                                       type: string
-                                  - type: 'null'
-                              hashAttribute:
-                                description: >-
-                                  Attribute a force rule buckets on once a
-                                  partial-coverage step promotes it to a
-                                  rollout; without one the rule's, else the
-                                  organization's default, is used.
-                                anyOf:
-                                  - type: string
                                   - type: 'null'
                               force:
                                 description: >-
@@ -6277,15 +6277,6 @@ paths:
                                     items:
                                       type: string
                                   - type: 'null'
-                              hashAttribute:
-                                description: >-
-                                  Attribute a force rule buckets on once a
-                                  partial-coverage step promotes it to a
-                                  rollout; without one the rule's, else the
-                                  organization's default, is used.
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
                               force:
                                 description: >-
                                   Value to serve, in the string form rule values
@@ -6296,6 +6287,33 @@ paths:
                               enabled:
                                 anyOf:
                                   - type: boolean
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
                                   - type: 'null'
                             additionalProperties: false
                         required:
@@ -6395,15 +6413,6 @@ paths:
                                         - type: array
                                           items:
                                             type: string
-                                        - type: 'null'
-                                    hashAttribute:
-                                      description: >-
-                                        Attribute a force rule buckets on once a
-                                        partial-coverage step promotes it to a
-                                        rollout; without one the rule's, else
-                                        the organization's default, is used.
-                                      anyOf:
-                                        - type: string
                                         - type: 'null'
                                     force:
                                       description: >-
@@ -6521,15 +6530,6 @@ paths:
                                   - type: array
                                     items:
                                       type: string
-                                  - type: 'null'
-                              hashAttribute:
-                                description: >-
-                                  Attribute a force rule buckets on once a
-                                  partial-coverage step promotes it to a
-                                  rollout; without one the rule's, else the
-                                  organization's default, is used.
-                                anyOf:
-                                  - type: string
                                   - type: 'null'
                               force:
                                 description: >-
@@ -7000,15 +7000,6 @@ paths:
                                 items:
                                   type: string
                               - type: 'null'
-                          hashAttribute:
-                            description: >-
-                              Attribute a force rule buckets on once a
-                              partial-coverage step promotes it to a rollout;
-                              without one the rule's, else the organization's
-                              default, is used.
-                            anyOf:
-                              - type: string
-                              - type: 'null'
                           force:
                             description: >-
                               Value to serve, in the string form rule values use
@@ -7018,6 +7009,32 @@ paths:
                           enabled:
                             anyOf:
                               - type: boolean
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
                               - type: 'null'
                         additionalProperties: false
                     required:
@@ -7116,15 +7133,6 @@ paths:
                                     - type: array
                                       items:
                                         type: string
-                                    - type: 'null'
-                                hashAttribute:
-                                  description: >-
-                                    Attribute a force rule buckets on once a
-                                    partial-coverage step promotes it to a
-                                    rollout; without one the rule's, else the
-                                    organization's default, is used.
-                                  anyOf:
-                                    - type: string
                                     - type: 'null'
                                 force:
                                   description: >-
@@ -7241,15 +7249,6 @@ paths:
                               - type: array
                                 items:
                                   type: string
-                              - type: 'null'
-                          hashAttribute:
-                            description: >-
-                              Attribute a force rule buckets on once a
-                              partial-coverage step promotes it to a rollout;
-                              without one the rule's, else the organization's
-                              default, is used.
-                            anyOf:
-                              - type: string
                               - type: 'null'
                           force:
                             description: >-
@@ -11436,15 +11435,6 @@ paths:
                                     items:
                                       type: string
                                   - type: 'null'
-                              hashAttribute:
-                                description: >-
-                                  Attribute a force rule buckets on once a
-                                  partial-coverage step promotes it to a
-                                  rollout; without one the rule's, else the
-                                  organization's default, is used.
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
                               force:
                                 description: >-
                                   Value to serve, in the string form rule values
@@ -11455,6 +11445,33 @@ paths:
                               enabled:
                                 anyOf:
                                   - type: boolean
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
                                   - type: 'null'
                             additionalProperties: false
                         required:
@@ -11554,15 +11571,6 @@ paths:
                                         - type: array
                                           items:
                                             type: string
-                                        - type: 'null'
-                                    hashAttribute:
-                                      description: >-
-                                        Attribute a force rule buckets on once a
-                                        partial-coverage step promotes it to a
-                                        rollout; without one the rule's, else
-                                        the organization's default, is used.
-                                      anyOf:
-                                        - type: string
                                         - type: 'null'
                                     force:
                                       description: >-
@@ -11680,15 +11688,6 @@ paths:
                                   - type: array
                                     items:
                                       type: string
-                                  - type: 'null'
-                              hashAttribute:
-                                description: >-
-                                  Attribute a force rule buckets on once a
-                                  partial-coverage step promotes it to a
-                                  rollout; without one the rule's, else the
-                                  organization's default, is used.
-                                anyOf:
-                                  - type: string
                                   - type: 'null'
                               force:
                                 description: >-
@@ -12136,15 +12135,6 @@ paths:
                                     items:
                                       type: string
                                   - type: 'null'
-                              hashAttribute:
-                                description: >-
-                                  Attribute a force rule buckets on once a
-                                  partial-coverage step promotes it to a
-                                  rollout; without one the rule's, else the
-                                  organization's default, is used.
-                                anyOf:
-                                  - type: string
-                                  - type: 'null'
                               force:
                                 description: >-
                                   Value to serve, in the string form rule values
@@ -12155,6 +12145,33 @@ paths:
                               enabled:
                                 anyOf:
                                   - type: boolean
+                                  - type: 'null'
+                              hashAttribute:
+                                description: >-
+                                  Attribute the rule buckets on. Required (here
+                                  or on the rule) when a step sets partial
+                                  coverage on a force rule, which becomes a
+                                  rollout.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              seed:
+                                description: >-
+                                  Hash seed for a promoted force rule. Defaults
+                                  to the rule id.
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                              hashVersion:
+                                description: >-
+                                  Hash algorithm version for a promoted force
+                                  rule. Defaults to 2.
+                                anyOf:
+                                  - anyOf:
+                                      - type: number
+                                        const: 1
+                                      - type: number
+                                        const: 2
                                   - type: 'null'
                             additionalProperties: false
                         required:
@@ -12254,15 +12271,6 @@ paths:
                                         - type: array
                                           items:
                                             type: string
-                                        - type: 'null'
-                                    hashAttribute:
-                                      description: >-
-                                        Attribute a force rule buckets on once a
-                                        partial-coverage step promotes it to a
-                                        rollout; without one the rule's, else
-                                        the organization's default, is used.
-                                      anyOf:
-                                        - type: string
                                         - type: 'null'
                                     force:
                                       description: >-
@@ -12380,15 +12388,6 @@ paths:
                                   - type: array
                                     items:
                                       type: string
-                                  - type: 'null'
-                              hashAttribute:
-                                description: >-
-                                  Attribute a force rule buckets on once a
-                                  partial-coverage step promotes it to a
-                                  rollout; without one the rule's, else the
-                                  organization's default, is used.
-                                anyOf:
-                                  - type: string
                                   - type: 'null'
                               force:
                                 description: >-
@@ -12869,15 +12868,6 @@ paths:
                                 items:
                                   type: string
                               - type: 'null'
-                          hashAttribute:
-                            description: >-
-                              Attribute a force rule buckets on once a
-                              partial-coverage step promotes it to a rollout;
-                              without one the rule's, else the organization's
-                              default, is used.
-                            anyOf:
-                              - type: string
-                              - type: 'null'
                           force:
                             description: >-
                               Value to serve, in the string form rule values use
@@ -12887,6 +12877,32 @@ paths:
                           enabled:
                             anyOf:
                               - type: boolean
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
                               - type: 'null'
                         additionalProperties: false
                     required:
@@ -12985,15 +13001,6 @@ paths:
                                     - type: array
                                       items:
                                         type: string
-                                    - type: 'null'
-                                hashAttribute:
-                                  description: >-
-                                    Attribute a force rule buckets on once a
-                                    partial-coverage step promotes it to a
-                                    rollout; without one the rule's, else the
-                                    organization's default, is used.
-                                  anyOf:
-                                    - type: string
                                     - type: 'null'
                                 force:
                                   description: >-
@@ -13111,15 +13118,6 @@ paths:
                                 items:
                                   type: string
                               - type: 'null'
-                          hashAttribute:
-                            description: >-
-                              Attribute a force rule buckets on once a
-                              partial-coverage step promotes it to a rollout;
-                              without one the rule's, else the organization's
-                              default, is used.
-                            anyOf:
-                              - type: string
-                              - type: 'null'
                           force:
                             description: >-
                               Value to serve, in the string form rule values use
@@ -13233,11 +13231,13 @@ paths:
                     The rule state to roll back to (the rollback/jump-to-start
                     anchor). Merged onto the rule's current state, so `{
                     "coverage": 0 }` keeps existing targeting but rolls back to
-                    0%. This affects rollbacks only — it is NOT applied when the
-                    ramp starts. On create, omitting it infers the anchor from
-                    the rule's current coverage (and returns a warning if that
-                    isn't 0%); on update of a live schedule, omitting it leaves
-                    the existing anchor unchanged.
+                    0%. Steps accumulate on it, and it is the only place a plan
+                    sets `hashAttribute` (plus optional `seed` and
+                    `hashVersion`), which a partial-coverage step on a force
+                    rule requires unless the rule has one. On create, omitting
+                    it infers the anchor from the rule's current coverage (and
+                    returns a warning if that isn't 0%); on update of a live
+                    schedule, omitting it leaves the existing anchor unchanged.
                   type: object
                   properties:
                     coverage:
@@ -13306,15 +13306,6 @@ paths:
                           items:
                             type: string
                         - type: 'null'
-                    hashAttribute:
-                      description: >-
-                        Attribute a force rule buckets on once a
-                        partial-coverage step promotes it to a rollout; without
-                        one the rule's, else the organization's default, is
-                        used.
-                      anyOf:
-                        - type: string
-                        - type: 'null'
                     force:
                       description: >-
                         Value to serve, in the string form rule values use
@@ -13324,6 +13315,32 @@ paths:
                     enabled:
                       anyOf:
                         - type: boolean
+                        - type: 'null'
+                    hashAttribute:
+                      description: >-
+                        Attribute the rule buckets on. Required (here or on the
+                        rule) when a step sets partial coverage on a force rule,
+                        which becomes a rollout.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    seed:
+                      description: >-
+                        Hash seed for a promoted force rule. Defaults to the
+                        rule id.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    hashVersion:
+                      description: >-
+                        Hash algorithm version for a promoted force rule.
+                        Defaults to 2.
+                      anyOf:
+                        - anyOf:
+                            - type: number
+                              const: 1
+                            - type: number
+                              const: 2
                         - type: 'null'
                   additionalProperties: false
                 revisionTitle:
@@ -32844,15 +32861,6 @@ paths:
                                       items:
                                         type: string
                                     - type: 'null'
-                                hashAttribute:
-                                  description: >-
-                                    Attribute a force rule buckets on once a
-                                    partial-coverage step promotes it to a
-                                    rollout; without one the rule's, else the
-                                    organization's default, is used.
-                                  anyOf:
-                                    - type: string
-                                    - type: 'null'
                                 force:
                                   description: >-
                                     Value to serve, in the string form rule
@@ -32970,15 +32978,6 @@ paths:
                                 items:
                                   type: string
                               - type: 'null'
-                          hashAttribute:
-                            description: >-
-                              Attribute a force rule buckets on once a
-                              partial-coverage step promotes it to a rollout;
-                              without one the rule's, else the organization's
-                              default, is used.
-                            anyOf:
-                              - type: string
-                              - type: 'null'
                           force:
                             description: >-
                               Value to serve, in the string form rule values use
@@ -32988,6 +32987,32 @@ paths:
                           enabled:
                             anyOf:
                               - type: boolean
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
                               - type: 'null'
                         additionalProperties: false
                     required:
@@ -33075,15 +33100,6 @@ paths:
                               - type: array
                                 items:
                                   type: string
-                              - type: 'null'
-                          hashAttribute:
-                            description: >-
-                              Attribute a force rule buckets on once a
-                              partial-coverage step promotes it to a rollout;
-                              without one the rule's, else the organization's
-                              default, is used.
-                            anyOf:
-                              - type: string
                               - type: 'null'
                           force:
                             description: >-
@@ -34053,7 +34069,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -34068,7 +34086,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -34433,7 +34451,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -34448,7 +34468,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -34875,7 +34895,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -34890,7 +34912,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -35258,7 +35280,9 @@ paths:
                   startActions:
                     description: >-
                       Actions that restore controlled rules to their pre-ramp
-                      state. Applied when rolling back or jumping to start.
+                      state. Applied when rolling back or jumping to start, and
+                      the base every step accumulates on; the only place a plan
+                      can set hashAttribute, seed or hashVersion.
                     type: array
                     items:
                       $ref: '#/components/schemas/startActions'
@@ -35273,7 +35297,7 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      $ref: '#/components/schemas/endActions'
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -55105,15 +55129,6 @@ paths:
                                       items:
                                         type: string
                                     - type: 'null'
-                                hashAttribute:
-                                  description: >-
-                                    Attribute a force rule buckets on once a
-                                    partial-coverage step promotes it to a
-                                    rollout; without one the rule's, else the
-                                    organization's default, is used.
-                                  anyOf:
-                                    - type: string
-                                    - type: 'null'
                                 enabled:
                                   anyOf:
                                     - type: boolean
@@ -55417,15 +55432,6 @@ paths:
                                     - type: array
                                       items:
                                         type: string
-                                    - type: 'null'
-                                hashAttribute:
-                                  description: >-
-                                    Attribute a force rule buckets on once a
-                                    partial-coverage step promotes it to a
-                                    rollout; without one the rule's, else the
-                                    organization's default, is used.
-                                  anyOf:
-                                    - type: string
                                     - type: 'null'
                                 enabled:
                                   anyOf:
@@ -55852,15 +55858,6 @@ paths:
                                       items:
                                         type: string
                                     - type: 'null'
-                                hashAttribute:
-                                  description: >-
-                                    Attribute a force rule buckets on once a
-                                    partial-coverage step promotes it to a
-                                    rollout; without one the rule's, else the
-                                    organization's default, is used.
-                                  anyOf:
-                                    - type: string
-                                    - type: 'null'
                                 force:
                                   description: >-
                                     Value to serve, in the string form rule
@@ -55985,15 +55982,6 @@ paths:
                                 items:
                                   type: string
                               - type: 'null'
-                          hashAttribute:
-                            description: >-
-                              Attribute a force rule buckets on once a
-                              partial-coverage step promotes it to a rollout;
-                              without one the rule's, else the organization's
-                              default, is used.
-                            anyOf:
-                              - type: string
-                              - type: 'null'
                           force:
                             description: >-
                               Value to serve, in the string form rule values use
@@ -56003,6 +55991,32 @@ paths:
                           enabled:
                             anyOf:
                               - type: boolean
+                              - type: 'null'
+                          hashAttribute:
+                            description: >-
+                              Attribute the rule buckets on. Required (here or
+                              on the rule) when a step sets partial coverage on
+                              a force rule, which becomes a rollout.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          seed:
+                            description: >-
+                              Hash seed for a promoted force rule. Defaults to
+                              the rule id.
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          hashVersion:
+                            description: >-
+                              Hash algorithm version for a promoted force rule.
+                              Defaults to 2.
+                            anyOf:
+                              - anyOf:
+                                  - type: number
+                                    const: 1
+                                  - type: number
+                                    const: 2
                               - type: 'null'
                         required:
                           - ruleId
@@ -56090,15 +56104,6 @@ paths:
                               - type: array
                                 items:
                                   type: string
-                              - type: 'null'
-                          hashAttribute:
-                            description: >-
-                              Attribute a force rule buckets on once a
-                              partial-coverage step promotes it to a rollout;
-                              without one the rule's, else the organization's
-                              default, is used.
-                            anyOf:
-                              - type: string
                               - type: 'null'
                           force:
                             description: >-
@@ -59492,15 +59497,6 @@ components:
                                   items:
                                     type: string
                                 - type: 'null'
-                            hashAttribute:
-                              description: >-
-                                Attribute a force rule buckets on once a
-                                partial-coverage step promotes it to a rollout;
-                                without one the rule's, else the organization's
-                                default, is used.
-                              anyOf:
-                                - type: string
-                                - type: 'null'
                             force:
                               description: >-
                                 Value to serve, in the string form rule values
@@ -59511,6 +59507,32 @@ components:
                             enabled:
                               anyOf:
                                 - type: boolean
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                                 - type: 'null'
                           additionalProperties: false
                       required:
@@ -59610,15 +59632,6 @@ components:
                                       - type: array
                                         items:
                                           type: string
-                                      - type: 'null'
-                                  hashAttribute:
-                                    description: >-
-                                      Attribute a force rule buckets on once a
-                                      partial-coverage step promotes it to a
-                                      rollout; without one the rule's, else the
-                                      organization's default, is used.
-                                    anyOf:
-                                      - type: string
                                       - type: 'null'
                                   force:
                                     description: >-
@@ -59735,15 +59748,6 @@ components:
                                 - type: array
                                   items:
                                     type: string
-                                - type: 'null'
-                            hashAttribute:
-                              description: >-
-                                Attribute a force rule buckets on once a
-                                partial-coverage step promotes it to a rollout;
-                                without one the rule's, else the organization's
-                                default, is used.
-                              anyOf:
-                                - type: string
                                 - type: 'null'
                             force:
                               description: >-
@@ -59950,15 +59954,6 @@ components:
                                   items:
                                     type: string
                                 - type: 'null'
-                            hashAttribute:
-                              description: >-
-                                Attribute a force rule buckets on once a
-                                partial-coverage step promotes it to a rollout;
-                                without one the rule's, else the organization's
-                                default, is used.
-                              anyOf:
-                                - type: string
-                                - type: 'null'
                             force:
                               description: >-
                                 Value to serve, in the string form rule values
@@ -59969,6 +59964,32 @@ components:
                             enabled:
                               anyOf:
                                 - type: boolean
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                                 - type: 'null'
                           additionalProperties: false
                       required:
@@ -60068,15 +60089,6 @@ components:
                                       - type: array
                                         items:
                                           type: string
-                                      - type: 'null'
-                                  hashAttribute:
-                                    description: >-
-                                      Attribute a force rule buckets on once a
-                                      partial-coverage step promotes it to a
-                                      rollout; without one the rule's, else the
-                                      organization's default, is used.
-                                    anyOf:
-                                      - type: string
                                       - type: 'null'
                                   force:
                                     description: >-
@@ -60193,15 +60205,6 @@ components:
                                 - type: array
                                   items:
                                     type: string
-                                - type: 'null'
-                            hashAttribute:
-                              description: >-
-                                Attribute a force rule buckets on once a
-                                partial-coverage step promotes it to a rollout;
-                                without one the rule's, else the organization's
-                                default, is used.
-                              anyOf:
-                                - type: string
                                 - type: 'null'
                             force:
                               description: >-
@@ -61021,15 +61024,6 @@ components:
                                   items:
                                     type: string
                                 - type: 'null'
-                            hashAttribute:
-                              description: >-
-                                Attribute a force rule buckets on once a
-                                partial-coverage step promotes it to a rollout;
-                                without one the rule's, else the organization's
-                                default, is used.
-                              anyOf:
-                                - type: string
-                                - type: 'null'
                             force:
                               description: >-
                                 Value to serve, in the string form rule values
@@ -61040,6 +61034,32 @@ components:
                             enabled:
                               anyOf:
                                 - type: boolean
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                                 - type: 'null'
                           additionalProperties: false
                       required:
@@ -61139,15 +61159,6 @@ components:
                                       - type: array
                                         items:
                                           type: string
-                                      - type: 'null'
-                                  hashAttribute:
-                                    description: >-
-                                      Attribute a force rule buckets on once a
-                                      partial-coverage step promotes it to a
-                                      rollout; without one the rule's, else the
-                                      organization's default, is used.
-                                    anyOf:
-                                      - type: string
                                       - type: 'null'
                                   force:
                                     description: >-
@@ -61264,15 +61275,6 @@ components:
                                 - type: array
                                   items:
                                     type: string
-                                - type: 'null'
-                            hashAttribute:
-                              description: >-
-                                Attribute a force rule buckets on once a
-                                partial-coverage step promotes it to a rollout;
-                                without one the rule's, else the organization's
-                                default, is used.
-                              anyOf:
-                                - type: string
                                 - type: 'null'
                             force:
                               description: >-
@@ -61479,15 +61481,6 @@ components:
                                   items:
                                     type: string
                                 - type: 'null'
-                            hashAttribute:
-                              description: >-
-                                Attribute a force rule buckets on once a
-                                partial-coverage step promotes it to a rollout;
-                                without one the rule's, else the organization's
-                                default, is used.
-                              anyOf:
-                                - type: string
-                                - type: 'null'
                             force:
                               description: >-
                                 Value to serve, in the string form rule values
@@ -61498,6 +61491,32 @@ components:
                             enabled:
                               anyOf:
                                 - type: boolean
+                                - type: 'null'
+                            hashAttribute:
+                              description: >-
+                                Attribute the rule buckets on. Required (here or
+                                on the rule) when a step sets partial coverage
+                                on a force rule, which becomes a rollout.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            seed:
+                              description: >-
+                                Hash seed for a promoted force rule. Defaults to
+                                the rule id.
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            hashVersion:
+                              description: >-
+                                Hash algorithm version for a promoted force
+                                rule. Defaults to 2.
+                              anyOf:
+                                - anyOf:
+                                    - type: number
+                                      const: 1
+                                    - type: number
+                                      const: 2
                                 - type: 'null'
                           additionalProperties: false
                       required:
@@ -61597,15 +61616,6 @@ components:
                                       - type: array
                                         items:
                                           type: string
-                                      - type: 'null'
-                                  hashAttribute:
-                                    description: >-
-                                      Attribute a force rule buckets on once a
-                                      partial-coverage step promotes it to a
-                                      rollout; without one the rule's, else the
-                                      organization's default, is used.
-                                    anyOf:
-                                      - type: string
                                       - type: 'null'
                                   force:
                                     description: >-
@@ -61722,15 +61732,6 @@ components:
                                 - type: array
                                   items:
                                     type: string
-                                - type: 'null'
-                            hashAttribute:
-                              description: >-
-                                Attribute a force rule buckets on once a
-                                partial-coverage step promotes it to a rollout;
-                                without one the rule's, else the organization's
-                                default, is used.
-                              anyOf:
-                                - type: string
                                 - type: 'null'
                             force:
                               description: >-
@@ -68198,7 +68199,9 @@ components:
         startActions:
           description: >-
             Actions that restore controlled rules to their pre-ramp state.
-            Applied when rolling back or jumping to start.
+            Applied when rolling back or jumping to start, and the base every
+            step accumulates on; the only place a plan can set hashAttribute,
+            seed or hashVersion.
           type: array
           items:
             type: object
@@ -68279,14 +68282,6 @@ components:
                         items:
                           type: string
                       - type: 'null'
-                  hashAttribute:
-                    description: >-
-                      Attribute a force rule buckets on once a partial-coverage
-                      step promotes it to a rollout; without one the rule's,
-                      else the organization's default, is used.
-                    anyOf:
-                      - type: string
-                      - type: 'null'
                   force:
                     description: >-
                       Value to serve, in the string form rule values use
@@ -68296,6 +68291,32 @@ components:
                   enabled:
                     anyOf:
                       - type: boolean
+                      - type: 'null'
+                  hashAttribute:
+                    description: >-
+                      Attribute the rule buckets on. Required (here or on the
+                      rule) when a step sets partial coverage on a force rule,
+                      which becomes a rollout.
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  seed:
+                    description: >-
+                      Hash seed for a promoted force rule. Defaults to the rule
+                      id.
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  hashVersion:
+                    description: >-
+                      Hash algorithm version for a promoted force rule. Defaults
+                      to 2.
+                    anyOf:
+                      - anyOf:
+                          - type: number
+                            const: 1
+                          - type: number
+                            const: 2
                       - type: 'null'
                 required:
                   - ruleId
@@ -68425,15 +68446,6 @@ components:
                               items:
                                 type: string
                             - type: 'null'
-                        hashAttribute:
-                          description: >-
-                            Attribute a force rule buckets on once a
-                            partial-coverage step promotes it to a rollout;
-                            without one the rule's, else the organization's
-                            default, is used.
-                          anyOf:
-                            - type: string
-                            - type: 'null'
                         force:
                           description: >-
                             Value to serve, in the string form rule values use
@@ -68539,14 +68551,6 @@ components:
                       - type: array
                         items:
                           type: string
-                      - type: 'null'
-                  hashAttribute:
-                    description: >-
-                      Attribute a force rule buckets on once a partial-coverage
-                      step promotes it to a rollout; without one the rule's,
-                      else the organization's default, is used.
-                    anyOf:
-                      - type: string
                       - type: 'null'
                   force:
                     description: >-
@@ -75696,15 +75700,6 @@ components:
                               items:
                                 type: string
                             - type: 'null'
-                        hashAttribute:
-                          description: >-
-                            Attribute a force rule buckets on once a
-                            partial-coverage step promotes it to a rollout;
-                            without one the rule's, else the organization's
-                            default, is used.
-                          anyOf:
-                            - type: string
-                            - type: 'null'
                         enabled:
                           anyOf:
                             - type: boolean
@@ -79072,14 +79067,6 @@ components:
                   items:
                     type: string
                 - type: 'null'
-            hashAttribute:
-              description: >-
-                Attribute a force rule buckets on once a partial-coverage step
-                promotes it to a rollout; without one the rule's, else the
-                organization's default, is used.
-              anyOf:
-                - type: string
-                - type: 'null'
             force:
               description: >-
                 Value to serve, in the string form rule values use ("false",
@@ -79089,6 +79076,28 @@ components:
             enabled:
               anyOf:
                 - type: boolean
+                - type: 'null'
+            hashAttribute:
+              description: >-
+                Attribute the rule buckets on. Required (here or on the rule)
+                when a step sets partial coverage on a force rule, which becomes
+                a rollout.
+              anyOf:
+                - type: string
+                - type: 'null'
+            seed:
+              description: Hash seed for a promoted force rule. Defaults to the rule id.
+              anyOf:
+                - type: string
+                - type: 'null'
+            hashVersion:
+              description: Hash algorithm version for a promoted force rule. Defaults to 2.
+              anyOf:
+                - anyOf:
+                    - type: number
+                      const: 1
+                    - type: number
+                      const: 2
                 - type: 'null'
           required:
             - ruleId
@@ -79213,14 +79222,6 @@ components:
                         items:
                           type: string
                       - type: 'null'
-                  hashAttribute:
-                    description: >-
-                      Attribute a force rule buckets on once a partial-coverage
-                      step promotes it to a rollout; without one the rule's,
-                      else the organization's default, is used.
-                    anyOf:
-                      - type: string
-                      - type: 'null'
                   force:
                     description: >-
                       Value to serve, in the string form rule values use
@@ -79242,6 +79243,102 @@ components:
       required:
         - interval
         - actions
+      additionalProperties: false
+    endActions:
+      type: object
+      properties:
+        targetType:
+          type: string
+          const: feature-rule
+        targetId:
+          type: string
+        patch:
+          type: object
+          properties:
+            ruleId:
+              type: string
+            coverage:
+              description: >-
+                Traffic fraction (0–1). For monitored steps the rollout rule is
+                promoted to an experiment: treatment = [0, coverage), control =
+                [0.5, 0.5+coverage). Both arms are equal-sized and non-adjacent,
+                so a step-up only adds new users to each arm — no existing user
+                changes group. The REST API enforces coverage ≤ 0.5 on monitored
+                steps so control end never exceeds 1.0. The SDK uses explicit
+                hash ranges on bucketingV2 clients to keep bucketing stable
+                across monitored/unmonitored transitions.
+              anyOf:
+                - type: number
+                  minimum: 0
+                  maximum: 1
+                - type: 'null'
+            condition:
+              anyOf:
+                - type: string
+                - type: 'null'
+            savedGroups:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                - type: 'null'
+            prerequisites:
+              anyOf:
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                - type: 'null'
+            allEnvironments:
+              anyOf:
+                - type: boolean
+                - type: 'null'
+            environments:
+              anyOf:
+                - type: array
+                  items:
+                    type: string
+                - type: 'null'
+            force:
+              description: >-
+                Value to serve, in the string form rule values use ("false",
+                "10", '{"limit": 5}'). A non-string JSON value is accepted and
+                stored as its JSON text. Must be valid for the feature's value
+                type.
+            enabled:
+              anyOf:
+                - type: boolean
+                - type: 'null'
+          required:
+            - ruleId
+          additionalProperties: false
+      required:
+        - targetType
+        - targetId
+        - patch
       additionalProperties: false
     lockdownConfig:
       type: object

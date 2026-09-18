@@ -283,41 +283,65 @@ describe("applyPatchToRule", () => {
     condition: "",
   };
 
-  it("promotes a force rule to a rollout when partial coverage lands", () => {
+  it("promotes a force rule to a rollout once its anchor names a hash attribute", () => {
     const force: FeatureRule = {
       id: "r2",
       type: "force",
       value: "true",
       enabled: true,
     };
+    // Identity comes from the start anchor; seed and hash version default.
+    expect(applyPatchToRule(force, { hashAttribute: "user_id" })).toEqual({
+      ...force,
+      type: "rollout",
+      coverage: 1,
+      hashAttribute: "user_id",
+      seed: "r2",
+      hashVersion: 2,
+    });
     expect(
-      applyPatchToRule(force, { coverage: 0.5, hashAttribute: "user_id" }),
+      applyPatchToRule(force, {
+        coverage: 0.5,
+        hashAttribute: "user_id",
+        seed: "s1",
+        hashVersion: 1,
+      }),
     ).toMatchObject({
       type: "rollout",
       coverage: 0.5,
       hashAttribute: "user_id",
+      seed: "s1",
+      hashVersion: 1,
     });
-    // No hash attribute anywhere: the organization's default. One left on the
-    // rule (demoted from a rollout) is kept.
-    expect(applyPatchToRule(force, { coverage: 0.5 }, "device")).toMatchObject({
-      type: "rollout",
-      hashAttribute: "device",
-    });
+    // A hash attribute left on the rule (demoted from a rollout) serves too.
     expect(
-      applyPatchToRule(
-        { ...force, hashAttribute: "user_id" } as FeatureRule,
-        { coverage: 0.5 },
-        "device",
-      ),
+      applyPatchToRule({ ...force, hashAttribute: "user_id" } as FeatureRule, {
+        coverage: 0.5,
+      }),
     ).toMatchObject({ type: "rollout", hashAttribute: "user_id" });
-    // Full or no coverage never promotes.
+    // Without one anywhere nothing promotes: the engine refuses such a step
+    // before it gets here. Full or no coverage never promotes either.
+    expect(applyPatchToRule(force, { coverage: 0.5 }).type).toBe("force");
     expect(applyPatchToRule(force, { coverage: 1 }).type).toBe("force");
     expect(applyPatchToRule(force, { condition: "{}" }).type).toBe("force");
-    // A plan's hash attribute never re-buckets a rollout; clearing coverage on
-    // one (a promoted rule's start anchor) means full coverage.
+  });
+
+  it("applies the anchor's identity to a rollout; clearing coverage means full coverage", () => {
     expect(
-      applyPatchToRule(base, { coverage: null, hashAttribute: "user_id" }),
-    ).toMatchObject({ type: "rollout", coverage: 1, hashAttribute: "id" });
+      applyPatchToRule(base, {
+        coverage: null,
+        hashAttribute: "user_id",
+        seed: "s1",
+      }),
+    ).toMatchObject({
+      type: "rollout",
+      coverage: 1,
+      hashAttribute: "user_id",
+      seed: "s1",
+    });
+    expect(applyPatchToRule(base, { hashAttribute: null })).toMatchObject({
+      hashAttribute: "id",
+    });
   });
 
   it("applies coverage patch", () => {
@@ -606,6 +630,28 @@ describe("ramp force values are applied and stored as strings", () => {
 });
 
 describe("getStartPatchForRule", () => {
+  it("copies a rollout's bucketing identity; a force rule has none to copy", () => {
+    expect(
+      getStartPatchForRule({
+        id: "r1",
+        type: "rollout",
+        coverage: 0.2,
+        hashAttribute: "user_id",
+        seed: "s1",
+        hashVersion: 2,
+        enabled: true,
+      } as FeatureRule),
+    ).toMatchObject({ hashAttribute: "user_id", seed: "s1", hashVersion: 2 });
+    expect(
+      getStartPatchForRule({
+        id: "r2",
+        type: "force",
+        value: "true",
+        enabled: true,
+      } as FeatureRule),
+    ).not.toHaveProperty("hashAttribute");
+  });
+
   it("captures explicit null clears for absent rule fields", () => {
     const patch = getStartPatchForRule({
       id: "r1",
@@ -862,6 +908,24 @@ describe("computeEffectivePatch", () => {
     const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
     return fields as Record<string, unknown>;
   }
+
+  it("carries the anchor's identity into every step, so a jump buckets like stepping", () => {
+    const sched = {
+      ...sparseSchedule([
+        [action(TARGET_ID, { coverage: 0.1 })],
+        [action(TARGET_ID, { coverage: 0.5 })],
+      ]),
+      startActions: [action(TARGET_ID, { hashAttribute: "user_id" })],
+    } as unknown as ReturnType<typeof sparseSchedule>;
+    expect(eff(sched, 0)).toMatchObject({
+      coverage: 0.1,
+      hashAttribute: "user_id",
+    });
+    expect(eff(sched, 1)).toMatchObject({
+      coverage: 0.5,
+      hashAttribute: "user_id",
+    });
+  });
 
   it("stepIndex=-1 returns empty map (no steps applied yet)", () => {
     const sched = sparseSchedule([
@@ -2096,7 +2160,6 @@ describe("advanceStep — interval step", () => {
         }),
       ],
       {
-        coverageHash: false,
         stored: [
           {
             startActions: [

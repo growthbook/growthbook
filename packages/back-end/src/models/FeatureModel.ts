@@ -27,6 +27,7 @@ import {
   RevisionRampAction,
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
+  RampStartAction,
   RampStepAction,
   resolveStartApproval,
 } from "shared/validators";
@@ -3095,7 +3096,7 @@ async function createRampSchedulesForRevision(
     const explicitStartActions = Array.isArray(action.startActions)
       ? normalizeRampActionsForceValues(
           action.startActions.map(
-            (a): RampStepAction => ({
+            (a): RampStartAction => ({
               targetType: "feature-rule" as const,
               targetId,
               patch: { ...a.patch, ruleId: action.ruleId },
@@ -3104,7 +3105,7 @@ async function createRampSchedulesForRevision(
         )
       : [];
     const startActionsExplicit = explicitStartActions.length > 0;
-    const startActions: RampStepAction[] = startActionsExplicit
+    const startActions: RampStartAction[] = startActionsExplicit
       ? explicitStartActions
       : getStartActionsFromRules({
           rules: result.rules ?? feature.rules ?? [],

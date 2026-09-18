@@ -13,7 +13,7 @@ import {
   validateRulesReferences,
 } from "back-end/src/api/features/validations";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import { BadRequestError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
@@ -704,26 +704,18 @@ describe("validateRampPlanPatches", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("warns about a partial-coverage plan on a force rule that nothing gives a hash attribute", async () => {
+  it("refuses to ramp a force rule's coverage unless the rule or the plan's start state names a hash attribute", async () => {
     const forceRule = { id: "fr_force", type: "force" };
-    const warned = run([{ coverage: 0.5 }], feature, forceRule);
-    await expect(warned).rejects.toThrow(SoftWarningError);
-    await expect(warned).rejects.toThrow(
-      /Rule "fr_force" on "checkout_flag" is a force rule with no hash attribute.*bucketed on "id"/,
+    const refused = run([{ coverage: 0.5 }], feature, forceRule);
+    await expect(refused).rejects.toThrow(BadRequestError);
+    await expect(refused).rejects.toThrow(
+      /Invalid ramp schedule patch: Rule "fr_force" on "checkout_flag" is a force rule with no hash attribute/,
     );
+    // A rule not yet stored has no id; the refusal still names the problem.
     await expect(
-      validateRampPlanPatches(
-        { ...ctx, ignoreWarnings: true } as ApiReqContext,
-        rampPatchEntries([{ coverage: 0.5 }], feature, forceRule),
-      ),
-    ).resolves.toBeUndefined();
-    await expect(
-      run([{ coverage: 0.5, hashAttribute: "id" }], feature, forceRule),
-    ).resolves.toBeUndefined();
-    await expect(
-      run([{ hashAttribute: "id" }, { coverage: 0.5 }], feature, forceRule),
-    ).resolves.toBeUndefined();
-    // A plan that already ramped this rule was acknowledged when stored.
+      run([{ coverage: 0.5 }], feature, { type: "force" }),
+    ).rejects.toThrow(/The rule is a force rule with no hash attribute/);
+    // A plan that already ramped this rule was never able to promote it.
     await expect(
       run([{ coverage: 0.5 }], feature, forceRule, [
         {
@@ -732,8 +724,16 @@ describe("validateRampPlanPatches", () => {
           ],
         },
       ]),
+    ).rejects.toThrow(BadRequestError);
+    // The start anchor's hash attribute, wherever the caller placed it, or
+    // one left on the rule, satisfies it; full coverage and rollouts never
+    // needed one.
+    await expect(
+      run([{ coverage: 0.5 }, { hashAttribute: "id" }], feature, forceRule),
     ).resolves.toBeUndefined();
-    // Full coverage never promotes; a rollout rule already has its attribute.
+    await expect(
+      run([{ coverage: 0.5 }], feature, { ...forceRule, hashAttribute: "id" }),
+    ).resolves.toBeUndefined();
     await expect(
       run([{ coverage: 1 }], feature, forceRule),
     ).resolves.toBeUndefined();

@@ -4,6 +4,7 @@ import { UpdateProps } from "shared/types/base-model";
 import {
   ApiRampScheduleInterface,
   RampScheduleInterface,
+  RampStartAction,
   RampStepAction,
   RampTarget,
   StepHoldConditions,
@@ -327,7 +328,7 @@ type LegacyApiRampTrigger =
 type PostBodyAction = {
   targetType?: "feature-rule";
   targetId?: string;
-  patch: Partial<RampStepAction["patch"]>;
+  patch: Partial<RampStartAction["patch"]>;
 };
 
 // Accepts both the new `{ interval, holdConditions }` shape and the legacy
