@@ -95,4 +95,142 @@ describe("assertCanRunExperimentChanges", () => {
     );
     expect(canRunExperiment).not.toHaveBeenCalled();
   });
+
+  describe("statusUpdateSchedule", () => {
+    const future = new Date(Date.now() + 60 * 60 * 1000);
+    const served = experiment({ hasVisualChangesets: true });
+
+    it.each([
+      { plan: { mode: "stop" as const } },
+      { plan: { mode: "force-ship" as const, fallbackVariationId: "v1" } },
+      { plan: { mode: "auto-ship" as const, fallback: "notify" as const } },
+    ])("checks a scheduled end that will $plan.mode", async ({ plan }) => {
+      await expect(
+        assertCanRunExperimentChanges(context, served, {
+          statusUpdateSchedule: { stopAt: future, scheduledStopPlan: plan },
+        }),
+      ).rejects.toThrow("permission denied");
+    });
+
+    it("checks a relative end (stopAfter) that will stop", async () => {
+      await expect(
+        assertCanRunExperimentChanges(context, served, {
+          statusUpdateSchedule: {
+            stopAfter: { value: 3, unit: "days" },
+            scheduledStopPlan: { mode: "stop" },
+          },
+        }),
+      ).rejects.toThrow("permission denied");
+    });
+
+    it("skips a notify-only end, an end with no plan, and a start-only schedule", async () => {
+      await assertCanRunExperimentChanges(context, served, {
+        statusUpdateSchedule: {
+          stopAt: future,
+          scheduledStopPlan: { mode: "notify" },
+        },
+      });
+      await assertCanRunExperimentChanges(context, served, {
+        statusUpdateSchedule: { stopAt: future },
+      });
+      await assertCanRunExperimentChanges(context, served, {
+        statusUpdateSchedule: { startAt: future },
+      });
+      expect(canRunExperiment).not.toHaveBeenCalled();
+    });
+
+    it("checks clearing or downgrading a stop that is still pending", async () => {
+      const withPendingStop = experiment({
+        hasVisualChangesets: true,
+        statusUpdateSchedule: {
+          stopAt: future,
+          scheduledStopPlan: { mode: "stop" },
+        },
+        nextScheduledStatusUpdate: { type: "stop", date: future },
+      });
+      await expect(
+        assertCanRunExperimentChanges(context, withPendingStop, {
+          statusUpdateSchedule: null,
+        }),
+      ).rejects.toThrow("permission denied");
+      await expect(
+        assertCanRunExperimentChanges(context, withPendingStop, {
+          statusUpdateSchedule: {
+            stopAt: future,
+            scheduledStopPlan: { mode: "notify" },
+          },
+        }),
+      ).rejects.toThrow("permission denied");
+    });
+
+    it("skips clearing a stop plan that is no longer pending, or a notify-only end", async () => {
+      const past = new Date(Date.now() - 60 * 60 * 1000);
+      const withStaleStop = experiment({
+        hasVisualChangesets: true,
+        statusUpdateSchedule: {
+          stopAt: past,
+          scheduledStopPlan: { mode: "stop" },
+        },
+        nextScheduledStatusUpdate: null,
+      });
+      await assertCanRunExperimentChanges(context, withStaleStop, {
+        statusUpdateSchedule: null,
+      });
+      // The pending pointer, not the date, decides: a stop the job gave up on
+      // (future stopAt, pointer cleared) can also be cleared.
+      const withAbandonedStop = experiment({
+        hasVisualChangesets: true,
+        statusUpdateSchedule: {
+          stopAt: future,
+          scheduledStopPlan: { mode: "stop" },
+        },
+        nextScheduledStatusUpdate: null,
+      });
+      await assertCanRunExperimentChanges(context, withAbandonedStop, {
+        statusUpdateSchedule: null,
+      });
+      const withNotify = experiment({
+        hasVisualChangesets: true,
+        statusUpdateSchedule: {
+          stopAt: future,
+          scheduledStopPlan: { mode: "notify" },
+        },
+        nextScheduledStatusUpdate: { type: "stop", date: future },
+      });
+      await assertCanRunExperimentChanges(context, withNotify, {
+        statusUpdateSchedule: null,
+      });
+      expect(canRunExperiment).not.toHaveBeenCalled();
+    });
+
+    it("checks a draft that already reaches an environment, like other payload fields", async () => {
+      // normalize stages no stop for a draft, so only the incoming side applies.
+      const linkedDraft = experiment({
+        status: "draft",
+        hasVisualChangesets: true,
+        nextScheduledStatusUpdate: null,
+      });
+      await expect(
+        assertCanRunExperimentChanges(context, linkedDraft, {
+          statusUpdateSchedule: {
+            stopAfter: { value: 7, unit: "days" },
+            scheduledStopPlan: { mode: "stop" },
+          },
+        }),
+      ).rejects.toThrow("permission denied");
+    });
+
+    it("passes with run-experiments permission", async () => {
+      canRunExperiment.mockReturnValue(true);
+      await assertCanRunExperimentChanges(context, served, {
+        statusUpdateSchedule: {
+          stopAt: future,
+          scheduledStopPlan: { mode: "stop" },
+        },
+      });
+      expect(canRunExperiment).toHaveBeenCalledWith({ project: "proj_1" }, [
+        "__ALL__",
+      ]);
+    });
+  });
 });

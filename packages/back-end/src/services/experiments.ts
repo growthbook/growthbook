@@ -71,6 +71,7 @@ import {
   getLatestPhaseVariations,
   getPhaseVariations,
   isVariationWeightsSumValid,
+  scheduleWriteNeedsRunPermission,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -2432,10 +2433,32 @@ export async function assertCanRunExperimentChanges(
   experiment: ExperimentInterface,
   changes: Changeset,
 ): Promise<void> {
+  // A scheduled end that stops the experiment or ships a variation is a
+  // deferred status change: staging one, or re-timing / clearing one that is
+  // still pending, counts too.
   const needsRunExperimentsPermission =
-    PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.some((key) => key in changes);
+    PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.some((key) => key in changes) ||
+    ("statusUpdateSchedule" in changes &&
+      scheduleWriteNeedsRunPermission(
+        experiment,
+        changes.statusUpdateSchedule,
+      ));
   if (!needsRunExperimentsPermission) return;
 
+  await assertCanRunExperimentInAffectedEnvironments(
+    context,
+    experiment,
+    "project" in changes ? [changes.project || undefined] : [],
+  );
+}
+
+// Run-experiments permission over the environments the experiment currently
+// affects, on its project and on any additional (e.g. destination) project.
+export async function assertCanRunExperimentInAffectedEnvironments(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  additionalProjects: (string | undefined)[] = [],
+): Promise<void> {
   const linkedFeatureIds = experiment.linkedFeatures || [];
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
 
@@ -2458,10 +2481,7 @@ export async function assertCanRunExperimentChanges(
     linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
   });
   if (envs.length > 0) {
-    const projects = [experiment.project || undefined];
-    if ("project" in changes) {
-      projects.push(changes.project || undefined);
-    }
+    const projects = [experiment.project || undefined, ...additionalProjects];
     // check user's permission on existing experiment project and the updated project, if changed
     for (const project of projects) {
       if (!context.permissions.canRunExperiment({ project }, envs)) {

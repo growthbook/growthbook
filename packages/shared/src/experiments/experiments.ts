@@ -2979,3 +2979,36 @@ export function getEffectiveLookbackOverride(
   }
   return undefined;
 }
+
+type ScheduledEndLike = {
+  stopAt?: Date | string | null;
+  stopAfter?: { value: number; unit: string } | null;
+  scheduledStopPlan?: { mode?: string } | null;
+};
+
+// A scheduled end whose stop plan is anything other than "notify" stops the
+// experiment or ships a variation when it fires, i.e. it changes the
+// experiment's status / rollout, just later. No plan behaves as "notify".
+export function scheduleStagesStatusChange(
+  schedule: ScheduledEndLike | null | undefined,
+): boolean {
+  if (!schedule || !(schedule.stopAt || schedule.stopAfter)) return false;
+  return (schedule.scheduledStopPlan?.mode ?? "notify") !== "notify";
+}
+
+// Writing a schedule is the deferred form of a status change when the incoming
+// schedule stages one, or when it re-times / clears a stop that is still
+// pending on the experiment (a fired or abandoned stop leaves no pointer, so a
+// stale plan can be cleared or replaced with a reminder without it).
+export function scheduleWriteNeedsRunPermission(
+  experiment: {
+    statusUpdateSchedule?: ScheduledEndLike | null;
+    nextScheduledStatusUpdate?: { type: string } | null;
+  },
+  incoming: ScheduledEndLike | null | undefined,
+): boolean {
+  const pendingStop =
+    experiment.nextScheduledStatusUpdate?.type === "stop" &&
+    scheduleStagesStatusChange(experiment.statusUpdateSchedule);
+  return pendingStop || scheduleStagesStatusChange(incoming);
+}

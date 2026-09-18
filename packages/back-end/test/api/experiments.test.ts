@@ -1376,6 +1376,111 @@ describe("experiments API", () => {
 
         expect(res.status).toBe(403);
       });
+
+      // A scheduled end that stops the experiment or ships a variation is a
+      // deferred status change; only a notify-only end stays analysis-level.
+      const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      const stopSchedule = {
+        stopAt: future,
+        scheduledStopPlan: { mode: "stop" },
+      };
+      const notifySchedule = {
+        stopAt: future,
+        scheduledStopPlan: { mode: "notify" },
+      };
+
+      it("refuses scheduling a stop through the update route without run permission", async () => {
+        const res = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ statusUpdateSchedule: stopSchedule })
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(403);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("refuses scheduling a stop through PUT /schedule without run permission", async () => {
+        const res = await request(app)
+          .put("/api/v1/experiments/exp_123/schedule")
+          .send(stopSchedule)
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(403);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("refuses clearing a pending scheduled stop through PUT /schedule without run permission", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...liveExperiment,
+          statusUpdateSchedule: {
+            stopAt: new Date(future),
+            scheduledStopPlan: { mode: "stop" },
+          },
+          nextScheduledStatusUpdate: { type: "stop", date: new Date(future) },
+        });
+        const res = await request(app)
+          .put("/api/v1/experiments/exp_123/schedule")
+          .send({})
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(403);
+        expect(updateExperiment).not.toHaveBeenCalled();
+      });
+
+      it("allows clearing a stop plan that is no longer pending without run permission", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...liveExperiment,
+          statusUpdateSchedule: {
+            stopAt: new Date(Date.now() - 60 * 60 * 1000),
+            scheduledStopPlan: { mode: "stop" },
+          },
+          nextScheduledStatusUpdate: null,
+        });
+        const res = await request(app)
+          .put("/api/v1/experiments/exp_123/schedule")
+          .send({})
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+      });
+
+      it("allows a notify-only schedule without run permission on both routes", async () => {
+        const viaUpdate = await request(app)
+          .post("/api/v1/experiments/exp_123")
+          .send({ statusUpdateSchedule: notifySchedule })
+          .set("Authorization", "Bearer foo");
+        expect(viaUpdate.status).toBe(200);
+
+        const viaSchedule = await request(app)
+          .put("/api/v1/experiments/exp_123/schedule")
+          .send(notifySchedule)
+          .set("Authorization", "Bearer foo");
+        expect(viaSchedule.status).toBe(200);
+      });
+
+      it("allows scheduling a stop with run permission", async () => {
+        updateReqContext({
+          permissions: {
+            canUpdateExperiment: () => true,
+            canRunExperiment: () => true,
+          },
+        });
+        const res = await request(app)
+          .put("/api/v1/experiments/exp_123/schedule")
+          .send(stopSchedule)
+          .set("Authorization", "Bearer foo");
+
+        expect(res.status).toBe(200);
+        expect(updateExperiment).toHaveBeenCalledWith(
+          expect.objectContaining({
+            changes: expect.objectContaining({
+              nextScheduledStatusUpdate: expect.objectContaining({
+                type: "stop",
+              }),
+            }),
+          }),
+        );
+      });
     });
 
     it("keeps the stored variation ids when the body omits them", async () => {
