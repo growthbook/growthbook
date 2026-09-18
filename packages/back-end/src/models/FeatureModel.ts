@@ -1043,6 +1043,12 @@ export async function deleteFeature(
       contextualBanditLinkagePlan,
     );
   }
+  // Last and non-fatal: a stale watch entry must not undo the cleanup above.
+  await context.models.watch
+    .removeEntityFromAllWatchers({ type: "features", item: feature.id })
+    .catch((e) => {
+      logger.error(e, "Error removing watchers on feature delete");
+    });
 }
 
 /**
