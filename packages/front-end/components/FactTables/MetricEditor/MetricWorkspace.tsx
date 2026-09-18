@@ -94,6 +94,14 @@ export default function MetricWorkspace({
   const form = useForm<CreateFactMetricFormProps>({
     defaultValues: buildFormDefaults(existing, defaultsCtx),
   });
+  const metricType = form.watch("metricType");
+  const numeratorTable = form.watch("numerator.factTableId");
+  const denominatorTable = form.watch("denominator.factTableId");
+  const funnelSteps = form.watch("funnelSettings.steps");
+  const hasFactTables =
+    metricType === "funnel"
+      ? !!funnelSteps?.length && funnelSteps.every((step) => !!step.factTableId)
+      : !!numeratorTable && (metricType !== "ratio" || !!denominatorTable);
   const [error, setError] = useState<string | null>(null);
   // Definition-can't-be-represented is a rare edge case (existing metrics
   // with a legacy sketch aggregation, mostly) - true is the correct default
@@ -208,7 +216,7 @@ export default function MetricWorkspace({
         <Button
           onClick={handleSave}
           setError={setError}
-          disabled={!representable}
+          disabled={!representable || !hasFactTables}
         >
           Save
         </Button>
