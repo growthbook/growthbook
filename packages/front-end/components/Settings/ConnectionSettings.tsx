@@ -2,9 +2,8 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ChangeEventHandler, ReactNode, useState } from "react";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import TextField from "@/ui/TextField";
 import AthenaForm from "./AthenaForm";
-import BigQueryForm from "./BigQueryForm";
+import BigQueryForm, { BigQueryAdvancedSettings } from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
 import GoogleAnalyticsForm from "./GoogleAnalyticsForm";
 import MixpanelForm from "./MixpanelForm";
@@ -248,14 +247,9 @@ export default function ConnectionSettings({
         >
           <div className="rounded px-3 pt-3 pb-1 bg-highlight">
             {datasource.type === "bigquery" && (
-              <TextField
-                mb="3"
-                name="apiEndpoint"
-                label="API endpoint (optional)"
-                placeholder="proxy.example.com"
-                value={datasource.params?.apiEndpoint || ""}
-                onChange={onParamChange}
-                helpText="Default is https://bigquery.googleapis.com. '/bigquery/v2' is automatically appended to the URL."
+              <BigQueryAdvancedSettings
+                params={datasource.params || {}}
+                onParamChange={onParamChange}
               />
             )}
             <SharedConnectionSettings

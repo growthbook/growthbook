@@ -32,6 +32,13 @@ import {
 import SqlIntegration from "./SqlIntegration";
 import { bigQueryDialect } from "./dialects/bigquery";
 
+// Private Google Access and Private Service Connect endpoints are all
+// *.googleapis.com hosts, so host-owned credentials never leave Google.
+function isGoogleApisEndpoint(apiEndpoint: string): boolean {
+  const { hostname } = new URL(apiEndpoint);
+  return hostname === "googleapis.com" || hostname.endsWith(".googleapis.com");
+}
+
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
   escapePathCharacter = "`";
@@ -50,6 +57,12 @@ export default class BigQuery extends SqlIntegration {
     const apiEndpoint = normalizeBigQueryApiEndpoint(this.params.apiEndpoint);
     // If pull credentials from env or the metadata server
     if (!IS_CLOUD && this.params.authType === "auto") {
+      // Ambient credentials belong to the host, not the data source owner.
+      if (apiEndpoint && !isGoogleApisEndpoint(apiEndpoint)) {
+        throw new Error(
+          "A custom BigQuery API endpoint with automatic credentials must be a googleapis.com host. Use service account JSON for other endpoints.",
+        );
+      }
       return new bq.BigQuery({ apiEndpoint });
     }
 

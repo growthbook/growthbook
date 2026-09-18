@@ -2,6 +2,12 @@ import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryMetadata } from "shared/types/query";
 import { logger } from "back-end/src/util/logger";
 
+const URL_SCHEME = /^[a-z][a-z\d+.-]*:/i;
+const URL_SCHEME_WITH_AUTHORITY = /^[a-z][a-z\d+.-]*:\/\//i;
+const HOST_WITH_PORT = /^[^/:]+:\d+(?:\/|$)/;
+const TRAILING_SLASHES = /\/+$/;
+const BIGQUERY_API_PATH_SUFFIX = /\/bigquery\/v2$/;
+
 export function normalizeBigQueryApiEndpoint(
   apiEndpoint?: unknown,
 ): string | undefined {
@@ -21,14 +27,14 @@ export function normalizeBigQueryApiEndpoint(
       Array.from(endpoint).some(
         (char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127,
       ) ||
-      (/^[a-z][a-z\d+.-]*:/i.test(endpoint) &&
-        !/^[a-z][a-z\d+.-]*:\/\//i.test(endpoint) &&
-        !/^[^/:]+:\d+(?:\/|$)/.test(endpoint))
+      (URL_SCHEME.test(endpoint) &&
+        !URL_SCHEME_WITH_AUTHORITY.test(endpoint) &&
+        !HOST_WITH_PORT.test(endpoint))
     ) {
       throw new Error();
     }
     url = new URL(
-      /^[a-z][a-z\d+.-]*:\/\//i.test(endpoint)
+      URL_SCHEME_WITH_AUTHORITY.test(endpoint)
         ? endpoint
         : `https://${endpoint}`,
     );
@@ -50,7 +56,9 @@ export function normalizeBigQueryApiEndpoint(
   }
 
   // The SDK automatically appends /bigquery/v2 to apiEndpoint
-  const path = url.pathname.replace(/\/+$/, "").replace(/\/bigquery\/v2$/, "");
+  const path = url.pathname
+    .replace(TRAILING_SLASHES, "")
+    .replace(BIGQUERY_API_PATH_SUFFIX, "");
   return `${url.origin}${path}`;
 }
 

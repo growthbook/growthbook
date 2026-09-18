@@ -8,7 +8,28 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
 import Callout from "@/ui/Callout";
+import TextField from "@/ui/TextField";
 import { useCanKeepExistingCredentials } from "@/components/Forms/secretInput";
+
+export function BigQueryAdvancedSettings({
+  params,
+  onParamChange,
+}: {
+  params: Partial<BigQueryConnectionParams>;
+  onParamChange: ChangeEventHandler<HTMLInputElement>;
+}) {
+  return (
+    <TextField
+      mb="3"
+      name="apiEndpoint"
+      label="API endpoint (optional)"
+      placeholder="proxy.example.com"
+      value={params.apiEndpoint || ""}
+      onChange={onParamChange}
+      helpText="Default is https://bigquery.googleapis.com. '/bigquery/v2' is automatically appended to the URL."
+    />
+  );
+}
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
@@ -40,14 +61,19 @@ const BigQueryForm: FC<{
 
   useEffect(() => {
     setTestConnectionResults(null);
-  }, [params.apiEndpoint]);
+  }, [
+    params.projectId,
+    params.apiEndpoint,
+    params.clientEmail,
+    params.privateKey,
+    datasourceId,
+  ]);
 
   async function testConnection() {
     try {
       setTestConnectionResults(null);
-      const { datasets, truncated } = await apiCall<{
+      const { datasets } = await apiCall<{
         datasets: string[];
-        truncated: boolean;
       }>("/datasources/fetch-bigquery-datasets", {
         method: "POST",
         body: JSON.stringify({
@@ -59,21 +85,19 @@ const BigQueryForm: FC<{
           projects,
         }),
       });
-      if (!datasets.length && !truncated) {
+      if (!datasets.length) {
         setTestConnectionResults({
           status: "warning",
           datasetOptions: [],
           message:
-            "We were able to connect to BigQuery, but we weren't able to retreive any datasets in this project.",
+            "We were able to connect to BigQuery, but we weren't able to retrieve any datasets in this project.",
         });
         return;
       }
       setTestConnectionResults({
-        status: truncated ? "warning" : "success",
+        status: "success",
         datasetOptions: datasets,
-        message: truncated
-          ? `Connected successfully, but the dataset list is incomplete. Select a listed dataset or enter its name manually.`
-          : `Connected to ${params.projectId} successfully!`,
+        message: `Connected to ${params.projectId} successfully!`,
       });
       const analyticsDataset = datasets.find((d) => d.match(/^analytics_/));
       if (analyticsDataset) {

@@ -1650,3 +1650,54 @@ describe("BigQuery incremental refresh statistics query with custom dimensions",
     expect(statsSection).not.toContain("dim_exp_country");
   });
 });
+
+describe("BigQuery getClient endpoint guard", () => {
+  // @ts-expect-error -- context/datasource not needed for this unit test
+  const integration = new BigQuery("", {});
+  const getClient = () =>
+    (integration as unknown as { getClient(): unknown }).getClient();
+
+  it("refuses to send ambient credentials to a non-Google endpoint", async () => {
+    integration.params = {
+      authType: "auto",
+      apiEndpoint: "https://proxy.example.com",
+    };
+    await expect(integration.testConnection()).rejects.toThrow(
+      "must be a googleapis.com host",
+    );
+  });
+
+  it.each([
+    "https://bigquery.googleapis.com",
+    "https://private.googleapis.com",
+    "https://restricted.googleapis.com",
+    "https://bigquery-tenant.p.googleapis.com/tenant",
+  ])("allows ambient credentials for %s", (apiEndpoint) => {
+    integration.params = { authType: "auto", apiEndpoint };
+    expect(getClient()).toBeDefined();
+  });
+
+  it.each([
+    "https://googleapis.com.example.com",
+    "https://evilgoogleapis.com",
+    "https://bigquery.googleapis.com.example.com",
+    "http://127.0.0.1/googleapis.com",
+  ])(
+    "rejects the look-alike host %s for ambient credentials",
+    (apiEndpoint) => {
+      integration.params = { authType: "auto", apiEndpoint };
+      expect(getClient).toThrow("must be a googleapis.com host");
+    },
+  );
+
+  it("allows any endpoint with service account credentials", () => {
+    integration.params = {
+      authType: "json",
+      projectId: "example-project",
+      clientEmail: "test@example.invalid",
+      privateKey: "synthetic-private-key",
+      apiEndpoint: "https://proxy.example.com",
+    };
+    expect(getClient()).toBeDefined();
+  });
+});

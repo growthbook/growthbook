@@ -1,5 +1,7 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
+import * as bq from "@google-cloud/bigquery";
+import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
@@ -100,6 +102,8 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -110,10 +114,6 @@ import { dangerousRecreateClickhouseTables } from "back-end/src/services/license
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 import { normalizeBigQueryApiEndpoint } from "back-end/src/services/bigquery";
-import {
-  bigQueryDatasetRequestSchema,
-  listBigQueryDatasets,
-} from "back-end/src/services/bigquery-datasets";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -1703,13 +1703,24 @@ export async function cancelDimensionSlices(
   });
 }
 
+const bigQueryDatasetRequestSchema = z.object({
+  projectId: z.string().optional(),
+  apiEndpoint: z.unknown().optional(),
+  client_email: z.string().optional(),
+  private_key: z.string().optional(),
+  datasourceId: z.string().optional(),
+  projects: z.array(z.string()).optional(),
+});
+
 export async function fetchBigQueryDatasets(
   req: AuthRequest<unknown>,
   res: Response,
 ) {
   const parsed = bigQueryDatasetRequestSchema.safeParse(req.body);
   if (!parsed.success) {
-    throw new Error("Invalid BigQuery connection parameters.");
+    throw new BadRequestError(
+      `Invalid BigQuery connection parameter format: ${errorStringFromZodResult(parsed)}`,
+    );
   }
   const {
     projectId,
@@ -1717,15 +1728,9 @@ export async function fetchBigQueryDatasets(
     client_email,
     private_key,
     datasourceId,
-    projects,
+    projects: proposedProjects,
   } = parsed.data;
   const context = getContextFromReq(req);
-  if (
-    !datasourceId &&
-    !context.permissions.canCreateDataSource({ type: "bigquery", projects })
-  ) {
-    context.permissions.throwPermissionError();
-  }
   const submittedParams: Partial<BigQueryConnectionParams> = {
     ...(projectId !== undefined ? { projectId } : {}),
     ...(apiEndpoint !== undefined
@@ -1735,12 +1740,13 @@ export async function fetchBigQueryDatasets(
     ...(private_key !== undefined ? { privateKey: private_key } : {}),
   };
 
-  let connectionParams = submittedParams;
+  let connectionParams: Partial<BigQueryConnectionParams>;
   if (datasourceId) {
     const datasource = await getDataSourceById(context, datasourceId);
     if (!datasource || datasource.type !== "bigquery") {
       throw new Error("Cannot find BigQuery data source");
     }
+    // Authorize against the stored projects before reusing saved credentials.
     if (
       !context.permissions.canUpdateDataSourceSettings(datasource) ||
       !context.permissions.canUpdateDataSourceParams(datasource)
@@ -1751,10 +1757,31 @@ export async function fetchBigQueryDatasets(
     const integration = getSourceIntegrationObject(context, datasource);
     mergeParams(integration, submittedParams);
     connectionParams = integration.params;
+  } else {
+    if (
+      !context.permissions.canCreateDataSource({
+        type: "bigquery",
+        projects: proposedProjects,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    connectionParams = submittedParams;
   }
 
-  const result = await listBigQueryDatasets(connectionParams);
-  res.status(200).json({ status: 200, ...result });
+  const client = new bq.BigQuery({
+    projectId: connectionParams.projectId,
+    apiEndpoint: normalizeBigQueryApiEndpoint(connectionParams.apiEndpoint),
+    credentials: {
+      client_email: connectionParams.clientEmail,
+      private_key: connectionParams.privateKey,
+    },
+  });
+  const [datasets] = await client.getDatasets();
+  res.status(200).json({
+    status: 200,
+    datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
+  });
 }
 
 export async function postRecreateManagedWarehouse(

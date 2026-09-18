@@ -41,31 +41,45 @@ describe("normalizeBigQueryApiEndpoint", () => {
     expect(normalizeBigQueryApiEndpoint(value)).toBe(expected);
   });
 
-  it.each([
-    null,
-    123,
-    true,
-    {},
-    [],
-    "https://",
-    "https://bad host",
-    "https://proxy.example.com:99999",
-    "//proxy.example.com",
-    "https:/proxy.example.com",
-    "file:/tmp/test",
-    "ftp://proxy.example.com",
-    "file:///tmp/test",
-    "javascript:alert(1)",
-    "https://proxy.example.com/path?",
-    "https://proxy.example.com/path#",
-    "https://proxy.example.com/?token=secret",
-    "https://proxy.example.com/#path",
-    "https://proxy.example.com\\other",
-    "https://proxy.exa\nmple.com",
-  ])("rejects invalid endpoint %p", (value) => {
-    expect(() => normalizeBigQueryApiEndpoint(value)).toThrow(
-      "BigQuery API endpoint",
-    );
+  describe.each([
+    {
+      message: "BigQuery API endpoint must be a string.",
+      values: [null, 123, true, {}, []],
+    },
+    {
+      message: "BigQuery API endpoint must be a valid HTTP or HTTPS URL.",
+      values: [
+        "https://",
+        "https://bad host",
+        "https://proxy.example.com:99999",
+        "//proxy.example.com",
+        "https:/proxy.example.com",
+        "file:/tmp/test",
+        "javascript:alert(1)",
+        "https://proxy.example.com\\other",
+        "https://proxy.exa\nmple.com",
+      ],
+    },
+    {
+      message: "BigQuery API endpoint must use HTTP or HTTPS.",
+      values: ["ftp://proxy.example.com", "file:///tmp/test"],
+    },
+    {
+      message:
+        "BigQuery API endpoint cannot contain a query string or fragment.",
+      values: [
+        "https://proxy.example.com/path?",
+        "https://proxy.example.com/path#",
+        "https://proxy.example.com/?token=secret",
+        "https://proxy.example.com/#path",
+      ],
+    },
+  ])("$message", ({ message, values }) => {
+    it.each(values)("rejects %p with the specific error", (value) => {
+      expect(() => normalizeBigQueryApiEndpoint(value)).toThrow(
+        new Error(message),
+      );
+    });
   });
 
   it.each([
@@ -74,7 +88,10 @@ describe("normalizeBigQueryApiEndpoint", () => {
     "https://private-password@proxy.example.com",
   ])("does not echo embedded credentials in errors", (value) => {
     expect(() => normalizeBigQueryApiEndpoint(value)).toThrow(
-      "BigQuery API endpoint cannot contain embedded credentials.",
+      new Error("BigQuery API endpoint cannot contain embedded credentials."),
+    );
+    expect(() => normalizeBigQueryApiEndpoint(value)).not.toThrow(
+      "private-password",
     );
   });
 });
