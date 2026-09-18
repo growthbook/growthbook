@@ -25,19 +25,12 @@ import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
-  normalizeBigQueryApiEndpoint,
   getFactTableTypeFromBigQueryType,
   sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import SqlIntegration from "./SqlIntegration";
 import { bigQueryDialect } from "./dialects/bigquery";
-
-// Private Google Access and Private Service Connect endpoints are all
-// *.googleapis.com hosts, so host-owned credentials never leave Google.
-function isGoogleApisEndpoint(apiEndpoint: string): boolean {
-  const { hostname } = new URL(apiEndpoint);
-  return hostname === "googleapis.com" || hostname.endsWith(".googleapis.com");
-}
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
@@ -54,20 +47,13 @@ export default class BigQuery extends SqlIntegration {
   }
 
   private getClient() {
-    const apiEndpoint = normalizeBigQueryApiEndpoint(this.params.apiEndpoint);
-    // If pull credentials from env or the metadata server
+    // Pull credentials from the environment or metadata server.
     if (!IS_CLOUD && this.params.authType === "auto") {
-      // Ambient credentials belong to the host, not the data source owner.
-      if (apiEndpoint && !isGoogleApisEndpoint(apiEndpoint)) {
-        throw new Error(
-          "A custom BigQuery API endpoint with automatic credentials must be a googleapis.com host. Use service account JSON for other endpoints.",
-        );
-      }
-      return new bq.BigQuery({ apiEndpoint });
+      return createBigQueryClient({ apiEndpoint: this.params.apiEndpoint });
     }
 
-    return new bq.BigQuery({
-      apiEndpoint,
+    return createBigQueryClient({
+      apiEndpoint: this.params.apiEndpoint,
       projectId: this.params.projectId,
       credentials: {
         client_email: this.params.clientEmail,

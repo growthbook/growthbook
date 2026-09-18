@@ -1,4 +1,4 @@
-import * as bq from "@google-cloud/bigquery";
+import type * as bq from "@google-cloud/bigquery";
 import {
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
   isValidBigQueryTableName,
@@ -6,6 +6,7 @@ import {
 } from "shared/util";
 import { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderTablePrefix,
@@ -97,11 +98,11 @@ function buildBigQueryClient(
   serviceAccountKeyJson: string | undefined,
 ): bq.BigQuery {
   if (!serviceAccountKeyJson?.trim()) {
-    return new bq.BigQuery({ projectId });
+    return createBigQueryClient({ projectId });
   }
 
   const key = parseServiceAccountKey(serviceAccountKeyJson);
-  return new bq.BigQuery({
+  return createBigQueryClient({
     projectId: key.project_id || projectId,
     credentials: {
       client_email: key.client_email,

@@ -1,0 +1,209 @@
+import "tsx/cjs";
+import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import { createServer as createTlsServer } from "node:https";
+import { connect } from "node:net";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { once } from "node:events";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const fixtureDirectory = path.dirname(fileURLToPath(import.meta.url));
+const fixtureRequire = createRequire(import.meta.url);
+const sdkRequire = createRequire(
+  fixtureRequire.resolve("@google-cloud/bigquery"),
+);
+const commonRequire = createRequire(sdkRequire.resolve("@google-cloud/common"));
+const { OAuth2Client } = commonRequire("google-auth-library");
+
+async function listen(server) {
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  return server.address().port;
+}
+
+async function main() {
+  // This key and certificate are synthetic and used only by the local TLS server.
+  const pem = readFileSync(
+    path.join(fixtureDirectory, "bigqueryTransport.pem"),
+    "utf8",
+  );
+  let endpointRequests = 0;
+  let tokenRequests = 0;
+  let targetRequests = 0;
+  let proxyConnections = 0;
+  let expectedProjectId = "synthetic-project";
+  let deny = false;
+  let redirect = null;
+  const sockets = new Set();
+  function track(socket) {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+    return socket;
+  }
+
+  const tokenServer = createServer((req, res) => {
+    tokenRequests++;
+    assert.equal(req.url, "/token");
+    res.setHeader("Content-Type", "application/json");
+    res.end(
+      JSON.stringify({
+        access_token: "synthetic-access-token",
+        expires_in: 3600,
+        token_type: "Bearer",
+      }),
+    );
+  });
+  const target = createServer((req, res) => {
+    targetRequests++;
+    res.end(JSON.stringify({ datasets: [] }));
+  });
+  const endpoint = createTlsServer({ key: pem, cert: pem }, (req, res) => {
+    endpointRequests++;
+    assert.equal(req.headers.authorization, "Bearer synthetic-access-token");
+    assert.equal(
+      new URL(req.url, "https://approved-proxy.invalid").pathname,
+      `/tenant/bigquery/v2/projects/${expectedProjectId}/datasets`,
+    );
+    if (redirect) {
+      res.writeHead(redirect.status, { Location: redirect.location });
+      res.end();
+    } else {
+      res.setHeader("Content-Type", "application/json");
+      res.end(
+        JSON.stringify({
+          datasets: [{ datasetReference: { datasetId: "safe_dataset" } }],
+        }),
+      );
+    }
+  });
+  const proxy = createServer();
+  const servers = [tokenServer, target, endpoint, proxy];
+  for (const server of servers) server.on("connection", track);
+
+  try {
+    const tokenPort = await listen(tokenServer);
+    const targetPort = await listen(target);
+    const endpointPort = await listen(endpoint);
+    proxy.on("connect", (req, socket, head) => {
+      proxyConnections++;
+      assert.equal(req.url, "approved-proxy.invalid:443");
+      assert.equal(req.headers.authorization, undefined);
+      if (deny) {
+        socket.end("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n");
+        return;
+      }
+      const upstream = track(
+        connect(endpointPort, "127.0.0.1", () => {
+          socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+          if (head.length) upstream.write(head);
+          socket.pipe(upstream).pipe(socket);
+        }),
+      );
+      upstream.on("error", () => socket.destroy());
+      socket.on("error", () => upstream.destroy());
+    });
+    const proxyPort = await listen(proxy);
+    const apiEndpoint = "https://approved-proxy.invalid/tenant";
+    // Substitute only deployment configuration; load the real factory and SDK.
+    const secretsPath = fixtureRequire.resolve("../../src/util/secrets.ts");
+    const secrets = fixtureRequire(secretsPath);
+    fixtureRequire.cache[secretsPath].exports = {
+      ...secrets,
+      IS_CLOUD: true,
+      WEBHOOK_PROXY: `http://127.0.0.1:${proxyPort}`,
+    };
+    const { createBigQueryClient } = fixtureRequire(
+      "../../src/services/bigqueryClient.ts",
+    );
+    const authClient = new OAuth2Client({
+      endpoints: { oauth2TokenUrl: `http://127.0.0.1:${tokenPort}/token` },
+    });
+    authClient.setCredentials({ refresh_token: "synthetic-refresh-token" });
+    const clientOptions = {
+      apiEndpoint,
+      authClient,
+      autoRetry: false,
+      timeout: 1000,
+    };
+    const client = createBigQueryClient({
+      ...clientOptions,
+      projectId: "synthetic-project",
+    });
+
+    const [datasets] = await client.getDatasets();
+    assert.equal(datasets[0].id, "safe_dataset");
+    assert.equal(tokenRequests, 1);
+    assert.equal(proxyConnections, 1);
+    assert.equal(endpointRequests, 1);
+
+    const projectIds = [
+      undefined,
+      "",
+      "example.com:legacy-project",
+      "123456789012",
+    ];
+    for (const projectId of projectIds) {
+      expectedProjectId = projectId || "synthetic-project";
+      const projectClient = createBigQueryClient({
+        ...clientOptions,
+        projectId,
+      });
+      const [projectDatasets] = await projectClient.getDatasets();
+      assert.equal(projectDatasets[0].id, "safe_dataset");
+      assert.equal(await projectClient.getProjectId(), expectedProjectId);
+    }
+    expectedProjectId = "synthetic-project";
+    const successfulRequests = projectIds.length + 1;
+    assert.equal(tokenRequests, 1);
+    assert.equal(proxyConnections, successfulRequests);
+    assert.equal(endpointRequests, successfulRequests);
+
+    const escapingClient = createBigQueryClient({
+      ...clientOptions,
+      projectId: "../../../../admin",
+    });
+    await assert.rejects(
+      escapingClient.getDatasets(),
+      /must use its configured API endpoint/,
+    );
+    assert.equal(proxyConnections, successfulRequests);
+    assert.equal(endpointRequests, successfulRequests);
+
+    for (const destination of [
+      { status: 302, location: "https://other.invalid/datasets" },
+      { status: 307, location: `http://127.0.0.1:${targetPort}/datasets` },
+      {
+        status: 308,
+        location: `${apiEndpoint}/bigquery/v2/projects/synthetic-project/datasets`,
+      },
+    ]) {
+      redirect = destination;
+      const before = endpointRequests;
+      await assert.rejects(client.getDatasets(), /redirect/i);
+      assert.equal(endpointRequests, before + 1);
+      assert.equal(targetRequests, 0);
+    }
+
+    deny = true;
+    const before = endpointRequests;
+    await assert.rejects(client.getDatasets(), /403|Forbidden/i);
+    assert.equal(endpointRequests, before);
+
+    for (const socket of sockets) socket.destroy();
+    await new Promise((resolve) => proxy.close(resolve));
+    await assert.rejects(client.getDatasets(), /ECONNREFUSED/);
+    assert.equal(endpointRequests, before);
+  } finally {
+    for (const socket of sockets) socket.destroy();
+    await Promise.all(
+      servers.map((server) => new Promise((resolve) => server.close(resolve))),
+    );
+  }
+}
+
+main().catch((error) => {
+  process.stderr.write(`${error.stack}\n`);
+  process.exitCode = 1;
+});

@@ -1,4 +1,4 @@
-import { ChangeEventHandler, FC, useEffect, useState } from "react";
+import { ChangeEventHandler, FC, useEffect, useRef, useState } from "react";
 import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
@@ -58,24 +58,32 @@ const BigQueryForm: FC<{
     datasetOptions: string[];
   } | null>(null);
   const { apiCall } = useAuth();
+  const connectionTest = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setTestConnectionResults(null);
+    return () => connectionTest.current?.abort();
   }, [
+    authType,
     params.projectId,
     params.apiEndpoint,
     params.clientEmail,
     params.privateKey,
     datasourceId,
+    projects,
   ]);
 
   async function testConnection() {
+    connectionTest.current?.abort();
+    const controller = new AbortController();
+    connectionTest.current = controller;
     try {
       setTestConnectionResults(null);
       const { datasets } = await apiCall<{
         datasets: string[];
       }>("/datasources/fetch-bigquery-datasets", {
         method: "POST",
+        signal: controller.signal,
         body: JSON.stringify({
           projectId: params.projectId,
           apiEndpoint: params.apiEndpoint,
@@ -85,6 +93,7 @@ const BigQueryForm: FC<{
           projects,
         }),
       });
+      if (controller.signal.aborted) return;
       if (!datasets.length) {
         setTestConnectionResults({
           status: "warning",
@@ -104,6 +113,7 @@ const BigQueryForm: FC<{
         setParams({ ["defaultDataset"]: analyticsDataset });
       }
     } catch (e) {
+      if (controller.signal.aborted) return;
       setTestConnectionResults({
         status: "danger",
         message: e.message,
@@ -140,6 +150,7 @@ const BigQueryForm: FC<{
                 id="bigQueryFileInput"
                 accept="application/json"
                 onChange={(e) => {
+                  connectionTest.current?.abort();
                   setTestConnectionResults(null);
                   const file: File | undefined = e.target?.files?.[0];
                   if (!file) {

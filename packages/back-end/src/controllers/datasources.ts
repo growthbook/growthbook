@@ -1,6 +1,5 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
-import * as bq from "@google-cloud/bigquery";
 import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
@@ -113,7 +112,7 @@ import {
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
-import { normalizeBigQueryApiEndpoint } from "back-end/src/services/bigquery";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -1705,7 +1704,7 @@ export async function cancelDimensionSlices(
 
 const bigQueryDatasetRequestSchema = z.object({
   projectId: z.string().optional(),
-  apiEndpoint: z.unknown().optional(),
+  apiEndpoint: z.string().optional(),
   client_email: z.string().optional(),
   private_key: z.string().optional(),
   datasourceId: z.string().optional(),
@@ -1733,9 +1732,7 @@ export async function fetchBigQueryDatasets(
   const context = getContextFromReq(req);
   const submittedParams: Partial<BigQueryConnectionParams> = {
     ...(projectId !== undefined ? { projectId } : {}),
-    ...(apiEndpoint !== undefined
-      ? { apiEndpoint: normalizeBigQueryApiEndpoint(apiEndpoint) ?? "" }
-      : {}),
+    ...(apiEndpoint !== undefined ? { apiEndpoint } : {}),
     ...(client_email !== undefined ? { clientEmail: client_email } : {}),
     ...(private_key !== undefined ? { privateKey: private_key } : {}),
   };
@@ -1769,9 +1766,9 @@ export async function fetchBigQueryDatasets(
     connectionParams = submittedParams;
   }
 
-  const client = new bq.BigQuery({
+  const client = createBigQueryClient({
     projectId: connectionParams.projectId,
-    apiEndpoint: normalizeBigQueryApiEndpoint(connectionParams.apiEndpoint),
+    apiEndpoint: connectionParams.apiEndpoint,
     credentials: {
       client_email: connectionParams.clientEmail,
       private_key: connectionParams.privateKey,
