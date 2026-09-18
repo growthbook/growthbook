@@ -191,6 +191,7 @@ export default function ConnectionSettings({
         <BigQueryForm
           existing={storedCredentials}
           datasourceId={storedCredentials ? datasource.id : undefined}
+          projects={datasource.projects}
           setParams={setParams}
           params={datasource?.params || {}}
           onParamChange={onParamChange}

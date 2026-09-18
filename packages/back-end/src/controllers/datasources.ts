@@ -1,6 +1,5 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
-import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
@@ -110,6 +109,10 @@ import {
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
+import {
+  bigQueryDatasetRequestSchema,
+  listBigQueryDatasets,
+} from "back-end/src/services/bigquery-datasets";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -1700,24 +1703,30 @@ export async function cancelDimensionSlices(
 }
 
 export async function fetchBigQueryDatasets(
-  req: AuthRequest<{
-    projectId: string;
-    client_email: string;
-    private_key: string;
-    datasourceId?: string;
-  }>,
+  req: AuthRequest<unknown>,
   res: Response,
 ) {
-  const { projectId, client_email, private_key, datasourceId } = req.body;
+  const parsed = bigQueryDatasetRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new Error("Invalid BigQuery connection parameters.");
+  }
+  const { projectId, client_email, private_key, datasourceId, projects } =
+    parsed.data;
+  const context = getContextFromReq(req);
+  if (
+    !datasourceId &&
+    !context.permissions.canCreateDataSource({ type: "bigquery", projects })
+  ) {
+    context.permissions.throwPermissionError();
+  }
   const submittedParams: Partial<BigQueryConnectionParams> = {
-    projectId,
-    clientEmail: client_email,
-    privateKey: private_key,
+    ...(projectId !== undefined ? { projectId } : {}),
+    ...(client_email !== undefined ? { clientEmail: client_email } : {}),
+    ...(private_key !== undefined ? { privateKey: private_key } : {}),
   };
 
   let connectionParams = submittedParams;
   if (datasourceId) {
-    const context = getContextFromReq(req);
     const datasource = await getDataSourceById(context, datasourceId);
     if (!datasource || datasource.type !== "bigquery") {
       throw new Error("Cannot find BigQuery data source");
@@ -1734,24 +1743,8 @@ export async function fetchBigQueryDatasets(
     connectionParams = integration.params;
   }
 
-  try {
-    const client = new bq.BigQuery({
-      projectId: connectionParams.projectId,
-      credentials: {
-        client_email: connectionParams.clientEmail,
-        private_key: connectionParams.privateKey,
-      },
-    });
-
-    const [datasets] = await client.getDatasets();
-
-    res.status(200).json({
-      status: 200,
-      datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
-    });
-  } catch (e) {
-    throw new Error(e.message);
-  }
+  const result = await listBigQueryDatasets(connectionParams);
+  res.status(200).json({ status: 200, ...result });
 }
 
 export async function postRecreateManagedWarehouse(
