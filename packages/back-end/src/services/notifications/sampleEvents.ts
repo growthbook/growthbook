@@ -343,6 +343,26 @@ const sampleEvents = {
       },
     },
   }),
+  "feature.rampSchedule.actions.stepHeld": () => ({
+    event: "feature.rampSchedule.actions.stepHeld",
+    object: "feature",
+    data: {
+      object: {
+        ...sampleRamp(),
+        reason: "Experiment health: SRM check failed — holding step (p=0.0004)",
+      },
+    },
+  }),
+  "feature.rampSchedule.actions.paused": () => ({
+    event: "feature.rampSchedule.actions.paused",
+    object: "feature",
+    data: { object: { ...sampleRamp(), status: "paused" } },
+  }),
+  "feature.rampSchedule.actions.resumed": () => ({
+    event: "feature.rampSchedule.actions.resumed",
+    object: "feature",
+    data: { object: sampleRamp() },
+  }),
   "feature.rampSchedule.actions.step.approvalRequired": () => ({
     event: "feature.rampSchedule.actions.step.approvalRequired",
     object: "feature",

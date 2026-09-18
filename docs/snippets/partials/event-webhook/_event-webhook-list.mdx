@@ -19,6 +19,9 @@
 | **[feature.rampSchedule.actions.awaitingStartApproval](#feature-rampschedule-actions-awaitingstartapproval)** | Triggered when a feature ramp schedule is published but held at the start, awaiting an explicit start approval                                                                                                                                                                                                                |
 | **[feature.rampSchedule.actions.startApproved](#feature-rampschedule-actions-startapproved)**                 | Triggered when a held ramp schedule's start is approved by a user                                                                                                                                                                                                                                                             |
 | **[feature.rampSchedule.actions.errorPaused](#feature-rampschedule-actions-errorpaused)**                     | Triggered when a feature ramp schedule pauses because a step could not be applied, for example a plan the engine refuses; `reason` says why                                                                                                                                                                                   |
+| **[feature.rampSchedule.actions.stepHeld](#feature-rampschedule-actions-stepheld)**                           | Triggered when a monitored ramp step is held by a health check (SRM, multiple exposures, no traffic, a guardrail metric that failed to compute, an unhealthy signal metric). Sent once per distinct reason per step; `reason` says why                                                                                        |
+| **[feature.rampSchedule.actions.paused](#feature-rampschedule-actions-paused)**                               | Triggered when a feature ramp schedule is paused by a user or by its monitoring policy                                                                                                                                                                                                                                        |
+| **[feature.rampSchedule.actions.resumed](#feature-rampschedule-actions-resumed)**                             | Triggered when a paused feature ramp schedule is resumed                                                                                                                                                                                                                                                                      |
 | **[feature.revision.created](#feature-revision-created)**                                                     | Triggered when a new draft revision is created for a feature                                                                                                                                                                                                                                                                  |
 | **[feature.revision.updated](#feature-revision-updated)**                                                     | Triggered when a draft revision is modified (rules, default value, toggles, prerequisites, metadata, etc.). The `change` field indicates the specific kind of mutation.                                                                                                                                                       |
 | **[feature.revision.reviewRequested](#feature-revision-reviewrequested)**                                     | Triggered when a draft revision is submitted for review                                                                                                                                                                                                                                                                       |
@@ -958,6 +961,146 @@ Triggered when a feature ramp schedule pauses because a step could not be applie
             currentStepIndex: number;
             status: string;
             reason: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### feature.rampSchedule.actions.stepHeld
+
+Triggered when a monitored ramp step is held by a health check (SRM, multiple exposures, no traffic, a guardrail metric that failed to compute, an unhealthy signal metric). Sent once per distinct reason per step; `reason` says why
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.stepHeld";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            reason: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### feature.rampSchedule.actions.paused
+
+Triggered when a feature ramp schedule is paused by a user or by its monitoring policy
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.paused";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            reason?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+
+</Accordion>
+
+### feature.rampSchedule.actions.resumed
+
+Triggered when a paused feature ramp schedule is resumed
+
+<Accordion title="Payload">
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.resumed";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
         };
     };
     user: {

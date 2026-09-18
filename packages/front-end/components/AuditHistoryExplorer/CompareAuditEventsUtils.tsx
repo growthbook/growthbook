@@ -75,6 +75,9 @@ export const RAMP_EVENT_LABELS: Record<string, string> = {
   "rampSchedule.actions.step.advanced": "Ramp step advanced",
   "rampSchedule.actions.step.approvalRequired": "Ramp step awaiting approval",
   "rampSchedule.actions.errorPaused": "Ramp schedule paused on error",
+  "rampSchedule.actions.stepHeld": "Ramp step held by a health check",
+  "rampSchedule.actions.paused": "Ramp schedule paused",
+  "rampSchedule.actions.resumed": "Ramp schedule resumed",
 };
 
 // Derive a human-readable label from a raw event string using the entity type

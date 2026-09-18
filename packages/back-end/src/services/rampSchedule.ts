@@ -1802,6 +1802,16 @@ export async function pauseSchedule(
   });
 
   await syncLinkedSafeRolloutForRampState(ctx, updated);
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.paused", {
+    object: {
+      rampScheduleId: updated.id,
+      rampName: updated.name,
+      orgId: ctx.org.id,
+      currentStepIndex: updated.currentStepIndex,
+      status: updated.status,
+      ...(reason ? { reason } : {}),
+    },
+  });
 
   return updated;
 }
@@ -1922,6 +1932,15 @@ export async function resumeSchedule(
   updated = (await ctx.models.rampSchedules.getById(schedule.id)) ?? updated;
 
   await syncLinkedSafeRolloutForRampState(ctx, updated);
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.resumed", {
+    object: {
+      rampScheduleId: updated.id,
+      rampName: updated.name,
+      orgId: ctx.org.id,
+      currentStepIndex: updated.currentStepIndex,
+      status: updated.status,
+    },
+  });
 
   return updated;
 }

@@ -2933,6 +2933,9 @@ describe("resumeSchedule", () => {
     const [, resumeUpdates] = updateById.mock.calls[0];
     expect(resumeUpdates.nextStepAt).not.toBeNull();
     expect(resumeUpdates.nextStepAt).toBeInstanceOf(Date);
+    expect(mockCreateEvent.mock.calls.at(-1)?.[0].event).toBe(
+      "rampSchedule.actions.resumed",
+    );
 
     // nextStepAt should be in the future (step interval not yet elapsed),
     // NOT set to now — the step needs to run its hold time first.
@@ -5353,12 +5356,18 @@ describe("pauseSchedule", () => {
       },
     };
 
-    await pauseSchedule(ctx as never, schedule);
+    await pauseSchedule(ctx as never, schedule, "Guardrail breach");
 
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("paused");
     expect(updates.nextProcessAt).toEqual(futureCutoff);
     expect(updates.nextSnapshotAt).toBeNull();
+    const [eventArgs] = mockCreateEvent.mock.calls.at(-1) ?? [];
+    expect(eventArgs.event).toBe("rampSchedule.actions.paused");
+    expect(eventArgs.data.object).toMatchObject({
+      status: "paused",
+      reason: "Guardrail breach",
+    });
   });
 
   it("sets nextProcessAt to null when no cutoffDate exists", async () => {

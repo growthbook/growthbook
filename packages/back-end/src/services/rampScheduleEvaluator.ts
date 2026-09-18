@@ -14,6 +14,7 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
+import isEqual from "lodash/isEqual";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -25,6 +26,7 @@ import {
   pauseSchedule,
   rollbackSchedule,
   withRampScheduleAdvanceLockRetry,
+  dispatchRampEvent,
 } from "back-end/src/services/rampSchedule";
 import {
   NotFoundError,
@@ -45,6 +47,10 @@ export type EvalDecision =
       // This is what makes approval the final gate: the UI only prompts and the
       // API only accepts an approval once awaitingApproval is set.
       awaitingApproval?: boolean;
+      // A health check (SRM, multiple exposures, no traffic, a guardrail that
+      // failed to compute, an unhealthy signal metric) is what holds the step;
+      // reported outward once per distinct reason.
+      health?: boolean;
     }
   | { action: "rollback"; reason: string }
   | { action: "pause"; reason: string };
@@ -269,6 +275,7 @@ async function evaluateMonitoredStep(
       return {
         action: "hold",
         reason: "No traffic detected — holding step (noTrafficAction=hold)",
+        health: true,
       };
     }
     // "warn": surfaced via UI monitoring badges only; don't gate progression.
@@ -320,6 +327,7 @@ async function evaluateMonitoredStep(
     return {
       action: "hold",
       reason: `Guardrail metric ${computeFailure.metricId} failed to compute — holding step until it recovers`,
+      health: true,
     };
   }
 
@@ -457,6 +465,7 @@ function checkExperimentHealth(
       return {
         action: "hold",
         reason: `Experiment health: SRM check failed — holding step (p=${summary.health.srm.toFixed(4)})`,
+        health: true,
       };
     }
     // "warn": surfaced via the UI monitoring badges; not a backend gate.
@@ -480,6 +489,7 @@ function checkExperimentHealth(
       return {
         action: "hold",
         reason: `Experiment health: multiple exposures detected — holding step (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
+        health: true,
       };
     }
     // "warn": surfaced via the UI monitoring badges; not a backend gate.
@@ -506,6 +516,7 @@ function checkSignalMetricGating(
         return {
           action: "hold",
           reason: `Signal metric ${metricId} is unhealthy — holding step`,
+          health: true,
         };
       }
     }
@@ -535,11 +546,33 @@ export async function applyRampEvaluationDecision(
       nextSnapshotAt: schedule.nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     });
-    return ctx.models.rampSchedules.updateById(schedule.id, {
+    const healthHold = decision.health
+      ? { stepIndex: schedule.currentStepIndex, reason: decision.reason }
+      : null;
+    const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
       nextProcessAt,
+      healthHold,
     });
+    if (healthHold && !isEqual(healthHold, schedule.healthHold ?? null)) {
+      await dispatchRampEvent(ctx, updated, "rampSchedule.actions.stepHeld", {
+        object: {
+          rampScheduleId: updated.id,
+          rampName: updated.name,
+          orgId: ctx.org.id,
+          currentStepIndex: updated.currentStepIndex,
+          status: updated.status,
+          reason: decision.reason,
+        },
+      });
+    }
+    return updated;
   }
 
+  if (schedule.healthHold) {
+    await ctx.models.rampSchedules.updateById(schedule.id, {
+      healthHold: null,
+    });
+  }
   // Fold the verified advance and any due backlog into a single jump publish.
   // The +1 forces past-end schedules into advanceStep's completion branch; the
   // unconditional first hop doubles as the unstick mechanism for broken

@@ -142,6 +142,9 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.rampSchedule.actions.awaitingStartApproval":
     case "feature.rampSchedule.actions.startApproved":
     case "feature.rampSchedule.actions.errorPaused":
+    case "feature.rampSchedule.actions.stepHeld":
+    case "feature.rampSchedule.actions.paused":
+    case "feature.rampSchedule.actions.resumed":
       return buildSlackMessageForRampScheduleEvent(
         event.event,
         event.data.object,
@@ -649,6 +652,15 @@ const buildSlackMessageForRampScheduleEvent = (
       break;
     case "feature.rampSchedule.actions.errorPaused":
       text = `Ramp schedule ${name} paused on an error: ${data.reason}`;
+      break;
+    case "feature.rampSchedule.actions.stepHeld":
+      text = `Ramp schedule ${name} is holding step ${step}: ${data.reason}`;
+      break;
+    case "feature.rampSchedule.actions.paused":
+      text = `Ramp schedule ${name} was paused${data.reason ? `: ${data.reason}` : ""}`;
+      break;
+    case "feature.rampSchedule.actions.resumed":
+      text = `Ramp schedule ${name} was resumed`;
       break;
     default:
       text = `Ramp schedule ${name}: ${eventType}`;
