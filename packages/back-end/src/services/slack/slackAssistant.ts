@@ -9,6 +9,7 @@ import { logger } from "back-end/src/util/logger";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import {
   resolveSlackAssistantTarget,
   getSlackWorkspaceBotToken,
@@ -56,6 +57,7 @@ import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
 
 const THINKING_TEXT = "_Thinking…_";
 const SWITCH_ORGANIZATION_TEXT = /^switch organi[sz]ation$/i;
+const REMEMBER_ORGANIZATION_TEXT = /^remember organi[sz]ation$/i;
 
 function organizationLabel(target: ResolvedSlackTarget): string {
   return target.linkedOrganizationCount > 1
@@ -79,6 +81,9 @@ async function organizationsOwningReferences(
         break;
       }
     }
+    // Two owners already make the reference ambiguous, and no later one can
+    // undo that, so stop reading other organizations' resources.
+    if (owners.length > 1) return owners;
   }
   return owners;
 }
@@ -108,6 +113,62 @@ async function inferSlackOrganization(
   )
     ? preference.defaultOrganizationId
     : null;
+}
+
+async function replyPrivately(
+  mention: SlackAssistantMention,
+  text: string,
+): Promise<void> {
+  const token = await getSlackWorkspaceBotToken(mention.teamId);
+  if (!token) return;
+  await postSlackEphemeralMessage({
+    token,
+    channel: mention.channelId,
+    user: mention.slackUserId,
+    threadTs: mention.threadTs,
+    text,
+  });
+}
+
+/**
+ * Store the organization this direct-message thread is already pinned to as the
+ * user's default for the workspace. A pin in a DM can only come from a turn the
+ * user themselves resolved, so the pinned id needs no re-check here.
+ */
+async function rememberThreadOrganization(
+  mention: SlackAssistantMention,
+  rootTs: string,
+): Promise<void> {
+  const thread = await getSlackThread({
+    teamId: mention.teamId,
+    channelId: mention.channelId,
+    rootTs,
+  });
+  if (thread?.status !== "selected") {
+    await replyPrivately(
+      mention,
+      'Ask me a question first, then send "remember organization" in that thread and I\'ll use its organization for your future direct messages.',
+    );
+    return;
+  }
+  const organization = await findOrganizationById(thread.organizationId);
+  try {
+    await setSlackDefaultOrganization(
+      { slackTeamId: mention.teamId, slackUserId: mention.slackUserId },
+      thread.organizationId,
+    );
+  } catch (error) {
+    logger.error(error, "Could not store a Slack default organization");
+    await replyPrivately(
+      mention,
+      "I couldn't save that default. Please send the message again.",
+    );
+    return;
+  }
+  await replyPrivately(
+    mention,
+    `I'll use ${escapeSlackText(organization?.name || thread.organizationId)} for your future direct messages. Send "switch organization" to clear it.`,
+  );
 }
 
 /** Remove the bot mention (and any other leading user mention) from the text. */
@@ -163,21 +224,19 @@ export async function handleSlackAssistantMention(
       });
     return;
   }
-  if (
-    isSlackDirectMessageChannel(channelId) &&
-    SWITCH_ORGANIZATION_TEXT.test(question)
-  ) {
-    await clearSlackDefaultOrganization({ slackTeamId: teamId, slackUserId });
-    const token = await getSlackWorkspaceBotToken(teamId);
-    if (token)
-      await postSlackEphemeralMessage({
-        token,
-        channel: channelId,
-        user: slackUserId,
-        threadTs: mention.threadTs,
-        text: "Your default organization for direct messages is cleared. Your next new message will ask which organization to use.",
-      });
-    return;
+  if (!mention.requireActiveThread && isSlackDirectMessageChannel(channelId)) {
+    if (SWITCH_ORGANIZATION_TEXT.test(question)) {
+      await clearSlackDefaultOrganization({ slackTeamId: teamId, slackUserId });
+      await replyPrivately(
+        mention,
+        "Your default organization for direct messages is cleared. Your next new message will ask which organization to use.",
+      );
+      return;
+    }
+    if (REMEMBER_ORGANIZATION_TEXT.test(question)) {
+      await rememberThreadOrganization(mention, rootTs);
+      return;
+    }
   }
   const threadIdentity = { teamId, channelId, rootTs };
   const thread = await getSlackThread(threadIdentity);
@@ -195,11 +254,18 @@ export async function handleSlackAssistantMention(
     target.reason === "ambiguous_org" &&
     !mention.requireActiveThread
   ) {
-    const inferred = await inferSlackOrganization(question, target, {
-      teamId,
-      channelId,
-      slackUserId,
-    });
+    // Inference is a convenience over the picker. Anything it reads may fail,
+    // and the picker is always a correct answer, so never fail the turn for it.
+    let inferred: string | null = null;
+    try {
+      inferred = await inferSlackOrganization(question, target, {
+        teamId,
+        channelId,
+        slackUserId,
+      });
+    } catch (error) {
+      logger.error(error, "Slack assistant: could not infer the organization");
+    }
     if (inferred) {
       target = await resolveSlackAssistantTarget({
         requireAssistantEnabled: true,
@@ -720,10 +786,5 @@ export async function handleSlackOrganizationSelection(
       });
     return;
   }
-  if (selection.remember && isSlackDirectMessageChannel(selection.channelId))
-    await setSlackDefaultOrganization(
-      { slackTeamId: selection.teamId, slackUserId: selection.slackUserId },
-      selection.organizationId,
-    );
   await handleSlackAssistantMention(mention);
 }

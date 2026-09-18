@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
 import { slackTaskKey } from "back-end/src/services/slack/slackTaskSafety";
 
 export const slackUserPreferenceSchema = z.object({
@@ -25,7 +26,18 @@ export async function getSlackUserPreference(
   identity: SlackUserIdentity,
 ): Promise<SlackUserPreference | null> {
   const doc = await collection().findOne({ _id: preferenceKey(identity) });
-  return doc ? slackUserPreferenceSchema.parse(doc) : null;
+  if (!doc) return null;
+  const parsed = slackUserPreferenceSchema.safeParse(doc);
+  if (!parsed.success) {
+    // A stored default is a convenience, never a gate. Answer the question with
+    // the picker rather than failing the turn over an unreadable document.
+    logger.warn(
+      { ...identity, error: parsed.error },
+      "Ignoring an unreadable Slack default organization",
+    );
+    return null;
+  }
+  return parsed.data;
 }
 
 export async function setSlackDefaultOrganization(

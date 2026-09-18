@@ -57,6 +57,9 @@ eligible, the assistant tries, in order:
 4. A private clickable organization picker. The assistant continues the original
    question after a valid choice.
 
+Inference never fails a turn. An error at any step is logged and the picker is
+shown instead, and an unreadable preference document is ignored the same way.
+
 An inferred organization is re-resolved in full (membership, configuration,
 permissions) and pinned exactly like a picker choice. The pin persists in
 `slackassistantthreads` for the team/channel/thread. Later messages and approvals
@@ -76,15 +79,21 @@ someone converses in the thread. When two organizations have connected the same
 Slack workspace, every notification carries a final line naming the organization
 it came from.
 
-In direct messages the picker offers a "Use this organization for my direct
-messages" checkbox. Checking it stores the default in `slackuserpreferences`, one
-document per workspace and Slack user. Channels never store a default. Sending
-exactly `switch organization` in a DM clears the default without changing any
-existing thread's pin.
+Two phrases manage the stored default, both direct-message only and both spelled
+either `organization` or `organisation`. Sending exactly `remember organization`
+in a thread already pinned to an organization stores that organization in
+`slackuserpreferences`, one document per workspace and Slack user; the DM picker
+names the phrase so people discover it. Sent in a thread with no pin, it asks for
+a question first. Sending exactly `switch organization` clears the default
+without changing any existing thread's pin. Channels never store a default, and
+both phrases are ordinary questions there. Neither phrase runs an assistant turn,
+and both answer privately.
 
-When the Slack user has links to more than one organization in the workspace,
-every assistant text reply and approval outcome ends with an italic
-`Answering as <organization>` line.
+When the Slack user has links to more than one organization in the workspace, the
+assistant's answers and approval outcomes end with an italic
+`Answering as <organization>` line. Prompts that precede an answer carry no label:
+the assistant-off notice, the "ask me about your experiments" prompt for an empty
+question, and the "Confirm this change?" approval request.
 
 `slackuserlinks` is unique per Slack workspace, Slack user, and organization;
 BaseModel creates that index at startup. Every stored link carries the `linkId`

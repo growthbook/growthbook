@@ -140,7 +140,6 @@ test("queues organization choices durably and serializes them with their origina
     organizationId: "org1",
     threadTs: "123.456",
     interactionTs: "123.789",
-    remember: false,
   };
   await queueSlackOrganizationSelection(selection);
   await queueSlackOrganizationSelection(selection);

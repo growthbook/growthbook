@@ -36,7 +36,6 @@ export const slackOrganizationSelectionSchema = z.strictObject({
   organizationId: z.string().min(1),
   threadTs: z.string().min(1),
   interactionTs: z.string().min(1),
-  remember: z.boolean(),
 });
 export type SlackOrganizationSelection = z.infer<
   typeof slackOrganizationSelectionSchema
@@ -268,34 +267,15 @@ export function slackOrganizationPickerBlocks(
       options: options.slice(i * 100, (i + 1) * 100),
     }),
   );
-  const rememberBlocks = isSlackDirectMessageChannel(thread.channelId)
-    ? [
-        {
-          type: "actions",
-          elements: [
-            {
-              type: "checkboxes",
-              action_id: "gb_remember_organization",
-              options: [
-                {
-                  text: {
-                    type: "plain_text",
-                    text: "Use this organization for my direct messages",
-                  },
-                  value: "remember",
-                },
-              ],
-            },
-          ],
-        },
-      ]
-    : [];
+  const rememberHint = isSlackDirectMessageChannel(thread.channelId)
+    ? ' After you choose, send "remember organization" in this thread to use it for your future direct messages.'
+    : "";
   return [
     {
       type: "section",
       text: {
         type: "plain_text",
-        text: "Choose the GrowthBook organization for this thread. I'll continue your question there.",
+        text: `Choose the GrowthBook organization for this thread. I'll continue your question there.${rememberHint}`,
       },
       accessory: {
         type: "static_select",
@@ -304,6 +284,5 @@ export function slackOrganizationPickerBlocks(
         ...(options.length <= 100 ? { options } : { option_groups: groups }),
       },
     },
-    ...rememberBlocks,
   ];
 }

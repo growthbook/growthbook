@@ -78,7 +78,6 @@ function selection(thread: SlackThread): SlackOrganizationSelection {
     interactionTs: "123.789",
     selectionId: thread.selectionId,
     organizationId: "org2",
-    remember: false,
   };
 }
 beforeEach(() => records.clear());
@@ -167,12 +166,13 @@ it("keeps conversation identity separate for Slack users, orgs, threads, account
   }
   expect(slackConversationId(original)).toBe(id);
 });
-it("renders clickable choices with labels and a bound selection value, plus a remember checkbox in a DM", async () => {
+it("renders clickable choices with labels and a bound selection value, plus the remember phrase in a DM", async () => {
   const thread = await saveSlackOrganizationPicker(mention, choices);
   if (thread.status !== "pending") throw new Error("Expected pending choices");
   const blocks = slackOrganizationPickerBlocks(thread);
-  expect(blocks).toHaveLength(2);
+  expect(blocks).toHaveLength(1);
   expect(blocks[0]).toMatchObject({
+    text: { text: expect.stringContaining('"remember organization"') },
     accessory: {
       type: "static_select",
       action_id: "gb_select_organization",
@@ -195,16 +195,6 @@ it("renders clickable choices with labels and a bound selection value, plus a re
         },
       ],
     },
-  });
-  expect(blocks[1]).toMatchObject({
-    type: "actions",
-    elements: [
-      {
-        type: "checkboxes",
-        action_id: "gb_remember_organization",
-        options: [{ value: "remember" }],
-      },
-    ],
   });
 });
 
@@ -264,13 +254,17 @@ it("creates the expiry index once per process", async () => {
     { expireAfterSeconds: 0 },
   );
 });
-it("offers no remember checkbox in a channel picker", async () => {
+it("never mentions the remember phrase in a channel picker", async () => {
   const thread = await saveSlackOrganizationPicker(
     { ...mention, channelId: "C1" },
     choices,
   );
   if (thread.status !== "pending") throw new Error("Expected pending choices");
-  expect(slackOrganizationPickerBlocks(thread)).toHaveLength(1);
+  const blocks = slackOrganizationPickerBlocks(thread);
+  expect(blocks).toHaveLength(1);
+  expect(blocks[0]).toMatchObject({
+    text: { text: expect.not.stringContaining("remember") },
+  });
 });
 it.each([
   { channelId: "D123", expected: true },

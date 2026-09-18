@@ -30,24 +30,7 @@ const interactionPayloadSchema = z.object({
       }),
     )
     .optional(),
-  state: z
-    .object({ values: z.record(z.string(), z.record(z.string(), z.unknown())) })
-    .optional(),
 });
-
-const checkedOptionsSchema = z.object({
-  selected_options: z.array(z.unknown()),
-});
-function rememberOrganizationChecked(
-  state: z.infer<typeof interactionPayloadSchema>["state"],
-): boolean {
-  return Object.values(state?.values ?? {}).some((block) => {
-    const element = checkedOptionsSchema.safeParse(
-      block["gb_remember_organization"],
-    );
-    return element.success && element.data.selected_options.length > 0;
-  });
-}
 
 type SlackRequest = Request & {
   rawBody?: string;
@@ -128,7 +111,6 @@ const interactions = async (req: SlackRequest, res: Response) => {
       organizationId: parsed.data.o,
       threadTs: parsed.data.t,
       interactionTs: action.action_ts,
-      remember: rememberOrganizationChecked(payload.state),
     });
     try {
       await queueSlackOrganizationSelection(selection);

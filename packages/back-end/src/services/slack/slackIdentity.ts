@@ -280,12 +280,12 @@ export async function resolveSlackAssistantTarget({
       (c) => c.connection.organization === organizationId,
     );
     if (pinnedIsCandidate && !hasLink) {
-      const org = await findOrganizationById(organizationId);
+      // Never name the organization: the reader may not be a member of it.
       return {
         ok: false,
         reason: "not_linked",
         botToken,
-        message: `This thread uses the GrowthBook organization ${org?.name || organizationId}, which isn't linked to your Slack account. Link it to take part here: ${buildSlackLinkUrl({ slackTeamId: teamId || "", slackUserId })}`,
+        message: `This thread belongs to a GrowthBook organization your Slack account isn't linked to. Link it to take part here: ${buildSlackLinkUrl({ slackTeamId: teamId || "", slackUserId })}`,
       };
     }
     return {

@@ -71,6 +71,15 @@ it("keeps independent documents per slack user and per workspace", async () => {
     defaultOrganizationId: "org3",
   });
 });
+it("ignores a stored document that no longer matches the schema", async () => {
+  records.set(slackTaskKey(["T1", "U1"]), {
+    _id: slackTaskKey(["T1", "U1"]),
+    slackTeamId: "T1",
+    slackUserId: "U1",
+    dateUpdated: new Date(),
+  });
+  expect(await getSlackUserPreference(identity)).toBeNull();
+});
 it("clears the default organization and tolerates clearing a missing one", async () => {
   await setSlackDefaultOrganization(identity, "org1");
   await clearSlackDefaultOrganization(identity);
