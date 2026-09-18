@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
+import { scheduleStagesStatusChange } from "shared/experiments";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
@@ -45,10 +46,14 @@ export default function EditScheduleModal({
   experiment,
   mutate,
   close,
+  envs,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
+  // Environments the experiment affects; when given, stop / rollout plans are
+  // only offered to viewers who could run the experiment there.
+  envs?: string[];
 }) {
   const { hasCommercialFeature } = useUser();
   const { getExperimentMetricById } = useDefinitions();
@@ -60,6 +65,17 @@ export default function EditScheduleModal({
     experiment,
     {},
   );
+  // Stopping or shipping at the scheduled end is a deferred status change and
+  // needs run permission; without it only "notify" can be chosen, and a stop
+  // that is still pending cannot be re-timed or cleared.
+  const canScheduleStatusChange =
+    !envs?.length || permissionsUtil.canRunExperiment(experiment, envs);
+  const runPermissionReason =
+    "Requires permission to start and stop experiments in this experiment's environments.";
+  const pendingStopLocked =
+    !canScheduleStatusChange &&
+    experiment.nextScheduledStatusUpdate?.type === "stop" &&
+    scheduleStagesStatusChange(experiment.statusUpdateSchedule);
 
   const decisionCriteria = getDecisionCriteria(
     experiment.decisionFrameworkSettings?.decisionCriteriaId,
@@ -230,6 +246,10 @@ export default function EditScheduleModal({
   // Shipping automation is tied to a scheduled end — it never runs on a manual
   // stop — so the "when the experiment ends" controls only apply with an end date.
   const hasEndDate = endMode !== "manual";
+  // Without run permission, never submit a plan that stops or ships.
+  const statusChangeLocked =
+    pendingStopLocked ||
+    (!canScheduleStatusChange && hasEndDate && mode !== "notify");
   // "On date" requires an actual date. Block save (rather than silently
   // discarding the shipping config on submit) if the picker was left empty.
   const endDateMissing = endMode === "on-date" && !stopAt;
@@ -305,7 +325,8 @@ export default function EditScheduleModal({
           !stopBeforeStart &&
           !endDateMissing &&
           !stopInThePast &&
-          !stopAfterInThePast
+          !stopAfterInThePast &&
+          !statusChangeLocked
         }
         size="lg"
         secondaryAction={
@@ -504,6 +525,9 @@ export default function EditScheduleModal({
           {scheduleIsInThePast && experiment.status === "draft" && (
             <Helpertext status="warning">Scheduled start has passed</Helpertext>
           )}
+          {statusChangeLocked && (
+            <Helpertext status="warning">{runPermissionReason}</Helpertext>
+          )}
           {stopBeforeStart && (
             <Helpertext status="warning">
               End date must be after the start date
@@ -555,13 +579,22 @@ export default function EditScheduleModal({
                 ]}
                 isOptionDisabled={(o) =>
                   "value" in o &&
-                  o.value === "auto-ship" &&
-                  !decisionFrameworkAvailable
+                  ((o.value === "auto-ship" && !decisionFrameworkAvailable) ||
+                    (o.value !== "notify" && !canScheduleStatusChange))
                 }
                 containerStyles={{
                   option: (base) => ({ ...base, opacity: 1 }),
                 }}
                 formatOptionLabel={(o) => {
+                  if (o.value !== "notify" && !canScheduleStatusChange) {
+                    return (
+                      <Tooltip content={runPermissionReason}>
+                        <Box>
+                          <Text color="text-disabled">{o.label}</Text>
+                        </Box>
+                      </Tooltip>
+                    );
+                  }
                   if (o.value !== "auto-ship" || decisionFrameworkAvailable) {
                     return <>{o.label}</>;
                   }
